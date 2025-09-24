@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -33,13 +33,11 @@ function AppContent() {
   const { isLoggedIn, isAdmin, user, login, logout } = useAuthStore();
   const { cartItems, addToCart, updateCart, checkout } = useCartStore();
 
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
         cartItemCount={cartItems.length}
-        isAdmin={isAdmin}
-        isLoggedIn={isLoggedIn}
-        onLogout={logout}
         selectedLanguage="ko"
         selectedCurrency="KRW"
       />

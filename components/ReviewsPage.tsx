@@ -162,32 +162,40 @@ export function ReviewsPage() {
   const [filterRating, setFilterRating] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   // DB에서 리뷰 데이터 로드
   useEffect(() => {
     const loadReviews = async () => {
       try {
         setLoading(true);
-        // 실제 API 호출로 모든 리뷰를 가져옴
-        const allReviews = await api.getRecentReviews(100); // 최대 100개 리뷰
 
-        let reviewsToShow = allReviews;
-        // 특정 상품의 리뷰만 보기
-        if (listingId) {
-          reviewsToShow = allReviews.filter(review => review.listing_id === listingId);
+        // API에서 리뷰 데이터 가져오기
+        const allReviews = await api.getRecentReviews(100);
+
+        let reviewsToShow = [];
+
+        // API에서 데이터가 정상적으로 왔는지 확인
+        if (allReviews && Array.isArray(allReviews) && allReviews.length > 0) {
+          reviewsToShow = allReviews;
+
+          // 특정 상품의 리뷰만 보기
+          if (listingId) {
+            reviewsToShow = allReviews.filter(review => review.listing_id === listingId);
+          }
+        } else {
+          // API 데이터가 없으면 빈 배열
+          reviewsToShow = [];
         }
 
         setReviews(reviewsToShow);
         setFilteredReviews(reviewsToShow);
       } catch (error) {
         console.error('Failed to load reviews:', error);
-        // 에러 시 목 데이터 사용
-        let reviewsToShow = mockReviews;
-        if (listingId) {
-          reviewsToShow = mockReviews.filter(review => review.listing_id === listingId);
-        }
-        setReviews(reviewsToShow);
-        setFilteredReviews(reviewsToShow);
+        // 에러 시 빈 배열
+        setReviews([]);
+        setFilteredReviews([]);
       } finally {
         setLoading(false);
       }
@@ -210,49 +218,67 @@ export function ReviewsPage() {
 
     // 카테고리 필터
     if (filterCategory !== 'all') {
-      filtered = filtered.filter(review => review.listing?.category === filterCategory);
+      filtered = filtered.filter(review =>
+        review.listing?.category === filterCategory ||
+        review.category === filterCategory
+      );
     }
 
     // 정렬
     switch (sortBy) {
       case 'newest':
-        filtered.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        filtered.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
         break;
       case 'oldest':
-        filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        filtered.sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime());
         break;
       case 'highest':
-        filtered.sort((a, b) => b.rating - a.rating);
+        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         break;
       case 'lowest':
-        filtered.sort((a, b) => a.rating - b.rating);
+        filtered.sort((a, b) => (a.rating || 0) - (b.rating || 0));
         break;
       case 'helpful':
-        filtered.sort((a, b) => b.helpful_count - a.helpful_count);
+        filtered.sort((a, b) => (b.helpful_count || 0) - (a.helpful_count || 0));
         break;
       default:
         break;
     }
 
     setFilteredReviews(filtered);
+    setCurrentPage(1); // 필터 변경시 첫 페이지로 이동
   }, [reviews, sortBy, filterRating, filterCategory, listingId]);
 
   const calculateAverageRating = () => {
     if (filteredReviews.length === 0) return '0';
-    const sum = filteredReviews.reduce((acc, review) => acc + review.rating, 0);
+    const sum = filteredReviews.reduce((acc, review) => acc + (review.rating || 0), 0);
     return (sum / filteredReviews.length).toFixed(1);
   };
 
   const getRatingDistribution = () => {
     const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     filteredReviews.forEach(review => {
-      distribution[review.rating as keyof typeof distribution]++;
+      const rating = review.rating || 0;
+      if (rating >= 1 && rating <= 5) {
+        distribution[rating as keyof typeof distribution]++;
+      }
     });
     return distribution;
   };
 
   const ratingDistribution = getRatingDistribution();
   const totalReviews = filteredReviews.length;
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(filteredReviews.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentReviews = filteredReviews.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -425,27 +451,42 @@ export function ReviewsPage() {
             )}
 
             {/* 리뷰 목록 */}
-            {!loading && (
+            {!loading && currentReviews.length > 0 && (
               <div className="space-y-6">
-                {filteredReviews.map((review) => (
+                {currentReviews.map((review) => (
                 <Card key={review.id} className="overflow-hidden">
                   <CardContent className="p-6">
                     <div className="space-y-4">
                       {/* 상품 정보 (전체 리뷰 보기일 때만) */}
-                      {!listingId && (
+                      {!listingId && review.listing && (
                         <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
                           <div className="w-16 h-16 rounded-lg overflow-hidden">
                             <ImageWithFallback
                               src={review.listing.images?.[0] || 'https://via.placeholder.com/64x64'}
-                              alt={review.listing.title}
+                              alt={review.listing.title || review.listing_title || '상품'}
                               className="w-full h-full object-cover"
                             />
                           </div>
                           <div>
-                            <h4 className="font-medium text-gray-800">{review.listing.title}</h4>
+                            <h4 className="font-medium text-gray-800">{review.listing.title || review.listing_title || '상품명'}</h4>
                             <div className="flex items-center text-gray-600 text-sm">
                               <MapPin className="h-3 w-3 mr-1" />
-                              {review.listing.location}
+                              {review.listing.location || '위치 정보 없음'}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {/* 상품 정보가 없을 때 대체 표시 */}
+                      {!listingId && !review.listing && review.listing_title && (
+                        <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-200 flex items-center justify-center">
+                            <span className="text-gray-400 text-xs">No Image</span>
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-gray-800">{review.listing_title}</h4>
+                            <div className="flex items-center text-gray-600 text-sm">
+                              <MapPin className="h-3 w-3 mr-1" />
+                              위치 정보 없음
                             </div>
                           </div>
                         </div>
@@ -456,14 +497,14 @@ export function ReviewsPage() {
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 rounded-full overflow-hidden">
                             <ImageWithFallback
-                              src={review.user.avatar}
-                              alt={review.user.name}
+                              src={review.user?.avatar || review.images?.[0] || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'}
+                              alt={review.user?.name || review.user_name || '사용자'}
                               className="w-full h-full object-cover"
                             />
                           </div>
                           <div>
                             <div className="flex items-center space-x-2">
-                              <h4 className="font-medium text-gray-800">{review.user.name}</h4>
+                              <h4 className="font-medium text-gray-800">{review.user?.name || review.user_name || '익명'}</h4>
                               {review.is_verified && (
                                 <span className="bg-green-100 text-green-600 px-2 py-1 rounded text-xs">
                                   인증된 리뷰
@@ -473,7 +514,7 @@ export function ReviewsPage() {
                             <div className="flex items-center space-x-4 text-sm text-gray-500">
                               <div className="flex items-center space-x-1">
                                 <Calendar className="h-3 w-3" />
-                                <span>방문일: {review.visit_date}</span>
+                                <span>방문일: {review.visit_date || new Date(review.created_at).toLocaleDateString()}</span>
                               </div>
                               <span>작성일: {new Date(review.created_at).toLocaleDateString()}</span>
                             </div>
@@ -503,13 +544,13 @@ export function ReviewsPage() {
 
                       {/* 리뷰 내용 */}
                       <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                        {review.comment_md}
+                        {review.comment_md || review.review_text || review.content || '리뷰 내용이 없습니다.'}
                       </p>
 
                       {/* 도움이 됨 버튼 */}
                       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <span>{review.helpful_count}명이 이 리뷰가 도움이 된다고 했습니다</span>
+                          <span>{review.helpful_count || 0}명이 이 리뷰가 도움이 된다고 했습니다</span>
                         </div>
                         <Button variant="outline" size="sm">
                           <ThumbsUp className="h-3 w-3 mr-1" />
@@ -523,10 +564,71 @@ export function ReviewsPage() {
               </div>
             )}
 
-            {!loading && filteredReviews.length > 0 && (
-              <div className="text-center mt-8">
-                <Button variant="outline" size="lg">
-                  더 많은 리뷰 보기
+            {/* 페이지네이션 */}
+            {!loading && filteredReviews.length > 0 && totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="text-[#8B5FBF] border-[#8B5FBF] hover:bg-[#8B5FBF] hover:text-white disabled:opacity-50"
+                >
+                  이전
+                </Button>
+
+                {[...Array(totalPages)].map((_, index) => {
+                  const page = index + 1;
+                  const isCurrentPage = page === currentPage;
+
+                  // 페이지가 많을 때는 현재 페이지 주변만 표시
+                  if (totalPages > 7) {
+                    if (page === 1 || page === totalPages ||
+                        (page >= currentPage - 2 && page <= currentPage + 2)) {
+                      return (
+                        <Button
+                          key={page}
+                          variant={isCurrentPage ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(page)}
+                          className={isCurrentPage
+                            ? "bg-[#8B5FBF] hover:bg-[#8B5FBF]"
+                            : "text-[#8B5FBF] border-[#8B5FBF] hover:bg-[#8B5FBF] hover:text-white"
+                          }
+                        >
+                          {page}
+                        </Button>
+                      );
+                    } else if (page === currentPage - 3 || page === currentPage + 3) {
+                      return <span key={page} className="text-gray-400">...</span>;
+                    }
+                    return null;
+                  } else {
+                    return (
+                      <Button
+                        key={page}
+                        variant={isCurrentPage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handlePageChange(page)}
+                        className={isCurrentPage
+                          ? "bg-[#8B5FBF] hover:bg-[#8B5FBF]"
+                          : "text-[#8B5FBF] border-[#8B5FBF] hover:bg-[#8B5FBF] hover:text-white"
+                        }
+                      >
+                        {page}
+                      </Button>
+                    );
+                  }
+                })}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="text-[#8B5FBF] border-[#8B5FBF] hover:bg-[#8B5FBF] hover:text-white disabled:opacity-50"
+                >
+                  다음
                 </Button>
               </div>
             )}

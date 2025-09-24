@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuthStore } from '../hooks/useAuthStore';
 import {
   ShoppingBasket,
   ChevronDown,
@@ -30,20 +31,22 @@ interface HeaderProps {
   cartItemCount?: number;
   isAdmin?: boolean;
   isLoggedIn?: boolean;
-  onLogout?: () => void;
+  logout?: () => void;
   selectedLanguage?: string;
   selectedCurrency?: string;
 }
 
 export function Header({
   cartItemCount = 0,
-  isAdmin = false,
-  isLoggedIn = false,
-  onLogout,
   selectedLanguage = 'ko',
   selectedCurrency = 'KRW',
-}: HeaderProps) {
+}: Omit<HeaderProps, 'isAdmin' | 'isLoggedIn' | 'logout'>) {
   const navigate = useNavigate();
+
+  // Header에서 직접 useAuthStore 사용 (즉시 상태 반영을 위해)
+  const { isLoggedIn, isAdmin, logout } = useAuthStore();
+
+
   const location = useLocation();
   const currentView = location.pathname;
   const showSearchBar = ['/category/', '/partner'].some(path => currentView.includes(path));
@@ -159,7 +162,7 @@ export function Header({
                 <span className="h-[14px] w-[1px] bg-white/35"></span>
                 <button
                   className="text-white hover:text-blue-100 transition-colors"
-                  onClick={onLogout}
+                  onClick={logout}
                 >
                   로그아웃
                 </button>
@@ -300,7 +303,7 @@ export function Header({
                   )}
                   <Button
                     variant="outline"
-                    onClick={onLogout}
+                    onClick={logout}
                     className="text-gray-600"
                   >
                     {t('logout', selectedLanguage)}
@@ -391,7 +394,7 @@ export function Header({
                           </button>
                         )}
                         <button
-                          onClick={onLogout}
+                          onClick={logout}
                           className="block w-full text-left p-2 hover:bg-gray-100 rounded text-gray-600"
                         >
                           {t('logout', selectedLanguage)}

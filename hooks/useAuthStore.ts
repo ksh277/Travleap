@@ -1,23 +1,17 @@
-import { useState, useEffect } from 'react';
-import { api } from '../utils/api';
+import { useState, useEffect, useCallback } from 'react';
+import { authService } from '../utils/auth';
+import type { User } from '../types/database';
 
-interface User {
-  id: string;
+interface LoginData {
   email: string;
-  name: string;
-  role: 'user' | 'admin';
+  password: string;
 }
 
 interface AuthState {
   isLoggedIn: boolean;
   isAdmin: boolean;
   user: User | null;
-}
-
-interface LoginData {
-  email: string;
-  password: string;
-  isAdmin?: boolean;
+  isLoading: boolean;
 }
 
 export function useAuthStore() {
@@ -25,109 +19,130 @@ export function useAuthStore() {
     isLoggedIn: false,
     isAdmin: false,
     user: null,
+    isLoading: true
   });
 
-  // 로컬 스토리지에서 인증 상태 복원
+  // 초기 인증 상태 복원
   useEffect(() => {
-    const savedAuth = localStorage.getItem('travleap_auth');
-    if (savedAuth) {
+    const initializeAuth = async () => {
       try {
-        const parsed = JSON.parse(savedAuth);
-        setAuthState(parsed);
+        const currentUser = await authService.getCurrentUser();
+        setAuthState({
+          isLoggedIn: !!currentUser,
+          isAdmin: currentUser?.role === 'admin',
+          user: currentUser,
+          isLoading: false
+        });
       } catch (error) {
-        console.error('Failed to parse saved auth state:', error);
-        localStorage.removeItem('travleap_auth');
+        console.error('Failed to initialize auth:', error);
+        setAuthState({
+          isLoggedIn: false,
+          isAdmin: false,
+          user: null,
+          isLoading: false
+        });
       }
+    };
+
+    initializeAuth();
+
+    // authService 구독
+    const unsubscribe = authService.subscribe((state) => {
+      setAuthState({
+        isLoggedIn: state.isAuthenticated,
+        isAdmin: state.user?.role === 'admin',
+        user: state.user,
+        isLoading: state.isLoading
+      });
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const login = useCallback(async (loginData: LoginData): Promise<{ success: boolean; message?: string; isAdmin?: boolean }> => {
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
+
+      const result = await authService.login(loginData);
+
+      if (result.success && result.user) {
+        setAuthState({
+          isLoggedIn: true,
+          isAdmin: result.user.role === 'admin',
+          user: result.user,
+          isLoading: false
+        });
+
+        return {
+          success: true,
+          isAdmin: result.user.role === 'admin',
+          message: result.user.role === 'admin' ? '관리자로 로그인되었습니다.' : '로그인되었습니다.'
+        };
+      }
+
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return {
+        success: false,
+        message: result.error || '로그인에 실패했습니다.'
+      };
+    } catch (error) {
+      console.error('Login error:', error);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return {
+        success: false,
+        message: '로그인 중 오류가 발생했습니다.'
+      };
     }
   }, []);
 
-  // 인증 상태 변경시 로컬 스토리지에 저장
-  useEffect(() => {
-    if (authState.isLoggedIn) {
-      localStorage.setItem('travleap_auth', JSON.stringify(authState));
-    } else {
-      localStorage.removeItem('travleap_auth');
-    }
-  }, [authState]);
-
-  const login = async (loginData: LoginData): Promise<{ success: boolean; message?: string; isAdmin?: boolean }> => {
-    try {
-      // 실제 DB에서 사용자 확인
-      const user = await api.getUserByEmail(loginData.email);
-
-      if (user && user.email === loginData.email) {
-        // 실제로는 비밀번호 해시 검증이 필요하지만, 여기서는 간단히 처리
-        const newUser: User = {
-          id: user.user_id,
-          email: user.email,
-          name: user.name,
-          role: user.role as 'user' | 'admin'
-        };
-
-        setAuthState({
-          isLoggedIn: true,
-          isAdmin: user.role === 'admin',
-          user: newUser,
-        });
-
-        return { success: true, isAdmin: user.role === 'admin' };
-      }
-
-      // 환경변수 기반 관리자 계정 (보안 강화)
-      const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@travleap.com';
-
-      // 실제로는 비밀번호를 해시화해서 비교해야 함 (여기서는 간단히 처리)
-      if (loginData.email === adminEmail && loginData.password === '12345') {
-        const adminUser: User = {
-          id: 'admin_1',
-          email: adminEmail,
-          name: '관리자',
-          role: 'admin'
-        };
-
-        setAuthState({
-          isLoggedIn: true,
-          isAdmin: true,
-          user: adminUser,
-        });
-
-        return { success: true, isAdmin: true };
-      } else if (loginData.email && loginData.password) {
-        // 임시 사용자 생성
-        const tempUser: User = {
-          id: `temp_${Date.now()}`,
-          email: loginData.email,
-          name: loginData.email.split('@')[0],
-          role: 'user'
-        };
-
-        setAuthState({
-          isLoggedIn: true,
-          isAdmin: false,
-          user: tempUser,
-        });
-
-        return { success: true, isAdmin: false };
-      }
-
-      return { success: false, message: '이메일 또는 비밀번호가 올바르지 않습니다.' };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, message: '로그인 중 오류가 발생했습니다.' };
-    }
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
+    authService.logout();
     setAuthState({
       isLoggedIn: false,
       isAdmin: false,
       user: null,
+      isLoading: false
     });
-  };
+  }, []);
+
+  const updateUser = useCallback(async (userId: number, updateData: Partial<User>) => {
+    const result = await authService.updateUser(userId, updateData);
+    if (result.success && result.user) {
+      setAuthState(prev => ({
+        ...prev,
+        user: result.user!,
+        isAdmin: result.user!.role === 'admin'
+      }));
+    }
+    return result;
+  }, []);
+
+  const isAdmin = useCallback(async (): Promise<boolean> => {
+    return await authService.isAdmin();
+  }, []);
+
+  const isPartner = useCallback(async (): Promise<boolean> => {
+    return await authService.isPartner();
+  }, []);
+
+  const getAccessToken = useCallback((): string | null => {
+    return authService.getAccessToken();
+  }, []);
+
+  const isTokenExpired = useCallback(async (): Promise<boolean> => {
+    return await authService.isTokenExpired();
+  }, []);
 
   return {
     ...authState,
     login,
     logout,
+    updateUser,
+    isAdmin,
+    isPartner,
+    getAccessToken,
+    isTokenExpired,
+    validateEmail: authService.validateEmail,
+    validatePassword: authService.validatePassword
   };
 }

@@ -750,148 +750,39 @@ export const api = {
     try {
       // 실제 DB에서 가져오기 시도
       const response = await db.query(`
-        SELECT r.*, l.title as listing_title, u.name as user_name
+        SELECT r.*, l.title as listing_title, u.name as user_name,
+               l.location as listing_location, l.images as listing_images
         FROM reviews r
         LEFT JOIN listings l ON r.listing_id = l.id
-        LEFT JOIN users u ON r.user_id = u.user_id
-        WHERE r.is_visible = true
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.is_visible = 1
         ORDER BY r.created_at DESC
         LIMIT ${limit}
       `);
 
       if (response.data && response.data.length > 0) {
-        return response.data;
+        return response.data.map((review: any) => ({
+          ...review,
+          listing: {
+            id: review.listing_id,
+            title: review.listing_title,
+            location: review.listing_location,
+            images: review.listing_images ? JSON.parse(review.listing_images) : []
+          },
+          user: {
+            id: review.user_id,
+            name: review.user_name,
+            avatar: review.images ? JSON.parse(review.images)[0] : null
+          }
+        }));
       }
 
-      // DB에서 데이터가 없으면 샘플 데이터 반환
-      return [
-        {
-          id: 1,
-          listing_id: 1,
-          user_id: 1,
-          user_name: '김민지',
-          rating: 5,
-          review_text: '증도 천일염 체험이 정말 좋았어요! 아이들과 함께 체험하기에 완벽했습니다. 가이드님도 친절하시고 기념품까지 받아서 만족스러웠어요.',
-          listing_title: '증도 천일염 체험',
-          created_at: '2024-03-15T10:00:00Z',
-          updated_at: '2024-03-15T10:00:00Z',
-          is_visible: true,
-          helpful_count: 0,
-          is_verified: false,
-          images: ['https://images.unsplash.com/photo-1494790108755-2616b612b641?w=100&h=100&fit=crop&crop=face']
-        },
-        {
-          id: 2,
-          listing_id: 12,
-          user_id: 2,
-          user_name: '박정훈',
-          rating: 4,
-          review_text: '흑산도 홍어 삼합 맛집 투어 다녀왔는데 정말 맛있었습니다. 현지 분들이 추천해주신 맛집들이 모두 훌륭했어요. 다음에 또 오고 싶어요.',
-          listing_title: '흑산도 홍어 삼합 투어',
-          created_at: '2024-03-12T14:30:00Z',
-          updated_at: '2024-03-12T14:30:00Z',
-          is_visible: true,
-          helpful_count: 0,
-          is_verified: false,
-          images: ['https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face']
-        },
-        {
-          id: 3,
-          listing_id: 2,
-          user_id: 3,
-          user_name: '이수연',
-          rating: 5,
-          review_text: '신안 섬 호핑 투어는 정말 환상적이었어요! 각 섬마다 다른 매력이 있고, 특히 해넘이 장관은 잊을 수 없을 것 같아요. 강력 추천합니다!',
-          listing_title: '신안 섬 호핑 투어',
-          created_at: '2024-03-10T09:15:00Z',
-          updated_at: '2024-03-10T09:15:00Z',
-          is_visible: true,
-          helpful_count: 0,
-          is_verified: false,
-          images: ['https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face']
-        },
-        {
-          id: 4,
-          listing_id: 3,
-          user_id: 4,
-          user_name: '최동하',
-          rating: 4,
-          review_text: '자은도 해수욕장에서의 하루가 정말 좋았습니다. 물이 깨끗하고 모래가 부드러워서 아이들이 너무 좋아했어요. 가족 여행으로 딱입니다.',
-          listing_title: '자은도 해수욕장 투어',
-          created_at: '2024-03-08T16:45:00Z',
-          updated_at: '2024-03-08T16:45:00Z',
-          is_visible: true,
-          helpful_count: 0,
-          is_verified: false,
-          images: ['https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face']
-        }
-      ];
+      // 실제 DB에 데이터가 없으면 빈 배열 반환
+      return [];
     } catch (error) {
       console.error('Failed to fetch recent reviews:', error);
-      // 에러 시에도 limit에 맞는 샘플 데이터 반환
-      const sampleReviews = [
-        {
-          id: 1,
-          listing_id: 1,
-          user_id: 1,
-          user_name: '김민지',
-          rating: 5,
-          review_text: '증도 천일염 체험이 정말 좋았어요! 아이들과 함께 체험하기에 완벽했습니다. 가이드님도 친절하시고 기념품까지 받아서 만족스러웠어요.',
-          listing_title: '증도 천일염 체험',
-          created_at: '2024-03-15T10:00:00Z',
-          updated_at: '2024-03-15T10:00:00Z',
-          is_visible: true,
-          helpful_count: 0,
-          is_verified: false,
-          images: ['https://images.unsplash.com/photo-1494790108755-2616b612b641?w=100&h=100&fit=crop&crop=face']
-        },
-        {
-          id: 2,
-          listing_id: 12,
-          user_id: 2,
-          user_name: '박정훈',
-          rating: 4,
-          review_text: '흑산도 홍어 삼합 맛집 투어 다녀왔는데 정말 맛있었습니다. 현지 분들이 추천해주신 맛집들이 모두 훌륭했어요.',
-          listing_title: '흑산도 홍어 삼합 투어',
-          created_at: '2024-03-12T14:30:00Z',
-          updated_at: '2024-03-12T14:30:00Z',
-          is_visible: true,
-          helpful_count: 0,
-          is_verified: false,
-          images: ['https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face']
-        },
-        {
-          id: 3,
-          listing_id: 2,
-          user_id: 3,
-          user_name: '이수연',
-          rating: 5,
-          review_text: '신안 섬 호핑 투어는 정말 환상적이었어요! 각 섬마다 다른 매력이 있고, 특히 해넘이 장관은 잊을 수 없을 것 같아요.',
-          listing_title: '신안 섬 호핑 투어',
-          created_at: '2024-03-10T09:15:00Z',
-          updated_at: '2024-03-10T09:15:00Z',
-          is_visible: true,
-          helpful_count: 0,
-          is_verified: false,
-          images: ['https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face']
-        },
-        {
-          id: 4,
-          listing_id: 3,
-          user_id: 4,
-          user_name: '최동하',
-          rating: 4,
-          review_text: '자은도 해수욕장에서의 하루가 정말 좋았습니다. 물이 깨끗하고 모래가 부드러워서 아이들이 너무 좋아했어요.',
-          listing_title: '자은도 해수욕장 투어',
-          created_at: '2024-03-08T16:45:00Z',
-          updated_at: '2024-03-08T16:45:00Z',
-          is_visible: true,
-          helpful_count: 0,
-          is_verified: false,
-          images: ['https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face']
-        }
-      ];
-      return sampleReviews.slice(0, limit);
+      // 에러 시 빈 배열 반환
+      return [];
     }
   },
 

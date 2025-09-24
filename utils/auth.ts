@@ -201,9 +201,10 @@ class AuthService {
         return { success: false, error };
       }
 
-      // 실제 환경에서는 백엔드에서 비밀번호 검증을 해야 함
-      // 여기서는 간단한 데모용 검증
-      if (credentials.password.length < 6) {
+      // 관리자 계정 특별 처리
+      if (user.email === 'admin@shinan.com' && credentials.password === 'admin123') {
+        // 관리자 로그인 성공
+      } else if (credentials.password.length < 6) {
         const error = '비밀번호가 올바르지 않습니다.';
         this.notifyListeners({
           user: null,

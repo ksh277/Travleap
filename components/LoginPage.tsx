@@ -40,10 +40,16 @@ export function LoginPage() {
         // 사용자 역할에 따른 메시지 출력
         if (result.isAdmin) {
           toast.success('관리자로 로그인되었습니다.');
-          navigate('/admin');
+          // 상태 업데이트 완료까지 기다린 후 네비게이션
+          setTimeout(() => {
+            navigate('/admin', { replace: true });
+          }, 200);
         } else {
           toast.success('로그인되었습니다!');
-          navigate('/');
+          // 상태 업데이트 완료까지 기다린 후 네비게이션
+          setTimeout(() => {
+            navigate('/', { replace: true });
+          }, 200);
         }
       } else {
         toast.error(result.message || '로그인에 실패했습니다.');
@@ -57,12 +63,10 @@ export function LoginPage() {
   };
 
   const handleGoogleLogin = () => {
-    console.log('Google login');
     // TODO: Implement Google OAuth
   };
 
   const handleKakaoLogin = () => {
-    console.log('Kakao login');
     // TODO: Implement Kakao OAuth
   };
 
