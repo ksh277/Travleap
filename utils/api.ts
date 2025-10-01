@@ -1677,7 +1677,7 @@ export const api = {
       try {
         console.log('📡 Fetching partner applications from DB...');
 
-        // 직접 DB에서 파트너 신청 조회 (pending 상태만)
+        // 직접 DB에서 파트너 신청 조회 (모든 상태)
         const applications = await db.query(`
           SELECT
             id,
@@ -1702,7 +1702,6 @@ export const api = {
             created_at,
             updated_at
           FROM partner_applications
-          WHERE status = 'pending'
           ORDER BY created_at DESC
         `);
 
