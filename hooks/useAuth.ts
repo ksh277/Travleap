@@ -64,6 +64,8 @@ const restoreSession = () => {
 
     if (!token) {
       console.log('🔒 저장된 토큰이 없습니다');
+      sessionRestored = true; // 토큰이 없어도 복원 완료 처리
+      notifyListeners();
       return;
     }
 
@@ -108,6 +110,7 @@ const restoreSession = () => {
     notifyListeners();
   } catch (error) {
     console.error('세션 복원 오류:', error);
+    sessionRestored = true; // 오류 발생 시에도 복원 완료 처리
     clearSession();
   }
 };
