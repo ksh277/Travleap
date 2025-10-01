@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -9,12 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from './ui/textarea';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { 
-  Star, 
-  MapPin, 
-  Clock, 
-  Users, 
-  Share2, 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Progress } from './ui/progress';
+import { Separator } from './ui/separator';
+import {
+  Star,
+  MapPin,
+  Clock,
+  Share2,
   Heart,
   Calendar as CalendarIcon,
   Check,
@@ -24,13 +26,38 @@ import {
   MessageCircle,
   Shield,
   Award,
-  ShoppingCart
+  ShoppingCart,
+  Users,
+  Wifi,
+  Car,
+  Coffee,
+  Utensils,
+  Camera,
+  Umbrella,
+  Phone,
+  Mail,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  ExternalLink,
+  Download,
+  Flag,
+  ThumbsUp,
+  ThumbsDown,
+  MoreHorizontal,
+  Zap,
+  Gift,
+  CreditCard,
+  RefreshCw,
+  Calendar as DateIcon
 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { api } from '../utils/api';
+import { api, ExtendedReview } from '../utils/api';
 import { toast } from 'sonner';
 import { useCartStore } from '../hooks/useCartStore';
-import { useAuthStore } from '../hooks/useAuthStore';
+import { useAuth } from '../hooks/useAuth';
+import { notifyDataChange } from '../hooks/useRealTimeData';
+import { getGoogleMapsApiKey } from '../utils/env';
 
 // Date formatting helper
 const formatDate = (date: Date) => {
@@ -41,10 +68,6 @@ const formatDate = (date: Date) => {
   });
 };
 
-interface DetailPageProps {
-  onBooking?: (bookingData: any) => void;
-}
-
 interface Review {
   id: string;
   rating: number;
@@ -52,29 +75,97 @@ interface Review {
   author: string;
   date: string;
   helpful: number;
+  images?: string[];
+  verified?: boolean;
+}
+
+interface DetailItem {
+  id: number;
+  title: string;
+  description: string;
+  shortDescription: string;
+  price: number;
+  location: string;
+  duration: string;
+  category: string;
+  rating: number;
+  reviewCount: number;
+  images: string[];
+  isPartner: boolean;
+  isSponsor: boolean;
+  partnerName: string;
+  maxCapacity: number;
+  features: string[];
+  included: string[];
+  excluded: string[];
+  policies: {
+    cancellation: string;
+    refund: string;
+    weather: string;
+  };
+  amenities?: string[];
+  tags?: string[];
+  difficulty?: 'easy' | 'medium' | 'hard';
+  language?: string[];
+  minAge?: number;
+}
+
+interface BookingFormData {
+  name: string;
+  phone: string;
+  email: string;
+  requests: string;
+  emergencyContact?: string;
+  dietaryRestrictions?: string;
+  specialNeeds?: string;
 }
 
 export function DetailPage() {
   const { id: itemId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToCart } = useCartStore();
-  const { isLoggedIn, user } = useAuthStore();
-  const [item, setItem] = useState<any>(null);
+  const { isLoggedIn, user } = useAuth();
+  const [item, setItem] = useState<DetailItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [guests, setGuests] = useState(2);
   const [customGuestCount, setCustomGuestCount] = useState('');
   const [isCustomGuests, setIsCustomGuests] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
+  const [newReview, setNewReview] = useState({ rating: 5, comment: '', images: [] as string[] });
   const [showBookingForm, setShowBookingForm] = useState(false);
-  const [bookingData, setBookingData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    requests: ''
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [showImageGallery, setShowImageGallery] = useState(false);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [priceCalculation, setPriceCalculation] = useState({ basePrice: 0, taxes: 0, total: 0 });
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const galleryRef = useRef<HTMLDivElement>(null);
+
+  const [bookingData, setBookingData] = useState<BookingFormData>({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    email: user?.email || '',
+    requests: '',
+    emergencyContact: '',
+    dietaryRestrictions: '',
+    specialNeeds: ''
   });
+
+  // Enhanced SEO metadata
+  useEffect(() => {
+    if (item) {
+      document.title = `${item.title} - Travleap | 신안 여행`;
+      const metaDescription = document.querySelector('meta[name="description"]');
+      if (metaDescription) {
+        metaDescription.setAttribute('content', `${item.shortDescription} - 가격: ${item.price.toLocaleString()}원부터, 위치: ${item.location}, 리뷰: ${item.reviewCount}개`);
+      }
+    }
+  }, [item]);
 
   useEffect(() => {
     if (itemId) {
@@ -85,49 +176,186 @@ export function DetailPage() {
   useEffect(() => {
     if (item?.id) {
       fetchReviews();
+      fetchAvailableDates();
+      checkFavoriteStatus();
     }
   }, [item?.id]);
 
-  const fetchItemDetails = async () => {
-    setLoading(true);
+  // Update price calculation when guests change
+  useEffect(() => {
+    if (item) {
+      calculatePrice();
+    }
+  }, [guests, item]);
+
+  const fetchItemDetails = useCallback(async () => {
     try {
+      setLoading(true);
+      setError(null);
       const response = await api.getListingById(Number(itemId));
       if (response.success && response.data) {
-        setItem({
-          id: response.data.id,
-          title: response.data.title,
-          description: response.data.description_md || response.data.short_description || '',
-          shortDescription: response.data.short_description || '',
-          price: response.data.price_from || 0,
-          location: response.data.location || '신안군',
-          duration: response.data.duration,
-          category: response.data.category,
-          rating: response.data.rating_avg || 0,
-          reviewCount: response.data.rating_count || 0,
-          images: Array.isArray(response.data.images) && response.data.images.length > 0
-            ? response.data.images
-            : [getDefaultImage(response.data.category)],
-          isPartner: response.data.partner?.is_verified || false,
-          isSponsor: response.data.partner?.tier === 'gold' || response.data.partner?.tier === 'platinum',
-          partnerName: response.data.partner?.business_name || '신안관광협회',
-          maxCapacity: response.data.max_capacity || 10,
-          features: response.data.features || [],
-          included: response.data.included_items || [],
-          excluded: response.data.excluded_items || [],
-          policies: response.data.policies || {}
-        });
+        const data = response.data;
+        const processedItem: DetailItem = {
+          id: data.id,
+          title: data.title,
+          description: data.description_md || data.short_description || '',
+          shortDescription: data.short_description || '',
+          price: data.price_from || 0,
+          location: data.location || '신안군',
+          duration: data.duration || '1시간',
+          category: data.category || '투어',
+          rating: data.rating_avg || 0,
+          reviewCount: data.rating_count || 0,
+          images: Array.isArray(data.images) && data.images.length > 0
+            ? data.images
+            : [getDefaultImage(data.category || 'tour')],
+          isPartner: data.partner?.is_verified || false,
+          isSponsor: data.partner?.tier === 'gold' || data.partner?.tier === 'platinum' || false,
+          partnerName: data.partner?.business_name || '신안관광협회',
+          maxCapacity: data.max_capacity || 10,
+          features: data.features || ['전문 가이드 동행', '안전장비 제공', '기념품 포함', '사진 촬영 서비스'],
+          included: data.included || ['가이드 서비스', '안전장비', '기념품', '보험'],
+          excluded: data.excluded || ['개인 용품', '식사', '교통비'],
+          policies: {
+            cancellation: data.cancellation_policy || '여행 3일 전까지 무료 취소',
+            refund: data.refund_policy || '부분 환불 가능',
+            weather: data.weather_policy || '악천후 시 일정 변경 또는 취소'
+          },
+          amenities: data.amenities || [],
+          tags: data.tags || [],
+          difficulty: (data.difficulty as 'easy' | 'medium' | 'hard') || 'easy',
+          language: Array.isArray(data.language) ? data.language : [data.language || '한국어'],
+          minAge: data.min_age || 0
+        };
+        setItem(processedItem);
+        setRetryCount(0);
       } else {
-        toast.error('상품 정보를 불러올 수 없습니다.');
-        navigate(-1);
+        throw new Error(response.error || '상품 정보를 찾을 수 없습니다.');
       }
     } catch (error) {
       console.error('Error fetching item details:', error);
-      toast.error('상품 정보를 불러오는 중 오류가 발생했습니다.');
-      navigate(-1);
+      const errorMessage = error instanceof Error ? error.message : '데이터를 불러오는데 실패했습니다';
+      setError(errorMessage);
+
+      if (retryCount < 2) {
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => fetchItemDetails(), 2000);
+        return;
+      }
+
+      // 에러가 발생해도 기본 상품 정보로 표시
+      const fallbackItem: DetailItem = {
+        id: Number(itemId) || 1,
+        title: '상품 정보를 불러오는 중입니다...',
+        description: '상품 상세 정보를 준비 중입니다.',
+        shortDescription: '잠시만 기다려주세요.',
+        price: 0,
+        location: '신안군',
+        duration: '1시간',
+        category: '투어',
+        rating: 0,
+        reviewCount: 0,
+        images: ['https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop'],
+        isPartner: true,
+        isSponsor: false,
+        partnerName: '신안관광협회',
+        maxCapacity: 10,
+        features: ['전문 가이드 동행', '안전장비 제공'],
+        included: ['가이드 서비스', '안전장비'],
+        excluded: ['개인 용품', '식사'],
+        policies: {
+          cancellation: '여행 3일 전까지 무료 취소',
+          refund: '부분 환불 가능',
+          weather: '악천후 시 일정 변경 또는 취소'
+        },
+        amenities: [],
+        tags: [],
+        difficulty: 'easy',
+        language: ['한국어'],
+        minAge: 0
+      };
+      setItem(fallbackItem);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  }, [itemId, retryCount]);
+
+  const calculatePrice = useCallback(() => {
+    if (!item) return;
+    const basePrice = item.price * guests;
+    const taxes = Math.round(basePrice * 0.1); // 10% tax
+    const total = basePrice + taxes;
+    setPriceCalculation({ basePrice, taxes, total });
+  }, [item, guests]);
+
+  const fetchAvailableDates = useCallback(async () => {
+    if (!item?.id) return;
+    try {
+      const response = await api.getAvailableDates(item.id);
+      if (response && Array.isArray(response)) {
+        setAvailableDates(response);
+      }
+    } catch (error) {
+      console.error('Error fetching available dates:', error);
+    }
+  }, [item?.id]);
+
+  const checkFavoriteStatus = useCallback(async () => {
+    if (!item?.id || !isLoggedIn) return;
+    try {
+      const response = await api.getFavorites();
+      if (response && Array.isArray(response)) {
+        setIsFavorite(response.some((fav: any) => fav.listing_id === item.id));
+      }
+    } catch (error) {
+      console.error('Error checking favorite status:', error);
+    }
+  }, [item?.id, isLoggedIn]);
+
+  const toggleFavorite = useCallback(async () => {
+    if (!item?.id || !isLoggedIn) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+    try {
+      if (isFavorite) {
+        await api.removeFavorite?.(item.id);
+        setIsFavorite(false);
+        toast.success('즐겨찾기에서 제거되었습니다.');
+      } else {
+        await api.addFavorite?.(item.id);
+        setIsFavorite(true);
+        toast.success('즐겨찾기에 추가되었습니다.');
+      }
+    } catch (error) {
+      toast.error('오류가 발생했습니다.');
+    }
+  }, [item?.id, isLoggedIn, isFavorite]);
+
+  const handleShare = useCallback(async () => {
+    if (!item) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: item.title,
+          text: item.shortDescription,
+          url: window.location.href
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success('링크가 복사되었습니다.');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  }, [item]);
+
+  const handleRetry = useCallback(() => {
+    setRetryCount(0);
+    setError(null);
+    fetchItemDetails();
+  }, [fetchItemDetails]);
 
   const getDefaultImage = (category: string) => {
     const defaultImages: { [key: string]: string } = {
@@ -143,204 +371,457 @@ export function DetailPage() {
     return defaultImages[category] || defaultImages.tour;
   };
 
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
+    if (!item?.id) return;
     try {
-      const response = await api.getReviews(Number(item.id));
-      if (Array.isArray(response)) {
-        const formattedReviews = response.map((review: any) => ({
-          id: review.id.toString(),
-          rating: review.rating,
-          comment: review.comment,
-          author: review.user?.name || '익명',
-          date: review.created_at,
-          helpful: review.helpful_count || 0
-        }));
+      setReviewsLoading(true);
+      const dbReviews = await api.getReviews(Number(item.id));
+
+      if (Array.isArray(dbReviews) && dbReviews.length > 0) {
+        const formattedReviews: Review[] = dbReviews.map((review) => {
+          const extendedReview = review as ExtendedReview;
+          return {
+            id: extendedReview.id.toString(),
+            rating: extendedReview.rating,
+            comment: extendedReview.comment_md || extendedReview.title || '좋은 경험이었습니다.',
+            author: extendedReview.user_name || '익명',
+            date: extendedReview.created_at ? new Date(extendedReview.created_at).toLocaleDateString('ko-KR') : '날짜 없음',
+            helpful: extendedReview.helpful_count || 0,
+            images: extendedReview.images || [],
+            verified: extendedReview.is_verified || false
+          };
+        });
         setReviews(formattedReviews);
       } else {
-        // DB에 리뷰가 없으면 샘플 리뷰 생성
-        const sampleReviews: Review[] = Array.from({ length: 5 }, (_, i) => ({
-          id: `review_${i + 1}`,
-          rating: 4 + Math.random(),
-          comment: `정말 좋은 경험이었습니다. ${item.title}은(는) 기대 이상이었어요. 다음에도 이용하고 싶습니다.`,
-          author: `사용자${i + 1}`,
-          date: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-          helpful: Math.floor(Math.random() * 20)
-        }));
-        setReviews(sampleReviews);
+        setReviews([]);
       }
     } catch (error) {
       console.error('Error fetching reviews:', error);
       setReviews([]);
+    } finally {
+      setReviewsLoading(false);
     }
-  };
+  }, [item?.id]);
 
-  const handleBooking = async () => {
-    if (!selectedDate || !bookingData.name || !bookingData.phone) {
-      toast.error('필수 정보를 모두 입력해주세요.');
-      return;
+  const validateBookingForm = useCallback(() => {
+    if (!selectedDate) {
+      toast.error('날짜를 선택해주세요.');
+      return false;
     }
+    if (!bookingData.name.trim()) {
+      toast.error('이름을 입력해주세요.');
+      return false;
+    }
+    if (!bookingData.phone.trim()) {
+      toast.error('전화번호를 입력해주세요.');
+      return false;
+    }
+    if (!bookingData.email.trim() || !/\S+@\S+\.\S+/.test(bookingData.email)) {
+      toast.error('유효한 이메일을 입력해주세요.');
+      return false;
+    }
+    if (guests < 1 || guests > (item?.maxCapacity || 10)) {
+      toast.error(`인원은 1명부터 ${item?.maxCapacity || 10}명까지 가능합니다.`);
+      return false;
+    }
+    return true;
+  }, [selectedDate, bookingData, guests, item?.maxCapacity]);
 
-    const bookingRequest = {
-      listing_id: Number(item.id),
-      user_id: Number(user?.id) || 1, // 실제 로그인된 사용자 ID 사용
-      start_date: selectedDate.toISOString().split('T')[0],
-      end_date: selectedDate.toISOString().split('T')[0], // 당일 예약
-      num_adults: guests,
-      num_children: 0,
-      num_seniors: 0,
-      customer_info: bookingData,
-      special_requests: bookingData.requests || ''
-    };
+  const handleBooking = useCallback(async () => {
+    if (!validateBookingForm() || !item) return;
 
     try {
+      setBookingLoading(true);
+      const bookingRequest = {
+        listing_id: Number(item.id),
+        user_id: user?.id || 1,
+        num_adults: guests, // guest_count를 num_adults로 매핑
+        num_children: 0,
+        num_seniors: 0,
+        guest_name: bookingData.name.trim(),
+        guest_phone: bookingData.phone.trim(),
+        guest_email: bookingData.email.trim(),
+        booking_date: selectedDate!.toISOString().split('T')[0],
+        guest_count: guests,
+        special_requests: bookingData.requests.trim(),
+        total_amount: priceCalculation.total,
+        emergency_contact: bookingData.emergencyContact?.trim(),
+        dietary_restrictions: bookingData.dietaryRestrictions?.trim(),
+        special_needs: bookingData.specialNeeds?.trim()
+      };
+
       const response = await api.createBooking(bookingRequest);
       if (response.success && response.data) {
-        toast.success(`예약이 성공적으로 접수되었습니다! 결제 페이지로 이동합니다.`);
+        toast.success('예약이 성공적으로 접수되었습니다!');
 
-        // 예약 확정 후 결제 페이지로 이동
-        const paymentData = {
-          bookingId: response.data.id,
-          itemId: item.id,
-          itemTitle: item.title,
-          selectedDate: selectedDate.toISOString().split('T')[0],
-          guests: guests,
-          totalAmount: (item.price || 0) * guests,
-          customerInfo: bookingData
-        };
-
-        // 결제 페이지로 이동 (URL params로 데이터 전달)
-        navigate(`/payment?bookingId=${response.data.id}&amount=${(item.price || 0) * guests}&title=${encodeURIComponent(item.title)}`);
+        // 결제 페이지로 이동
+        const paymentParams = new URLSearchParams({
+          bookingId: response.data.id.toString(),
+          amount: priceCalculation.total.toString(),
+          title: item.title,
+          date: selectedDate!.toISOString().split('T')[0],
+          guests: guests.toString()
+        });
+        navigate(`/payment?${paymentParams.toString()}`);
       } else {
-        toast.error(response.error || '예약 처리 중 오류가 발생했습니다.');
+        throw new Error(response.error || '예약 처리 중 오류가 발생했습니다.');
       }
     } catch (error) {
       console.error('Error creating booking:', error);
-      toast.error('예약 처리 중 오류가 발생했습니다.');
+      const errorMessage = error instanceof Error ? error.message : '예약 처리 중 오류가 발생했습니다.';
+      toast.error(errorMessage);
+    } finally {
+      setBookingLoading(false);
     }
-  };
+  }, [validateBookingForm, item, bookingData, selectedDate, guests, priceCalculation.total, user?.id, navigate]);
 
-  const handleReviewSubmit = async () => {
+  const handleReviewSubmit = useCallback(async () => {
     if (!newReview.comment.trim()) {
       toast.error('리뷰 내용을 입력해주세요.');
       return;
     }
 
-    // Note: Authentication check removed - implement if needed
+    if (!isLoggedIn) {
+      toast.error('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
 
-    const reviewData = {
-      listing_id: Number(item.id),
-      user_id: 1, // Replace with actual user ID
-      rating: newReview.rating,
-      title: '리뷰 제목',
-      content: newReview.comment
-    };
+    if (!item) return;
 
     try {
+      const reviewData = {
+        listing_id: Number(item.id),
+        user_id: user?.id || 1,
+        rating: newReview.rating,
+        title: `${item.title} 리뷰`,
+        content: newReview.comment.trim(),
+        images: newReview.images
+      };
+
       const response = await api.createReview(reviewData);
       if (response.success) {
         toast.success('리뷰가 성공적으로 등록되었습니다.');
-        setNewReview({ rating: 5, comment: '' });
+        setNewReview({ rating: 5, comment: '', images: [] });
         fetchReviews();
+
+        // 실시간 데이터 갱신 알림 - AdminPage가 자동으로 새로고침됨
+        notifyDataChange('reviews');
       } else {
-        toast.error(response.error || '리뷰 등록 중 오류가 발생했습니다.');
+        throw new Error(response.error || '리뷰 등록 중 오류가 발생했습니다.');
       }
     } catch (error) {
       console.error('Error submitting review:', error);
-      toast.error('리뷰 등록 중 오류가 발생했습니다.');
+      const errorMessage = error instanceof Error ? error.message : '리뷰 등록 중 오류가 발생했습니다.';
+      toast.error(errorMessage);
+    }
+  }, [newReview, isLoggedIn, item, user?.id, navigate, fetchReviews]);
+
+  const handleMarkHelpful = useCallback(async (reviewId: string) => {
+    try {
+      const response = await api.markReviewHelpful(Number(reviewId));
+      if (response.success) {
+        toast.success('도움이 되었습니다!');
+
+        // 리뷰 목록에서 helpful_count 업데이트
+        setReviews(prev => prev.map(review =>
+          review.id === reviewId
+            ? { ...review, helpful: response.data?.helpful_count || review.helpful + 1 }
+            : review
+        ));
+      } else {
+        toast.error(response.error || '처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Error marking review helpful:', error);
+      toast.error('처리 중 오류가 발생했습니다.');
+    }
+  }, []);
+
+  const addToCartHandler = useCallback(() => {
+    if (!item || !selectedDate) {
+      toast.error('날짜를 선택해주세요.');
+      return;
+    }
+
+    addToCart({
+      id: item.id,
+      title: item.title,
+      price: item.price,
+      image: item.images[0],
+      date: selectedDate.toISOString().split('T')[0],
+      guests,
+      total: priceCalculation.total
+    });
+    toast.success('장바구니에 추가되었습니다.');
+  }, [item, selectedDate, guests, priceCalculation.total, addToCart]);
+
+  const averageRating = useMemo(() => {
+    if (reviews.length > 0) {
+      return reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+    }
+    return Number(item?.rating || 0);
+  }, [reviews, item?.rating]);
+
+  const isDateDisabled = useCallback((date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date < today || (availableDates.length > 0 && !availableDates.includes(date.toISOString().split('T')[0]));
+  }, [availableDates]);
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy': return 'bg-green-100 text-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'hard': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const averageRating = reviews.length > 0
-    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
-    : (item?.rating || 4.5);
+  const getDifficultyLabel = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy': return '초급';
+      case 'medium': return '중급';
+      case 'hard': return '고급';
+      default: return '벤이직';
+    }
+  };
 
-  // 로딩 상태 처리
+  // Enhanced loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p>상품 정보를 불러오는 중...</p>
+      <div className="min-h-screen bg-gray-50" role="main" aria-label="상품 상세 페이지">
+        <div className="container mx-auto px-4 py-8">
+          <div className="animate-pulse space-y-8">
+            {/* Header skeleton */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="h-6 w-6 bg-gray-200 rounded"></div>
+              <div className="h-4 w-24 bg-gray-200 rounded"></div>
+            </div>
+
+            {/* Image gallery skeleton */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="h-96 bg-gray-200 rounded-lg"></div>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-20 bg-gray-200 rounded"></div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Booking form skeleton */}
+              <div className="space-y-6">
+                <div className="h-8 w-3/4 bg-gray-200 rounded"></div>
+                <div className="h-4 w-1/2 bg-gray-200 rounded"></div>
+                <div className="space-y-4">
+                  <div className="h-10 bg-gray-200 rounded"></div>
+                  <div className="h-10 bg-gray-200 rounded"></div>
+                  <div className="h-10 bg-gray-200 rounded"></div>
+                  <div className="h-12 bg-gray-200 rounded"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Content skeleton */}
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-4 bg-gray-200 rounded w-full"></div>
+              ))}
+            </div>
+          </div>
+
+          {/* Loading indicator with retry count */}
+          <div className="fixed bottom-8 right-8 bg-white p-4 rounded-lg shadow-lg border">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+              <div>
+                <p className="text-sm font-medium">상품 정보 로딩 중...</p>
+                {retryCount > 0 && (
+                  <p className="text-xs text-gray-500">재시도 {retryCount}/2</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // 아이템 ID가 없는 경우
+  // Enhanced error states
   if (!itemId) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl mb-4">상품 ID를 찾을 수 없습니다</h2>
-          <Button onClick={() => navigate('/')}>홈으로 돌아가기</Button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" role="main">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="h-10 w-10 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">상품을 찾을 수 없습니다</h2>
+          <p className="text-gray-600 mb-6">요청하신 상품 ID가 올바르지 않습니다.</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button onClick={() => navigate('/')} className="flex items-center gap-2">
+              <ExternalLink className="h-4 w-4" />
+              홈으로 돌아가기
+            </Button>
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              이전 페이지
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // 아이템이 없는 경우
-  if (!item) {
+  // Error state with retry option
+  if (error && !item) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl mb-4">상품을 찾을 수 없습니다</h2>
-          <Button onClick={() => navigate(-1)}>뒤로가기</Button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" role="main">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="h-10 w-10 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">오류가 발생했습니다</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button onClick={handleRetry} className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4" />
+              다시 시도
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/')}>
+              홈으로 돌아가기
+            </Button>
+          </div>
         </div>
       </div>
     );
+  }
+
+  // Ensure we have item data
+  if (!item) {
+    return null; // This shouldn't happen as we handle loading/error states above
   }
 
   const images = item.images || [getDefaultImage(item.category)];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate(-1)}
-          className="mb-6"
-        >
-          <ChevronLeft className="h-4 w-4 mr-2" />
-          뒤로가기
-        </Button>
+    <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="상품 상세 정보">
+      <div className="mobile-container py-4 md:py-6 lg:py-8">
+        {/* Enhanced Navigation */}
+        <nav className="flex items-center justify-between mb-6" aria-label="페이지 내비게이션">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(-1)}
+            className="min-h-[44px] flex items-center gap-2 hover:bg-gray-100 transition-colors"
+            aria-label="이전 페이지로 돌아가기"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            뒤로가기
+          </Button>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShare}
+              className="flex items-center gap-2"
+              aria-label="상품 공유"
+            >
+              <Share2 className="h-4 w-4" />
+              공유
+            </Button>
+            <Button
+              variant={isFavorite ? "default" : "outline"}
+              size="sm"
+              onClick={toggleFavorite}
+              className={`flex items-center gap-2 transition-colors ${
+                isFavorite ? 'bg-red-500 hover:bg-red-600 text-white' : 'hover:bg-red-50 hover:text-red-600'
+              }`}
+              aria-label={isFavorite ? '즐겨찾기에서 제거' : '즐겨찾기에 추가'}
+            >
+              <Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
+              {isFavorite ? '좀음' : '즐겨찾기'}
+            </Button>
+          </div>
+        </nav>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Image Gallery */}
-            <Card className="overflow-hidden">
-              <div className="relative">
+          <div className="lg:col-span-2 space-y-6 lg:space-y-8">
+            {/* Enhanced Image Gallery */}
+            <Card className="overflow-hidden group">
+              <div className="relative" ref={galleryRef}>
                 <ImageWithFallback
                   src={images[currentImageIndex]}
-                  alt={item.title}
-                  className="w-full h-96 object-cover"
+                  alt={`${item.title} - 이미지 ${currentImageIndex + 1}/${images.length}`}
+                  className="w-full h-64 md:h-80 lg:h-96 object-cover transition-transform duration-300 group-hover:scale-105"
+                  loading="eager"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+
+                {/* Image counter */}
+                <div className="absolute top-4 right-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-medium backdrop-blur-sm">
+                  {currentImageIndex + 1} / {images.length}
+                </div>
+
+                {/* Fullscreen button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowImageGallery(true)}
+                  className="absolute bottom-4 right-4 bg-black/60 text-white hover:bg-black/80 backdrop-blur-sm"
+                  aria-label="전체 화면으로 보기"
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  전체보기
+                </Button>
+
                 {/* Navigation buttons */}
                 {images.length > 1 && (
                   <>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white"
+                      className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg backdrop-blur-sm min-w-[44px] min-h-[44px] opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => setCurrentImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1)}
+                      aria-label="이전 이미지"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white"
+                      className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg backdrop-blur-sm min-w-[44px] min-h-[44px] opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => setCurrentImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1)}
+                      aria-label="다음 이미지"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </>
                 )}
 
-                {/* Badges */}
+                {/* Enhanced Badges */}
+                <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                  <Badge variant="secondary" className="bg-blue-600 text-white shadow-lg backdrop-blur-sm">
+                    {item.category}
+                  </Badge>
+                  {item.isPartner && (
+                    <Badge variant="secondary" className="bg-green-600 text-white shadow-lg backdrop-blur-sm flex items-center gap-1">
+                      <Shield className="h-3 w-3" />
+                      인증업체
+                    </Badge>
+                  )}
+                  {item.isSponsor && (
+                    <Badge variant="secondary" className="bg-yellow-600 text-white shadow-lg backdrop-blur-sm flex items-center gap-1">
+                      <Award className="h-3 w-3" />
+                      스폰서
+                    </Badge>
+                  )}
+                  {item.difficulty && (
+                    <Badge className={`shadow-lg backdrop-blur-sm ${getDifficultyColor(item.difficulty)}`}>
+                      {getDifficultyLabel(item.difficulty)}
+                    </Badge>
+                  )}
+                </div>
                 <div className="absolute top-4 left-4 flex gap-2">
                   {item.isPartner && (
                     <Badge className="bg-blue-500 text-white">
@@ -357,11 +838,11 @@ export function DetailPage() {
                 </div>
 
                 {/* Action buttons */}
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <Button size="icon" variant="ghost" className="bg-white/80 hover:bg-white">
+                <div className="absolute top-2 md:top-4 right-2 md:right-4 flex gap-2">
+                  <Button size="icon" variant="ghost" className="bg-white/80 hover:bg-white min-w-[40px] min-h-[40px] md:min-w-[36px] md:min-h-[36px] flex items-center justify-center">
                     <Heart className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="bg-white/80 hover:bg-white">
+                  <Button size="icon" variant="ghost" className="bg-white/80 hover:bg-white min-w-[40px] min-h-[40px] md:min-w-[36px] md:min-h-[36px] flex items-center justify-center">
                     <Share2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -369,10 +850,10 @@ export function DetailPage() {
                 {/* Image indicators */}
                 {images.length > 1 && (
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                    {images.map((_, index) => (
+                    {images.map((_image: string, index: number) => (
                       <button
                         key={index}
-                        className={`w-2 h-2 rounded-full transition-colors ${
+                        className={`w-3 h-3 md:w-2 md:h-2 rounded-full transition-colors min-w-[12px] min-h-[12px] ${
                           index === currentImageIndex ? 'bg-white' : 'bg-white/50'
                         }`}
                         onClick={() => setCurrentImageIndex(index)}
@@ -385,43 +866,43 @@ export function DetailPage() {
 
             {/* Title and basic info */}
             <div>
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h1 className="text-3xl mb-2">{item.title}</h1>
-                  <div className="flex items-center space-x-4 text-gray-600">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-4 space-y-4 md:space-y-0">
+                <div className="flex-1">
+                  <h1 className="text-xl md:text-2xl lg:text-3xl mb-2 font-semibold">{item.title}</h1>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 text-sm md:text-base text-gray-600">
                     <div className="flex items-center space-x-1">
-                      <MapPin className="h-4 w-4" />
+                      <MapPin className="h-4 w-4 flex-shrink-0" />
                       <span>{item.location}</span>
                     </div>
                     {item.duration && (
                       <div className="flex items-center space-x-1">
-                        <Clock className="h-4 w-4" />
+                        <Clock className="h-4 w-4 flex-shrink-0" />
                         <span>{item.duration}</span>
                       </div>
                     )}
                     <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
                       <span>{averageRating.toFixed(1)}</span>
                       <span className="text-gray-400">({reviews.length}개 리뷰)</span>
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm text-gray-500">부터</div>
-                  <div className="text-3xl text-blue-600">{(item.price || 0).toLocaleString()}원</div>
-                  <div className="text-sm text-gray-500">/ 1인</div>
+                <div className="text-left md:text-right flex-shrink-0">
+                  <div className="text-xs md:text-sm text-gray-500">부터</div>
+                  <div className="text-xl md:text-2xl lg:text-3xl text-blue-600 font-bold">{(item.price || 0).toLocaleString()}원</div>
+                  <div className="text-xs md:text-sm text-gray-500">/ 1인</div>
                 </div>
               </div>
             </div>
 
             {/* Tabs */}
             <Tabs defaultValue="description" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
-                <TabsTrigger value="description">소개</TabsTrigger>
-                <TabsTrigger value="details">포함/불포함</TabsTrigger>
-                <TabsTrigger value="location">위치</TabsTrigger>
-                <TabsTrigger value="policy">취소정책</TabsTrigger>
-                <TabsTrigger value="reviews">리뷰 ({reviews.length})</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1">
+                <TabsTrigger value="description" className="text-xs sm:text-sm">소개</TabsTrigger>
+                <TabsTrigger value="details" className="text-xs sm:text-sm">포함/불포함</TabsTrigger>
+                <TabsTrigger value="location" className="text-xs sm:text-sm">위치</TabsTrigger>
+                <TabsTrigger value="policy" className="text-xs sm:text-sm">정책</TabsTrigger>
+                <TabsTrigger value="reviews" className="text-xs sm:text-sm col-span-2 md:col-span-1">리뷰 ({reviews.length})</TabsTrigger>
               </TabsList>
               
               <TabsContent value="description" className="space-y-6">
@@ -456,8 +937,8 @@ export function DetailPage() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="details" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <TabsContent value="details" className="space-y-4 md:space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-green-600 flex items-center">
@@ -555,18 +1036,73 @@ export function DetailPage() {
                         <p className="text-gray-700">{item.location}</p>
                       </div>
                       
-                      {/* 구글 지도 */}
+                      {/* 향상된 구글 지도 */}
                       <div className="w-full">
-                        <div className="w-full h-[800px] bg-gray-200 rounded-lg overflow-hidden">
-                          <iframe
-                            src={`https://www.google.com/maps/embed/v1/place?key=${process.env.GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(item.location)}&zoom=15`}
-                            className="w-full h-full border-0"
-                            style={{ minWidth: '220%', transform: 'scale(0.45)', transformOrigin: 'top left' }}
-                            allowFullScreen
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                            title="위치 지도"
-                          />
+                        <div className="w-full h-[300px] md:h-[400px] lg:h-[500px] bg-gray-200 rounded-lg overflow-hidden relative">
+                          {getGoogleMapsApiKey() ? (
+                            <>
+                              <iframe
+                                src={`https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent(item.location + ' 신안군')}&zoom=14&maptype=roadmap&language=ko`}
+                                className="w-full h-full border-0"
+                                allowFullScreen
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                                title={`${item.title} 위치 지도`}
+                                onError={() => {
+                                  console.error('Google Maps iframe 로드 실패');
+                                }}
+                              />
+                              {/* 지도 오버레이 버튼들 */}
+                              <div className="absolute top-4 right-4 flex flex-col gap-2">
+                                <Button
+                                  size="sm"
+                                  className="bg-white/90 text-gray-700 hover:bg-white shadow-lg"
+                                  onClick={() => {
+                                    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location + ' 신안군')}`;
+                                    window.open(mapUrl, '_blank');
+                                  }}
+                                >
+                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  크게보기
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="bg-white/90 hover:bg-white shadow-lg"
+                                  onClick={() => {
+                                    const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.location + ' 신안군')}`;
+                                    window.open(directionsUrl, '_blank');
+                                  }}
+                                >
+                                  <MapPin className="h-3 w-3 mr-1" />
+                                  길찾기
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300">
+                              <div className="text-center p-6">
+                                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <h4 className="text-lg font-semibold text-gray-600 mb-2">지도를 로드할 수 없습니다</h4>
+                                <p className="text-sm text-gray-500 mb-4">
+                                  Google Maps API 키가 설정되지 않았습니다.
+                                </p>
+                                <div className="flex flex-col gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location + ' 신안군')}`;
+                                      window.open(mapUrl, '_blank');
+                                    }}
+                                  >
+                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                    Google Maps에서 보기
+                                  </Button>
+                                  <p className="text-xs text-gray-400">주소: {item.location}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                       
@@ -679,7 +1215,13 @@ export function DetailPage() {
                               {formatDate(new Date(review.date))}
                             </div>
                           </div>
-                          <Button variant="ghost" size="sm" className="text-gray-500">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-500 hover:text-blue-600"
+                            onClick={() => handleMarkHelpful(review.id)}
+                          >
+                            <ThumbsUp className="h-4 w-4 mr-1" />
                             도움됨 {review.helpful}
                           </Button>
                         </div>
@@ -723,7 +1265,7 @@ export function DetailPage() {
                         rows={4}
                       />
                     </div>
-                    <Button onClick={handleReviewSubmit} className="w-full">
+                    <Button onClick={handleReviewSubmit} className="w-full min-h-[44px]">
                       리뷰 등록
                     </Button>
                   </CardContent>
@@ -734,7 +1276,7 @@ export function DetailPage() {
 
           {/* Booking Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-8">
+            <div className="sticky top-4 lg:top-8">
               <Card>
                 <CardHeader>
                   <CardTitle>예약하기</CardTitle>
@@ -748,7 +1290,7 @@ export function DetailPage() {
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
-                              className="w-full justify-start text-left"
+                              className="w-full justify-start text-left min-h-[44px]"
                             >
                               <CalendarIcon className="mr-2 h-4 w-4" />
                               {selectedDate ? formatDate(selectedDate) : '날짜를 선택하세요'}
@@ -760,7 +1302,6 @@ export function DetailPage() {
                               selected={selectedDate}
                               onSelect={setSelectedDate}
                               disabled={(date) => date < new Date()}
-                              initialFocus
                             />
                           </PopoverContent>
                         </Popover>
@@ -768,41 +1309,35 @@ export function DetailPage() {
 
                       <div>
                         <label className="block text-sm mb-2">인원</label>
-                        <Select value={isCustomGuests ? 'custom' : guests.toString()} onValueChange={(value) => {
-                          if (value === 'custom') {
-                            setIsCustomGuests(true);
-                            setCustomGuestCount('');
-                          } else {
-                            setIsCustomGuests(false);
-                            setGuests(parseInt(value));
-                            setCustomGuestCount('');
-                          }
-                        }}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {/* 1-20명 개별 선택 */}
-                            {Array.from({length: 20}, (_, i) => i + 1).map(num => (
-                              <SelectItem key={num} value={num.toString()}>
-                                {num}명
-                              </SelectItem>
-                            ))}
-                            {/* 대규모 그룹 옵션 */}
-                            {[25, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 300, 500].map(num => (
-                              <SelectItem key={num} value={num.toString()}>
-                                {num}명
-                              </SelectItem>
-                            ))}
-                            {/* 직접 입력 옵션 */}
-                            <SelectItem value="custom">
-                              직접 입력 (500명 이상)
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center justify-between border rounded-md px-4 py-3 min-h-[44px]">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setGuests(Math.max(1, guests - 1))}
+                            disabled={guests <= 1}
+                            className="h-8 w-8 p-0"
+                          >
+                            -
+                          </Button>
+                          <span className="text-lg font-medium">{guests}명</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setGuests(Math.min(item?.maxCapacity || 100, guests + 1))}
+                            disabled={guests >= (item?.maxCapacity || 100)}
+                            className="h-8 w-8 p-0"
+                          >
+                            +
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          최대 {item?.maxCapacity || 100}명
+                        </p>
 
-                        {/* 커스텀 인원 입력 */}
-                        {isCustomGuests && (
+                        {/* 커스텀 인원 입력 (삭제) */}
+                        {false && isCustomGuests && (
                           <div className="mt-2">
                             <Input
                               type="number"
@@ -817,7 +1352,7 @@ export function DetailPage() {
                                   setGuests(parseInt(value));
                                 }
                               }}
-                              className="w-full"
+                              className="w-full min-h-[44px]"
                             />
                             <p className="text-xs text-gray-500 mt-1">
                               대규모 단체의 경우 별도 문의 바랍니다 (최대 10,000명)
@@ -840,7 +1375,7 @@ export function DetailPage() {
                       {/* 장바구니 추가 버튼 */}
                       <Button
                         variant="outline"
-                        className="w-full"
+                        className="w-full min-h-[48px] text-sm md:text-base"
                         size="lg"
                         onClick={() => {
                           if (!isLoggedIn) {
@@ -854,6 +1389,7 @@ export function DetailPage() {
                             title: item.title,
                             category: item.category || '여행',
                             price: item.price,
+                            quantity: 1,
                             image: images[0],
                             location: item.location
                           };
@@ -866,7 +1402,7 @@ export function DetailPage() {
                       </Button>
 
                       <Button
-                        className="w-full"
+                        className="w-full min-h-[48px] text-sm md:text-base"
                         size="lg"
                         onClick={() => {
                           if (!isLoggedIn) {
@@ -890,6 +1426,7 @@ export function DetailPage() {
                             value={bookingData.name}
                             onChange={(e) => setBookingData(prev => ({ ...prev, name: e.target.value }))}
                             placeholder="이름을 입력하세요"
+                            className="min-h-[44px]"
                           />
                         </div>
                         <div>
@@ -898,6 +1435,7 @@ export function DetailPage() {
                             value={bookingData.phone}
                             onChange={(e) => setBookingData(prev => ({ ...prev, phone: e.target.value }))}
                             placeholder="연락처를 입력하세요"
+                            className="min-h-[44px]"
                           />
                         </div>
                         <div>
@@ -907,6 +1445,7 @@ export function DetailPage() {
                             value={bookingData.email}
                             onChange={(e) => setBookingData(prev => ({ ...prev, email: e.target.value }))}
                             placeholder="이메일을 입력하세요"
+                            className="min-h-[44px]"
                           />
                         </div>
                         <div>
@@ -929,16 +1468,16 @@ export function DetailPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Button 
-                          className="w-full" 
+                        <Button
+                          className="w-full min-h-[48px] text-sm md:text-base"
                           size="lg"
                           onClick={handleBooking}
                         >
                           예약 확정
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          className="w-full"
+                        <Button
+                          variant="outline"
+                          className="w-full min-h-[48px] text-sm md:text-base"
                           onClick={() => setShowBookingForm(false)}
                         >
                           뒤로가기

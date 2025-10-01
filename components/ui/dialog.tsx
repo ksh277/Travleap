@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 // Dialog Context
 interface DialogContextType {
@@ -30,7 +31,6 @@ export const Dialog: React.FC<{
   const isOpen = isControlled ? controlledOpen : internalOpen;
   
   const handleOpenChange = (newOpen: boolean) => {
-    console.log('Dialog handleOpenChange:', newOpen);
     if (!isControlled) {
       setInternalOpen(newOpen);
     }
@@ -52,7 +52,6 @@ export const DialogTrigger: React.FC<{
   const { onOpenChange } = useDialog();
 
   const handleClick = (e: React.MouseEvent) => {
-    console.log('DialogTrigger 클릭됨');
     e.preventDefault();
     e.stopPropagation();
     onOpenChange(true);
@@ -78,12 +77,8 @@ export const DialogContent: React.FC<{
 }> = ({ children, className = '' }) => {
   const { isOpen, onOpenChange } = useDialog();
 
-  useEffect(() => {
-    console.log('DialogContent isOpen:', isOpen);
-  }, [isOpen]);
 
   if (!isOpen) {
-    console.log('DialogContent: Dialog가 열려있지 않음');
     return null;
   }
 
@@ -110,12 +105,12 @@ export const DialogContent: React.FC<{
     }
   }, [isOpen]);
 
-  return (
+  const dialogContent = (
     <div
       style={{
         position: 'fixed',
         inset: '0',
-        zIndex: '999998',
+        zIndex: '9999999',
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         display: 'flex',
         alignItems: 'center',
@@ -143,6 +138,13 @@ export const DialogContent: React.FC<{
       </div>
     </div>
   );
+
+  // Portal로 body에 렌더링
+  if (typeof document !== 'undefined') {
+    return createPortal(dialogContent, document.body);
+  }
+
+  return dialogContent;
 };
 
 // Dialog Header
@@ -201,7 +203,6 @@ export const DialogClose: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <button
       onClick={() => {
-        console.log('DialogClose 버튼 클릭됨');
         onOpenChange(false);
       }}
     >

@@ -18,12 +18,12 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
-import { useAuthStore } from '../hooks/useAuthStore';
+import { useAuth } from '../hooks/useAuth';
 
 export function PaymentPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isLoggedIn } = useAuthStore();
+  const { user, isLoggedIn } = useAuth();
 
   const bookingId = searchParams.get('bookingId');
   const amount = searchParams.get('amount');

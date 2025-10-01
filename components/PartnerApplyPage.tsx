@@ -62,6 +62,7 @@ export function PartnerApplyPage() {
     { id: 'rentcar', name: '렌트카', icon: '🚗' },
     { id: 'food', name: '음식', icon: '🍽️' },
     { id: 'attraction', name: '관광지', icon: '📷' },
+    { id: 'experience', name: '체험', icon: '🎨' },
     { id: 'popup', name: '팝업', icon: '🎪' },
     { id: 'event', name: '행사', icon: '📅' }
   ];

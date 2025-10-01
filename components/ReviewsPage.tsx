@@ -185,17 +185,25 @@ export function ReviewsPage() {
             reviewsToShow = allReviews.filter(review => review.listing_id === listingId);
           }
         } else {
-          // API 데이터가 없으면 빈 배열
-          reviewsToShow = [];
+          // API 데이터가 없으면 fallback 데이터 사용
+          console.log('⚠️ API 데이터 없음, fallback 데이터 사용');
+          reviewsToShow = mockReviews;
+
+          if (listingId) {
+            reviewsToShow = mockReviews.filter(review => review.listing_id === listingId);
+          }
         }
 
         setReviews(reviewsToShow);
         setFilteredReviews(reviewsToShow);
       } catch (error) {
         console.error('Failed to load reviews:', error);
-        // 에러 시 빈 배열
-        setReviews([]);
-        setFilteredReviews([]);
+        // 에러 시 fallback 데이터 사용
+        const fallbackData = listingId
+          ? mockReviews.filter(review => review.listing_id === listingId)
+          : mockReviews;
+        setReviews(fallbackData);
+        setFilteredReviews(fallbackData);
       } finally {
         setLoading(false);
       }

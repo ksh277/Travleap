@@ -4,7 +4,8 @@ import { Card, CardContent } from './ui/card';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { CheckCircle } from 'lucide-react';
-import { db } from '../utils/database';
+import { api } from '../utils/api';
+import { toast } from 'sonner';
 
 interface ContactPageProps {
   onBack: () => void;
@@ -20,33 +21,32 @@ export function ContactPage({ onBack }: ContactPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate required fields
     if (!contactData.name || !contactData.email || !contactData.message) {
-      alert('필수 항목을 모두 입력해주세요.');
+      toast.error('필수 항목을 모두 입력해주세요.');
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(contactData.email)) {
+      toast.error('올바른 이메일 형식이 아닙니다.');
       return;
     }
 
     try {
-      // DB에 문의 저장
-      const contactSubmission = {
-        name: contactData.name,
-        email: contactData.email,
-        message: contactData.message,
-        status: 'new'
-      };
+      const result = await api.createContactSubmission(contactData);
 
-      const result = await db.insert('contact_submissions', contactSubmission);
-
-      if (result) {
+      if (result.success) {
         setIsSubmitted(true);
+        toast.success('문의가 성공적으로 접수되었습니다!');
       } else {
-        alert('문의 등록 중 오류가 발생했습니다.');
+        toast.error(result.error || '문의 등록 중 오류가 발생했습니다.');
       }
     } catch (error) {
       console.error('Error submitting contact:', error);
-      // 오류 시에도 성공으로 처리 (사용자 경험 개선)
-      setIsSubmitted(true);
+      toast.error('문의 접수 중 오류가 발생했습니다. 나중에 다시 시도해주세요.');
     }
   };
 

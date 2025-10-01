@@ -4,59 +4,33 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
-import { authService } from '../utils/auth';
-import { useAuthStore } from '../hooks/useAuthStore';
+import { useAuth } from '../hooks/useAuth';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuthStore();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-      // 기본 유효성 검사
-      if (!email || !password) {
-        toast.error('이메일과 비밀번호를 입력해주세요.');
-        setIsLoading(false);
-        return;
-      }
+    console.log('🔑 로그인 시도:', email);
 
-      if (!authService.validateEmail(email)) {
-        toast.error('올바른 이메일 형식을 입력해주세요.');
-        setIsLoading(false);
-        return;
-      }
+    const result = login(email, password);
 
-      // useAuthStore를 통한 로그인 처리
-      const result = await login({ email, password });
-
-      if (result.success) {
-        // 사용자 역할에 따른 메시지 출력
-        if (result.isAdmin) {
-          toast.success('관리자로 로그인되었습니다.');
-          // 상태 업데이트 완료까지 기다린 후 네비게이션
-          setTimeout(() => {
-            navigate('/admin', { replace: true });
-          }, 200);
-        } else {
-          toast.success('로그인되었습니다!');
-          // 상태 업데이트 완료까지 기다린 후 네비게이션
-          setTimeout(() => {
-            navigate('/', { replace: true });
-          }, 200);
-        }
+    if (result) {
+      toast.success('로그인 성공!');
+      if (email === 'admin@shinan.com') {
+        navigate('/admin', { replace: true });
       } else {
-        toast.error(result.message || '로그인에 실패했습니다.');
+        navigate('/', { replace: true });
       }
-    } catch (error) {
-      console.error('Login error:', error);
-      toast.error('로그인 중 오류가 발생했습니다.');
+    } else {
+      toast.error('로그인 실패');
     }
 
     setIsLoading(false);

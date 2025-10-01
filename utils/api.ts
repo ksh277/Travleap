@@ -1,5 +1,7 @@
+import { getApiBaseUrl } from './env';
 import { db } from './database';
-import { authService } from './auth';
+import { notifyDataChange } from '../hooks/useRealTimeData';
+// 인증 서비스 제거됨
 import type {
   Listing,
   ListingWithDetails,
@@ -42,6 +44,8 @@ export interface TravelItem {
   category_id: number;
   price_from?: number;
   price_to?: number;
+  original_price?: number;
+  discount_rate?: number;
   images?: string[];
   location?: string;
   rating_avg: number;
@@ -55,7 +59,17 @@ export interface TravelItem {
   features?: string[];
   included_items?: string[];
   excluded_items?: string[];
+  included?: string[];
+  excluded?: string[];
   policies?: string[];
+  cancellation_policy?: string;
+  refund_policy?: string;
+  weather_policy?: string;
+  amenities?: string[];
+  tags?: string[];
+  difficulty?: string;
+  language?: string;
+  min_age?: number;
   partner?: {
     business_name: string;
     tier: string;
@@ -73,11 +87,22 @@ export interface BookingRequest {
   num_seniors: number;
   customer_info?: any;
   special_requests?: string;
+  // DetailPage에서 사용하는 추가 필드들
+  guest_name?: string;
+  guest_phone?: string;
+  guest_email?: string;
+  booking_date?: string;
+  guest_count?: number;
+  total_amount?: number;
+  emergency_contact?: string;
+  dietary_restrictions?: string;
+  special_needs?: string;
 }
 
 export interface SearchFilters {
   category?: string;
   location?: string;
+  search?: string;
   minPrice?: number;
   maxPrice?: number;
   rating?: number;
@@ -87,92 +112,57 @@ export interface SearchFilters {
   sortBy?: 'price' | 'rating' | 'newest' | 'popular';
   page?: number;
   limit?: number;
+  verifiedOnly?: boolean;
 }
 
-// 더미 데이터를 위한 카테고리 매핑
-const categoryMapping: Record<string, number> = {
-  'tour': 1,
-  'stay': 2,
-  'food': 3,
-  'attraction': 4,
-  'event': 5,
-  'rentcar': 6,
-  'experience': 1
-};
+// 확장된 리뷰 인터페이스 (UI에서 사용)
+export interface ExtendedReview extends Review {
+  user_name?: string;
+  images?: string[];
+  content?: string;
+  is_visible?: boolean;
+}
 
-const mockTravelItems: TravelItem[] = [
-  {
-    id: 1,
-    title: '신안 천일염 체험',
-    description_md: '# 신안 천일염 체험\n\n전통적인 천일염 제조 과정을 직접 체험해보세요. 갯벌에서 직접 소금을 수확하고, 천일염이 만들어지는 과정을 배울 수 있습니다.',
-    short_description: '전통적인 천일염 제조 과정을 직접 체험해보세요',
-    category: 'tour',
-    category_id: 1,
-    price_from: 25000,
-    images: ['https://via.placeholder.com/400x300'],
-    location: '신안군 증도면',
-    rating_avg: 4.8,
-    rating_count: 24,
-    duration: '2시간',
-    max_capacity: 20,
-    partner: {
-      business_name: '신안 여행사',
-      tier: 'gold',
-      is_verified: true
-    },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 2,
-    title: '증도 슬로시티 투어',
-    description_md: '# 증도 슬로시티 투어\n\n유네스코 생물권보전지역 증도의 아름다운 자연을 만나보세요. 염전, 갯벌, 해변을 천천히 둘러보며 여유로운 시간을 보낼 수 있습니다.',
-    short_description: '유네스코 생물권보전지역 증도의 아름다운 자연을 만나보세요',
-    category: 'tour',
-    category_id: 1,
-    price_from: 35000,
-    images: ['https://via.placeholder.com/400x300'],
-    location: '신안군 증도면',
-    rating_avg: 4.6,
-    rating_count: 18,
-    duration: '4시간',
-    max_capacity: 15,
-    partner: {
-      business_name: '신안 여행사',
-      tier: 'gold',
-      is_verified: true
-    },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  },
-  {
-    id: 3,
-    title: '신안 펜션 바다뷰',
-    description_md: '# 신안 펜션 바다뷰\n\n바다가 한눈에 보이는 아늑한 펜션에서 힐링하세요. 깨끗한 시설과 아름다운 바다 전망이 여러분을 기다립니다.',
-    short_description: '바다가 한눈에 보이는 아늑한 펜션에서 힐링하세요',
-    category: 'stay',
-    category_id: 2,
-    price_from: 120000,
-    images: ['https://via.placeholder.com/400x300'],
-    location: '신안군 자은도',
-    rating_avg: 4.7,
-    rating_count: 12,
-    duration: '1박',
-    max_capacity: 6,
-    partner: {
-      business_name: '신안 여행사',
-      tier: 'gold',
-      is_verified: true
-    },
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
-];
 
 // API 호출에 JWT 토큰 추가하는 헬퍼
 const getAuthHeaders = () => {
-  const token = authService.getAccessToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  try {
+    // 쿠키에서 토큰 가져오기
+    if (typeof document !== 'undefined') {
+      const tokenFromCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+
+      if (tokenFromCookie) {
+        return {
+          'Authorization': `Bearer ${tokenFromCookie}`,
+          'Content-Type': 'application/json'
+        };
+      }
+    }
+
+    // 로컬스토리지에서 토큰 가져오기 (백업)
+    if (typeof localStorage !== 'undefined') {
+      const tokenFromStorage = localStorage.getItem('auth_token');
+      if (tokenFromStorage) {
+        const token = JSON.parse(tokenFromStorage);
+        return {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+      }
+    }
+
+    return {
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('인증 헤더 생성 오류:', error);
+    return {
+      'Content-Type': 'application/json'
+    };
+  }
 };
 
 // 인증이 필요한 API 호출
@@ -180,16 +170,7 @@ const authenticatedRequest = async <T>(
   operation: () => Promise<ApiResponse<T>>,
   requireAuth: boolean = true
 ): Promise<ApiResponse<T>> => {
-  if (requireAuth) {
-    const isExpired = await authService.isTokenExpired();
-    if (isExpired) {
-      return {
-        success: false,
-        error: 'Authentication required. Please login again.',
-        data: null
-      };
-    }
-  }
+  // 인증 체크 제거됨
 
   try {
     return await operation();
@@ -208,42 +189,32 @@ export const api = {
   getCategories: async (): Promise<Category[]> => {
     try {
       const response = await db.select('categories');
-      return response.data || [];
+      return response || [];
     } catch (error) {
       console.error('Failed to fetch categories:', error);
-      return [
-        { id: 1, slug: 'tour', name_ko: '투어/체험', name_en: 'Tours & Experiences', icon: 'map', color_hex: '#FF6B6B', sort_order: 1, is_active: true },
-        { id: 2, slug: 'stay', name_ko: '숙박', name_en: 'Accommodation', icon: 'bed', color_hex: '#4ECDC4', sort_order: 2, is_active: true },
-        { id: 3, slug: 'food', name_ko: '맛집', name_en: 'Restaurants', icon: 'utensils', color_hex: '#45B7D1', sort_order: 3, is_active: true },
-        { id: 4, slug: 'attraction', name_ko: '관광지', name_en: 'Attractions', icon: 'camera', color_hex: '#96CEB4', sort_order: 4, is_active: true },
-        { id: 5, slug: 'event', name_ko: '축제/이벤트', name_en: 'Events & Festivals', icon: 'calendar', color_hex: '#FECA57', sort_order: 5, is_active: true },
-        { id: 6, slug: 'rentcar', name_ko: '렌터카', name_en: 'Car Rental', icon: 'car', color_hex: '#6C5CE7', sort_order: 6, is_active: true }
-      ];
+      return [];
     }
   },
 
   // 리스팅 관리
   getListings: async (filters?: SearchFilters): Promise<PaginatedResponse<TravelItem>> => {
     try {
+      // 직접 DB에서 가져오기
       let sql = `
-        SELECT l.*, c.name_ko as category_name, p.business_name, p.tier, p.is_verified
+        SELECT l.*, c.slug as category_slug, c.name_ko as category_name
         FROM listings l
         LEFT JOIN categories c ON l.category_id = c.id
-        LEFT JOIN partners p ON l.partner_id = p.id
-        WHERE l.is_published = true
+        WHERE l.is_published = 1
       `;
       const params: any[] = [];
 
+      // 카테고리 필터
       if (filters?.category && filters.category !== 'all') {
         sql += ' AND c.slug = ?';
         params.push(filters.category);
       }
 
-      if (filters?.location) {
-        sql += ' AND l.location LIKE ?';
-        params.push(`%${filters.location}%`);
-      }
-
+      // 가격 필터
       if (filters?.minPrice) {
         sql += ' AND l.price_from >= ?';
         params.push(filters.minPrice);
@@ -254,9 +225,17 @@ export const api = {
         params.push(filters.maxPrice);
       }
 
+      // 평점 필터
       if (filters?.rating) {
         sql += ' AND l.rating_avg >= ?';
         params.push(filters.rating);
+      }
+
+      // 검색어
+      if (filters?.search) {
+        sql += ' AND (l.title LIKE ? OR l.short_description LIKE ? OR l.location LIKE ?)';
+        const searchTerm = `%${filters.search}%`;
+        params.push(searchTerm, searchTerm, searchTerm);
       }
 
       // 정렬
@@ -271,44 +250,56 @@ export const api = {
           sql += ' ORDER BY l.created_at DESC';
           break;
         case 'popular':
-          sql += ' ORDER BY l.booking_count DESC, l.rating_avg DESC';
-          break;
         default:
-          sql += ' ORDER BY l.featured_score DESC, l.rating_avg DESC';
+          sql += ' ORDER BY l.view_count DESC, l.booking_count DESC';
+          break;
       }
 
+      // 페이징
       const page = filters?.page || 1;
       const limit = filters?.limit || 20;
       const offset = (page - 1) * limit;
       sql += ` LIMIT ${limit} OFFSET ${offset}`;
 
-      const response = await db.query(sql, params);
-      const items = response.data || mockTravelItems;
+      console.log('📡 Executing SQL:', sql, params);
 
-      // 변환
-      const travelItems: TravelItem[] = items.map((item: any) => ({
+      const response = await db.query(sql, params);
+      const listings = response || [];
+
+      // TravelItem 형식으로 변환
+      const travelItems: TravelItem[] = listings.map((item: any) => ({
         id: item.id,
         title: item.title,
         description_md: item.description_md,
         short_description: item.short_description,
-        category: item.category_name || item.category,
+        category: item.category_slug || item.category,
         category_id: item.category_id,
         price_from: item.price_from,
         price_to: item.price_to,
-        images: item.images ? JSON.parse(item.images) : ['https://via.placeholder.com/400x300'],
-        location: item.location,
-        rating_avg: item.rating_avg || 0,
+        images: (() => {
+          try {
+            if (typeof item.images === 'string') {
+              return JSON.parse(item.images);
+            } else if (Array.isArray(item.images)) {
+              return item.images;
+            }
+            return ['https://via.placeholder.com/400x300'];
+          } catch (e) {
+            return ['https://via.placeholder.com/400x300'];
+          }
+        })(),
+        location: item.location || '전라남도 신안군',
+        rating_avg: Number(item.rating_avg) || 0,
         rating_count: item.rating_count || 0,
         duration: item.duration,
         max_capacity: item.max_capacity,
-        partner: item.business_name ? {
-          business_name: item.business_name,
-          tier: item.tier,
-          is_verified: item.is_verified
-        } : undefined,
+        is_active: Boolean(item.is_published),
+        is_featured: Boolean(item.is_featured),
         created_at: item.created_at,
         updated_at: item.updated_at
       }));
+
+      console.log(`✅ Fetched ${travelItems.length} listings from DB`);
 
       return {
         success: true,
@@ -321,15 +312,15 @@ export const api = {
         }
       };
     } catch (error) {
-      console.error('Failed to fetch listings:', error);
+      console.error('❌ Failed to fetch listings:', error);
       return {
-        success: true,
-        data: mockTravelItems,
+        success: false,
+        data: [],
         pagination: {
           page: 1,
           limit: 20,
-          total: mockTravelItems.length,
-          total_pages: 1
+          total: 0,
+          total_pages: 0
         }
       };
     }
@@ -338,10 +329,10 @@ export const api = {
   getListing: async (id: number): Promise<TravelItem | null> => {
     try {
       const response = await db.select('listings', { id });
-      const listing = response.data?.[0];
+      const listing = response?.[0];
 
       if (!listing) {
-        return mockTravelItems.find(item => item.id === id) || null;
+        return null;
       }
 
       return {
@@ -353,7 +344,16 @@ export const api = {
         category_id: listing.category_id,
         price_from: listing.price_from,
         price_to: listing.price_to,
-        images: listing.images ? JSON.parse(listing.images) : ['https://via.placeholder.com/400x300'],
+        images: (() => {
+          try {
+            return listing.images && typeof listing.images === 'string'
+              ? JSON.parse(listing.images)
+              : (Array.isArray(listing.images) ? listing.images : ['https://via.placeholder.com/400x300']);
+          } catch (e) {
+            console.warn('Invalid JSON in images field:', listing.images);
+            return ['https://via.placeholder.com/400x300'];
+          }
+        })(),
         location: listing.location,
         rating_avg: listing.rating_avg || 0,
         rating_count: listing.rating_count || 0,
@@ -364,7 +364,7 @@ export const api = {
       };
     } catch (error) {
       console.error('Failed to fetch listing:', error);
-      return mockTravelItems.find(item => item.id === id) || null;
+      return null;
     }
   },
 
@@ -381,8 +381,8 @@ export const api = {
 
       const response = await db.insert('bookings', booking);
       // 생성된 예약에 필요한 필드들 추가
-      const createdBooking: Booking = (response.data && typeof response.data === 'object' && 'booking_number' in response.data)
-        ? response.data as Booking
+      const createdBooking: Booking = (response && typeof response === 'object' && 'booking_number' in response)
+        ? response as Booking
         : {
             ...booking,
             id: Date.now(),
@@ -429,7 +429,7 @@ export const api = {
 
       return {
         success: true,
-        data: cancelledBooking.data[0],
+        data: cancelledBooking[0],
         message: '예약이 성공적으로 취소되었습니다.'
       };
     } catch (error) {
@@ -501,7 +501,16 @@ export const api = {
   // 현재 사용자 정보 가져오기
   getCurrentUser: async (): Promise<User | null> => {
     try {
-      return await authService.getCurrentUser();
+      // 간단한 인증으로 변경됨 - 관리자 사용자 반환
+      return {
+        id: 1,
+        email: 'admin@shinan.com',
+        name: '관리자',
+        role: 'admin',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
     } catch (error) {
       console.error('Failed to get current user:', error);
       return null;
@@ -512,7 +521,31 @@ export const api = {
   getUserById: async (id: number): Promise<User | null> => {
     try {
       const response = await db.select('users', { id });
-      return response.data?.[0] || null;
+
+      if (response && response.length > 0) {
+        return response[0];
+      }
+
+      // DB에서 찾지 못한 경우 관리자 계정인지 확인
+      if (id === 1) {
+        return {
+          id: 1,
+          user_id: 'admin_shinan',
+          email: 'admin@shinan.com',
+          name: '관리자',
+          role: 'admin',
+          phone: '010-0000-0000',
+          password_hash: 'hashed_admin123',
+          is_active: true,
+          preferred_language: 'ko',
+          preferred_currency: 'KRW',
+          marketing_consent: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as User;
+      }
+
+      return null;
     } catch (error) {
       console.error('Failed to get user by ID:', error);
       return null;
@@ -543,7 +576,69 @@ export const api = {
     }
   },
 
-  // 리뷰 생성
+  // 문의 제출
+  createContactSubmission: async (contactData: {
+    name: string;
+    email: string;
+    message: string;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const submission = {
+        ...contactData,
+        status: 'new',
+        created_at: new Date().toISOString()
+      };
+
+      const response = await db.insert('contact_submissions', submission);
+      return {
+        success: true,
+        data: response,
+        message: '문의가 성공적으로 접수되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to submit contact:', error);
+      return {
+        success: false,
+        error: '문의 접수에 실패했습니다.'
+      };
+    }
+  },
+
+  // 특정 listing의 평점 재계산 및 업데이트
+  updateListingRating: async (listingId: number): Promise<void> => {
+    try {
+      // 해당 listing의 모든 리뷰 가져오기
+      const reviews = await db.query(
+        'SELECT rating FROM reviews WHERE listing_id = ? AND is_verified = 1',
+        [listingId]
+      );
+
+      if (reviews && reviews.length > 0) {
+        const totalRating = reviews.reduce((sum: number, review: any) => sum + review.rating, 0);
+        const avgRating = totalRating / reviews.length;
+        const count = reviews.length;
+
+        // listing 업데이트
+        await db.update('listings', listingId, {
+          rating_avg: Number(avgRating.toFixed(1)),
+          rating_count: count
+        });
+
+        console.log(`✅ Updated rating for listing ${listingId}: ${avgRating.toFixed(1)} (${count} reviews)`);
+      } else {
+        // 리뷰가 없으면 0으로 설정
+        await db.update('listings', listingId, {
+          rating_avg: 0,
+          rating_count: 0
+        });
+        console.log(`✅ Reset rating for listing ${listingId} (no reviews)`);
+      }
+    } catch (error) {
+      console.error('Failed to update listing rating:', error);
+    }
+  },
+
+  // 리뷰 생성 (자동 승인)
   createReview: async (reviewData: {
     listing_id: number;
     user_id: number;
@@ -556,14 +651,18 @@ export const api = {
       const review = {
         ...reviewData,
         images: JSON.stringify(reviewData.images || []),
-        is_verified: false,
+        is_verified: true, // 자동 승인
         helpful_count: 0,
         response_from_partner: null
       };
       const response = await db.insert('reviews', review);
+
+      // 평점 자동 업데이트
+      await api.updateListingRating(reviewData.listing_id);
+
       // 생성된 리뷰에 필요한 필드들 추가
-      const createdReview: Review = (response.data && typeof response.data === 'object' && 'listing_id' in response.data)
-        ? response.data as Review
+      const createdReview: Review = (response && typeof response === 'object' && 'listing_id' in response)
+        ? response as Review
         : {
             ...review,
             id: Date.now(),
@@ -588,7 +687,7 @@ export const api = {
     try {
       const query = userId ? { user_id: userId } : undefined;
       const response = await db.select('bookings', query);
-      return response.data || [];
+      return response || [];
     } catch (error) {
       console.error('Failed to fetch bookings:', error);
       return [];
@@ -599,7 +698,7 @@ export const api = {
   getUsers: async (): Promise<User[]> => {
     try {
       const response = await db.select('users');
-      return response.data || [];
+      return response || [];
     } catch (error) {
       console.error('Failed to fetch users:', error);
       return [];
@@ -609,7 +708,31 @@ export const api = {
   getUserByEmail: async (email: string): Promise<User | null> => {
     try {
       const response = await db.select('users', { email });
-      return response.data?.[0] || null;
+
+      if (response && response.length > 0) {
+        return response[0];
+      }
+
+      // DB에서 찾지 못한 경우 관리자 계정인지 확인
+      if (email === 'admin@shinan.com') {
+        return {
+          id: 1,
+          user_id: 'admin_shinan',
+          email: 'admin@shinan.com',
+          name: '관리자',
+          role: 'admin',
+          phone: '010-0000-0000',
+          password_hash: 'hashed_admin123',
+          is_active: true,
+          preferred_language: 'ko',
+          preferred_currency: 'KRW',
+          marketing_consent: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as User;
+      }
+
+      return null;
     } catch (error) {
       console.error('Failed to fetch user by email:', error);
       return null;
@@ -628,8 +751,8 @@ export const api = {
 
       const response = await db.insert('users', user);
       // 생성된 사용자에 필요한 필드들 추가
-      const createdUser: User = (response.data && typeof response.data === 'object' && 'user_id' in response.data)
-        ? response.data as User
+      const createdUser: User = (response && typeof response === 'object' && 'user_id' in response)
+        ? response as User
         : {
             ...user,
             id: Date.now(),
@@ -660,8 +783,8 @@ export const api = {
 
       const response = await db.insert('partner_applications', application);
       // 생성된 파트너 신청에 필요한 필드들 추가
-      const createdApplication: PartnerApplication = (response.data && typeof response.data === 'object' && 'business_name' in response.data)
-        ? response.data as PartnerApplication
+      const createdApplication: PartnerApplication = (response && typeof response === 'object' && 'business_name' in response)
+        ? response as PartnerApplication
         : {
             ...application,
             id: Date.now(),
@@ -682,6 +805,69 @@ export const api = {
     }
   },
 
+  // 파트너 조회 (일반 API)
+  getPartners: async (): Promise<ApiResponse<Partner[]>> => {
+    try {
+      console.log('📡 Fetching partners from DB...');
+
+      // 직접 DB에서 파트너 조회 (승인된 파트너만)
+      const partners = await db.query(`
+        SELECT
+          p.id,
+          p.business_name,
+          p.contact_name,
+          p.email,
+          p.phone,
+          p.business_number,
+          p.website,
+          p.instagram,
+          p.description,
+          p.services,
+          p.tier,
+          p.is_verified,
+          p.is_featured,
+          p.status,
+          p.lat,
+          p.lng,
+          p.created_at,
+          p.updated_at
+        FROM partners p
+        WHERE p.status = 'approved'
+        ORDER BY p.is_featured DESC, p.tier DESC, p.created_at DESC
+      `);
+
+      console.log(`✅ Partners 데이터 로드 성공: ${partners.length}개`);
+
+      return {
+        success: true,
+        data: partners || []
+      };
+    } catch (error) {
+      console.error('🔥 getPartners 오류:', error);
+      return {
+        success: false,
+        error: '파트너 조회에 실패했습니다.',
+        data: []
+      };
+    }
+  },
+
+  // 카테고리별 리스팅 조회
+  getListingsByCategory: async (categorySlug: string, limit: number = 8): Promise<TravelItem[]> => {
+    try {
+      const filters: SearchFilters = {
+        category: categorySlug,
+        limit,
+        sortBy: 'popular'
+      };
+      const response = await api.getListings(filters);
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to fetch listings by category:', error);
+      return [];
+    }
+  },
+
   // 검색
   searchListings: async (query: string, filters?: SearchFilters): Promise<TravelItem[]> => {
     try {
@@ -690,14 +876,26 @@ export const api = {
         FROM listings l
         LEFT JOIN categories c ON l.category_id = c.id
         LEFT JOIN partners p ON l.partner_id = p.id
-        WHERE l.is_published = true
-        AND (l.title LIKE ? OR l.description_md LIKE ? OR l.location LIKE ?)
+        WHERE (l.title LIKE ? OR l.description_md LIKE ? OR l.location LIKE ?)
       `;
       const params = [`%${query}%`, `%${query}%`, `%${query}%`];
 
       if (filters?.category && filters.category !== 'all') {
-        sql += ' AND c.slug = ?';
-        params.push(filters.category);
+        // 영문 → 한글 카테고리 매핑 (DB에는 한글로 저장됨)
+        const englishToKorean: { [key: string]: string } = {
+          'tour': '여행',
+          'stay': '숙박',
+          'food': '음식',
+          'rentcar': '렌트카',
+          'tourist': '관광지',
+          'popup': '팝업',
+          'event': '행사',
+          'experience': '체험'
+        };
+
+        const categoryForDB = englishToKorean[filters.category] || filters.category;
+        sql += ' AND l.category = ?';
+        params.push(categoryForDB);
       }
 
       // 날짜 기간 필터링 추가
@@ -714,23 +912,12 @@ export const api = {
       sql += ' ORDER BY l.rating_avg DESC, l.created_at DESC';
 
       const response = await db.query(sql, params);
-      const items = response.data || [];
+      const items = response || [];
 
-      // Mock 데이터에서도 검색
-      const mockResults = mockTravelItems.filter(item =>
-        item.title.includes(query) ||
-        item.short_description?.includes(query) ||
-        item.location?.includes(query)
-      );
-
-      return [...items, ...mockResults];
+      return items;
     } catch (error) {
       console.error('Failed to search listings:', error);
-      return mockTravelItems.filter(item =>
-        item.title.includes(query) ||
-        item.short_description?.includes(query) ||
-        item.location?.includes(query)
-      );
+      return [];
     }
   },
 
@@ -738,7 +925,7 @@ export const api = {
   getReviews: async (listingId: number): Promise<Review[]> => {
     try {
       const response = await db.select('reviews', { listing_id: listingId });
-      return response.data || [];
+      return response || [];
     } catch (error) {
       console.error('Failed to fetch reviews:', error);
       return [];
@@ -755,13 +942,13 @@ export const api = {
         FROM reviews r
         LEFT JOIN listings l ON r.listing_id = l.id
         LEFT JOIN users u ON r.user_id = u.id
-        WHERE r.is_visible = 1
+        WHERE r.is_verified = 1
         ORDER BY r.created_at DESC
         LIMIT ${limit}
       `);
 
-      if (response.data && response.data.length > 0) {
-        return response.data.map((review: any) => ({
+      if (response && response.length > 0) {
+        return response.map((review: any) => ({
           ...review,
           listing: {
             id: review.listing_id,
@@ -790,7 +977,7 @@ export const api = {
   getCoupons: async (): Promise<Coupon[]> => {
     try {
       const response = await db.select('coupons', { is_active: true });
-      return response.data || [];
+      return response || [];
     } catch (error) {
       console.error('Failed to fetch coupons:', error);
       return [];
@@ -802,6 +989,92 @@ export const api = {
     return await db.testConnection();
   },
 
+  // 추천 상품 조회
+  getFeaturedListings: async (limit: number = 8): Promise<TravelItem[]> => {
+    try {
+      const filters: SearchFilters = {
+        limit,
+        sortBy: 'popular'
+      };
+      const response = await api.getListings(filters);
+      return response.data?.slice(0, limit) || [];
+    } catch (error) {
+      console.error('Failed to fetch featured listings:', error);
+      return [];
+    }
+  },
+
+  // 사용 가능한 날짜 조회
+  getAvailableDates: async (listingId: number): Promise<string[]> => {
+    try {
+      // 실제로는 예약된 날짜를 제외하고 사용 가능한 날짜를 반환
+      const now = new Date();
+      const dates: string[] = [];
+      for (let i = 1; i <= 30; i++) {
+        const date = new Date(now);
+        date.setDate(now.getDate() + i);
+        dates.push(date.toISOString().split('T')[0]);
+      }
+      return dates;
+    } catch (error) {
+      console.error('Failed to fetch available dates:', error);
+      return [];
+    }
+  },
+
+  // 즐겨찾기 관리
+  getFavorites: async (userId?: number): Promise<number[]> => {
+    try {
+      if (!userId) {
+        const user = await api.getCurrentUser();
+        if (!user) return [];
+        userId = user.id;
+      }
+
+      const response = await db.select('user_favorites', { user_id: userId });
+      return response?.map((fav: any) => fav.listing_id) || [];
+    } catch (error) {
+      console.error('Failed to fetch favorites:', error);
+      return [];
+    }
+  },
+
+  addFavorite: async (listingId: number, userId?: number): Promise<boolean> => {
+    try {
+      if (!userId) {
+        const user = await api.getCurrentUser();
+        if (!user) return false;
+        userId = user.id;
+      }
+
+      await db.insert('user_favorites', {
+        user_id: userId,
+        listing_id: listingId,
+        created_at: new Date().toISOString()
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to add favorite:', error);
+      return false;
+    }
+  },
+
+  removeFavorite: async (listingId: number, userId?: number): Promise<boolean> => {
+    try {
+      if (!userId) {
+        const user = await api.getCurrentUser();
+        if (!user) return false;
+        userId = user.id;
+      }
+
+      await db.query('DELETE FROM user_favorites WHERE user_id = ? AND listing_id = ?', [userId, listingId]);
+      return true;
+    } catch (error) {
+      console.error('Failed to remove favorite:', error);
+      return false;
+    }
+  },
+
   // 이미지 관리
   updateListingImages: async (listingId: number, imageUrls: string[]): Promise<ApiResponse<Listing>> => {
     try {
@@ -811,7 +1084,7 @@ export const api = {
       const updated = await db.select('listings', { id: listingId });
       return {
         success: true,
-        data: updated.data[0],
+        data: updated[0],
         message: '이미지가 업데이트되었습니다.'
       };
     } catch (error) {
@@ -841,7 +1114,7 @@ export const api = {
       const response = await db.insert('file_uploads', fileData);
       return {
         success: true,
-        data: response.data,
+        data: response,
         message: '파일 업로드 기록이 저장되었습니다.'
       };
     } catch (error) {
@@ -860,31 +1133,62 @@ export const api = {
     getDashboardStats: async (): Promise<AdminDashboardStats | null> => {
       try {
         const today = new Date().toISOString().split('T')[0];
-        const response = await db.select('admin_dashboard_stats', { date: today });
 
-        if (response.data && response.data.length > 0) {
-          return response.data[0];
-        }
+        // 실제 DB에서 통계 계산
+        const [
+          users,
+          partners,
+          listings,
+          bookings,
+          reviews
+        ] = await Promise.all([
+          db.select('users') || [],
+          db.select('partners') || [],
+          db.select('listings') || [],
+          db.select('bookings') || [],
+          db.select('reviews') || []
+        ]);
 
-        // 기본 통계 생성
+        // 오늘 생성된 데이터 계산
+        const todayUsers = users.filter(u => u.created_at?.startsWith(today)) || [];
+        const todayBookings = bookings.filter(b => b.created_at?.startsWith(today)) || [];
+
+        // 파트너 상태별 계산
+        const pendingPartners = partners.filter(p => p.status === 'pending') || [];
+
+        // 상품 상태별 계산
+        const publishedListings = listings.filter(l => l.is_active === true) || [];
+
+        // 평균 평점 계산
+        const ratingsSum = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
+        const avgRating = reviews.length > 0 ? ratingsSum / reviews.length : 0;
+
+        // 총 수익 계산 (예약 금액 기준)
+        const totalRevenue = bookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
+        const todayRevenue = todayBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
+
+        // 수수료 계산 (10% 가정)
+        const commissionEarned = totalRevenue * 0.1;
+
         const stats = {
           date: today,
-          total_users: 150,
-          new_users_today: 12,
-          total_partners: 25,
-          pending_partners: 5,
-          total_listings: 85,
-          published_listings: 72,
-          total_bookings: 340,
-          bookings_today: 8,
-          total_revenue: 12500000,
-          revenue_today: 450000,
-          commission_earned: 1250000,
-          avg_rating: 4.6,
-          total_reviews: 128,
-          pending_refunds: 3,
-          support_tickets_open: 7
+          total_users: users.length,
+          new_users_today: todayUsers.length,
+          total_partners: partners.length,
+          pending_partners: pendingPartners.length,
+          total_listings: listings.length,
+          published_listings: publishedListings.length,
+          total_bookings: bookings.length,
+          bookings_today: todayBookings.length,
+          total_revenue: Math.round(totalRevenue),
+          revenue_today: Math.round(todayRevenue),
+          commission_earned: Math.round(commissionEarned),
+          avg_rating: Math.round(avgRating * 10) / 10,
+          total_reviews: reviews.length,
+          pending_refunds: bookings.filter(b => b.status === 'refund_requested').length,
+          support_tickets_open: 0 // 지원 티켓 시스템이 없으면 0
         };
+
 
         return {
           id: 1,
@@ -892,8 +1196,29 @@ export const api = {
           created_at: new Date().toISOString()
         };
       } catch (error) {
-        console.error('Failed to fetch dashboard stats:', error);
-        return null;
+        console.error('❌ 대시보드 통계 계산 실패:', error);
+
+        // 오류 발생 시 기본값 반환
+        return {
+          id: 1,
+          date: new Date().toISOString().split('T')[0],
+          total_users: 0,
+          new_users_today: 0,
+          total_partners: 0,
+          pending_partners: 0,
+          total_listings: 0,
+          published_listings: 0,
+          total_bookings: 0,
+          bookings_today: 0,
+          total_revenue: 0,
+          revenue_today: 0,
+          commission_earned: 0,
+          avg_rating: 0,
+          total_reviews: 0,
+          pending_refunds: 0,
+          support_tickets_open: 0,
+          created_at: new Date().toISOString()
+        };
       }
     },
 
@@ -931,7 +1256,7 @@ export const api = {
         sql += ` LIMIT ${limit} OFFSET ${offset}`;
 
         const response = await db.query(sql, params);
-        const users = response.data || [];
+        const users = response || [];
 
         return {
           success: true,
@@ -984,12 +1309,12 @@ export const api = {
         const response = await db.query(sql, params);
         return {
           success: true,
-          data: response.data || [],
+          data: response || [],
           pagination: {
             page: filters?.page || 1,
             limit: filters?.limit || 20,
-            total: (response.data || []).length,
-            total_pages: Math.ceil((response.data || []).length / (filters?.limit || 20))
+            total: (response || []).length,
+            total_pages: Math.ceil((response || []).length / (filters?.limit || 20))
           }
         };
       } catch (error) {
@@ -1019,7 +1344,7 @@ export const api = {
         const updatedPartner = await db.select('partners', { id: partnerId });
         return {
           success: true,
-          data: updatedPartner.data[0],
+          data: updatedPartner[0],
           message: `파트너가 ${status === 'approved' ? '승인' : '거부'}되었습니다.`
         };
       } catch (error) {
@@ -1063,12 +1388,12 @@ export const api = {
         const response = await db.query(sql, params);
         return {
           success: true,
-          data: response.data || [],
+          data: response || [],
           pagination: {
             page: filters?.page || 1,
             limit: filters?.limit || 20,
-            total: (response.data || []).length,
-            total_pages: Math.ceil((response.data || []).length / (filters?.limit || 20))
+            total: (response || []).length,
+            total_pages: Math.ceil((response || []).length / (filters?.limit || 20))
           }
         };
       } catch (error) {
@@ -1086,7 +1411,7 @@ export const api = {
       try {
         const where = category ? { setting_category: category } : undefined;
         const response = await db.select('admin_settings', where);
-        return response.data || [];
+        return response || [];
       } catch (error) {
         console.error('Failed to fetch settings:', error);
         return [];
@@ -1108,7 +1433,7 @@ export const api = {
         const updated = await db.select('admin_settings', { setting_key: settingKey });
         return {
           success: true,
-          data: updated.data[0],
+          data: updated[0],
           message: '설정이 업데이트되었습니다.'
         };
       } catch (error) {
@@ -1124,7 +1449,7 @@ export const api = {
     getFAQs: async (): Promise<FAQ[]> => {
       try {
         const response = await db.select('faq');
-        return response.data || [];
+        return response || [];
       } catch (error) {
         console.error('Failed to fetch FAQs:', error);
         return [];
@@ -1135,8 +1460,8 @@ export const api = {
       try {
         const response = await db.insert('faq', faqData);
         // 생성된 FAQ에 필요한 필드들 추가
-        const createdFAQ: FAQ = (response.data && typeof response.data === 'object' && 'question' in response.data)
-          ? response.data as FAQ
+        const createdFAQ: FAQ = (response && typeof response === 'object' && 'question' in response)
+          ? response as FAQ
           : {
               ...faqData,
               id: Date.now(),
@@ -1188,12 +1513,12 @@ export const api = {
         const response = await db.query(sql, params);
         return {
           success: true,
-          data: response.data || [],
+          data: response || [],
           pagination: {
             page: filters?.page || 1,
             limit: filters?.limit || 50,
-            total: (response.data || []).length,
-            total_pages: Math.ceil((response.data || []).length / (filters?.limit || 50))
+            total: (response || []).length,
+            total_pages: Math.ceil((response || []).length / (filters?.limit || 50))
           }
         };
       } catch (error) {
@@ -1237,12 +1562,12 @@ export const api = {
         const response = await db.query(sql, params);
         return {
           success: true,
-          data: response.data || [],
+          data: response || [],
           pagination: {
             page: filters?.page || 1,
             limit: filters?.limit || 20,
-            total: (response.data || []).length,
-            total_pages: Math.ceil((response.data || []).length / (filters?.limit || 20))
+            total: (response || []).length,
+            total_pages: Math.ceil((response || []).length / (filters?.limit || 20))
           }
         };
       } catch (error) {
@@ -1259,8 +1584,8 @@ export const api = {
       try {
         const response = await db.insert('admin_tasks', taskData);
         // 생성된 작업에 필요한 필드들 추가
-        const createdTask: AdminTask = (response.data && typeof response.data === 'object' && 'title' in response.data)
-          ? response.data as AdminTask
+        const createdTask: AdminTask = (response && typeof response === 'object' && 'title' in response)
+          ? response as AdminTask
           : {
               ...taskData,
               id: Date.now(),
@@ -1293,7 +1618,7 @@ export const api = {
         const updated = await db.select('admin_tasks', { id: taskId });
         return {
           success: true,
-          data: updated.data[0],
+          data: updated[0],
           message: '작업 상태가 업데이트되었습니다.'
         };
       } catch (error) {
@@ -1305,16 +1630,80 @@ export const api = {
       }
     },
 
-    // 파트너 신청 관리
-    getPartnerApplications: async (filters?: any): Promise<ApiResponse<PartnerApplication[]>> => {
+    // 관리자 상품 목록 조회 (DB Direct)
+    getListings: async (): Promise<ApiResponse<any[]>> => {
       try {
-        const response = await db.select('partner_applications');
+        console.log('📡 Fetching admin listings from DB...');
+
+        // 직접 DB에서 모든 상품 조회
+        const listings = await db.query(`
+          SELECT
+            l.*,
+            c.name_ko as category_name,
+            c.slug as category_slug
+          FROM listings l
+          LEFT JOIN categories c ON l.category_id = c.id
+          ORDER BY l.created_at DESC
+        `);
+
+        console.log(`✅ Loaded ${listings.length} listings for admin`);
+
         return {
           success: true,
-          data: response.data || []
+          data: listings
         };
       } catch (error) {
-        console.error('Failed to fetch partner applications:', error);
+        console.error('❌ Failed to fetch admin listings:', error);
+        return {
+          success: false,
+          data: [],
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    },
+
+    // 파트너 신청 관리 (HTTP API)
+    getPartnerApplications: async (filters?: any): Promise<ApiResponse<PartnerApplication[]>> => {
+      try {
+        console.log('📡 Fetching partner applications from DB...');
+
+        // 직접 DB에서 파트너 신청 조회 (pending 상태만)
+        const applications = await db.query(`
+          SELECT
+            id,
+            business_name,
+            contact_name,
+            email,
+            phone,
+            business_number,
+            business_address,
+            categories,
+            description,
+            services,
+            website,
+            instagram,
+            facebook,
+            expected_revenue,
+            years_in_business,
+            status,
+            admin_notes,
+            reviewed_by,
+            reviewed_at,
+            created_at,
+            updated_at
+          FROM partner_applications
+          WHERE status = 'pending'
+          ORDER BY created_at DESC
+        `);
+
+        console.log(`✅ 파트너 신청 ${applications.length}개 로드 완료`);
+
+        return {
+          success: true,
+          data: applications || []
+        };
+      } catch (error) {
+        console.error('❌ Failed to fetch partner applications:', error);
         return {
           success: false,
           error: '파트너 신청 목록 조회에 실패했습니다.',
@@ -1326,26 +1715,34 @@ export const api = {
     // 상품 생성
     createListing: async (listingData: any): Promise<ApiResponse<any>> => {
       try {
+
         const listing = {
           ...listingData,
           images: JSON.stringify(listingData.images || []),
           amenities: JSON.stringify(listingData.amenities || []),
+          highlights: JSON.stringify(listingData.highlights || []),
+          included: JSON.stringify(listingData.included || []),
+          excluded: JSON.stringify(listingData.excluded || []),
+          tags: JSON.stringify(listingData.tags || []),
           rating_avg: 0,
           rating_count: 0,
           view_count: 0,
-          booking_count: 0
+          booking_count: 0,
+          is_featured: listingData.is_featured || false
         };
+
         const response = await db.insert('listings', listing);
+
         return {
           success: true,
-          data: response.data,
+          data: response,
           message: '상품이 생성되었습니다.'
         };
       } catch (error) {
-        console.error('Failed to create listing:', error);
+        console.error('createListing error:', error);
         return {
           success: false,
-          error: '상품 생성에 실패했습니다.'
+          error: '상품 생성에 실패했습니다: ' + (error instanceof Error ? error.message : String(error))
         };
       }
     },
@@ -1365,7 +1762,7 @@ export const api = {
 
         return {
           success: true,
-          data: updated.data[0],
+          data: updated[0],
           message: '상품이 성공적으로 수정되었습니다.'
         };
       } catch (error) {
@@ -1393,6 +1790,740 @@ export const api = {
           error: '상품 삭제에 실패했습니다.'
         };
       }
+    },
+
+    // 모든 리뷰 조회
+    getAllReviews: async (): Promise<ApiResponse<Review[]>> => {
+      try {
+        const response = await db.query(`
+          SELECT
+            r.*,
+            u.name as user_name,
+            l.title as listing_title
+          FROM reviews r
+          LEFT JOIN users u ON r.user_id = u.id
+          LEFT JOIN listings l ON r.listing_id = l.id
+          ORDER BY r.created_at DESC
+        `);
+        return {
+          success: true,
+          data: response || []
+        };
+      } catch (error) {
+        console.error('Failed to fetch all reviews:', error);
+        return {
+          success: false,
+          error: '리뷰 조회에 실패했습니다.',
+          data: []
+        };
+      }
+    },
+
+    // 모든 사용자 조회 (별칭)
+    getAllUsers: async (filters?: AdminUserFilters): Promise<PaginatedResponse<User>> => {
+      return api.admin.getUsers(filters);
+    },
+
+    // 파트너 신청 승인
+    approvePartnerApplication: async (applicationId: number): Promise<ApiResponse<any>> => {
+      try {
+        console.log(`🔄 파트너 신청 승인 시작 (ID: ${applicationId})`);
+
+        // 1. 파트너 신청 정보 가져오기
+        const applicationResult = await db.query(
+          'SELECT * FROM partner_applications WHERE id = ?',
+          [applicationId]
+        );
+
+        if (!applicationResult || applicationResult.length === 0) {
+          console.error('❌ 파트너 신청을 찾을 수 없음');
+          return {
+            success: false,
+            error: '파트너 신청을 찾을 수 없습니다.'
+          };
+        }
+
+        const application = applicationResult[0];
+        console.log(`✅ 신청 정보 조회 완료: ${application.business_name}`);
+
+        // 2. partners 테이블에 파트너 생성
+        const newPartner = {
+          user_id: application.user_id || 1,
+          business_name: application.business_name,
+          contact_name: application.contact_name,
+          email: application.email,
+          phone: application.phone || '',
+          business_number: application.business_number || '',
+          description: application.description || '',
+          services: application.services || '',
+          tier: 'bronze',
+          is_verified: 1,
+          is_featured: 0,
+          status: 'approved'
+        };
+
+        const partnerResult = await db.insert('partners', newPartner);
+        const partnerId = partnerResult.id;
+        console.log(`✅ 파트너 생성 완료 (ID: ${partnerId})`);
+
+        // 3. 파트너 신청 상태 업데이트
+        const reviewedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        await db.update('partner_applications', applicationId, {
+          status: 'approved',
+          reviewed_at: reviewedAt
+        });
+        console.log(`✅ 신청 상태 업데이트 완료`);
+
+        // 4. 실시간 데이터 갱신
+        notifyDataChange('partners');
+        console.log(`✅ 실시간 데이터 갱신 완료`);
+
+        return {
+          success: true,
+          data: {
+            applicationId,
+            partnerId,
+            status: 'approved'
+          },
+          message: '파트너 신청이 승인되었습니다.'
+        };
+      } catch (error) {
+        console.error('❌ 파트너 승인 오류:', error);
+        return {
+          success: false,
+          error: '파트너 승인에 실패했습니다: ' + (error instanceof Error ? error.message : String(error))
+        };
+      }
+    },
+
+    // 파트너 신청 거절
+    rejectPartnerApplication: async (applicationId: number): Promise<ApiResponse<any>> => {
+      try {
+        console.log(`🔄 파트너 신청 거절 시작 (ID: ${applicationId})`);
+
+        // 1. 파트너 신청 상태 업데이트
+        const reviewedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        await db.update('partner_applications', applicationId, {
+          status: 'rejected',
+          reviewed_at: reviewedAt
+        });
+        console.log(`✅ 신청 상태 업데이트 완료`);
+
+        return {
+          success: true,
+          data: { id: applicationId, status: 'rejected' },
+          message: '파트너 신청이 거절되었습니다.'
+        };
+      } catch (error) {
+        console.error('❌ 파트너 거절 오류:', error);
+        return {
+          success: false,
+          error: '파트너 거부에 실패했습니다: ' + (error instanceof Error ? error.message : String(error))
+        };
+      }
+    },
+
+    // 파트너 생성
+    createPartner: async (partnerData: any): Promise<ApiResponse<Partner>> => {
+      try {
+        const response = await db.insert('partners', partnerData);
+        return {
+          success: true,
+          data: response as Partner,
+          message: '파트너가 생성되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to create partner:', error);
+        return {
+          success: false,
+          error: '파트너 생성에 실패했습니다.'
+        };
+      }
+    },
+
+    // 파트너 수정
+    updatePartner: async (partnerId: number, partnerData: any): Promise<ApiResponse<Partner>> => {
+      try {
+        await db.update('partners', partnerId, partnerData);
+        const updated = await db.select('partners', { id: partnerId });
+        return {
+          success: true,
+          data: updated[0],
+          message: '파트너 정보가 수정되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to update partner:', error);
+        return {
+          success: false,
+          error: '파트너 수정에 실패했습니다.'
+        };
+      }
+    },
+
+    // 파트너 삭제
+    deletePartner: async (partnerId: number): Promise<ApiResponse<null>> => {
+      try {
+        await db.delete('partners', partnerId);
+        return {
+          success: true,
+          data: null,
+          message: '파트너가 삭제되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to delete partner:', error);
+        return {
+          success: false,
+          error: '파트너 삭제에 실패했습니다.'
+        };
+      }
+    },
+
+    // 리뷰 생성
+    createReview: async (reviewData: any): Promise<ApiResponse<Review>> => {
+      try {
+        const response = await db.insert('reviews', reviewData);
+        return {
+          success: true,
+          data: response as Review,
+          message: '리뷰가 생성되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to create review:', error);
+        return {
+          success: false,
+          error: '리뷰 생성에 실패했습니다.'
+        };
+      }
+    },
+
+    // 리뷰 수정
+    updateReview: async (reviewId: number, reviewData: any): Promise<ApiResponse<Review>> => {
+      try {
+        // 기존 리뷰 정보 조회 (listing_id 가져오기)
+        const existing = await db.select('reviews', { id: reviewId });
+        const listingId = existing[0]?.listing_id;
+
+        await db.update('reviews', reviewId, reviewData);
+        const updated = await db.select('reviews', { id: reviewId });
+
+        // 평점이 변경된 경우 listing 평점 업데이트
+        if (listingId && reviewData.rating !== undefined) {
+          await api.updateListingRating(listingId);
+        }
+
+        return {
+          success: true,
+          data: updated[0],
+          message: '리뷰가 수정되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to update review:', error);
+        return {
+          success: false,
+          error: '리뷰 수정에 실패했습니다.'
+        };
+      }
+    },
+
+    // 리뷰 삭제
+    deleteReview: async (reviewId: number): Promise<ApiResponse<null>> => {
+      try {
+        // 삭제 전 listing_id 가져오기
+        const existing = await db.select('reviews', { id: reviewId });
+        const listingId = existing[0]?.listing_id;
+
+        await db.delete('reviews', reviewId);
+
+        // listing 평점 업데이트
+        if (listingId) {
+          await api.updateListingRating(listingId);
+        }
+
+        return {
+          success: true,
+          data: null,
+          message: '리뷰가 삭제되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to delete review:', error);
+        return {
+          success: false,
+          error: '리뷰 삭제에 실패했습니다.'
+        };
+      }
+    },
+
+    // 리뷰 도움됨 버튼
+    markReviewHelpful: async (reviewId: number): Promise<ApiResponse<{ helpful_count: number }>> => {
+      try {
+        // 현재 helpful_count 가져오기
+        const current = await db.query('SELECT helpful_count FROM reviews WHERE id = ?', [reviewId]);
+        const currentCount = current[0]?.helpful_count || 0;
+        const newCount = currentCount + 1;
+
+        // helpful_count 증가
+        await db.update('reviews', reviewId, { helpful_count: newCount });
+
+        console.log(`✅ 리뷰 ${reviewId} 도움됨 +1 (${newCount})`);
+
+        return {
+          success: true,
+          data: { helpful_count: newCount },
+          message: '도움이 되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to mark review helpful:', error);
+        return {
+          success: false,
+          error: '도움됨 처리에 실패했습니다.'
+        };
+      }
+    },
+
+    // 리뷰 상태 변경
+    updateReviewStatus: async (reviewId: number, status: string): Promise<ApiResponse<Review>> => {
+      try {
+        await db.update('reviews', reviewId, { is_visible: status === 'approved' });
+        const updated = await db.select('reviews', { id: reviewId });
+        return {
+          success: true,
+          data: updated[0],
+          message: '리뷰 상태가 변경되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to update review status:', error);
+        return {
+          success: false,
+          error: '리뷰 상태 변경에 실패했습니다.'
+        };
+      }
+    },
+
+    // 사용자 삭제
+    deleteUser: async (userId: number): Promise<ApiResponse<null>> => {
+      try {
+        await db.delete('users', userId);
+        return {
+          success: true,
+          data: null,
+          message: '사용자가 삭제되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to delete user:', error);
+        return {
+          success: false,
+          error: '사용자 삭제에 실패했습니다.'
+        };
+      }
+    },
+
+    // 사용자 상태 변경
+    updateUserStatus: async (userId: number, status: string): Promise<ApiResponse<User>> => {
+      try {
+        await db.update('users', userId, { status });
+        const updated = await db.select('users', { id: userId });
+        return {
+          success: true,
+          data: updated[0],
+          message: '사용자 상태가 변경되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to update user status:', error);
+        return {
+          success: false,
+          error: '사용자 상태 변경에 실패했습니다.'
+        };
+      }
+    },
+
+    // 블로그 관리
+    getBlogs: async (filters?: any): Promise<ApiResponse<any[]>> => {
+      try {
+        const response = await db.select('blog_posts');
+        return {
+          success: true,
+          data: response || []
+        };
+      } catch (error) {
+        console.error('Failed to fetch blogs:', error);
+        return {
+          success: false,
+          error: '블로그 조회에 실패했습니다.',
+          data: []
+        };
+      }
+    },
+
+    createBlog: async (blogData: any): Promise<ApiResponse<any>> => {
+      try {
+        const response = await db.insert('blog_posts', {
+          ...blogData,
+          tags: JSON.stringify(blogData.tags || []),
+          views: 0,
+          likes: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+        return {
+          success: true,
+          data: response,
+          message: '블로그 포스트가 생성되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to create blog:', error);
+        return {
+          success: false,
+          error: '블로그 생성에 실패했습니다.'
+        };
+      }
+    },
+
+    updateBlog: async (blogId: number, blogData: any): Promise<ApiResponse<any>> => {
+      try {
+        await db.update('blog_posts', blogId, {
+          ...blogData,
+          tags: blogData.tags ? JSON.stringify(blogData.tags) : undefined,
+          updated_at: new Date().toISOString()
+        });
+        const updated = await db.select('blog_posts', { id: blogId });
+        return {
+          success: true,
+          data: updated[0],
+          message: '블로그 포스트가 수정되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to update blog:', error);
+        return {
+          success: false,
+          error: '블로그 수정에 실패했습니다.'
+        };
+      }
+    },
+
+    deleteBlog: async (blogId: number): Promise<ApiResponse<null>> => {
+      try {
+        await db.delete('blog_posts', blogId);
+        return {
+          success: true,
+          data: null,
+          message: '블로그 포스트가 삭제되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to delete blog:', error);
+        return {
+          success: false,
+          error: '블로그 삭제에 실패했습니다.'
+        };
+      }
+    },
+
+    // 이미지 관리
+    getImages: async (filters?: any): Promise<ApiResponse<any[]>> => {
+      try {
+        let sql = 'SELECT id, entity_type, entity_id, file_name, original_name, file_size, mime_type, width, height, alt_text, is_primary, created_at, updated_at FROM images WHERE 1=1';
+        const params: any[] = [];
+
+        if (filters?.entity_type) {
+          sql += ' AND entity_type = ?';
+          params.push(filters.entity_type);
+        }
+
+        if (filters?.entity_id) {
+          sql += ' AND entity_id = ?';
+          params.push(filters.entity_id);
+        }
+
+        sql += ' ORDER BY created_at DESC';
+
+        const response = await db.query(sql, params);
+        return {
+          success: true,
+          data: response || []
+        };
+      } catch (error) {
+        console.error('Failed to fetch images:', error);
+        return {
+          success: false,
+          error: '이미지 조회에 실패했습니다.',
+          data: []
+        };
+      }
+    },
+
+    uploadImage: async (imageFile: File, options?: {
+      entity_type?: 'listing' | 'partner' | 'user' | 'review' | 'blog' | 'general';
+      entity_id?: number;
+      alt_text?: string;
+      is_primary?: boolean;
+      uploaded_by?: number;
+    }): Promise<ApiResponse<any>> => {
+      try {
+        // 파일 검증
+        if (!imageFile) {
+          return {
+            success: false,
+            error: '이미지 파일이 필요합니다.'
+          };
+        }
+
+        // 파일 크기 제한 (5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (imageFile.size > maxSize) {
+          return {
+            success: false,
+            error: '파일 크기는 5MB를 초과할 수 없습니다.'
+          };
+        }
+
+        // 이미지 형식 검증
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowedTypes.includes(imageFile.type)) {
+          return {
+            success: false,
+            error: '지원되지 않는 이미지 형식입니다. (JPG, PNG, WebP, GIF만 지원)'
+          };
+        }
+
+        // 파일을 ArrayBuffer로 읽기
+        const arrayBuffer = await imageFile.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+
+        // 이미지 크기 정보 얻기 (간단한 구현)
+        let width = 0;
+        let height = 0;
+
+        // 이미지 로드하여 크기 정보 얻기
+        const img = new Image();
+
+        await new Promise((resolve, reject) => {
+          img.onload = () => {
+            width = img.naturalWidth;
+            height = img.naturalHeight;
+            resolve(null);
+          };
+          img.onerror = reject;
+          img.src = URL.createObjectURL(imageFile);
+        });
+
+        // 데이터베이스에 저장할 이미지 데이터
+        const imageData = {
+          entity_type: options?.entity_type || 'general',
+          entity_id: options?.entity_id || null,
+          file_name: `${Date.now()}_${imageFile.name}`,
+          original_name: imageFile.name,
+          file_data: uint8Array,
+          file_size: imageFile.size,
+          mime_type: imageFile.type,
+          width,
+          height,
+          alt_text: options?.alt_text || '',
+          is_primary: options?.is_primary || false,
+          uploaded_by: options?.uploaded_by || 1,
+          storage_type: 'blob',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const response = await db.insert('images', imageData);
+
+        return {
+          success: true,
+          data: {
+            id: response.id,
+            file_name: imageData.file_name,
+            original_name: imageData.original_name,
+            file_size: imageData.file_size,
+            mime_type: imageData.mime_type,
+            width: imageData.width,
+            height: imageData.height,
+            storage_type: imageData.storage_type,
+            url: `/api/images/${response.id}` // 이미지 조회 URL
+          },
+          message: '이미지가 성공적으로 업로드되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to upload image:', error);
+        return {
+          success: false,
+          error: '이미지 업로드에 실패했습니다: ' + (error instanceof Error ? error.message : String(error))
+        };
+      }
+    },
+
+    // 이미지 BLOB 데이터 조회
+    getImageBlob: async (imageId: number): Promise<ApiResponse<{
+      data: Uint8Array;
+      mimeType: string;
+      fileName: string;
+    }>> => {
+      try {
+        const response = await db.query('SELECT file_data, mime_type, file_name FROM images WHERE id = ?', [imageId]);
+
+        if (!response || response.length === 0) {
+          return {
+            success: false,
+            error: '이미지를 찾을 수 없습니다.'
+          };
+        }
+
+        const image = response[0];
+
+        return {
+          success: true,
+          data: {
+            data: new Uint8Array(image.file_data),
+            mimeType: image.mime_type,
+            fileName: image.file_name
+          }
+        };
+      } catch (error) {
+        console.error('Failed to fetch image blob:', error);
+        return {
+          success: false,
+          error: '이미지 조회에 실패했습니다.'
+        };
+      }
+    },
+
+    updateImage: async (imageId: number, imageData: any): Promise<ApiResponse<any>> => {
+      try {
+        await db.update('images', imageId, {
+          ...imageData,
+          updated_at: new Date().toISOString()
+        });
+        const updated = await db.select('images', { id: imageId });
+        return {
+          success: true,
+          data: updated[0],
+          message: '이미지 정보가 수정되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to update image:', error);
+        return {
+          success: false,
+          error: '이미지 수정에 실패했습니다.'
+        };
+      }
+    },
+
+    deleteImage: async (imageId: number): Promise<ApiResponse<null>> => {
+      try {
+        await db.delete('images', imageId);
+        return {
+          success: true,
+          data: null,
+          message: '이미지가 삭제되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to delete image:', error);
+        return {
+          success: false,
+          error: '이미지 삭제에 실패했습니다.'
+        };
+      }
+    },
+
+    // 주문 관리
+    getOrders: async (filters?: any): Promise<ApiResponse<any[]>> => {
+      try {
+        // payments 테이블에서 주문 정보 조회 (cart 타입 주문)
+        let sql = `
+          SELECT p.*, u.name as user_name, u.email as user_email
+          FROM payments p
+          LEFT JOIN users u ON p.user_id = u.id
+          WHERE p.notes LIKE '%"orderType":"cart"%'
+        `;
+        const params: any[] = [];
+
+        if (filters?.status && filters.status.length > 0) {
+          sql += ` AND p.status IN (${filters.status.map(() => '?').join(',')})`;
+          params.push(...filters.status);
+        }
+
+        if (filters?.payment_method && filters.payment_method.length > 0) {
+          sql += ` AND p.payment_method IN (${filters.payment_method.map(() => '?').join(',')})`;
+          params.push(...filters.payment_method);
+        }
+
+        sql += ' ORDER BY p.created_at DESC';
+
+        const response = await db.query(sql, params);
+
+        // 주문 데이터 변환
+        const orders = (response || []).map((order: any) => {
+          let orderDetails = {};
+          try {
+            orderDetails = order.notes ? JSON.parse(order.notes) : {};
+          } catch (e) {
+            console.warn('Invalid JSON in order notes:', order.notes);
+          }
+
+          return {
+            id: order.id,
+            orderNumber: order.gateway_transaction_id || `ORDER_${order.id}`,
+            userId: order.user_id,
+            userName: order.user_name,
+            userEmail: order.user_email,
+            amount: order.amount,
+            status: order.status,
+            paymentMethod: order.payment_method,
+            items: orderDetails.items || [],
+            subtotal: orderDetails.subtotal || 0,
+            deliveryFee: order.fee_amount || 0,
+            discount: order.discount_amount || 0,
+            total: order.amount,
+            createdAt: order.created_at,
+            updatedAt: order.updated_at
+          };
+        });
+
+        return {
+          success: true,
+          data: orders
+        };
+      } catch (error) {
+        console.error('Failed to fetch orders:', error);
+        return {
+          success: false,
+          error: '주문 조회에 실패했습니다.',
+          data: []
+        };
+      }
+    },
+
+    updateOrderStatus: async (orderId: number, status: string): Promise<ApiResponse<any>> => {
+      try {
+        await db.update('payments', orderId, { status });
+        const updated = await db.select('payments', { id: orderId });
+        return {
+          success: true,
+          data: updated[0],
+          message: '주문 상태가 변경되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to update order status:', error);
+        return {
+          success: false,
+          error: '주문 상태 변경에 실패했습니다.'
+        };
+      }
+    },
+
+    deleteOrder: async (orderId: number): Promise<ApiResponse<null>> => {
+      try {
+        await db.delete('payments', orderId);
+        return {
+          success: true,
+          data: null,
+          message: '주문이 삭제되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to delete order:', error);
+        return {
+          success: false,
+          error: '주문 삭제에 실패했습니다.'
+        };
+      }
     }
   },
 
@@ -1401,10 +2532,10 @@ export const api = {
     try {
       const response = await db.select('bookings', { id: parseInt(bookingId) });
 
-      if (response.data && response.data.length > 0) {
+      if (response && response.length > 0) {
         return {
           success: true,
-          data: response.data[0],
+          data: response[0],
           message: '예약 정보를 성공적으로 조회했습니다.'
         };
       } else {
@@ -1485,3 +2616,8 @@ export const api = {
 };
 
 export default api;
+
+// 편의를 위한 개별 함수 export
+export const getFavorites = (userId?: number) => api.getFavorites(userId);
+export const addToFavorites = (listingId: number, userId?: number) => api.addFavorite(listingId, userId);
+export const removeFromFavorites = (listingId: number, userId?: number) => api.removeFavorite(listingId, userId);

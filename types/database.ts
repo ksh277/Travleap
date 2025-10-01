@@ -23,14 +23,15 @@ export interface User {
 }
 
 export interface CartItem {
-  id: string | number;
+  id: number;
   title: string;
   name?: string; // For backward compatibility
   price: number;
   originalPrice?: number;
   quantity: number;
-  image?: string;
-  category?: string;
+  maxQuantity?: number;
+  image: string;
+  category: string;
   location?: string;
   date?: string;
   guests?: number;
@@ -38,6 +39,9 @@ export interface CartItem {
   reviewCount?: number;
   isPartner?: boolean;
   discount?: number;
+  inStock?: boolean;
+  estimatedDelivery?: string;
+  total?: number;
 }
 
 export interface Category {
@@ -105,6 +109,20 @@ export interface Listing {
   sponsored_until?: string;
   created_at: string;
   updated_at: string;
+  // Extended properties for UI components
+  features?: string[];
+  included?: string[];
+  excluded?: string[];
+  cancellation_policy?: string;
+  refund_policy?: string;
+  weather_policy?: string;
+  amenities?: string[];
+  tags?: string[];
+  difficulty?: string;
+  language?: string;
+  min_age?: number;
+  discount_rate?: number;
+  original_price?: number;
 }
 
 export interface Booking {

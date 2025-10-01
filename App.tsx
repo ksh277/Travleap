@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
+import { MobileNav } from './components/MobileNav';
 import { HomePage } from './components/HomePage';
 import { CategoryPage } from './components/CategoryPage';
+import { CategoryDetailPage } from './components/CategoryDetailPage';
 import { DetailPage } from './components/DetailPage';
 import { PartnerPage } from './components/PartnerPage';
 import { PartnerApplyPage } from './components/PartnerApplyPage';
@@ -20,22 +22,73 @@ import { PaymentPage } from './components/PaymentPage';
 import { CommunityBlogPage } from './components/CommunityBlogPage';
 import { RewardsPage } from './components/RewardsPage';
 import { WorkWithUsPage } from './components/WorkWithUsPage';
+import { PlaceGoodsPage } from './components/PlaceGoodsPage';
+import { PartnersDiscountPage } from './components/PartnersDiscountPage';
+import { AIRecommendationPage } from './components/AIRecommendationPage';
 import { LegalPage } from './components/LegalPage';
 import { AffiliatePage } from './components/AffiliatePage';
+import { DBTestComponent } from './components/DBTestComponent';
 
 import { Toaster } from './components/ui/sonner';
-import type { CartItem } from './types/database';
-import { useAuthStore } from './hooks/useAuthStore';
+import { useAuth } from './hooks/useAuth';
 import { useCartStore } from './hooks/useCartStore';
+import { db } from './utils/database';
+
+// 스크롤 위치 리셋 컴포넌트
+function ScrollToTop() {
+  const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  return null;
+}
 
 function AppContent() {
   const navigate = useNavigate();
-  const { isLoggedIn, isAdmin, user, login, logout } = useAuthStore();
-  const { cartItems, addToCart, updateCart, checkout } = useCartStore();
+  const { isLoggedIn, isAdmin, user, login, logout, sessionRestored } = useAuth();
+  const { cartItems } = useCartStore();
+
+  // 개발 전용: 데이터베이스 재초기화 함수
+  const handleForceReinitDB = async () => {
+    try {
+      await db.forceReinitialize();
+      alert('데이터베이스 재초기화 완료! 관리자 계정이 생성되었습니다.');
+      window.location.reload();
+    } catch (error) {
+      console.error('DB reinitialization failed:', error);
+      alert('데이터베이스 재초기화 실패');
+    }
+  };
+
+  // 개발 환경에서만 전역으로 노출
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      (window as any).adminLogin = () => {
+        console.log('🚀 관리자 로그인 시도...');
+        const result = login('admin@shinan.com', 'admin123');
+        if (result) {
+          console.log('✅ 관리자 로그인 성공!');
+          navigate('/admin');
+        } else {
+          console.log('❌ 로그인 실패');
+        }
+      };
+
+      (window as any).forceReinitDB = handleForceReinitDB;
+
+      console.log('🚀 새로운 간단한 인증 시스템:');
+      console.log('- adminLogin(): 🔥 즉시 관리자 로그인');
+      console.log('- forceReinitDB(): 데이터베이스 재초기화');
+    }
+  }, [login, navigate]);
+
 
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ScrollToTop />
       <Header
         cartItemCount={cartItems.length}
         selectedLanguage="ko"
@@ -49,6 +102,9 @@ function AppContent() {
           {/* 카테고리 페이지 */}
           <Route path="/category/:category" element={<CategoryPage />} />
 
+          {/* 카테고리별 상세 페이지 */}
+          <Route path="/categories/:categorySlug" element={<CategoryDetailPage />} />
+
           {/* 상세페이지 */}
           <Route path="/detail/:id" element={<DetailPage />} />
 
@@ -57,6 +113,7 @@ function AppContent() {
 
           {/* 파트너 관련 */}
           <Route path="/partner" element={<PartnerPage />} />
+          <Route path="/partners" element={<PartnersDiscountPage />} />
           <Route path="/franchise" element={<PartnerPage />} />
           <Route path="/partner-apply" element={<PartnerApplyPage />} />
 
@@ -81,7 +138,18 @@ function AppContent() {
 
           {/* 관리자 전용 라우트 */}
           <Route path="/admin" element={
-            isAdmin ? <AdminPage /> : <Navigate to="/login" replace />
+            !sessionRestored ? (
+              <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">세션을 확인하는 중...</p>
+                </div>
+              </div>
+            ) : isLoggedIn && isAdmin ? (
+              <AdminPage />
+            ) : (
+              <Navigate to="/login" replace />
+            )
           } />
 
           {/* 정보 페이지들 */}
@@ -94,6 +162,17 @@ function AppContent() {
           <Route path="/legal" element={<LegalPage onBack={() => navigate(-1)} />} />
           <Route path="/affiliate" element={<AffiliatePage onBack={() => navigate(-1)} />} />
 
+          {/* 새로운 특별 페이지들 */}
+          <Route path="/shop" element={<PlaceGoodsPage />} />
+          <Route path="/place-goods" element={<PlaceGoodsPage />} />
+          <Route path="/place-goods/:goodsId" element={<DetailPage />} />
+          <Route path="/partners-discount" element={<PartnersDiscountPage />} />
+          <Route path="/ai-recommendations" element={<AIRecommendationPage />} />
+          <Route path="/ai-recommendation" element={<AIRecommendationPage />} />
+
+          {/* DB 테스트 페이지 (개발용) */}
+          <Route path="/db-test" element={<DBTestComponent />} />
+
           {/* 404 페이지 - 모든 정의되지 않은 경로 */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -102,6 +181,7 @@ function AppContent() {
         selectedLanguage="ko"
         selectedCurrency="KRW"
       />
+      <MobileNav />
       <Toaster />
     </div>
   );

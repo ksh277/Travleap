@@ -163,6 +163,7 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
 
         setResults(searchResults);
       } else {
+        console.log('⚠️ 검색 결과 없음, fallback 데이터 사용');
         // 검색어에 따라 샘플 데이터 필터링
         let filteredResults = sampleResults;
 
@@ -316,10 +317,10 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 mobile-safe-bottom">
       {/* 페이지 헤더 */}
-      <div className="bg-[#A8A8D8] py-8">
-        <div className="container mx-auto px-4">
+      <div className="bg-[#A8A8D8] py-6 md:py-8 mobile-safe-top">
+        <div className="mobile-container">
           <div className="max-w-4xl mx-auto text-center text-white">
             <h1 className="text-3xl mb-2">
               {searchQuery ? `"${searchQuery}" 검색 결과` : '검색 결과'}

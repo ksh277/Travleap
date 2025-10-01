@@ -5,13 +5,12 @@ import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import { t } from '../utils/translations';
-import { authService } from '../utils/auth';
-import { useAuthStore } from '../hooks/useAuthStore';
+import { useAuth } from '../hooks/useAuth';
 import { api } from '../utils/api';
 
 export function SignupPage() {
   const navigate = useNavigate();
-  const { login } = useAuthStore();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',

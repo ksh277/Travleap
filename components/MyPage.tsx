@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -6,7 +6,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import {
@@ -25,11 +25,16 @@ import {
   Edit,
   Save,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Loader2,
+  RefreshCcw,
+  Trash2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { api } from '../utils/api';
-import { useAuthStore } from '../hooks/useAuthStore';
+import { api, type TravelItem } from '../utils/api';
+import { useAuth } from '../hooks/useAuth';
 
 interface Booking {
   id: string;
@@ -44,16 +49,8 @@ interface Booking {
   location: string;
 }
 
-interface Favorite {
-  id: string;
-  title: string;
-  category: string;
-  price: number;
-  rating: number;
-  reviewCount: number;
-  image: string;
-  location: string;
-}
+// Favorite는 TravelItem으로 통일
+type FavoriteItem = TravelItem;
 
 interface Review {
   id: string;
@@ -93,28 +90,7 @@ const mockBookings: Booking[] = [
   }
 ];
 
-const mockFavorites: Favorite[] = [
-  {
-    id: '1',
-    title: '신안 특산물 맛집',
-    category: '음식',
-    price: 25000,
-    rating: 4.7,
-    reviewCount: 234,
-    image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300&h=200&fit=crop',
-    location: '비금면'
-  },
-  {
-    id: '2',
-    title: '해변 캠핑카',
-    category: '캠핑카',
-    price: 120000,
-    rating: 4.5,
-    reviewCount: 89,
-    image: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop',
-    location: '증도면'
-  }
-];
+// mockFavorites 제거 - DB에서 실시간으로 가져옴
 
 const mockReviews: Review[] = [
   {
@@ -130,12 +106,14 @@ const mockReviews: Review[] = [
 
 export function MyPage() {
   const navigate = useNavigate();
-  const { user, logout, isLoggedIn } = useAuthStore();
+  const { user, logout, isLoggedIn } = useAuth();
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
   const [userProfile, setUserProfile] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -147,37 +125,84 @@ export function MyPage() {
   const [editProfile, setEditProfile] = useState(userProfile);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
 
+  // 설정 상태
+  const [settings, setSettings] = useState({
+    language: 'ko',
+    currency: 'KRW',
+    notifications: {
+      booking: true,
+      marketing: false,
+      events: false
+    }
+  });
+
+  // 비밀번호 변경 다이얼로그
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPassword, setShowPassword] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // 계정 탈퇴 다이얼로그
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // 설정 불러오기
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('userSettings');
+    if (savedSettings) {
+      try {
+        setSettings(JSON.parse(savedSettings));
+      } catch (error) {
+        console.error('설정 불러오기 오류:', error);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
-      setUserProfile({
+      // 프로필 정보 불러오기 (localStorage에서)
+      const savedProfile = localStorage.getItem(`userProfile_${user.id}`);
+      let profile = {
         name: user.name,
         email: user.email,
         phone: '',
         birthDate: '',
         bio: '',
         avatar: ''
-      });
-      setEditProfile({
-        name: user.name,
-        email: user.email,
-        phone: '',
-        birthDate: '',
-        bio: '',
-        avatar: ''
-      });
+      };
+
+      if (savedProfile) {
+        try {
+          profile = JSON.parse(savedProfile);
+        } catch (error) {
+          console.error('프로필 불러오기 오류:', error);
+        }
+      }
+
+      setUserProfile(profile);
+      setEditProfile(profile);
       fetchUserData();
     }
   }, [user]);
 
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
     try {
       // 병렬로 데이터 가져오기
-      const [bookingsResponse, reviewsResponse] = await Promise.all([
+      const [bookingsResponse, favoriteIdsResponse] = await Promise.all([
         api.getBookings(Number(user.id)),
-        api.getReviews(Number(user.id))
+        api.getFavorites(Number(user.id))
       ]);
 
       // 예약 내역 처리
@@ -189,7 +214,7 @@ export function MyPage() {
           date: booking.start_date || '',
           time: '시간 정보 없음',
           guests: booking.num_adults + booking.num_children + booking.num_seniors,
-          price: booking.total_price || 0,
+          price: booking.total_amount || 0,
           status: booking.status === 'confirmed' ? 'confirmed' as const :
                   booking.status === 'cancelled' ? 'cancelled' as const : 'pending' as const,
           image: Array.isArray(booking.listing?.images) && booking.listing.images.length > 0
@@ -202,32 +227,81 @@ export function MyPage() {
         setBookings([]);
       }
 
-      // 리뷰 내역 처리
-      if (Array.isArray(reviewsResponse)) {
-        const formattedReviews = reviewsResponse.map((review: any) => ({
-          id: review.id.toString(),
-          title: review.listing?.title || '상품명 없음',
-          rating: review.rating,
-          comment: review.comment,
-          date: review.created_at ? new Date(review.created_at).toLocaleDateString() : '',
-          image: Array.isArray(review.listing?.images) && review.listing.images.length > 0
-            ? review.listing.images[0]
-            : getDefaultImage(review.listing?.category),
-          category: review.listing?.category || '카테고리 없음'
-        }));
-        setReviews(formattedReviews);
+      // 찜한 상품 ID 저장
+      if (Array.isArray(favoriteIdsResponse)) {
+        setFavoriteIds(favoriteIdsResponse);
+        // 찜한 상품 상세 정보 가져오기
+        if (favoriteIdsResponse.length > 0) {
+          fetchFavoriteDetails(favoriteIdsResponse);
+        } else {
+          setFavorites([]);
+        }
       } else {
-        setReviews([]);
+        setFavoriteIds([]);
+        setFavorites([]);
       }
 
-      // 찜한 상품은 아직 API가 없으므로 빈 배열로 설정
-      setFavorites([]);
+      // 리뷰는 나중에 별도로 불러오기
+      fetchUserReviews();
 
     } catch (error) {
       console.error('Error fetching user data:', error);
       toast.error('데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
+    }
+  }, [user]);
+
+  // 찜한 상품 상세 정보 가져오기
+  const fetchFavoriteDetails = async (ids: number[]) => {
+    setFavoritesLoading(true);
+    try {
+      const favoriteDetails = await Promise.all(
+        ids.map(id => api.getListing(id))
+      );
+      const validFavorites = favoriteDetails.filter((item): item is TravelItem => item !== null);
+      setFavorites(validFavorites);
+    } catch (error) {
+      console.error('찜한 상품 불러오기 오류:', error);
+    } finally {
+      setFavoritesLoading(false);
+    }
+  };
+
+  // 사용자 리뷰 가져오기
+  const fetchUserReviews = async () => {
+    if (!user) return;
+
+    try {
+      // 모든 예약에서 리뷰 가져오기
+      const bookingsResponse = await api.getBookings(Number(user.id));
+
+      if (Array.isArray(bookingsResponse)) {
+        const reviewPromises = bookingsResponse
+          .filter((b: any) => b.listing_id)
+          .map((b: any) => api.getReviews(b.listing_id));
+
+        const allReviews = await Promise.all(reviewPromises);
+        const userReviews = allReviews
+          .flat()
+          .filter((review: any) => review.user_id === user.id)
+          .map((review: any) => ({
+            id: review.id.toString(),
+            title: review.listing?.title || '상품명 없음',
+            rating: review.rating,
+            comment: review.comment || review.content,
+            date: review.created_at ? new Date(review.created_at).toLocaleDateString() : '',
+            image: Array.isArray(review.listing?.images) && review.listing.images.length > 0
+              ? review.listing.images[0]
+              : getDefaultImage(review.listing?.category),
+            category: review.listing?.category || '카테고리 없음'
+          }));
+
+        setReviews(userReviews);
+      }
+    } catch (error) {
+      console.error('리뷰 불러오기 오류:', error);
+      setReviews([]);
     }
   };
 
@@ -258,15 +332,144 @@ export function MyPage() {
     }
   };
 
+  // 프로필 저장
   const handleSaveProfile = () => {
-    setUserProfile(editProfile);
-    setIsEditingProfile(false);
-    toast.success('프로필이 업데이트되었습니다.');
+    if (!user) return;
+
+    try {
+      // localStorage에 저장
+      localStorage.setItem(`userProfile_${user.id}`, JSON.stringify(editProfile));
+
+      setUserProfile(editProfile);
+      setIsEditingProfile(false);
+      toast.success('프로필이 업데이트되었습니다.');
+    } catch (error) {
+      console.error('프로필 저장 오류:', error);
+      toast.error('프로필 저장에 실패했습니다.');
+    }
   };
 
   const handleCancelEdit = () => {
     setEditProfile(userProfile);
     setIsEditingProfile(false);
+  };
+
+  // 찜하기 토글
+  const toggleFavorite = useCallback(async (listingId: number) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    const isFavorited = favoriteIds.includes(listingId);
+
+    try {
+      if (isFavorited) {
+        // 찜 해제
+        const success = await api.removeFavorite(listingId, user.id);
+        if (success) {
+          setFavoriteIds(prev => prev.filter(id => id !== listingId));
+          setFavorites(prev => prev.filter(item => item.id !== listingId));
+          toast.success('찜 목록에서 제거되었습니다.');
+        } else {
+          throw new Error('찜 해제 실패');
+        }
+      } else {
+        // 찜 추가
+        const success = await api.addFavorite(listingId, user.id);
+        if (success) {
+          setFavoriteIds(prev => [...prev, listingId]);
+          // 상품 정보 가져오기
+          const listing = await api.getListing(listingId);
+          if (listing) {
+            setFavorites(prev => [...prev, listing]);
+          }
+          toast.success('찜 목록에 추가되었습니다.');
+        } else {
+          throw new Error('찜 추가 실패');
+        }
+      }
+    } catch (error) {
+      console.error('찜하기 토글 오류:', error);
+      toast.error('오류가 발생했습니다.');
+    }
+  }, [user, favoriteIds]);
+
+  // 설정 저장
+  const handleSaveSettings = (newSettings: typeof settings) => {
+    try {
+      localStorage.setItem('userSettings', JSON.stringify(newSettings));
+      setSettings(newSettings);
+      toast.success('설정이 저장되었습니다.');
+    } catch (error) {
+      console.error('설정 저장 오류:', error);
+      toast.error('설정 저장에 실패했습니다.');
+    }
+  };
+
+  // 비밀번호 변경
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error('모든 필드를 입력해주세요.');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      toast.error('비밀번호는 최소 8자 이상이어야 합니다.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      // TODO: 실제 API 호출로 변경
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 시뮬레이션
+
+      setShowPasswordDialog(false);
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      toast.success('비밀번호가 변경되었습니다.');
+    } catch (error) {
+      console.error('비밀번호 변경 오류:', error);
+      toast.error('비밀번호 변경에 실패했습니다.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // 계정 탈퇴
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== '계정삭제') {
+      toast.error('"계정삭제"를 정확히 입력해주세요.');
+      return;
+    }
+
+    if (!window.confirm('정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      // TODO: 실제 API 호출로 변경
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 시뮬레이션
+
+      logout();
+      toast.success('계정이 삭제되었습니다.');
+      navigate('/');
+    } catch (error) {
+      console.error('계정 삭제 오류:', error);
+      toast.error('계정 삭제에 실패했습니다.');
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteDialog(false);
+    }
   };
 
   const renderStars = (rating: number) => {
@@ -327,9 +530,9 @@ export function MyPage() {
 
     setCancellingBookingId(bookingId);
     try {
-      const response = await api.cancelBooking(bookingId, {
-        cancellationFee: cancellationInfo.cancellationFee,
-        refundAmount: cancellationInfo.refundAmount,
+      const response = await api.cancelBooking(bookingId.toString(), {
+        cancellationFee: 0,
+        refundAmount: 0,
         reason: '사용자 요청'
       });
 
@@ -361,7 +564,7 @@ export function MyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 mobile-safe-bottom">
       {/* 헤더 */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -461,13 +664,29 @@ export function MyPage() {
           </CardContent>
         </Card>
 
-        {/* 탭 메뉴 */}
+        {/* 탭 메뉴 - 모바일 최적화 */}
         <Tabs defaultValue="bookings" className="space-y-6">
-          <TabsList className="grid grid-cols-4 w-full max-w-2xl">
-            <TabsTrigger value="bookings">예약 내역</TabsTrigger>
-            <TabsTrigger value="favorites">찜한 상품</TabsTrigger>
-            <TabsTrigger value="reviews">내 리뷰</TabsTrigger>
-            <TabsTrigger value="settings">설정</TabsTrigger>
+          <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full max-w-2xl gap-2">
+            <TabsTrigger value="bookings" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
+              <Calendar className="w-4 h-4 sm:hidden mr-2" />
+              <span className="hidden sm:inline">예약 내역</span>
+              <span className="sm:hidden">예약</span>
+            </TabsTrigger>
+            <TabsTrigger value="favorites" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
+              <Heart className="w-4 h-4 sm:hidden mr-2" />
+              <span className="hidden sm:inline">찜한 상품</span>
+              <span className="sm:hidden">찜</span>
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
+              <MessageSquare className="w-4 h-4 sm:hidden mr-2" />
+              <span className="hidden sm:inline">내 리뷰</span>
+              <span className="sm:hidden">리뷰</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
+              <Settings className="w-4 h-4 sm:hidden mr-2" />
+              <span className="hidden sm:inline">설정</span>
+              <span className="sm:hidden">설정</span>
+            </TabsTrigger>
           </TabsList>
 
           {/* 예약 내역 탭 */}
@@ -606,43 +825,84 @@ export function MyPage() {
           <TabsContent value="favorites" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Heart className="w-5 h-5 mr-2" />
-                  찜한 상품
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Heart className="w-5 h-5 mr-2" />
+                    찜한 상품
+                  </div>
+                  {favoritesLoading && (
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {favorites.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    찜한 상품이 없습니다.
+                {favoritesLoading ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600" />
+                    <p className="mt-2 text-gray-500">찜한 상품을 불러오는 중...</p>
+                  </div>
+                ) : favorites.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Heart className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">찜한 상품이 없습니다</h3>
+                    <p className="text-gray-600 mb-4">마음에 드는 상품을 찜해보세요!</p>
+                    <Button onClick={() => navigate('/')} variant="outline">
+                      상품 둘러보기
+                    </Button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {favorites.map((item) => (
-                    <div key={item.id} className="border rounded-lg p-4">
+                    <div key={item.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex space-x-4">
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="w-20 h-20 rounded-lg object-cover"
-                        />
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{item.title}</h3>
-                          <div className="flex items-center text-gray-600 text-sm mt-1">
-                            <MapPin className="w-3 h-3 mr-1" />
-                            {item.location}
+                        <div
+                          className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
+                          onClick={() => navigate(`/detail/${item.id}`)}
+                        >
+                          <img
+                            src={item.images?.[0] || 'https://via.placeholder.com/100'}
+                            alt={item.title}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3
+                            className="font-semibold line-clamp-2 cursor-pointer hover:text-purple-600"
+                            onClick={() => navigate(`/detail/${item.id}`)}
+                          >
+                            {item.title}
+                          </h3>
+                          <div className="flex items-center text-gray-600 text-xs mt-1">
+                            <MapPin className="w-3 h-3 mr-1 flex-shrink-0" />
+                            <span className="truncate">{item.location || '위치 정보 없음'}</span>
                           </div>
                           <div className="flex items-center mt-2">
-                            <div className="flex items-center">
-                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 mr-1" />
-                              <span className="text-sm">{item.rating}</span>
-                            </div>
-                            <span className="text-sm text-gray-500 ml-2">({item.reviewCount})</span>
+                            {item.rating_avg > 0 && item.rating_count > 0 ? (
+                              <>
+                                <div className="flex items-center">
+                                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 mr-1" />
+                                  <span className="text-sm">{item.rating_avg.toFixed(1)}</span>
+                                </div>
+                                <span className="text-sm text-gray-500 ml-2">({item.rating_count})</span>
+                              </>
+                            ) : (
+                              <div className="text-xs text-gray-500">리뷰 없음</div>
+                            )}
                           </div>
-                          <div className="flex items-center justify-between mt-2">
-                            <Badge variant="outline">{item.category}</Badge>
-                            <div className="font-semibold text-[#ff6a3d]">
-                              ₩{item.price.toLocaleString()}
+                          <div className="flex items-center justify-between mt-3">
+                            <Badge variant="outline" className="text-xs">{item.category}</Badge>
+                            <div className="flex items-center gap-2">
+                              <div className="font-semibold text-purple-600">
+                                {item.price_from ? `₩${item.price_from.toLocaleString()}` : '가격 문의'}
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => toggleFavorite(item.id)}
+                                className="h-8 w-8 p-0 hover:bg-red-50"
+                              >
+                                <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -714,7 +974,10 @@ export function MyPage() {
                 {/* 언어 설정 */}
                 <div>
                   <label className="text-sm font-medium mb-2 block">언어 설정</label>
-                  <Select value="ko" onValueChange={() => {}}>
+                  <Select
+                    value={settings.language}
+                    onValueChange={(value) => handleSaveSettings({ ...settings, language: value })}
+                  >
                     <SelectTrigger className="w-48">
                       <SelectValue />
                     </SelectTrigger>
@@ -730,7 +993,10 @@ export function MyPage() {
                 {/* 통화 설정 */}
                 <div>
                   <label className="text-sm font-medium mb-2 block">통화 설정</label>
-                  <Select value="KRW" onValueChange={() => {}}>
+                  <Select
+                    value={settings.currency}
+                    onValueChange={(value) => handleSaveSettings({ ...settings, currency: value })}
+                  >
                     <SelectTrigger className="w-48">
                       <SelectValue />
                     </SelectTrigger>
@@ -747,17 +1013,41 @@ export function MyPage() {
                 <div>
                   <label className="text-sm font-medium mb-2 block">알림 설정</label>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <span>예약 확인 알림</span>
-                      <input type="checkbox" defaultChecked className="rounded" />
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <span className="text-sm">예약 확인 알림</span>
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.booking}
+                        onChange={(e) => handleSaveSettings({
+                          ...settings,
+                          notifications: { ...settings.notifications, booking: e.target.checked }
+                        })}
+                        className="rounded h-4 w-4"
+                      />
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <span>마케팅 정보 수신</span>
-                      <input type="checkbox" className="rounded" />
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <span className="text-sm">마케팅 정보 수신</span>
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.marketing}
+                        onChange={(e) => handleSaveSettings({
+                          ...settings,
+                          notifications: { ...settings.notifications, marketing: e.target.checked }
+                        })}
+                        className="rounded h-4 w-4"
+                      />
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <span>이벤트 정보 수신</span>
-                      <input type="checkbox" className="rounded" />
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <span className="text-sm">이벤트 정보 수신</span>
+                      <input
+                        type="checkbox"
+                        checked={settings.notifications.events}
+                        onChange={(e) => handleSaveSettings({
+                          ...settings,
+                          notifications: { ...settings.notifications, events: e.target.checked }
+                        })}
+                        className="rounded h-4 w-4"
+                      />
                     </div>
                   </div>
                 </div>
@@ -766,16 +1056,28 @@ export function MyPage() {
                 <div>
                   <label className="text-sm font-medium mb-2 block">계정 관리</label>
                   <div className="space-y-2">
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => toast.info('결제 수단 관리 기능은 준비 중입니다.')}
+                    >
                       <CreditCard className="w-4 h-4 mr-2" />
                       결제 수단 관리
                     </Button>
-                    <Button variant="outline" className="w-full justify-start">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setShowPasswordDialog(true)}
+                    >
                       <User className="w-4 h-4 mr-2" />
                       비밀번호 변경
                     </Button>
-                    <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700">
-                      <XCircle className="w-4 h-4 mr-2" />
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
                       계정 탈퇴
                     </Button>
                   </div>
@@ -784,6 +1086,173 @@ export function MyPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* 비밀번호 변경 다이얼로그 */}
+        <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>비밀번호 변경</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {/* 현재 비밀번호 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">현재 비밀번호</label>
+                <div className="relative">
+                  <Input
+                    type={showPassword.current ? 'text' : 'password'}
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                    placeholder="현재 비밀번호를 입력하세요"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword({...showPassword, current: !showPassword.current})}
+                  >
+                    {showPassword.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              {/* 새 비밀번호 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">새 비밀번호</label>
+                <div className="relative">
+                  <Input
+                    type={showPassword.new ? 'text' : 'password'}
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                    placeholder="새 비밀번호 (최소 8자)"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword({...showPassword, new: !showPassword.new})}
+                  >
+                    {showPassword.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              {/* 비밀번호 확인 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">새 비밀번호 확인</label>
+                <div className="relative">
+                  <Input
+                    type={showPassword.confirm ? 'text' : 'password'}
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                    placeholder="새 비밀번호를 다시 입력하세요"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => setShowPassword({...showPassword, confirm: !showPassword.confirm})}
+                  >
+                    {showPassword.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowPasswordDialog(false);
+                  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                }}
+                disabled={passwordLoading}
+              >
+                취소
+              </Button>
+              <Button
+                onClick={handleChangePassword}
+                disabled={passwordLoading}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {passwordLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    변경 중...
+                  </>
+                ) : (
+                  '변경하기'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 계정 탈퇴 다이얼로그 */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                <span className="text-red-600">계정 탈퇴</span>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-red-800">
+                    <p className="font-semibold mb-1">경고: 이 작업은 되돌릴 수 없습니다!</p>
+                    <ul className="list-disc list-inside space-y-1 text-xs">
+                      <li>모든 예약 내역이 삭제됩니다</li>
+                      <li>작성한 리뷰가 삭제됩니다</li>
+                      <li>찜한 상품 목록이 삭제됩니다</li>
+                      <li>계정 정보를 복구할 수 없습니다</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  계속하려면 <span className="text-red-600 font-bold">"계정삭제"</span>를 입력하세요
+                </label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="계정삭제"
+                  className="font-mono"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteDialog(false);
+                  setDeleteConfirmText('');
+                }}
+                disabled={deleteLoading}
+              >
+                취소
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading || deleteConfirmText !== '계정삭제'}
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    삭제 중...
+                  </>
+                ) : (
+                  '계정 삭제'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

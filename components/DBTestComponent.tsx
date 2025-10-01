@@ -41,7 +41,7 @@ export function DBTestComponent() {
 
         // 4. 파트너 데이터 테스트
         try {
-          const partners = await api.admin.getPartners();
+          const partners = await api.admin.getPartnerApplications();
           status += `✅ 파트너 데이터: ${partners.data?.length || 0}개\n`;
         } catch (error) {
           status += '❌ 파트너 데이터 조회 실패\n';

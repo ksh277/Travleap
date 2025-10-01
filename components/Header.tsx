@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../hooks/useAuthStore';
+import { useAuth } from '../hooks/useAuth';
 import {
   ShoppingBasket,
   ChevronDown,
@@ -43,8 +43,13 @@ export function Header({
 }: Omit<HeaderProps, 'isAdmin' | 'isLoggedIn' | 'logout'>) {
   const navigate = useNavigate();
 
-  // Header에서 직접 useAuthStore 사용 (즉시 상태 반영을 위해)
-  const { isLoggedIn, isAdmin, logout } = useAuthStore();
+  // 새로운 간단한 인증 시스템
+  const { isLoggedIn, isAdmin, logout, user } = useAuth();
+
+  // 상태 로그
+  useEffect(() => {
+    console.log('🎯 Auth 상태:', { isLoggedIn, isAdmin, user: user?.email || 'none' });
+  }, [isLoggedIn, isAdmin, user]);
 
 
   const location = useLocation();
@@ -113,36 +118,36 @@ export function Header({
   return (
     <header className="sticky top-0 z-50 w-full">
       {/* 상단 연보라 탑바 */}
-      <div className="bg-[#A8A8D8] h-[42px] flex items-center">
-        <div className="w-full px-4 flex items-center justify-between text-[12px] text-white">
+      <div className="bg-[#A8A8D8] h-[42px] md:h-[42px] flex items-center">
+        <div className="w-full px-4 flex items-center justify-between text-[11px] md:text-[12px] text-white">
           {/* 왼쪽 */}
-          <div className="flex items-center gap-3">
-            <div className="flex gap-3 items-center">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex gap-2 md:gap-3 items-center">
               <a
                 href="#"
-                className="inline-flex items-center justify-center w-[18px] h-[18px] text-white hover:text-blue-100 transition-colors"
+                className="inline-flex items-center justify-center w-[22px] h-[22px] md:w-[18px] md:h-[18px] text-white hover:text-blue-100 transition-colors"
               >
                 <Facebook className="w-3 h-3" />
               </a>
               <a
                 href="#"
-                className="inline-flex items-center justify-center w-[18px] h-[18px] text-white hover:text-blue-100 transition-colors"
+                className="inline-flex items-center justify-center w-[22px] h-[22px] md:w-[18px] md:h-[18px] text-white hover:text-blue-100 transition-colors"
               >
                 <Linkedin className="w-3 h-3" />
               </a>
               <a
                 href="#"
-                className="inline-flex items-center justify-center w-[18px] h-[18px] text-white hover:text-blue-100 transition-colors"
+                className="inline-flex items-center justify-center w-[22px] h-[22px] md:w-[18px] md:h-[18px] text-white hover:text-blue-100 transition-colors"
               >
                 <UserPlus className="w-3 h-3" />
               </a>
             </div>
             <span
-              className="w-[1px] h-[14px] bg-white/35 mx-2"
+              className="w-[1px] h-[14px] bg-white/35 mx-1 md:mx-2"
               aria-hidden="true"
             ></span>
             <a
-              className="text-white hover:text-blue-100 transition-colors"
+              className="text-white hover:text-blue-100 transition-colors hidden sm:inline"
               href="mailto:wazeplan@naver.com"
             >
               wazeplan@naver.com
@@ -196,17 +201,17 @@ export function Header({
       <nav className="bg-white border-b border-gray-200 shadow-sm">
         <div className="h-[70px] w-full px-4 flex items-center">
           {/* 왼쪽: 로고 + 메뉴 */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4 md:gap-8">
             {/* 로고 */}
             <a
               className="cursor-pointer flex items-center gap-2"
               onClick={() => navigate("/")}
             >
-              <span className="text-2xl font-bold text-[#A8A8D8] tracking-tight select-none">Travelap</span>
+              <span className="text-xl md:text-2xl font-bold text-[#A8A8D8] tracking-tight select-none">Travelap</span>
             </a>
 
             {/* 메뉴 */}
-            <div className="hidden md:flex items-center gap-8">
+            <div className="hidden md:flex items-center gap-6 lg:gap-8">
               {navigation.map((item) => (
                 <div key={item.id}>
                   {item.hasDropdown ? (
@@ -268,7 +273,7 @@ export function Header({
           <div className="flex items-center gap-4 ml-auto">
             {/* 장바구니 */}
             <button
-              className="relative p-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              className="relative p-2 md:p-2 min-w-[44px] min-h-[44px] md:min-w-[40px] md:min-h-[40px] rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-center"
               aria-label="장바구니"
               onClick={() => navigate('/cart')}
             >
@@ -322,7 +327,7 @@ export function Header({
 
             {/* CTA 버튼 */}
             <Button
-              className="hidden md:inline-flex bg-[#ff6a3d] hover:bg-[#e5582b] text-white"
+              className="hidden lg:inline-flex bg-[#ff6a3d] hover:bg-[#e5582b] text-white text-sm"
               onClick={() => navigate("/partner-apply")}
             >
               {t('becomeLocalExpert', selectedLanguage)}
@@ -331,7 +336,7 @@ export function Header({
             {/* 모바일 메뉴 */}
             <Sheet>
               <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" className="min-w-[44px] min-h-[44px] flex items-center justify-center">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -349,7 +354,7 @@ export function Header({
                           navigate(`/${item.id}`);
                         }
                       }}
-                      className="text-left text-lg hover:text-[#4A5568] transition-colors"
+                      className="text-left text-lg hover:text-[#4A5568] transition-colors min-h-[48px] flex items-center py-2"
                     >
                       {item.name}
                     </button>
@@ -365,10 +370,10 @@ export function Header({
                           onClick={() =>
                             navigate(`/category/${category.id}`)
                           }
-                          className="flex items-center space-x-2 text-left p-2 hover:bg-gray-100 rounded"
+                          className="flex items-center space-x-3 text-left p-3 hover:bg-gray-100 rounded min-h-[48px]"
                         >
-                          <span>{category.icon}</span>
-                          <span>{category.name}</span>
+                          <span className="text-lg">{category.icon}</span>
+                          <span className="text-base">{category.name}</span>
                         </button>
                       ))}
                     </div>
@@ -381,21 +386,21 @@ export function Header({
                         {isAdmin ? (
                           <button
                             onClick={() => navigate("/admin")}
-                            className="block w-full text-left p-2 hover:bg-purple-50 rounded text-purple-600 font-medium"
+                            className="block w-full text-left p-3 hover:bg-purple-50 rounded text-purple-600 font-medium min-h-[48px] flex items-center"
                           >
                             {t('admin', selectedLanguage)} 페이지
                           </button>
                         ) : (
                           <button
                             onClick={() => navigate("/mypage")}
-                            className="block w-full text-left p-2 hover:bg-blue-50 rounded text-blue-600 font-medium"
+                            className="block w-full text-left p-3 hover:bg-blue-50 rounded text-blue-600 font-medium min-h-[48px] flex items-center"
                           >
                             {t('mypage', selectedLanguage)}
                           </button>
                         )}
                         <button
                           onClick={logout}
-                          className="block w-full text-left p-2 hover:bg-gray-100 rounded text-gray-600"
+                          className="block w-full text-left p-3 hover:bg-gray-100 rounded text-gray-600 min-h-[48px] flex items-center"
                         >
                           {t('logout', selectedLanguage)}
                         </button>
@@ -403,7 +408,7 @@ export function Header({
                     ) : (
                       <button
                         onClick={() => navigate("/login")}
-                        className="block w-full text-left p-2 hover:bg-gray-100 rounded text-gray-600"
+                        className="block w-full text-left p-3 hover:bg-gray-100 rounded text-gray-600 min-h-[48px] flex items-center"
                       >
                         {t('login', selectedLanguage)}
                       </button>
@@ -419,10 +424,10 @@ export function Header({
       {/* 검색바 (조건부 표시) */}
       {showSearchBar && (
         <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="w-full px-4 py-4">
+          <div className="w-full px-4 py-3 md:py-4">
             <form onSubmit={handleSearch} className="space-y-4">
               {/* 기본 검색 옵션 */}
-              <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
                 {/* 목적지 */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">

@@ -12,7 +12,6 @@ import {
   Star,
   MapPin,
   Calendar as CalendarIcon,
-  Users,
   Filter,
   Search,
   Heart,
@@ -23,8 +22,8 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { getGoogleMapsApiKey } from '../utils/env';
-import { api } from '../utils/api';
-import type { Listing } from '../types/database';
+import { api, type TravelItem } from '../utils/api';
+import { useRealTimeListings, useRealTimePartners } from '../hooks/useRealTimeData';
 
 interface Partner {
   id: string;
@@ -44,9 +43,65 @@ interface Partner {
   distance?: number; // km 단위 거리
 }
 
-// API에서 제휴업체 데이터 가져오기 함수
+// 파트너 데이터 로딩 - partners 테이블에서 데이터 가져오기
 const loadPartners = async (): Promise<Partner[]> => {
-  // 확장된 샘플 파트너 데이터 (신안군 실제 좌표 사용)
+  try {
+    // 파트너 데이터 로드
+    const partnersResponse = await api.getPartners();
+    const partnersList: Partner[] = [];
+
+    if (partnersResponse.success && partnersResponse.data && partnersResponse.data.length > 0) {
+      // 신안군 실제 좌표 배열 (각 카테고리별 대표 위치)
+      const categoryCoordinates: { [key: string]: { lat: number; lng: number } } = {
+        '여행': { lat: 34.8278, lng: 126.1063 }, // 증도면
+        '렌트카': { lat: 34.7845, lng: 126.0932 }, // 임자면
+        '숙박': { lat: 34.7123, lng: 125.9876 }, // 자은면
+        '음식': { lat: 34.6834, lng: 126.0445 }, // 비금면
+        '관광지': { lat: 34.7567, lng: 126.1234 }, // 도초면
+        '팝업': { lat: 34.8597, lng: 126.1533 }, // 임자도
+        '행사': { lat: 34.8194, lng: 126.3031 }, // 지도읍
+        '체험': { lat: 34.8726, lng: 126.1094 }  // 증도 태평염전
+      };
+
+      partnersResponse.data.forEach((partner: any, index: number) => {
+        // tier에 따라 카테고리 매핑
+        const tierToCategoryMap: { [key: string]: string } = {
+          'gold': '여행',
+          'silver': '관광지',
+          'bronze': '음식'
+        };
+        const category = tierToCategoryMap[partner.tier] || '체험';
+
+        // 카테고리별 좌표 할당
+        const coord = categoryCoordinates[category] || { lat: 34.8278, lng: 126.1063 };
+
+        const partnerCard: Partner = {
+          id: partner.id.toString(),
+          name: partner.business_name,  // DB 필드명 수정
+          category: category,
+          location: partner.phone || '신안군',  // phone을 임시로 표시
+          rating: 4.5,
+          reviewCount: 0,
+          price: partner.tier === 'gold' ? '50,000원~' : partner.tier === 'silver' ? '30,000원~' : '10,000원~',
+          image: `https://images.unsplash.com/photo-${1506905925346 + index}?w=400&h=300&fit=crop`,
+          description: partner.description || '신안의 아름다운 자연과 함께하는 특별한 체험',
+          position: coord,
+          featured: partner.is_featured === 1
+        };
+
+        partnersList.push(partnerCard);
+      });
+    }
+
+    if (partnersList.length > 0) {
+      return partnersList;
+    }
+
+  } catch (error) {
+    console.error('파트너 데이터 로드 실패:', error);
+  }
+
+  // API 실패 시 샘플 파트너 데이터 (신안군 실제 좌표 사용)
   const samplePartners: Partner[] = [
     {
       id: '1',
@@ -206,53 +261,8 @@ const loadPartners = async (): Promise<Partner[]> => {
     }
   ];
 
-  // 임시로 샘플 데이터만 사용 (DB 연동 문제 해결 전까지)
-  console.log('Using sample partner data with proper Shinan coordinates');
+  // API 실패 시 샘플 데이터 사용
   return samplePartners;
-
-  /* DB 연동이 완료되면 아래 코드 활성화
-  try {
-    const listings = await api.getListings({ page: 1, limit: 100 });
-
-    if (listings.data && listings.data.length > 0) {
-      // 실제 좌표를 가진 파트너 데이터 매핑
-      const partnersWithCoords = listings.data.map((listing, index) => {
-        // 샘플 좌표를 순환하여 할당
-        const coordIndex = index % samplePartners.length;
-        const sampleCoord = samplePartners[coordIndex].position;
-
-        return {
-          id: listing.id.toString(),
-          name: listing.title || `제휴업체 ${listing.id}`,
-          category: listing.category === 'tour' ? '투어' :
-                    listing.category === 'stay' ? '숙박' :
-                    listing.category === 'food' ? '음식' : '투어',
-          location: listing.location || '신안군',
-          rating: listing.rating_avg || 4.5,
-          reviewCount: listing.rating_count || 50,
-          price: `${(listing.price_from || 25000).toLocaleString()}원`,
-          image: listing.images ?
-                 (Array.isArray(listing.images) ?
-                  listing.images[0] || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop' :
-                  'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop') :
-                 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop',
-          description: listing.short_description || '신안의 아름다운 자연과 함께하는 특별한 체험',
-          position: sampleCoord,
-          featured: listing.is_featured || (index < 3),
-          distance: undefined
-        };
-      });
-
-      return partnersWithCoords;
-    } else {
-      console.log('No API data found, using sample partners');
-      return samplePartners;
-    }
-  } catch (error) {
-    console.error('Failed to load partners, using sample data:', error);
-    return samplePartners;
-  }
-  */
 };
 
 export function PartnerPage() {
@@ -579,55 +589,13 @@ export function PartnerPage() {
   };
 
   const handleSearch = () => {
-    console.log('검색:', {
-      searchQuery,
-      fromDate: formatDate(fromDate),
-      toDate: formatDate(toDate),
-      moreOptions
-    });
+    // 검색 로직 실행
   };
 
-  // 제휴업체 카드 클릭 핸들러 - Google Maps에서 해당 위치로 이동
+  // 제휴업체 카드 클릭 핸들러 - 모든 항목을 상세페이지로 이동
   const handlePartnerClick = (partner: Partner) => {
-    if (map) {
-      // 지도 중심을 해당 제휴업체 위치로 이동
-      map.setCenter(partner.position);
-      map.setZoom(15);
-
-      // 해당 마커의 정보창 열기
-      const marker = markersRef.current.find((marker: any) =>
-        marker.getTitle() === partner.name
-      );
-
-      if (marker) {
-        // 기존 열린 정보창 닫기
-        markersRef.current.forEach((m: any) => {
-          if (m.infoWindow) {
-            m.infoWindow.close();
-          }
-        });
-
-        // 새로운 정보창 생성하여 열기
-        const infoWindow = new google.maps.InfoWindow({
-          content: `
-            <div style="max-width: 250px;">
-              <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #333;">${partner.name}</h3>
-              <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${partner.category} • ${partner.location}</p>
-              <div style="display: flex; align-items: center; margin: 4px 0;">
-                <span style="color: #fbbf24;">★</span>
-                <span style="margin-left: 4px; font-size: 14px;">${partner.rating} (${partner.reviewCount})</span>
-              </div>
-              <p style="margin: 8px 0; font-size: 13px; color: #555; line-height: 1.4;">${partner.description}</p>
-              <p style="margin: 4px 0 0 0; font-weight: 600; color: #ff6a3d; font-size: 16px;">${partner.price}</p>
-            </div>
-          `
-        });
-
-        // 마커에 정보창 참조 저장
-        (marker as any).infoWindow = infoWindow;
-        infoWindow.open(map, marker);
-      }
-    }
+    // 모든 파트너 카드는 상품 데이터이므로 상세페이지로 이동
+    navigate(`/detail/${partner.id}`);
   };
 
   return (
@@ -886,7 +854,7 @@ export function PartnerPage() {
                     <SelectItem value="투어">투어</SelectItem>
                     <SelectItem value="숙박">숙박</SelectItem>
                     <SelectItem value="음식">음식</SelectItem>
-                    <SelectItem value="캠핑카">캠핑카</SelectItem>
+                    <SelectItem value="렌트카">렌트카</SelectItem>
                   </SelectContent>
                 </Select>
 
