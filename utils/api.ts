@@ -1134,24 +1134,34 @@ export const api = {
       try {
         const today = new Date().toISOString().split('T')[0];
 
-        // 실제 DB에서 통계 계산
+        // 실제 DB에서 통계 계산 (payments 테이블 사용 - 주문관리와 동일)
         const [
           users,
           partners,
           listings,
-          bookings,
+          payments,
           reviews
         ] = await Promise.all([
           db.select('users') || [],
           db.select('partners') || [],
           db.select('listings') || [],
-          db.select('bookings') || [],
+          db.select('payments') || [],
           db.select('reviews') || []
         ]);
 
+        // cart 주문만 필터링 (bookings가 아닌 실제 주문)
+        const orders = payments.filter(p => {
+          try {
+            const notes = p.notes ? JSON.parse(p.notes) : {};
+            return notes.orderType === 'cart';
+          } catch {
+            return false;
+          }
+        });
+
         // 오늘 생성된 데이터 계산
         const todayUsers = users.filter(u => u.created_at?.startsWith(today)) || [];
-        const todayBookings = bookings.filter(b => b.created_at?.startsWith(today)) || [];
+        const todayOrders = orders.filter(o => o.created_at?.startsWith(today)) || [];
 
         // 파트너 상태별 계산
         const pendingPartners = partners.filter(p => p.status === 'pending') || [];
@@ -1163,9 +1173,9 @@ export const api = {
         const ratingsSum = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
         const avgRating = reviews.length > 0 ? ratingsSum / reviews.length : 0;
 
-        // 총 수익 계산 (예약 금액 기준)
-        const totalRevenue = bookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
-        const todayRevenue = todayBookings.reduce((sum, b) => sum + (b.total_amount || 0), 0);
+        // 총 수익 계산 (실제 주문 금액 기준)
+        const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
+        const todayRevenue = todayOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
 
         // 수수료 계산 (10% 가정)
         const commissionEarned = totalRevenue * 0.1;
@@ -1178,15 +1188,15 @@ export const api = {
           pending_partners: pendingPartners.length,
           total_listings: listings.length,
           published_listings: publishedListings.length,
-          total_bookings: bookings.length,
-          bookings_today: todayBookings.length,
+          total_bookings: orders.length,
+          bookings_today: todayOrders.length,
           total_revenue: Math.round(totalRevenue),
           revenue_today: Math.round(todayRevenue),
           commission_earned: Math.round(commissionEarned),
           avg_rating: Math.round(avgRating * 10) / 10,
           total_reviews: reviews.length,
-          pending_refunds: bookings.filter(b => b.status === 'refund_requested').length,
-          support_tickets_open: 0 // 지원 티켓 시스템이 없으면 0
+          pending_refunds: orders.filter(o => o.status === 'refund_requested').length,
+          support_tickets_open: 0
         };
 
 

@@ -1987,33 +1987,31 @@ export function AdminPage({}: AdminPageProps) {
                 </CardContent>
               </Card>
 
-              {/* 주문/예약 통계 - 실제 예약이 있을 때만 표시 */}
-              {dashboardStats && (dashboardStats.total_bookings > 0 || dashboardStats.bookings_today > 0) && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium flex items-center">
-                      <Package className="h-4 w-4 mr-2" />
-                      예약 현황
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm">총 예약</span>
-                      <span className="font-medium">{dashboardStats?.total_bookings || 0}건</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">오늘 예약</span>
-                      <span className="font-medium text-blue-600">{dashboardStats?.bookings_today || 0}건</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm">수수료 수익</span>
-                      <span className="font-medium text-purple-600">
-                        ₩{(dashboardStats?.commission_earned || 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* 주문/예약 통계 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium flex items-center">
+                    <Package className="h-4 w-4 mr-2" />
+                    주문 현황
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm">총 주문</span>
+                    <span className="font-medium">{dashboardStats?.total_bookings || 0}건</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">오늘 주문</span>
+                    <span className="font-medium text-blue-600">{dashboardStats?.bookings_today || 0}건</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">수수료 수익</span>
+                    <span className="font-medium text-purple-600">
+                      ₩{(dashboardStats?.commission_earned || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* 시스템 상태 */}
               <Card>
