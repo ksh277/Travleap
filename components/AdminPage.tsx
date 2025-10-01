@@ -3248,7 +3248,7 @@ export function AdminPage({}: AdminPageProps) {
                               <SelectTrigger>
                                 <SelectValue placeholder="상품을 선택하세요" />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="z-[9999]">
                                 {products.map((product) => (
                                   <SelectItem key={product.id} value={product.id.toString()}>
                                     {product.title}
@@ -3275,7 +3275,7 @@ export function AdminPage({}: AdminPageProps) {
                                 <SelectTrigger>
                                   <SelectValue placeholder="평점 선택" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="z-[9999]">
                                   <SelectItem value="5">⭐⭐⭐⭐⭐ (5점)</SelectItem>
                                   <SelectItem value="4">⭐⭐⭐⭐ (4점)</SelectItem>
                                   <SelectItem value="3">⭐⭐⭐ (3점)</SelectItem>
