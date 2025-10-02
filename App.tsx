@@ -12,6 +12,7 @@ import { PartnerApplyPage } from './components/PartnerApplyPage';
 import { SearchResultsPage } from './components/SearchResultsPage';
 import { ContactPage } from './components/ContactPage';
 import { AboutPage } from './components/AboutPage';
+import { ShinanPage } from './components/ShinanPage';
 import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
 import { CartPage } from './components/CartPage';
@@ -153,7 +154,8 @@ function AppContent() {
           } />
 
           {/* 정보 페이지들 */}
-          <Route path="/about" element={<AboutPage />} />
+          <Route path="/company" element={<AboutPage />} />
+          <Route path="/about" element={<ShinanPage />} />
           <Route path="/contact" element={<ContactPage onBack={() => navigate(-1)} />} />
           <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/community-blog" element={<CommunityBlogPage />} />
@@ -180,6 +182,7 @@ function AppContent() {
       <Footer
         selectedLanguage="ko"
         selectedCurrency="KRW"
+        onCategorySelect={(category) => navigate(`/${category}`)}
       />
       <MobileNav />
       <Toaster />

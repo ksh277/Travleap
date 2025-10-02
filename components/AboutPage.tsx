@@ -10,9 +10,9 @@ export function AboutPage() {
       <div className="relative bg-gradient-to-r from-purple-600 to-blue-600 text-white">
         <div className="container mx-auto px-4 py-20">
           <div className="max-w-4xl">
-            <h1 className="text-5xl font-bold mb-6">어썸플랜</h1>
+            <h1 className="text-5xl font-bold mb-6">트래블립 (TRAVLEAP)</h1>
             <p className="text-xl mb-8 leading-relaxed">
-              신안의 아름다운 자연과 문화를 전 세계에 알리는 여행 전문 기업입니다.
+              신안의 아름다운 자연과 문화를 전 세계에 알리는 여행 플랫폼 기업입니다.
               우리는 특별한 여행 경험을 통해 고객들에게 잊지 못할 추억을 선사합니다.
             </p>
             <Button size="lg" variant="secondary" className="bg-white text-purple-600 hover:bg-gray-100">
@@ -29,25 +29,30 @@ export function AboutPage() {
             <div>
               <h2 className="text-3xl font-bold text-gray-800 mb-6">회사 소개</h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                어썸플랜은 신안군의 천혜의 자연과 독특한 문화를 바탕으로 한 맞춤형 여행 서비스를 제공하는 전문 기업입니다.
+                트래블립(TRAVLEAP)은 신안군의 천혜의 자연과 독특한 문화를 전 세계에 소개하는
+                여행 플랫폼 기업입니다. Travel과 Leap의 합성어로, 여행을 통한 도약과 성장을 의미합니다.
+              </p>
+              <p className="text-gray-600 mb-6 leading-relaxed">
                 1004개의 섬으로 이루어진 신안의 아름다움을 전 세계 여행객들에게 알리고,
                 지역 경제 활성화에 기여하는 것이 우리의 사명입니다.
               </p>
               <p className="text-gray-600 leading-relaxed">
                 우리는 단순한 여행 상품이 아닌, 신안의 진정한 매력을 경험할 수 있는
-                특별한 여행 프로그램을 기획하고 운영하고 있습니다.
+                특별한 여행 프로그램을 기획하고 운영하는 온라인 플랫폼을 제공합니다.
               </p>
             </div>
             <div className="bg-white rounded-lg shadow-lg p-8">
-              <img
-                src="/unnamed.jpg"
-                alt="신안 풍경"
-                className="w-full h-64 object-cover rounded-lg mb-6"
-              />
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">신안의 아름다움</h3>
+              <div className="bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg h-64 flex items-center justify-center mb-6">
+                <div className="text-center">
+                  <h3 className="text-4xl font-bold text-purple-600 mb-2">TRAVLEAP</h3>
+                  <p className="text-gray-700">Travel + Leap</p>
+                  <p className="text-sm text-gray-600 mt-2">여행을 통한 도약</p>
+                </div>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">우리의 플랫폼</h3>
               <p className="text-gray-600">
-                천일염전, 갯벌, 해넘이, 천사대교 등 신안만의 독특한 자연 경관을
-                직접 체험할 수 있는 다양한 프로그램을 제공합니다.
+                신안의 숙박, 체험, 관광지를 한 곳에서 예약할 수 있는
+                통합 여행 플랫폼을 제공합니다.
               </p>
             </div>
           </div>
@@ -105,7 +110,7 @@ export function AboutPage() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-800">회사명</h4>
-                      <p className="text-gray-600">어썸플랜</p>
+                      <p className="text-gray-600">트래블립 (TRAVLEAP)</p>
                     </div>
                   </div>
 
@@ -125,7 +130,7 @@ export function AboutPage() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-800">사업분야</h4>
-                      <p className="text-gray-600">여행 기획 및 운영, 관광 컨설팅</p>
+                      <p className="text-gray-600">여행 플랫폼 운영, 관광 서비스</p>
                     </div>
                   </div>
 
@@ -162,7 +167,7 @@ export function AboutPage() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-800">전화번호</h4>
-                      <p className="text-gray-600">010-4617-1303</p>
+                      <p className="text-gray-600">0504-0811-1330</p>
                     </div>
                   </div>
 
@@ -172,7 +177,7 @@ export function AboutPage() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-800">이메일</h4>
-                      <p className="text-gray-600">ham0149@naver.com</p>
+                      <p className="text-gray-600">awesomeplan4606@naver.com</p>
                     </div>
                   </div>
                 </div>

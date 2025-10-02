@@ -17,6 +17,7 @@ export interface User {
   preferred_currency: string;
   marketing_consent: boolean;
   notification_settings?: any;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
   isAdmin?: boolean; // 계산된 속성

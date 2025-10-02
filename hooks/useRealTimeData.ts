@@ -234,6 +234,9 @@ export const notifyDataChange = {
   partnerCreated: () => dataEvents.emit('partner:created'),
   partnerUpdated: () => dataEvents.emit('partner:updated'),
   partnerDeleted: () => dataEvents.emit('partner:deleted'),
+  mediaCreated: () => dataEvents.emit('media:created'),
+  mediaUpdated: () => dataEvents.emit('media:updated'),
+  mediaDeleted: () => dataEvents.emit('media:deleted'),
 };
 
 // 전체 데이터 새로고침

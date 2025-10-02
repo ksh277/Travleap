@@ -31,6 +31,7 @@ import { api } from '../utils/api';
 import { db } from '../utils/database';
 import { useAuth } from '../hooks/useAuth';
 import { notifyDataChange, refreshAllData, useRealTimeData } from '../hooks/useRealTimeData';
+import { MediaLibraryModal } from './MediaLibraryModal';
 import type { Listing, User } from '../types/database';
 
 interface AdminPageProps {}
@@ -43,9 +44,12 @@ interface Product {
   location: string;
   rating: number;
   reviewCount: number;
+  rating_avg?: number;
+  rating_count?: number;
   image: string;
   description: string;
   status: 'active' | 'inactive';
+  is_active?: boolean;
   createdAt: string;
   featured?: boolean;
 }
@@ -99,6 +103,9 @@ export function AdminPage({}: AdminPageProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // 미디어 라이브러리 상태
+  const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -108,6 +115,14 @@ export function AdminPage({}: AdminPageProps) {
   const [reviewSearchQuery, setReviewSearchQuery] = useState('');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [blogSearchQuery, setBlogSearchQuery] = useState('');
+  const [contactSearchQuery, setContactSearchQuery] = useState('');
+
+  // 문의 관리 state
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [selectedContact, setSelectedContact] = useState<any>(null);
+  const [isContactDetailOpen, setIsContactDetailOpen] = useState(false);
+  const [contactReply, setContactReply] = useState('');
+  const [contactStatusFilter, setContactStatusFilter] = useState<'all' | 'pending' | 'replied' | 'resolved'>('all');
 
   // 실시간 데이터 갱신 - 리뷰가 작성되면 자동으로 새로고침
   useRealTimeData('reviews', async () => {
@@ -134,14 +149,21 @@ export function AdminPage({}: AdminPageProps) {
           priceType: 'fixed',
           location: '신안군',
           address: '전남 신안군',
+          coordinates: '',
           description: `신안의 ${categoryName} 관련 테스트 상품입니다.`,
           longDescription: `신안군에서 제공하는 ${categoryName} 상품으로 많은 사람들이 즐길 수 있는 체험입니다.`,
+          highlights: [''],
           duration: '2시간',
           maxCapacity: '20',
           minCapacity: '1',
           difficulty: '초급',
           language: '한국어',
           minAge: '0',
+          startDate: '',
+          endDate: '',
+          meetingPoint: '',
+          cancellationPolicy: 'standard',
+          tags: [''],
           included: ['가이드 동행', '체험도구 제공'],
           excluded: ['개인 용품'],
           policies: ['우천시 취소 가능'],
@@ -502,6 +524,8 @@ export function AdminPage({}: AdminPageProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
+  const [partnerApplicationHistory, setPartnerApplicationHistory] = useState<any[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [partners, setPartners] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -601,6 +625,7 @@ export function AdminPage({}: AdminPageProps) {
     highlights: [''],
     included: [''],
     excluded: [''],
+    policies: [''],
     featured: false,
     startDate: '',
     endDate: '',
@@ -734,6 +759,14 @@ export function AdminPage({}: AdminPageProps) {
           })
         },
         {
+          name: '문의',
+          fn: () => api.getContacts().then(res => {
+            const data = res?.success ? res.data || [] : [];
+            setContacts(data);
+            console.log(`✅ 문의 ${data.length}개 로드 완료`);
+          })
+        },
+        {
           name: '예약',
           fn: () => api.admin.getBookings().then(res => {
             const data = res?.success ? res.data || [] : [];
@@ -855,7 +888,7 @@ export function AdminPage({}: AdminPageProps) {
   const stats = {
     totalProducts: products.length || 0,
     activeProducts: products.filter(p => p.is_active === true).length || 0,
-    totalRevenue: products.reduce((sum, p) => sum + ((parseInt(p.price) || 0) * (p.rating_count || 0) * 0.1), 0),
+    totalRevenue: products.reduce((sum, p) => sum + ((Number(p.price) || 0) * (p.rating_count || 0) * 0.1), 0),
     avgRating: products.length > 0 ? products.reduce((sum, p) => sum + (p.rating_avg || 0), 0) / products.length : 0
   };
 
@@ -928,6 +961,15 @@ export function AdminPage({}: AdminPageProps) {
 
     // 파일 input 초기화
     event.target.value = '';
+  };
+
+  // 미디어 라이브러리에서 이미지 선택 핸들러
+  const handleMediaSelect = (selected: any | any[]) => {
+    const selectedItems = Array.isArray(selected) ? selected : [selected];
+    const urls = selectedItems.map(item => item.url);
+    setNewProduct(prev => ({ ...prev, images: [...prev.images, ...urls] }));
+    toast.success(`${urls.length}개의 이미지가 추가되었습니다.`);
+    setIsMediaLibraryOpen(false);
   };
 
   // 상품 추가
@@ -1031,6 +1073,7 @@ export function AdminPage({}: AdminPageProps) {
           highlights: [''],
           included: [''],
           excluded: [''],
+          policies: [''],
           featured: false,
           startDate: '',
           endDate: '',
@@ -1179,7 +1222,7 @@ export function AdminPage({}: AdminPageProps) {
         }
 
         // 파트너 목록 새로고침
-        await loadAllData();
+        await handleRefresh();
 
         toast.success('파트너 신청이 승인되고 상품이 생성되었습니다.');
       } else {
@@ -1188,6 +1231,19 @@ export function AdminPage({}: AdminPageProps) {
     } catch (error) {
       console.error('Approve partner failed:', error);
       toast.error('파트너 승인 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 파트너 신청 내역 보기
+  const handleViewHistory = async () => {
+    try {
+      const result = await api.admin.getPartnerApplicationHistory();
+      if (result.success) {
+        setPartnerApplicationHistory(result.data || []);
+        setShowHistory(true);
+      }
+    } catch (error) {
+      console.error('신청 내역 조회 오류:', error);
     }
   };
 
@@ -1695,18 +1751,15 @@ export function AdminPage({}: AdminPageProps) {
           formData.append('description', newImage.description);
 
           result = await api.admin.uploadImage(newImage.file, {
-            title: newImage.title,
-            category: newImage.usage,
-            alt: newImage.description
-          });
+            alt_text: newImage.description,
+            entity_type: 'general'
+          } as any);
         } else {
           // URL 직접 입력
           result = await api.admin.uploadImage(null as any, {
-            url: newImage.url,
-            title: newImage.title,
-            category: newImage.usage,
-            alt: newImage.description
-          });
+            alt_text: newImage.description,
+            entity_type: 'general'
+          } as any);
         }
 
         if (result.success) {
@@ -1796,12 +1849,16 @@ export function AdminPage({}: AdminPageProps) {
       if (isCreateUserMode) {
         // 새 사용자 초대
         const result = await api.createUser({
+          user_id: newUser.email.split('@')[0], // email의 앞부분을 user_id로 사용
           name: newUser.name,
           email: newUser.email,
           password_hash: newUser.password, // 실제로는 백엔드에서 해싱 처리
           phone: newUser.phone,
-          role: newUser.role as any
-        });
+          role: newUser.role as any,
+          preferred_language: 'ko',
+          preferred_currency: 'KRW',
+          marketing_consent: false
+        } as any);
 
         if (result.success) {
           setUsers(prev => [...prev, result.data]);
@@ -1886,15 +1943,16 @@ export function AdminPage({}: AdminPageProps) {
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full min-w-[800px] md:min-w-0 md:max-w-5xl">
+            <TabsList className="grid grid-cols-4 md:grid-cols-9 w-full min-w-[900px] md:min-w-0 md:max-w-6xl">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
               <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
-              <TabsTrigger value="images" className="text-xs md:text-sm">이미지 관리</TabsTrigger>
+              <TabsTrigger value="media" className="text-xs md:text-sm">미디어 라이브러리</TabsTrigger>
               <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
               <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
+              <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
             </TabsList>
           </div>
 
@@ -2272,17 +2330,40 @@ export function AdminPage({}: AdminPageProps) {
                         <div>
                           <h3 className="text-lg font-medium mb-3">이미지</h3>
                           <div className="space-y-4">
-                            {/* 파일 업로드 */}
+                            {/* 미디어 라이브러리 선택 버튼 */}
                             <div>
-                              <label className="text-sm font-medium mb-2 block">이미지 파일 선택</label>
-                              <input
-                                type="file"
-                                multiple
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                              />
-                              <p className="text-xs text-gray-500 mt-1">여러 이미지를 선택할 수 있습니다. (JPG, PNG, WEBP 지원)</p>
+                              <label className="text-sm font-medium mb-2 block">이미지 선택 방법</label>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="flex-1"
+                                  onClick={() => setIsMediaLibraryOpen(true)}
+                                >
+                                  <Upload className="w-4 h-4 mr-2" />
+                                  미디어 라이브러리에서 선택
+                                </Button>
+                                <label className="flex-1">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={() => document.getElementById('product-image-upload')?.click()}
+                                  >
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    파일 직접 업로드
+                                  </Button>
+                                  <input
+                                    id="product-image-upload"
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-2">미디어 라이브러리를 사용하면 기존 이미지를 재사용하거나 새 이미지를 업로드할 수 있습니다.</p>
                             </div>
 
                             {/* 업로드된 이미지 미리보기 */}
@@ -2632,13 +2713,8 @@ export function AdminPage({}: AdminPageProps) {
                                 className="w-10 h-10 rounded-lg object-cover"
                               />
                               <div>
-                                <div className="font-medium flex items-center">
+                                <div className="font-medium">
                                   {product.title}
-                                  {product.featured && (
-                                    <Badge className="ml-2 bg-orange-100 text-orange-800">
-                                      Featured
-                                    </Badge>
-                                  )}
                                 </div>
                                 <div className="text-sm text-gray-500 flex items-center">
                                   <MapPin className="h-3 w-3 mr-1" />
@@ -2699,84 +2775,78 @@ export function AdminPage({}: AdminPageProps) {
           </TabsContent>
 
 
-          {/* 이미지 관리 탭 */}
-          <TabsContent value="images" className="space-y-6">
-            {/* 이미지 업로드 및 관리 */}
+          {/* 미디어 라이브러리 탭 */}
+          <TabsContent value="media" className="space-y-6">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>이미지 관리</CardTitle>
-                  <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button onClick={() => handleOpenImageDialog()}>
-                        <Upload className="h-4 w-4 mr-2" />
-                        이미지 업로드
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>{isCreateImageMode ? '새 이미지 업로드' : '이미지 수정'}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm font-medium">이미지 파일</label>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleImageFileChange}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">이미지 제목</label>
-                          <Input
-                            placeholder="이미지 제목"
-                            value={newImage.title}
-                            onChange={(e) => setNewImage({ ...newImage, title: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">사용 위치</label>
-                          <Select
-                            value={newImage.usage}
-                            onValueChange={(value) => setNewImage({ ...newImage, usage: value })}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="사용 위치 선택" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="product">상품</SelectItem>
-                              <SelectItem value="blog">블로그</SelectItem>
-                              <SelectItem value="partner">파트너</SelectItem>
-                              <SelectItem value="other">기타</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium">설명</label>
-                          <Textarea
-                            placeholder="이미지 설명 (선택사항)"
-                            rows={3}
-                            value={newImage.description}
-                            onChange={(e) => setNewImage({ ...newImage, description: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <Button
-                          onClick={handleSaveImage}
-                          className="w-full bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                        >
-                          {isCreateImageMode ? '업로드' : '수정'}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                <CardTitle>미디어 라이브러리</CardTitle>
               </CardHeader>
               <CardContent>
-                {/* 현재 액티비티 섹션 이미지들 */}
                 <div className="space-y-6">
+                  {/* 안내 메시지 */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-blue-900 mb-2">미디어 라이브러리 사용 방법</h3>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• 상품 추가/수정 시 "미디어 라이브러리에서 선택" 버튼을 클릭하세요</li>
+                      <li>• 업로드된 모든 이미지를 한 곳에서 관리할 수 있습니다</li>
+                      <li>• 이미지는 카테고리와 사용 위치별로 분류됩니다</li>
+                      <li>• 최대 10MB까지 업로드 가능합니다 (JPG, PNG, GIF, WEBP, SVG)</li>
+                    </ul>
+                  </div>
+
+                  {/* 미디어 라이브러리 열기 버튼 */}
+                  <div className="flex justify-center py-8">
+                    <Button
+                      size="lg"
+                      onClick={() => setIsMediaLibraryOpen(true)}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    >
+                      <Upload className="h-5 w-5 mr-2" />
+                      미디어 라이브러리 열기
+                    </Button>
+                  </div>
+
+                  {/* 빠른 통계 */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                      <div className="text-sm font-medium text-blue-700 mb-1">전체 미디어</div>
+                      <div className="text-2xl font-bold text-blue-900">-</div>
+                      <div className="text-xs text-blue-600 mt-1">모든 카테고리</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                      <div className="text-sm font-medium text-green-700 mb-1">상품 이미지</div>
+                      <div className="text-2xl font-bold text-green-900">-</div>
+                      <div className="text-xs text-green-600 mt-1">product 카테고리</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                      <div className="text-sm font-medium text-purple-700 mb-1">배너 이미지</div>
+                      <div className="text-2xl font-bold text-purple-900">-</div>
+                      <div className="text-xs text-purple-600 mt-1">banner 카테고리</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
+                      <div className="text-sm font-medium text-orange-700 mb-1">블로그 이미지</div>
+                      <div className="text-2xl font-bold text-orange-900">-</div>
+                      <div className="text-xs text-orange-600 mt-1">blog 카테고리</div>
+                    </div>
+                  </div>
+
+                  {/* 최근 업로드 섹션 */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-3">최근 업로드된 미디어</h3>
+                    <div className="text-sm text-gray-500 text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                      미디어 라이브러리를 열어서 확인하세요
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 기존 images 탭 내용 주석처리 */}
+          {false && (
+            <>
+              <div>
+                <div>
                   <div>
                     <h3 className="text-lg font-semibold mb-4">홈페이지 액티비티 섹션</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2890,9 +2960,9 @@ export function AdminPage({}: AdminPageProps) {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </div>
+            </>
+          )}
 
           {/* 파트너 관리 탭 */}
           <TabsContent value="partners" className="space-y-6">
@@ -2901,14 +2971,25 @@ export function AdminPage({}: AdminPageProps) {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>파트너 신청 관리</CardTitle>
-                  <Badge variant="secondary">
-                    신청 대기: {partnerApplications.filter(p => p.status === 'pending').length}개
-                  </Badge>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleViewHistory}
+                    >
+                      📋 신청 내역
+                    </Button>
+                    <Badge variant="secondary">
+                      신청 대기: {partnerApplications.filter(p => p.status === 'pending').length}개
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {partnerApplications.map((partner) => (
+                  {partnerApplications
+                    .filter(partner => partner.status === 'pending')
+                    .map((partner) => (
                     <Card key={partner.id}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
@@ -2916,14 +2997,8 @@ export function AdminPage({}: AdminPageProps) {
                             <h3 className="font-semibold text-lg">{partner.business_name || '파트너 업체'}</h3>
                             <p className="text-sm text-gray-600">{partner.contact_name || '담당자 미상'}</p>
                           </div>
-                          <Badge
-                            variant={
-                              partner.status === 'approved' ? 'default' :
-                              partner.status === 'pending' ? 'secondary' : 'destructive'
-                            }
-                          >
-                            {partner.status === 'approved' ? '승인됨' :
-                             partner.status === 'pending' ? '대기중' : '거부됨'}
+                          <Badge variant="secondary">
+                            대기중
                           </Badge>
                         </div>
 
@@ -2939,39 +3014,30 @@ export function AdminPage({}: AdminPageProps) {
                         </div>
 
                         <div className="flex space-x-2">
-                          {partner.status === 'pending' && (
-                            <>
-                              <Button
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700 text-white flex-1"
-                                onClick={() => handleApprovePartner(partner.id)}
-                              >
-                                승인
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                className="flex-1"
-                                onClick={() => handleRejectPartner(partner.id)}
-                              >
-                                거부
-                              </Button>
-                            </>
-                          )}
-                          {partner.status !== 'pending' && (
-                            <Button size="sm" variant="outline" className="w-full" disabled>
-                              처리 완료
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                            onClick={() => handleApprovePartner(partner.id)}
+                          >
+                            승인
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="flex-1"
+                            onClick={() => handleRejectPartner(partner.id)}
+                          >
+                            거부
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
 
-                {partnerApplications.length === 0 && (
+                {partnerApplications.filter(p => p.status === 'pending').length === 0 && (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">파트너 신청이 없습니다.</p>
+                    <p className="text-gray-500">대기중인 파트너 신청이 없습니다.</p>
                   </div>
                 )}
               </CardContent>
@@ -3680,6 +3746,228 @@ export function AdminPage({}: AdminPageProps) {
             </Dialog>
           </TabsContent>
 
+          {/* 문의 관리 탭 */}
+          <TabsContent value="contacts" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>문의 관리</CardTitle>
+                  <div className="flex items-center space-x-2">
+                    <Select value={contactStatusFilter} onValueChange={(value: any) => setContactStatusFilter(value)}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">전체</SelectItem>
+                        <SelectItem value="pending">대기중</SelectItem>
+                        <SelectItem value="replied">답변완료</SelectItem>
+                        <SelectItem value="resolved">해결</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="이름, 이메일 검색..."
+                      className="pl-9"
+                      value={contactSearchQuery}
+                      onChange={(e) => setContactSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>이름</TableHead>
+                      <TableHead>이메일</TableHead>
+                      <TableHead>메시지</TableHead>
+                      <TableHead>상태</TableHead>
+                      <TableHead>등록일</TableHead>
+                      <TableHead>작업</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contacts
+                      .filter(contact => {
+                        const matchesSearch = contact.name?.toLowerCase().includes(contactSearchQuery.toLowerCase()) ||
+                          contact.email?.toLowerCase().includes(contactSearchQuery.toLowerCase());
+                        const matchesStatus = contactStatusFilter === 'all' || contact.status === contactStatusFilter;
+                        return matchesSearch && matchesStatus;
+                      })
+                      .slice(0, 20)
+                      .map((contact) => (
+                        <TableRow key={contact.id}>
+                          <TableCell className="font-medium">{contact.id}</TableCell>
+                          <TableCell>{contact.name}</TableCell>
+                          <TableCell className="text-sm text-gray-600">{contact.email}</TableCell>
+                          <TableCell className="max-w-xs truncate">{contact.message}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                contact.status === 'pending' ? 'default' :
+                                contact.status === 'replied' ? 'secondary' : 'outline'
+                              }
+                            >
+                              {contact.status === 'pending' ? '대기중' :
+                               contact.status === 'replied' ? '답변완료' : '해결'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">{new Date(contact.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <div className="flex space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedContact(contact);
+                                  setContactReply(contact.admin_reply || '');
+                                  setIsContactDetailOpen(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+
+                {contacts.length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">등록된 문의가 없습니다.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 문의 상세/답변 다이얼로그 */}
+            <Dialog open={isContactDetailOpen} onOpenChange={setIsContactDetailOpen}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>문의 상세</DialogTitle>
+                </DialogHeader>
+                {selectedContact && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">이름</label>
+                        <p className="mt-1">{selectedContact.name}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">이메일</label>
+                        <p className="mt-1">{selectedContact.email}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">상태</label>
+                        <p className="mt-1">
+                          <Badge
+                            variant={
+                              selectedContact.status === 'pending' ? 'default' :
+                              selectedContact.status === 'replied' ? 'secondary' : 'outline'
+                            }
+                          >
+                            {selectedContact.status === 'pending' ? '대기중' :
+                             selectedContact.status === 'replied' ? '답변완료' : '해결'}
+                          </Badge>
+                        </p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">등록일</label>
+                        <p className="mt-1">{new Date(selectedContact.created_at).toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">문의 내용</label>
+                      <p className="mt-1 p-3 bg-gray-50 rounded-md whitespace-pre-wrap">{selectedContact.message}</p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">관리자 답변</label>
+                      <Textarea
+                        rows={6}
+                        value={contactReply}
+                        onChange={(e) => setContactReply(e.target.value)}
+                        placeholder="답변을 입력하세요..."
+                        className="w-full"
+                      />
+                    </div>
+
+                    {selectedContact.admin_reply && (
+                      <div className="text-sm text-gray-500">
+                        <p>답변일: {selectedContact.replied_at ? new Date(selectedContact.replied_at).toLocaleString() : '-'}</p>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between mt-6">
+                      <div className="space-x-2">
+                        <Button
+                          variant="outline"
+                          onClick={async () => {
+                            if (confirm('이 문의를 해결 상태로 변경하시겠습니까?')) {
+                              const result = await api.updateContactStatus(selectedContact.id, 'resolved');
+                              if (result.success) {
+                                toast.success('상태가 변경되었습니다.');
+                                const updatedContacts = await api.getContacts();
+                                if (updatedContacts.success) {
+                                  setContacts(updatedContacts.data);
+                                }
+                                setIsContactDetailOpen(false);
+                              } else {
+                                toast.error(result.error || '상태 변경 실패');
+                              }
+                            }
+                          }}
+                        >
+                          해결 완료
+                        </Button>
+                      </div>
+                      <div className="space-x-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsContactDetailOpen(false)}
+                        >
+                          취소
+                        </Button>
+                        <Button
+                          className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                          onClick={async () => {
+                            if (!contactReply.trim()) {
+                              toast.error('답변을 입력해주세요.');
+                              return;
+                            }
+
+                            const result = await api.replyContact(selectedContact.id, contactReply, user?.id || 1);
+                            if (result.success) {
+                              toast.success('답변이 등록되었습니다.');
+                              const updatedContacts = await api.getContacts();
+                              if (updatedContacts.success) {
+                                setContacts(updatedContacts.data);
+                              }
+                              setIsContactDetailOpen(false);
+                              setContactReply('');
+                            } else {
+                              toast.error(result.error || '답변 등록 실패');
+                            }
+                          }}
+                        >
+                          답변 등록
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+
           {/* 블로그 관리 탭 */}
           <TabsContent value="blogs" className="space-y-6">
             <Card>
@@ -4203,6 +4491,75 @@ export function AdminPage({}: AdminPageProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 파트너 신청 내역 Dialog */}
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>파트너 신청 내역</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {partnerApplicationHistory.length > 0 ? (
+              <div className="grid gap-4">
+                {partnerApplicationHistory.map((app) => (
+                  <Card key={app.id}>
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">사업자명</p>
+                          <p className="font-semibold">{app.business_name}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">담당자</p>
+                          <p className="font-semibold">{app.contact_name}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">이메일</p>
+                          <p>{app.email}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">전화번호</p>
+                          <p>{app.phone}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">처리 상태</p>
+                          <Badge variant={app.status === 'approved' ? 'default' : 'destructive'}>
+                            {app.status === 'approved' ? '✅ 승인됨' : '❌ 거절됨'}
+                          </Badge>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">처리 일시</p>
+                          <p>{app.reviewed_at ? new Date(app.reviewed_at).toLocaleString('ko-KR') : '-'}</p>
+                        </div>
+                        {app.review_notes && (
+                          <div className="col-span-2">
+                            <p className="text-sm text-gray-500">처리 메모</p>
+                            <p>{app.review_notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                처리된 신청 내역이 없습니다.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 미디어 라이브러리 모달 */}
+      <MediaLibraryModal
+        isOpen={isMediaLibraryOpen}
+        onClose={() => setIsMediaLibraryOpen(false)}
+        onSelect={handleMediaSelect}
+        multiSelect={true}
+        category="product"
+        usageLocation="product_gallery"
+      />
     </div>
   );
 }

@@ -539,9 +539,58 @@ class Database {
         INDEX idx_user (user_id)
       )
     `);
+
+    // 문의 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS contacts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        status ENUM('pending', 'replied', 'resolved') DEFAULT 'pending',
+        admin_reply TEXT,
+        replied_by INT,
+        replied_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_status (status),
+        INDEX idx_created_at (created_at)
+      )
+    `);
+
+    // 미디어 라이브러리 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS media (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        filename VARCHAR(500) NOT NULL,
+        original_filename VARCHAR(500) NOT NULL,
+        url LONGTEXT NOT NULL,
+        thumbnail_url LONGTEXT,
+        file_type VARCHAR(50) NOT NULL,
+        file_size INT,
+        width INT,
+        height INT,
+        alt_text VARCHAR(500),
+        caption TEXT,
+        category ENUM('product', 'banner', 'blog', 'partner', 'event', 'other') DEFAULT 'other',
+        usage_location VARCHAR(100) COMMENT '사용 위치: main_banner, category_banner, product_image, blog_image 등',
+        tags JSON COMMENT '검색용 태그',
+        uploaded_by BIGINT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_category (category),
+        INDEX idx_usage_location (usage_location),
+        INDEX idx_file_type (file_type),
+        INDEX idx_is_active (is_active),
+        INDEX idx_created_at (created_at)
+      )
+    `);
   }
 
   private async seedBasicData(): Promise<void> {
+    console.log('🌱 데이터베이스 시드 시작...');
+
     // 기본 관리자 계정 생성
     await this.execute(`
       INSERT IGNORE INTO users (user_id, email, password_hash, name, phone, role)
@@ -599,271 +648,14 @@ class Database {
       `, [setting.setting_key, setting.setting_value, setting.setting_category, setting.description, setting.data_type, 1]);
     }
 
-    // 테스트 파트너 데이터
-    const partnersData = [
-      {
-        user_id: 5, // partner1 사용자
-        business_name: '신안 여행사',
-        contact_name: '최비금',
-        email: 'partner1@test.com',
-        phone: '010-4567-8901',
-        business_number: '123-45-67890',
-        description: '신안군 전문 여행사입니다.',
-        services: '여행 상품 기획, 가이드 서비스',
-        tier: 'gold',
-        status: 'approved',
-        is_verified: true
-      },
-      {
-        user_id: 6, // partner2 사용자
-        business_name: '신안 해양관광',
-        contact_name: '정도초',
-        email: 'partner2@test.com',
-        phone: '010-5678-9012',
-        business_number: '234-56-78901',
-        description: '해양 관광 전문 업체입니다.',
-        services: '해상 투어, 숙박 시설 운영',
-        tier: 'silver',
-        status: 'approved',
-        is_verified: true
-      }
-    ];
+    // 파트너 데이터는 관리자가 직접 승인하므로 초기 데이터 생성하지 않음
+    console.log('ℹ️  파트너 데이터는 파트너 신청을 통해 추가됩니다.');
 
-    for (const partner of partnersData) {
-      await this.execute(`
-        INSERT IGNORE INTO partners (user_id, business_name, contact_name, email, phone, business_number, description, services, tier, status, is_verified)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [partner.user_id, partner.business_name, partner.contact_name, partner.email, partner.phone, partner.business_number, partner.description, partner.services, partner.tier, partner.status, partner.is_verified]);
-    }
+    // 블로그 포스트는 관리자가 직접 작성하므로 초기 데이터 생성하지 않음
+    console.log('ℹ️  블로그 포스트는 관리자가 직접 작성합니다.');
 
-    // 테스트 블로그 포스트 데이터
-    const blogPostsData = [
-      {
-        title: '신안 여행의 매력',
-        slug: 'shinan-travel-charm',
-        content_md: '신안군은 천혜의 자연환경과 아름다운 섬들로 이루어진 관광지입니다...',
-        excerpt: '신안군의 아름다운 자연과 관광 명소를 소개합니다.',
-        featured_image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600',
-        tags: JSON.stringify(['여행', '신안', '섬']),
-        category: '여행 가이드',
-        author_id: 1,
-        is_published: true,
-        published_at: new Date().toISOString()
-      },
-      {
-        title: '퍼플교의 아름다운 석양',
-        slug: 'purple-bridge-sunset',
-        content_md: '퍼플교에서 바라보는 석양은 정말 장관입니다...',
-        excerpt: '퍼플교의 아름다운 석양 풍경을 담았습니다.',
-        featured_image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600',
-        tags: JSON.stringify(['퍼플교', '석양', '사진']),
-        category: '포토 스팟',
-        author_id: 1,
-        is_published: true,
-        published_at: new Date().toISOString()
-      }
-    ];
-
-    for (const post of blogPostsData) {
-      await this.execute(`
-        INSERT IGNORE INTO blog_posts (title, slug, content_md, excerpt, featured_image, tags, category, author_id, is_published, published_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [post.title, post.slug, post.content_md, post.excerpt, post.featured_image, post.tags, post.category, post.author_id, post.is_published, post.published_at]);
-    }
-
-    // 더 많은 상품 데이터
-    const listingsData = [
-      {
-        category_id: 1,
-        category: 'tour',
-        title: '증도 천일염 체험여행',
-        short_description: '전통 천일염 제조 과정을 직접 체험하며 소금의 역사를 배워보는 여행',
-        location: '신안군 증도면',
-        price_from: 25000,
-        price_to: 35000,
-        duration: '2시간',
-        max_capacity: 30,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1518098268026-4e89f1a2cd8e?w=400']),
-        is_featured: true
-      },
-      {
-        category_id: 1,
-        category: 'tour',
-        title: '홍도 해상국립공원 여행',
-        short_description: '아름다운 홍도의 기암절벽과 해안 절경을 만끽하는 해상 여행',
-        location: '신안군 홍도면',
-        price_from: 45000,
-        price_to: 65000,
-        duration: '4시간',
-        max_capacity: 25,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400']),
-        is_featured: true
-      },
-      {
-        category_id: 1,
-        category: 'tour',
-        title: '비금도 자연탐방',
-        short_description: '비금도의 아름다운 자연과 함께하는 힐링 트레킹',
-        location: '신안군 비금면',
-        price_from: 30000,
-        price_to: 40000,
-        duration: '3시간',
-        max_capacity: 20,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1464822759880-4601b726be04?w=400']),
-        is_featured: true
-      },
-      {
-        category_id: 1,
-        category: 'tour',
-        title: '도초도 갯벌체험',
-        short_description: '도초도 갯벌에서 조개잡기와 갯벌생태 체험',
-        location: '신안군 도초면',
-        price_from: 20000,
-        price_to: 30000,
-        duration: '2시간',
-        max_capacity: 40,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=400']),
-        is_featured: true
-      },
-      {
-        category_id: 3,
-        category: 'stay',
-        title: '퍼플교 해상펜션',
-        short_description: '퍼플교 전망이 아름다운 프리미엄 해상펜션에서의 힐링 스테이',
-        location: '신안군 암태면',
-        price_from: 120000,
-        price_to: 180000,
-        duration: '1박',
-        max_capacity: 4,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400']),
-        is_featured: true
-      },
-      {
-        category_id: 3,
-        category: 'stay',
-        title: '신안 바다뷰 펜션',
-        short_description: '바다가 한눈에 보이는 프라이빗 펜션',
-        location: '신안군 지도면',
-        price_from: 80000,
-        price_to: 120000,
-        duration: '1박',
-        max_capacity: 6,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400']),
-        is_featured: false
-      },
-      {
-        category_id: 3,
-        category: 'stay',
-        title: '홍도 게스트하우스',
-        short_description: '홍도 섬 중심가의 아늑한 게스트하우스',
-        location: '신안군 홍도면',
-        price_from: 60000,
-        price_to: 90000,
-        duration: '1박',
-        max_capacity: 8,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400']),
-        is_featured: false
-      },
-      {
-        category_id: 3,
-        category: 'stay',
-        title: '증도 민박',
-        short_description: '증도 갯벌 근처의 전통 민박집',
-        location: '신안군 증도면',
-        price_from: 40000,
-        price_to: 70000,
-        duration: '1박',
-        max_capacity: 10,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400']),
-        is_featured: false
-      },
-      {
-        category_id: 4,
-        category: 'food',
-        title: '팔금도 해물탕집',
-        short_description: '팔금도 근해에서 잡은 신선한 해산물로 만든 정통 해물탕',
-        location: '신안군 팔금면',
-        price_from: 20000,
-        price_to: 35000,
-        duration: '1시간',
-        max_capacity: 50,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1544025162-d76694265947?w=400']),
-        is_featured: true
-      },
-      {
-        category_id: 4,
-        category: 'food',
-        title: '신안 전통음식점',
-        short_description: '신안의 전통 향토음식을 맛볼 수 있는 맛집',
-        location: '신안군 지도면',
-        price_from: 15000,
-        price_to: 25000,
-        duration: '1시간',
-        max_capacity: 30,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400']),
-        is_featured: false
-      }
-    ];
-
-    for (const listing of listingsData) {
-      await this.execute(`
-        INSERT IGNORE INTO listings (category_id, category, title, short_description, location, price_from, price_to, duration, max_capacity, images, is_featured)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        listing.category_id,
-        listing.category,
-        listing.title,
-        listing.short_description,
-        listing.location,
-        listing.price_from,
-        listing.price_to,
-        listing.duration,
-        listing.max_capacity,
-        listing.images,
-        listing.is_featured ? 1 : 0
-      ]);
-    }
-
-    // 테스트 리뷰 데이터
-    const reviewsData = [
-      {
-        listing_id: 1,
-        user_id: 2,
-        rating: 5,
-        title: '정말 좋은 체험이었습니다!',
-        comment_md: '증도 천일염 체험은 정말 특별했습니다. 가이드님의 설명도 좋았고 체험도 재미있었어요.',
-        pros: '친절한 가이드, 재미있는 체험',
-        cons: '조금 더 길었으면 좋겠어요',
-        visit_date: '2024-01-15'
-      },
-      {
-        listing_id: 2,
-        user_id: 3,
-        rating: 4,
-        title: '아름다운 홍도',
-        comment_md: '홍도의 자연경관이 정말 아름다웠습니다. 사진 찍기 좋은 곳이 많아요.',
-        pros: '아름다운 경치, 좋은 날씨',
-        cons: '배 시간이 아쉬웠어요',
-        visit_date: '2024-01-20'
-      },
-      {
-        listing_id: 5,
-        user_id: 4,
-        rating: 5,
-        title: '최고의 펜션!',
-        comment_md: '퍼플교 뷰가 정말 환상적이었습니다. 시설도 깨끗하고 좋았어요.',
-        pros: '깨끗한 시설, 환상적인 뷰',
-        cons: '없음',
-        visit_date: '2024-01-25'
-      }
-    ];
-
-    for (const review of reviewsData) {
-      await this.execute(`
-        INSERT IGNORE INTO reviews (listing_id, user_id, rating, title, comment_md, pros, cons, visit_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [review.listing_id, review.user_id, review.rating, review.title, review.comment_md, review.pros, review.cons, review.visit_date]);
-    }
+    // 상품과 리뷰는 관리자가 직접 추가하므로 초기 데이터 생성하지 않음
+    console.log('ℹ️  상품과 리뷰는 관리자 페이지에서 직접 추가합니다.');
   }
 }
 

@@ -131,8 +131,12 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
 
       console.log(`🔍 CategoryPage: 카테고리 "${category}" 상품 조회 시작`);
 
+      // accommodation → stay 매핑 (DB에는 stay slug만 있음)
+      const mappedCategory = category === 'accommodation' ? 'stay' : category;
+      console.log(`📍 CategoryPage: 매핑된 카테고리 "${mappedCategory}"`);
+
       const response = await api.getListings({
-        category: category || '',
+        category: mappedCategory || '',
         page: currentPage,
         limit: 20,
         sortBy: sortBy === 'recommended' ? 'popular' : sortBy as any,

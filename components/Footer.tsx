@@ -86,12 +86,12 @@ export function Footer({
                 <div className="text-gray-600">{t('callUs', selectedLanguage)}</div>
                 <div className="flex items-center space-x-1 text-gray-900">
                   <Phone className="h-3 w-3" />
-                  <span>010-4617-1303</span>
+                  <span>0504-0811-1330</span>
                 </div>
               </li>
               <li>
                 <div className="text-gray-600">{t('emailUs', selectedLanguage)}</div>
-                <div className="text-gray-900">ham0149@naver.com</div>
+                <div className="text-gray-900">awesomeplan4606@naver.com</div>
               </li>
             </ul>
           </div>
@@ -102,10 +102,18 @@ export function Footer({
             <ul className="space-y-2 text-sm">
               <li>
                 <button
+                  onClick={() => onCategorySelect?.('company')}
+                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[44px] py-2 flex items-center"
+                >
+                  회사 소개
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => onCategorySelect?.('about')}
                   className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[44px] py-2 flex items-center"
                 >
-                  {t('aboutUs', selectedLanguage)}
+                  신안 소개
                 </button>
               </li>
               <li>

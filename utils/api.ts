@@ -278,14 +278,21 @@ export const api = {
         price_to: item.price_to,
         images: (() => {
           try {
-            if (typeof item.images === 'string') {
-              return JSON.parse(item.images);
-            } else if (Array.isArray(item.images)) {
+            if (Array.isArray(item.images)) {
               return item.images;
+            }
+            if (typeof item.images === 'string') {
+              // URL 문자열인 경우 배열로 감싸기
+              if (item.images.startsWith('http://') || item.images.startsWith('https://') || item.images.startsWith('data:')) {
+                return [item.images];
+              }
+              // JSON 배열인 경우 파싱
+              return JSON.parse(item.images);
             }
             return ['https://via.placeholder.com/400x300'];
           } catch (e) {
-            return ['https://via.placeholder.com/400x300'];
+            // JSON 파싱 실패시 문자열 그대로 배열로 반환
+            return typeof item.images === 'string' ? [item.images] : ['https://via.placeholder.com/400x300'];
           }
         })(),
         location: item.location || '전라남도 신안군',
@@ -346,12 +353,21 @@ export const api = {
         price_to: listing.price_to,
         images: (() => {
           try {
-            return listing.images && typeof listing.images === 'string'
-              ? JSON.parse(listing.images)
-              : (Array.isArray(listing.images) ? listing.images : ['https://via.placeholder.com/400x300']);
+            if (Array.isArray(listing.images)) {
+              return listing.images;
+            }
+            if (typeof listing.images === 'string') {
+              // URL 문자열인 경우 배열로 감싸기
+              if (listing.images.startsWith('http://') || listing.images.startsWith('https://') || listing.images.startsWith('data:')) {
+                return [listing.images];
+              }
+              // JSON 배열인 경우 파싱
+              return JSON.parse(listing.images);
+            }
+            return ['https://via.placeholder.com/400x300'];
           } catch (e) {
             console.warn('Invalid JSON in images field:', listing.images);
-            return ['https://via.placeholder.com/400x300'];
+            return typeof listing.images === 'string' ? [listing.images] : ['https://via.placeholder.com/400x300'];
           }
         })(),
         location: listing.location,
@@ -504,9 +520,14 @@ export const api = {
       // 간단한 인증으로 변경됨 - 관리자 사용자 반환
       return {
         id: 1,
+        user_id: 'admin',
         email: 'admin@shinan.com',
+        password_hash: '',
         name: '관리자',
         role: 'admin',
+        preferred_language: 'ko',
+        preferred_currency: 'KRW',
+        marketing_consent: false,
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -585,11 +606,10 @@ export const api = {
     try {
       const submission = {
         ...contactData,
-        status: 'new',
-        created_at: new Date().toISOString()
+        status: 'pending'
       };
 
-      const response = await db.insert('contact_submissions', submission);
+      const response = await db.insert('contacts', submission);
       return {
         success: true,
         data: response,
@@ -600,6 +620,393 @@ export const api = {
       return {
         success: false,
         error: '문의 접수에 실패했습니다.'
+      };
+    }
+  },
+
+  // 문의 목록 조회 (관리자용)
+  getContacts: async (filters?: {
+    status?: 'pending' | 'replied' | 'resolved';
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<any[]>> => {
+    try {
+      let sql = 'SELECT * FROM contacts WHERE 1=1';
+      const params: any[] = [];
+
+      if (filters?.status) {
+        sql += ' AND status = ?';
+        params.push(filters.status);
+      }
+
+      sql += ' ORDER BY created_at DESC';
+
+      if (filters?.limit) {
+        sql += ` LIMIT ${filters.limit}`;
+        if (filters?.offset) {
+          sql += ` OFFSET ${filters.offset}`;
+        }
+      }
+
+      const contacts = await db.query(sql, params);
+      return {
+        success: true,
+        data: contacts
+      };
+    } catch (error) {
+      console.error('Failed to fetch contacts:', error);
+      return {
+        success: false,
+        data: [],
+        error: '문의 목록 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  // 문의 답변 (관리자용)
+  replyContact: async (contactId: number, reply: string, adminId: number): Promise<ApiResponse<any>> => {
+    try {
+      const updated = await db.update('contacts', contactId, {
+        admin_reply: reply,
+        replied_by: adminId,
+        replied_at: new Date().toISOString(),
+        status: 'replied'
+      });
+
+      if (updated) {
+        return {
+          success: true,
+          message: '답변이 등록되었습니다.'
+        };
+      } else {
+        return {
+          success: false,
+          error: '답변 등록에 실패했습니다.'
+        };
+      }
+    } catch (error) {
+      console.error('Failed to reply contact:', error);
+      return {
+        success: false,
+        error: '답변 등록에 실패했습니다.'
+      };
+    }
+  },
+
+  // 문의 상태 변경 (관리자용)
+  updateContactStatus: async (contactId: number, status: 'pending' | 'replied' | 'resolved'): Promise<ApiResponse<any>> => {
+    try {
+      const updated = await db.update('contacts', contactId, { status });
+
+      if (updated) {
+        return {
+          success: true,
+          message: '상태가 변경되었습니다.'
+        };
+      } else {
+        return {
+          success: false,
+          error: '상태 변경에 실패했습니다.'
+        };
+      }
+    } catch (error) {
+      console.error('Failed to update contact status:', error);
+      return {
+        success: false,
+        error: '상태 변경에 실패했습니다.'
+      };
+    }
+  },
+
+  // ==================== 미디어 라이브러리 API ====================
+
+  // 미디어 업로드
+  uploadMedia: async (mediaData: {
+    filename: string;
+    original_filename: string;
+    url: string;
+    thumbnail_url?: string;
+    file_type: string;
+    file_size?: number;
+    width?: number;
+    height?: number;
+    alt_text?: string;
+    caption?: string;
+    category?: 'product' | 'banner' | 'blog' | 'partner' | 'event' | 'other';
+    usage_location?: string;
+    tags?: string[];
+    uploaded_by?: number;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      // 보안: 파일 크기 검증 (10MB 제한)
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      if (mediaData.file_size && mediaData.file_size > MAX_FILE_SIZE) {
+        return {
+          success: false,
+          error: `파일 크기가 너무 큽니다. 최대 ${MAX_FILE_SIZE / (1024 * 1024)}MB까지 업로드 가능합니다.`
+        };
+      }
+
+      // 보안: 파일 타입 검증 (이미지만 허용)
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+      if (mediaData.file_type && !allowedTypes.includes(mediaData.file_type.toLowerCase())) {
+        return {
+          success: false,
+          error: '지원하지 않는 파일 형식입니다. (JPG, PNG, GIF, WEBP, SVG만 가능)'
+        };
+      }
+
+      // 보안: 필수 필드 검증
+      if (!mediaData.filename || !mediaData.original_filename || !mediaData.url) {
+        return {
+          success: false,
+          error: '필수 정보가 누락되었습니다.'
+        };
+      }
+
+      const media = {
+        ...mediaData,
+        category: mediaData.category || 'other',
+        tags: mediaData.tags ? JSON.stringify(mediaData.tags) : null,
+        is_active: true
+      };
+
+      const response = await db.insert('media', media);
+      notifyDataChange.mediaCreated();
+
+      return {
+        success: true,
+        data: response,
+        message: '이미지가 업로드되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to upload media:', error);
+      return {
+        success: false,
+        error: '이미지 업로드에 실패했습니다.'
+      };
+    }
+  },
+
+  // 미디어 목록 조회
+  getMedia: async (filters?: {
+    category?: string;
+    usage_location?: string;
+    file_type?: string;
+    search?: string;
+    tags?: string[];
+    is_active?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<any[]>> => {
+    try {
+      let sql = `
+        SELECT
+          m.*,
+          u.name as uploader_name
+        FROM media m
+        LEFT JOIN users u ON m.uploaded_by = u.id
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+
+      if (filters?.category) {
+        sql += ' AND m.category = ?';
+        params.push(filters.category);
+      }
+
+      if (filters?.usage_location) {
+        sql += ' AND m.usage_location = ?';
+        params.push(filters.usage_location);
+      }
+
+      if (filters?.file_type) {
+        sql += ' AND m.file_type LIKE ?';
+        params.push(`%${filters.file_type}%`);
+      }
+
+      if (filters?.is_active !== undefined) {
+        sql += ' AND m.is_active = ?';
+        params.push(filters.is_active);
+      }
+
+      if (filters?.search) {
+        sql += ' AND (m.original_filename LIKE ? OR m.alt_text LIKE ? OR m.caption LIKE ?)';
+        const searchTerm = `%${filters.search}%`;
+        params.push(searchTerm, searchTerm, searchTerm);
+      }
+
+      if (filters?.tags && filters.tags.length > 0) {
+        // JSON 태그 검색
+        const tagConditions = filters.tags.map(() => 'JSON_CONTAINS(m.tags, ?)').join(' OR ');
+        sql += ` AND (${tagConditions})`;
+        filters.tags.forEach(tag => params.push(JSON.stringify(tag)));
+      }
+
+      sql += ' ORDER BY m.created_at DESC';
+
+      if (filters?.limit) {
+        sql += ' LIMIT ?';
+        params.push(filters.limit);
+
+        if (filters?.offset) {
+          sql += ' OFFSET ?';
+          params.push(filters.offset);
+        }
+      }
+
+      const media = await db.query(sql, params);
+
+      // JSON 태그 파싱
+      const parsedMedia = (media || []).map((m: any) => {
+        let tags = [];
+        if (m.tags) {
+          try {
+            tags = typeof m.tags === 'string' ? JSON.parse(m.tags) : m.tags;
+          } catch (e) {
+            tags = [];
+          }
+        }
+        return {
+          ...m,
+          tags
+        };
+      });
+
+      return {
+        success: true,
+        data: parsedMedia
+      };
+    } catch (error) {
+      console.error('Failed to fetch media:', error);
+      return {
+        success: true,
+        data: []
+      };
+    }
+  },
+
+  // 미디어 상세 조회
+  getMediaById: async (id: number): Promise<ApiResponse<any>> => {
+    try {
+      const media = await db.query(
+        'SELECT m.*, u.name as uploader_name FROM media m LEFT JOIN users u ON m.uploaded_by = u.id WHERE m.id = ?',
+        [id]
+      );
+
+      if (media && media.length > 0) {
+        let tags = [];
+        if (media[0].tags) {
+          try {
+            tags = typeof media[0].tags === 'string' ? JSON.parse(media[0].tags) : media[0].tags;
+          } catch (e) {
+            tags = [];
+          }
+        }
+        const result = {
+          ...media[0],
+          tags
+        };
+        return {
+          success: true,
+          data: result
+        };
+      } else {
+        return {
+          success: false,
+          error: '미디어를 찾을 수 없습니다.'
+        };
+      }
+    } catch (error) {
+      console.error('Failed to fetch media:', error);
+      return {
+        success: false,
+        error: '미디어 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  // 미디어 정보 업데이트
+  updateMedia: async (id: number, updates: {
+    alt_text?: string;
+    caption?: string;
+    category?: string;
+    usage_location?: string;
+    tags?: string[];
+    is_active?: boolean;
+  }): Promise<ApiResponse<any>> => {
+    try {
+      const updateData: any = { ...updates };
+      if (updates.tags) {
+        updateData.tags = JSON.stringify(updates.tags);
+      }
+
+      const success = await db.update('media', id, updateData);
+      notifyDataChange.mediaUpdated();
+
+      if (success) {
+        return {
+          success: true,
+          message: '미디어 정보가 업데이트되었습니다.'
+        };
+      } else {
+        return {
+          success: false,
+          error: '미디어 업데이트에 실패했습니다.'
+        };
+      }
+    } catch (error) {
+      console.error('Failed to update media:', error);
+      return {
+        success: false,
+        error: '미디어 업데이트에 실패했습니다.'
+      };
+    }
+  },
+
+  // 미디어 삭제
+  deleteMedia: async (id: number): Promise<ApiResponse<void>> => {
+    try {
+      const success = await db.delete('media', id);
+      notifyDataChange.mediaDeleted();
+
+      if (success) {
+        return {
+          success: true,
+          message: '미디어가 삭제되었습니다.'
+        };
+      } else {
+        return {
+          success: false,
+          error: '미디어 삭제에 실패했습니다.'
+        };
+      }
+    } catch (error) {
+      console.error('Failed to delete media:', error);
+      return {
+        success: false,
+        error: '미디어 삭제에 실패했습니다.'
+      };
+    }
+  },
+
+  // 미디어 일괄 삭제
+  deleteMediaBulk: async (ids: number[]): Promise<ApiResponse<void>> => {
+    try {
+      for (const id of ids) {
+        await db.delete('media', id);
+      }
+      notifyDataChange.mediaDeleted();
+
+      return {
+        success: true,
+        message: `${ids.length}개의 미디어가 삭제되었습니다.`
+      };
+    } catch (error) {
+      console.error('Failed to delete media:', error);
+      return {
+        success: false,
+        error: '미디어 삭제에 실패했습니다.'
       };
     }
   },
@@ -948,20 +1355,47 @@ export const api = {
       `);
 
       if (response && response.length > 0) {
-        return response.map((review: any) => ({
-          ...review,
-          listing: {
-            id: review.listing_id,
-            title: review.listing_title,
-            location: review.listing_location,
-            images: review.listing_images ? JSON.parse(review.listing_images) : []
-          },
-          user: {
-            id: review.user_id,
-            name: review.user_name,
-            avatar: review.images ? JSON.parse(review.images)[0] : null
+        return response.map((review: any) => {
+          // listing_images 안전하게 파싱
+          let listingImages = [];
+          if (review.listing_images) {
+            try {
+              listingImages = typeof review.listing_images === 'string'
+                ? JSON.parse(review.listing_images)
+                : review.listing_images;
+            } catch (e) {
+              listingImages = [review.listing_images];
+            }
           }
-        }));
+
+          // user avatar 안전하게 파싱
+          let userAvatar = null;
+          if (review.images) {
+            try {
+              const images = typeof review.images === 'string'
+                ? JSON.parse(review.images)
+                : review.images;
+              userAvatar = Array.isArray(images) ? images[0] : images;
+            } catch (e) {
+              userAvatar = review.images;
+            }
+          }
+
+          return {
+            ...review,
+            listing: {
+              id: review.listing_id,
+              title: review.listing_title,
+              location: review.listing_location,
+              images: listingImages
+            },
+            user: {
+              id: review.user_id,
+              name: review.user_name,
+              avatar: userAvatar
+            }
+          };
+        });
       }
 
       // 실제 DB에 데이터가 없으면 빈 배열 반환
@@ -1152,7 +1586,10 @@ export const api = {
         // cart 주문만 필터링 (bookings가 아닌 실제 주문)
         const orders = payments.filter(p => {
           try {
-            const notes = p.notes ? JSON.parse(p.notes) : {};
+            let notes: any = {};
+            if (p.notes) {
+              notes = typeof p.notes === 'string' ? JSON.parse(p.notes) : p.notes;
+            }
             return notes.orderType === 'cart';
           } catch {
             return false;
@@ -1833,6 +2270,34 @@ export const api = {
       return api.admin.getUsers(filters);
     },
 
+    // 파트너 신청 내역 조회
+    getPartnerApplicationHistory: async (): Promise<ApiResponse<any[]>> => {
+      try {
+        console.log('🔍 파트너 신청 내역 조회 중...');
+        const history = await db.query(`
+          SELECT
+            h.*,
+            u.email as user_email,
+            u.name as user_name
+          FROM partner_applications_history h
+          LEFT JOIN users u ON h.user_id = u.id
+          ORDER BY h.reviewed_at DESC
+        `);
+        console.log(`✅ ${history.length}개의 처리된 신청 내역 조회 완료`);
+        return {
+          success: true,
+          data: history || []
+        };
+      } catch (error) {
+        console.error('❌ 신청 내역 조회 오류:', error);
+        return {
+          success: false,
+          error: '신청 내역 조회에 실패했습니다.',
+          data: []
+        };
+      }
+    },
+
     // 파트너 신청 승인
     approvePartnerApplication: async (applicationId: number): Promise<ApiResponse<any>> => {
       try {
@@ -1875,16 +2340,34 @@ export const api = {
         const partnerId = partnerResult.id;
         console.log(`✅ 파트너 생성 완료 (ID: ${partnerId})`);
 
-        // 3. 파트너 신청 상태 업데이트
-        const reviewedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        await db.update('partner_applications', applicationId, {
-          status: 'approved',
-          reviewed_at: reviewedAt
-        });
-        console.log(`✅ 신청 상태 업데이트 완료`);
+        // 3. history 테이블로 이동
+        try {
+          await db.execute(`
+            INSERT INTO partner_applications_history (
+              id, user_id, business_name, contact_name, email, phone,
+              business_number, business_address, categories, description,
+              services, website, instagram, status, reviewed_by, review_notes,
+              reviewed_at, created_at, updated_at
+            )
+            SELECT
+              id, user_id, business_name, contact_name, email, phone,
+              business_number, business_address, categories, description,
+              services, website, instagram, 'approved', ?, ?,
+              NOW(), created_at, NOW()
+            FROM partner_applications
+            WHERE id = ?
+          `, [1, '파트너 신청 승인', applicationId]);
+          console.log(`✅ history 테이블로 이동 완료`);
+        } catch (historyError) {
+          console.error('⚠️  history 이동 실패:', historyError);
+        }
 
-        // 4. 실시간 데이터 갱신
-        notifyDataChange('partners');
+        // 4. 원본 신청 삭제
+        await db.delete('partner_applications', applicationId);
+        console.log(`✅ 원본 신청 삭제 완료`);
+
+        // 5. 실시간 데이터 갱신
+        notifyDataChange.partnerCreated();
         console.log(`✅ 실시간 데이터 갱신 완료`);
 
         return {
@@ -1906,17 +2389,35 @@ export const api = {
     },
 
     // 파트너 신청 거절
-    rejectPartnerApplication: async (applicationId: number): Promise<ApiResponse<any>> => {
+    rejectPartnerApplication: async (applicationId: number, reviewNotes?: string): Promise<ApiResponse<any>> => {
       try {
         console.log(`🔄 파트너 신청 거절 시작 (ID: ${applicationId})`);
 
-        // 1. 파트너 신청 상태 업데이트
-        const reviewedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        await db.update('partner_applications', applicationId, {
-          status: 'rejected',
-          reviewed_at: reviewedAt
-        });
-        console.log(`✅ 신청 상태 업데이트 완료`);
+        // 1. history 테이블로 이동
+        try {
+          await db.execute(`
+            INSERT INTO partner_applications_history (
+              id, user_id, business_name, contact_name, email, phone,
+              business_number, business_address, categories, description,
+              services, website, instagram, status, reviewed_by, review_notes,
+              reviewed_at, created_at, updated_at
+            )
+            SELECT
+              id, user_id, business_name, contact_name, email, phone,
+              business_number, business_address, categories, description,
+              services, website, instagram, 'rejected', ?, ?,
+              NOW(), created_at, NOW()
+            FROM partner_applications
+            WHERE id = ?
+          `, [1, reviewNotes || '파트너 신청 거절', applicationId]);
+          console.log(`✅ history 테이블로 이동 완료`);
+        } catch (historyError) {
+          console.error('⚠️  history 이동 실패:', historyError);
+        }
+
+        // 2. 원본 신청 삭제
+        await db.delete('partner_applications', applicationId);
+        console.log(`✅ 원본 신청 삭제 완료`);
 
         return {
           success: true,
@@ -2460,9 +2961,11 @@ export const api = {
 
         // 주문 데이터 변환
         const orders = (response || []).map((order: any) => {
-          let orderDetails = {};
+          let orderDetails: any = {};
           try {
-            orderDetails = order.notes ? JSON.parse(order.notes) : {};
+            if (order.notes) {
+              orderDetails = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
+            }
           } catch (e) {
             console.warn('Invalid JSON in order notes:', order.notes);
           }

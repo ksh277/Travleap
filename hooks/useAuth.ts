@@ -1,10 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { JWTUtils, CookieUtils, StorageUtils, type JWTPayload } from '../utils/jwt';
+import type { User as DatabaseUser } from '../types/database';
 
+// useAuth에서 사용하는 간소화된 User 타입
 interface User {
   id: number;
   email: string;
   name: string;
+  phone?: string;
   role: 'admin' | 'user' | 'partner';
 }
 

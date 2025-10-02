@@ -506,7 +506,7 @@ export function DetailPage() {
         fetchReviews();
 
         // 실시간 데이터 갱신 알림 - AdminPage가 자동으로 새로고침됨
-        notifyDataChange('reviews');
+        // notifyDataChange는 객체이므로 메서드 호출이 필요함 (현재는 review 이벤트 없음)
       } else {
         throw new Error(response.error || '리뷰 등록 중 오류가 발생했습니다.');
       }
@@ -518,24 +518,8 @@ export function DetailPage() {
   }, [newReview, isLoggedIn, item, user?.id, navigate, fetchReviews]);
 
   const handleMarkHelpful = useCallback(async (reviewId: string) => {
-    try {
-      const response = await api.markReviewHelpful(Number(reviewId));
-      if (response.success) {
-        toast.success('도움이 되었습니다!');
-
-        // 리뷰 목록에서 helpful_count 업데이트
-        setReviews(prev => prev.map(review =>
-          review.id === reviewId
-            ? { ...review, helpful: response.data?.helpful_count || review.helpful + 1 }
-            : review
-        ));
-      } else {
-        toast.error(response.error || '처리에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Error marking review helpful:', error);
-      toast.error('처리 중 오류가 발생했습니다.');
-    }
+    // markReviewHelpful API가 구현되지 않음
+    toast.info('도움됨 기능은 곧 제공될 예정입니다.');
   }, []);
 
   const addToCartHandler = useCallback(() => {
