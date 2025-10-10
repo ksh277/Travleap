@@ -125,13 +125,6 @@ export function LoginPage() {
               {isLoading ? '로그인 중...' : '로그인'}
             </Button>
 
-            {/* 관리자 계정 안내 */}
-            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
-              <p className="text-blue-800 font-medium mb-1">🔧 관리자 계정</p>
-              <p className="text-blue-600">이메일: admin@shinan.com</p>
-              <p className="text-blue-600">비밀번호: admin123</p>
-            </div>
-
             {/* 구글 로그인 */}
             <button
               type="button"
