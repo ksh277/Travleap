@@ -1,0 +1,5371 @@
+{
+  "totalTables": 37,
+  "tables": {
+    "admin_logs": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "admin_id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "action",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "entity_type",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "entity_id",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "description",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "ip_address",
+          "Type": "varchar(45)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "user_agent",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "admin_settings": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "setting_key",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "UNI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "setting_value",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "setting_category",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "general",
+          "Extra": ""
+        },
+        {
+          "Field": "description",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "data_type",
+          "Type": "enum('string','number','boolean','json')",
+          "Null": "YES",
+          "Key": "",
+          "Default": "string",
+          "Extra": ""
+        },
+        {
+          "Field": "updated_by",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "5",
+      "sampleData": [
+        {
+          "id": 1,
+          "setting_key": "site_name",
+          "setting_value": "Travleap",
+          "setting_category": "general",
+          "description": "사이트 이름",
+          "data_type": "string",
+          "updated_by": 1,
+          "created_at": "2025-09-29 16:40:41",
+          "updated_at": "2025-09-29 16:40:41"
+        },
+        {
+          "id": 2,
+          "setting_key": "commission_rate",
+          "setting_value": "10",
+          "setting_category": "finance",
+          "description": "수수료율 (%)",
+          "data_type": "number",
+          "updated_by": 1,
+          "created_at": "2025-09-29 16:40:41",
+          "updated_at": "2025-09-29 16:40:41"
+        },
+        {
+          "id": 3,
+          "setting_key": "max_images_per_listing",
+          "setting_value": "10",
+          "setting_category": "listing",
+          "description": "상품당 최대 이미지 수",
+          "data_type": "number",
+          "updated_by": 1,
+          "created_at": "2025-09-29 16:40:42",
+          "updated_at": "2025-09-29 16:40:42"
+        }
+      ]
+    },
+    "blog_posts": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "title",
+          "Type": "varchar(300)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "slug",
+          "Type": "varchar(300)",
+          "Null": "NO",
+          "Key": "UNI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "content_md",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "excerpt",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "featured_image",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "images",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "tags",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "category",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "author_id",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "views",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "likes",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "is_published",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "is_featured",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "published_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "2",
+      "sampleData": [
+        {
+          "id": 1,
+          "title": "신안 여행의 매력",
+          "slug": "shinan-travel-charm",
+          "content_md": "신안군은 천혜의 자연환경과 아름다운 섬들로 이루어진 관광지입니다...",
+          "excerpt": "신안군의 아름다운 자연과 관광 명소를 소개합니다.",
+          "featured_image": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600",
+          "images": null,
+          "tags": [
+            "여행",
+            "신안",
+            "섬"
+          ],
+          "category": "여행 가이드",
+          "author_id": 1,
+          "views": 0,
+          "likes": 0,
+          "is_published": 1,
+          "is_featured": 0,
+          "published_at": "2025-09-29 16:40:43",
+          "created_at": "2025-09-29 16:40:43",
+          "updated_at": "2025-09-29 16:40:43"
+        },
+        {
+          "id": 2,
+          "title": "퍼플교의 아름다운 석양",
+          "slug": "purple-bridge-sunset",
+          "content_md": "퍼플교에서 바라보는 석양은 정말 장관입니다...",
+          "excerpt": "퍼플교의 아름다운 석양 풍경을 담았습니다.",
+          "featured_image": "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600",
+          "images": null,
+          "tags": [
+            "퍼플교",
+            "석양",
+            "사진"
+          ],
+          "category": "포토 스팟",
+          "author_id": 1,
+          "views": 0,
+          "likes": 0,
+          "is_published": 1,
+          "is_featured": 0,
+          "published_at": "2025-09-29 16:40:43",
+          "created_at": "2025-09-29 16:40:43",
+          "updated_at": "2025-09-29 16:40:43"
+        }
+      ]
+    },
+    "bookings": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "booking_number",
+          "Type": "varchar(50)",
+          "Null": "NO",
+          "Key": "UNI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "start_date",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "end_date",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "check_in_time",
+          "Type": "time",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "check_out_time",
+          "Type": "time",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "num_adults",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "num_children",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "num_seniors",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "price_adult",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "price_child",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "price_senior",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "subtotal",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "discount_amount",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "tax_amount",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "total_amount",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "payment_method",
+          "Type": "enum('card','bank_transfer','kakao_pay','naver_pay')",
+          "Null": "YES",
+          "Key": "",
+          "Default": "card",
+          "Extra": ""
+        },
+        {
+          "Field": "payment_status",
+          "Type": "enum('pending','paid','failed','refunded')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "pending",
+          "Extra": ""
+        },
+        {
+          "Field": "status",
+          "Type": "enum('pending','confirmed','cancelled','completed')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "pending",
+          "Extra": ""
+        },
+        {
+          "Field": "customer_info",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "special_requests",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "cancellation_reason",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "15",
+      "sampleData": [
+        {
+          "id": "1",
+          "booking_number": "BK17593074805920",
+          "listing_id": "13",
+          "user_id": "1",
+          "start_date": "2025-10-08",
+          "end_date": null,
+          "check_in_time": null,
+          "check_out_time": null,
+          "num_adults": 2,
+          "num_children": 0,
+          "num_seniors": 0,
+          "price_adult": null,
+          "price_child": null,
+          "price_senior": null,
+          "subtotal": null,
+          "discount_amount": 0,
+          "tax_amount": 0,
+          "total_amount": 90000,
+          "payment_method": "card",
+          "payment_status": "pending",
+          "status": "confirmed",
+          "customer_info": {
+            "name": "관리자",
+            "email": "admin@shinan.com",
+            "phone": "010-1234-5678"
+          },
+          "special_requests": "테스트 예약입니다",
+          "cancellation_reason": null,
+          "created_at": "2025-10-01 08:31:21",
+          "updated_at": "2025-10-01 08:31:21"
+        },
+        {
+          "id": "2",
+          "booking_number": "BK17593075267600",
+          "listing_id": "13",
+          "user_id": "1",
+          "start_date": "2025-10-08",
+          "end_date": null,
+          "check_in_time": null,
+          "check_out_time": null,
+          "num_adults": 2,
+          "num_children": 0,
+          "num_seniors": 0,
+          "price_adult": null,
+          "price_child": null,
+          "price_senior": null,
+          "subtotal": null,
+          "discount_amount": 0,
+          "tax_amount": 0,
+          "total_amount": 90000,
+          "payment_method": "card",
+          "payment_status": "pending",
+          "status": "confirmed",
+          "customer_info": {
+            "name": "관리자",
+            "email": "admin@shinan.com",
+            "phone": "010-1234-5678"
+          },
+          "special_requests": "테스트 예약입니다",
+          "cancellation_reason": null,
+          "created_at": "2025-10-01 08:32:07",
+          "updated_at": "2025-10-01 08:32:07"
+        },
+        {
+          "id": "3",
+          "booking_number": "BK17593075817570",
+          "listing_id": "13",
+          "user_id": "1",
+          "start_date": "2025-10-08",
+          "end_date": null,
+          "check_in_time": null,
+          "check_out_time": null,
+          "num_adults": 2,
+          "num_children": 0,
+          "num_seniors": 0,
+          "price_adult": null,
+          "price_child": null,
+          "price_senior": null,
+          "subtotal": null,
+          "discount_amount": 0,
+          "tax_amount": 0,
+          "total_amount": 90000,
+          "payment_method": "card",
+          "payment_status": "pending",
+          "status": "confirmed",
+          "customer_info": {
+            "name": "관리자",
+            "email": "admin@shinan.com",
+            "phone": "010-1234-5678"
+          },
+          "special_requests": "테스트 예약입니다",
+          "cancellation_reason": null,
+          "created_at": "2025-10-01 08:33:02",
+          "updated_at": "2025-10-01 08:33:02"
+        }
+      ]
+    },
+    "cart_items": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "selected_date",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "num_adults",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "num_children",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "num_seniors",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "price_snapshot",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "categories": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "slug",
+          "Type": "varchar(50)",
+          "Null": "NO",
+          "Key": "UNI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "name_ko",
+          "Type": "varchar(50)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "name_en",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "icon",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "color_hex",
+          "Type": "varchar(7)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "sort_order",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "is_active",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        }
+      ],
+      "totalRows": "9",
+      "sampleData": [
+        {
+          "id": 1,
+          "slug": "tour",
+          "name_ko": "투어/체험",
+          "name_en": "Tours & Experiences",
+          "icon": "map",
+          "color_hex": "#FF6B6B",
+          "sort_order": 1,
+          "is_active": 1
+        },
+        {
+          "id": 2,
+          "slug": "stay",
+          "name_ko": "숙박",
+          "name_en": "Accommodation",
+          "icon": "bed",
+          "color_hex": "#4ECDC4",
+          "sort_order": 2,
+          "is_active": 1
+        },
+        {
+          "id": 3,
+          "slug": "food",
+          "name_ko": "맛집",
+          "name_en": "Restaurants",
+          "icon": "utensils",
+          "color_hex": "#45B7D1",
+          "sort_order": 3,
+          "is_active": 1
+        }
+      ]
+    },
+    "contact_submissions": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "name",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "email",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "phone",
+          "Type": "varchar(20)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "subject",
+          "Type": "varchar(255)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "message",
+          "Type": "text",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "category",
+          "Type": "enum('general','booking','technical','partnership','complaint')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "general",
+          "Extra": ""
+        },
+        {
+          "Field": "priority",
+          "Type": "enum('low','medium','high','urgent')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "medium",
+          "Extra": ""
+        },
+        {
+          "Field": "status",
+          "Type": "enum('new','in_progress','resolved','closed')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "new",
+          "Extra": ""
+        },
+        {
+          "Field": "assigned_to",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "response",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "responded_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "contacts": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "name",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "email",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "message",
+          "Type": "text",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "status",
+          "Type": "enum('pending','replied','resolved')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "pending",
+          "Extra": ""
+        },
+        {
+          "Field": "admin_reply",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "replied_by",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "replied_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "coupons": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "code",
+          "Type": "varchar(50)",
+          "Null": "NO",
+          "Key": "UNI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "title",
+          "Type": "varchar(200)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "description",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "discount_type",
+          "Type": "enum('percentage','fixed','free_shipping')",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "discount_value",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "min_amount",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "max_discount_amount",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "usage_limit",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "usage_per_user",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "used_count",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "valid_from",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "valid_until",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "applicable_categories",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "applicable_partners",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "is_active",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "created_by",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "3",
+      "sampleData": [
+        {
+          "id": "1",
+          "code": "WELCOME10",
+          "title": "신규 회원 10% 할인",
+          "description": "신규 회원을 위한 특별 할인 쿠폰",
+          "discount_type": "percentage",
+          "discount_value": 10,
+          "min_amount": 50000,
+          "max_discount_amount": null,
+          "usage_limit": 100,
+          "usage_per_user": 1,
+          "used_count": 0,
+          "valid_from": "2025-09-21 19:39:44",
+          "valid_until": "2025-10-21 19:39:44",
+          "applicable_categories": null,
+          "applicable_partners": null,
+          "is_active": 1,
+          "created_by": null,
+          "created_at": "2025-09-21 19:39:44"
+        },
+        {
+          "id": "2",
+          "code": "SUMMER2024",
+          "title": "여름 휴가 20% 할인",
+          "description": "여름 성수기 특별 할인 쿠폰",
+          "discount_type": "percentage",
+          "discount_value": 20,
+          "min_amount": 100000,
+          "max_discount_amount": null,
+          "usage_limit": 50,
+          "usage_per_user": 1,
+          "used_count": 0,
+          "valid_from": "2025-09-21 19:39:44",
+          "valid_until": "2025-11-21 19:39:44",
+          "applicable_categories": null,
+          "applicable_partners": null,
+          "is_active": 1,
+          "created_by": null,
+          "created_at": "2025-09-21 19:39:44"
+        },
+        {
+          "id": "3",
+          "code": "FIXED5000",
+          "title": "5천원 즉시 할인",
+          "description": "5만원 이상 구매시 5천원 할인",
+          "discount_type": "fixed",
+          "discount_value": 5000,
+          "min_amount": 50000,
+          "max_discount_amount": null,
+          "usage_limit": 200,
+          "usage_per_user": 1,
+          "used_count": 0,
+          "valid_from": "2025-09-21 19:39:44",
+          "valid_until": "2025-12-21 19:39:44",
+          "applicable_categories": null,
+          "applicable_partners": null,
+          "is_active": 1,
+          "created_by": null,
+          "created_at": "2025-09-21 19:39:44"
+        }
+      ]
+    },
+    "favorites": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "file_uploads": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "entity_type",
+          "Type": "enum('listing','partner','user','review','partner_application')",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "entity_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_type",
+          "Type": "enum('image','document','video')",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "original_name",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_path",
+          "Type": "varchar(500)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_url",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_size",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "mime_type",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "is_primary",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "alt_text",
+          "Type": "varchar(255)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "uploaded_by",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "images": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "entity_type",
+          "Type": "enum('listing','partner','user','review','blog','general')",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "entity_id",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_name",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "original_name",
+          "Type": "varchar(255)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_path",
+          "Type": "varchar(500)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_url",
+          "Type": "varchar(500)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_size",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "mime_type",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "width",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "height",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "alt_text",
+          "Type": "varchar(255)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "is_primary",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "uploaded_by",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "listing_accommodation": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "room_type",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "max_guests",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "2",
+          "Extra": ""
+        },
+        {
+          "Field": "check_in_time",
+          "Type": "time",
+          "Null": "YES",
+          "Key": "",
+          "Default": "15:00:00",
+          "Extra": ""
+        },
+        {
+          "Field": "check_out_time",
+          "Type": "time",
+          "Null": "YES",
+          "Key": "",
+          "Default": "11:00:00",
+          "Extra": ""
+        },
+        {
+          "Field": "amenities",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "bed_type",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "bathroom_type",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "room_size",
+          "Type": "decimal(5,2)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "wifi_available",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "parking_available",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "breakfast_included",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "cancellation_policy",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "house_rules",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "1",
+      "sampleData": [
+        {
+          "id": "1",
+          "listing_id": "3",
+          "room_type": "바다뷰 스탠다드룸",
+          "max_guests": 4,
+          "check_in_time": "15:00:00",
+          "check_out_time": "11:00:00",
+          "amenities": [
+            "ocean_view",
+            "wifi",
+            "parking",
+            "kitchen",
+            "air_conditioning"
+          ],
+          "bed_type": "더블베드 2개",
+          "bathroom_type": null,
+          "room_size": null,
+          "wifi_available": 1,
+          "parking_available": 1,
+          "breakfast_included": 0,
+          "cancellation_policy": null,
+          "house_rules": null,
+          "created_at": "2025-09-21 19:51:19",
+          "updated_at": "2025-09-21 19:51:19"
+        }
+      ]
+    },
+    "listing_event": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "event_type",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "start_date",
+          "Type": "date",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "end_date",
+          "Type": "date",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "event_times",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "ticket_types",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "venue_info",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "venue_address",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "organizer",
+          "Type": "varchar(255)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "age_restriction",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "dress_code",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "language",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "Korean",
+          "Extra": ""
+        },
+        {
+          "Field": "accessibility_info",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "refund_policy",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "contact_info",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "listing_food": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "cuisine_type",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "opening_hours",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "menu_items",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "price_range",
+          "Type": "enum('budget','mid_range','expensive')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "mid_range",
+          "Extra": ""
+        },
+        {
+          "Field": "reservations_required",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "parking_available",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "seating_capacity",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "delivery_available",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "takeout_available",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "alcohol_served",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "kid_friendly",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "specialty_dishes",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "chef_info",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "1",
+      "sampleData": [
+        {
+          "id": "1",
+          "listing_id": "5",
+          "cuisine_type": "해산물 전문점",
+          "opening_hours": {
+            "friday": "09:00-22:00",
+            "monday": "09:00-21:00",
+            "sunday": "09:00-21:00",
+            "tuesday": "09:00-21:00",
+            "saturday": "09:00-22:00",
+            "thursday": "09:00-21:00",
+            "wednesday": "09:00-21:00"
+          },
+          "menu_items": null,
+          "price_range": "mid_range",
+          "reservations_required": 0,
+          "parking_available": 0,
+          "seating_capacity": null,
+          "delivery_available": 0,
+          "takeout_available": 1,
+          "alcohol_served": 0,
+          "kid_friendly": 1,
+          "specialty_dishes": "신안 특산 젓갈, 전복죽, 바지락칼국수",
+          "chef_info": null,
+          "created_at": "2025-09-21 19:51:19",
+          "updated_at": "2025-09-21 19:51:19"
+        }
+      ]
+    },
+    "listing_rentcar": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "vehicle_type",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "brand",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "model",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "year_manufactured",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "fuel_type",
+          "Type": "enum('gasoline','diesel','electric','hybrid')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "gasoline",
+          "Extra": ""
+        },
+        {
+          "Field": "seating_capacity",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "5",
+          "Extra": ""
+        },
+        {
+          "Field": "transmission",
+          "Type": "enum('manual','automatic')",
+          "Null": "YES",
+          "Key": "",
+          "Default": "automatic",
+          "Extra": ""
+        },
+        {
+          "Field": "features",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "insurance_included",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "insurance_details",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "mileage_limit",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "deposit_amount",
+          "Type": "decimal(10,2)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "pickup_location",
+          "Type": "varchar(255)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "return_location",
+          "Type": "varchar(255)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "age_requirement",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "21",
+          "Extra": ""
+        },
+        {
+          "Field": "license_requirement",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "listing_tour": {
+      "columns": [
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "tour_type",
+          "Type": "enum('day','activity','package','city','experience','cruise','salt_experience')",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "duration_hours",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "meeting_point",
+          "Type": "varchar(200)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "meeting_lat",
+          "Type": "decimal(10,7)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "meeting_lng",
+          "Type": "decimal(10,7)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "included_md",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "excluded_md",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "what_to_bring_md",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "age_policy_md",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "cancel_policy_md",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "difficulty_level",
+          "Type": "enum('easy','moderate','hard')",
+          "Null": "YES",
+          "Key": "",
+          "Default": "easy",
+          "Extra": ""
+        }
+      ],
+      "totalRows": "4",
+      "sampleData": [
+        {
+          "listing_id": "1",
+          "tour_type": "salt_experience",
+          "duration_hours": 2,
+          "meeting_point": "증도 염전 입구",
+          "meeting_lat": null,
+          "meeting_lng": null,
+          "included_md": "- 전문 가이드 동행\n- 체험 도구 제공\n- 천일염 1kg 기념품\n- 염전 역사 설명\n- 사진 촬영 서비스",
+          "excluded_md": "- 개인 용품 (모자, 선크림)\n- 식사 및 음료\n- 교통비",
+          "what_to_bring_md": "- 편한 신발 (운동화 권장)\n- 모자 및 선크림\n- 물\n- 카메라",
+          "age_policy_md": "- 만 5세 이상 참여 가능\n- 12세 미만은 보호자 동반 필수\n- 임산부는 참여 불가",
+          "cancel_policy_md": null,
+          "difficulty_level": "easy"
+        },
+        {
+          "listing_id": "2",
+          "tour_type": "city",
+          "duration_hours": 4,
+          "meeting_point": "증도 터미널",
+          "meeting_lat": null,
+          "meeting_lng": null,
+          "included_md": "- 전문 가이드\n- 점심 식사\n- 교통편",
+          "excluded_md": "- 개인 용품",
+          "what_to_bring_md": null,
+          "age_policy_md": null,
+          "cancel_policy_md": null,
+          "difficulty_level": "easy"
+        },
+        {
+          "listing_id": "4",
+          "tour_type": "activity",
+          "duration_hours": 3,
+          "meeting_point": "흑산도 항구",
+          "meeting_lat": null,
+          "meeting_lng": null,
+          "included_md": "- 전문 가이드\n- 안전 장비\n- 간식",
+          "excluded_md": "- 개인 용품\n- 식사",
+          "what_to_bring_md": null,
+          "age_policy_md": null,
+          "cancel_policy_md": null,
+          "difficulty_level": "moderate"
+        }
+      ]
+    },
+    "listings": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "category_id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "category",
+          "Type": "varchar(50)",
+          "Null": "NO",
+          "Key": "",
+          "Default": "tour",
+          "Extra": ""
+        },
+        {
+          "Field": "partner_id",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "title",
+          "Type": "varchar(200)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "description_md",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "short_description",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "price_from",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "price_to",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "currency",
+          "Type": "varchar(10)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "KRW",
+          "Extra": ""
+        },
+        {
+          "Field": "images",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "highlights",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "included",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "excluded",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "tags",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "amenities",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "lat",
+          "Type": "decimal(10,7)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "lng",
+          "Type": "decimal(10,7)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "location",
+          "Type": "varchar(255)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "address",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "coordinates",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "duration",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "difficulty",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "max_capacity",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "meeting_point",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "cancellation_policy",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "min_capacity",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "min_age",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "rating_avg",
+          "Type": "decimal(3,2)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "0.00",
+          "Extra": ""
+        },
+        {
+          "Field": "rating_count",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "view_count",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "booking_count",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "start_date",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "end_date",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "available_from",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "available_to",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "is_published",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "is_active",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "featured_score",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "partner_boost",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "sponsored_until",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        },
+        {
+          "Field": "is_featured",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        }
+      ],
+      "totalRows": "12",
+      "sampleData": [
+        {
+          "id": "98",
+          "category_id": 1,
+          "category": "tour",
+          "partner_id": null,
+          "title": "신안 1004섬 투어",
+          "description_md": null,
+          "short_description": "신안의 아름다운 섬들을 돌아보는 투어",
+          "price_from": 50000,
+          "price_to": null,
+          "currency": "KRW",
+          "images": [
+            "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400"
+          ],
+          "highlights": null,
+          "included": null,
+          "excluded": null,
+          "tags": null,
+          "amenities": null,
+          "lat": null,
+          "lng": null,
+          "location": "신안군",
+          "address": null,
+          "coordinates": null,
+          "duration": "1일",
+          "difficulty": null,
+          "max_capacity": 20,
+          "meeting_point": null,
+          "cancellation_policy": null,
+          "min_capacity": 1,
+          "min_age": null,
+          "rating_avg": "5.00",
+          "rating_count": 1,
+          "view_count": 0,
+          "booking_count": 0,
+          "start_date": null,
+          "end_date": null,
+          "available_from": null,
+          "available_to": null,
+          "is_published": 1,
+          "is_active": 1,
+          "featured_score": 0,
+          "partner_boost": 0,
+          "sponsored_until": null,
+          "created_at": "2025-10-01 15:31:13",
+          "updated_at": "2025-10-02 11:58:14",
+          "is_featured": 0
+        },
+        {
+          "id": "100",
+          "category_id": 3,
+          "category": "food",
+          "partner_id": null,
+          "title": "비금도 해물탕 전문점",
+          "description_md": null,
+          "short_description": "신선한 해산물로 만든 해물탕",
+          "price_from": 25000,
+          "price_to": null,
+          "currency": "KRW",
+          "images": [
+            "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400"
+          ],
+          "highlights": null,
+          "included": null,
+          "excluded": null,
+          "tags": null,
+          "amenities": null,
+          "lat": null,
+          "lng": null,
+          "location": "신안군 비금면",
+          "address": null,
+          "coordinates": null,
+          "duration": "1시간",
+          "difficulty": null,
+          "max_capacity": 30,
+          "meeting_point": null,
+          "cancellation_policy": null,
+          "min_capacity": 1,
+          "min_age": null,
+          "rating_avg": "5.00",
+          "rating_count": 1,
+          "view_count": 0,
+          "booking_count": 0,
+          "start_date": null,
+          "end_date": null,
+          "available_from": null,
+          "available_to": null,
+          "is_published": 1,
+          "is_active": 1,
+          "featured_score": 0,
+          "partner_boost": 0,
+          "sponsored_until": null,
+          "created_at": "2025-10-01 15:31:14",
+          "updated_at": "2025-10-02 11:58:15",
+          "is_featured": 0
+        },
+        {
+          "id": "101",
+          "category_id": 4,
+          "category": "attraction",
+          "partner_id": null,
+          "title": "퍼플교 전망대",
+          "description_md": null,
+          "short_description": "퍼플교의 아름다운 전망을 감상",
+          "price_from": 0,
+          "price_to": null,
+          "currency": "KRW",
+          "images": [
+            "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400"
+          ],
+          "highlights": null,
+          "included": null,
+          "excluded": null,
+          "tags": null,
+          "amenities": null,
+          "lat": null,
+          "lng": null,
+          "location": "신안군",
+          "address": null,
+          "coordinates": null,
+          "duration": "30분",
+          "difficulty": null,
+          "max_capacity": 50,
+          "meeting_point": null,
+          "cancellation_policy": null,
+          "min_capacity": 1,
+          "min_age": null,
+          "rating_avg": "5.00",
+          "rating_count": 1,
+          "view_count": 0,
+          "booking_count": 0,
+          "start_date": null,
+          "end_date": null,
+          "available_from": null,
+          "available_to": null,
+          "is_published": 1,
+          "is_active": 1,
+          "featured_score": 0,
+          "partner_boost": 0,
+          "sponsored_until": null,
+          "created_at": "2025-10-01 15:31:14",
+          "updated_at": "2025-10-02 11:58:15",
+          "is_featured": 0
+        }
+      ]
+    },
+    "login_history": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "login_type",
+          "Type": "enum('email','google','kakao','naver')",
+          "Null": "YES",
+          "Key": "",
+          "Default": "email",
+          "Extra": ""
+        },
+        {
+          "Field": "ip_address",
+          "Type": "varchar(45)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "user_agent",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "device_type",
+          "Type": "enum('desktop','mobile','tablet')",
+          "Null": "YES",
+          "Key": "",
+          "Default": "desktop",
+          "Extra": ""
+        },
+        {
+          "Field": "location_info",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "login_status",
+          "Type": "enum('success','failed','blocked')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "success",
+          "Extra": ""
+        },
+        {
+          "Field": "logout_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "session_duration",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "media": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "filename",
+          "Type": "varchar(500)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "original_filename",
+          "Type": "varchar(500)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "url",
+          "Type": "longtext",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "thumbnail_url",
+          "Type": "longtext",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_type",
+          "Type": "varchar(50)",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "file_size",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "width",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "height",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "alt_text",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "caption",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "category",
+          "Type": "enum('product','banner','blog','partner','event','other')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "other",
+          "Extra": ""
+        },
+        {
+          "Field": "usage_location",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "tags",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "uploaded_by",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "is_active",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "6",
+      "sampleData": [
+        {
+          "id": "1",
+          "filename": "2024_shinan_beach_01.jpg",
+          "original_filename": "shinan_beach_sunset.jpg",
+          "url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800",
+          "thumbnail_url": null,
+          "file_type": "image/jpeg",
+          "file_size": 425000,
+          "width": 1920,
+          "height": 1080,
+          "alt_text": "신안 해변 일몰",
+          "caption": "아름다운 신안 해변의 일몰 풍경",
+          "category": "product",
+          "usage_location": "product_main",
+          "tags": [
+            "여행",
+            "해변",
+            "일몰",
+            "신안"
+          ],
+          "uploaded_by": null,
+          "is_active": 1,
+          "created_at": "2025-10-02 12:19:49",
+          "updated_at": "2025-10-02 12:19:49"
+        },
+        {
+          "id": "2",
+          "filename": "2024_island_tour_01.jpg",
+          "original_filename": "island_tour.jpg",
+          "url": "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800",
+          "thumbnail_url": null,
+          "file_type": "image/jpeg",
+          "file_size": 380000,
+          "width": 1920,
+          "height": 1280,
+          "alt_text": "섬 투어",
+          "caption": "신안 섬 투어 프로그램",
+          "category": "product",
+          "usage_location": "product_gallery",
+          "tags": [
+            "투어",
+            "섬",
+            "관광"
+          ],
+          "uploaded_by": null,
+          "is_active": 1,
+          "created_at": "2025-10-02 12:19:50",
+          "updated_at": "2025-10-02 12:19:50"
+        },
+        {
+          "id": "3",
+          "filename": "2024_seafood_01.jpg",
+          "original_filename": "fresh_seafood.jpg",
+          "url": "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=800",
+          "thumbnail_url": null,
+          "file_type": "image/jpeg",
+          "file_size": 310000,
+          "width": 1600,
+          "height": 1200,
+          "alt_text": "신선한 해산물",
+          "caption": "신안의 싱싱한 해산물",
+          "category": "product",
+          "usage_location": "product_gallery",
+          "tags": [
+            "음식",
+            "해산물",
+            "맛집"
+          ],
+          "uploaded_by": null,
+          "is_active": 1,
+          "created_at": "2025-10-02 12:19:50",
+          "updated_at": "2025-10-02 12:19:50"
+        }
+      ]
+    },
+    "notifications": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "type",
+          "Type": "enum('booking_confirmed','payment_completed','payment_failed','review_request','partner_approved','refund_completed','system_update','promotion')",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "title",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "message",
+          "Type": "text",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "is_read",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "action_url",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "metadata",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "expires_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "2",
+      "sampleData": [
+        {
+          "id": "1",
+          "user_id": "2",
+          "type": "booking_confirmed",
+          "title": "예약이 확정되었습니다",
+          "message": "신안 천일염 체험 예약이 확정되었습니다. 즐거운 여행 되세요!",
+          "is_read": 0,
+          "action_url": "/my-bookings",
+          "metadata": null,
+          "expires_at": null,
+          "created_at": "2025-09-21 19:51:20"
+        },
+        {
+          "id": "2",
+          "user_id": "3",
+          "type": "review_request",
+          "title": "리뷰를 작성해주세요",
+          "message": "증도 슬로시티 투어는 어떠셨나요? 다른 여행자들을 위해 후기를 남겨주세요.",
+          "is_read": 0,
+          "action_url": "/write-review/2",
+          "metadata": null,
+          "expires_at": null,
+          "created_at": "2025-09-21 19:51:20"
+        }
+      ]
+    },
+    "partner_applications": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "business_name",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "contact_name",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "email",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "phone",
+          "Type": "varchar(20)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "business_number",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "business_address",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "categories",
+          "Type": "json",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "description",
+          "Type": "text",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "services",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "website",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "instagram",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "facebook",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "expected_revenue",
+          "Type": "decimal(12,2)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "years_in_business",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "status",
+          "Type": "enum('pending','approved','rejected','under_review')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "pending",
+          "Extra": ""
+        },
+        {
+          "Field": "admin_notes",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "reviewed_by",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "reviewed_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "1",
+      "sampleData": [
+        {
+          "id": "2",
+          "business_name": "흑산도 어촌체험마을",
+          "contact_name": "이어부",
+          "email": "fisher@village.com",
+          "phone": "010-3333-4444",
+          "business_number": null,
+          "business_address": null,
+          "categories": [
+            "tour",
+            "food"
+          ],
+          "description": "흑산도 전통 어업 체험과 신선한 해산물 요리를 제공합니다.",
+          "services": "어업체험, 해산물 식당, 민박",
+          "website": null,
+          "instagram": null,
+          "facebook": null,
+          "expected_revenue": null,
+          "years_in_business": null,
+          "status": "under_review",
+          "admin_notes": null,
+          "reviewed_by": null,
+          "reviewed_at": null,
+          "created_at": "2025-09-21 19:51:20",
+          "updated_at": "2025-09-21 19:51:20"
+        }
+      ]
+    },
+    "partner_applications_history": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "user_id",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "business_name",
+          "Type": "varchar(200)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "contact_name",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "email",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "phone",
+          "Type": "varchar(20)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "business_number",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "business_address",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "categories",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "description",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "services",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "website",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "instagram",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "status",
+          "Type": "enum('approved','rejected')",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "reviewed_by",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "review_notes",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "reviewed_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "partner_settlements": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "partner_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "booking_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "payment_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "gross_amount",
+          "Type": "decimal(10,2)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "commission_rate",
+          "Type": "decimal(5,2)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "commission_amount",
+          "Type": "decimal(10,2)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "net_amount",
+          "Type": "decimal(10,2)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "status",
+          "Type": "enum('pending','paid','held')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "pending",
+          "Extra": ""
+        },
+        {
+          "Field": "settlement_date",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "bank_info",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "partners": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "business_name",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "contact_name",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "email",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "phone",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "business_number",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "website",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "instagram",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "description",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "services",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "tier",
+          "Type": "enum('bronze','silver','gold','vip')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "bronze",
+          "Extra": ""
+        },
+        {
+          "Field": "is_verified",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "is_featured",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "status",
+          "Type": "enum('pending','approved','rejected')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "pending",
+          "Extra": ""
+        },
+        {
+          "Field": "lat",
+          "Type": "decimal(10,7)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "lng",
+          "Type": "decimal(10,7)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "6",
+      "sampleData": [
+        {
+          "id": "1",
+          "user_id": "4",
+          "business_name": "신안 여행사",
+          "contact_name": "박사업",
+          "email": "partner1@example.com",
+          "phone": "010-3456-7890",
+          "business_number": null,
+          "website": null,
+          "instagram": null,
+          "description": "신안군 전 지역 여행 상품을 제공하는 전문 여행사입니다.",
+          "services": null,
+          "tier": "gold",
+          "is_verified": 1,
+          "is_featured": 0,
+          "status": "approved",
+          "lat": null,
+          "lng": null,
+          "created_at": "2025-09-21 19:39:44",
+          "updated_at": "2025-09-21 19:39:44"
+        },
+        {
+          "id": "3",
+          "user_id": "6",
+          "business_name": "신안 해양관광",
+          "contact_name": "정도초",
+          "email": "partner2@test.com",
+          "phone": "010-5678-9012",
+          "business_number": "234-56-78901",
+          "website": null,
+          "instagram": null,
+          "description": "해양 관광 전문 업체입니다.",
+          "services": "해상 투어, 숙박 시설 운영",
+          "tier": "silver",
+          "is_verified": 1,
+          "is_featured": 0,
+          "status": "approved",
+          "lat": null,
+          "lng": null,
+          "created_at": "2025-09-29 16:40:43",
+          "updated_at": "2025-09-29 16:40:43"
+        },
+        {
+          "id": "68",
+          "user_id": "1",
+          "business_name": "증도 갯벌체험센터",
+          "contact_name": "김증도",
+          "email": "jeungdo@experience.com",
+          "phone": "010-1111-2222",
+          "business_number": "345-67-89012",
+          "website": null,
+          "instagram": null,
+          "description": "증도 갯벌에서 다양한 체험을 제공합니다.",
+          "services": "갯벌체험, 생태관광",
+          "tier": "silver",
+          "is_verified": 1,
+          "is_featured": 0,
+          "status": "approved",
+          "lat": null,
+          "lng": null,
+          "created_at": "2025-10-01 03:11:45",
+          "updated_at": "2025-10-01 03:11:45"
+        }
+      ]
+    },
+    "payments": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "booking_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "payment_method",
+          "Type": "enum('card','bank_transfer','kakaopay','naverpay','samsung_pay')",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "payment_gateway",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "gateway_transaction_id",
+          "Type": "varchar(255)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "amount",
+          "Type": "decimal(10,2)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "status",
+          "Type": "enum('pending','completed','failed','refunded','cancelled')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "pending",
+          "Extra": ""
+        },
+        {
+          "Field": "payment_date",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "payment_data",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "13",
+      "sampleData": [
+        {
+          "id": "1",
+          "booking_id": "3",
+          "user_id": "1",
+          "payment_method": "card",
+          "payment_gateway": null,
+          "gateway_transaction_id": null,
+          "amount": "90000.00",
+          "status": "completed",
+          "payment_date": null,
+          "payment_data": null,
+          "created_at": "2025-10-01 08:33:02",
+          "updated_at": "2025-10-01 08:33:02"
+        },
+        {
+          "id": "2",
+          "booking_id": "4",
+          "user_id": "1",
+          "payment_method": "card",
+          "payment_gateway": null,
+          "gateway_transaction_id": null,
+          "amount": "240000.00",
+          "status": "completed",
+          "payment_date": null,
+          "payment_data": null,
+          "created_at": "2025-10-01 08:33:02",
+          "updated_at": "2025-10-01 08:33:02"
+        },
+        {
+          "id": "3",
+          "booking_id": "5",
+          "user_id": "1",
+          "payment_method": "card",
+          "payment_gateway": null,
+          "gateway_transaction_id": null,
+          "amount": "70000.00",
+          "status": "completed",
+          "payment_date": null,
+          "payment_data": null,
+          "created_at": "2025-10-01 08:33:03",
+          "updated_at": "2025-10-01 08:33:03"
+        }
+      ]
+    },
+    "pms_configs": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "listing_id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "UNI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "vendor",
+          "Type": "enum('stayntouch','opera','cloudbeds','mews','custom')",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "hotel_id",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "api_key",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "api_secret",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "api_endpoint",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "webhook_secret",
+          "Type": "varchar(200)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "settings",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "is_active",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "last_sync_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "rate_plans": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "listing_id",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "room_type_id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "pms_rate_plan_id",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "rate_plan_id",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "rate_plan_name",
+          "Type": "varchar(200)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "base_price",
+          "Type": "decimal(10,2)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "check_date",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "price",
+          "Type": "decimal(10,2)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "currency",
+          "Type": "varchar(10)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "KRW",
+          "Extra": ""
+        },
+        {
+          "Field": "min_stay",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "max_stay",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "is_refundable",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "breakfast_included",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "closed_to_arrival",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "closed_to_departure",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "non_refundable",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "is_active",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "refunds": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "payment_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "refund_amount",
+          "Type": "decimal(10,2)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "refund_reason",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "status",
+          "Type": "enum('pending','approved','rejected','completed')",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "pending",
+          "Extra": ""
+        },
+        {
+          "Field": "admin_notes",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "processed_by",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "refund_date",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "reviews": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "booking_id",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "rating",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "title",
+          "Type": "varchar(200)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "comment_md",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "pros",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "cons",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "visit_date",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "helpful_count",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "is_verified",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "admin_reply",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "admin_reply_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "10",
+      "sampleData": [
+        {
+          "id": "196",
+          "listing_id": "98",
+          "user_id": "2",
+          "booking_id": null,
+          "rating": 5,
+          "title": "신안의 숨은 보석 같은 투어!",
+          "comment_md": "1004개의 섬을 돌아보는 투어가 정말 환상적이었습니다. 가이드님의 설명도 재미있고 알차서 시간 가는 줄 몰랐어요. 특히 일몰 시간에 맞춰 배에서 본 풍경이 잊을 수 없네요.",
+          "pros": "전문적인 가이드, 아름다운 경치, 합리적인 가격",
+          "cons": "날씨에 따라 취소될 수 있어요",
+          "visit_date": null,
+          "helpful_count": 0,
+          "is_verified": 1,
+          "admin_reply": null,
+          "admin_reply_at": null,
+          "created_at": "2025-10-02 11:46:19",
+          "updated_at": "2025-10-02 11:46:19"
+        },
+        {
+          "id": "198",
+          "listing_id": "100",
+          "user_id": "45",
+          "booking_id": null,
+          "rating": 5,
+          "title": "신선한 해산물 맛집!",
+          "comment_md": "비금도에서 잡은 신선한 해산물로 만든 해물탕이 정말 맛있었습니다. 양도 푸짐하고 가격도 합리적이에요. 신안 여행 오시면 꼭 들러보세요!",
+          "pros": "신선한 재료, 푸짐한 양, 친절한 사장님",
+          "cons": "주차 공간이 협소해요",
+          "visit_date": null,
+          "helpful_count": 0,
+          "is_verified": 1,
+          "admin_reply": null,
+          "admin_reply_at": null,
+          "created_at": "2025-10-02 11:46:19",
+          "updated_at": "2025-10-02 11:46:19"
+        },
+        {
+          "id": "199",
+          "listing_id": "101",
+          "user_id": "47",
+          "booking_id": null,
+          "rating": 5,
+          "title": "인생 사진 찍기 좋은 곳",
+          "comment_md": "퍼플교 전망대에서 본 풍경이 정말 아름다웠습니다. 특히 석양 시간대에 가면 보라색 다리와 하늘이 어우러져 환상적인 사진을 찍을 수 있어요. 무료입장이라 더 좋습니다!",
+          "pros": "무료 입장, 아름다운 경치, 포토존 많음",
+          "cons": "날씨에 영향을 많이 받아요",
+          "visit_date": null,
+          "helpful_count": 0,
+          "is_verified": 1,
+          "admin_reply": null,
+          "admin_reply_at": null,
+          "created_at": "2025-10-02 11:46:20",
+          "updated_at": "2025-10-02 11:46:20"
+        }
+      ]
+    },
+    "room_inventory": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "listing_id",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "room_type_id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "date",
+          "Type": "date",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "check_date",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "available",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "total",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "room_media": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "room_type_id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "media_url",
+          "Type": "varchar(500)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "media_type",
+          "Type": "enum('image','video')",
+          "Null": "YES",
+          "Key": "",
+          "Default": "image",
+          "Extra": ""
+        },
+        {
+          "Field": "caption",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "display_order",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "room_types": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "listing_id",
+          "Type": "int",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "pms_vendor",
+          "Type": "varchar(50)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "pms_hotel_id",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "pms_room_type_id",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "room_type_id",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "room_type_name",
+          "Type": "varchar(200)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "description",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "max_occupancy",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "2",
+          "Extra": ""
+        },
+        {
+          "Field": "bed_type",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "amenities",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "base_price",
+          "Type": "decimal(10,2)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "currency",
+          "Type": "varchar(10)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "KRW",
+          "Extra": ""
+        },
+        {
+          "Field": "is_active",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "1",
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "search_logs": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "search_query",
+          "Type": "varchar(500)",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "search_filters",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "results_count",
+          "Type": "int",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "clicked_item_id",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "session_id",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "ip_address",
+          "Type": "varchar(45)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "user_coupons": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "coupon_id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "booking_id",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "discount_applied",
+          "Type": "decimal(10,2)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "used_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "user_interactions": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "user_id",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "listing_id",
+          "Type": "bigint",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "action",
+          "Type": "enum('view','click','book','share','favorite','review')",
+          "Null": "NO",
+          "Key": "MUL",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "session_id",
+          "Type": "varchar(100)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "ip_address",
+          "Type": "varchar(45)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "user_agent",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "referrer",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "MUL",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        }
+      ],
+      "totalRows": "0",
+      "sampleData": []
+    },
+    "users": {
+      "columns": [
+        {
+          "Field": "id",
+          "Type": "bigint",
+          "Null": "NO",
+          "Key": "PRI",
+          "Default": null,
+          "Extra": "auto_increment"
+        },
+        {
+          "Field": "user_id",
+          "Type": "varchar(30)",
+          "Null": "NO",
+          "Key": "UNI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "email",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "UNI",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "password_hash",
+          "Type": "varchar(255)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "name",
+          "Type": "varchar(100)",
+          "Null": "NO",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "phone",
+          "Type": "varchar(20)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "birth_date",
+          "Type": "date",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "bio",
+          "Type": "text",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "avatar",
+          "Type": "varchar(500)",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "role",
+          "Type": "enum('user','partner','admin')",
+          "Null": "YES",
+          "Key": "",
+          "Default": "user",
+          "Extra": ""
+        },
+        {
+          "Field": "preferred_language",
+          "Type": "varchar(10)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "ko",
+          "Extra": ""
+        },
+        {
+          "Field": "preferred_currency",
+          "Type": "varchar(10)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "KRW",
+          "Extra": ""
+        },
+        {
+          "Field": "marketing_consent",
+          "Type": "tinyint(1)",
+          "Null": "YES",
+          "Key": "",
+          "Default": "0",
+          "Extra": ""
+        },
+        {
+          "Field": "notification_settings",
+          "Type": "json",
+          "Null": "YES",
+          "Key": "",
+          "Default": null,
+          "Extra": ""
+        },
+        {
+          "Field": "created_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED"
+        },
+        {
+          "Field": "updated_at",
+          "Type": "timestamp",
+          "Null": "YES",
+          "Key": "",
+          "Default": "CURRENT_TIMESTAMP",
+          "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+        }
+      ],
+      "totalRows": "10",
+      "sampleData": [
+        {
+          "id": "1",
+          "user_id": "admin001",
+          "email": "admin@shinan.com",
+          "password_hash": "$2y$10$example_hash",
+          "name": "관리자",
+          "phone": null,
+          "birth_date": null,
+          "bio": null,
+          "avatar": null,
+          "role": "admin",
+          "preferred_language": "ko",
+          "preferred_currency": "KRW",
+          "marketing_consent": 0,
+          "notification_settings": null,
+          "created_at": "2025-09-21 19:39:43",
+          "updated_at": "2025-09-21 19:39:43"
+        },
+        {
+          "id": "2",
+          "user_id": "user001",
+          "email": "user1@example.com",
+          "password_hash": "$2y$10$example_hash",
+          "name": "김신안",
+          "phone": "010-1234-5678",
+          "birth_date": null,
+          "bio": null,
+          "avatar": null,
+          "role": "user",
+          "preferred_language": "ko",
+          "preferred_currency": "KRW",
+          "marketing_consent": 0,
+          "notification_settings": null,
+          "created_at": "2025-09-21 19:39:43",
+          "updated_at": "2025-09-21 19:39:43"
+        },
+        {
+          "id": "3",
+          "user_id": "user002",
+          "email": "user2@example.com",
+          "password_hash": "$2y$10$example_hash",
+          "name": "이여행",
+          "phone": "010-2345-6789",
+          "birth_date": null,
+          "bio": null,
+          "avatar": null,
+          "role": "user",
+          "preferred_language": "ko",
+          "preferred_currency": "KRW",
+          "marketing_consent": 0,
+          "notification_settings": null,
+          "created_at": "2025-09-21 19:39:43",
+          "updated_at": "2025-09-21 19:39:43"
+        }
+      ]
+    }
+  },
+  "timestamp": "2025-10-10T15:38:52.806Z"
+}

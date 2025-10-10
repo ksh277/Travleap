@@ -20,7 +20,7 @@ import {
   Camera,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { db } from '../utils/database';
+import { db } from '../utils/database-cloud';
 
 interface Partner {
   id: number;

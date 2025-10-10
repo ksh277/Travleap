@@ -240,8 +240,7 @@ export async function saveProductToDB(
   formData: AdminProductFormData
 ): Promise<{ success: boolean; productId?: string; error?: string }> {
   try {
-    // import { db } from '../database';
-    const { db } = await import('../database');
+    const { db } = await import('../database-cloud');
 
     console.log('DB에 상품 저장 중...', formData);
 

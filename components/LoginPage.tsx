@@ -5,6 +5,8 @@ import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import { api } from '../utils/api';
+import { initGoogleAuth, initKakaoAuth, initNaverAuth } from '../utils/socialAuth';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -42,12 +44,112 @@ export function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    // TODO: Implement Google OAuth
+  const handleGoogleLogin = async () => {
+    const googleAuth = initGoogleAuth();
+    if (!googleAuth) {
+      toast.error('Google 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const user = await googleAuth.loginWithGoogle();
+
+      const result = await api.socialLogin({
+        provider: 'google',
+        providerId: user.id,
+        email: user.email,
+        name: user.name,
+        avatar: user.picture
+      });
+
+      if (result.success && result.data) {
+        toast.success('Google 로그인 성공!');
+        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('user', JSON.stringify(result.data.user));
+        navigate('/', { replace: true });
+        window.location.reload();
+      } else {
+        toast.error(result.error || 'Google 로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      toast.error(error instanceof Error ? error.message : 'Google 로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleKakaoLogin = () => {
-    // TODO: Implement Kakao OAuth
+  const handleKakaoLogin = async () => {
+    const kakaoAuth = initKakaoAuth();
+    if (!kakaoAuth) {
+      toast.error('카카오 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const user = await kakaoAuth.loginWithKakao();
+
+      const result = await api.socialLogin({
+        provider: 'kakao',
+        providerId: user.id,
+        email: user.email,
+        name: user.name,
+        avatar: user.picture
+      });
+
+      if (result.success && result.data) {
+        toast.success('카카오 로그인 성공!');
+        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('user', JSON.stringify(result.data.user));
+        navigate('/', { replace: true });
+        window.location.reload();
+      } else {
+        toast.error(result.error || '카카오 로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Kakao login error:', error);
+      toast.error(error instanceof Error ? error.message : '카카오 로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNaverLogin = async () => {
+    const naverAuth = initNaverAuth();
+    if (!naverAuth) {
+      toast.error('네이버 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const user = await naverAuth.loginWithNaver();
+
+      const result = await api.socialLogin({
+        provider: 'naver',
+        providerId: user.id,
+        email: user.email,
+        name: user.name,
+        avatar: user.picture
+      });
+
+      if (result.success && result.data) {
+        toast.success('네이버 로그인 성공!');
+        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('user', JSON.stringify(result.data.user));
+        navigate('/', { replace: true });
+        window.location.reload();
+      } else {
+        toast.error(result.error || '네이버 로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Naver login error:', error);
+      toast.error(error instanceof Error ? error.message : '네이버 로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -170,7 +272,7 @@ export function LoginPage() {
             {/* 네이버 로그인 */}
             <button
               type="button"
-              onClick={() => console.log('Naver login')}
+              onClick={handleNaverLogin}
               className="w-full h-11 px-3 rounded-lg mb-2.5 flex items-center gap-2.5 text-sm font-medium cursor-pointer transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.12)] hover:-translate-y-px bg-[#03C75A] border border-[#02b351] text-white"
             >
               <span className="flex-none w-[22px] h-[22px] inline-flex items-center justify-center">

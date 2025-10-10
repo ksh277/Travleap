@@ -36,7 +36,6 @@ import { AccommodationDetailPage } from './components/AccommodationDetailPage';
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
 import { useCartStore } from './hooks/useCartStore';
-import { db } from './utils/database';
 import { HelmetProvider } from 'react-helmet-async';
 
 // 스크롤 위치 리셋 컴포넌트
@@ -55,24 +54,12 @@ function AppContent() {
   const { isLoggedIn, isAdmin, user, login, logout, sessionRestored } = useAuth();
   const { cartItems } = useCartStore();
 
-  // 개발 전용: 데이터베이스 재초기화 함수
-  const handleForceReinitDB = async () => {
-    try {
-      await db.forceReinitialize();
-      alert('데이터베이스 재초기화 완료! 관리자 계정이 생성되었습니다.');
-      window.location.reload();
-    } catch (error) {
-      console.error('DB reinitialization failed:', error);
-      alert('데이터베이스 재초기화 실패');
-    }
-  };
-
   // 개발 환경에서만 전역으로 노출
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      (window as any).adminLogin = () => {
+      (window as any).adminLogin = async () => {
         console.log('🚀 관리자 로그인 시도...');
-        const result = login('admin@shinan.com', 'admin123');
+        const result = await login('admin@shinan.com', 'admin123');
         if (result) {
           console.log('✅ 관리자 로그인 성공!');
           navigate('/admin');
@@ -81,11 +68,8 @@ function AppContent() {
         }
       };
 
-      (window as any).forceReinitDB = handleForceReinitDB;
-
-      console.log('🚀 새로운 간단한 인증 시스템:');
-      console.log('- adminLogin(): 🔥 즉시 관리자 로그인');
-      console.log('- forceReinitDB(): 데이터베이스 재초기화');
+      console.log('🚀 개발 도구:');
+      console.log('- adminLogin(): 관리자 로그인');
     }
   }, [login, navigate]);
 

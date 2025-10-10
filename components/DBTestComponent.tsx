@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { db } from '../utils/database';
+import { db } from '../utils/database-cloud';
 import { api } from '../utils/api';
 
 export function DBTestComponent() {

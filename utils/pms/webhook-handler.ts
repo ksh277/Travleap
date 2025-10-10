@@ -5,7 +5,7 @@
 
 import { PMSService } from './service';
 import type { PMSVendor, PMSWebhookEvent } from '../../types/database';
-import { db } from '../database';
+import { db } from '../database-cloud';
 
 // 웹훅 페이로드 인터페이스
 export interface WebhookPayload {

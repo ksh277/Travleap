@@ -35,6 +35,7 @@ import {
 import { toast } from 'sonner';
 import { api, type TravelItem } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
+import { db } from '../utils/database-cloud';
 
 interface Booking {
   id: string;
@@ -200,9 +201,10 @@ export function MyPage() {
     setLoading(true);
     try {
       // 병렬로 데이터 가져오기
-      const [bookingsResponse, favoriteIdsResponse] = await Promise.all([
+      const [bookingsResponse, favoriteIdsResponse, reviewsResponse] = await Promise.all([
         api.getBookings(Number(user.id)),
-        api.getFavorites(Number(user.id))
+        api.getFavorites(Number(user.id)),
+        api.getUserReviews(Number(user.id))
       ]);
 
       // 예약 내역 처리
@@ -225,6 +227,13 @@ export function MyPage() {
         setBookings(formattedBookings);
       } else {
         setBookings([]);
+      }
+
+      // 리뷰 처리
+      if (Array.isArray(reviewsResponse)) {
+        setReviews(reviewsResponse);
+      } else {
+        setReviews([]);
       }
 
       // 찜한 상품 ID 저장
@@ -333,11 +342,22 @@ export function MyPage() {
   };
 
   // 프로필 저장
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!user) return;
 
     try {
-      // localStorage에 저장
+      // DB에 저장
+      const updateData: any = {
+        name: editProfile.name,
+        phone: editProfile.phone,
+        birth_date: editProfile.birthDate || null,
+        bio: editProfile.bio || null,
+        avatar: editProfile.avatar || null
+      };
+
+      await db.update('users', Number(user.id), updateData);
+
+      // localStorage에도 저장 (백업)
       localStorage.setItem(`userProfile_${user.id}`, JSON.stringify(editProfile));
 
       setUserProfile(editProfile);
@@ -469,6 +489,27 @@ export function MyPage() {
     } finally {
       setDeleteLoading(false);
       setShowDeleteDialog(false);
+    }
+  };
+
+  // 리뷰 삭제
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!window.confirm('리뷰를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const response = await api.admin.deleteReview(Number(reviewId));
+      if (response.success) {
+        toast.success('리뷰가 삭제되었습니다.');
+        // 리뷰 목록에서 제거
+        setReviews(prev => prev.filter(review => review.id !== reviewId));
+      } else {
+        toast.error(response.error || '리뷰 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('리뷰 삭제 오류:', error);
+      toast.error('리뷰 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -942,7 +983,17 @@ export function MyPage() {
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <h3 className="font-semibold">{review.title}</h3>
-                            <span className="text-sm text-gray-500">{review.date}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-500">{review.date}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteReview(review.id)}
+                                className="h-8 w-8 p-0 hover:bg-red-50 text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                           <div className="flex items-center mt-1">
                             {renderStars(review.rating)}

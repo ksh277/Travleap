@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { t } from '../utils/translations';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../utils/api';
+import { initGoogleAuth, initKakaoAuth, initNaverAuth } from '../utils/socialAuth';
 
 export function SignupPage() {
   const navigate = useNavigate();
@@ -124,14 +125,114 @@ export function SignupPage() {
     }
   };
 
-  const handleGoogleSignup = () => {
-    console.log('Google signup');
-    // TODO: Implement Google OAuth
+  const handleGoogleSignup = async () => {
+    const googleAuth = initGoogleAuth();
+    if (!googleAuth) {
+      toast.error('Google 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const user = await googleAuth.loginWithGoogle();
+
+      // API를 통해 소셜 로그인 처리
+      const result = await api.socialLogin({
+        provider: 'google',
+        providerId: user.id,
+        email: user.email,
+        name: user.name,
+        avatar: user.picture
+      });
+
+      if (result.success && result.data) {
+        toast.success('Google 로그인 성공!');
+        // useAuth의 login 상태 업데이트
+        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('user', JSON.stringify(result.data.user));
+        navigate('/', { replace: true });
+        window.location.reload();
+      } else {
+        toast.error(result.error || 'Google 로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Google signup error:', error);
+      toast.error(error instanceof Error ? error.message : 'Google 로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleKakaoSignup = () => {
-    console.log('Kakao signup');
-    // TODO: Implement Kakao OAuth
+  const handleKakaoSignup = async () => {
+    const kakaoAuth = initKakaoAuth();
+    if (!kakaoAuth) {
+      toast.error('카카오 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const user = await kakaoAuth.loginWithKakao();
+
+      const result = await api.socialLogin({
+        provider: 'kakao',
+        providerId: user.id,
+        email: user.email,
+        name: user.name,
+        avatar: user.picture
+      });
+
+      if (result.success && result.data) {
+        toast.success('카카오 로그인 성공!');
+        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('user', JSON.stringify(result.data.user));
+        navigate('/', { replace: true });
+        window.location.reload();
+      } else {
+        toast.error(result.error || '카카오 로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Kakao signup error:', error);
+      toast.error(error instanceof Error ? error.message : '카카오 로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNaverSignup = async () => {
+    const naverAuth = initNaverAuth();
+    if (!naverAuth) {
+      toast.error('네이버 로그인이 설정되지 않았습니다. 관리자에게 문의하세요.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const user = await naverAuth.loginWithNaver();
+
+      const result = await api.socialLogin({
+        provider: 'naver',
+        providerId: user.id,
+        email: user.email,
+        name: user.name,
+        avatar: user.picture
+      });
+
+      if (result.success && result.data) {
+        toast.success('네이버 로그인 성공!');
+        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('user', JSON.stringify(result.data.user));
+        navigate('/', { replace: true });
+        window.location.reload();
+      } else {
+        toast.error(result.error || '네이버 로그인에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Naver signup error:', error);
+      toast.error(error instanceof Error ? error.message : '네이버 로그인 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -349,7 +450,7 @@ export function SignupPage() {
             {/* 네이버 회원가입 */}
             <button
               type="button"
-              onClick={() => console.log('Naver signup')}
+              onClick={handleNaverSignup}
               className="w-full h-11 px-3 rounded-lg mb-4 flex items-center gap-2.5 text-sm font-medium cursor-pointer transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.12)] hover:-translate-y-px bg-[#03C75A] border border-[#02b351] text-white"
             >
               <span className="flex-none w-[22px] h-[22px] inline-flex items-center justify-center">

@@ -205,7 +205,7 @@ export function PartnerApplyPage() {
         location: formData.location,
         website_url: formData.website || null,
         instagram_url: formData.instagram || null,
-        categories: formData.categories,
+        categories: JSON.stringify(formData.categories), // JSON string으로 변환
         description: formData.description,
         services_offered: formData.services,
         promotion: formData.promotion || null,

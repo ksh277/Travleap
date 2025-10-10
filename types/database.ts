@@ -351,7 +351,7 @@ export interface PartnerApplication {
   phone: string;
   business_number?: string;
   business_address?: string;
-  categories: string[];
+  categories: string; // JSON string in DB
   description: string;
   services?: string;
   website?: string;

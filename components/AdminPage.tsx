@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
-import { db } from '../utils/database';
+import { db } from '../utils/database-cloud';
 import { useAuth } from '../hooks/useAuth';
 import { notifyDataChange, refreshAllData, useRealTimeData } from '../hooks/useRealTimeData';
 import { MediaLibraryModal } from './MediaLibraryModal';
@@ -528,20 +528,8 @@ export function AdminPage({}: AdminPageProps) {
         }
       };
 
-      // 데이터베이스 강제 재초기화 함수
-      (window as any).fixDBSchema = async () => {
-
-        try {
-          const response = await db.forceReinitialize();
-          toast.success('✅ 데이터베이스 재초기화 완료!');
-
-          // 관리자 페이지 데이터 새로고침
-          await loadAdminData();
-        } catch (error) {
-          console.error('❌ [DEBUG] DB 재초기화 실패:', error);
-          toast.error('❌ DB 재초기화 실패');
-        }
-      };
+      // 데이터베이스 강제 재초기화는 클라우드 DB에서 지원하지 않음
+      // PlanetScale 콘솔에서 직접 관리해야 함
     }
   }, []);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -785,7 +773,7 @@ export function AdminPage({}: AdminPageProps) {
         },
         {
           name: '파트너',
-          fn: () => api.getPartners().then(res => {
+          fn: () => api.admin.getPartners().then(res => {
             const data = res?.success ? res.data || [] : [];
             setPartners(data);
             console.log(`✅ 파트너 ${data.length}개 로드 완료`);

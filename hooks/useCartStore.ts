@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { CartItem } from '../types/database';
 import { useAuth } from './useAuth';
-import { db } from '../utils/database';
+import { db } from '../utils/database-cloud';
 
 interface CartState {
   cartItems: CartItem[];

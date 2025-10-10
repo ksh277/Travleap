@@ -114,6 +114,35 @@ interface DetailItem {
   availableStartTimes?: string[];
   itinerary?: { time: string; activity: string; description?: string }[];
   packages?: { id: string; name: string; price: number; description?: string }[];
+
+  // Accommodation-specific fields
+  roomType?: string;
+  maxGuests?: number;
+  checkInTime?: string;
+  checkOutTime?: string;
+  bedType?: string;
+  bathroomType?: string;
+  roomSize?: number;
+  wifiAvailable?: boolean;
+  parkingAvailable?: boolean;
+  breakfastIncluded?: boolean;
+
+  // Rentcar-specific fields
+  vehicleType?: string;
+  brand?: string;
+  model?: string;
+  yearManufactured?: number;
+  fuelType?: string;
+  seatingCapacity?: number;
+  transmission?: string;
+  insuranceIncluded?: boolean;
+  insuranceDetails?: string;
+  mileageLimit?: number;
+  depositAmount?: number;
+  pickupLocation?: string;
+  returnLocation?: string;
+  ageRequirement?: number;
+  licenseRequirement?: string;
 }
 
 interface BookingFormData {
@@ -219,6 +248,31 @@ export function DetailPage() {
       const response = await api.getListingById(Number(itemId));
       if (response.success && response.data) {
         const data = response.data;
+
+        // Fetch category-specific details from cloud database
+        let categoryDetails: any = null;
+        try {
+          const category = data.category?.toLowerCase();
+          if (category === 'accommodation' || category === 'stay') {
+            const detailsResponse = await api.getListingAccommodation(data.id);
+            if (detailsResponse.success) categoryDetails = detailsResponse.data;
+          } else if (category === 'tour' || category === 'activity') {
+            const detailsResponse = await api.getListingTour(data.id);
+            if (detailsResponse.success) categoryDetails = detailsResponse.data;
+          } else if (category === 'food' || category === 'restaurant') {
+            const detailsResponse = await api.getListingFood(data.id);
+            if (detailsResponse.success) categoryDetails = detailsResponse.data;
+          } else if (category === 'event') {
+            const detailsResponse = await api.getListingEvent(data.id);
+            if (detailsResponse.success) categoryDetails = detailsResponse.data;
+          } else if (category === 'rentcar' || category === 'rental') {
+            const detailsResponse = await api.getListingRentcar(data.id);
+            if (detailsResponse.success) categoryDetails = detailsResponse.data;
+          }
+        } catch (error) {
+          console.log('Category-specific details not found or error:', error);
+        }
+
         const processedItem: DetailItem = {
           id: data.id,
           title: data.title,
@@ -226,8 +280,8 @@ export function DetailPage() {
           shortDescription: data.short_description || '',
           price: data.price_from || 0,
           location: data.location || '신안군',
-          address: data.address || '',
-          duration: data.duration || '1시간',
+          address: data.address || categoryDetails?.address || '',
+          duration: data.duration || categoryDetails?.duration || '1시간',
           category: data.category || '투어',
           rating: data.rating_avg || 0,
           reviewCount: data.rating_count || 0,
@@ -237,20 +291,49 @@ export function DetailPage() {
           isPartner: data.partner?.is_verified || false,
           isSponsor: data.partner?.tier === 'gold' || data.partner?.tier === 'platinum' || false,
           partnerName: data.partner?.business_name || '신안관광협회',
-          maxCapacity: data.max_capacity || 10,
-          features: data.features || ['전문 가이드 동행', '안전장비 제공', '기념품 포함', '사진 촬영 서비스'],
-          included: data.included || ['가이드 서비스', '안전장비', '기념품', '보험'],
-          excluded: data.excluded || ['개인 용품', '식사', '교통비'],
+          maxCapacity: data.max_capacity || categoryDetails?.max_capacity || 10,
+          features: data.features || categoryDetails?.features || ['전문 가이드 동행', '안전장비 제공', '기념품 포함', '사진 촬영 서비스'],
+          included: data.included || categoryDetails?.included || ['가이드 서비스', '안전장비', '기념품', '보험'],
+          excluded: data.excluded || categoryDetails?.excluded || ['개인 용품', '식사', '교통비'],
           policies: {
-            cancellation: data.cancellation_policy || '여행 3일 전까지 무료 취소',
-            refund: data.refund_policy || '부분 환불 가능',
-            weather: data.weather_policy || '악천후 시 일정 변경 또는 취소'
+            cancellation: data.cancellation_policy || categoryDetails?.cancellation_policy || '여행 3일 전까지 무료 취소',
+            refund: data.refund_policy || categoryDetails?.refund_policy || '부분 환불 가능',
+            weather: data.weather_policy || categoryDetails?.weather_policy || '악천후 시 일정 변경 또는 취소'
           },
-          amenities: data.amenities || [],
-          tags: data.tags || [],
+          amenities: data.amenities || categoryDetails?.amenities || [],
+          tags: data.tags || categoryDetails?.tags || [],
           difficulty: (data.difficulty as 'easy' | 'medium' | 'hard') || 'easy',
           language: Array.isArray(data.language) ? data.language : [data.language || '한국어'],
-          minAge: data.min_age || 0
+          minAge: data.min_age || categoryDetails?.min_age || 0,
+
+          // Accommodation-specific fields
+          roomType: categoryDetails?.room_type,
+          maxGuests: categoryDetails?.max_guests,
+          checkInTime: categoryDetails?.check_in_time,
+          checkOutTime: categoryDetails?.check_out_time,
+          bedType: categoryDetails?.bed_type,
+          bathroomType: categoryDetails?.bathroom_type,
+          roomSize: categoryDetails?.room_size,
+          wifiAvailable: categoryDetails?.wifi_available === 1,
+          parkingAvailable: categoryDetails?.parking_available === 1,
+          breakfastIncluded: categoryDetails?.breakfast_included === 1,
+
+          // Rentcar-specific fields
+          vehicleType: categoryDetails?.vehicle_type,
+          brand: categoryDetails?.brand,
+          model: categoryDetails?.model,
+          yearManufactured: categoryDetails?.year_manufactured,
+          fuelType: categoryDetails?.fuel_type,
+          seatingCapacity: categoryDetails?.seating_capacity,
+          transmission: categoryDetails?.transmission,
+          insuranceIncluded: categoryDetails?.insurance_included === 1,
+          insuranceDetails: categoryDetails?.insurance_details,
+          mileageLimit: categoryDetails?.mileage_limit,
+          depositAmount: categoryDetails?.deposit_amount,
+          pickupLocation: categoryDetails?.pickup_location,
+          returnLocation: categoryDetails?.return_location,
+          ageRequirement: categoryDetails?.age_requirement,
+          licenseRequirement: categoryDetails?.license_requirement
         };
         setItem(processedItem);
         setRetryCount(0);
@@ -947,6 +1030,183 @@ export function DetailPage() {
               </TabsContent>
 
               <TabsContent value="details" className="space-y-4 md:space-y-6">
+                {/* Category-specific details */}
+                {item.category === 'accommodation' && (item.roomType || item.checkInTime) && (
+                  <Card className="mb-6">
+                    <CardHeader>
+                      <CardTitle className="text-purple-600 flex items-center">
+                        <MapPin className="h-5 w-5 mr-2" />
+                        숙박 상세 정보
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {item.roomType && (
+                          <div>
+                            <p className="text-sm text-gray-600">객실 타입</p>
+                            <p className="font-medium">{item.roomType}</p>
+                          </div>
+                        )}
+                        {item.maxGuests && (
+                          <div>
+                            <p className="text-sm text-gray-600">최대 투숙 인원</p>
+                            <p className="font-medium">{item.maxGuests}명</p>
+                          </div>
+                        )}
+                        {item.checkInTime && (
+                          <div>
+                            <p className="text-sm text-gray-600">체크인 시간</p>
+                            <p className="font-medium">{item.checkInTime}</p>
+                          </div>
+                        )}
+                        {item.checkOutTime && (
+                          <div>
+                            <p className="text-sm text-gray-600">체크아웃 시간</p>
+                            <p className="font-medium">{item.checkOutTime}</p>
+                          </div>
+                        )}
+                        {item.bedType && (
+                          <div>
+                            <p className="text-sm text-gray-600">침대 타입</p>
+                            <p className="font-medium">{item.bedType}</p>
+                          </div>
+                        )}
+                        {item.bathroomType && (
+                          <div>
+                            <p className="text-sm text-gray-600">욕실 타입</p>
+                            <p className="font-medium">{item.bathroomType}</p>
+                          </div>
+                        )}
+                        {item.roomSize && (
+                          <div>
+                            <p className="text-sm text-gray-600">객실 크기</p>
+                            <p className="font-medium">{item.roomSize}㎡</p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm text-gray-600">편의시설</p>
+                          <div className="flex gap-2 mt-1">
+                            {item.wifiAvailable && (
+                              <Badge variant="secondary" className="text-xs">WiFi</Badge>
+                            )}
+                            {item.parkingAvailable && (
+                              <Badge variant="secondary" className="text-xs">주차</Badge>
+                            )}
+                            {item.breakfastIncluded && (
+                              <Badge variant="secondary" className="text-xs">조식</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {item.category === 'rentcar' && (item.brand || item.vehicleType) && (
+                  <Card className="mb-6">
+                    <CardHeader>
+                      <CardTitle className="text-blue-600 flex items-center">
+                        <MapPin className="h-5 w-5 mr-2" />
+                        차량 상세 정보
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {item.brand && item.model && (
+                          <div>
+                            <p className="text-sm text-gray-600">차량</p>
+                            <p className="font-medium">{item.brand} {item.model}</p>
+                          </div>
+                        )}
+                        {item.yearManufactured && (
+                          <div>
+                            <p className="text-sm text-gray-600">연식</p>
+                            <p className="font-medium">{item.yearManufactured}년형</p>
+                          </div>
+                        )}
+                        {item.vehicleType && (
+                          <div>
+                            <p className="text-sm text-gray-600">차종</p>
+                            <p className="font-medium">{item.vehicleType}</p>
+                          </div>
+                        )}
+                        {item.fuelType && (
+                          <div>
+                            <p className="text-sm text-gray-600">연료</p>
+                            <p className="font-medium">
+                              {item.fuelType === 'gasoline' && '휘발유'}
+                              {item.fuelType === 'diesel' && '경유'}
+                              {item.fuelType === 'electric' && '전기'}
+                              {item.fuelType === 'hybrid' && '하이브리드'}
+                            </p>
+                          </div>
+                        )}
+                        {item.seatingCapacity && (
+                          <div>
+                            <p className="text-sm text-gray-600">승차 인원</p>
+                            <p className="font-medium">{item.seatingCapacity}인승</p>
+                          </div>
+                        )}
+                        {item.transmission && (
+                          <div>
+                            <p className="text-sm text-gray-600">변속기</p>
+                            <p className="font-medium">
+                              {item.transmission === 'automatic' ? '자동' : '수동'}
+                            </p>
+                          </div>
+                        )}
+                        {item.mileageLimit && (
+                          <div>
+                            <p className="text-sm text-gray-600">주행거리 제한</p>
+                            <p className="font-medium">1일 {item.mileageLimit}km</p>
+                          </div>
+                        )}
+                        {item.depositAmount && (
+                          <div>
+                            <p className="text-sm text-gray-600">보증금</p>
+                            <p className="font-medium">{item.depositAmount.toLocaleString()}원</p>
+                          </div>
+                        )}
+                        {item.insuranceIncluded !== undefined && (
+                          <div>
+                            <p className="text-sm text-gray-600">보험</p>
+                            <p className="font-medium">
+                              {item.insuranceIncluded ? '포함' : '미포함'}
+                            </p>
+                            {item.insuranceDetails && (
+                              <p className="text-xs text-gray-500 mt-1">{item.insuranceDetails}</p>
+                            )}
+                          </div>
+                        )}
+                        {item.pickupLocation && (
+                          <div>
+                            <p className="text-sm text-gray-600">인수 장소</p>
+                            <p className="font-medium text-sm">{item.pickupLocation}</p>
+                          </div>
+                        )}
+                        {item.returnLocation && (
+                          <div>
+                            <p className="text-sm text-gray-600">반납 장소</p>
+                            <p className="font-medium text-sm">{item.returnLocation}</p>
+                          </div>
+                        )}
+                        {item.ageRequirement && (
+                          <div>
+                            <p className="text-sm text-gray-600">운전자 나이 제한</p>
+                            <p className="font-medium">만 {item.ageRequirement}세 이상</p>
+                          </div>
+                        )}
+                        {item.licenseRequirement && (
+                          <div>
+                            <p className="text-sm text-gray-600">면허 요구사항</p>
+                            <p className="font-medium text-sm">{item.licenseRequirement}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <Card>
                     <CardHeader>
