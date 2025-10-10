@@ -3570,8 +3570,8 @@ export function AdminPage({}: AdminPageProps) {
                       <TableHead>상품명</TableHead>
                       <TableHead>예약일/인원</TableHead>
                       <TableHead>금액</TableHead>
-                      <TableHead>결제상태</TableHead>
-                      <TableHead>예약상태</TableHead>
+                      <TableHead>결제/예약상태</TableHead>
+                      <TableHead>주문일시</TableHead>
                       <TableHead>작업</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3620,28 +3620,36 @@ export function AdminPage({}: AdminPageProps) {
                         </TableCell>
                         <TableCell className="font-semibold">₩{order.total_amount?.toLocaleString() || '0'}</TableCell>
                         <TableCell>
-                          <Badge variant={
-                            order.payment_status === 'completed' ? 'default' :
-                            order.payment_status === 'pending' ? 'secondary' :
-                            order.payment_status === 'failed' ? 'destructive' : 'outline'
-                          }>
-                            {order.payment_status === 'pending' ? '대기중' :
-                             order.payment_status === 'completed' ? '결제완료' :
-                             order.payment_status === 'failed' ? '실패' : order.payment_status || '미정'}
-                          </Badge>
+                          <div className="space-y-1">
+                            <Badge variant={
+                              order.payment_status === 'completed' ? 'default' :
+                              order.payment_status === 'pending' ? 'secondary' :
+                              order.payment_status === 'failed' ? 'destructive' : 'outline'
+                            }>
+                              {order.payment_status === 'pending' ? '대기중' :
+                               order.payment_status === 'completed' ? '결제완료' :
+                               order.payment_status === 'failed' ? '실패' : order.payment_status || '미정'}
+                            </Badge>
+                            <Badge variant={
+                              order.status === 'confirmed' ? 'default' :
+                              order.status === 'pending' ? 'secondary' :
+                              order.status === 'cancelled' ? 'destructive' :
+                              order.status === 'completed' ? 'default' : 'outline'
+                            }>
+                              {order.status === 'pending' ? '대기' :
+                               order.status === 'confirmed' ? '확정' :
+                               order.status === 'completed' ? '완료' :
+                               order.status === 'cancelled' ? '취소' : order.status}
+                            </Badge>
+                          </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={
-                            order.status === 'confirmed' ? 'default' :
-                            order.status === 'pending' ? 'secondary' :
-                            order.status === 'cancelled' ? 'destructive' :
-                            order.status === 'completed' ? 'default' : 'outline'
-                          }>
-                            {order.status === 'pending' ? '대기' :
-                             order.status === 'confirmed' ? '확정' :
-                             order.status === 'completed' ? '완료' :
-                             order.status === 'cancelled' ? '취소' : order.status}
-                          </Badge>
+                          <div className="space-y-1 text-sm">
+                            <div>{order.created_at ? new Date(order.created_at).toLocaleDateString('ko-KR') : '-'}</div>
+                            <div className="text-xs text-gray-500">
+                              {order.created_at ? new Date(order.created_at).toLocaleTimeString('ko-KR') : ''}
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
