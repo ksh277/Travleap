@@ -1670,7 +1670,10 @@ export const api = {
     try {
       console.log('🔑 PlanetScale API 로그인 시도:', email);
 
-      const response = await fetch('/api/auth?action=login', {
+      // 프로덕션에서는 상대 경로, 로컬에서는 절대 경로
+      const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
+      const apiUrl = isProduction ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3004');
+      const response = await fetch(`${apiUrl}/api/auth?action=login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1709,7 +1712,10 @@ export const api = {
     try {
       console.log('📝 PlanetScale API 회원가입 시도:', userData.email);
 
-      const response = await fetch('/api/auth?action=register', {
+      // 프로덕션에서는 상대 경로, 로컬에서는 절대 경로
+      const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
+      const apiUrl = isProduction ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3004');
+      const response = await fetch(`${apiUrl}/api/auth?action=register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1749,7 +1755,10 @@ export const api = {
     try {
       console.log('🔑 소셜 로그인 시도:', socialData.provider, socialData.email);
 
-      const response = await fetch('/api/auth?action=social-login', {
+      // 프로덕션에서는 상대 경로, 로컬에서는 절대 경로
+      const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
+      const apiUrl = isProduction ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3004');
+      const response = await fetch(`${apiUrl}/api/auth?action=social-login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
