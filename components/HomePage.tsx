@@ -46,6 +46,10 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
   const [retryCount, setRetryCount] = useState(0);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [backgroundVideo, setBackgroundVideo] = useState({
+    url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
+    overlayOpacity: 0.4
+  });
 
   // Enhanced data loading with retry mechanism - 모든 API 호출을 통일
   const loadData = useCallback(async (isRetry = false) => {
@@ -65,17 +69,25 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       ];
 
       // 모든 API 호출을 api.getListings()로 통일
-      const [categoriesResult, featuredResult, accommodationResult, reviewsResult] = await Promise.all([
+      const [categoriesResult, featuredResult, accommodationResult, reviewsResult, homepageSettings] = await Promise.all([
         api.getCategories().catch(() => []),
         api.getListings({ limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
         api.getListings({ category: 'stay', limit: 4, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
-        api.getRecentReviews(4).catch(() => [])
+        api.getRecentReviews(4).catch(() => []),
+        api.getHomepageSettings().catch(() => ({
+          background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
+          background_overlay_opacity: 0.4
+        }))
       ]);
 
       setCategories(categoriesResult.length > 0 ? categoriesResult : sampleCategories);
       setFeaturedListings(featuredResult);
       setAccommodationListings(accommodationResult);
       setRecentReviews(reviewsResult);
+      setBackgroundVideo({
+        url: homepageSettings.background_video_url || 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
+        overlayOpacity: homepageSettings.background_overlay_opacity || 0.4
+      });
       setRetryCount(0);
 
     } catch (error) {
@@ -217,9 +229,10 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
           muted
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
+          key={backgroundVideo.url}
         >
           <source
-            src="https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4"
+            src={backgroundVideo.url}
             type="video/mp4"
           />
           {/* Fallback 이미지 (비디오 로딩 실패 시) */}
@@ -229,7 +242,10 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
             className="w-full h-full object-cover"
           />
         </video>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/50"></div>
+        <div
+          className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/50"
+          style={{ opacity: backgroundVideo.overlayOpacity }}
+        ></div>
         <div className="relative z-10 container mx-auto px-4 h-full flex flex-col items-center justify-center">
           {/* Enhanced Main Title with SEO */}
           <div className="text-center text-white space-y-2 md:space-y-3 max-w-4xl mb-6 md:mb-8">
