@@ -3566,44 +3566,82 @@ export function AdminPage({}: AdminPageProps) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>주문번호</TableHead>
-                      <TableHead>고객명</TableHead>
+                      <TableHead>주문자 정보</TableHead>
                       <TableHead>상품명</TableHead>
+                      <TableHead>예약일/인원</TableHead>
                       <TableHead>금액</TableHead>
-                      <TableHead>상태</TableHead>
-                      <TableHead>주문일</TableHead>
+                      <TableHead>결제상태</TableHead>
+                      <TableHead>예약상태</TableHead>
                       <TableHead>작업</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {orders.length > 0 ? orders
                       .filter(order =>
-                        order.orderNumber?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
-                        order.userName?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
-                        order.userEmail?.toLowerCase().includes(orderSearchQuery.toLowerCase())
+                        order.order_number?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
+                        order.customer_info?.name?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
+                        order.customer_info?.email?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
+                        order.user_name?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
+                        order.user_email?.toLowerCase().includes(orderSearchQuery.toLowerCase())
                       )
                       .map((order: any) => (
                       <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.orderNumber}</TableCell>
-                        <TableCell>{order.userName}</TableCell>
+                        <TableCell className="font-medium text-blue-600">{order.order_number}</TableCell>
                         <TableCell>
-                          {order.items && order.items.length > 0
-                            ? order.items.map((item: any) => item.title || '상품명').join(', ')
-                            : '주문 상품'}
+                          <div className="space-y-1">
+                            <div className="font-medium">
+                              {order.customer_info?.name || order.user_name || '이름 없음'}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {order.customer_info?.phone || order.user_phone || '전화번호 없음'}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              {order.customer_info?.email || order.user_email || '이메일 없음'}
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell>₩{order.total?.toLocaleString() || '0'}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium">{order.product_name || '상품명 없음'}</div>
+                            <div className="text-xs text-gray-500">
+                              {order.category ? `카테고리: ${order.category}` : ''}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1 text-sm">
+                            <div>{order.start_date ? new Date(order.start_date).toLocaleDateString() : '-'}</div>
+                            <div className="text-xs text-gray-500">
+                              성인 {order.num_adults}명
+                              {order.num_children > 0 ? `, 아동 ${order.num_children}명` : ''}
+                              {order.num_seniors > 0 ? `, 경로 ${order.num_seniors}명` : ''}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-semibold">₩{order.total_amount?.toLocaleString() || '0'}</TableCell>
                         <TableCell>
                           <Badge variant={
-                            order.status === 'completed' ? 'default' :
-                            order.status === 'pending' ? 'secondary' :
-                            order.status === 'failed' ? 'destructive' : 'outline'
+                            order.payment_status === 'completed' ? 'default' :
+                            order.payment_status === 'pending' ? 'secondary' :
+                            order.payment_status === 'failed' ? 'destructive' : 'outline'
                           }>
-                            {order.status === 'pending' ? '대기중' :
-                             order.status === 'completed' ? '완료' :
-                             order.status === 'failed' ? '실패' : order.status}
+                            {order.payment_status === 'pending' ? '대기중' :
+                             order.payment_status === 'completed' ? '결제완료' :
+                             order.payment_status === 'failed' ? '실패' : order.payment_status || '미정'}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}
+                          <Badge variant={
+                            order.status === 'confirmed' ? 'default' :
+                            order.status === 'pending' ? 'secondary' :
+                            order.status === 'cancelled' ? 'destructive' :
+                            order.status === 'completed' ? 'default' : 'outline'
+                          }>
+                            {order.status === 'pending' ? '대기' :
+                             order.status === 'confirmed' ? '확정' :
+                             order.status === 'completed' ? '완료' :
+                             order.status === 'cancelled' ? '취소' : order.status}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
@@ -3614,9 +3652,9 @@ export function AdminPage({}: AdminPageProps) {
                               <Button
                                 size="sm"
                                 className="bg-green-600 hover:bg-green-700 text-white"
-                                onClick={() => handleUpdateOrderStatus(order.id, 'completed')}
+                                onClick={() => handleUpdateOrderStatus(order.id, 'confirmed')}
                               >
-                                완료
+                                확정
                               </Button>
                             )}
                             <Button
@@ -3631,7 +3669,7 @@ export function AdminPage({}: AdminPageProps) {
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                           주문 데이터가 없습니다.
                         </TableCell>
                       </TableRow>

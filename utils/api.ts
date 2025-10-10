@@ -3235,25 +3235,74 @@ export const api = {
     // 주문 관리
     getOrders: async (filters?: any): Promise<ApiResponse<any[]>> => {
       try {
-        let sql = 'SELECT * FROM payments WHERE 1=1';
+        // bookings와 listings, users를 JOIN해서 상세 정보 가져오기
+        let sql = `
+          SELECT
+            b.id,
+            b.booking_number as order_number,
+            b.start_date,
+            b.end_date,
+            b.num_adults,
+            b.num_children,
+            b.num_seniors,
+            b.total_amount,
+            b.payment_method,
+            b.payment_status,
+            b.status,
+            b.customer_info,
+            b.special_requests,
+            b.created_at,
+            b.updated_at,
+            l.id as listing_id,
+            l.title as product_name,
+            l.category,
+            l.images,
+            u.name as user_name,
+            u.email as user_email,
+            u.phone as user_phone
+          FROM bookings b
+          LEFT JOIN listings l ON b.listing_id = l.id
+          LEFT JOIN users u ON b.user_id = u.id
+          WHERE 1=1
+        `;
         const params: any[] = [];
 
         if (filters?.status) {
-          sql += ' AND status = ?';
+          sql += ' AND b.status = ?';
           params.push(filters.status);
         }
 
         if (filters?.user_id) {
-          sql += ' AND user_id = ?';
+          sql += ' AND b.user_id = ?';
           params.push(filters.user_id);
         }
 
-        sql += ' ORDER BY created_at DESC';
+        sql += ' ORDER BY b.created_at DESC';
 
         const orders = await db.query(sql, params);
+
+        // customer_info가 JSON 문자열이면 파싱
+        const processedOrders = orders.map((order: any) => {
+          if (typeof order.customer_info === 'string') {
+            try {
+              order.customer_info = JSON.parse(order.customer_info);
+            } catch (e) {
+              // 파싱 실패 시 그대로 유지
+            }
+          }
+          if (typeof order.images === 'string') {
+            try {
+              order.images = JSON.parse(order.images);
+            } catch (e) {
+              order.images = [];
+            }
+          }
+          return order;
+        });
+
         return {
           success: true,
-          data: orders || []
+          data: processedOrders || []
         };
       } catch (error) {
         console.error('Failed to fetch orders:', error);
