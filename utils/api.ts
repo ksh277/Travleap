@@ -4065,6 +4065,38 @@ export const api = {
       return { success: false, error: '사용자 상호작용 조회 실패', data: [] };
     }
   },
+
+  // 홈페이지 설정 관리
+  getHomepageSettings: async () => {
+    try {
+      const result = await db.query(`
+        SELECT * FROM homepage_settings
+        WHERE is_active = 1
+        ORDER BY id DESC
+        LIMIT 1
+      `);
+
+      if (result.length > 0) {
+        return result[0];
+      }
+
+      // 기본값 반환
+      return {
+        background_type: 'video',
+        background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
+        background_overlay_opacity: 0.4,
+        is_active: true
+      };
+    } catch (error) {
+      console.error('Failed to get homepage settings:', error);
+      return {
+        background_type: 'video',
+        background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
+        background_overlay_opacity: 0.4,
+        is_active: true
+      };
+    }
+  },
 };
 
 export default api;

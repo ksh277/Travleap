@@ -139,11 +139,22 @@ app.post('/api/auth', async (req, res) => {
 
       const user = result.rows[0];
 
-      // 비밀번호 검증 (실제로는 bcrypt 사용해야 함)
-      // 여기서는 간단히 처리
-      if (user.password_hash !== password && !password.startsWith('$2')) {
+      console.log('🔍 Login attempt for:', email);
+      console.log('   User found:', user.email, 'ID:', user.id);
+      console.log('   Hash exists:', !!user.password_hash);
+
+      // 비밀번호 검증 (bcrypt 사용)
+      const bcrypt = require('bcryptjs');
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+
+      console.log('   Password valid:', isPasswordValid);
+
+      if (!isPasswordValid) {
+        console.log('❌ Invalid password');
         return res.status(401).json({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
       }
+
+      console.log('✅ Login successful');
 
       // JWT 토큰 생성 (간단한 버전)
       const token = Buffer.from(JSON.stringify({ userId: user.id, email: user.email, role: user.role })).toString('base64');
@@ -175,12 +186,15 @@ app.post('/api/auth', async (req, res) => {
         return res.status(400).json({ success: false, error: '이미 등록된 이메일입니다.' });
       }
 
-      // 사용자 생성
+      // 사용자 생성 (bcrypt로 비밀번호 해시화)
+      const bcrypt = require('bcryptjs');
+      const hashedPassword = await bcrypt.hash(password, 10);
+
       const userId = `user_${Date.now()}`;
       await connection.execute(
         `INSERT INTO users (user_id, email, password_hash, name, phone, role, status, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, 'user', 'active', NOW(), NOW())`,
-        [userId, email, password, name, phone || '']
+        [userId, email, hashedPassword, name, phone || '']
       );
 
       // JWT 토큰 생성

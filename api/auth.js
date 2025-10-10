@@ -1,4 +1,5 @@
 const { connect } = require('@planetscale/database');
+const bcrypt = require('bcryptjs');
 
 module.exports = async function handler(req, res) {
   // CORS
@@ -28,9 +29,18 @@ module.exports = async function handler(req, res) {
     if (action === 'login') {
       const { email, password } = req.body;
 
+      // 입력 검증
+      if (!email || !password) {
+        return res.status(400).json({ success: false, error: '이메일과 비밀번호를 입력해주세요.' });
+      }
+
+      if (typeof email !== 'string' || typeof password !== 'string') {
+        return res.status(400).json({ success: false, error: '잘못된 입력 형식입니다.' });
+      }
+
       const result = await connection.execute(
-        'SELECT * FROM users WHERE email = ?',
-        [email]
+        'SELECT * FROM users WHERE email = ? AND status = ?',
+        [email, 'active']
       );
 
       if (result.rows.length === 0) {
@@ -39,31 +49,81 @@ module.exports = async function handler(req, res) {
 
       const user = result.rows[0];
 
-      // 비밀번호 검증
-      if (user.password_hash !== password && !password.startsWith('$2')) {
+      console.log('🔍 Login attempt for:', email);
+      console.log('   User found:', user.email, '(ID:', user.id, ')');
+      console.log('   Password hash exists:', !!user.password_hash);
+      console.log('   Hash length:', user.password_hash ? user.password_hash.length : 0);
+      console.log('   Status:', user.status);
+      console.log('   Role:', user.role);
+
+      // 비밀번호 해시가 없는 경우 (소셜 로그인 전용 계정)
+      if (!user.password_hash || user.password_hash === '') {
+        console.log('❌ No password hash - social login account');
+        return res.status(401).json({ success: false, error: '소셜 로그인으로 가입한 계정입니다.' });
+      }
+
+      // 비밀번호 검증 (bcrypt 사용)
+      console.log('   Comparing password...');
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+      console.log('   Password valid:', isPasswordValid);
+
+      if (!isPasswordValid) {
+        console.log('❌ Invalid password');
         return res.status(401).json({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
       }
 
-      // JWT 토큰 생성
-      const token = Buffer.from(JSON.stringify({ userId: user.id, email: user.email, role: user.role })).toString('base64');
+      console.log('✅ Login successful for:', user.email);
+
+      // JWT 토큰 생성 (간단한 JWT 형식)
+      const token = Buffer.from(JSON.stringify({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        iat: Date.now(),
+        exp: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7일
+      })).toString('base64');
 
       return res.status(200).json({
         success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          avatar: user.avatar,
-          phone: user.phone
-        },
-        token
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            avatar: user.avatar,
+            phone: user.phone
+          },
+          token
+        }
       });
     }
 
     // 회원가입
     if (action === 'register') {
       const { email, password, name, phone } = req.body;
+
+      // 입력 검증
+      if (!email || !password || !name) {
+        return res.status(400).json({ success: false, error: '필수 항목을 입력해주세요.' });
+      }
+
+      // 이메일 형식 검증
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ success: false, error: '올바른 이메일 형식이 아닙니다.' });
+      }
+
+      // 비밀번호 강도 검증 (최소 8자)
+      if (password.length < 8) {
+        return res.status(400).json({ success: false, error: '비밀번호는 최소 8자 이상이어야 합니다.' });
+      }
+
+      // 이름 길이 검증
+      if (name.length < 2 || name.length > 50) {
+        return res.status(400).json({ success: false, error: '이름은 2~50자 이내여야 합니다.' });
+      }
 
       // 이메일 중복 확인
       const existing = await connection.execute(
@@ -75,25 +135,38 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ success: false, error: '이미 사용 중인 이메일입니다.' });
       }
 
+      // 비밀번호 해시화
+      const hashedPassword = await bcrypt.hash(password, 10);
+
       // 사용자 생성
       const userId = `user_${Date.now()}`;
       const result = await connection.execute(
         `INSERT INTO users (user_id, email, password_hash, name, phone, role, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, 'user', 'ko', 'KRW', 1, NOW(), NOW())`,
-        [userId, email, password, name, phone || '']
+        [userId, email, hashedPassword, name, phone || '']
       );
 
-      const token = Buffer.from(JSON.stringify({ userId: result.insertId, email, role: 'user' })).toString('base64');
+      const token = Buffer.from(JSON.stringify({
+        userId: result.insertId,
+        email,
+        name,
+        role: 'user',
+        iat: Date.now(),
+        exp: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7일
+      })).toString('base64');
 
       return res.status(200).json({
         success: true,
-        user: {
-          id: result.insertId,
-          email,
-          name,
-          role: 'user'
-        },
-        token
+        data: {
+          user: {
+            id: result.insertId,
+            email,
+            name,
+            role: 'user',
+            phone: phone || ''
+          },
+          token
+        }
       });
     }
 
@@ -109,18 +182,27 @@ module.exports = async function handler(req, res) {
 
       if (existing.rows.length > 0) {
         const user = existing.rows[0];
-        const token = Buffer.from(JSON.stringify({ userId: user.id, email: user.email, role: user.role })).toString('base64');
+        const token = Buffer.from(JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          iat: Date.now(),
+          exp: Date.now() + (7 * 24 * 60 * 60 * 1000)
+        })).toString('base64');
 
         return res.status(200).json({
           success: true,
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            avatar: user.avatar
-          },
-          token
+          data: {
+            user: {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+              avatar: user.avatar
+            },
+            token
+          }
         });
       }
 
@@ -132,24 +214,41 @@ module.exports = async function handler(req, res) {
         [userId, email, name, avatar || '', provider, providerId]
       );
 
-      const token = Buffer.from(JSON.stringify({ userId: result.insertId, email, role: 'user' })).toString('base64');
+      const token = Buffer.from(JSON.stringify({
+        userId: result.insertId,
+        email,
+        name,
+        role: 'user',
+        iat: Date.now(),
+        exp: Date.now() + (7 * 24 * 60 * 60 * 1000)
+      })).toString('base64');
 
       return res.status(200).json({
         success: true,
-        user: {
-          id: result.insertId,
-          email,
-          name,
-          role: 'user',
-          avatar
-        },
-        token
+        data: {
+          user: {
+            id: result.insertId,
+            email,
+            name,
+            role: 'user',
+            avatar
+          },
+          token
+        }
       });
     }
 
     return res.status(400).json({ success: false, error: 'Invalid action' });
   } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    console.error('❌ Auth error:', error);
+    console.error('Stack:', error.stack);
+
+    // 프로덕션에서는 자세한 에러 메시지 숨기기
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+
+    return res.status(500).json({
+      success: false,
+      error: isDevelopment ? error.message : '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+    });
   }
 }

@@ -36,6 +36,7 @@ import { notifyDataChange, refreshAllData, useRealTimeData } from '../hooks/useR
 import { MediaLibraryModal } from './MediaLibraryModal';
 import { PMSIntegrationModal } from './admin/PMSIntegrationModal';
 import { RentcarAPIModal, type RentcarAPISettings } from './admin/RentcarAPIModal';
+import { MediaManagement } from './admin/MediaManagement';
 import type { Listing, User } from '../types/database';
 import type { AdminProductFormData } from '../utils/pms/admin-integration';
 
@@ -2097,13 +2098,14 @@ export function AdminPage({}: AdminPageProps) {
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid grid-cols-4 md:grid-cols-9 w-full min-w-[900px] md:min-w-0 md:max-w-6xl">
+            <TabsList className="grid grid-cols-4 md:grid-cols-10 w-full min-w-[1000px] md:min-w-0 md:max-w-6xl">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
               <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
               <TabsTrigger value="media" className="text-xs md:text-sm">미디어 라이브러리</TabsTrigger>
+              <TabsTrigger value="pagemedia" className="text-xs md:text-sm">페이지 미디어</TabsTrigger>
               <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
               <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
               <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
@@ -4174,6 +4176,11 @@ export function AdminPage({}: AdminPageProps) {
           </TabsContent>
 
           {/* 문의 관리 탭 */}
+          {/* 페이지 미디어 관리 탭 */}
+          <TabsContent value="pagemedia" className="space-y-6">
+            <MediaManagement />
+          </TabsContent>
+
           <TabsContent value="contacts" className="space-y-6">
             <Card>
               <CardHeader>
