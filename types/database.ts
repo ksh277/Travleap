@@ -93,6 +93,7 @@ export interface Listing {
   lat?: number;
   lng?: number;
   location?: string;
+  address?: string;
   duration?: string;
   max_capacity?: number;
   min_capacity: number;
@@ -124,6 +125,11 @@ export interface Listing {
   min_age?: number;
   discount_rate?: number;
   original_price?: number;
+  child_price?: number;
+  infant_price?: number;
+  available_start_times?: string[];
+  itinerary?: { time: string; activity: string; description?: string }[];
+  packages?: { id: string; name: string; price: number; description?: string }[];
 }
 
 export interface Booking {
@@ -753,4 +759,134 @@ export interface AdminTaskFilters {
   due_date?: string;
   page?: number;
   limit?: number;
+}
+
+// ===== PMS (Property Management System) 관련 타입들 =====
+
+// PMS 공급업체 타입
+export type PMSVendor = 'stayntouch' | 'opera' | 'cloudbeds' | 'mews' | 'custom';
+
+// 객실 타입 (정적 정보)
+export interface RoomType {
+  id: number;
+  listing_id: number; // 어떤 숙소(listing)에 속하는지
+  pms_vendor?: PMSVendor;
+  pms_hotel_id?: string;
+  pms_room_type_id?: string;
+  room_type_name: string; // 예: Deluxe Double Room
+  description?: string;
+  max_occupancy: number;
+  bed_type?: string; // 예: King, Queen, Twin
+  bed_count?: number;
+  room_size?: number; // 평방미터
+  view_type?: string; // 예: Ocean View, City View
+  bathroom_type?: string;
+  amenities?: string[]; // JSON array
+  check_in_time?: string;
+  check_out_time?: string;
+  house_rules?: string;
+  cancellation_policy?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// 객실 이미지 (별도 테이블로 관리)
+export interface RoomMedia {
+  id: number;
+  room_type_id: number;
+  media_type: 'image' | 'video' | '360_view';
+  media_url: string;
+  thumbnail_url?: string;
+  alt_text?: string;
+  display_order: number;
+  is_primary: boolean;
+  created_at: string;
+}
+
+// 요금 플랜
+export interface RatePlan {
+  id: number;
+  room_type_id: number;
+  pms_rate_plan_id?: string;
+  rate_plan_name: string; // 예: Standard Rate, Early Bird
+  base_price: number;
+  currency: string;
+  min_stay?: number; // 최소 숙박일
+  max_stay?: number; // 최대 숙박일
+  is_refundable: boolean;
+  cancellation_hours?: number; // 취소 가능 시간 (체크인 X시간 전)
+  cancellation_fee_percent?: number; // 취소 수수료 (%)
+  breakfast_included: boolean;
+  valid_from?: string; // YYYY-MM-DD
+  valid_until?: string; // YYYY-MM-DD
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// 날짜별 재고 (동적 데이터, Redis + DB 하이브리드)
+export interface RoomInventory {
+  id: number;
+  room_type_id: number;
+  date: string; // YYYY-MM-DD
+  available: number; // 남은 객실 수
+  total: number; // 전체 객실 수
+  price_override?: number; // 특정 날짜 요금 오버라이드
+  min_stay_override?: number;
+  closed_to_arrival?: boolean; // 체크인 불가
+  closed_to_departure?: boolean; // 체크아웃 불가
+  updated_at: string;
+}
+
+// PMS 예약 연동 기록
+export interface PMSBookingRecord {
+  id: number;
+  booking_id: number; // 우리 시스템의 booking_id
+  pms_vendor: PMSVendor;
+  pms_hotel_id: string;
+  pms_booking_id: string; // PMS 측 예약 ID
+  pms_confirmation_number?: string;
+  hold_id?: string; // PMS Hold ID
+  hold_expires_at?: string;
+  status: 'hold' | 'confirmed' | 'cancelled' | 'failed';
+  payment_auth_id?: string;
+  payment_transaction_id?: string;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// PMS 웹훅 이벤트 기록
+export interface PMSWebhookEvent {
+  id: number;
+  vendor: PMSVendor;
+  event_id: string; // PMS 측 이벤트 ID
+  event_type: 'inventory_update' | 'rate_update' | 'booking_confirm' | 'booking_cancel' | 'room_update';
+  hotel_id: string;
+  room_type_id?: string;
+  payload: any; // JSON
+  processed: boolean;
+  processed_at?: string;
+  error_message?: string;
+  idempotency_key: string; // 중복 처리 방지
+  created_at: string;
+}
+
+// PMS 설정 (호텔별)
+export interface PMSConfig {
+  id: number;
+  listing_id: number;
+  vendor: PMSVendor;
+  hotel_id: string;
+  api_key_encrypted: string; // 암호화된 API 키
+  api_base_url?: string;
+  webhook_enabled: boolean;
+  webhook_secret?: string;
+  polling_enabled: boolean;
+  polling_interval_seconds?: number; // 기본 300초 (5분)
+  last_sync_at?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
