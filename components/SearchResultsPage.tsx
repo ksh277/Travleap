@@ -394,10 +394,12 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
               ))}
             </div>
           ) : (
-            <div className="space-y-0">
-              {results.map((result, index) => 
-                renderBlogPost(result, index === 0)
-              )}
+            <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:space-y-0 md:block md:overflow-visible md:snap-none">
+              {results.map((result, index) => (
+                <div key={result.id} className="flex-none w-[320px] md:w-auto snap-start md:mb-8">
+                  {renderBlogPost(result, index === 0)}
+                </div>
+              ))}
             </div>
           )}
 

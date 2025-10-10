@@ -340,18 +340,19 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
     const isAccommodation = category === 'accommodation' || category === 'stay';
 
     return (
-      <div className="mobile-grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible md:snap-none lg:grid-cols-3 xl:grid-cols-4">
         {filteredListings.map((item) => {
           if (isAccommodation) {
             return (
-              <AccommodationCard
-                key={item.id}
-                listing={item}
-                selectedCurrency={selectedCurrency}
-                onFavorite={() => toggleFavorite(item.id)}
-                isFavorite={favorites.has(item.id)}
-                onNavigate={() => navigate(`/accommodation/${item.id}`)}
-              />
+              <div key={item.id} className="flex-none w-[280px] md:w-auto snap-start">
+                <AccommodationCard
+                  listing={item}
+                  selectedCurrency={selectedCurrency}
+                  onFavorite={() => toggleFavorite(item.id)}
+                  isFavorite={favorites.has(item.id)}
+                  onNavigate={() => navigate(`/accommodation/${item.id}`)}
+                />
+              </div>
             );
           }
 
@@ -359,7 +360,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
           return (
             <Card
               key={item.id}
-              className="mobile-card overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple"
+              className="flex-none w-[280px] md:w-auto snap-start overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple"
               onClick={() => navigate(`/detail/${item.id}`)}
             >
               <div className="relative">
