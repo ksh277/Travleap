@@ -1,6 +1,7 @@
 import { getApiBaseUrl } from './env';
 import { db } from './database-cloud'; // PlanetScale 클라우드 DB 사용
 import { notifyDataChange } from '../hooks/useRealTimeData';
+import { notifyPartnerNewBooking, notifyCustomerBookingConfirmed } from './notification';
 // 인증 서비스 제거됨
 import type {
   Listing,
@@ -394,7 +395,7 @@ export const api = {
         booking_number: `BK${Date.now()}`,
         payment_status: 'pending' as const,
         status: 'pending' as const,
-        total_amount: bookingData.num_adults * 35000 + bookingData.num_children * 25000
+        total_amount: bookingData.total_amount || (bookingData.num_adults * 35000 + bookingData.num_children * 25000)
       };
 
       const response = await db.insert('bookings', booking);
@@ -403,17 +404,65 @@ export const api = {
         ? response as Booking
         : {
             ...booking,
-            id: Date.now(),
+            id: response.id || Date.now(),
             discount_amount: 0,
             tax_amount: 0,
             payment_method: 'card',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           } as Booking;
+
+      // 🎉 야놀자 스타일: 예약 생성 즉시 파트너에게 자동 알림 발송
+      try {
+        // 상품 정보 조회
+        const listing = await db.findOne('listings', { id: bookingData.listing_id });
+
+        if (listing && listing.partner_id) {
+          // 파트너 정보 조회
+          const partner = await db.findOne('partners', { id: listing.partner_id });
+
+          if (partner) {
+            // 고객 정보 가져오기
+            const customerInfo = typeof bookingData.customer_info === 'string'
+              ? JSON.parse(bookingData.customer_info)
+              : bookingData.customer_info;
+
+            // 파트너에게 알림 발송
+            await notifyPartnerNewBooking({
+              booking_id: createdBooking.id,
+              order_number: createdBooking.booking_number,
+              partner_id: partner.id,
+              partner_name: partner.business_name,
+              partner_email: partner.email,
+              partner_phone: partner.phone,
+              customer_name: customerInfo?.name || bookingData.guest_name || '고객',
+              customer_phone: customerInfo?.phone || bookingData.guest_phone || '',
+              customer_email: customerInfo?.email || bookingData.guest_email || '',
+              product_name: listing.title,
+              category: listing.category,
+              start_date: bookingData.start_date || new Date().toISOString().split('T')[0],
+              end_date: bookingData.end_date,
+              num_adults: bookingData.num_adults,
+              num_children: bookingData.num_children,
+              num_seniors: bookingData.num_seniors,
+              total_amount: createdBooking.total_amount,
+              special_requests: bookingData.special_requests,
+              payment_status: createdBooking.payment_status,
+              booking_status: createdBooking.status
+            });
+
+            console.log(`✅ 파트너 알림 발송 완료: ${partner.business_name} - ${createdBooking.booking_number}`);
+          }
+        }
+      } catch (notificationError) {
+        // 알림 발송 실패해도 예약은 성공으로 처리
+        console.error('파트너 알림 발송 실패 (예약은 성공):', notificationError);
+      }
+
       return {
         success: true,
         data: createdBooking,
-        message: '예약이 성공적으로 생성되었습니다.'
+        message: '예약이 성공적으로 생성되었습니다. 파트너에게 알림이 전송되었습니다.'
       };
     } catch (error) {
       console.error('Failed to create booking:', error);
@@ -3316,15 +3365,75 @@ export const api = {
 
     updateOrderStatus: async (orderId: number, status: string): Promise<ApiResponse<any>> => {
       try {
-        await db.update('payments', orderId, {
+        // bookings 테이블 업데이트
+        await db.update('bookings', orderId, {
           status,
           updated_at: new Date().toISOString()
         });
-        const updated = await db.select('payments', { id: orderId });
+
+        // 🎉 야놀자 스타일: 예약 확정 시 고객에게 자동 알림 발송
+        if (status === 'confirmed') {
+          try {
+            // 예약 정보 조회 (JOIN으로 상세 정보 가져오기)
+            const bookingDetails = await db.query(`
+              SELECT
+                b.*,
+                l.title as product_name,
+                l.category,
+                l.images,
+                p.business_name as partner_name,
+                p.email as partner_email,
+                u.name as user_name,
+                u.email as user_email,
+                u.phone as user_phone
+              FROM bookings b
+              LEFT JOIN listings l ON b.listing_id = l.id
+              LEFT JOIN partners p ON l.partner_id = p.id
+              LEFT JOIN users u ON b.user_id = u.id
+              WHERE b.id = ?
+            `, [orderId]);
+
+            if (bookingDetails.length > 0) {
+              const booking = bookingDetails[0];
+              const customerInfo = typeof booking.customer_info === 'string'
+                ? JSON.parse(booking.customer_info)
+                : booking.customer_info;
+
+              // 고객에게 예약 확정 알림 발송
+              await notifyCustomerBookingConfirmed({
+                booking_id: booking.id,
+                order_number: booking.booking_number,
+                partner_id: booking.partner_id || 0,
+                partner_name: booking.partner_name || '파트너',
+                partner_email: booking.partner_email || '',
+                customer_name: customerInfo?.name || booking.user_name || '고객',
+                customer_phone: customerInfo?.phone || booking.user_phone || '',
+                customer_email: customerInfo?.email || booking.user_email || '',
+                product_name: booking.product_name,
+                category: booking.category,
+                start_date: booking.start_date,
+                end_date: booking.end_date,
+                num_adults: booking.num_adults,
+                num_children: booking.num_children,
+                num_seniors: booking.num_seniors,
+                total_amount: booking.total_amount,
+                special_requests: booking.special_requests,
+                payment_status: booking.payment_status,
+                booking_status: 'confirmed'
+              });
+
+              console.log(`✅ 고객 예약 확정 알림 발송 완료: ${booking.booking_number}`);
+            }
+          } catch (notificationError) {
+            console.error('고객 알림 발송 실패 (상태 변경은 성공):', notificationError);
+          }
+        }
+
+        const updated = await db.select('bookings', { id: orderId });
         return {
           success: true,
           data: updated[0],
-          message: '주문 상태가 변경되었습니다.'
+          message: status === 'confirmed' ? '예약이 확정되었습니다. 고객에게 알림이 전송되었습니다.' : '주문 상태가 변경되었습니다.'
         };
       } catch (error) {
         console.error('Failed to update order status:', error);
