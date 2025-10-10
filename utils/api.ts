@@ -1563,6 +1563,139 @@ export const api = {
     }
   },
 
+  // ===== 인증 API =====
+
+  // 로그인
+  loginUser: async (email: string, password: string): Promise<ApiResponse<{ user: any; token: string }>> => {
+    try {
+      console.log('🔑 DB 로그인 시도:', email);
+
+      // 1. 이메일로 사용자 찾기
+      const users = await db.select('users', { email });
+
+      if (users.length === 0) {
+        console.log('❌ 사용자를 찾을 수 없음:', email);
+        return {
+          success: false,
+          error: '이메일 또는 비밀번호가 올바르지 않습니다.'
+        };
+      }
+
+      const user = users[0];
+
+      // 2. 비밀번호 검증 (실제로는 bcrypt 등을 사용해야 하지만, 여기서는 간단히 처리)
+      // password_hash가 'hashed_xxx' 형태로 저장되어 있으므로, 'hashed_' 제거 후 비교
+      const storedPassword = user.password_hash.replace('hashed_', '');
+
+      if (password !== storedPassword) {
+        console.log('❌ 비밀번호 불일치');
+        return {
+          success: false,
+          error: '이메일 또는 비밀번호가 올바르지 않습니다.'
+        };
+      }
+
+      // 3. 로그인 성공
+      console.log('✅ DB 로그인 성공:', user.email, 'role:', user.role);
+
+      // 간단한 토큰 생성 (실제로는 JWT 라이브러리 사용)
+      const token = btoa(JSON.stringify({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7일
+      }));
+
+      return {
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            phone: user.phone,
+            role: user.role
+          },
+          token
+        },
+        message: '로그인에 성공했습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to login:', error);
+      return {
+        success: false,
+        error: '로그인 처리 중 오류가 발생했습니다.'
+      };
+    }
+  },
+
+  // 회원가입
+  registerUser: async (userData: {
+    email: string;
+    password: string;
+    name: string;
+    phone?: string;
+  }): Promise<ApiResponse<{ user: any; token: string }>> => {
+    try {
+      console.log('📝 회원가입 시도:', userData.email);
+
+      // 1. 이메일 중복 확인
+      const existingUsers = await db.select('users', { email: userData.email });
+      if (existingUsers.length > 0) {
+        return {
+          success: false,
+          error: '이미 사용 중인 이메일입니다.'
+        };
+      }
+
+      // 2. 사용자 생성
+      const newUser = await db.insert('users', {
+        user_id: `user_${Date.now()}`,
+        email: userData.email,
+        password_hash: `hashed_${userData.password}`, // 실제로는 bcrypt 사용
+        name: userData.name,
+        phone: userData.phone || '',
+        role: 'user',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+      console.log('✅ 회원가입 성공:', newUser);
+
+      // 3. 토큰 생성
+      const token = btoa(JSON.stringify({
+        userId: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        role: 'user',
+        exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7일
+      }));
+
+      return {
+        success: true,
+        data: {
+          user: {
+            id: newUser.id,
+            email: userData.email,
+            name: userData.name,
+            phone: userData.phone,
+            role: 'user'
+          },
+          token
+        },
+        message: '회원가입이 완료되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to register:', error);
+      return {
+        success: false,
+        error: '회원가입 처리 중 오류가 발생했습니다.'
+      };
+    }
+  },
+
   // ===== 관리자 전용 API =====
 
   admin: {

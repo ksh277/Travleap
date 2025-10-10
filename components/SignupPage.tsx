@@ -95,31 +95,33 @@ export function SignupPage() {
     setIsLoading(true);
 
     try {
-      // API를 통한 회원가입 처리
-      const result = await api.createUser({
-        user_id: `user_${Date.now()}`,
+      // 실제 DB API를 통한 회원가입 처리
+      const result = await api.registerUser({
         email: formData.email,
-        password_hash: formData.password, // 실제로는 해시화 필요
+        password: formData.password,
         name: formData.name,
-        phone: formData.phone,
-        role: 'user',
-        preferred_language: 'ko',
-        preferred_currency: 'KRW',
-        marketing_consent: agreements.agreeMarketing
+        phone: formData.phone
       });
 
-      if (result.success) {
+      if (result.success && result.data) {
         toast.success('회원가입이 완료되었습니다! 환영합니다!');
-        navigate('/login');
+
+        // 자동 로그인
+        const loginResult = await login(formData.email, formData.password);
+        if (loginResult) {
+          navigate('/', { replace: true });
+        } else {
+          navigate('/login');
+        }
       } else {
         toast.error(result.error || '회원가입에 실패했습니다.');
       }
     } catch (error) {
       console.error('Signup error:', error);
       toast.error('회원가입 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const handleGoogleSignup = () => {

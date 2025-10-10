@@ -189,30 +189,33 @@ export const useAuth = () => {
     };
   }, []);
 
-  const login = useCallback((email: string, password: string): boolean => {
-    console.log('🔑 로그인 시도:', email);
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    console.log('🔑 실제 DB 로그인 시도:', email);
 
-    // 실제로는 API 호출을 해야 하지만, 임시로 하드코딩
-    if (email === 'admin@shinan.com' && password === 'admin123') {
+    try {
+      // 실제 DB API 호출
+      const { api } = await import('../utils/api');
+      const response = await api.loginUser(email, password);
+
+      if (!response.success || !response.data) {
+        console.log('❌ DB 로그인 실패:', response.error);
+        return false;
+      }
+
+      const { user: dbUser, token } = response.data;
+
       const user: User = {
-        id: 1,
-        email: 'admin@shinan.com',
-        name: '관리자',
-        role: 'admin'
+        id: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name,
+        phone: dbUser.phone,
+        role: dbUser.role
       };
-
-      // JWT 토큰 생성
-      const token = JWTUtils.generateToken({
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      });
 
       // 전역 상태 업데이트
       globalState = {
         isLoggedIn: true,
-        isAdmin: true,
+        isAdmin: user.role === 'admin',
         user,
         token
       };
@@ -220,76 +223,16 @@ export const useAuth = () => {
       // 세션 저장
       saveSession(token);
 
-      console.log('✅ 관리자 로그인 성공!');
+      console.log('✅ DB 로그인 성공!');
+      console.log('👤 사용자:', user.email, 'role:', user.role);
       console.log('🌍 업데이트된 전역 상태:', globalState);
 
       notifyListeners();
       return true;
+    } catch (error) {
+      console.error('❌ 로그인 처리 중 오류:', error);
+      return false;
     }
-
-    // 매니저 계정
-    if (email === 'manager@shinan.com' && password === 'manager123') {
-      const user: User = {
-        id: 2,
-        email: 'manager@shinan.com',
-        name: '매니저',
-        role: 'admin'
-      };
-
-      const token = JWTUtils.generateToken({
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      });
-
-      globalState = {
-        isLoggedIn: true,
-        isAdmin: true,
-        user,
-        token
-      };
-
-      saveSession(token);
-
-      console.log('✅ 매니저 로그인 성공!');
-      console.log('🌍 업데이트된 전역 상태:', globalState);
-      notifyListeners();
-      return true;
-    }
-
-    // 일반 사용자 계정도 추가 (테스트용)
-    if (email === 'user@test.com' && password === 'user123') {
-      const user: User = {
-        id: 3,
-        email: 'user@test.com',
-        name: '일반사용자',
-        role: 'user'
-      };
-
-      const token = JWTUtils.generateToken({
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      });
-
-      globalState = {
-        isLoggedIn: true,
-        isAdmin: false,
-        user,
-        token
-      };
-
-      saveSession(token);
-
-      console.log('✅ 사용자 로그인 성공!');
-      notifyListeners();
-      return true;
-    }
-
-    console.log('❌ 로그인 실패');
-    return false;
   }, []);
 
   const logout = useCallback(() => {

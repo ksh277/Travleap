@@ -14,26 +14,33 @@ export function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     console.log('🔑 로그인 시도:', email);
 
-    const result = login(email, password);
+    try {
+      const result = await login(email, password);
 
-    if (result) {
-      toast.success('로그인 성공!');
-      if (email === 'admin@shinan.com') {
-        navigate('/admin', { replace: true });
+      if (result) {
+        toast.success('로그인 성공!');
+        // role 기반으로 리다이렉트 (email 체크 대신)
+        const { isAdmin } = useAuth();
+        if (isAdmin) {
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/', { replace: true });
+        }
       } else {
-        navigate('/', { replace: true });
+        toast.error('이메일 또는 비밀번호가 올바르지 않습니다.');
       }
-    } else {
-      toast.error('로그인 실패');
+    } catch (error) {
+      console.error('로그인 오류:', error);
+      toast.error('로그인 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const handleGoogleLogin = () => {
