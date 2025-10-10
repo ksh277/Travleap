@@ -236,8 +236,8 @@ export function DetailPage() {
     }, 0);
 
     const basePrice = adultPrice + childPrice + infantPrice + packageTotal;
-    const taxes = Math.round(basePrice * 0.1); // 10% tax
-    const total = basePrice + taxes;
+    const taxes = 0; // 세금 포함하지 않음
+    const total = basePrice;
     setPriceCalculation({ basePrice, taxes, total });
   }, [adults, children, infants, item, selectedPackages]);
 
