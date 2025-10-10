@@ -1625,19 +1625,21 @@ export function AdminPage({}: AdminPageProps) {
   };
 
   // 사용자 삭제
-  const handleDeleteUser = async (id: number) => {
-    if (confirm('정말 이 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+  const handleDeleteUser = async (id: number, email: string) => {
+    if (confirm(`정말 이 사용자를 삭제하시겠습니까?\n\n이메일: ${email}\n\n⚠️ 이 작업은 되돌릴 수 없으며, 사용자의 모든 데이터가 삭제됩니다:\n- 예약 내역\n- 리뷰\n- 찜 목록\n- 쿠폰\n\n계속하시겠습니까?`)) {
       try {
         const result = await api.admin.deleteUser(id);
         if (result.success) {
           setUsers(prev => prev.filter(u => u.id !== id));
-          toast.success('사용자가 삭제되었습니다.');
+          toast.success(`사용자 "${email}"이(가) 삭제되었습니다.`);
+          // 실시간 데이터 업데이트 알림
+          notifyDataChange('users');
         } else {
           toast.error(result.error || '사용자 삭제에 실패했습니다.');
         }
       } catch (error) {
         console.error('Delete user failed:', error);
-        toast.error('사용자 삭제에 실패했습니다.');
+        toast.error('사용자 삭제 중 오류가 발생했습니다.');
       }
     }
   };
@@ -4000,6 +4002,15 @@ export function AdminPage({}: AdminPageProps) {
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => handleOpenUserDetail(user)}>
                               <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteUser(user.id, user.email)}
+                              disabled={user.role === 'admin'}
+                              title={user.role === 'admin' ? '관리자 계정은 삭제할 수 없습니다' : '사용자 계정 삭제'}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
