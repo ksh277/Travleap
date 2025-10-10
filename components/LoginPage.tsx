@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAdmin } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -25,8 +25,7 @@ export function LoginPage() {
 
       if (result) {
         toast.success('로그인 성공!');
-        // role 기반으로 리다이렉트 (email 체크 대신)
-        const { isAdmin } = useAuth();
+        // role 기반으로 리다이렉트
         if (isAdmin) {
           navigate('/admin', { replace: true });
         } else {
