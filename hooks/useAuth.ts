@@ -227,10 +227,41 @@ export const useAuth = () => {
       return true;
     }
 
+    // 매니저 계정
+    if (email === 'manager@shinan.com' && password === 'manager123') {
+      const user: User = {
+        id: 2,
+        email: 'manager@shinan.com',
+        name: '매니저',
+        role: 'admin'
+      };
+
+      const token = JWTUtils.generateToken({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      });
+
+      globalState = {
+        isLoggedIn: true,
+        isAdmin: true,
+        user,
+        token
+      };
+
+      saveSession(token);
+
+      console.log('✅ 매니저 로그인 성공!');
+      console.log('🌍 업데이트된 전역 상태:', globalState);
+      notifyListeners();
+      return true;
+    }
+
     // 일반 사용자 계정도 추가 (테스트용)
     if (email === 'user@test.com' && password === 'user123') {
       const user: User = {
-        id: 2,
+        id: 3,
         email: 'user@test.com',
         name: '일반사용자',
         role: 'user'
