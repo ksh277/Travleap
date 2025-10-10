@@ -31,6 +31,7 @@ import { useRealTimeListings } from '../hooks/useRealTimeData';
 
 interface DiscountEvent {
   id: string;
+  partnerId?: number;
   title: string;
   description: string;
   discountRate: number;
@@ -241,13 +242,19 @@ export function PartnersDiscountPage() {
   // 실시간 데이터 가져오기
   const { data: listings } = useRealTimeListings();
 
-  // DB에서 파트너 listings 가져오기
+  // DB에서 파트너 listings와 partners 가져오기
   useEffect(() => {
     const fetchPartnerListings = async () => {
       setLoading(true);
       try {
-        const response = await api.getListings();
-        const listingsData = Array.isArray(response) ? response : response.data || [];
+        // Listings와 Partners 데이터 모두 가져오기
+        const [listingsResponse, partnersResponse] = await Promise.all([
+          api.getListings(),
+          api.getPartners()
+        ]);
+
+        const listingsData = Array.isArray(listingsResponse) ? listingsResponse : listingsResponse.data || [];
+        const partnersData = Array.isArray(partnersResponse) ? partnersResponse : partnersResponse.data || [];
 
         // 카테고리를 파트너 타입으로 매핑
         const mapCategoryToType = (category: string): string => {
@@ -298,34 +305,40 @@ export function PartnersDiscountPage() {
         };
 
         // Listing을 DiscountEvent 형태로 변환
-        const partnerEvents: DiscountEvent[] = listingsData.map((listing) => ({
-          id: listing.id.toString(),
-          title: listing.title,
-          description: listing.short_description || listing.description_md || '',
-          discountRate: listing.discount_rate || 0,
-          originalPrice: listing.original_price,
-          discountedPrice: listing.price_from,
-          category: listing.category,
-          partnerName: listing.title,
-          partnerType: mapCategoryToType(listing.category),
-          location: listing.location || '신안군',
-          island: extractIsland(listing.location),
-          startDate: listing.available_from || new Date().toISOString(),
-          endDate: listing.available_to || '2025-12-31',
-          rating: listing.rating_avg || 0,
-          reviewCount: listing.rating_count || 0,
-          image: listing.images && listing.images.length > 0
-            ? listing.images[0]
-            : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop',
-          tags: generateTags(listing),
-          isHot: listing.is_featured || listing.discount_rate >= 20,
-          isLimited: listing.booking_count > 50,
-          remainingCount: listing.max_guests,
-          phone: listing.contact_phone || '',
-          website: listing.website_url,
-          conditions: ['사전 예약 필수', '현장 결제 가능'],
-          benefits: generateBenefits(listing)
-        }));
+        const partnerEvents: DiscountEvent[] = listingsData.map((listing) => {
+          // listing의 partner_id로 partner 정보 찾기
+          const partner = partnersData.find((p: any) => p.id === listing.partner_id);
+
+          return {
+            id: listing.id.toString(),
+            partnerId: partner?.id || listing.partner_id,
+            title: listing.title,
+            description: listing.short_description || listing.description_md || '',
+            discountRate: partner?.discount_rate || listing.discount_rate || 0,
+            originalPrice: listing.original_price,
+            discountedPrice: listing.price_from,
+            category: listing.category,
+            partnerName: partner?.business_name || listing.title,
+            partnerType: mapCategoryToType(listing.category),
+            location: partner?.location || listing.location || '신안군',
+            island: extractIsland(partner?.location || listing.location),
+            startDate: listing.available_from || new Date().toISOString(),
+            endDate: listing.available_to || '2025-12-31',
+            rating: partner?.rating || listing.rating_avg || 0,
+            reviewCount: partner?.review_count || listing.rating_count || 0,
+            image: listing.images && listing.images.length > 0
+              ? listing.images[0]
+              : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop',
+            tags: generateTags(listing),
+            isHot: listing.is_featured || (partner?.discount_rate || listing.discount_rate || 0) >= 20,
+            isLimited: listing.booking_count > 50,
+            remainingCount: listing.max_guests,
+            phone: partner?.phone || listing.contact_phone || '',
+            website: partner?.website_url || listing.website_url,
+            conditions: ['사전 예약 필수', '현장 결제 가능'],
+            benefits: generateBenefits(listing)
+          };
+        });
 
         setEvents(partnerEvents);
       } catch (error) {
@@ -566,7 +579,8 @@ export function PartnersDiscountPage() {
                 return (
                   <Card
                     key={event.id}
-                    className="group hover:shadow-lg transition-all duration-300 overflow-hidden"
+                    className="group hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer"
+                    onClick={() => navigate(`/partners/${event.partnerId || event.id}`)}
                   >
                     <div className="relative">
                       <div className="w-full h-48 bg-gradient-to-br from-orange-100 via-red-100 to-pink-100 flex items-center justify-center">
@@ -611,7 +625,10 @@ export function PartnersDiscountPage() {
                           size="sm"
                           variant="outline"
                           className="bg-white/90"
-                          onClick={() => handleToggleFavorite(event.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(event.id);
+                          }}
                         >
                           <Heart
                             className={`h-4 w-4 ${favorites.includes(event.id) ? 'fill-red-500 text-red-500' : ''}`}
@@ -621,7 +638,10 @@ export function PartnersDiscountPage() {
                           size="sm"
                           variant="outline"
                           className="bg-white/90"
-                          onClick={() => handleShare(event)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare(event);
+                          }}
                         >
                           <Share2 className="h-4 w-4" />
                         </Button>

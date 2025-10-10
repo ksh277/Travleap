@@ -30,6 +30,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { formatPrice } from '../utils/translations';
 import { api, type TravelItem } from '../utils/api';
 import { toast } from 'sonner';
+import { AccommodationCard } from './cards/AccommodationCard';
 
 interface CategoryPageProps {
   selectedCurrency?: string;
@@ -334,108 +335,129 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
     return filtered;
   }, [listings, filters]);
 
-  const renderGridView = () => (
-    <div className="mobile-grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {filteredListings.map((item) => (
-        <Card
-          key={item.id}
-          className="mobile-card overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple"
-          onClick={() => navigate(`/detail/${item.id}`)}
-        >
-          <div className="relative">
-            <ImageWithFallback
-              src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
-              alt={item.title}
-              className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-            <div className="absolute top-2 left-2 flex gap-1">
-              {item.partner?.is_verified && (
-                <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
-                  Verified
-                </Badge>
-              )}
-              {item.partner?.tier === 'gold' || item.partner?.tier === 'platinum' && (
-                <Badge variant="secondary" className="bg-yellow-500 text-black text-xs">
-                  스폰서
-                </Badge>
-              )}
-            </div>
-            <div className="absolute top-2 right-2 flex gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                className={`tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white transition-colors ${
-                  favorites.has(item.id) ? 'text-red-500' : 'text-gray-600'
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleFavorite(item.id);
-                }}
-                aria-label={favorites.has(item.id) ? '즐겨찾기에서 제거' : '즐겨찾기에 추가'}
-              >
-                <Heart className={`h-5 w-5 ${favorites.has(item.id) ? 'fill-current' : ''}`} />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleShare(item);
-                }}
-                aria-label="공유"
-              >
-                <Share2 className="h-5 w-5" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className={`tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white transition-colors ${
-                  compareList.includes(item.id) ? 'text-blue-500' : 'text-gray-600'
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleArrowLeftRight(item.id);
-                }}
-                aria-label={compareList.includes(item.id) ? '비교에서 제거' : '비교에 추가'}
-              >
-                <ArrowLeftRight className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-          <CardContent className="p-4">
-            <h3 className="mobile-body font-semibold mb-2 line-clamp-2">{item.title}</h3>
-            <p className="mobile-body text-gray-600 mb-3 line-clamp-2">{item.short_description || item.description_md || ''}</p>
-            
-            <div className="flex items-center space-x-2 mb-2 text-sm text-gray-500">
-              <MapPin className="h-4 w-4" />
-              <span>{item.location || '신안군'}</span>
-              {item.duration && (
-                <>
-                  <Clock className="h-4 w-4 ml-2" />
-                  <span>{item.duration}</span>
-                </>
-              )}
-            </div>
-            
-            <div className="flex items-center justify-between">
-              {item.rating_avg > 0 && item.rating_count > 0 && (
-                <div className="flex items-center space-x-1">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  <span className="text-sm">{item.rating_avg.toFixed(1)}</span>
-                  <span className="text-xs text-gray-500">({item.rating_count})</span>
+  const renderGridView = () => {
+    // 숙박 카테고리인 경우 AccommodationCard 사용
+    const isAccommodation = category === 'accommodation' || category === 'stay';
+
+    return (
+      <div className="mobile-grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {filteredListings.map((item) => {
+          if (isAccommodation) {
+            return (
+              <AccommodationCard
+                key={item.id}
+                listing={item}
+                selectedCurrency={selectedCurrency}
+                onFavorite={() => toggleFavorite(item.id)}
+                isFavorite={favorites.has(item.id)}
+                onNavigate={() => navigate(`/accommodation/${item.id}`)}
+              />
+            );
+          }
+
+          // 기본 카드 렌더링 (다른 카테고리)
+          return (
+            <Card
+              key={item.id}
+              className="mobile-card overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple"
+              onClick={() => navigate(`/detail/${item.id}`)}
+            >
+              <div className="relative">
+                <ImageWithFallback
+                  src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
+                  alt={item.title}
+                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute top-2 left-2 flex gap-1">
+                  {item.partner?.is_verified && (
+                    <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
+                      Verified
+                    </Badge>
+                  )}
+                  {item.partner?.tier === 'gold' || item.partner?.tier === 'platinum' && (
+                    <Badge variant="secondary" className="bg-yellow-500 text-black text-xs">
+                      스폰서
+                    </Badge>
+                  )}
                 </div>
-              )}
-              <div className="text-right">
-                <div className="text-sm text-gray-500">부터</div>
-                <div className="text-lg text-blue-600">{formatPrice(item.price_from || 0, selectedCurrency)}</div>
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={`tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white transition-colors ${
+                      favorites.has(item.id) ? 'text-red-500' : 'text-gray-600'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(item.id);
+                    }}
+                    aria-label={favorites.has(item.id) ? '즐겨찾기에서 제거' : '즐겨찾기에 추가'}
+                  >
+                    <Heart className={`h-5 w-5 ${favorites.has(item.id) ? 'fill-current' : ''}`} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShare(item);
+                    }}
+                    aria-label="공유"
+                  >
+                    <Share2 className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={`tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white transition-colors ${
+                      compareList.includes(item.id) ? 'text-blue-500' : 'text-gray-600'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleArrowLeftRight(item.id);
+                    }}
+                    aria-label={compareList.includes(item.id) ? '비교에서 제거' : '비교에 추가'}
+                  >
+                    <ArrowLeftRight className="h-5 w-5" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
+              <CardContent className="p-4">
+                <h3 className="mobile-body font-semibold mb-2 line-clamp-2">{item.title}</h3>
+                <p className="mobile-body text-gray-600 mb-3 line-clamp-2">{item.short_description || item.description_md || ''}</p>
+
+                <div className="flex items-center space-x-2 mb-2 text-sm text-gray-500">
+                  <MapPin className="h-4 w-4" />
+                  <span>{item.location || '신안군'}</span>
+                  {item.duration && (
+                    <>
+                      <Clock className="h-4 w-4 ml-2" />
+                      <span>{item.duration}</span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  {item.rating_avg > 0 && item.rating_count > 0 && (
+                    <div className="flex items-center space-x-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm">{item.rating_avg.toFixed(1)}</span>
+                      <span className="text-xs text-gray-500">({item.rating_count})</span>
+                    </div>
+                  )}
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">부터</div>
+                    <div className="text-lg text-blue-600">{formatPrice(item.price_from || 0, selectedCurrency)}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderListView = () => (
     <div className="space-y-4">

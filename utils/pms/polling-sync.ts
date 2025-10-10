@@ -189,7 +189,7 @@ class PollingManager {
       this.syncStatus.set(key, status);
 
       // DB에 마지막 동기화 시간 저장
-      await db.update('pms_configs', { id: config.id }, {
+      await db.update('pms_configs', config.id, {
         last_sync_at: now.toISOString(),
       });
 

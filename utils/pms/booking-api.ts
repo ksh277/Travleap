@@ -172,7 +172,7 @@ export async function bookingCheckout(
 
       return {
         success: false,
-        error: preAuthResult.error || '결제 승인 실패',
+        error: (preAuthResult as any).error || '결제 승인 실패',
         errorCode: 'PAYMENT_PREAUTH_FAILED',
       };
     }

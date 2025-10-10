@@ -46,6 +46,64 @@ export function PMSIntegrationModal({
   const [isLoading, setIsLoading] = useState(false);
   const [pmsData, setPmsData] = useState<HotelDataFromPMS | null>(null);
 
+  // 테스트용 Mock 데이터 불러오기
+  const handleLoadMockData = () => {
+    const mockData: HotelDataFromPMS = {
+      hotelId: 'test_hotel_001',
+      hotelName: '신안 비치 호텔',
+      location: '전라남도 신안군 압해읍',
+      description: '아름다운 바다 전망과 함께 편안한 휴식을 즐길 수 있는 신안 대표 호텔입니다.',
+      images: [
+        'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800',
+        'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800'
+      ],
+      roomTypes: [
+        {
+          roomTypeId: 'deluxe_double',
+          roomTypeName: 'Deluxe Double',
+          description: '퀸 사이즈 침대와 바다 전망이 있는 디럭스 객실',
+          maxOccupancy: 2,
+          bedType: 'Queen',
+          amenities: ['WiFi', '에어컨', 'TV', '미니바', '헤어드라이어'],
+          images: ['https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600'],
+          averagePrice: 120000,
+          currency: 'KRW',
+          currentInventory: 8,
+          totalRooms: 10
+        },
+        {
+          roomTypeId: 'family_suite',
+          roomTypeName: 'Family Suite',
+          description: '가족 단위 투숙객을 위한 넓은 스위트 객실',
+          maxOccupancy: 4,
+          bedType: 'King + Twin',
+          amenities: ['WiFi', '에어컨', 'TV', '주방', '세탁기'],
+          images: ['https://images.unsplash.com/photo-1591088398332-8a7791972843?w=600'],
+          averagePrice: 250000,
+          currency: 'KRW',
+          currentInventory: 3,
+          totalRooms: 5
+        },
+        {
+          roomTypeId: 'standard_twin',
+          roomTypeName: 'Standard Twin',
+          description: '2인 투숙객을 위한 트윈 베드 객실',
+          maxOccupancy: 2,
+          bedType: 'Twin',
+          amenities: ['WiFi', '에어컨', 'TV'],
+          images: ['https://images.unsplash.com/photo-1598928636135-d146006ff4be?w=600'],
+          averagePrice: 90000,
+          currency: 'KRW',
+          currentInventory: 12,
+          totalRooms: 15
+        }
+      ]
+    };
+
+    setPmsData(mockData);
+    toast.success('✅ 테스트 데이터가 로드되었습니다!');
+  };
+
   // PMS에서 데이터 불러오기
   const handleFetchData = async () => {
     if (!hotelId || !apiKey) {
@@ -161,23 +219,37 @@ export function PMSIntegrationModal({
                 </p>
               </div>
 
-              <Button
-                onClick={handleFetchData}
-                disabled={isLoading || !hotelId || !apiKey}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    데이터 불러오는 중...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" />
-                    PMS에서 데이터 불러오기
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleFetchData}
+                  disabled={isLoading || !hotelId || !apiKey}
+                  className="flex-1"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      데이터 불러오는 중...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      PMS에서 데이터 불러오기
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleLoadMockData}
+                  disabled={isLoading}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  <Info className="mr-2 h-4 w-4" />
+                  테스트 데이터 사용
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 text-center">
+                💡 실제 PMS 연동 전에 "테스트 데이터 사용" 버튼으로 기능을 먼저 테스트해보세요
+              </p>
             </div>
           </div>
 

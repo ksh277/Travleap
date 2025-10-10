@@ -85,7 +85,10 @@ interface DetailItem {
   description: string;
   shortDescription: string;
   price: number;
+  childPrice?: number;
+  infantPrice?: number;
   location: string;
+  address?: string;
   duration: string;
   category: string;
   rating: number;
@@ -108,6 +111,9 @@ interface DetailItem {
   difficulty?: 'easy' | 'medium' | 'hard';
   language?: string[];
   minAge?: number;
+  availableStartTimes?: string[];
+  itinerary?: { time: string; activity: string; description?: string }[];
+  packages?: { id: string; name: string; price: number; description?: string }[];
 }
 
 interface BookingFormData {
@@ -131,7 +137,11 @@ export function DetailPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date>();
-  const [guests, setGuests] = useState(2);
+  const [adults, setAdults] = useState(2);
+  const [children, setChildren] = useState(0);
+  const [infants, setInfants] = useState(0);
+  const [startTime, setStartTime] = useState('');
+  const [selectedPackages, setSelectedPackages] = useState<{[key: string]: number}>({});
   const [customGuestCount, setCustomGuestCount] = useState('');
   const [isCustomGuests, setIsCustomGuests] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -183,10 +193,24 @@ export function DetailPage() {
 
   // Update price calculation when guests change
   useEffect(() => {
-    if (item) {
-      calculatePrice();
-    }
-  }, [guests, item]);
+    if (!item) return;
+
+    // Calculate prices for each guest type
+    const adultPrice = item.price * adults;
+    const childPrice = (item.childPrice || item.price * 0.7) * children;
+    const infantPrice = (item.infantPrice || item.price * 0.3) * infants;
+
+    // Calculate package prices
+    const packageTotal = Object.entries(selectedPackages).reduce((sum, [packageId, quantity]) => {
+      const pkg = item.packages?.find(p => p.id === packageId);
+      return sum + (pkg?.price || 0) * quantity;
+    }, 0);
+
+    const basePrice = adultPrice + childPrice + infantPrice + packageTotal;
+    const taxes = Math.round(basePrice * 0.1); // 10% tax
+    const total = basePrice + taxes;
+    setPriceCalculation({ basePrice, taxes, total });
+  }, [adults, children, infants, item, selectedPackages]);
 
   const fetchItemDetails = useCallback(async () => {
     try {
@@ -202,6 +226,7 @@ export function DetailPage() {
           shortDescription: data.short_description || '',
           price: data.price_from || 0,
           location: data.location || '신안군',
+          address: data.address || '',
           duration: data.duration || '1시간',
           category: data.category || '투어',
           rating: data.rating_avg || 0,
@@ -280,14 +305,6 @@ export function DetailPage() {
       setLoading(false);
     }
   }, [itemId, retryCount]);
-
-  const calculatePrice = useCallback(() => {
-    if (!item) return;
-    const basePrice = item.price * guests;
-    const taxes = Math.round(basePrice * 0.1); // 10% tax
-    const total = basePrice + taxes;
-    setPriceCalculation({ basePrice, taxes, total });
-  }, [item, guests]);
 
   const fetchAvailableDates = useCallback(async () => {
     if (!item?.id) return;
@@ -420,29 +437,36 @@ export function DetailPage() {
       toast.error('유효한 이메일을 입력해주세요.');
       return false;
     }
-    if (guests < 1 || guests > (item?.maxCapacity || 10)) {
+    const totalGuests = adults + children + infants;
+    if (totalGuests < 1 || totalGuests > (item?.maxCapacity || 10)) {
       toast.error(`인원은 1명부터 ${item?.maxCapacity || 10}명까지 가능합니다.`);
       return false;
     }
+    if (adults < 1 && children < 1) {
+      toast.error('최소 1명 이상의 성인 또는 어린이가 필요합니다.');
+      return false;
+    }
     return true;
-  }, [selectedDate, bookingData, guests, item?.maxCapacity]);
+  }, [selectedDate, bookingData, adults, children, infants, item?.maxCapacity]);
 
   const handleBooking = useCallback(async () => {
     if (!validateBookingForm() || !item) return;
 
     try {
       setBookingLoading(true);
+      const totalGuests = adults + children + infants;
       const bookingRequest = {
         listing_id: Number(item.id),
         user_id: user?.id || 1,
-        num_adults: guests, // guest_count를 num_adults로 매핑
-        num_children: 0,
-        num_seniors: 0,
+        num_adults: adults,
+        num_children: children,
+        num_seniors: infants,
+        start_time: startTime || undefined,
         guest_name: bookingData.name.trim(),
         guest_phone: bookingData.phone.trim(),
         guest_email: bookingData.email.trim(),
         booking_date: selectedDate!.toISOString().split('T')[0],
-        guest_count: guests,
+        guest_count: totalGuests,
         special_requests: bookingData.requests.trim(),
         total_amount: priceCalculation.total,
         emergency_contact: bookingData.emergencyContact?.trim(),
@@ -460,7 +484,7 @@ export function DetailPage() {
           amount: priceCalculation.total.toString(),
           title: item.title,
           date: selectedDate!.toISOString().split('T')[0],
-          guests: guests.toString()
+          guests: totalGuests.toString()
         });
         navigate(`/payment?${paymentParams.toString()}`);
       } else {
@@ -473,7 +497,7 @@ export function DetailPage() {
     } finally {
       setBookingLoading(false);
     }
-  }, [validateBookingForm, item, bookingData, selectedDate, guests, priceCalculation.total, user?.id, navigate]);
+  }, [validateBookingForm, item, bookingData, selectedDate, adults, children, infants, startTime, priceCalculation.total, user?.id, navigate]);
 
   const handleReviewSubmit = useCallback(async () => {
     if (!newReview.comment.trim()) {
@@ -528,17 +552,18 @@ export function DetailPage() {
       return;
     }
 
+    const totalGuests = adults + children + infants;
     addToCart({
       id: item.id,
       title: item.title,
       price: item.price,
       image: item.images[0],
       date: selectedDate.toISOString().split('T')[0],
-      guests,
+      guests: totalGuests,
       total: priceCalculation.total
     });
     toast.success('장바구니에 추가되었습니다.');
-  }, [item, selectedDate, guests, priceCalculation.total, addToCart]);
+  }, [item, selectedDate, adults, children, infants, priceCalculation.total, addToCart]);
 
   const averageRating = useMemo(() => {
     if (reviews.length > 0) {
@@ -1016,17 +1041,20 @@ export function DetailPage() {
                   <CardContent>
                     <div className="space-y-6">
                       <div>
-                        <h4 className="mb-2">주소</h4>
+                        <h4 className="mb-2 font-medium">주소</h4>
                         <p className="text-gray-700">{item.location}</p>
+                        {item.address && (
+                          <p className="text-gray-600 text-sm mt-1">{item.address}</p>
+                        )}
                       </div>
-                      
+
                       {/* 향상된 구글 지도 */}
                       <div className="w-full">
                         <div className="w-full h-[300px] md:h-[400px] lg:h-[500px] bg-gray-200 rounded-lg overflow-hidden relative">
                           {getGoogleMapsApiKey() ? (
                             <>
                               <iframe
-                                src={`https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent(item.location + ' 신안군')}&zoom=14&maptype=roadmap&language=ko`}
+                                src={`https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent((item.address || item.location) + ' 신안군')}&zoom=14&maptype=roadmap&language=ko`}
                                 className="w-full h-full border-0"
                                 allowFullScreen
                                 loading="lazy"
@@ -1291,68 +1319,129 @@ export function DetailPage() {
                         </Popover>
                       </div>
 
-                      <div>
-                        <label className="block text-sm mb-2">인원</label>
-                        <div className="flex items-center justify-between border rounded-md px-4 py-3 min-h-[44px]">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setGuests(Math.max(1, guests - 1))}
-                            disabled={guests <= 1}
-                            className="h-8 w-8 p-0"
-                          >
-                            -
-                          </Button>
-                          <span className="text-lg font-medium">{guests}명</span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setGuests(Math.min(item?.maxCapacity || 100, guests + 1))}
-                            disabled={guests >= (item?.maxCapacity || 100)}
-                            className="h-8 w-8 p-0"
-                          >
-                            +
-                          </Button>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          최대 {item?.maxCapacity || 100}명
-                        </p>
+                      <div className="space-y-3">
+                        <label className="block text-sm font-medium mb-2">인원</label>
 
-                        {/* 커스텀 인원 입력 (삭제) */}
-                        {false && isCustomGuests && (
-                          <div className="mt-2">
-                            <Input
-                              type="number"
-                              min="1"
-                              max="10000"
-                              placeholder="인원수를 입력하세요"
-                              value={customGuestCount}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                setCustomGuestCount(value);
-                                if (value && parseInt(value) > 0) {
-                                  setGuests(parseInt(value));
-                                }
-                              }}
-                              className="w-full min-h-[44px]"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              대규모 단체의 경우 별도 문의 바랍니다 (최대 10,000명)
-                            </p>
+                        {/* 성인 */}
+                        <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                          <div>
+                            <div className="font-medium">성인</div>
+                            <div className="text-xs text-gray-500">18세 이상</div>
                           </div>
-                        )}
+                          <div className="flex items-center gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setAdults(Math.max(0, adults - 1))}
+                              disabled={adults <= 0}
+                              className="h-8 w-8 p-0"
+                            >
+                              -
+                            </Button>
+                            <span className="text-lg font-medium w-8 text-center">{adults}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setAdults(adults + 1)}
+                              disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
+                              className="h-8 w-8 p-0"
+                            >
+                              +
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* 어린이 */}
+                        <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                          <div>
+                            <div className="font-medium">어린이</div>
+                            <div className="text-xs text-gray-500">6-17세</div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setChildren(Math.max(0, children - 1))}
+                              disabled={children <= 0}
+                              className="h-8 w-8 p-0"
+                            >
+                              -
+                            </Button>
+                            <span className="text-lg font-medium w-8 text-center">{children}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setChildren(children + 1)}
+                              disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
+                              className="h-8 w-8 p-0"
+                            >
+                              +
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* 유아 */}
+                        <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                          <div>
+                            <div className="font-medium">유아</div>
+                            <div className="text-xs text-gray-500">0-5세</div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setInfants(Math.max(0, infants - 1))}
+                              disabled={infants <= 0}
+                              className="h-8 w-8 p-0"
+                            >
+                              -
+                            </Button>
+                            <span className="text-lg font-medium w-8 text-center">{infants}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setInfants(infants + 1)}
+                              disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
+                              className="h-8 w-8 p-0"
+                            >
+                              +
+                            </Button>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-gray-500">
+                          최대 {item?.maxCapacity || 100}명 | 총 {adults + children + infants}명
+                        </p>
                       </div>
 
-                      <div className="border-t pt-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <span>상품 가격</span>
-                          <span>{(item.price || 0).toLocaleString()}원 x {guests}명</span>
-                        </div>
-                        <div className="flex justify-between items-center mb-4 text-lg">
+                      <div className="border-t pt-4 space-y-2">
+                        {adults > 0 && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span>성인</span>
+                            <span>{(item.price || 0).toLocaleString()}원 x {adults}명</span>
+                          </div>
+                        )}
+                        {children > 0 && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span>어린이</span>
+                            <span>{((item.childPrice || item.price * 0.7) || 0).toLocaleString()}원 x {children}명</span>
+                          </div>
+                        )}
+                        {infants > 0 && (
+                          <div className="flex justify-between items-center text-sm">
+                            <span>유아</span>
+                            <span>{((item.infantPrice || item.price * 0.3) || 0).toLocaleString()}원 x {infants}명</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center pt-2 border-t text-lg font-semibold">
                           <span>총 금액</span>
-                          <span className="text-blue-600">{((item.price || 0) * guests).toLocaleString()}원</span>
+                          <span className="text-blue-600">{priceCalculation.total.toLocaleString()}원</span>
                         </div>
                       </div>
 
@@ -1444,10 +1533,10 @@ export function DetailPage() {
                       </div>
 
                       <div className="border-t pt-4">
-                        <div className="text-sm text-gray-600 mb-4">
+                        <div className="text-sm text-gray-600 mb-4 space-y-1">
                           <div>날짜: {selectedDate && formatDate(selectedDate)}</div>
-                          <div>인원: {guests}명</div>
-                          <div>총 금액: {((item.price || 0) * guests).toLocaleString()}원</div>
+                          <div>인원: 성인 {adults}명{children > 0 ? `, 어린이 ${children}명` : ''}{infants > 0 ? `, 유아 ${infants}명` : ''}</div>
+                          <div>총 금액: {priceCalculation.total.toLocaleString()}원</div>
                         </div>
                       </div>
 

@@ -41,16 +41,21 @@ export function PartnerApplyPage() {
     phone: '',
     businessNumber: '',
     categories: [] as string[],
-    
+    address: '',
+    location: '',
+
     // 소개/설명
     description: '',
     services: '',
+    promotion: '',
+    businessHours: '매일 09:00-18:00',
+    discountRate: '',
     website: '',
     instagram: '',
-    
+
     // 업로드된 파일들
     images: [] as File[],
-    
+
     // 동의사항
     termsAgreed: false,
     processAgreed: false
@@ -146,25 +151,35 @@ export function PartnerApplyPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // 폼 검증
     if (!formData.businessName || !formData.contactName || !formData.email || !formData.phone) {
-      alert('필수 정보를 모두 입력해주세요.');
+      toast.error('필수 정보를 모두 입력해주세요.');
       return;
     }
-    
+
+    if (!formData.address || !formData.location) {
+      toast.error('주소와 위치 정보를 입력해주세요.');
+      return;
+    }
+
     if (formData.categories.length === 0) {
-      alert('최소 하나의 카테고리를 선택해주세요.');
+      toast.error('최소 하나의 카테고리를 선택해주세요.');
       return;
     }
-    
+
     if (formData.description.length < 100) {
-      alert('업체 소개는 최소 100자 이상 입력해주세요.');
+      toast.error('업체 소개는 최소 100자 이상 입력해주세요.');
       return;
     }
-    
+
+    if (!formData.businessHours) {
+      toast.error('영업시간을 입력해주세요.');
+      return;
+    }
+
     if (!formData.termsAgreed || !formData.processAgreed) {
-      alert('약관에 동의해주세요.');
+      toast.error('약관에 동의해주세요.');
       return;
     }
 
@@ -186,12 +201,16 @@ export function PartnerApplyPage() {
         contact_email: formData.email,
         contact_phone: formData.phone,
         business_registration_number: formData.businessNumber || null,
-        business_address: '',
+        business_address: formData.address,
+        location: formData.location,
         website_url: formData.website || null,
         instagram_url: formData.instagram || null,
         categories: formData.categories,
         description: formData.description,
         services_offered: formData.services,
+        promotion: formData.promotion || null,
+        business_hours: formData.businessHours,
+        discount_rate: formData.discountRate ? parseInt(formData.discountRate) : null,
         status: 'pending' as const,
         application_notes: JSON.stringify({
           termsAgreed: formData.termsAgreed,
@@ -388,6 +407,28 @@ export function PartnerApplyPage() {
                             placeholder="123-45-67890"
                           />
                         </div>
+
+                        <div className="md:col-span-2">
+                          <Label htmlFor="address">주소 *</Label>
+                          <Input
+                            id="address"
+                            value={formData.address}
+                            onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                            placeholder="전남 신안군 압해읍 ..."
+                            required
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <Label htmlFor="location">위치/지역 *</Label>
+                          <Input
+                            id="location"
+                            value={formData.location}
+                            onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                            placeholder="신안, 대한민국"
+                            required
+                          />
+                        </div>
                       </div>
 
                       <div>
@@ -447,6 +488,42 @@ export function PartnerApplyPage() {
                           placeholder="제공하시는 구체적인 서비스나 상품에 대해 설명해주세요..."
                           rows={4}
                         />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="promotion">프로모션/혜택 정보 (선택)</Label>
+                        <Input
+                          id="promotion"
+                          value={formData.promotion}
+                          onChange={(e) => setFormData(prev => ({ ...prev, promotion: e.target.value }))}
+                          placeholder="예: 신안 투어 패스 소지자 20% 할인"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <Label htmlFor="businessHours">영업시간 *</Label>
+                          <Input
+                            id="businessHours"
+                            value={formData.businessHours}
+                            onChange={(e) => setFormData(prev => ({ ...prev, businessHours: e.target.value }))}
+                            placeholder="매일 09:00-18:00"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="discountRate">할인율 (선택, %)</Label>
+                          <Input
+                            id="discountRate"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={formData.discountRate}
+                            onChange={(e) => setFormData(prev => ({ ...prev, discountRate: e.target.value }))}
+                            placeholder="10"
+                          />
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

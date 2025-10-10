@@ -183,9 +183,9 @@ export function MediaLibraryModal({
           continue;
         }
 
-        // 이미지 파일인지 확인
-        if (!file.type.startsWith('image/')) {
-          toast.error(`${file.name}은(는) 이미지 파일이 아닙니다.`);
+        // 이미지 또는 비디오 파일인지 확인
+        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+          toast.error(`${file.name}은(는) 이미지 또는 비디오 파일이 아닙니다.`);
           continue;
         }
 
@@ -293,14 +293,14 @@ export function MediaLibraryModal({
                   <input
                     type="file"
                     multiple
-                    accept="image/*"
+                    accept="image/*,video/*"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
                   <Button variant="default" size="sm" disabled={uploadingFiles} asChild>
                     <span>
                       <Upload className="w-4 h-4 mr-2" />
-                      {uploadingFiles ? '업로드 중...' : '이미지 업로드'}
+                      {uploadingFiles ? '업로드 중...' : '파일 업로드'}
                     </span>
                   </Button>
                 </label>

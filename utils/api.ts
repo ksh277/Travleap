@@ -70,6 +70,8 @@ export interface TravelItem {
   difficulty?: string;
   language?: string;
   min_age?: number;
+  highlights?: string[];
+  address?: string;
   partner?: {
     business_name: string;
     tier: string;
@@ -199,12 +201,12 @@ export const api = {
   // 리스팅 관리
   getListings: async (filters?: SearchFilters): Promise<PaginatedResponse<TravelItem>> => {
     try {
-      // 직접 DB에서 가져오기
+      // 직접 DB에서 가져오기 (활성화되고 게시된 상품만)
       let sql = `
         SELECT l.*, c.slug as category_slug, c.name_ko as category_name
         FROM listings l
         LEFT JOIN categories c ON l.category_id = c.id
-        WHERE l.is_published = 1
+        WHERE l.is_published = 1 AND l.is_active = 1
       `;
       const params: any[] = [];
 
@@ -1284,6 +1286,7 @@ export const api = {
         LEFT JOIN categories c ON l.category_id = c.id
         LEFT JOIN partners p ON l.partner_id = p.id
         WHERE (l.title LIKE ? OR l.description_md LIKE ? OR l.location LIKE ?)
+          AND l.is_published = 1 AND l.is_active = 1
       `;
       const params = [`%${query}%`, `%${query}%`, `%${query}%`];
 
@@ -2220,20 +2223,110 @@ export const api = {
       }
     },
 
-    // 상품 삭제
+    // 상품 삭제 (CASCADE: 연관 데이터도 함께 삭제)
     deleteListing: async (listingId: number): Promise<ApiResponse<null>> => {
       try {
-        await db.delete('listings', listingId);
+        console.log(`🗑️ 상품 삭제 시작: listing_id = ${listingId}`);
+
+        // 1. 리뷰 삭제
+        try {
+          const reviews = await db.findAll('reviews', { listing_id: listingId });
+          console.log(`  - 리뷰 ${reviews.length}개 발견`);
+          for (const review of reviews) {
+            await db.delete('reviews', review.id);
+          }
+        } catch (error) {
+          console.warn('리뷰 삭제 중 오류 (무시):', error);
+        }
+
+        // 2. 즐겨찾기 삭제 (테이블이 없을 수 있음)
+        try {
+          const favorites = await db.findAll('favorites', { listing_id: listingId });
+          console.log(`  - 즐겨찾기 ${favorites.length}개 발견`);
+          for (const favorite of favorites) {
+            await db.delete('favorites', favorite.id);
+          }
+        } catch (error) {
+          console.warn('즐겨찾기 삭제 중 오류 (무시):', error);
+        }
+
+        // 3. 장바구니 아이템 삭제 (테이블이 없을 수 있음)
+        try {
+          const cartItems = await db.findAll('cart_items', { listing_id: listingId });
+          console.log(`  - 장바구니 아이템 ${cartItems.length}개 발견`);
+          for (const item of cartItems) {
+            await db.delete('cart_items', item.id);
+          }
+        } catch (error) {
+          console.warn('장바구니 삭제 중 오류 (무시):', error);
+        }
+
+        // 4. PMS 관련 데이터 삭제 (숙박 상품인 경우)
+        try {
+          // 4-1. PMS 설정 삭제
+          const pmsConfigs = await db.findAll('pms_configs', { listing_id: listingId });
+          console.log(`  - PMS 설정 ${pmsConfigs.length}개 발견`);
+          for (const config of pmsConfigs) {
+            await db.delete('pms_configs', config.id);
+          }
+
+          // 4-2. 객실 타입 및 관련 데이터 삭제
+          const roomTypes = await db.findAll('room_types', { listing_id: listingId });
+          console.log(`  - 객실 타입 ${roomTypes.length}개 발견`);
+
+          for (const roomType of roomTypes) {
+            // 객실 미디어 삭제
+            const roomMedia = await db.findAll('room_media', { room_type_id: roomType.id });
+            console.log(`    - 객실 미디어 ${roomMedia.length}개 발견`);
+            for (const media of roomMedia) {
+              await db.delete('room_media', media.id);
+            }
+
+            // 요금 플랜 삭제
+            const ratePlans = await db.findAll('rate_plans', { room_type_id: roomType.id });
+            console.log(`    - 요금 플랜 ${ratePlans.length}개 발견`);
+            for (const plan of ratePlans) {
+              await db.delete('rate_plans', plan.id);
+            }
+
+            // 객실 재고 삭제
+            const inventory = await db.findAll('room_inventory', { room_type_id: roomType.id });
+            console.log(`    - 객실 재고 ${inventory.length}개 발견`);
+            for (const inv of inventory) {
+              await db.delete('room_inventory', inv.id);
+            }
+
+            // 객실 타입 삭제
+            await db.delete('room_types', roomType.id);
+          }
+        } catch (error) {
+          console.warn('PMS 데이터 삭제 중 오류 (무시):', error);
+        }
+
+        // 5. 예약 데이터는 보존 (이력 유지를 위해)
+        // 예약 데이터는 삭제하지 않고 상태만 변경하거나 그대로 유지
+
+        // 6. 마지막으로 상품(listing) 삭제
+        console.log(`  - 상품(listing) 삭제 중...`);
+        const deleted = await db.delete('listings', listingId);
+
+        if (!deleted) {
+          throw new Error('상품 삭제 실패: 상품을 찾을 수 없습니다.');
+        }
+
+        console.log(`✅ 상품 삭제 완료: listing_id = ${listingId}`);
+
         return {
           success: true,
           data: null,
-          message: '상품이 성공적으로 삭제되었습니다.'
+          message: '상품 및 관련 데이터가 성공적으로 삭제되었습니다.'
         };
       } catch (error) {
-        console.error('Failed to delete listing:', error);
+        console.error('❌ Failed to delete listing:', error);
+        const errorMessage = error instanceof Error ? error.message : '상품 삭제에 실패했습니다.';
         return {
           success: false,
-          error: '상품 삭제에 실패했습니다.'
+          error: errorMessage
         };
       }
     },
@@ -2327,13 +2420,22 @@ export const api = {
           contact_name: application.contact_name,
           email: application.email,
           phone: application.phone || '',
+          address: application.business_address || application.address || '',
+          location: application.location || '신안, 대한민국',
           business_number: application.business_number || '',
           description: application.description || '',
           services: application.services || '',
+          promotion: application.promotion || null,
+          business_hours: application.business_hours || '매일 09:00-18:00',
+          discount_rate: application.discount_rate || null,
+          category: application.categories ? (typeof application.categories === 'string' ? JSON.parse(application.categories)[0] : application.categories[0]) : 'tour',
+          images: application.images || '[]',
           tier: 'bronze',
           is_verified: 1,
           is_featured: 0,
-          status: 'approved'
+          status: 'approved',
+          rating: 0,
+          review_count: 0
         };
 
         const partnerResult = await db.insert('partners', newPartner);
@@ -2389,6 +2491,28 @@ export const api = {
     },
 
     // 파트너 신청 거절
+    updatePartnerApplication: async (applicationId: number, updateData: any): Promise<ApiResponse<any>> => {
+      try {
+        console.log(`🔄 파트너 신청 수정 시작 (ID: ${applicationId})`);
+
+        // partner_applications 테이블 업데이트
+        await db.update('partner_applications', applicationId, updateData);
+        console.log(`✅ 파트너 신청 수정 완료`);
+
+        return {
+          success: true,
+          data: { applicationId, ...updateData },
+          message: '파트너 신청 정보가 수정되었습니다.'
+        };
+      } catch (error) {
+        console.error('❌ 파트너 신청 수정 실패:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : '파트너 신청 수정에 실패했습니다.'
+        };
+      }
+    },
+
     rejectPartnerApplication: async (applicationId: number, reviewNotes?: string): Promise<ApiResponse<any>> => {
       try {
         console.log(`🔄 파트너 신청 거절 시작 (ID: ${applicationId})`);
@@ -2730,7 +2854,7 @@ export const api = {
     // 이미지 관리
     getImages: async (filters?: any): Promise<ApiResponse<any[]>> => {
       try {
-        let sql = 'SELECT id, entity_type, entity_id, file_name, original_name, file_size, mime_type, width, height, alt_text, is_primary, created_at, updated_at FROM images WHERE 1=1';
+        let sql = 'SELECT * FROM images WHERE 1=1';
         const params: any[] = [];
 
         if (filters?.entity_type) {
@@ -2745,10 +2869,10 @@ export const api = {
 
         sql += ' ORDER BY created_at DESC';
 
-        const response = await db.query(sql, params);
+        const images = await db.query(sql, params);
         return {
           success: true,
-          data: response || []
+          data: images || []
         };
       } catch (error) {
         console.error('Failed to fetch images:', error);
@@ -2760,145 +2884,48 @@ export const api = {
       }
     },
 
-    uploadImage: async (imageFile: File, options?: {
-      entity_type?: 'listing' | 'partner' | 'user' | 'review' | 'blog' | 'general';
-      entity_id?: number;
-      alt_text?: string;
-      is_primary?: boolean;
-      uploaded_by?: number;
-    }): Promise<ApiResponse<any>> => {
+    uploadImage: async (imageFile: File, options?: any): Promise<ApiResponse<any>> => {
       try {
-        // 파일 검증
-        if (!imageFile) {
-          return {
-            success: false,
-            error: '이미지 파일이 필요합니다.'
-          };
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        if (options) {
+          Object.keys(options).forEach(key => {
+            formData.append(key, options[key]);
+          });
         }
 
-        // 파일 크기 제한 (5MB)
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        if (imageFile.size > maxSize) {
-          return {
-            success: false,
-            error: '파일 크기는 5MB를 초과할 수 없습니다.'
-          };
-        }
-
-        // 이미지 형식 검증
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-        if (!allowedTypes.includes(imageFile.type)) {
-          return {
-            success: false,
-            error: '지원되지 않는 이미지 형식입니다. (JPG, PNG, WebP, GIF만 지원)'
-          };
-        }
-
-        // 파일을 ArrayBuffer로 읽기
-        const arrayBuffer = await imageFile.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-
-        // 이미지 크기 정보 얻기 (간단한 구현)
-        let width = 0;
-        let height = 0;
-
-        // 이미지 로드하여 크기 정보 얻기
-        const img = new Image();
-
-        await new Promise((resolve, reject) => {
-          img.onload = () => {
-            width = img.naturalWidth;
-            height = img.naturalHeight;
-            resolve(null);
-          };
-          img.onerror = reject;
-          img.src = URL.createObjectURL(imageFile);
-        });
-
-        // 데이터베이스에 저장할 이미지 데이터
-        const imageData = {
+        const response = await db.insert('images', {
           entity_type: options?.entity_type || 'general',
-          entity_id: options?.entity_id || null,
-          file_name: `${Date.now()}_${imageFile.name}`,
+          entity_id: options?.entity_id,
+          file_name: imageFile.name,
           original_name: imageFile.name,
-          file_data: uint8Array,
           file_size: imageFile.size,
           mime_type: imageFile.type,
-          width,
-          height,
-          alt_text: options?.alt_text || '',
+          alt_text: options?.alt_text,
           is_primary: options?.is_primary || false,
-          uploaded_by: options?.uploaded_by || 1,
-          storage_type: 'blob',
+          uploaded_by: options?.uploaded_by,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        };
-
-        const response = await db.insert('images', imageData);
+        });
 
         return {
           success: true,
-          data: {
-            id: response.id,
-            file_name: imageData.file_name,
-            original_name: imageData.original_name,
-            file_size: imageData.file_size,
-            mime_type: imageData.mime_type,
-            width: imageData.width,
-            height: imageData.height,
-            storage_type: imageData.storage_type,
-            url: `/api/images/${response.id}` // 이미지 조회 URL
-          },
-          message: '이미지가 성공적으로 업로드되었습니다.'
+          data: response,
+          message: '이미지가 업로드되었습니다.'
         };
       } catch (error) {
         console.error('Failed to upload image:', error);
         return {
           success: false,
-          error: '이미지 업로드에 실패했습니다: ' + (error instanceof Error ? error.message : String(error))
+          error: '이미지 업로드에 실패했습니다.'
         };
       }
     },
 
-    // 이미지 BLOB 데이터 조회
-    getImageBlob: async (imageId: number): Promise<ApiResponse<{
-      data: Uint8Array;
-      mimeType: string;
-      fileName: string;
-    }>> => {
-      try {
-        const response = await db.query('SELECT file_data, mime_type, file_name FROM images WHERE id = ?', [imageId]);
-
-        if (!response || response.length === 0) {
-          return {
-            success: false,
-            error: '이미지를 찾을 수 없습니다.'
-          };
-        }
-
-        const image = response[0];
-
-        return {
-          success: true,
-          data: {
-            data: new Uint8Array(image.file_data),
-            mimeType: image.mime_type,
-            fileName: image.file_name
-          }
-        };
-      } catch (error) {
-        console.error('Failed to fetch image blob:', error);
-        return {
-          success: false,
-          error: '이미지 조회에 실패했습니다.'
-        };
-      }
-    },
-
-    updateImage: async (imageId: number, imageData: any): Promise<ApiResponse<any>> => {
+    updateImage: async (imageId: number, updates: any): Promise<ApiResponse<any>> => {
       try {
         await db.update('images', imageId, {
-          ...imageData,
+          ...updates,
           updated_at: new Date().toISOString()
         });
         const updated = await db.select('images', { id: imageId });
@@ -2936,62 +2963,25 @@ export const api = {
     // 주문 관리
     getOrders: async (filters?: any): Promise<ApiResponse<any[]>> => {
       try {
-        // payments 테이블에서 주문 정보 조회 (cart 타입 주문)
-        let sql = `
-          SELECT p.*, u.name as user_name, u.email as user_email
-          FROM payments p
-          LEFT JOIN users u ON p.user_id = u.id
-          WHERE p.notes LIKE '%"orderType":"cart"%'
-        `;
+        let sql = 'SELECT * FROM payments WHERE 1=1';
         const params: any[] = [];
 
-        if (filters?.status && filters.status.length > 0) {
-          sql += ` AND p.status IN (${filters.status.map(() => '?').join(',')})`;
-          params.push(...filters.status);
+        if (filters?.status) {
+          sql += ' AND status = ?';
+          params.push(filters.status);
         }
 
-        if (filters?.payment_method && filters.payment_method.length > 0) {
-          sql += ` AND p.payment_method IN (${filters.payment_method.map(() => '?').join(',')})`;
-          params.push(...filters.payment_method);
+        if (filters?.user_id) {
+          sql += ' AND user_id = ?';
+          params.push(filters.user_id);
         }
 
-        sql += ' ORDER BY p.created_at DESC';
+        sql += ' ORDER BY created_at DESC';
 
-        const response = await db.query(sql, params);
-
-        // 주문 데이터 변환
-        const orders = (response || []).map((order: any) => {
-          let orderDetails: any = {};
-          try {
-            if (order.notes) {
-              orderDetails = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
-            }
-          } catch (e) {
-            console.warn('Invalid JSON in order notes:', order.notes);
-          }
-
-          return {
-            id: order.id,
-            orderNumber: order.gateway_transaction_id || `ORDER_${order.id}`,
-            userId: order.user_id,
-            userName: order.user_name,
-            userEmail: order.user_email,
-            amount: order.amount,
-            status: order.status,
-            paymentMethod: order.payment_method,
-            items: orderDetails.items || [],
-            subtotal: orderDetails.subtotal || 0,
-            deliveryFee: order.fee_amount || 0,
-            discount: order.discount_amount || 0,
-            total: order.amount,
-            createdAt: order.created_at,
-            updatedAt: order.updated_at
-          };
-        });
-
+        const orders = await db.query(sql, params);
         return {
           success: true,
-          data: orders
+          data: orders || []
         };
       } catch (error) {
         console.error('Failed to fetch orders:', error);
@@ -3005,7 +2995,10 @@ export const api = {
 
     updateOrderStatus: async (orderId: number, status: string): Promise<ApiResponse<any>> => {
       try {
-        await db.update('payments', orderId, { status });
+        await db.update('payments', orderId, {
+          status,
+          updated_at: new Date().toISOString()
+        });
         const updated = await db.select('payments', { id: orderId });
         return {
           success: true,
@@ -3036,95 +3029,163 @@ export const api = {
           error: '주문 삭제에 실패했습니다.'
         };
       }
-    }
+    },
   },
 
-  // 예약 조회 (결제용)
-  getBooking: async (bookingId: string): Promise<ApiResponse<Booking>> => {
+  // 예약/결제 관련
+  getBooking: async (bookingId: number): Promise<ApiResponse<any>> => {
     try {
-      const response = await db.select('bookings', { id: parseInt(bookingId) });
-
-      if (response && response.length > 0) {
-        return {
-          success: true,
-          data: response[0],
-          message: '예약 정보를 성공적으로 조회했습니다.'
-        };
-      } else {
+      const bookings = await db.select('bookings', { id: bookingId });
+      if (bookings.length === 0) {
         return {
           success: false,
-          error: '예약 정보를 찾을 수 없습니다.'
+          error: '예약을 찾을 수 없습니다.'
         };
       }
+      return {
+        success: true,
+        data: bookings[0]
+      };
     } catch (error) {
-      console.error('Failed to fetch booking:', error);
+      console.error('Failed to get booking:', error);
       return {
         success: false,
-        error: '예약 정보 조회에 실패했습니다.'
+        error: '예약 조회에 실패했습니다.'
       };
     }
   },
 
-  // 결제 처리
-  processPayment: async (paymentData: {
-    bookingId: string;
-    amount: number;
-    paymentMethod: string;
-    cardInfo?: any;
-    billingInfo: any;
-  }): Promise<ApiResponse<any>> => {
+  processPayment: async (paymentData: any): Promise<ApiResponse<any>> => {
     try {
-      // 실제 결제 처리 로직 시뮬레이션
-      await new Promise(resolve => setTimeout(resolve, 2000)); // 결제 처리 시뮬레이션
-
-      // 랜덤으로 결제 실패 시뮬레이션 (10% 확률)
-      if (Math.random() < 0.1) {
-        return {
-          success: false,
-          error: '결제 승인이 거절되었습니다. 카드 정보를 확인해주세요.'
-        };
-      }
-
-      // 결제 성공 - 예약 상태 업데이트
-      const paymentRecord = {
-        booking_id: parseInt(paymentData.bookingId),
-        amount: paymentData.amount,
-        payment_method: paymentData.paymentMethod,
-        payment_status: 'completed',
-        transaction_id: `txn_${Date.now()}`,
-        paid_at: new Date().toISOString(),
-        billing_info: JSON.stringify(paymentData.billingInfo),
+      // Insert payment record
+      const payment = await db.insert('payments', {
+        ...paymentData,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      // 결제 기록 저장
-      await db.insert('payments', paymentRecord);
-
-      // 예약 상태를 confirmed로 업데이트
-      await db.update('bookings', parseInt(paymentData.bookingId), {
-        status: 'confirmed',
-        payment_status: 'paid',
         updated_at: new Date().toISOString()
       });
 
       return {
         success: true,
-        data: {
-          transactionId: paymentRecord.transaction_id,
-          amount: paymentData.amount,
-          paidAt: paymentRecord.paid_at
-        },
-        message: '결제가 성공적으로 완료되었습니다.'
+        data: payment,
+        message: '결제가 완료되었습니다.'
       };
     } catch (error) {
       console.error('Failed to process payment:', error);
       return {
         success: false,
-        error: '결제 처리 중 오류가 발생했습니다.'
+        error: '결제 처리에 실패했습니다.'
       };
     }
-  }
+  },
+
+  // 블로그 포스트 조회 (프론트엔드용)
+  getBlogPost: async (postId: number): Promise<ApiResponse<any>> => {
+    try {
+      const posts = await db.select('blog_posts', { id: postId, is_published: true });
+      if (posts.length === 0) {
+        return {
+          success: false,
+          error: '블로그 포스트를 찾을 수 없습니다.'
+        };
+      }
+      const post = posts[0];
+      if (post.tags && typeof post.tags === 'string') {
+        post.tags = JSON.parse(post.tags);
+      }
+      // 조회수 증가
+      await db.update('blog_posts', postId, {
+        view_count: (post.view_count || 0) + 1
+      });
+      return {
+        success: true,
+        data: post
+      };
+    } catch (error) {
+      console.error('Failed to get blog post:', error);
+      return {
+        success: false,
+        error: '블로그 포스트 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  getBlogPosts: async (filters?: { category?: string; tag?: string; search?: string }): Promise<ApiResponse<any[]>> => {
+    try {
+      let sql = 'SELECT * FROM blog_posts WHERE is_published = 1';
+      const params: any[] = [];
+
+      if (filters?.category) {
+        sql += ' AND category = ?';
+        params.push(filters.category);
+      }
+
+      if (filters?.tag) {
+        sql += ' AND JSON_CONTAINS(tags, ?)';
+        params.push(JSON.stringify(filters.tag));
+      }
+
+      if (filters?.search) {
+        sql += ' AND (title LIKE ? OR content LIKE ?)';
+        const searchPattern = `%${filters.search}%`;
+        params.push(searchPattern, searchPattern);
+      }
+
+      sql += ' ORDER BY published_date DESC';
+
+      const posts = await db.query(sql, params);
+
+      // Parse tags from JSON string
+      const parsedPosts = (posts || []).map((post: any) => ({
+        ...post,
+        tags: post.tags && typeof post.tags === 'string' ? JSON.parse(post.tags) : []
+      }));
+
+      return {
+        success: true,
+        data: parsedPosts
+      };
+    } catch (error) {
+      console.error('Failed to get blog posts:', error);
+      return {
+        success: false,
+        error: '블로그 포스트 조회에 실패했습니다.',
+        data: []
+      };
+    }
+  },
+
+  getRelatedBlogPosts: async (postId: number, category: string, limit: number = 3): Promise<ApiResponse<any[]>> => {
+    try {
+      const sql = `
+        SELECT * FROM blog_posts
+        WHERE is_published = 1
+        AND category = ?
+        AND id != ?
+        ORDER BY published_date DESC
+        LIMIT ?
+      `;
+
+      const posts = await db.query(sql, [category, postId, limit]);
+
+      // Parse tags from JSON string
+      const parsedPosts = (posts || []).map((post: any) => ({
+        ...post,
+        tags: post.tags && typeof post.tags === 'string' ? JSON.parse(post.tags) : []
+      }));
+
+      return {
+        success: true,
+        data: parsedPosts
+      };
+    } catch (error) {
+      console.error('Failed to get related blog posts:', error);
+      return {
+        success: false,
+        error: '관련 블로그 포스트 조회에 실패했습니다.',
+        data: []
+      };
+    }
+  },
 };
 
 export default api;

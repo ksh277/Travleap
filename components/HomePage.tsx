@@ -181,8 +181,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       description: "각 여행지에 해당되는 특이한 굿즈, 상품, 체험 판매",
       icon: <Gift className="h-8 w-8" />,
       color: "bg-blue-50",
-      iconColor: "text-blue-600",
-      href: "/shop"
+      iconColor: "text-blue-600"
     },
     {
       id: 2,
@@ -190,8 +189,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       description: "약 300여개와 제휴되어 어딜가든지 최대 20%할인",
       icon: <Sparkles className="h-8 w-8" />,
       color: "bg-purple-50",
-      iconColor: "text-purple-600",
-      href: "/partners"
+      iconColor: "text-purple-600"
     },
     {
       id: 3,
@@ -199,8 +197,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       description: "개인의 취향에 맞는 최적의 여행 코스 추천",
       icon: <Star className="h-8 w-8" />,
       color: "bg-yellow-50",
-      iconColor: "text-yellow-600",
-      href: "/ai-recommendations"
+      iconColor: "text-yellow-600"
     }
   ], []);
 
@@ -211,13 +208,27 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
 
   return (
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="홈페이지 메인 콘텐츠">
-      {/* Hero Section - Mobile Optimized */}
-      <div
-        className="relative h-[60vh] md:h-[48vh] bg-cover bg-center bg-no-repeat overflow-hidden mobile-safe-top"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1693098436985-4a7dece474b5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0cm9waWNhbCUyMHBhbG0lMjB0cmVlcyUyMGJlYWNoJTIwdmFjYXRpb258ZW58MXx8fHwxNzU3NTcwNjQzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral')`
-        }}
-      >
+      {/* Hero Section - Mobile Optimized with Video Background */}
+      <div className="relative h-[60vh] md:h-[48vh] overflow-hidden mobile-safe-top">
+        {/* Background Video */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source
+            src="https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4"
+            type="video/mp4"
+          />
+          {/* Fallback 이미지 (비디오 로딩 실패 시) */}
+          <img
+            src="https://images.unsplash.com/photo-1693098436985-4a7dece474b5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0cm9waWNhbCUyMHBhbG0lMjB0cmVlcyUyMGJlYWNoJTIwdmFjYXRpb258ZW58MXx8fHwxNzU3NTcwNjQzfDA&ixlib=rb-4.1.0&q=80&w=1080"
+            alt="Beach background"
+            className="w-full h-full object-cover"
+          />
+        </video>
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/50"></div>
         <div className="relative z-10 container mx-auto px-4 h-full flex flex-col items-center justify-center">
           {/* Enhanced Main Title with SEO */}
@@ -441,26 +452,14 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
 
       {/* Main Content Container */}
       <div className="container mx-auto px-4 py-12 md:py-16 space-y-12 md:space-y-16">
-        {/* Enhanced Service Cards with interactions */}
+        {/* Service Information */}
         <section className="-mt-6 md:-mt-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             {serviceCards.map((card) => (
-              <Card
-                key={card.id}
-                className="text-center px-6 py-8 hover:shadow-lg transition-all duration-300 cursor-pointer group border-0 bg-white/80 backdrop-blur-sm"
-                onClick={() => navigate(card.href)}
-              >
-                <CardContent className="p-0">
-                  <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full ${card.color} ${card.iconColor} mb-4 group-hover:scale-110 transition-transform duration-200`}>
-                    {card.icon}
-                  </div>
-                  <h3 className="text-lg md:text-xl font-semibold mb-3 text-gray-800 group-hover:text-purple-600 transition-colors">{card.title}</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">{card.description}</p>
-                  <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <span className="text-purple-600 text-sm font-medium">더 알아보기 →</span>
-                  </div>
-                </CardContent>
-              </Card>
+              <div key={card.id} className="text-center px-6 py-8">
+                <h3 className="text-lg md:text-xl font-semibold mb-3 text-gray-800">{card.title}</h3>
+                <p className="text-gray-600 text-sm leading-relaxed">{card.description}</p>
+              </div>
             ))}
           </div>
         </section>

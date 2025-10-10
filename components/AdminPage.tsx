@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
+import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
@@ -24,7 +25,8 @@ import {
   MapPin,
   Star,
   Check,
-  Upload
+  Upload,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
@@ -32,7 +34,10 @@ import { db } from '../utils/database';
 import { useAuth } from '../hooks/useAuth';
 import { notifyDataChange, refreshAllData, useRealTimeData } from '../hooks/useRealTimeData';
 import { MediaLibraryModal } from './MediaLibraryModal';
+import { PMSIntegrationModal } from './admin/PMSIntegrationModal';
+import { RentcarAPIModal, type RentcarAPISettings } from './admin/RentcarAPIModal';
 import type { Listing, User } from '../types/database';
+import type { AdminProductFormData } from '../utils/pms/admin-integration';
 
 interface AdminPageProps {}
 
@@ -52,6 +57,16 @@ interface Product {
   is_active?: boolean;
   createdAt: string;
   featured?: boolean;
+  highlights?: string[];
+  included?: string[];
+  excluded?: string[];
+  tags?: string[];
+  amenities?: string[];
+  childPrice?: number;
+  infantPrice?: number;
+  availableStartTimes?: string[];
+  itinerary?: { time: string; activity: string; description?: string }[];
+  packages?: { id: string; name: string; price: string; description?: string }[];
 }
 
 
@@ -108,6 +123,9 @@ export function AdminPage({}: AdminPageProps) {
   const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isPMSModalOpen, setIsPMSModalOpen] = useState(false);
+  const [isRentcarAPIModalOpen, setIsRentcarAPIModalOpen] = useState(false);
+  const [rentcarAPISettings, setRentcarAPISettings] = useState<RentcarAPISettings | null>(null);
 
   // 검색 state 추가
   const [partnerSearchQuery, setPartnerSearchQuery] = useState('');
@@ -146,6 +164,8 @@ export function AdminPage({}: AdminPageProps) {
           title: `신안 ${categoryName} 테스트 상품`,
           category: categoryName,
           price: '50000',
+          childPrice: '',
+          infantPrice: '',
           priceType: 'fixed',
           location: '신안군',
           address: '전남 신안군',
@@ -169,7 +189,12 @@ export function AdminPage({}: AdminPageProps) {
           policies: ['우천시 취소 가능'],
           amenities: ['주차장', '화장실'],
           images: ['https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop'],
-          featured: false
+          availableStartTimes: [''],
+          itinerary: [{ time: '', activity: '', description: '' }],
+          packages: [{ id: '', name: '', price: '', description: '' }],
+          featured: false,
+          isPMSProduct: false,
+          pmsFormData: null
         });
         setIsAddModalOpen(true);
       };
@@ -526,6 +551,8 @@ export function AdminPage({}: AdminPageProps) {
   const [partnerApplications, setPartnerApplications] = useState<any[]>([]);
   const [partnerApplicationHistory, setPartnerApplicationHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [editingApplication, setEditingApplication] = useState<any | null>(null);
+  const [isApplicationEditOpen, setIsApplicationEditOpen] = useState(false);
   const [partners, setPartners] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -539,7 +566,6 @@ export function AdminPage({}: AdminPageProps) {
     phone: '',
     business_address: '',
     location: '',
-    tier: 'bronze',
     services: ''
   });
   const [reviews, setReviews] = useState<any[]>([]);
@@ -615,11 +641,13 @@ export function AdminPage({}: AdminPageProps) {
     title: '',
     category: '여행',
     price: '',
+    childPrice: '',
+    infantPrice: '',
     priceType: 'fixed',
     location: '',
     address: '',
     coordinates: '',
-    images: [''],
+    images: [],
     description: '',
     longDescription: '',
     highlights: [''],
@@ -638,7 +666,12 @@ export function AdminPage({}: AdminPageProps) {
     difficulty: 'easy',
     language: 'korean',
     tags: [''],
-    amenities: ['']
+    amenities: [''],
+    availableStartTimes: [''],
+    itinerary: [{ time: '', activity: '', description: '' }],
+    packages: [{ id: '', name: '', price: '', description: '' }],
+    isPMSProduct: false, // PMS 연동 상품 여부
+    pmsFormData: null as any // PMS 원본 데이터 저장
   });
 
   const categories = ['여행', '렌트카', '숙박', '음식', '관광지', '팝업', '행사', '체험'];
@@ -972,6 +1005,53 @@ export function AdminPage({}: AdminPageProps) {
     setIsMediaLibraryOpen(false);
   };
 
+  // PMS에서 불러온 데이터를 폼에 적용
+  const handlePMSDataLoaded = (formData: AdminProductFormData) => {
+    setNewProduct(prev => ({
+      ...prev,
+      title: formData.hotelName,
+      category: '숙박',
+      location: formData.location,
+      description: formData.description,
+      longDescription: formData.description,
+      images: formData.images,
+      // 첫 번째 객실 정보로 기본값 설정
+      price: formData.rooms[0]?.price.toString() || '',
+      childPrice: '',
+      infantPrice: '',
+      maxCapacity: formData.rooms[0]?.maxOccupancy.toString() || '2',
+      // 추가 정보를 highlights에 저장
+      highlights: formData.rooms.map(room =>
+        `${room.roomName} - ${room.price.toLocaleString()}원 (최대 ${room.maxOccupancy}명)`
+      ),
+      availableStartTimes: prev.availableStartTimes,
+      itinerary: prev.itinerary,
+      packages: prev.packages,
+      isPMSProduct: true, // PMS 상품으로 표시
+      pmsFormData: formData // 원본 PMS 데이터 저장
+    }));
+
+    toast.success('✅ PMS 데이터가 폼에 적용되었습니다! 필요한 항목만 수정 후 "상품 추가"를 눌러주세요.');
+  };
+
+  // 렌트카 API 설정 저장
+  const handleSaveRentcarAPI = async (settings: RentcarAPISettings) => {
+    try {
+      // 설정을 localStorage 또는 DB에 저장
+      localStorage.setItem('rentcar_api_settings', JSON.stringify(settings));
+      setRentcarAPISettings(settings);
+
+      // 실제로는 DB에 저장해야 함
+      // await db.insert('rentcar_api_configs', settings);
+
+      toast.success('✅ 렌트카 API 설정이 저장되었습니다!');
+      console.log('렌트카 API 설정:', settings);
+    } catch (error) {
+      console.error('렌트카 API 설정 저장 실패:', error);
+      toast.error('렌트카 API 설정 저장 실패');
+    }
+  };
+
   // 상품 추가
   const handleAddProduct = async () => {
     if (!newProduct.title || !newProduct.category || !newProduct.price) {
@@ -995,6 +1075,80 @@ export function AdminPage({}: AdminPageProps) {
 
     setIsLoading(true);
     try {
+      // === PMS 연동 상품인 경우 특별 처리 ===
+      if (newProduct.isPMSProduct && newProduct.pmsFormData) {
+        const { saveProductToDB } = await import('../utils/pms/admin-integration');
+
+        console.log('🏨 PMS 상품 저장 시작...', newProduct.pmsFormData);
+        const result = await saveProductToDB(newProduct.pmsFormData);
+
+        if (result.success) {
+          toast.success('✅ PMS 연동 숙박 상품이 등록되었습니다!');
+
+          // 상품 목록에 추가 (UI 업데이트)
+          const newProductForUI: Product = {
+            id: result.productId || String(Date.now()),
+            title: newProduct.title,
+            category: newProduct.category,
+            price: parseInt(newProduct.price),
+            location: newProduct.location,
+            rating: 0,
+            reviewCount: 0,
+            image: newProduct.images[0] || '',
+            description: newProduct.description,
+            status: 'active',
+            createdAt: new Date().toISOString().split('T')[0],
+            featured: newProduct.featured
+          };
+
+          setProducts(prev => [...prev, newProductForUI]);
+
+          // 폼 초기화
+          setNewProduct({
+            title: '',
+            category: '여행',
+            price: '',
+            childPrice: '',
+            infantPrice: '',
+            priceType: 'fixed',
+            location: '',
+            address: '',
+            coordinates: '',
+            images: [],
+            description: '',
+            longDescription: '',
+            highlights: [''],
+            included: [''],
+            excluded: [''],
+            policies: [''],
+            featured: false,
+            startDate: '',
+            endDate: '',
+            duration: '1일',
+            maxCapacity: '10',
+            minCapacity: '1',
+            minAge: '',
+            meetingPoint: '',
+            cancellationPolicy: 'standard',
+            difficulty: 'easy',
+            language: 'korean',
+            tags: [''],
+            amenities: [''],
+            availableStartTimes: [''],
+            itinerary: [{ time: '', activity: '', description: '' }],
+            packages: [{ id: '', name: '', price: '', description: '' }],
+            isPMSProduct: false,
+            pmsFormData: null
+          });
+
+          setIsLoading(false);
+          return;
+        } else {
+          throw new Error(result.error || 'PMS 상품 저장 실패');
+        }
+      }
+
+      // === 일반 상품 저장 로직 (기존과 동일) ===
       // 카테고리 ID 찾기
       const categoryMap: { [key: string]: number } = {
         '여행': 1, '렌트카': 4, '숙박': 2, '음식': 3, '관광지': 5, '팝업': 6, '행사': 7, '체험': 8
@@ -1008,6 +1162,11 @@ export function AdminPage({}: AdminPageProps) {
         description_md: newProduct.longDescription || newProduct.description,
         price_from: parseInt(newProduct.price),
         price_to: parseInt(newProduct.price),
+        child_price: newProduct.childPrice ? parseInt(newProduct.childPrice) : null,
+        infant_price: newProduct.infantPrice ? parseInt(newProduct.infantPrice) : null,
+        available_start_times: newProduct.availableStartTimes.filter(t => t.trim() !== ''),
+        itinerary: newProduct.itinerary.filter(item => item.time || item.activity),
+        packages: newProduct.packages.filter(pkg => pkg.name && pkg.price),
         location: newProduct.location || '',
         address: newProduct.address || '',
         coordinates: newProduct.coordinates || '',
@@ -1063,11 +1222,13 @@ export function AdminPage({}: AdminPageProps) {
           title: '',
           category: '',
           price: '',
+          childPrice: '',
+          infantPrice: '',
           priceType: 'fixed',
           location: '',
           address: '',
           coordinates: '',
-          images: [''],
+          images: [],
           description: '',
           longDescription: '',
           highlights: [''],
@@ -1086,7 +1247,12 @@ export function AdminPage({}: AdminPageProps) {
           difficulty: 'easy',
           language: 'korean',
           tags: [''],
-          amenities: ['']
+          amenities: [''],
+          availableStartTimes: [''],
+          itinerary: [{ time: '', activity: '', description: '' }],
+          packages: [{ id: '', name: '', price: '', description: '' }],
+          isPMSProduct: false,
+          pmsFormData: null
         });
         setIsAddModalOpen(false);
         toast.success('상품이 추가되었습니다.');
@@ -1288,7 +1454,6 @@ export function AdminPage({}: AdminPageProps) {
         phone: partner.phone || '',
         business_address: partner.business_address || partner.location || '',
         location: partner.location || '',
-        tier: partner.tier || 'bronze',
         services: partner.services || ''
       });
     } else {
@@ -1299,7 +1464,6 @@ export function AdminPage({}: AdminPageProps) {
         phone: '',
         business_address: '',
         location: '',
-        tier: 'bronze',
         services: ''
       });
     }
@@ -1468,8 +1632,8 @@ export function AdminPage({}: AdminPageProps) {
 
   // 사용자 생성/수정 대화상자 열기
   const handleOpenUserDialog = (user: any = null) => {
-    setEditingProduct(user); // 임시로 같은 state 사용
-    setIsEditModalOpen(true);
+    setEditingUser(user);
+    setIsUserDialogOpen(true);
   };
 
   // 사용자 삭제
@@ -2193,48 +2357,12 @@ export function AdminPage({}: AdminPageProps) {
                               <label className="text-sm font-medium mb-1 block">상품명 *</label>
                               <Input
                                 value={newProduct.title}
-                                onChange={(e) => {
-                                  const newTitle = e.target.value;
-                                  setNewProduct(prev => {
-                                    const updatedProduct = { ...prev, title: newTitle };
-
-                                    // 🤖 카테고리가 아직 선택되지 않았거나 기본값인 경우 자동 추천
-                                    if (!updatedProduct.category || updatedProduct.category === '') {
-                                      const suggestedCategory = autoSuggestCategory(newTitle, updatedProduct.description);
-                                      if (suggestedCategory) {
-                                        // 자동 카테고리 추천 완료
-                                        updatedProduct.category = suggestedCategory;
-                                        toast.success(`카테고리가 자동으로 "${suggestedCategory}"로 설정되었습니다.`);
-                                      }
-                                    }
-
-                                    return updatedProduct;
-                                  });
-                                }}
+                                onChange={(e) => setNewProduct(prev => ({ ...prev, title: e.target.value }))}
                                 placeholder="상품명을 입력하세요"
                               />
                             </div>
                             <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <label className="text-sm font-medium">카테고리 *</label>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 px-2 text-xs"
-                                  onClick={() => {
-                                    const suggestedCategory = autoSuggestCategory(newProduct.title, newProduct.description);
-                                    if (suggestedCategory) {
-                                      setNewProduct(prev => ({ ...prev, category: suggestedCategory }));
-                                      toast.success(`🤖 AI가 "${suggestedCategory}" 카테고리를 추천했습니다!`);
-                                    } else {
-                                      toast.info('제목이나 설명을 더 입력해주세요.');
-                                    }
-                                  }}
-                                >
-                                  🤖 AI 추천
-                                </Button>
-                              </div>
+                              <label className="text-sm font-medium mb-1 block">카테고리 *</label>
                               <Select
                                 value={newProduct.category}
                                 onValueChange={(value) => setNewProduct(prev => ({ ...prev, category: value }))}
@@ -2250,14 +2378,58 @@ export function AdminPage({}: AdminPageProps) {
                                   ))}
                                 </SelectContent>
                               </Select>
+
+                              {/* 숙박 카테고리 선택 시 PMS 연동 버튼 표시 */}
+                              {newProduct.category === '숙박' && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2 w-full"
+                                  onClick={() => setIsPMSModalOpen(true)}
+                                >
+                                  🏨 PMS API로 객실 정보 불러오기
+                                </Button>
+                              )}
+
+                              {/* 렌트카 카테고리 선택 시 API 설정 버튼 표시 */}
+                              {newProduct.category === '렌트카' && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2 w-full"
+                                  onClick={() => setIsRentcarAPIModalOpen(true)}
+                                >
+                                  🚗 렌트카 API 설정
+                                </Button>
+                              )}
                             </div>
                             <div>
-                              <label className="text-sm font-medium mb-1 block">가격 *</label>
+                              <label className="text-sm font-medium mb-1 block">성인 가격 *</label>
                               <Input
                                 type="number"
                                 value={newProduct.price}
                                 onChange={(e) => setNewProduct(prev => ({ ...prev, price: e.target.value }))}
-                                placeholder="가격을 입력하세요"
+                                placeholder="성인 가격을 입력하세요"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium mb-1 block">어린이 가격</label>
+                              <Input
+                                type="number"
+                                value={newProduct.childPrice || ''}
+                                onChange={(e) => setNewProduct(prev => ({ ...prev, childPrice: e.target.value }))}
+                                placeholder="어린이 가격 (미입력시 성인의 70%)"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium mb-1 block">유아 가격</label>
+                              <Input
+                                type="number"
+                                value={newProduct.infantPrice || ''}
+                                onChange={(e) => setNewProduct(prev => ({ ...prev, infantPrice: e.target.value }))}
+                                placeholder="유아 가격 (미입력시 성인의 30%)"
                               />
                             </div>
                             <div>
@@ -2315,14 +2487,17 @@ export function AdminPage({}: AdminPageProps) {
                                 placeholder="상세 주소를 입력하세요"
                               />
                             </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">집합 장소</label>
-                              <Input
-                                value={newProduct.meetingPoint}
-                                onChange={(e) => setNewProduct(prev => ({ ...prev, meetingPoint: e.target.value }))}
-                                placeholder="만날 장소를 입력하세요"
-                              />
-                            </div>
+                            {/* 집합 장소 - 여행/체험/행사 카테고리에만 표시 */}
+                            {['여행', '체험', '행사'].includes(newProduct.category) && (
+                              <div>
+                                <label className="text-sm font-medium mb-1 block">집합 장소</label>
+                                <Input
+                                  value={newProduct.meetingPoint}
+                                  onChange={(e) => setNewProduct(prev => ({ ...prev, meetingPoint: e.target.value }))}
+                                  placeholder="만날 장소를 입력하세요"
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -2571,51 +2746,61 @@ export function AdminPage({}: AdminPageProps) {
                                 onChange={(e) => setNewProduct(prev => ({ ...prev, endDate: e.target.value }))}
                               />
                             </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">소요시간</label>
-                              <Select
-                                value={newProduct.duration}
-                                onValueChange={(value) => setNewProduct(prev => ({ ...prev, duration: value }))}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1시간">1시간</SelectItem>
-                                  <SelectItem value="2시간">2시간</SelectItem>
-                                  <SelectItem value="반나절">반나절</SelectItem>
-                                  <SelectItem value="1일">1일</SelectItem>
-                                  <SelectItem value="2일">2일</SelectItem>
-                                  <SelectItem value="3일">3일</SelectItem>
-                                  <SelectItem value="1주일">1주일</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">난이도</label>
-                              <Select
-                                value={newProduct.difficulty}
-                                onValueChange={(value) => setNewProduct(prev => ({ ...prev, difficulty: value }))}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="easy">쉬움</SelectItem>
-                                  <SelectItem value="moderate">보통</SelectItem>
-                                  <SelectItem value="hard">어려움</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">최소 연령</label>
-                              <Input
-                                type="number"
-                                value={newProduct.minAge}
-                                onChange={(e) => setNewProduct(prev => ({ ...prev, minAge: e.target.value }))}
-                                placeholder="최소 연령"
-                              />
-                            </div>
+                            {/* 소요시간 - 렌트카/음식 제외 */}
+                            {!['렌트카', '음식'].includes(newProduct.category) && (
+                              <div>
+                                <label className="text-sm font-medium mb-1 block">소요시간</label>
+                                <Select
+                                  value={newProduct.duration}
+                                  onValueChange={(value) => setNewProduct(prev => ({ ...prev, duration: value }))}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="1시간">1시간</SelectItem>
+                                    <SelectItem value="2시간">2시간</SelectItem>
+                                    <SelectItem value="반나절">반나절</SelectItem>
+                                    <SelectItem value="1일">1일</SelectItem>
+                                    <SelectItem value="2일">2일</SelectItem>
+                                    <SelectItem value="3일">3일</SelectItem>
+                                    <SelectItem value="1주일">1주일</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                            {/* 난이도 - 여행/체험/관광지 카테고리에만 표시 */}
+                            {['여행', '체험', '관광지'].includes(newProduct.category) && (
+                              <div>
+                                <label className="text-sm font-medium mb-1 block">난이도</label>
+                                <Select
+                                  value={newProduct.difficulty}
+                                  onValueChange={(value) => setNewProduct(prev => ({ ...prev, difficulty: value }))}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="easy">쉬움</SelectItem>
+                                    <SelectItem value="moderate">보통</SelectItem>
+                                    <SelectItem value="hard">어려움</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {/* 최소 연령 - 여행/체험/관광지/행사 카테고리에만 표시 */}
+                            {['여행', '체험', '관광지', '행사'].includes(newProduct.category) && (
+                              <div>
+                                <label className="text-sm font-medium mb-1 block">최소 연령</label>
+                                <Input
+                                  type="number"
+                                  value={newProduct.minAge}
+                                  onChange={(e) => setNewProduct(prev => ({ ...prev, minAge: e.target.value }))}
+                                  placeholder="최소 연령"
+                                />
+                              </div>
+                            )}
                             <div className="flex items-center">
                               <label className="text-sm font-medium">
                                 <input
@@ -2627,6 +2812,205 @@ export function AdminPage({}: AdminPageProps) {
                                 추천 상품
                               </label>
                             </div>
+                          </div>
+                        </div>
+
+                        {/* 출발 시간 - 여행/체험 카테고리에만 표시 */}
+                        {['여행', '체험'].includes(newProduct.category) && (
+                          <div>
+                            <h3 className="text-lg font-medium mb-3">출발 시간</h3>
+                            <div className="space-y-2">
+                              {newProduct.availableStartTimes.map((time: string, index: number) => (
+                                <div key={index} className="flex gap-2">
+                                  <Input
+                                    type="time"
+                                    value={time}
+                                    onChange={(e) => {
+                                      const newTimes = [...newProduct.availableStartTimes];
+                                      newTimes[index] = e.target.value;
+                                      setNewProduct(prev => ({ ...prev, availableStartTimes: newTimes }));
+                                    }}
+                                    placeholder="출발 시간"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      const newTimes = newProduct.availableStartTimes.filter((_: any, i: number) => i !== index);
+                                      setNewProduct(prev => ({ ...prev, availableStartTimes: newTimes }));
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setNewProduct(prev => ({
+                                    ...prev,
+                                    availableStartTimes: [...prev.availableStartTimes, '']
+                                  }));
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                출발 시간 추가
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 여행 일정 - 여행 카테고리에만 표시 */}
+                        {newProduct.category === '여행' && (
+                          <div>
+                            <h3 className="text-lg font-medium mb-3">여행 일정</h3>
+                            <div className="space-y-4">
+                              {newProduct.itinerary.map((item: any, index: number) => (
+                                <div key={index} className="border rounded-lg p-4 space-y-3">
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium">일정 {index + 1}</span>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        const newItinerary = newProduct.itinerary.filter((_: any, i: number) => i !== index);
+                                        setNewProduct(prev => ({ ...prev, itinerary: newItinerary }));
+                                      }}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-3">
+                                    <Input
+                                      value={item.time}
+                                      onChange={(e) => {
+                                        const newItinerary = [...newProduct.itinerary];
+                                        newItinerary[index] = { ...newItinerary[index], time: e.target.value };
+                                        setNewProduct(prev => ({ ...prev, itinerary: newItinerary }));
+                                      }}
+                                      placeholder="시간 (예: 09:00)"
+                                    />
+                                    <Input
+                                      value={item.activity}
+                                      onChange={(e) => {
+                                        const newItinerary = [...newProduct.itinerary];
+                                        newItinerary[index] = { ...newItinerary[index], activity: e.target.value };
+                                        setNewProduct(prev => ({ ...prev, itinerary: newItinerary }));
+                                      }}
+                                      placeholder="활동"
+                                      className="col-span-2"
+                                    />
+                                  </div>
+                                  <Textarea
+                                    value={item.description}
+                                    onChange={(e) => {
+                                      const newItinerary = [...newProduct.itinerary];
+                                      newItinerary[index] = { ...newItinerary[index], description: e.target.value };
+                                      setNewProduct(prev => ({ ...prev, itinerary: newItinerary }));
+                                    }}
+                                    placeholder="상세 설명"
+                                    rows={2}
+                                  />
+                                </div>
+                              ))}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setNewProduct(prev => ({
+                                    ...prev,
+                                    itinerary: [...prev.itinerary, { time: '', activity: '', description: '' }]
+                                  }));
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                일정 추가
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 추가 패키지/옵션 */}
+                        <div>
+                          <h3 className="text-lg font-medium mb-3">추가 패키지/옵션</h3>
+                          <div className="space-y-4">
+                            {newProduct.packages.map((pkg: any, index: number) => (
+                              <div key={index} className="border rounded-lg p-4 space-y-3">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-medium">패키지 {index + 1}</span>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      const newPackages = newProduct.packages.filter((_: any, i: number) => i !== index);
+                                      setNewProduct(prev => ({ ...prev, packages: newPackages }));
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <Input
+                                    value={pkg.id}
+                                    onChange={(e) => {
+                                      const newPackages = [...newProduct.packages];
+                                      newPackages[index] = { ...newPackages[index], id: e.target.value };
+                                      setNewProduct(prev => ({ ...prev, packages: newPackages }));
+                                    }}
+                                    placeholder="패키지 ID"
+                                  />
+                                  <Input
+                                    value={pkg.name}
+                                    onChange={(e) => {
+                                      const newPackages = [...newProduct.packages];
+                                      newPackages[index] = { ...newPackages[index], name: e.target.value };
+                                      setNewProduct(prev => ({ ...prev, packages: newPackages }));
+                                    }}
+                                    placeholder="패키지명"
+                                  />
+                                  <Input
+                                    type="number"
+                                    value={pkg.price}
+                                    onChange={(e) => {
+                                      const newPackages = [...newProduct.packages];
+                                      newPackages[index] = { ...newPackages[index], price: e.target.value };
+                                      setNewProduct(prev => ({ ...prev, packages: newPackages }));
+                                    }}
+                                    placeholder="가격"
+                                  />
+                                </div>
+                                <Textarea
+                                  value={pkg.description}
+                                  onChange={(e) => {
+                                    const newPackages = [...newProduct.packages];
+                                    newPackages[index] = { ...newPackages[index], description: e.target.value };
+                                    setNewProduct(prev => ({ ...prev, packages: newPackages }));
+                                  }}
+                                  placeholder="패키지 설명"
+                                  rows={2}
+                                />
+                              </div>
+                            ))}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setNewProduct(prev => ({
+                                  ...prev,
+                                  packages: [...prev.packages, { id: '', name: '', price: '', description: '' }]
+                                }));
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              패키지 추가
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -2654,7 +3038,7 @@ export function AdminPage({}: AdminPageProps) {
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
-                        placeholder="상품명, 위치, 설명으로 검색..."
+                        placeholder="상품명, 위치 또는 설명 검색"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-10 min-h-[44px]"
@@ -2990,7 +3374,10 @@ export function AdminPage({}: AdminPageProps) {
                   {partnerApplications
                     .filter(partner => partner.status === 'pending')
                     .map((partner) => (
-                    <Card key={partner.id}>
+                    <Card key={partner.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => {
+                      setEditingApplication(partner);
+                      setIsApplicationEditOpen(true);
+                    }}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
                           <div>
@@ -3005,15 +3392,17 @@ export function AdminPage({}: AdminPageProps) {
                         <div className="space-y-2 mb-4">
                           <div className="flex items-center text-sm">
                             <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                            <span>{partner.business_address || '주소 미입력'}</span>
+                            <span>{partner.business_address || partner.address || '주소 미입력'}</span>
                           </div>
-                          <div className="flex items-center text-sm">
-                            <Star className="h-4 w-4 mr-2 text-yellow-500" />
-                            <span>{partner.tier || 'bronze'} 등급</span>
-                          </div>
+                          {partner.location && (
+                            <div className="flex items-center text-sm text-gray-600">
+                              <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                              <span>{partner.location}</span>
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex space-x-2">
+                        <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white flex-1"
@@ -3062,24 +3451,12 @@ export function AdminPage({}: AdminPageProps) {
                   <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="파트너 검색..."
+                      placeholder="파트너명, 담당자 또는 이메일 검색"
                       className="pl-9"
                       value={partnerSearchQuery}
                       onChange={(e) => setPartnerSearchQuery(e.target.value)}
                     />
                   </div>
-                  <Select defaultValue="all">
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="등급 필터" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체</SelectItem>
-                      <SelectItem value="bronze">Bronze</SelectItem>
-                      <SelectItem value="silver">Silver</SelectItem>
-                      <SelectItem value="gold">Gold</SelectItem>
-                      <SelectItem value="diamond">Diamond</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -3177,7 +3554,7 @@ export function AdminPage({}: AdminPageProps) {
                   <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="주문 번호 검색..."
+                      placeholder="주문번호, 고객명 또는 이메일 검색"
                       className="pl-9"
                       value={orderSearchQuery}
                       onChange={(e) => setOrderSearchQuery(e.target.value)}
@@ -3419,7 +3796,7 @@ export function AdminPage({}: AdminPageProps) {
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
-                        placeholder="리뷰 검색..."
+                        placeholder="상품명, 작성자 검색"
                         className="pl-10"
                         value={reviewSearchQuery}
                         onChange={(e) => setReviewSearchQuery(e.target.value)}
@@ -3526,7 +3903,7 @@ export function AdminPage({}: AdminPageProps) {
                   <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="사용자 검색..."
+                      placeholder="이름, 이메일 또는 전화번호 검색"
                       className="pl-9"
                       value={userSearchQuery}
                       onChange={(e) => setUserSearchQuery(e.target.value)}
@@ -3988,7 +4365,7 @@ export function AdminPage({}: AdminPageProps) {
                   <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                      placeholder="블로그 포스트 검색..."
+                      placeholder="제목, 카테고리 또는 내용 검색"
                       className="pl-9"
                       value={blogSearchQuery}
                       onChange={(e) => setBlogSearchQuery(e.target.value)}
@@ -4198,6 +4575,512 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </div>
 
+              {/* 하이라이트 */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">하이라이트</h3>
+                <div className="space-y-2">
+                  {(editingProduct.highlights || []).map((highlight: string, index: number) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={highlight}
+                        onChange={(e) => {
+                          const newHighlights = [...(editingProduct.highlights || [])];
+                          newHighlights[index] = e.target.value;
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, highlights: newHighlights } : null
+                          );
+                        }}
+                        placeholder="하이라이트를 입력하세요"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newHighlights = (editingProduct.highlights || []).filter((_: any, i: number) => i !== index);
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, highlights: newHighlights } : null
+                          );
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newHighlights = [...(editingProduct.highlights || []), ''];
+                      setEditingProduct(prev =>
+                        prev ? { ...prev, highlights: newHighlights } : null
+                      );
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    하이라이트 추가
+                  </Button>
+                </div>
+              </div>
+
+              {/* 포함사항 */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">포함사항</h3>
+                <div className="space-y-2">
+                  {(editingProduct.included || []).map((item: string, index: number) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={item}
+                        onChange={(e) => {
+                          const newIncluded = [...(editingProduct.included || [])];
+                          newIncluded[index] = e.target.value;
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, included: newIncluded } : null
+                          );
+                        }}
+                        placeholder="포함사항을 입력하세요"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newIncluded = (editingProduct.included || []).filter((_: any, i: number) => i !== index);
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, included: newIncluded } : null
+                          );
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newIncluded = [...(editingProduct.included || []), ''];
+                      setEditingProduct(prev =>
+                        prev ? { ...prev, included: newIncluded } : null
+                      );
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    포함사항 추가
+                  </Button>
+                </div>
+              </div>
+
+              {/* 불포함사항 */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">불포함사항</h3>
+                <div className="space-y-2">
+                  {(editingProduct.excluded || []).map((item: string, index: number) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={item}
+                        onChange={(e) => {
+                          const newExcluded = [...(editingProduct.excluded || [])];
+                          newExcluded[index] = e.target.value;
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, excluded: newExcluded } : null
+                          );
+                        }}
+                        placeholder="불포함사항을 입력하세요"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newExcluded = (editingProduct.excluded || []).filter((_: any, i: number) => i !== index);
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, excluded: newExcluded } : null
+                          );
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newExcluded = [...(editingProduct.excluded || []), ''];
+                      setEditingProduct(prev =>
+                        prev ? { ...prev, excluded: newExcluded } : null
+                      );
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    불포함사항 추가
+                  </Button>
+                </div>
+              </div>
+
+              {/* 태그 */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">태그</h3>
+                <div className="space-y-2">
+                  {(editingProduct.tags || []).map((tag: string, index: number) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={tag}
+                        onChange={(e) => {
+                          const newTags = [...(editingProduct.tags || [])];
+                          newTags[index] = e.target.value;
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, tags: newTags } : null
+                          );
+                        }}
+                        placeholder="태그를 입력하세요"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newTags = (editingProduct.tags || []).filter((_: any, i: number) => i !== index);
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, tags: newTags } : null
+                          );
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newTags = [...(editingProduct.tags || []), ''];
+                      setEditingProduct(prev =>
+                        prev ? { ...prev, tags: newTags } : null
+                      );
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    태그 추가
+                  </Button>
+                </div>
+              </div>
+
+              {/* 편의시설 */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">편의시설</h3>
+                <div className="space-y-2">
+                  {(editingProduct.amenities || []).map((amenity: string, index: number) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={amenity}
+                        onChange={(e) => {
+                          const newAmenities = [...(editingProduct.amenities || [])];
+                          newAmenities[index] = e.target.value;
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, amenities: newAmenities } : null
+                          );
+                        }}
+                        placeholder="편의시설을 입력하세요"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newAmenities = (editingProduct.amenities || []).filter((_: any, i: number) => i !== index);
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, amenities: newAmenities } : null
+                          );
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newAmenities = [...(editingProduct.amenities || []), ''];
+                      setEditingProduct(prev =>
+                        prev ? { ...prev, amenities: newAmenities } : null
+                      );
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    편의시설 추가
+                  </Button>
+                </div>
+              </div>
+
+              {/* 가격 정보 */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">가격 정보</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">성인 가격</label>
+                    <Input
+                      type="number"
+                      value={editingProduct.price || ''}
+                      onChange={(e) => setEditingProduct(prev =>
+                        prev ? { ...prev, price: parseInt(e.target.value) || 0 } : null
+                      )}
+                      placeholder="성인 가격"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">어린이 가격</label>
+                    <Input
+                      type="number"
+                      value={editingProduct.childPrice || ''}
+                      onChange={(e) => setEditingProduct(prev =>
+                        prev ? { ...prev, childPrice: parseInt(e.target.value) || 0 } : null
+                      )}
+                      placeholder="어린이 가격"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">유아 가격</label>
+                    <Input
+                      type="number"
+                      value={editingProduct.infantPrice || ''}
+                      onChange={(e) => setEditingProduct(prev =>
+                        prev ? { ...prev, infantPrice: parseInt(e.target.value) || 0 } : null
+                      )}
+                      placeholder="유아 가격"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 출발 시간 - 여행/체험 카테고리에만 표시 */}
+              {['여행', '체험'].includes(editingProduct.category) && (
+                <div>
+                  <h3 className="text-lg font-medium mb-3">출발 시간</h3>
+                  <div className="space-y-2">
+                    {(editingProduct.availableStartTimes || []).map((time: string, index: number) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          type="time"
+                          value={time}
+                          onChange={(e) => {
+                            const newTimes = [...(editingProduct.availableStartTimes || [])];
+                            newTimes[index] = e.target.value;
+                            setEditingProduct(prev =>
+                              prev ? { ...prev, availableStartTimes: newTimes } : null
+                            );
+                          }}
+                          placeholder="출발 시간"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newTimes = (editingProduct.availableStartTimes || []).filter((_: any, i: number) => i !== index);
+                            setEditingProduct(prev =>
+                              prev ? { ...prev, availableStartTimes: newTimes } : null
+                            );
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newTimes = [...(editingProduct.availableStartTimes || []), ''];
+                        setEditingProduct(prev =>
+                          prev ? { ...prev, availableStartTimes: newTimes } : null
+                        );
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      출발 시간 추가
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* 여행 일정 - 여행 카테고리에만 표시 */}
+              {editingProduct.category === '여행' && (
+                <div>
+                  <h3 className="text-lg font-medium mb-3">여행 일정</h3>
+                  <div className="space-y-4">
+                    {(editingProduct.itinerary || []).map((item: any, index: number) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">일정 {index + 1}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newItinerary = (editingProduct.itinerary || []).filter((_: any, i: number) => i !== index);
+                              setEditingProduct(prev =>
+                                prev ? { ...prev, itinerary: newItinerary } : null
+                              );
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <Input
+                            value={item.time}
+                            onChange={(e) => {
+                              const newItinerary = [...(editingProduct.itinerary || [])];
+                              newItinerary[index] = { ...newItinerary[index], time: e.target.value };
+                              setEditingProduct(prev =>
+                                prev ? { ...prev, itinerary: newItinerary } : null
+                              );
+                            }}
+                            placeholder="시간 (예: 09:00)"
+                          />
+                          <Input
+                            value={item.activity}
+                            onChange={(e) => {
+                              const newItinerary = [...(editingProduct.itinerary || [])];
+                              newItinerary[index] = { ...newItinerary[index], activity: e.target.value };
+                              setEditingProduct(prev =>
+                                prev ? { ...prev, itinerary: newItinerary } : null
+                              );
+                            }}
+                            placeholder="활동"
+                            className="col-span-2"
+                          />
+                        </div>
+                        <Textarea
+                          value={item.description}
+                          onChange={(e) => {
+                            const newItinerary = [...(editingProduct.itinerary || [])];
+                            newItinerary[index] = { ...newItinerary[index], description: e.target.value };
+                            setEditingProduct(prev =>
+                              prev ? { ...prev, itinerary: newItinerary } : null
+                            );
+                          }}
+                          placeholder="상세 설명"
+                          rows={2}
+                        />
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newItinerary = [...(editingProduct.itinerary || []), { time: '', activity: '', description: '' }];
+                        setEditingProduct(prev =>
+                          prev ? { ...prev, itinerary: newItinerary } : null
+                        );
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      일정 추가
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* 추가 패키지/옵션 */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">추가 패키지/옵션</h3>
+                <div className="space-y-4">
+                  {(editingProduct.packages || []).map((pkg: any, index: number) => (
+                    <div key={index} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">패키지 {index + 1}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newPackages = (editingProduct.packages || []).filter((_: any, i: number) => i !== index);
+                            setEditingProduct(prev =>
+                              prev ? { ...prev, packages: newPackages } : null
+                            );
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <Input
+                          value={pkg.id}
+                          onChange={(e) => {
+                            const newPackages = [...(editingProduct.packages || [])];
+                            newPackages[index] = { ...newPackages[index], id: e.target.value };
+                            setEditingProduct(prev =>
+                              prev ? { ...prev, packages: newPackages } : null
+                            );
+                          }}
+                          placeholder="패키지 ID"
+                        />
+                        <Input
+                          value={pkg.name}
+                          onChange={(e) => {
+                            const newPackages = [...(editingProduct.packages || [])];
+                            newPackages[index] = { ...newPackages[index], name: e.target.value };
+                            setEditingProduct(prev =>
+                              prev ? { ...prev, packages: newPackages } : null
+                            );
+                          }}
+                          placeholder="패키지명"
+                        />
+                        <Input
+                          type="number"
+                          value={pkg.price}
+                          onChange={(e) => {
+                            const newPackages = [...(editingProduct.packages || [])];
+                            newPackages[index] = { ...newPackages[index], price: e.target.value };
+                            setEditingProduct(prev =>
+                              prev ? { ...prev, packages: newPackages } : null
+                            );
+                          }}
+                          placeholder="가격"
+                        />
+                      </div>
+                      <Textarea
+                        value={pkg.description}
+                        onChange={(e) => {
+                          const newPackages = [...(editingProduct.packages || [])];
+                          newPackages[index] = { ...newPackages[index], description: e.target.value };
+                          setEditingProduct(prev =>
+                            prev ? { ...prev, packages: newPackages } : null
+                          );
+                        }}
+                        placeholder="패키지 설명"
+                        rows={2}
+                      />
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newPackages = [...(editingProduct.packages || []), { id: '', name: '', price: '', description: '' }];
+                      setEditingProduct(prev =>
+                        prev ? { ...prev, packages: newPackages } : null
+                      );
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    패키지 추가
+                  </Button>
+                </div>
+              </div>
+
               {/* 옵션 */}
               <div>
                 <h3 className="text-lg font-medium mb-3">상품 옵션</h3>
@@ -4328,25 +5211,6 @@ export function AdminPage({}: AdminPageProps) {
                   placeholder="서비스 지역을 입력하세요"
                   id="location"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  파트너 등급
-                </label>
-                <Select
-                  value={newPartner.tier}
-                  onValueChange={(value) => setNewPartner({ ...newPartner, tier: value })}
-                >
-                  <SelectTrigger id="tier">
-                    <SelectValue placeholder="등급 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bronze">Bronze</SelectItem>
-                    <SelectItem value="silver">Silver</SelectItem>
-                    <SelectItem value="gold">Gold</SelectItem>
-                    <SelectItem value="diamond">Diamond</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
@@ -4559,6 +5423,230 @@ export function AdminPage({}: AdminPageProps) {
         multiSelect={true}
         category="product"
         usageLocation="product_gallery"
+      />
+
+      {/* 파트너 신청 수정 모달 */}
+      <Dialog open={isApplicationEditOpen} onOpenChange={setIsApplicationEditOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>파트너 신청 상세 정보</DialogTitle>
+          </DialogHeader>
+          {editingApplication && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-business-name">업체명 *</Label>
+                  <Input
+                    id="edit-business-name"
+                    value={editingApplication.business_name || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, business_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-contact-name">담당자 이름 *</Label>
+                  <Input
+                    id="edit-contact-name"
+                    value={editingApplication.contact_name || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, contact_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-email">이메일 *</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editingApplication.email || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, email: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-phone">전화번호 *</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editingApplication.phone || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, phone: e.target.value })}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="edit-address">주소 *</Label>
+                  <Input
+                    id="edit-address"
+                    value={editingApplication.business_address || editingApplication.address || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, business_address: e.target.value, address: e.target.value })}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="edit-location">위치/지역 *</Label>
+                  <Input
+                    id="edit-location"
+                    value={editingApplication.location || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, location: e.target.value })}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="edit-business-number">사업자 등록번호</Label>
+                  <Input
+                    id="edit-business-number"
+                    value={editingApplication.business_number || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, business_number: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-description">업체 소개 *</Label>
+                <Textarea
+                  id="edit-description"
+                  value={editingApplication.description || ''}
+                  onChange={(e) => setEditingApplication({ ...editingApplication, description: e.target.value })}
+                  rows={4}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-services">제공 서비스</Label>
+                <Textarea
+                  id="edit-services"
+                  value={editingApplication.services || editingApplication.services_offered || ''}
+                  onChange={(e) => setEditingApplication({ ...editingApplication, services: e.target.value, services_offered: e.target.value })}
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-promotion">프로모션/혜택</Label>
+                <Input
+                  id="edit-promotion"
+                  value={editingApplication.promotion || ''}
+                  onChange={(e) => setEditingApplication({ ...editingApplication, promotion: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-business-hours">영업시간 *</Label>
+                  <Input
+                    id="edit-business-hours"
+                    value={editingApplication.business_hours || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, business_hours: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-discount-rate">할인율 (%)</Label>
+                  <Input
+                    id="edit-discount-rate"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editingApplication.discount_rate || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, discount_rate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-website">웹사이트 URL</Label>
+                  <Input
+                    id="edit-website"
+                    type="url"
+                    value={editingApplication.website || editingApplication.website_url || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, website: e.target.value, website_url: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-instagram">인스타그램 URL</Label>
+                  <Input
+                    id="edit-instagram"
+                    type="url"
+                    value={editingApplication.instagram || editingApplication.instagram_url || ''}
+                    onChange={(e) => setEditingApplication({ ...editingApplication, instagram: e.target.value, instagram_url: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label>카테고리</Label>
+                <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                  {editingApplication.categories ?
+                    (typeof editingApplication.categories === 'string' ?
+                      JSON.parse(editingApplication.categories).join(', ') :
+                      Array.isArray(editingApplication.categories) ?
+                        editingApplication.categories.join(', ') :
+                        '카테고리 없음'
+                    ) :
+                    '카테고리 없음'
+                  }
+                </div>
+              </div>
+
+              <div className="flex space-x-2 pt-4">
+                <Button
+                  className="flex-1"
+                  onClick={async () => {
+                    try {
+                      const result = await api.admin.updatePartnerApplication(
+                        editingApplication.id,
+                        {
+                          business_name: editingApplication.business_name,
+                          contact_name: editingApplication.contact_name,
+                          email: editingApplication.email,
+                          phone: editingApplication.phone,
+                          business_address: editingApplication.business_address || editingApplication.address,
+                          location: editingApplication.location,
+                          business_number: editingApplication.business_number,
+                          description: editingApplication.description,
+                          services: editingApplication.services || editingApplication.services_offered,
+                          promotion: editingApplication.promotion,
+                          business_hours: editingApplication.business_hours,
+                          discount_rate: editingApplication.discount_rate ? parseInt(editingApplication.discount_rate) : null,
+                          website: editingApplication.website || editingApplication.website_url,
+                          instagram: editingApplication.instagram || editingApplication.instagram_url
+                        }
+                      );
+                      if (result.success) {
+                        toast.success('파트너 신청 정보가 수정되었습니다.');
+                        setIsApplicationEditOpen(false);
+                        // 파트너 신청 목록 새로고침
+                        const refreshResult = await api.admin.getPartnerApplications();
+                        if (refreshResult.success) {
+                          setPartnerApplications(refreshResult.data || []);
+                        }
+                      } else {
+                        toast.error(result.error || '수정 실패');
+                      }
+                    } catch (error) {
+                      console.error('수정 실패:', error);
+                      toast.error('수정 중 오류가 발생했습니다.');
+                    }
+                  }}
+                >
+                  저장
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsApplicationEditOpen(false)}
+                >
+                  닫기
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* PMS 연동 모달 */}
+      <PMSIntegrationModal
+        isOpen={isPMSModalOpen}
+        onClose={() => setIsPMSModalOpen(false)}
+        onDataLoaded={handlePMSDataLoaded}
+      />
+
+      {/* 렌트카 API 설정 모달 */}
+      <RentcarAPIModal
+        isOpen={isRentcarAPIModalOpen}
+        onClose={() => setIsRentcarAPIModalOpen(false)}
+        onSaveSettings={handleSaveRentcarAPI}
       />
     </div>
   );

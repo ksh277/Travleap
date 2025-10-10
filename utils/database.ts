@@ -68,6 +68,17 @@ class Database {
     return result.rows;
   }
 
+  // 별칭: findAll (select와 동일)
+  async findAll(table: string, where?: Record<string, any>): Promise<any[]> {
+    return this.select(table, where);
+  }
+
+  // 별칭: findOne (select 결과의 첫 번째 항목)
+  async findOne(table: string, where?: Record<string, any>): Promise<any | null> {
+    const results = await this.select(table, where);
+    return results.length > 0 ? results[0] : null;
+  }
+
   async insert(table: string, data: Record<string, any>): Promise<{ id: number; [key: string]: any }> {
 
     const columns = Object.keys(data);
@@ -91,6 +102,20 @@ class Database {
     const result = await this.execute(sql, [...values, id]);
 
     return (result.affectedRows || 0) > 0;
+  }
+
+  async upsert(table: string, where: Record<string, any>, data: Record<string, any>): Promise<{ id: number; [key: string]: any }> {
+    // Try to find existing record
+    const existing = await this.select(table, where);
+
+    if (existing.length > 0) {
+      // Update existing record
+      await this.update(table, existing[0].id, data);
+      return { id: existing[0].id, ...data };
+    } else {
+      // Insert new record
+      return await this.insert(table, { ...where, ...data });
+    }
   }
 
   async delete(table: string, id: number): Promise<boolean> {
@@ -323,6 +348,123 @@ class Database {
       )
     `);
 
+    // PMS 설정 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS pms_configs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listing_id INT NOT NULL,
+        vendor ENUM('stayntouch', 'opera', 'cloudbeds', 'mews', 'custom') NOT NULL,
+        hotel_id VARCHAR(100) NOT NULL,
+        api_key VARCHAR(500),
+        api_secret VARCHAR(500),
+        api_endpoint VARCHAR(500),
+        webhook_secret VARCHAR(200),
+        settings JSON,
+        is_active BOOLEAN DEFAULT TRUE,
+        last_sync_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_listing (listing_id),
+        INDEX idx_hotel (hotel_id),
+        INDEX idx_vendor (vendor),
+        FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
+      )
+    `);
+
+    // 객실 타입 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS room_types (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listing_id INT NOT NULL,
+        pms_vendor VARCHAR(50),
+        pms_hotel_id VARCHAR(100),
+        pms_room_type_id VARCHAR(100),
+        room_type_id VARCHAR(100) NOT NULL,
+        room_type_name VARCHAR(200) NOT NULL,
+        description TEXT,
+        max_occupancy INT DEFAULT 2,
+        bed_type VARCHAR(100),
+        amenities JSON,
+        base_price DECIMAL(10, 2),
+        currency VARCHAR(10) DEFAULT 'KRW',
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_room_type (listing_id, room_type_id),
+        INDEX idx_listing (listing_id),
+        INDEX idx_active (is_active),
+        FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
+      )
+    `);
+
+    // 객실 미디어 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS room_media (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        room_type_id INT NOT NULL,
+        media_url VARCHAR(500) NOT NULL,
+        media_type ENUM('image', 'video') DEFAULT 'image',
+        caption TEXT,
+        display_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_room_type (room_type_id),
+        INDEX idx_order (room_type_id, display_order),
+        FOREIGN KEY (room_type_id) REFERENCES room_types(id) ON DELETE CASCADE
+      )
+    `);
+
+    // 요금 플랜 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS rate_plans (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listing_id INT,
+        room_type_id INT NOT NULL,
+        pms_rate_plan_id VARCHAR(100),
+        rate_plan_id VARCHAR(100),
+        rate_plan_name VARCHAR(200) NOT NULL,
+        base_price DECIMAL(10, 2),
+        check_date DATE,
+        price DECIMAL(10, 2),
+        currency VARCHAR(10) DEFAULT 'KRW',
+        min_stay INT DEFAULT 1,
+        max_stay INT,
+        is_refundable BOOLEAN DEFAULT TRUE,
+        breakfast_included BOOLEAN DEFAULT FALSE,
+        closed_to_arrival BOOLEAN DEFAULT FALSE,
+        closed_to_departure BOOLEAN DEFAULT FALSE,
+        non_refundable BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_listing (listing_id),
+        INDEX idx_room_type (room_type_id),
+        INDEX idx_date (check_date),
+        INDEX idx_active (is_active),
+        FOREIGN KEY (room_type_id) REFERENCES room_types(id) ON DELETE CASCADE
+      )
+    `);
+
+    // 객실 재고 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS room_inventory (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listing_id INT,
+        room_type_id INT NOT NULL,
+        date DATE NOT NULL,
+        check_date DATE,
+        available INT NOT NULL DEFAULT 0,
+        total INT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_inventory (room_type_id, date),
+        INDEX idx_listing (listing_id),
+        INDEX idx_room_type (room_type_id),
+        INDEX idx_date (date),
+        INDEX idx_check_date (check_date),
+        INDEX idx_available (available),
+        FOREIGN KEY (room_type_id) REFERENCES room_types(id) ON DELETE CASCADE
+      )
+    `);
+
     // 리뷰 테이블
     await this.execute(`
       CREATE TABLE IF NOT EXISTS reviews (
@@ -344,7 +486,9 @@ class Database {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_listing (listing_id),
-        INDEX idx_user (user_id)
+        INDEX idx_user (user_id),
+        FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 
@@ -591,11 +735,18 @@ class Database {
   private async seedBasicData(): Promise<void> {
     console.log('🌱 데이터베이스 시드 시작...');
 
-    // 기본 관리자 계정 생성
-    await this.execute(`
-      INSERT IGNORE INTO users (user_id, email, password_hash, name, phone, role)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, ['admin_shinan', 'admin@shinan.com', 'hashed_admin123', '관리자', '010-0000-0000', 'admin']);
+    // 관리자 계정 생성 (2개)
+    const adminAccounts = [
+      { user_id: 'admin_shinan', email: 'admin@shinan.com', password_hash: 'hashed_admin123', name: '관리자', phone: '010-0000-0000', role: 'admin' },
+      { user_id: 'admin_manager', email: 'manager@shinan.com', password_hash: 'hashed_manager123', name: '매니저', phone: '010-0000-0001', role: 'admin' }
+    ];
+
+    for (const admin of adminAccounts) {
+      await this.execute(`
+        INSERT IGNORE INTO users (user_id, email, password_hash, name, phone, role)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [admin.user_id, admin.email, admin.password_hash, admin.name, admin.phone, admin.role]);
+    }
 
     // 테스트 사용자 계정들 추가
     const testUsers = [

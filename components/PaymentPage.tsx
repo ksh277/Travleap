@@ -64,6 +64,19 @@ export function PaymentPage() {
       return;
     }
 
+    // localStorage에서 숙박 예약 데이터 확인 (AccommodationDetailPage에서 전달)
+    const bookingDataStr = localStorage.getItem('booking_data');
+    if (bookingDataStr) {
+      try {
+        const bookingData = JSON.parse(bookingDataStr);
+        setBooking(bookingData);
+        setLoading(false);
+        return;
+      } catch (error) {
+        console.error('Failed to parse booking_data:', error);
+      }
+    }
+
     // 장바구니 주문인 경우
     if (orderData) {
       setLoading(false);
@@ -84,7 +97,7 @@ export function PaymentPage() {
     try {
       setLoading(true);
       // 실제 API에서는 bookingId로 상세 정보를 가져옴
-      const response = await api.getBooking(bookingId);
+      const response = await api.getBooking(Number(bookingId));
       if (response.success) {
         setBooking(response.data);
       } else {

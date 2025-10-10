@@ -25,15 +25,19 @@ import { RewardsPage } from './components/RewardsPage';
 import { WorkWithUsPage } from './components/WorkWithUsPage';
 import { PlaceGoodsPage } from './components/PlaceGoodsPage';
 import { PartnersDiscountPage } from './components/PartnersDiscountPage';
+import { PartnerDetailPage } from './components/PartnerDetailPage';
 import { AIRecommendationPage } from './components/AIRecommendationPage';
 import { LegalPage } from './components/LegalPage';
 import { AffiliatePage } from './components/AffiliatePage';
 import { DBTestComponent } from './components/DBTestComponent';
+import { RentcarSearchPage } from './components/RentcarSearchPage';
+import { AccommodationDetailPage } from './components/AccommodationDetailPage';
 
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
 import { useCartStore } from './hooks/useCartStore';
 import { db } from './utils/database';
+import { HelmetProvider } from 'react-helmet-async';
 
 // 스크롤 위치 리셋 컴포넌트
 function ScrollToTop() {
@@ -100,13 +104,19 @@ function AppContent() {
           {/* 홈페이지 */}
           <Route path="/" element={<HomePage />} />
 
+          {/* 렌트카 검색 페이지 (카테고리보다 먼저 매칭) */}
+          <Route path="/category/rentcar" element={<RentcarSearchPage />} />
+
           {/* 카테고리 페이지 */}
           <Route path="/category/:category" element={<CategoryPage />} />
 
           {/* 카테고리별 상세 페이지 */}
           <Route path="/categories/:categorySlug" element={<CategoryDetailPage />} />
 
-          {/* 상세페이지 */}
+          {/* 숙박 상세 페이지 (숙박 카테고리용) */}
+          <Route path="/accommodation/:id" element={<AccommodationDetailPage />} />
+
+          {/* 일반 상세페이지 */}
           <Route path="/detail/:id" element={<DetailPage />} />
 
           {/* 검색 결과 */}
@@ -115,6 +125,7 @@ function AppContent() {
           {/* 파트너 관련 */}
           <Route path="/partner" element={<PartnerPage />} />
           <Route path="/partners" element={<PartnersDiscountPage />} />
+          <Route path="/partners/:id" element={<PartnerDetailPage />} />
           <Route path="/franchise" element={<PartnerPage />} />
           <Route path="/partner-apply" element={<PartnerApplyPage />} />
 
@@ -192,8 +203,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <HelmetProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </HelmetProvider>
   );
 }

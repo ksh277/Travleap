@@ -236,7 +236,7 @@ export class RentalcarsConnector implements ICarRentalConnector {
       acriss: v.acriss_code,
       make: v.make,
       model: v.model,
-      transmission: v.transmission === 'A' ? 'Automatic' : 'Manual',
+      transmission: (v.transmission === 'A' ? 'Automatic' : 'Manual') as 'Manual' | 'Automatic',
       fuel: this.mapFuelType(v.fuel),
       seats: v.seats || 5,
       doors: v.doors || 4,

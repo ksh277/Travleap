@@ -222,7 +222,7 @@ export function CartPage() {
     }
 
     try {
-      updateQuantity(id, change);
+      updateQuantity(id, newQuantity);
     } catch (error) {
       toast.error('수량 변경 중 오류가 발생했습니다');
     }
@@ -450,7 +450,7 @@ export function CartPage() {
   return (
     <>
       <Helmet>
-        <title>장바구니 ({cartItems.length}개 상품) - Travleap</title>
+        <title>{`장바구니 (${cartItems.length}개 상품) - Travleap`}</title>
         <meta name="description" content="선택하신 여행 상품을 확인하고 안전하게 결제하세요. 다양한 할인 쿠폰과 무료 배송 혜택을 제공합니다." />
         <meta property="og:title" content="장바구니 - Travleap" />
         <meta property="og:description" content="선택하신 여행 상품을 확인하고 안전하게 결제하세요." />

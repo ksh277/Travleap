@@ -233,15 +233,18 @@ async function handleBookingConfirm(payload: WebhookPayload): Promise<void> {
   // PMS에서 예약이 확정되었음을 알림
   // 우리 시스템의 booking 테이블 업데이트
   if (data.bookingId) {
-    await db.update(
-      'pms_booking_records',
-      { pms_booking_id: data.bookingId },
-      {
-        status: 'confirmed',
-        pms_confirmation_number: data.confirmationNumber,
-        updated_at: new Date().toISOString(),
-      }
-    );
+    const records = await db.select('pms_booking_records', { pms_booking_id: data.bookingId });
+    if (records.length > 0) {
+      await db.update(
+        'pms_booking_records',
+        records[0].id,
+        {
+          status: 'confirmed',
+          pms_confirmation_number: data.confirmationNumber,
+          updated_at: new Date().toISOString(),
+        }
+      );
+    }
   }
 
   console.log(`[Webhook] 예약 확정 처리 완료`);
@@ -257,14 +260,17 @@ async function handleBookingCancel(payload: WebhookPayload): Promise<void> {
 
   // PMS에서 예약이 취소되었음을 알림
   if (data.bookingId) {
-    await db.update(
-      'pms_booking_records',
-      { pms_booking_id: data.bookingId },
-      {
-        status: 'cancelled',
-        updated_at: new Date().toISOString(),
-      }
-    );
+    const records = await db.select('pms_booking_records', { pms_booking_id: data.bookingId });
+    if (records.length > 0) {
+      await db.update(
+        'pms_booking_records',
+        records[0].id,
+        {
+          status: 'cancelled',
+          updated_at: new Date().toISOString(),
+        }
+      );
+    }
 
     // 재고 복구는 PMS가 자동으로 처리하므로 캐시만 무효화
     // (다음 조회 시 PMS에서 최신 재고를 가져옴)
@@ -292,11 +298,10 @@ async function handleRoomUpdate(payload: WebhookPayload): Promise<void> {
     if (data.amenities) updates.amenities = JSON.stringify(data.amenities);
     if (data.maxOccupancy) updates.max_occupancy = data.maxOccupancy;
 
-    await db.update(
-      'room_types',
-      { pms_room_type_id: roomTypeId },
-      updates
-    );
+    const roomTypes = await db.select('room_types', { pms_room_type_id: roomTypeId });
+    if (roomTypes.length > 0) {
+      await db.update('room_types', roomTypes[0].id, updates);
+    }
   }
 
   console.log(`[Webhook] 객실 정보 업데이트 완료`);
@@ -339,7 +344,7 @@ export async function handleWebhookRequest(
     const result = await processWebhookEvent(vendor, payload);
 
     // 5. 처리 결과 업데이트
-    await db.update('pms_webhook_events', { id: eventId }, {
+    await db.update('pms_webhook_events', eventId, {
       processed: result.success,
       processed_at: new Date().toISOString(),
       error_message: result.error,
