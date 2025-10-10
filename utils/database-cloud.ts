@@ -8,11 +8,17 @@ export interface QueryResult {
 }
 
 class CloudDatabase {
-  private apiBase = '/api/db';
+  private getApiBase(): string {
+    // 프로덕션에서는 상대 경로, 로컬에서는 절대 경로
+    if (typeof window === 'undefined') return '/api/db';
+    const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
+    return isProduction ? '/api/db' : 'http://localhost:3004/api/db';
+  }
 
   async execute(sql: string, params: any[] = []): Promise<QueryResult> {
+    const apiBase = this.getApiBase();
     try {
-      const response = await fetch(`${this.apiBase}?action=query`, {
+      const response = await fetch(`${apiBase}?action=query`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -43,8 +49,9 @@ class CloudDatabase {
 
   // SELECT
   async select(table: string, where?: Record<string, any>): Promise<any[]> {
+    const apiBase = this.getApiBase();
     try {
-      const response = await fetch(`${this.apiBase}?action=select`, {
+      const response = await fetch(`${apiBase}?action=select`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -79,8 +86,9 @@ class CloudDatabase {
 
   // INSERT
   async insert(table: string, data: Record<string, any>): Promise<{ id: number; [key: string]: any }> {
+    const apiBase = this.getApiBase();
     try {
-      const response = await fetch(`${this.apiBase}?action=insert`, {
+      const response = await fetch(`${apiBase}?action=insert`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -104,8 +112,9 @@ class CloudDatabase {
 
   // UPDATE
   async update(table: string, id: number, data: Record<string, any>): Promise<boolean> {
+    const apiBase = this.getApiBase();
     try {
-      const response = await fetch(`${this.apiBase}?action=update`, {
+      const response = await fetch(`${apiBase}?action=update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -141,8 +150,9 @@ class CloudDatabase {
 
   // DELETE
   async delete(table: string, id: number): Promise<boolean> {
+    const apiBase = this.getApiBase();
     try {
-      const response = await fetch(`${this.apiBase}?action=delete`, {
+      const response = await fetch(`${apiBase}?action=delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
