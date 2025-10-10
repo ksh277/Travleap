@@ -3610,7 +3610,12 @@ export function AdminPage({}: AdminPageProps) {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            <div>{order.start_date ? new Date(order.start_date).toLocaleDateString() : '-'}</div>
+                            <div>
+                              {order.start_date ? new Date(order.start_date).toLocaleDateString('ko-KR') : '-'}
+                              {order.end_date && order.end_date !== order.start_date && (
+                                <span> ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}</span>
+                              )}
+                            </div>
                             <div className="text-xs text-gray-500">
                               성인 {order.num_adults}명
                               {order.num_children > 0 ? `, 아동 ${order.num_children}명` : ''}
