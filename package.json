@@ -80,6 +80,8 @@
     "react-router-dom": "^7.9.1",
     "react-slick": "^0.29.0",
     "recharts": "^2.15.4",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "sonner": "^2.0.3",
     "sqlite3": "^5.1.7",
     "tailwind-merge": "^1.14.0",

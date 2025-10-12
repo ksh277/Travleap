@@ -3,7 +3,7 @@
 -- 알림 이력 테이블
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS notification_history (
+CREATE TABLE notification_history (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   type VARCHAR(50) NOT NULL,
   channel ENUM('email', 'sms', 'push') NOT NULL,

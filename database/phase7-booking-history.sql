@@ -3,7 +3,7 @@
 -- 예약 상태 변경 이력 테이블
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS rentcar_booking_history (
+CREATE TABLE rentcar_booking_history (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   booking_id BIGINT NOT NULL,
   from_status VARCHAR(50) NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS rentcar_booking_history (
 
 -- 취소 수수료 컬럼 추가 (예약 테이블)
 ALTER TABLE rentcar_bookings
-ADD COLUMN IF NOT EXISTS cancellation_fee_krw DECIMAL(10,2) DEFAULT 0 AFTER discount_krw;
+ADD COLUMN cancellation_fee_krw DECIMAL(10,2) DEFAULT 0 AFTER discount_krw;
 
 -- 상태 컬럼에 새로운 상태 추가
 ALTER TABLE rentcar_bookings

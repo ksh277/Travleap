@@ -4,7 +4,7 @@
 -- ============================================
 
 -- 결제 이력 테이블
-CREATE TABLE IF NOT EXISTS payment_history (
+CREATE TABLE payment_history (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   booking_id BIGINT NOT NULL,
   payment_id VARCHAR(255) NOT NULL UNIQUE,
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS payment_history (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 환불 이력 테이블
-CREATE TABLE IF NOT EXISTS refund_history (
+CREATE TABLE refund_history (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   payment_id VARCHAR(255) NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
@@ -45,4 +45,4 @@ CREATE TABLE IF NOT EXISTS refund_history (
 
 -- 예약 테이블에 결제 상태 컬럼 추가
 ALTER TABLE rentcar_bookings
-ADD COLUMN IF NOT EXISTS payment_status ENUM('pending', 'paid', 'failed', 'refunded') DEFAULT 'pending' AFTER status;
+ADD COLUMN payment_status ENUM('pending', 'paid', 'failed', 'refunded') DEFAULT 'pending' AFTER status;
