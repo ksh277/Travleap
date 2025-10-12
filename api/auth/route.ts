@@ -4,6 +4,7 @@
  * POST /api/auth?action=login - 로그인
  */
 
+// @ts-ignore - Next.js types not installed in Vite project
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '../../utils/database-cloud';
@@ -200,7 +201,7 @@ async function handleLogin(request: NextRequest) {
           email: 'admin@shinan.com',
           name: '관리자',
           phone: '010-0000-0000',
-          role: 'admin',
+          role: 'admin' as const,
           is_active: true,
           preferred_language: 'ko',
           preferred_currency: 'KRW',
