@@ -102,6 +102,9 @@ export const RentcarManagement: React.FC = () => {
   const [locations, setLocations] = useState<RentcarLocation[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<RentcarLocation | null>(null);
   const [isLocationDialogOpen, setIsLocationDialogOpen] = useState(false);
+  const [locationSearchQuery, setLocationSearchQuery] = useState('');
+  const [locationCurrentPage, setLocationCurrentPage] = useState(1);
+  const [locationItemsPerPage] = useState(10);
   const [locationFormData, setLocationFormData] = useState<RentcarLocationFormData>({
     location_code: '',
     name: '',
@@ -118,6 +121,9 @@ export const RentcarManagement: React.FC = () => {
 
   // State for bookings
   const [bookings, setBookings] = useState<RentcarBooking[]>([]);
+  const [bookingSearchQuery, setBookingSearchQuery] = useState('');
+  const [bookingCurrentPage, setBookingCurrentPage] = useState(1);
+  const [bookingItemsPerPage] = useState(10);
 
   // State for filters
   const [vendorFilter, setVendorFilter] = useState<number | null>(null);
@@ -1047,6 +1053,20 @@ export const RentcarManagement: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="지점명, 도시, 주소 검색..."
+                  className="pl-10"
+                  value={locationSearchQuery}
+                  onChange={(e) => {
+                    setLocationSearchQuery(e.target.value);
+                    setLocationCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -1064,7 +1084,17 @@ export const RentcarManagement: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {locations.map((location) => (
+                  {(() => {
+                    const filtered = locations.filter(location =>
+                      location.name?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
+                      location.city?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
+                      location.address?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
+                      location.location_code?.toLowerCase().includes(locationSearchQuery.toLowerCase())
+                    );
+                    const startIndex = (locationCurrentPage - 1) * locationItemsPerPage;
+                    const paginatedLocations = filtered.slice(startIndex, startIndex + locationItemsPerPage);
+
+                    return paginatedLocations.map((location) => (
                     <TableRow key={location.id}>
                       <TableCell className="font-medium">{location.location_code}</TableCell>
                       <TableCell>{location.name}</TableCell>
@@ -1098,10 +1128,39 @@ export const RentcarManagement: React.FC = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ));
+                  })()}
                 </TableBody>
               </Table>
             </div>
+
+            {/* 페이지네이션 */}
+            {(() => {
+              const filtered = locations.filter(location =>
+                location.name?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
+                location.city?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
+                location.address?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
+                location.location_code?.toLowerCase().includes(locationSearchQuery.toLowerCase())
+              );
+              const totalPages = Math.ceil(filtered.length / locationItemsPerPage);
+              if (totalPages <= 1) return null;
+
+              return (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-600">
+                    총 {filtered.length}개 지점 (페이지 {locationCurrentPage} / {totalPages})
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setLocationCurrentPage(prev => Math.max(1, prev - 1))} disabled={locationCurrentPage === 1}>이전</Button>
+                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                      let pageNum = totalPages <= 5 ? i + 1 : locationCurrentPage <= 3 ? i + 1 : locationCurrentPage >= totalPages - 2 ? totalPages - 4 + i : locationCurrentPage - 2 + i;
+                      return <Button key={pageNum} variant={locationCurrentPage === pageNum ? "default" : "outline"} size="sm" onClick={() => setLocationCurrentPage(pageNum)} className={locationCurrentPage === pageNum ? "bg-[#8B5FBF] hover:bg-[#7A4FB5]" : ""}>{pageNum}</Button>;
+                    })}
+                    <Button variant="outline" size="sm" onClick={() => setLocationCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={locationCurrentPage === totalPages}>다음</Button>
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </TabsContent>
