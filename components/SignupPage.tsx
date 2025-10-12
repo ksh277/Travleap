@@ -30,7 +30,27 @@ export function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }));
+    let value = e.target.value;
+
+    // 전화번호 필드는 숫자만 입력 가능 + 자동 포맷팅
+    if (field === 'phone') {
+      // 숫자만 추출
+      value = value.replace(/[^0-9]/g, '');
+
+      // 자동 하이픈 추가 (010-1234-5678 형식)
+      if (value.length <= 3) {
+        value = value;
+      } else if (value.length <= 7) {
+        value = value.slice(0, 3) + '-' + value.slice(3);
+      } else if (value.length <= 11) {
+        value = value.slice(0, 3) + '-' + value.slice(3, 7) + '-' + value.slice(7);
+      } else {
+        value = value.slice(0, 3) + '-' + value.slice(3, 7) + '-' + value.slice(7, 11);
+      }
+    }
+
+    setFormData(prev => ({ ...prev, [field]: value }));
+
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -60,12 +80,26 @@ export function SignupPage() {
 
     if (!formData.phone.trim()) {
       newErrors.phone = t('phoneRequired', 'ko');
+    } else {
+      // 전화번호 형식 검증 (010-1234-5678 또는 01012345678)
+      const phoneDigits = formData.phone.replace(/[^0-9]/g, '');
+      if (phoneDigits.length !== 11) {
+        newErrors.phone = '올바른 전화번호 형식을 입력해주세요 (11자리)';
+      } else if (!phoneDigits.startsWith('010')) {
+        newErrors.phone = '010으로 시작하는 번호를 입력해주세요';
+      }
     }
 
     if (!formData.password) {
       newErrors.password = t('passwordRequired', 'ko');
-    } else if (formData.password.length < 6) {
-      newErrors.password = '비밀번호는 최소 6자 이상이어야 합니다';
+    } else if (formData.password.length < 8) {
+      newErrors.password = '비밀번호는 최소 8자 이상이어야 합니다';
+    } else if (!/[A-Z]/.test(formData.password)) {
+      newErrors.password = '비밀번호는 대문자를 1개 이상 포함해야 합니다';
+    } else if (!/[a-z]/.test(formData.password)) {
+      newErrors.password = '비밀번호는 소문자를 1개 이상 포함해야 합니다';
+    } else if (!/[0-9]/.test(formData.password)) {
+      newErrors.password = '비밀번호는 숫자를 1개 이상 포함해야 합니다';
     }
 
     if (!formData.confirmPassword) {
@@ -309,13 +343,19 @@ export function SignupPage() {
                 type="tel"
                 value={formData.phone}
                 onChange={handleInputChange('phone')}
-                placeholder={`${t('phone', 'ko')}*`}
+                placeholder="전화번호* (예: 010-1234-5678)"
+                maxLength={13}
                 className={`w-full px-3 py-2.5 border rounded-md text-sm ${
                   errors.phone ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
               {errors.phone && (
                 <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
+              )}
+              {!errors.phone && formData.phone && (
+                <p className="text-gray-500 text-xs mt-1">
+                  ✓ 숫자만 입력하세요. 자동으로 포맷팅됩니다.
+                </p>
               )}
             </div>
 
@@ -325,13 +365,31 @@ export function SignupPage() {
                 type="password"
                 value={formData.password}
                 onChange={handleInputChange('password')}
-                placeholder={`${t('password', 'ko')}*`}
+                placeholder="비밀번호* (8자 이상, 영문 대소문자, 숫자 포함)"
                 className={`w-full px-3 py-2.5 border rounded-md text-sm ${
                   errors.password ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
               {errors.password && (
                 <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+              )}
+              {!errors.password && formData.password && (
+                <div className="mt-1 space-y-1">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className={formData.password.length >= 8 ? 'text-green-600' : 'text-gray-400'}>
+                      {formData.password.length >= 8 ? '✓' : '○'} 8자 이상
+                    </span>
+                    <span className={/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}>
+                      {/[A-Z]/.test(formData.password) ? '✓' : '○'} 대문자
+                    </span>
+                    <span className={/[a-z]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}>
+                      {/[a-z]/.test(formData.password) ? '✓' : '○'} 소문자
+                    </span>
+                    <span className={/[0-9]/.test(formData.password) ? 'text-green-600' : 'text-gray-400'}>
+                      {/[0-9]/.test(formData.password) ? '✓' : '○'} 숫자
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
 

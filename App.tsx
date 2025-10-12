@@ -35,6 +35,8 @@ import { AccommodationDetailPage } from './components/AccommodationDetailPage';
 import { VendorRegistrationPage } from './components/VendorRegistrationPage';
 import { VendorDashboardPage } from './components/VendorDashboardPage';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
+import PaymentSuccessPage from './components/PaymentSuccessPage';
+import PaymentFailPage from './components/PaymentFailPage';
 
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
@@ -137,6 +139,8 @@ function AppContent() {
 
           {/* 결제 페이지 */}
           <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/payment/success" element={<PaymentSuccessPage />} />
+          <Route path="/payment/fail" element={<PaymentFailPage />} />
 
           {/* 보호된 라우트 - 로그인 필요 */}
           <Route path="/mypage" element={

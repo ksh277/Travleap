@@ -21,7 +21,9 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "start": "vite preview --port 3000",
-    "typecheck": "npx tsc --noEmit"
+    "typecheck": "npx tsc --noEmit",
+    "ws": "node server/websocket-server.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run ws\""
   },
   "dependencies": {
     "@planetscale/database": "^1.19.0",
