@@ -458,22 +458,71 @@ export const RentcarManagement: React.FC = () => {
       'thumbnail_image_url', 'images', 'features'
     ];
 
-    const example = [
-      'CAR001', '현대', '아반떼', '2024', '현대 아반떼 2024',
-      'compact', '세단', 'gasoline', 'automatic',
-      '5', '4', '2',
-      '50000', '100000',
-      '1종 보통 1년 이상', '21', '200',
-      'false', 'false',
-      'https://example.com/image.jpg', 'https://img1.jpg|https://img2.jpg', '블루투스|후방카메라|크루즈컨트롤'
+    const examples = [
+      // 예시 1: 소형 세단
+      [
+        'AVANTE2024', '현대', '아반떼', '2024', '현대 아반떼 2024',
+        'compact', '세단', 'gasoline', 'automatic',
+        '5', '4', '2',
+        '50000', '100000',
+        '1종 보통 1년 이상', '21', '200',
+        'false', 'false',
+        'https://example.com/avante.jpg', 'https://img1.jpg|https://img2.jpg', '블루투스|후방카메라|크루즈컨트롤|열선시트'
+      ],
+      // 예시 2: 중형 SUV
+      [
+        'TUCSON2024', '현대', '투싼', '2024', '현대 투싼 하이브리드',
+        'suv', 'SUV', 'hybrid', 'automatic',
+        '5', '4', '3',
+        '80000', '150000',
+        '2종 보통', '23', '250',
+        'false', 'false',
+        'https://example.com/tucson.jpg', '', '사각지대경고|스마트크루즈|파노라마선루프|전동시트'
+      ],
+      // 예시 3: 고급 세단
+      [
+        'GENESIS2024', '제네시스', 'G80', '2024', '제네시스 G80 3.5',
+        'luxury', '세단', 'gasoline', 'automatic',
+        '5', '4', '3',
+        '150000', '300000',
+        '1종 보통 3년 이상', '26', '',
+        'true', 'false',
+        'https://example.com/g80.jpg', '', '어댑티브크루즈|HUD|마사지시트|Bang&Olufsen|자율주행2단계'
+      ],
+      // 예시 4: 전기차
+      [
+        'IONIQ5', '현대', '아이오닉5', '2024', '현대 아이오닉5 롱레인지',
+        'electric', 'SUV', 'electric', 'automatic',
+        '5', '4', '2',
+        '90000', '200000',
+        '2종 보통', '21', '',
+        'true', 'false',
+        'https://example.com/ioniq5.jpg', '', 'V2L|급속충전|열펌프시스템|원격주차'
+      ],
+      // 예시 5: 승합차
+      [
+        'CARNIVAL2024', '기아', '카니발', '2024', '기아 카니발 11인승',
+        'van', '승합', 'diesel', 'automatic',
+        '11', '4', '4',
+        '120000', '200000',
+        '1종 보통', '26', '300',
+        'false', 'false',
+        'https://example.com/carnival.jpg', '', '듀얼선루프|전좌석통풍|후석모니터|빌트인캠'
+      ]
     ];
 
-    const csv = [headers.join(','), example.join(',')].join('\n');
+    const csv = [
+      headers.join(','),
+      ...examples.map(ex => ex.join(','))
+    ].join('\n');
+
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'rentcar_vehicle_template.csv';
+    link.download = 'rentcar_vehicle_template_5examples.csv';
     link.click();
+
+    toast.success('CSV 템플릿이 다운로드되었습니다 (5개 예시 포함)');
   };
 
   const handleToggleVehicleActive = async (id: number, isActive: boolean) => {
@@ -1394,22 +1443,64 @@ export const RentcarManagement: React.FC = () => {
             <DialogTitle>CSV 대량 업로드</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold mb-2">📋 CSV 파일 형식 안내</h4>
-              <ul className="text-sm space-y-1 text-gray-700">
-                <li>• 첫 번째 줄은 헤더(컬럼명)여야 합니다</li>
-                <li>• 여러 이미지나 특징은 | (파이프) 문자로 구분하세요</li>
-                <li>• 예: <code className="bg-white px-1">https://img1.jpg|https://img2.jpg</code></li>
-                <li>• 템플릿 다운로드 버튼을 눌러 예시를 확인하세요</li>
-              </ul>
+            <div className="bg-blue-50 p-4 rounded-lg space-y-3">
+              <div>
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5" />
+                  CSV 파일 형식 안내
+                </h4>
+                <ul className="text-sm space-y-1 text-gray-700">
+                  <li>• 첫 번째 줄은 반드시 헤더(컬럼명)여야 합니다</li>
+                  <li>• 영어 또는 한글 헤더 모두 지원 (예: vehicle_code 또는 차량코드)</li>
+                  <li>• 여러 이미지나 특징은 <code className="bg-white px-1 font-bold">|</code> (파이프) 문자로 구분</li>
+                  <li>• 필수 항목: 차량코드, 브랜드, 모델, 일일요금</li>
+                </ul>
+              </div>
+
+              <div className="bg-white p-3 rounded border">
+                <p className="font-semibold text-sm mb-2">📌 필수 컬럼 (영어/한글)</p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><Badge variant="outline">vehicle_code</Badge> 또는 <Badge variant="outline">차량코드</Badge></div>
+                  <div><Badge variant="outline">brand</Badge> 또는 <Badge variant="outline">브랜드</Badge></div>
+                  <div><Badge variant="outline">model</Badge> 또는 <Badge variant="outline">모델</Badge></div>
+                  <div><Badge variant="outline">daily_rate_krw</Badge> 또는 <Badge variant="outline">일일요금</Badge></div>
+                </div>
+              </div>
+
+              <div className="bg-white p-3 rounded border">
+                <p className="font-semibold text-sm mb-2">📋 선택 컬럼</p>
+                <div className="text-xs space-y-1 text-gray-600">
+                  <p><strong>기본:</strong> year(연식), display_name(차량명), vehicle_type(차량타입)</p>
+                  <p><strong>사양:</strong> vehicle_class(클래스), fuel_type(연료), transmission(변속기)</p>
+                  <p><strong>용량:</strong> seating_capacity(승차인원), door_count(문수), luggage_capacity(트렁크)</p>
+                  <p><strong>가격:</strong> deposit_amount_krw(보증금)</p>
+                  <p><strong>조건:</strong> license_requirement(면허), age_requirement(최소나이)</p>
+                  <p><strong>주행:</strong> mileage_limit_per_day(주행제한), unlimited_mileage(무제한주행: true/false)</p>
+                  <p><strong>기타:</strong> smoking_allowed(흡연: true/false)</p>
+                  <p><strong>이미지:</strong> thumbnail_image_url(썸네일), images(추가이미지들, | 구분)</p>
+                  <p><strong>특징:</strong> features(특징들, | 구분)</p>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
+                <p className="text-sm font-semibold mb-1">⚠️ 중요</p>
+                <ul className="text-xs space-y-1 text-gray-700">
+                  <li>• 비어있는 컬럼은 기본값으로 자동 설정됩니다</li>
+                  <li>• vehicle_class: compact, sedan, suv, luxury, van, truck, electric</li>
+                  <li>• fuel_type: gasoline, diesel, electric, hybrid</li>
+                  <li>• transmission: automatic, manual</li>
+                  <li>• true/false 값: true, 1, yes → true / 나머지 → false</li>
+                </ul>
+              </div>
+
               <Button
                 variant="outline"
                 size="sm"
-                className="mt-3"
+                className="w-full"
                 onClick={downloadCsvTemplate}
               >
                 <Download className="h-4 w-4 mr-2" />
-                템플릿 다운로드
+                📥 CSV 템플릿 다운로드 (예시 포함)
               </Button>
             </div>
 
