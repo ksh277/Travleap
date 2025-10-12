@@ -23,7 +23,10 @@ import {
   Users,
   Star,
   Check,
-  X
+  X,
+  Upload,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { rentcarApi } from '../../utils/rentcar-api';
@@ -63,6 +66,9 @@ export const RentcarManagement: React.FC = () => {
   const [vehicles, setVehicles] = useState<RentcarVehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<RentcarVehicle | null>(null);
   const [isVehicleDialogOpen, setIsVehicleDialogOpen] = useState(false);
+  const [isCsvUploadDialogOpen, setIsCsvUploadDialogOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvPreview, setCsvPreview] = useState<any[]>([]);
   const [vehicleFormData, setVehicleFormData] = useState<RentcarVehicleFormData>({
     vehicle_code: '',
     brand: '',
@@ -340,6 +346,134 @@ export const RentcarManagement: React.FC = () => {
     } else {
       toast.error(response.error || '차량 삭제에 실패했습니다.');
     }
+  };
+
+  // CSV 업로드 관련 함수
+  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCsvFile(file);
+      parseCsvFile(file);
+    }
+  };
+
+  const parseCsvFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split('\n').filter(line => line.trim());
+
+      if (lines.length < 2) {
+        toast.error('CSV 파일에 데이터가 없습니다.');
+        return;
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim());
+      const rows = lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim());
+        const row: any = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        return row;
+      });
+
+      setCsvPreview(rows);
+      toast.success(`${rows.length}개 차량 데이터를 읽었습니다.`);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCsvUpload = async () => {
+    if (!vendorFilter) {
+      toast.error('벤더를 먼저 선택해주세요.');
+      return;
+    }
+
+    if (csvPreview.length === 0) {
+      toast.error('업로드할 데이터가 없습니다.');
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of csvPreview) {
+        try {
+          const vehicleData: RentcarVehicleFormData = {
+            vehicle_code: row['vehicle_code'] || row['차량코드'] || `AUTO-${Date.now()}`,
+            brand: row['brand'] || row['브랜드'] || '',
+            model: row['model'] || row['모델'] || '',
+            year: parseInt(row['year'] || row['연식']) || new Date().getFullYear(),
+            display_name: row['display_name'] || row['차량명'] || `${row['brand']} ${row['model']}`,
+            vehicle_class: (row['vehicle_class'] || row['차량클래스'] || 'compact') as VehicleClass,
+            vehicle_type: row['vehicle_type'] || row['차량타입'] || '',
+            fuel_type: (row['fuel_type'] || row['연료타입'] || 'gasoline') as FuelType,
+            transmission: (row['transmission'] || row['변속기'] || 'automatic') as TransmissionType,
+            seating_capacity: parseInt(row['seating_capacity'] || row['승차인원']) || 5,
+            door_count: parseInt(row['door_count'] || row['문수']) || 4,
+            luggage_capacity: parseInt(row['luggage_capacity'] || row['트렁크']) || 2,
+            daily_rate_krw: parseInt(row['daily_rate_krw'] || row['일일요금']) || 50000,
+            deposit_amount_krw: parseInt(row['deposit_amount_krw'] || row['보증금']) || 100000,
+            license_requirement: row['license_requirement'] || row['면허조건'] || '',
+            age_requirement: parseInt(row['age_requirement'] || row['최소나이']) || 21,
+            mileage_limit_per_day: parseInt(row['mileage_limit_per_day'] || row['주행제한']) || 200,
+            unlimited_mileage: (row['unlimited_mileage'] || row['무제한주행']) === 'true' || (row['unlimited_mileage'] || row['무제한주행']) === '1',
+            smoking_allowed: (row['smoking_allowed'] || row['흡연허용']) === 'true' || (row['smoking_allowed'] || row['흡연허용']) === '1',
+            thumbnail_image_url: row['thumbnail_image_url'] || row['이미지'] || '',
+            images: row['images'] ? row['images'].split('|').map((s: string) => s.trim()) : [],
+            features: row['features'] || row['특징'] ? (row['features'] || row['특징']).split('|').map((s: string) => s.trim()) : []
+          };
+
+          const response = await rentcarApi.vehicles.create(vendorFilter, vehicleData);
+          if (response.success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (error) {
+          errorCount++;
+        }
+      }
+
+      toast.success(`업로드 완료: 성공 ${successCount}개, 실패 ${errorCount}개`);
+      loadVehicles();
+      setIsCsvUploadDialogOpen(false);
+      setCsvFile(null);
+      setCsvPreview([]);
+    } catch (error) {
+      toast.error('CSV 업로드 중 오류가 발생했습니다.');
+    }
+  };
+
+  const downloadCsvTemplate = () => {
+    const headers = [
+      'vehicle_code', 'brand', 'model', 'year', 'display_name',
+      'vehicle_class', 'vehicle_type', 'fuel_type', 'transmission',
+      'seating_capacity', 'door_count', 'luggage_capacity',
+      'daily_rate_krw', 'deposit_amount_krw',
+      'license_requirement', 'age_requirement', 'mileage_limit_per_day',
+      'unlimited_mileage', 'smoking_allowed',
+      'thumbnail_image_url', 'images', 'features'
+    ];
+
+    const example = [
+      'CAR001', '현대', '아반떼', '2024', '현대 아반떼 2024',
+      'compact', '세단', 'gasoline', 'automatic',
+      '5', '4', '2',
+      '50000', '100000',
+      '1종 보통 1년 이상', '21', '200',
+      'false', 'false',
+      'https://example.com/image.jpg', 'https://img1.jpg|https://img2.jpg', '블루투스|후방카메라|크루즈컨트롤'
+    ];
+
+    const csv = [headers.join(','), example.join(',')].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'rentcar_vehicle_template.csv';
+    link.click();
   };
 
   const handleToggleVehicleActive = async (id: number, isActive: boolean) => {
@@ -624,6 +758,14 @@ export const RentcarManagement: React.FC = () => {
                   </SelectContent>
                 </Select>
                 <Button
+                  variant="outline"
+                  onClick={() => setIsCsvUploadDialogOpen(true)}
+                  disabled={!vendorFilter}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  CSV 대량 업로드
+                </Button>
+                <Button
                   className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
                   onClick={() => handleOpenVehicleDialog()}
                   disabled={!vendorFilter}
@@ -645,9 +787,7 @@ export const RentcarManagement: React.FC = () => {
                     <TableHead>모델</TableHead>
                     <TableHead>연식</TableHead>
                     <TableHead>클래스</TableHead>
-                    <TableHead>연료</TableHead>
-                    <TableHead>변속기</TableHead>
-                    <TableHead>승차인원</TableHead>
+                    <TableHead>특징</TableHead>
                     <TableHead>일일 요금</TableHead>
                     <TableHead>상태</TableHead>
                     <TableHead>작업</TableHead>
@@ -662,9 +802,24 @@ export const RentcarManagement: React.FC = () => {
                       <TableCell>{vehicle.model}</TableCell>
                       <TableCell>{vehicle.year}</TableCell>
                       <TableCell>{getVehicleClassLabel(vehicle.vehicle_class)}</TableCell>
-                      <TableCell>{getFuelTypeLabel(vehicle.fuel_type)}</TableCell>
-                      <TableCell>{getTransmissionLabel(vehicle.transmission)}</TableCell>
-                      <TableCell>{vehicle.seating_capacity}명</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {vehicle.features && vehicle.features.length > 0 ? (
+                            vehicle.features.slice(0, 3).map((feature, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {feature}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                          {vehicle.features && vehicle.features.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{vehicle.features.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>₩{vehicle.daily_rate_krw.toLocaleString()}</TableCell>
                       <TableCell>
                         <Badge className={vehicle.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
@@ -1226,6 +1381,106 @@ export const RentcarManagement: React.FC = () => {
               </Button>
               <Button className="bg-[#8B5FBF] hover:bg-[#7A4FB5]" onClick={handleSaveVehicle}>
                 저장
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Upload Dialog */}
+      <Dialog open={isCsvUploadDialogOpen} onOpenChange={setIsCsvUploadDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>CSV 대량 업로드</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-semibold mb-2">📋 CSV 파일 형식 안내</h4>
+              <ul className="text-sm space-y-1 text-gray-700">
+                <li>• 첫 번째 줄은 헤더(컬럼명)여야 합니다</li>
+                <li>• 여러 이미지나 특징은 | (파이프) 문자로 구분하세요</li>
+                <li>• 예: <code className="bg-white px-1">https://img1.jpg|https://img2.jpg</code></li>
+                <li>• 템플릿 다운로드 버튼을 눌러 예시를 확인하세요</li>
+              </ul>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={downloadCsvTemplate}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                템플릿 다운로드
+              </Button>
+            </div>
+
+            <div>
+              <Label>CSV 파일 선택</Label>
+              <div className="mt-2">
+                <Input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCsvFileChange}
+                />
+              </div>
+            </div>
+
+            {csvPreview.length > 0 && (
+              <div>
+                <Label>미리보기 ({csvPreview.length}개 차량)</Label>
+                <div className="mt-2 border rounded-lg overflow-hidden">
+                  <div className="max-h-96 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>차량코드</TableHead>
+                          <TableHead>브랜드</TableHead>
+                          <TableHead>모델</TableHead>
+                          <TableHead>연식</TableHead>
+                          <TableHead>클래스</TableHead>
+                          <TableHead>일일요금</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {csvPreview.slice(0, 10).map((row, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{row['vehicle_code'] || row['차량코드']}</TableCell>
+                            <TableCell>{row['brand'] || row['브랜드']}</TableCell>
+                            <TableCell>{row['model'] || row['모델']}</TableCell>
+                            <TableCell>{row['year'] || row['연식']}</TableCell>
+                            <TableCell>{row['vehicle_class'] || row['차량클래스']}</TableCell>
+                            <TableCell>{row['daily_rate_krw'] || row['일일요금']}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    {csvPreview.length > 10 && (
+                      <div className="text-center text-sm text-gray-500 py-2 bg-gray-50">
+                        ...외 {csvPreview.length - 10}개 차량 더보기
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsCsvUploadDialogOpen(false);
+                  setCsvFile(null);
+                  setCsvPreview([]);
+                }}
+              >
+                취소
+              </Button>
+              <Button
+                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                onClick={handleCsvUpload}
+                disabled={csvPreview.length === 0}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                업로드 ({csvPreview.length}개)
               </Button>
             </div>
           </div>
