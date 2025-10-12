@@ -5,6 +5,8 @@
 import { db } from './database-cloud';
 import { cache, CacheKeys, CacheInvalidation } from './cache';
 import { AppError, RentcarErrors, handleDatabaseError, formatErrorResponse, catchAsync } from './error-handler';
+import { validate, VendorSchema, LocationSchema, VehicleSchema, BookingSchema, RatePlanSchema } from './rentcar-validation';
+import { rentcarLogger, logDatabaseQuery } from './logger';
 import type {
   RentcarVendor,
   RentcarVendorFormData,
@@ -130,6 +132,13 @@ export const rentcarVendorApi = {
   // 벤더 생성
   create: async (data: RentcarVendorFormData): Promise<RentcarApiResponse<RentcarVendor>> => {
     try {
+      // 입력 검증
+      const validatedData = validate(VendorSchema, data);
+
+      rentcarLogger.info('Creating vendor', { vendor_code: validatedData.vendor_code });
+
+      const logDbEnd = logDatabaseQuery('INSERT', 'rentcar_vendors');
+
       const result = await db.execute(`
         INSERT INTO rentcar_vendors (
           vendor_code, business_name, brand_name, business_number,
@@ -137,17 +146,19 @@ export const rentcarVendorApi = {
           commission_rate, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
       `, [
-        data.vendor_code,
-        data.business_name,
-        data.brand_name || null,
-        data.business_number || null,
-        data.contact_name,
-        data.contact_email,
-        data.contact_phone,
-        data.description || null,
-        data.logo_url || null,
-        data.commission_rate || 15.00
+        validatedData.vendor_code,
+        validatedData.business_name,
+        validatedData.brand_name || null,
+        validatedData.business_number || null,
+        validatedData.contact_name,
+        validatedData.contact_email,
+        validatedData.contact_phone,
+        validatedData.description || null,
+        validatedData.logo_url || null,
+        validatedData.commission_rate || 15.00
       ]);
+
+      logDbEnd(result);
 
       const newVendor = await rentcarVendorApi.getById(result.insertId!);
 
@@ -155,13 +166,36 @@ export const rentcarVendorApi = {
       cache.delete(CacheKeys.vendorList());
       cache.delete(CacheKeys.adminStats());
 
+      rentcarLogger.info('Vendor created successfully', { vendorId: result.insertId });
+
       return {
         success: true,
         data: newVendor.data,
         message: '벤더가 성공적으로 등록되었습니다.'
       };
-    } catch (error) {
-      console.error('Failed to create vendor:', error);
+    } catch (error: any) {
+      // 데이터베이스 에러 처리
+      if (error.code) {
+        const dbError = handleDatabaseError(error);
+        rentcarLogger.error('Failed to create vendor (DB error)', dbError);
+        return {
+          success: false,
+          error: dbError.userMessage
+        };
+      }
+
+      // AppError (검증 에러 등)
+      if (error instanceof AppError) {
+        rentcarLogger.error('Failed to create vendor (Validation error)', error);
+        return {
+          success: false,
+          error: error.userMessage,
+          field: error.field
+        };
+      }
+
+      // 예상치 못한 에러
+      rentcarLogger.error('Failed to create vendor (Unknown error)', error);
       return {
         success: false,
         error: '벤더 등록에 실패했습니다.'
@@ -977,6 +1011,118 @@ export const rentcarStatsApi = {
       return {
         success: false,
         error: '통계 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  // 대시보드용 상세 통계 (시계열, 차량 분포, 벤더 실적)
+  getDashboardStats: async (dateRange: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<RentcarApiResponse<any>> => {
+    try {
+      const cacheKey = `rentcar:stats:dashboard:${dateRange}`;
+      const cached = cache.get<RentcarApiResponse<any>>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
+      // 날짜 범위 계산
+      const daysMap = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 };
+      const days = daysMap[dateRange];
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      const startDateStr = startDate.toISOString().split('T')[0];
+
+      // 1. 기본 통계
+      const basicStats = await db.query(`
+        SELECT
+          (SELECT COUNT(*) FROM rentcar_vendors) as total_vendors,
+          (SELECT COUNT(*) FROM rentcar_vendors WHERE status = 'active') as active_vendors,
+          (SELECT COUNT(*) FROM rentcar_vehicles) as total_vehicles,
+          (SELECT COUNT(*) FROM rentcar_vehicles WHERE is_active = 1) as active_vehicles,
+          (SELECT COUNT(*) FROM rentcar_bookings WHERE created_at >= ?) as total_bookings,
+          (SELECT COUNT(*) FROM rentcar_bookings WHERE status = 'confirmed' AND created_at >= ?) as confirmed_bookings,
+          (SELECT COALESCE(SUM(total_krw), 0) FROM rentcar_bookings WHERE payment_status = 'paid' AND created_at >= ?) as total_revenue
+      `, [startDateStr, startDateStr, startDateStr]);
+
+      // 2. 이전 기간 대비 성장률 계산
+      const prevStartDate = new Date(startDate);
+      prevStartDate.setDate(prevStartDate.getDate() - days);
+      const prevStartDateStr = prevStartDate.toISOString().split('T')[0];
+
+      const prevStats = await db.query(`
+        SELECT
+          (SELECT COUNT(*) FROM rentcar_bookings WHERE created_at >= ? AND created_at < ?) as prev_bookings,
+          (SELECT COALESCE(SUM(total_krw), 0) FROM rentcar_bookings WHERE payment_status = 'paid' AND created_at >= ? AND created_at < ?) as prev_revenue
+      `, [prevStartDateStr, startDateStr, prevStartDateStr, startDateStr]);
+
+      const currentBookings = basicStats[0].total_bookings || 0;
+      const prevBookings = prevStats[0].prev_bookings || 1;
+      const bookingGrowth = ((currentBookings - prevBookings) / prevBookings * 100).toFixed(1);
+
+      const currentRevenue = basicStats[0].total_revenue || 0;
+      const prevRevenue = prevStats[0].prev_revenue || 1;
+      const revenueGrowth = ((currentRevenue - prevRevenue) / prevRevenue * 100).toFixed(1);
+
+      // 3. 시계열 데이터 (일별)
+      const timeSeries = await db.query(`
+        SELECT
+          DATE(created_at) as date,
+          COUNT(*) as bookings,
+          COALESCE(SUM(total_krw), 0) as revenue
+        FROM rentcar_bookings
+        WHERE created_at >= ?
+        GROUP BY DATE(created_at)
+        ORDER BY date ASC
+      `, [startDateStr]);
+
+      // 4. 차량 등급별 분포
+      const vehicleClassData = await db.query(`
+        SELECT
+          vehicle_class as class,
+          COUNT(*) as count,
+          ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM rentcar_vehicles), 1) as percentage
+        FROM rentcar_vehicles
+        GROUP BY vehicle_class
+        ORDER BY count DESC
+      `);
+
+      // 5. 벤더별 실적 TOP 5
+      const vendorPerformance = await db.query(`
+        SELECT
+          v.business_name as vendorName,
+          COUNT(b.id) as bookings,
+          COALESCE(SUM(b.total_krw), 0) as revenue
+        FROM rentcar_vendors v
+        LEFT JOIN rentcar_bookings b ON v.id = b.vendor_id AND b.created_at >= ?
+        GROUP BY v.id, v.business_name
+        ORDER BY revenue DESC
+        LIMIT 5
+      `, [startDateStr]);
+
+      const result = {
+        success: true,
+        data: {
+          stats: {
+            ...basicStats[0],
+            bookingGrowth: parseFloat(bookingGrowth),
+            revenueGrowth: parseFloat(revenueGrowth)
+          },
+          timeSeriesData: timeSeries,
+          vehicleClassData: vehicleClassData,
+          vendorPerformance: vendorPerformance
+        }
+      };
+
+      // 캐시 저장 (2분)
+      cache.set(cacheKey, result, 2 * 60 * 1000);
+
+      rentcarLogger.info('Dashboard stats retrieved', { dateRange, dataPoints: timeSeries.length });
+
+      return result;
+    } catch (error: any) {
+      rentcarLogger.error('Failed to fetch dashboard stats', error);
+      return {
+        success: false,
+        error: '대시보드 통계 조회에 실패했습니다.'
       };
     }
   },

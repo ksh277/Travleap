@@ -85,11 +85,44 @@ export function RentcarStatsDashboard() {
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      // TODO: 실제 API 호출로 대체
-      // const response = await rentcarApi.stats.getDashboard(dateRange);
+      // 실제 API 호출
+      const { rentcarApi } = await import('../../utils/rentcar-api');
+      const response = await rentcarApi.stats.getDashboardStats(dateRange);
 
-      // Mock 데이터
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Failed to load dashboard data');
+      }
+
+      const { stats: statsData, timeSeriesData: timeSeries, vehicleClassData: vehicleClass, vendorPerformance: vendors } = response.data;
+
+      // 통계 데이터 설정
       setStats({
+        totalVendors: statsData.total_vendors || 0,
+        activeVendors: statsData.active_vendors || 0,
+        totalVehicles: statsData.total_vehicles || 0,
+        activeVehicles: statsData.active_vehicles || 0,
+        totalBookings: statsData.total_bookings || 0,
+        confirmedBookings: statsData.confirmed_bookings || 0,
+        totalRevenue: statsData.total_revenue || 0,
+        revenueGrowth: statsData.revenueGrowth || 0,
+        bookingGrowth: statsData.bookingGrowth || 0
+      });
+
+      // 시계열 데이터 설정
+      setTimeSeriesData(timeSeries || []);
+
+      // 차량 등급별 데이터 설정
+      setVehicleClassData(vehicleClass || []);
+
+      // 벤더별 실적 설정
+      setVendorPerformance(vendors || []);
+
+      setLastUpdated(new Date());
+
+      // Fallback to mock data if no real data
+      if (!timeSeries || timeSeries.length === 0) {
+        // Mock 데이터 (개발/테스트용)
+        setStats({
         totalVendors: 45,
         activeVendors: 38,
         totalVehicles: 523,
