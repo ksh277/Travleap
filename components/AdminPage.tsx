@@ -26,10 +26,12 @@ import {
   Star,
   Check,
   Upload,
-  X
+  X,
+  Car
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
+import { rentcarApi } from '../utils/rentcar-api';
 import { db } from '../utils/database-cloud';
 import { useAuth } from '../hooks/useAuth';
 import { notifyDataChange, refreshAllData, useRealTimeData } from '../hooks/useRealTimeData';
@@ -37,6 +39,7 @@ import { MediaLibraryModal } from './MediaLibraryModal';
 import { PMSIntegrationModal } from './admin/PMSIntegrationModal';
 import { RentcarAPIModal, type RentcarAPISettings } from './admin/RentcarAPIModal';
 import { MediaManagement } from './admin/MediaManagement';
+import { RentcarManagement } from './admin/RentcarManagement';
 import type { Listing, User } from '../types/database';
 import type { AdminProductFormData } from '../utils/pms/admin-integration';
 
@@ -2098,9 +2101,10 @@ export function AdminPage({}: AdminPageProps) {
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid grid-cols-4 md:grid-cols-10 w-full min-w-[1000px] md:min-w-0 md:max-w-6xl">
+            <TabsList className="grid grid-cols-4 md:grid-cols-11 w-full min-w-[1100px] md:min-w-0 md:max-w-6xl">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
               <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
+              <TabsTrigger value="rentcar" className="text-xs md:text-sm">렌트카 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
@@ -3699,6 +3703,11 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* 렌트카 관리 탭 */}
+          <TabsContent value="rentcar" className="space-y-6">
+            <RentcarManagement />
           </TabsContent>
 
           {/* 리뷰 관리 탭 */}
