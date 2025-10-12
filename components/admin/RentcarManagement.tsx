@@ -49,6 +49,9 @@ export const RentcarManagement: React.FC = () => {
   const [vendors, setVendors] = useState<RentcarVendor[]>([]);
   const [selectedVendor, setSelectedVendor] = useState<RentcarVendor | null>(null);
   const [isVendorDialogOpen, setIsVendorDialogOpen] = useState(false);
+  const [vendorSearchQuery, setVendorSearchQuery] = useState('');
+  const [vendorCurrentPage, setVendorCurrentPage] = useState(1);
+  const [vendorItemsPerPage] = useState(10);
   const [vendorFormData, setVendorFormData] = useState<RentcarVendorFormData>({
     vendor_code: '',
     business_name: '',
@@ -718,6 +721,20 @@ export const RentcarManagement: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="벤더코드, 사업자명, 브랜드명 검색..."
+                  className="pl-10"
+                  value={vendorSearchQuery}
+                  onChange={(e) => {
+                    setVendorSearchQuery(e.target.value);
+                    setVendorCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -735,7 +752,17 @@ export const RentcarManagement: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {vendors.map((vendor) => (
+                  {(() => {
+                    const filtered = vendors.filter(vendor =>
+                      vendor.vendor_code?.toLowerCase().includes(vendorSearchQuery.toLowerCase()) ||
+                      vendor.business_name?.toLowerCase().includes(vendorSearchQuery.toLowerCase()) ||
+                      vendor.brand_name?.toLowerCase().includes(vendorSearchQuery.toLowerCase()) ||
+                      vendor.contact_name?.toLowerCase().includes(vendorSearchQuery.toLowerCase())
+                    );
+                    const startIndex = (vendorCurrentPage - 1) * vendorItemsPerPage;
+                    const paginatedVendors = filtered.slice(startIndex, startIndex + vendorItemsPerPage);
+
+                    return paginatedVendors.map((vendor) => (
                     <TableRow key={vendor.id}>
                       <TableCell className="font-medium">{vendor.vendor_code}</TableCell>
                       <TableCell>{vendor.business_name}</TableCell>
@@ -784,10 +811,39 @@ export const RentcarManagement: React.FC = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ));
+                  })()}
                 </TableBody>
               </Table>
             </div>
+
+            {/* 페이지네이션 */}
+            {(() => {
+              const filtered = vendors.filter(vendor =>
+                vendor.vendor_code?.toLowerCase().includes(vendorSearchQuery.toLowerCase()) ||
+                vendor.business_name?.toLowerCase().includes(vendorSearchQuery.toLowerCase()) ||
+                vendor.brand_name?.toLowerCase().includes(vendorSearchQuery.toLowerCase()) ||
+                vendor.contact_name?.toLowerCase().includes(vendorSearchQuery.toLowerCase())
+              );
+              const totalPages = Math.ceil(filtered.length / vendorItemsPerPage);
+              if (totalPages <= 1) return null;
+
+              return (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-600">
+                    총 {filtered.length}개 벤더 (페이지 {vendorCurrentPage} / {totalPages})
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setVendorCurrentPage(prev => Math.max(1, prev - 1))} disabled={vendorCurrentPage === 1}>이전</Button>
+                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                      let pageNum = totalPages <= 5 ? i + 1 : vendorCurrentPage <= 3 ? i + 1 : vendorCurrentPage >= totalPages - 2 ? totalPages - 4 + i : vendorCurrentPage - 2 + i;
+                      return <Button key={pageNum} variant={vendorCurrentPage === pageNum ? "default" : "outline"} size="sm" onClick={() => setVendorCurrentPage(pageNum)} className={vendorCurrentPage === pageNum ? "bg-[#8B5FBF] hover:bg-[#7A4FB5]" : ""}>{pageNum}</Button>;
+                    })}
+                    <Button variant="outline" size="sm" onClick={() => setVendorCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={vendorCurrentPage === totalPages}>다음</Button>
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </TabsContent>
@@ -1172,6 +1228,20 @@ export const RentcarManagement: React.FC = () => {
             <CardTitle>예약 관리</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="예약번호, 고객명, 이메일 검색..."
+                  className="pl-10"
+                  value={bookingSearchQuery}
+                  onChange={(e) => {
+                    setBookingSearchQuery(e.target.value);
+                    setBookingCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -1190,7 +1260,16 @@ export const RentcarManagement: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bookings.map((booking) => (
+                  {(() => {
+                    const filtered = bookings.filter(booking =>
+                      booking.booking_number?.toLowerCase().includes(bookingSearchQuery.toLowerCase()) ||
+                      booking.customer_name?.toLowerCase().includes(bookingSearchQuery.toLowerCase()) ||
+                      booking.customer_email?.toLowerCase().includes(bookingSearchQuery.toLowerCase())
+                    );
+                    const startIndex = (bookingCurrentPage - 1) * bookingItemsPerPage;
+                    const paginatedBookings = filtered.slice(startIndex, startIndex + bookingItemsPerPage);
+
+                    return paginatedBookings.map((booking) => (
                     <TableRow key={booking.id}>
                       <TableCell className="font-medium">{booking.booking_number}</TableCell>
                       <TableCell>{booking.customer_name}</TableCell>
@@ -1227,10 +1306,38 @@ export const RentcarManagement: React.FC = () => {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ));
+                  })()}
                 </TableBody>
               </Table>
             </div>
+
+            {/* 페이지네이션 */}
+            {(() => {
+              const filtered = bookings.filter(booking =>
+                booking.booking_number?.toLowerCase().includes(bookingSearchQuery.toLowerCase()) ||
+                booking.customer_name?.toLowerCase().includes(bookingSearchQuery.toLowerCase()) ||
+                booking.customer_email?.toLowerCase().includes(bookingSearchQuery.toLowerCase())
+              );
+              const totalPages = Math.ceil(filtered.length / bookingItemsPerPage);
+              if (totalPages <= 1) return null;
+
+              return (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-600">
+                    총 {filtered.length}개 예약 (페이지 {bookingCurrentPage} / {totalPages})
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setBookingCurrentPage(prev => Math.max(1, prev - 1))} disabled={bookingCurrentPage === 1}>이전</Button>
+                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                      let pageNum = totalPages <= 5 ? i + 1 : bookingCurrentPage <= 3 ? i + 1 : bookingCurrentPage >= totalPages - 2 ? totalPages - 4 + i : bookingCurrentPage - 2 + i;
+                      return <Button key={pageNum} variant={bookingCurrentPage === pageNum ? "default" : "outline"} size="sm" onClick={() => setBookingCurrentPage(pageNum)} className={bookingCurrentPage === pageNum ? "bg-[#8B5FBF] hover:bg-[#7A4FB5]" : ""}>{pageNum}</Button>;
+                    })}
+                    <Button variant="outline" size="sm" onClick={() => setBookingCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={bookingCurrentPage === totalPages}>다음</Button>
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </TabsContent>
