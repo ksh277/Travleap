@@ -23,18 +23,28 @@ export function LoginPage() {
     console.log('🔑 로그인 시도:', email);
 
     try {
-      const result = await login(email, password);
+      const result = await login({ email, password });
 
-      if (result) {
+      console.log('✅ 로그인 결과:', result);
+
+      if (result.success && result.user) {
         toast.success('로그인 성공!');
+        console.log('👤 로그인한 사용자:', result.user);
+
         // role 기반으로 리다이렉트
-        if (isAdmin) {
+        if (result.user.role === 'admin') {
+          console.log('🔑 관리자로 이동');
           navigate('/admin', { replace: true });
+        } else if (result.user.role === 'vendor') {
+          console.log('🚗 벤더 대시보드로 이동');
+          navigate('/vendor/dashboard', { replace: true });
         } else {
+          console.log('🏠 홈으로 이동');
           navigate('/', { replace: true });
         }
       } else {
-        toast.error('이메일 또는 비밀번호가 올바르지 않습니다.');
+        console.error('❌ 로그인 실패:', result.error);
+        toast.error(result.error || '이메일 또는 비밀번호가 올바르지 않습니다.');
       }
     } catch (error) {
       console.error('로그인 오류:', error);

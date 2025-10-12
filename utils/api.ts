@@ -1705,37 +1705,58 @@ export const api = {
 
   // ===== 인증 API =====
 
-  // 로그인
+  // 로그인 (직접 DB 호출)
   loginUser: async (email: string, password: string): Promise<ApiResponse<{ user: any; token: string }>> => {
     try {
-      console.log('🔑 로그인 API 호출:', email);
+      console.log('🔑 DB 직접 로그인 시도:', { email, password });
 
-      const response = await fetch('/api/auth?action=login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password })
-      });
+      // 1. 사용자 조회
+      const user = await api.getUserByEmail(email);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.log('❌ 로그인 실패:', data.error);
+      if (!user) {
+        console.log('❌ 사용자를 찾을 수 없음:', email);
         return {
           success: false,
-          error: data.error || '로그인에 실패했습니다.'
+          error: '등록되지 않은 이메일입니다.'
         };
       }
 
-      console.log('✅ 로그인 성공:', data.data.user.email);
+      console.log('✅ 사용자 찾음:', user.email, 'role:', user.role);
+
+      // 2. 비밀번호 검증 (간단한 해시)
+      const expectedHash = `hashed_${password}`;
+      console.log('🔐 비밀번호 검증:', {
+        expected: expectedHash,
+        actual: user.password_hash,
+        match: user.password_hash === expectedHash
+      });
+
+      if (user.password_hash !== expectedHash) {
+        console.log('❌ 비밀번호 불일치');
+        return {
+          success: false,
+          error: '비밀번호가 올바르지 않습니다.'
+        };
+      }
+
+      // 3. JWT 토큰 생성 (간단한 방식)
+      const token = `jwt_${user.id}_${Date.now()}`;
+
+      console.log('✅ 로그인 성공!', {
+        user: user.email,
+        role: user.role,
+        token: token.substring(0, 20) + '...'
+      });
+
       return {
         success: true,
-        data: data.data,
-        message: data.message
+        data: {
+          user,
+          token
+        }
       };
     } catch (error) {
-      console.error('❌ 로그인 API 호출 오류:', error);
+      console.error('❌ 로그인 처리 오류:', error);
       return {
         success: false,
         error: '로그인 처리 중 오류가 발생했습니다.'

@@ -201,10 +201,9 @@ class AuthService {
         return { success: false, error };
       }
 
-      // 관리자 계정 특별 처리
-      if (user.email === 'admin@shinan.com' && credentials.password === 'admin123') {
-        // 관리자 로그인 성공
-      } else if (credentials.password.length < 6) {
+      // 비밀번호 검증 (간단한 해시 비교)
+      const expectedHash = `hashed_${credentials.password}`;
+      if (user.password_hash !== expectedHash) {
         const error = '비밀번호가 올바르지 않습니다.';
         this.notifyListeners({
           user: null,

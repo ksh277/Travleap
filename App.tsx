@@ -34,6 +34,7 @@ import { RentcarSearchPage } from './components/RentcarSearchPage';
 import { AccommodationDetailPage } from './components/AccommodationDetailPage';
 import { VendorRegistrationPage } from './components/VendorRegistrationPage';
 import { VendorDashboardPage } from './components/VendorDashboardPage';
+import { AdminRentcarPage } from './components/AdminRentcarPage';
 
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
@@ -157,6 +158,15 @@ function AppContent() {
               </div>
             ) : isLoggedIn && isAdmin ? (
               <AdminPage />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 관리자 렌트카 관리 */}
+          <Route path="/admin/rentcar" element={
+            isLoggedIn && isAdmin ? (
+              <AdminRentcarPage />
             ) : (
               <Navigate to="/login" replace />
             )

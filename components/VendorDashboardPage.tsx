@@ -86,6 +86,22 @@ export function VendorDashboardPage() {
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editedInfo, setEditedInfo] = useState<Partial<VendorInfo>>({});
 
+  // 차량 추가 관련 state
+  const [isAddingVehicle, setIsAddingVehicle] = useState(false);
+  const [newVehicle, setNewVehicle] = useState({
+    display_name: '',
+    vehicle_class: '중형',
+    seating_capacity: 5,
+    transmission_type: '자동',
+    fuel_type: '가솔린',
+    daily_rate_krw: 50000,
+    weekly_rate_krw: 300000,
+    monthly_rate_krw: 1000000,
+    mileage_limit_km: 200,
+    excess_mileage_fee_krw: 100,
+    is_available: true
+  });
+
   // 업체 정보 로드
   useEffect(() => {
     loadVendorData();
@@ -161,8 +177,66 @@ export function VendorDashboardPage() {
   };
 
   const handleAddVehicle = () => {
-    // 차량 추가 페이지로 이동 (나중에 구현)
-    toast.info('차량 등록 기능은 관리자에게 문의하세요.');
+    setIsAddingVehicle(true);
+    setNewVehicle({
+      display_name: '',
+      vehicle_class: '중형',
+      seating_capacity: 5,
+      transmission_type: '자동',
+      fuel_type: '가솔린',
+      daily_rate_krw: 50000,
+      weekly_rate_krw: 300000,
+      monthly_rate_krw: 1000000,
+      mileage_limit_km: 200,
+      excess_mileage_fee_krw: 100,
+      is_available: true
+    });
+  };
+
+  const handleCancelAddVehicle = () => {
+    setIsAddingVehicle(false);
+  };
+
+  const handleSaveVehicle = async () => {
+    if (!vendorInfo?.id) return;
+
+    if (!newVehicle.display_name.trim()) {
+      toast.error('차량명을 입력해주세요.');
+      return;
+    }
+
+    try {
+      // rentcar_vehicles 테이블에 삽입
+      await db.execute(`
+        INSERT INTO rentcar_vehicles (
+          vendor_id, display_name, vehicle_class, seating_capacity,
+          transmission_type, fuel_type, daily_rate_krw, weekly_rate_krw,
+          monthly_rate_krw, mileage_limit_km, excess_mileage_fee_krw,
+          is_available, images, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `, [
+        vendorInfo.id,
+        newVehicle.display_name,
+        newVehicle.vehicle_class,
+        newVehicle.seating_capacity,
+        newVehicle.transmission_type,
+        newVehicle.fuel_type,
+        newVehicle.daily_rate_krw,
+        newVehicle.weekly_rate_krw,
+        newVehicle.monthly_rate_krw,
+        newVehicle.mileage_limit_km,
+        newVehicle.excess_mileage_fee_krw,
+        newVehicle.is_available ? 1 : 0,
+        '[]'
+      ]);
+
+      toast.success('차량이 등록되었습니다!');
+      setIsAddingVehicle(false);
+      loadVendorData(); // 새로고침
+    } catch (error) {
+      console.error('차량 등록 실패:', error);
+      toast.error('차량 등록에 실패했습니다.');
+    }
   };
 
   const handleDeleteVehicle = async (vehicleId: number) => {
@@ -340,13 +414,105 @@ export function VendorDashboardPage() {
 
           {/* 차량 관리 */}
           <TabsContent value="vehicles">
+            {/* 차량 추가 폼 */}
+            {isAddingVehicle && (
+              <Card className="mb-6 border-blue-200 bg-blue-50">
+                <CardHeader>
+                  <CardTitle>새 차량 등록</CardTitle>
+                  <CardDescription>차량 정보를 입력해주세요</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>차량명 *</Label>
+                      <Input
+                        placeholder="예: 현대 그랜저 2024"
+                        value={newVehicle.display_name}
+                        onChange={(e) => setNewVehicle({...newVehicle, display_name: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label>차량 등급</Label>
+                      <select
+                        className="w-full p-2 border rounded"
+                        value={newVehicle.vehicle_class}
+                        onChange={(e) => setNewVehicle({...newVehicle, vehicle_class: e.target.value})}
+                      >
+                        <option value="경형">경형</option>
+                        <option value="소형">소형</option>
+                        <option value="준중형">준중형</option>
+                        <option value="중형">중형</option>
+                        <option value="대형">대형</option>
+                        <option value="SUV">SUV</option>
+                        <option value="승합">승합</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label>인승</Label>
+                      <Input
+                        type="number"
+                        min="2"
+                        max="15"
+                        value={newVehicle.seating_capacity}
+                        onChange={(e) => setNewVehicle({...newVehicle, seating_capacity: parseInt(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <Label>변속기</Label>
+                      <select
+                        className="w-full p-2 border rounded"
+                        value={newVehicle.transmission_type}
+                        onChange={(e) => setNewVehicle({...newVehicle, transmission_type: e.target.value})}
+                      >
+                        <option value="자동">자동</option>
+                        <option value="수동">수동</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label>연료</Label>
+                      <select
+                        className="w-full p-2 border rounded"
+                        value={newVehicle.fuel_type}
+                        onChange={(e) => setNewVehicle({...newVehicle, fuel_type: e.target.value})}
+                      >
+                        <option value="가솔린">가솔린</option>
+                        <option value="디젤">디젤</option>
+                        <option value="LPG">LPG</option>
+                        <option value="하이브리드">하이브리드</option>
+                        <option value="전기">전기</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label>일일 요금 (원)</Label>
+                      <Input
+                        type="number"
+                        min="10000"
+                        step="5000"
+                        value={newVehicle.daily_rate_krw}
+                        onChange={(e) => setNewVehicle({...newVehicle, daily_rate_krw: parseInt(e.target.value)})}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-6">
+                    <Button onClick={handleSaveVehicle}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      등록
+                    </Button>
+                    <Button variant="outline" onClick={handleCancelAddVehicle}>
+                      취소
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                   <CardTitle>차량 목록</CardTitle>
                   <CardDescription>등록된 차량 {vehicles.length}대</CardDescription>
                 </div>
-                <Button onClick={handleAddVehicle}>
+                <Button onClick={handleAddVehicle} disabled={isAddingVehicle}>
                   <Plus className="w-4 h-4 mr-2" />
                   차량 추가
                 </Button>
