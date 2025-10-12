@@ -3735,23 +3735,52 @@ export function AdminPage({}: AdminPageProps) {
                         </DialogHeader>
                         <div className="grid gap-4">
                           <div>
-                            <label className="text-sm font-medium mb-1 block">상품 선택</label>
+                            <label className="text-sm font-medium mb-1 block">리뷰 타입</label>
                             <Select
-                              value={newReview.listing_id}
-                              onValueChange={(value) => setNewReview({ ...newReview, listing_id: value })}
+                              value={newReview.review_type || 'listing'}
+                              onValueChange={(value) => setNewReview({ ...newReview, review_type: value, listing_id: '', rentcar_booking_id: '' })}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="상품을 선택하세요" />
+                                <SelectValue placeholder="리뷰 타입 선택" />
                               </SelectTrigger>
                               <SelectContent className="z-[9999]">
-                                {products.map((product) => (
-                                  <SelectItem key={product.id} value={product.id.toString()}>
-                                    {product.title}
-                                  </SelectItem>
-                                ))}
+                                <SelectItem value="listing">일반 상품</SelectItem>
+                                <SelectItem value="rentcar">렌트카</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
+
+                          {(!newReview.review_type || newReview.review_type === 'listing') && (
+                            <div>
+                              <label className="text-sm font-medium mb-1 block">상품 선택</label>
+                              <Select
+                                value={newReview.listing_id}
+                                onValueChange={(value) => setNewReview({ ...newReview, listing_id: value })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="상품을 선택하세요" />
+                                </SelectTrigger>
+                                <SelectContent className="z-[9999]">
+                                  {products.map((product) => (
+                                    <SelectItem key={product.id} value={product.id.toString()}>
+                                      {product.title}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          {newReview.review_type === 'rentcar' && (
+                            <div>
+                              <label className="text-sm font-medium mb-1 block">렌트카 예약 ID</label>
+                              <Input
+                                placeholder="렌트카 예약 ID를 입력하세요"
+                                value={newReview.rentcar_booking_id || ''}
+                                onChange={(e) => setNewReview({ ...newReview, rentcar_booking_id: e.target.value })}
+                              />
+                            </div>
+                          )}
                           <div>
                             <label className="text-sm font-medium mb-1 block">작성자</label>
                             <Input
@@ -3873,7 +3902,8 @@ export function AdminPage({}: AdminPageProps) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>상품명</TableHead>
+                      <TableHead>타입</TableHead>
+                      <TableHead>상품/차량</TableHead>
                       <TableHead>작성자</TableHead>
                       <TableHead>평점</TableHead>
                       <TableHead>리뷰 내용</TableHead>
@@ -3886,12 +3916,25 @@ export function AdminPage({}: AdminPageProps) {
                       .filter(review =>
                         review.user_name?.toLowerCase().includes(reviewSearchQuery.toLowerCase()) ||
                         review.listing_title?.toLowerCase().includes(reviewSearchQuery.toLowerCase()) ||
+                        review.rentcar_vendor_name?.toLowerCase().includes(reviewSearchQuery.toLowerCase()) ||
+                        review.rentcar_vehicle_make?.toLowerCase().includes(reviewSearchQuery.toLowerCase()) ||
+                        review.rentcar_vehicle_model?.toLowerCase().includes(reviewSearchQuery.toLowerCase()) ||
                         review.comment_md?.toLowerCase().includes(reviewSearchQuery.toLowerCase()) ||
                         review.title?.toLowerCase().includes(reviewSearchQuery.toLowerCase())
                       )
                       .map((review: any) => (
                       <TableRow key={review.id}>
-                        <TableCell>{review.listing_title || '상품명'}</TableCell>
+                        <TableCell>
+                          <Badge variant={review.review_type === 'rentcar' ? 'default' : 'secondary'}>
+                            {review.review_type === 'rentcar' ? '렌트카' : '일반'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {review.review_type === 'rentcar'
+                            ? `${review.rentcar_vendor_name || '업체'} - ${review.rentcar_vehicle_make || ''} ${review.rentcar_vehicle_model || ''}`.trim()
+                            : (review.listing_title || '상품명')
+                          }
+                        </TableCell>
                         <TableCell>{review.user_name || '사용자'}</TableCell>
                         <TableCell>
                           <div className="flex items-center">

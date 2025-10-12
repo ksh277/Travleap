@@ -2668,10 +2668,15 @@ export const api = {
           SELECT
             r.*,
             u.name as user_name,
-            l.title as listing_title
+            l.title as listing_title,
+            rv.vendor_name as rentcar_vendor_name,
+            rve.make as rentcar_vehicle_make,
+            rve.model as rentcar_vehicle_model
           FROM reviews r
           LEFT JOIN users u ON r.user_id = u.id
           LEFT JOIN listings l ON r.listing_id = l.id
+          LEFT JOIN rentcar_vendors rv ON r.rentcar_vendor_id = rv.id
+          LEFT JOIN rentcar_vehicles rve ON r.rentcar_vehicle_id = rve.id
           ORDER BY r.created_at DESC
         `);
         return {
@@ -2945,6 +2950,13 @@ export const api = {
     // 리뷰 생성
     createReview: async (reviewData: any): Promise<ApiResponse<Review>> => {
       try {
+        // 렌트카 리뷰인 경우 review_type 자동 설정
+        if (reviewData.rentcar_booking_id) {
+          reviewData.review_type = 'rentcar';
+        } else {
+          reviewData.review_type = 'listing';
+        }
+
         const response = await db.insert('reviews', reviewData);
         return {
           success: true,

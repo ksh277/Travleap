@@ -1052,6 +1052,14 @@ export const RentcarManagement: React.FC = () => {
                 </Select>
               </div>
               <div>
+                <Label>차량 타입</Label>
+                <Input
+                  value={vehicleFormData.vehicle_type || ''}
+                  onChange={(e) => setVehicleFormData({ ...vehicleFormData, vehicle_type: e.target.value })}
+                  placeholder="예: 세단, 쿠페, 해치백, 왜건"
+                />
+              </div>
+              <div>
                 <Label>연료 타입*</Label>
                 <Select
                   value={vehicleFormData.fuel_type}
@@ -1068,6 +1076,8 @@ export const RentcarManagement: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>변속기*</Label>
                 <Select
@@ -1082,6 +1092,14 @@ export const RentcarManagement: React.FC = () => {
                     <SelectItem value="manual">수동</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>면허 조건</Label>
+                <Input
+                  value={vehicleFormData.license_requirement || ''}
+                  onChange={(e) => setVehicleFormData({ ...vehicleFormData, license_requirement: e.target.value })}
+                  placeholder="예: 1종 보통 1년 이상"
+                />
               </div>
             </div>
             <div className="grid grid-cols-4 gap-4">
@@ -1118,7 +1136,7 @@ export const RentcarManagement: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>일일 요금 (KRW)*</Label>
                 <Input
@@ -1136,6 +1154,46 @@ export const RentcarManagement: React.FC = () => {
                   onChange={(e) => setVehicleFormData({ ...vehicleFormData, deposit_amount_krw: parseInt(e.target.value) })}
                 />
               </div>
+              <div>
+                <Label>최소 운전자 나이</Label>
+                <Input
+                  type="number"
+                  value={vehicleFormData.age_requirement || 21}
+                  onChange={(e) => setVehicleFormData({ ...vehicleFormData, age_requirement: parseInt(e.target.value) })}
+                  placeholder="21"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>일일 주행거리 제한 (km)</Label>
+                <Input
+                  type="number"
+                  value={vehicleFormData.mileage_limit_per_day || 200}
+                  onChange={(e) => setVehicleFormData({ ...vehicleFormData, mileage_limit_per_day: parseInt(e.target.value) })}
+                  placeholder="200"
+                />
+              </div>
+              <div className="flex items-center gap-4 pt-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={vehicleFormData.unlimited_mileage || false}
+                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, unlimited_mileage: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <span>무제한 주행</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={vehicleFormData.smoking_allowed || false}
+                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, smoking_allowed: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <span>흡연 허용</span>
+                </label>
+              </div>
             </div>
             <div>
               <Label>썸네일 이미지 URL</Label>
@@ -1143,6 +1201,23 @@ export const RentcarManagement: React.FC = () => {
                 value={vehicleFormData.thumbnail_url || ''}
                 onChange={(e) => setVehicleFormData({ ...vehicleFormData, thumbnail_url: e.target.value })}
                 placeholder="https://..."
+              />
+            </div>
+            <div>
+              <Label>추가 이미지 URL (쉼표로 구분)</Label>
+              <Input
+                value={vehicleFormData.images?.join(', ') || ''}
+                onChange={(e) => setVehicleFormData({ ...vehicleFormData, images: e.target.value.split(',').map(s => s.trim()).filter(s => s) })}
+                placeholder="https://image1.jpg, https://image2.jpg"
+              />
+            </div>
+            <div>
+              <Label>차량 특징/옵션 (쉼표로 구분)</Label>
+              <Textarea
+                value={vehicleFormData.features?.join(', ') || ''}
+                onChange={(e) => setVehicleFormData({ ...vehicleFormData, features: e.target.value.split(',').map(s => s.trim()).filter(s => s) })}
+                placeholder="예: 블루투스, 후방카메라, 크루즈 컨트롤, 열선시트"
+                rows={2}
               />
             </div>
             <div className="flex justify-end gap-2 pt-4">

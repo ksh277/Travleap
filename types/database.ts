@@ -163,7 +163,7 @@ export interface Booking {
 
 export interface Review {
   id: number;
-  listing_id: number;
+  listing_id?: number; // 일반 상품 리뷰인 경우
   user_id: number;
   booking_id?: number;
   rating: number;
@@ -178,6 +178,11 @@ export interface Review {
   admin_reply_at?: string;
   created_at: string;
   updated_at: string;
+  // 렌트카 리뷰 지원 (Phase 3)
+  review_type?: 'listing' | 'rentcar';
+  rentcar_booking_id?: number; // 렌트카 예약 ID
+  rentcar_vendor_id?: number;  // 렌트카 업체 ID
+  rentcar_vehicle_id?: number; // 렌트카 차량 ID
 }
 
 // ===== 결제 관련 타입들 =====
