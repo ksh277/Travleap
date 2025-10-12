@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { rentcarApi } from '../../utils/rentcar-api';
+import { RentcarAdvancedFeatures } from './RentcarAdvancedFeatures';
 import type {
   RentcarVendor,
   RentcarVehicle,
@@ -501,11 +502,12 @@ export const RentcarManagement: React.FC = () => {
 
   return (
     <Tabs defaultValue="vendors" className="space-y-6">
-      <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+      <TabsList className="grid grid-cols-5 w-full max-w-3xl">
         <TabsTrigger value="vendors">벤더 관리</TabsTrigger>
         <TabsTrigger value="vehicles">차량 관리</TabsTrigger>
         <TabsTrigger value="locations">지점 관리</TabsTrigger>
         <TabsTrigger value="bookings">예약 관리</TabsTrigger>
+        <TabsTrigger value="advanced">고급 기능</TabsTrigger>
       </TabsList>
 
       {/* 벤더 관리 */}
@@ -1262,6 +1264,11 @@ export const RentcarManagement: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 고급 기능 탭 */}
+      <TabsContent value="advanced" className="space-y-6">
+        <RentcarAdvancedFeatures vendors={vendors} selectedVendorId={vendorFilter} />
+      </TabsContent>
     </Tabs>
   );
 };
