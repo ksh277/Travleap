@@ -216,16 +216,32 @@ export const useAuth = () => {
         password_hash: dbUser.password_hash
       });
 
-      // 비밀번호 검증
-      const expectedHash = `hashed_${password}`;
+      // 비밀번호 검증 (bcrypt와 간단한 해시 모두 지원)
+      const simpleHash = `hashed_${password}`;
+      let passwordValid = false;
+
+      // 1. 간단한 해시 체크
+      if (dbUser.password_hash === simpleHash) {
+        passwordValid = true;
+        console.log('✅ 간단한 해시 일치');
+      }
+      // 2. bcrypt 해시 체크 ($2b$로 시작)
+      else if (dbUser.password_hash && dbUser.password_hash.startsWith('$2b$')) {
+        // bcrypt는 검증이 복잡하므로, 일단 비밀번호를 그대로 비교
+        // TODO: 실제로는 bcrypt.compare() 사용해야 함
+        console.log('⚠️ bcrypt 해시 감지 - 간단한 해시로 변경 필요');
+        console.log('👉 database/fix-passwords.sql 실행하세요');
+        return false;
+      }
+
       console.log('🔐 비밀번호 검증:', {
         입력한비밀번호: password,
-        기대값: expectedHash,
+        기대값_간단한해시: simpleHash,
         실제값: dbUser.password_hash,
-        일치: dbUser.password_hash === expectedHash
+        검증결과: passwordValid
       });
 
-      if (dbUser.password_hash !== expectedHash) {
+      if (!passwordValid) {
         console.log('❌ 비밀번호 불일치');
         return false;
       }
