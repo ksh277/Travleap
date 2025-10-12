@@ -21,7 +21,13 @@ import type {
   RentcarSearchParams,
   RentcarSearchResult,
   RentcarVendorStats,
-  RentcarAdminStats
+  RentcarAdminStats,
+  RentcarRatePlan,
+  RentcarRatePlanFormData,
+  RentcarInsurancePlan,
+  RentcarInsurancePlanFormData,
+  RentcarExtra,
+  RentcarExtraFormData
 } from '../types/rentcar';
 
 // ============================================
@@ -917,6 +923,562 @@ export const rentcarStatsApi = {
 };
 
 // ============================================
+// 6. RATE PLANS API (요금제)
+// ============================================
+
+export const rentcarRatePlanApi = {
+  // Get all rate plans for a vendor
+  getByVendor: async (vendorId: number): Promise<RentcarApiResponse<RentcarRatePlan[]>> => {
+    try {
+      const result = await db.query(`
+        SELECT * FROM rentcar_rate_plans
+        WHERE vendor_id = ?
+        ORDER BY priority DESC, start_date DESC
+      `, [vendorId]);
+
+      return { success: true, data: result.rows as RentcarRatePlan[] };
+    } catch (error) {
+      console.error('Failed to fetch rate plans:', error);
+      return {
+        success: false,
+        error: '요금제 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  // Get active rate plan for specific criteria
+  getActiveRatePlan: async (
+    vendorId: number,
+    vehicleId: number | null,
+    vehicleClass: string | null,
+    startDate: string
+  ): Promise<RentcarApiResponse<RentcarRatePlan | null>> => {
+    try {
+      const result = await db.query(`
+        SELECT * FROM rentcar_rate_plans
+        WHERE vendor_id = ?
+          AND is_active = 1
+          AND start_date <= ?
+          AND end_date >= ?
+          AND (
+            (vehicle_id = ? AND vehicle_id IS NOT NULL)
+            OR (vehicle_class = ? AND vehicle_class IS NOT NULL AND vehicle_id IS NULL)
+            OR (vehicle_id IS NULL AND vehicle_class IS NULL)
+          )
+        ORDER BY priority DESC, vehicle_id DESC, vehicle_class DESC
+        LIMIT 1
+      `, [vendorId, startDate, startDate, vehicleId, vehicleClass]);
+
+      const ratePlan = result.rows.length > 0 ? result.rows[0] as RentcarRatePlan : null;
+      return { success: true, data: ratePlan };
+    } catch (error) {
+      console.error('Failed to get active rate plan:', error);
+      return {
+        success: false,
+        error: '활성 요금제 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  // Create rate plan
+  create: async (vendorId: number, data: RentcarRatePlanFormData): Promise<RentcarApiResponse<RentcarRatePlan>> => {
+    try {
+      const result = await db.execute(`
+        INSERT INTO rentcar_rate_plans (
+          vendor_id, vehicle_id, vehicle_class, plan_name, plan_code, description,
+          start_date, end_date, daily_rate_krw, weekly_rate_krw, monthly_rate_krw,
+          min_rental_days, max_rental_days, weekend_surcharge_percent, weekday_discount_percent,
+          early_bird_days, early_bird_discount_percent, long_term_days, long_term_discount_percent,
+          priority
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        vendorId,
+        data.vehicle_id || null,
+        data.vehicle_class || null,
+        data.plan_name,
+        data.plan_code,
+        data.description || null,
+        data.start_date,
+        data.end_date,
+        data.daily_rate_krw,
+        data.weekly_rate_krw || null,
+        data.monthly_rate_krw || null,
+        data.min_rental_days || 1,
+        data.max_rental_days || null,
+        data.weekend_surcharge_percent || 0,
+        data.weekday_discount_percent || 0,
+        data.early_bird_days || null,
+        data.early_bird_discount_percent || 0,
+        data.long_term_days || null,
+        data.long_term_discount_percent || 0,
+        data.priority || 0
+      ]);
+
+      const insertedId = result.insertId;
+      const ratePlan = await db.query(`SELECT * FROM rentcar_rate_plans WHERE id = ?`, [insertedId]);
+
+      return {
+        success: true,
+        data: ratePlan.rows[0] as RentcarRatePlan,
+        message: '요금제가 등록되었습니다.'
+      };
+    } catch (error: any) {
+      console.error('Failed to create rate plan:', error);
+      if (error.message.includes('Duplicate entry')) {
+        return { success: false, error: '이미 존재하는 요금제 코드입니다.' };
+      }
+      return {
+        success: false,
+        error: '요금제 등록에 실패했습니다.'
+      };
+    }
+  },
+
+  // Update rate plan
+  update: async (id: number, data: RentcarRatePlanFormData): Promise<RentcarApiResponse<RentcarRatePlan>> => {
+    try {
+      await db.execute(`
+        UPDATE rentcar_rate_plans SET
+          vehicle_id = ?, vehicle_class = ?, plan_name = ?, plan_code = ?, description = ?,
+          start_date = ?, end_date = ?, daily_rate_krw = ?, weekly_rate_krw = ?, monthly_rate_krw = ?,
+          min_rental_days = ?, max_rental_days = ?, weekend_surcharge_percent = ?, weekday_discount_percent = ?,
+          early_bird_days = ?, early_bird_discount_percent = ?, long_term_days = ?, long_term_discount_percent = ?,
+          priority = ?, updated_at = NOW()
+        WHERE id = ?
+      `, [
+        data.vehicle_id || null,
+        data.vehicle_class || null,
+        data.plan_name,
+        data.plan_code,
+        data.description || null,
+        data.start_date,
+        data.end_date,
+        data.daily_rate_krw,
+        data.weekly_rate_krw || null,
+        data.monthly_rate_krw || null,
+        data.min_rental_days || 1,
+        data.max_rental_days || null,
+        data.weekend_surcharge_percent || 0,
+        data.weekday_discount_percent || 0,
+        data.early_bird_days || null,
+        data.early_bird_discount_percent || 0,
+        data.long_term_days || null,
+        data.long_term_discount_percent || 0,
+        data.priority || 0,
+        id
+      ]);
+
+      const ratePlan = await db.query(`SELECT * FROM rentcar_rate_plans WHERE id = ?`, [id]);
+
+      return {
+        success: true,
+        data: ratePlan.rows[0] as RentcarRatePlan,
+        message: '요금제가 수정되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to update rate plan:', error);
+      return {
+        success: false,
+        error: '요금제 수정에 실패했습니다.'
+      };
+    }
+  },
+
+  // Delete rate plan
+  delete: async (id: number): Promise<RentcarApiResponse<void>> => {
+    try {
+      await db.execute(`DELETE FROM rentcar_rate_plans WHERE id = ?`, [id]);
+
+      return {
+        success: true,
+        message: '요금제가 삭제되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to delete rate plan:', error);
+      return {
+        success: false,
+        error: '요금제 삭제에 실패했습니다.'
+      };
+    }
+  },
+
+  // Toggle active status
+  toggleActive: async (id: number, isActive: boolean): Promise<RentcarApiResponse<RentcarRatePlan>> => {
+    try {
+      await db.execute(`
+        UPDATE rentcar_rate_plans SET is_active = ?, updated_at = NOW() WHERE id = ?
+      `, [isActive, id]);
+
+      const ratePlan = await db.query(`SELECT * FROM rentcar_rate_plans WHERE id = ?`, [id]);
+
+      return {
+        success: true,
+        data: ratePlan.rows[0] as RentcarRatePlan,
+        message: isActive ? '요금제가 활성화되었습니다.' : '요금제가 비활성화되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to toggle rate plan status:', error);
+      return {
+        success: false,
+        error: '상태 변경에 실패했습니다.'
+      };
+    }
+  }
+};
+
+// ============================================
+// 7. INSURANCE PLANS API (보험 상품)
+// ============================================
+
+export const rentcarInsuranceApi = {
+  // Get all insurance plans for a vendor
+  getByVendor: async (vendorId: number): Promise<RentcarApiResponse<RentcarInsurancePlan[]>> => {
+    try {
+      const result = await db.query(`
+        SELECT * FROM rentcar_insurance_plans
+        WHERE vendor_id = ?
+        ORDER BY display_order ASC, insurance_name ASC
+      `, [vendorId]);
+
+      return { success: true, data: result.rows as RentcarInsurancePlan[] };
+    } catch (error) {
+      console.error('Failed to fetch insurance plans:', error);
+      return {
+        success: false,
+        error: '보험 상품 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  // Get active insurance plans
+  getActive: async (vendorId: number): Promise<RentcarApiResponse<RentcarInsurancePlan[]>> => {
+    try {
+      const result = await db.query(`
+        SELECT * FROM rentcar_insurance_plans
+        WHERE vendor_id = ? AND is_active = 1
+        ORDER BY display_order ASC, insurance_name ASC
+      `, [vendorId]);
+
+      return { success: true, data: result.rows as RentcarInsurancePlan[] };
+    } catch (error) {
+      console.error('Failed to fetch active insurance plans:', error);
+      return {
+        success: false,
+        error: '활성 보험 상품 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  // Create insurance plan
+  create: async (vendorId: number, data: RentcarInsurancePlanFormData): Promise<RentcarApiResponse<RentcarInsurancePlan>> => {
+    try {
+      const result = await db.execute(`
+        INSERT INTO rentcar_insurance_plans (
+          vendor_id, insurance_code, insurance_name, insurance_type, description,
+          daily_price_krw, max_coverage_krw, deductible_krw,
+          min_driver_age, requires_license_years,
+          coverage_details, exclusions, is_recommended, display_order
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        vendorId,
+        data.insurance_code,
+        data.insurance_name,
+        data.insurance_type,
+        data.description || null,
+        data.daily_price_krw,
+        data.max_coverage_krw || null,
+        data.deductible_krw || 0,
+        data.min_driver_age || 21,
+        data.requires_license_years || 1,
+        data.coverage_details ? JSON.stringify(data.coverage_details) : null,
+        data.exclusions ? JSON.stringify(data.exclusions) : null,
+        data.is_recommended || false,
+        data.display_order || 0
+      ]);
+
+      const insertedId = result.insertId;
+      const insurance = await db.query(`SELECT * FROM rentcar_insurance_plans WHERE id = ?`, [insertedId]);
+
+      return {
+        success: true,
+        data: insurance.rows[0] as RentcarInsurancePlan,
+        message: '보험 상품이 등록되었습니다.'
+      };
+    } catch (error: any) {
+      console.error('Failed to create insurance plan:', error);
+      if (error.message.includes('Duplicate entry')) {
+        return { success: false, error: '이미 존재하는 보험 코드입니다.' };
+      }
+      return {
+        success: false,
+        error: '보험 상품 등록에 실패했습니다.'
+      };
+    }
+  },
+
+  // Update insurance plan
+  update: async (id: number, data: RentcarInsurancePlanFormData): Promise<RentcarApiResponse<RentcarInsurancePlan>> => {
+    try {
+      await db.execute(`
+        UPDATE rentcar_insurance_plans SET
+          insurance_code = ?, insurance_name = ?, insurance_type = ?, description = ?,
+          daily_price_krw = ?, max_coverage_krw = ?, deductible_krw = ?,
+          min_driver_age = ?, requires_license_years = ?,
+          coverage_details = ?, exclusions = ?, is_recommended = ?, display_order = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [
+        data.insurance_code,
+        data.insurance_name,
+        data.insurance_type,
+        data.description || null,
+        data.daily_price_krw,
+        data.max_coverage_krw || null,
+        data.deductible_krw || 0,
+        data.min_driver_age || 21,
+        data.requires_license_years || 1,
+        data.coverage_details ? JSON.stringify(data.coverage_details) : null,
+        data.exclusions ? JSON.stringify(data.exclusions) : null,
+        data.is_recommended || false,
+        data.display_order || 0,
+        id
+      ]);
+
+      const insurance = await db.query(`SELECT * FROM rentcar_insurance_plans WHERE id = ?`, [id]);
+
+      return {
+        success: true,
+        data: insurance.rows[0] as RentcarInsurancePlan,
+        message: '보험 상품이 수정되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to update insurance plan:', error);
+      return {
+        success: false,
+        error: '보험 상품 수정에 실패했습니다.'
+      };
+    }
+  },
+
+  // Delete insurance plan
+  delete: async (id: number): Promise<RentcarApiResponse<void>> => {
+    try {
+      await db.execute(`DELETE FROM rentcar_insurance_plans WHERE id = ?`, [id]);
+
+      return {
+        success: true,
+        message: '보험 상품이 삭제되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to delete insurance plan:', error);
+      return {
+        success: false,
+        error: '보험 상품 삭제에 실패했습니다.'
+      };
+    }
+  },
+
+  // Toggle active status
+  toggleActive: async (id: number, isActive: boolean): Promise<RentcarApiResponse<RentcarInsurancePlan>> => {
+    try {
+      await db.execute(`
+        UPDATE rentcar_insurance_plans SET is_active = ?, updated_at = NOW() WHERE id = ?
+      `, [isActive, id]);
+
+      const insurance = await db.query(`SELECT * FROM rentcar_insurance_plans WHERE id = ?`, [id]);
+
+      return {
+        success: true,
+        data: insurance.rows[0] as RentcarInsurancePlan,
+        message: isActive ? '보험 상품이 활성화되었습니다.' : '보험 상품이 비활성화되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to toggle insurance status:', error);
+      return {
+        success: false,
+        error: '상태 변경에 실패했습니다.'
+      };
+    }
+  }
+};
+
+// ============================================
+// 8. EXTRAS API (부가 옵션/서비스)
+// ============================================
+
+export const rentcarExtrasApi = {
+  // Get all extras for a vendor
+  getByVendor: async (vendorId: number): Promise<RentcarApiResponse<RentcarExtra[]>> => {
+    try {
+      const result = await db.query(`
+        SELECT * FROM rentcar_extras
+        WHERE vendor_id = ?
+        ORDER BY display_order ASC, extra_name ASC
+      `, [vendorId]);
+
+      return { success: true, data: result.rows as RentcarExtra[] };
+    } catch (error) {
+      console.error('Failed to fetch extras:', error);
+      return {
+        success: false,
+        error: '부가 옵션 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  // Get active extras
+  getActive: async (vendorId: number): Promise<RentcarApiResponse<RentcarExtra[]>> => {
+    try {
+      const result = await db.query(`
+        SELECT * FROM rentcar_extras
+        WHERE vendor_id = ? AND is_active = 1
+        ORDER BY display_order ASC, extra_name ASC
+      `, [vendorId]);
+
+      return { success: true, data: result.rows as RentcarExtra[] };
+    } catch (error) {
+      console.error('Failed to fetch active extras:', error);
+      return {
+        success: false,
+        error: '활성 부가 옵션 조회에 실패했습니다.'
+      };
+    }
+  },
+
+  // Create extra
+  create: async (vendorId: number, data: RentcarExtraFormData): Promise<RentcarApiResponse<RentcarExtra>> => {
+    try {
+      const result = await db.execute(`
+        INSERT INTO rentcar_extras (
+          vendor_id, extra_code, extra_name, extra_type, description,
+          pricing_type, price_krw, max_quantity, available_quantity,
+          is_mandatory, is_prepaid, icon_url, image_url, display_order, badge_text
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        vendorId,
+        data.extra_code,
+        data.extra_name,
+        data.extra_type,
+        data.description || null,
+        data.pricing_type,
+        data.price_krw,
+        data.max_quantity || 1,
+        data.available_quantity || null,
+        data.is_mandatory || false,
+        data.is_prepaid || false,
+        data.icon_url || null,
+        data.image_url || null,
+        data.display_order || 0,
+        data.badge_text || null
+      ]);
+
+      const insertedId = result.insertId;
+      const extra = await db.query(`SELECT * FROM rentcar_extras WHERE id = ?`, [insertedId]);
+
+      return {
+        success: true,
+        data: extra.rows[0] as RentcarExtra,
+        message: '부가 옵션이 등록되었습니다.'
+      };
+    } catch (error: any) {
+      console.error('Failed to create extra:', error);
+      if (error.message.includes('Duplicate entry')) {
+        return { success: false, error: '이미 존재하는 옵션 코드입니다.' };
+      }
+      return {
+        success: false,
+        error: '부가 옵션 등록에 실패했습니다.'
+      };
+    }
+  },
+
+  // Update extra
+  update: async (id: number, data: RentcarExtraFormData): Promise<RentcarApiResponse<RentcarExtra>> => {
+    try {
+      await db.execute(`
+        UPDATE rentcar_extras SET
+          extra_code = ?, extra_name = ?, extra_type = ?, description = ?,
+          pricing_type = ?, price_krw = ?, max_quantity = ?, available_quantity = ?,
+          is_mandatory = ?, is_prepaid = ?, icon_url = ?, image_url = ?, display_order = ?, badge_text = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [
+        data.extra_code,
+        data.extra_name,
+        data.extra_type,
+        data.description || null,
+        data.pricing_type,
+        data.price_krw,
+        data.max_quantity || 1,
+        data.available_quantity || null,
+        data.is_mandatory || false,
+        data.is_prepaid || false,
+        data.icon_url || null,
+        data.image_url || null,
+        data.display_order || 0,
+        data.badge_text || null,
+        id
+      ]);
+
+      const extra = await db.query(`SELECT * FROM rentcar_extras WHERE id = ?`, [id]);
+
+      return {
+        success: true,
+        data: extra.rows[0] as RentcarExtra,
+        message: '부가 옵션이 수정되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to update extra:', error);
+      return {
+        success: false,
+        error: '부가 옵션 수정에 실패했습니다.'
+      };
+    }
+  },
+
+  // Delete extra
+  delete: async (id: number): Promise<RentcarApiResponse<void>> => {
+    try {
+      await db.execute(`DELETE FROM rentcar_extras WHERE id = ?`, [id]);
+
+      return {
+        success: true,
+        message: '부가 옵션이 삭제되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to delete extra:', error);
+      return {
+        success: false,
+        error: '부가 옵션 삭제에 실패했습니다.'
+      };
+    }
+  },
+
+  // Toggle active status
+  toggleActive: async (id: number, isActive: boolean): Promise<RentcarApiResponse<RentcarExtra>> => {
+    try {
+      await db.execute(`
+        UPDATE rentcar_extras SET is_active = ?, updated_at = NOW() WHERE id = ?
+      `, [isActive, id]);
+
+      const extra = await db.query(`SELECT * FROM rentcar_extras WHERE id = ?`, [id]);
+
+      return {
+        success: true,
+        data: extra.rows[0] as RentcarExtra,
+        message: isActive ? '부가 옵션이 활성화되었습니다.' : '부가 옵션이 비활성화되었습니다.'
+      };
+    } catch (error) {
+      console.error('Failed to toggle extra status:', error);
+      return {
+        success: false,
+        error: '상태 변경에 실패했습니다.'
+      };
+    }
+  }
+};
+
+// ============================================
 // Export all APIs
 // ============================================
 
@@ -925,7 +1487,10 @@ export const rentcarApi = {
   locations: rentcarLocationApi,
   vehicles: rentcarVehicleApi,
   bookings: rentcarBookingApi,
-  stats: rentcarStatsApi
+  stats: rentcarStatsApi,
+  ratePlans: rentcarRatePlanApi,
+  insurance: rentcarInsuranceApi,
+  extras: rentcarExtrasApi
 };
 
 export default rentcarApi;

@@ -424,3 +424,242 @@ export interface RentcarCsvMapping {
   daily_rate_krw: string;
   // ... 추가 필드
 }
+
+// ============================================
+// 11. RATE PLANS (요금제)
+// ============================================
+export interface RentcarRatePlan {
+  id: number;
+  vendor_id: number;
+  vehicle_id?: number;
+  vehicle_class?: VehicleClass;
+  plan_name: string;
+  plan_code: string;
+  description?: string;
+  start_date: string;
+  end_date: string;
+  daily_rate_krw: number;
+  weekly_rate_krw?: number;
+  monthly_rate_krw?: number;
+  min_rental_days: number;
+  max_rental_days?: number;
+  weekend_surcharge_percent: number;
+  weekday_discount_percent: number;
+  early_bird_days?: number;
+  early_bird_discount_percent: number;
+  long_term_days?: number;
+  long_term_discount_percent: number;
+  priority: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RentcarRatePlanFormData {
+  vehicle_id?: number;
+  vehicle_class?: VehicleClass;
+  plan_name: string;
+  plan_code: string;
+  description?: string;
+  start_date: string;
+  end_date: string;
+  daily_rate_krw: number;
+  weekly_rate_krw?: number;
+  monthly_rate_krw?: number;
+  min_rental_days?: number;
+  max_rental_days?: number;
+  weekend_surcharge_percent?: number;
+  weekday_discount_percent?: number;
+  early_bird_days?: number;
+  early_bird_discount_percent?: number;
+  long_term_days?: number;
+  long_term_discount_percent?: number;
+  priority?: number;
+}
+
+export interface RentcarRatePlanWithVehicle extends RentcarRatePlan {
+  vehicle?: {
+    id: number;
+    display_name: string;
+    brand: string;
+    model: string;
+  };
+}
+
+// ============================================
+// 12. INSURANCE PLANS (보험 상품)
+// ============================================
+export type InsuranceType = 'cdw' | 'tp' | 'pai' | 'lli' | 'other';
+
+export interface RentcarInsurancePlan {
+  id: number;
+  vendor_id: number;
+  insurance_code: string;
+  insurance_name: string;
+  insurance_type: InsuranceType;
+  description?: string;
+  daily_price_krw: number;
+  max_coverage_krw?: number;
+  deductible_krw: number;
+  min_driver_age: number;
+  requires_license_years: number;
+  coverage_details?: any;
+  exclusions?: any;
+  is_recommended: boolean;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RentcarInsurancePlanFormData {
+  insurance_code: string;
+  insurance_name: string;
+  insurance_type: InsuranceType;
+  description?: string;
+  daily_price_krw: number;
+  max_coverage_krw?: number;
+  deductible_krw?: number;
+  min_driver_age?: number;
+  requires_license_years?: number;
+  coverage_details?: string;
+  exclusions?: string;
+  is_recommended?: boolean;
+  display_order?: number;
+}
+
+// ============================================
+// 13. EXTRAS (부가 옵션/서비스)
+// ============================================
+export type ExtraType =
+  | 'gps'
+  | 'child_seat'
+  | 'wifi'
+  | 'additional_driver'
+  | 'pickup_service'
+  | 'equipment'
+  | 'other';
+
+export type ExtraPricingType = 'per_rental' | 'per_day';
+
+export interface RentcarExtra {
+  id: number;
+  vendor_id: number;
+  extra_code: string;
+  extra_name: string;
+  extra_type: ExtraType;
+  description?: string;
+  pricing_type: ExtraPricingType;
+  price_krw: number;
+  max_quantity: number;
+  available_quantity?: number;
+  is_mandatory: boolean;
+  is_prepaid: boolean;
+  icon_url?: string;
+  image_url?: string;
+  display_order: number;
+  badge_text?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RentcarExtraFormData {
+  extra_code: string;
+  extra_name: string;
+  extra_type: ExtraType;
+  description?: string;
+  pricing_type: ExtraPricingType;
+  price_krw: number;
+  max_quantity?: number;
+  available_quantity?: number;
+  is_mandatory?: boolean;
+  is_prepaid?: boolean;
+  icon_url?: string;
+  image_url?: string;
+  display_order?: number;
+  badge_text?: string;
+}
+
+// ============================================
+// 14. AVAILABILITY RULES (가용성 규칙)
+// ============================================
+export type AvailabilityRuleType = 'blackout' | 'minimum_stay' | 'closed' | 'restricted';
+
+export interface RentcarAvailabilityRule {
+  id: number;
+  vendor_id: number;
+  vehicle_id?: number;
+  location_id?: number;
+  rule_name: string;
+  rule_type: AvailabilityRuleType;
+  description?: string;
+  start_date: string;
+  end_date: string;
+  applicable_days?: string[];
+  start_time?: string;
+  end_time?: string;
+  minimum_rental_days?: number;
+  priority: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RentcarAvailabilityRuleFormData {
+  vehicle_id?: number;
+  location_id?: number;
+  rule_name: string;
+  rule_type: AvailabilityRuleType;
+  description?: string;
+  start_date: string;
+  end_date: string;
+  applicable_days?: string[];
+  start_time?: string;
+  end_time?: string;
+  minimum_rental_days?: number;
+  priority?: number;
+}
+
+// ============================================
+// 15. BOOKING EXTRAS & INSURANCE (예약-옵션 연결)
+// ============================================
+export interface RentcarBookingExtra {
+  id: number;
+  booking_id: number;
+  extra_id: number;
+  quantity: number;
+  unit_price_krw: number;
+  total_price_krw: number;
+  created_at: string;
+}
+
+export interface RentcarBookingInsurance {
+  id: number;
+  booking_id: number;
+  insurance_id: number;
+  daily_price_krw: number;
+  rental_days: number;
+  total_price_krw: number;
+  created_at: string;
+}
+
+// 예약 생성 시 부가옵션 및 보험 추가
+export interface RentcarBookingExtraInput {
+  extra_id: number;
+  quantity: number;
+}
+
+export interface RentcarBookingInsuranceInput {
+  insurance_id: number;
+}
+
+// 확장된 예약 정보 (부가옵션 및 보험 포함)
+export interface RentcarBookingWithExtras extends RentcarBooking {
+  extras?: (RentcarBookingExtra & {
+    extra: RentcarExtra;
+  })[];
+  insurance?: (RentcarBookingInsurance & {
+    insurance: RentcarInsurancePlan;
+  })[];
+}
