@@ -190,20 +190,47 @@ export const useAuth = () => {
   }, []);
 
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
-    console.log('🔑 실제 DB 로그인 시도:', email);
+    console.log('🔑 로그인 시도:', email);
 
     try {
-      // 실제 DB API 호출
-      const { api } = await import('../utils/api');
-      const response = await api.loginUser(email, password);
+      // DB에서 직접 조회
+      const { db } = await import('../utils/database-cloud');
 
-      if (!response.success || !response.data) {
-        console.log('❌ DB 로그인 실패:', response.error);
+      console.log('📊 DB 쿼리 실행...');
+      const users = await db.query<any>(`
+        SELECT * FROM users WHERE email = ? LIMIT 1
+      `, [email]);
+
+      console.log('📊 쿼리 결과:', users);
+
+      if (!users || users.length === 0) {
+        console.log('❌ 사용자를 찾을 수 없음');
         return false;
       }
 
-      const { user: dbUser, token } = response.data;
+      const dbUser = users[0];
+      console.log('✅ 사용자 찾음:', {
+        id: dbUser.id,
+        email: dbUser.email,
+        role: dbUser.role,
+        password_hash: dbUser.password_hash
+      });
 
+      // 비밀번호 검증
+      const expectedHash = `hashed_${password}`;
+      console.log('🔐 비밀번호 검증:', {
+        입력한비밀번호: password,
+        기대값: expectedHash,
+        실제값: dbUser.password_hash,
+        일치: dbUser.password_hash === expectedHash
+      });
+
+      if (dbUser.password_hash !== expectedHash) {
+        console.log('❌ 비밀번호 불일치');
+        return false;
+      }
+
+      // 로그인 성공
       const user: User = {
         id: dbUser.id,
         email: dbUser.email,
@@ -211,6 +238,8 @@ export const useAuth = () => {
         phone: dbUser.phone,
         role: dbUser.role
       };
+
+      const token = `token_${dbUser.id}_${Date.now()}`;
 
       // 전역 상태 업데이트
       globalState = {
@@ -223,14 +252,13 @@ export const useAuth = () => {
       // 세션 저장
       saveSession(token);
 
-      console.log('✅ DB 로그인 성공!');
-      console.log('👤 사용자:', user.email, 'role:', user.role);
-      console.log('🌍 업데이트된 전역 상태:', globalState);
+      console.log('✅ 로그인 성공!');
+      console.log('👤 사용자:', user);
 
       notifyListeners();
       return true;
     } catch (error) {
-      console.error('❌ 로그인 처리 중 오류:', error);
+      console.error('❌ 로그인 오류:', error);
       return false;
     }
   }, []);

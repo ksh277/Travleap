@@ -20,31 +20,29 @@ export function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    console.log('🔑 로그인 시도:', email);
+    console.log('🔑 로그인 시도:', email, password);
 
     try {
-      const result = await login({ email, password });
+      const success = await login(email, password);
 
-      console.log('✅ 로그인 결과:', result);
+      console.log('✅ 로그인 결과:', success);
 
-      if (result.success && result.user) {
+      if (success) {
         toast.success('로그인 성공!');
-        console.log('👤 로그인한 사용자:', result.user);
 
-        // role 기반으로 리다이렉트
-        if (result.user.role === 'admin') {
-          console.log('🔑 관리자로 이동');
-          navigate('/admin', { replace: true });
-        } else if (result.user.role === 'vendor') {
-          console.log('🚗 벤더 대시보드로 이동');
-          navigate('/vendor/dashboard', { replace: true });
-        } else {
-          console.log('🏠 홈으로 이동');
-          navigate('/', { replace: true });
-        }
+        // 약간의 딜레이 후 리다이렉트 (상태 업데이트 대기)
+        setTimeout(() => {
+          if (isAdmin) {
+            console.log('🔑 관리자로 이동');
+            navigate('/admin', { replace: true });
+          } else {
+            console.log('🏠 홈으로 이동');
+            navigate('/', { replace: true });
+          }
+        }, 100);
       } else {
-        console.error('❌ 로그인 실패:', result.error);
-        toast.error(result.error || '이메일 또는 비밀번호가 올바르지 않습니다.');
+        console.error('❌ 로그인 실패');
+        toast.error('이메일 또는 비밀번호가 올바르지 않습니다.');
       }
     } catch (error) {
       console.error('로그인 오류:', error);
