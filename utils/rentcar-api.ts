@@ -4,6 +4,7 @@
 
 import { db } from './database-cloud';
 import { cache, CacheKeys, CacheInvalidation } from './cache';
+import { AppError, RentcarErrors, handleDatabaseError, formatErrorResponse, catchAsync } from './error-handler';
 import type {
   RentcarVendor,
   RentcarVendorFormData,

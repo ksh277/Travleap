@@ -10,6 +10,8 @@
  * 향후 확장: Redis 연동 시 이 인터페이스 유지하면서 구현체만 변경 가능
  */
 
+import { cacheLogger } from './logger';
+
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
@@ -35,12 +37,14 @@ class CacheManager {
     const entry = this.cache.get(key);
 
     if (!entry) {
+      cacheLogger.miss(key);
       return null;
     }
 
     // 만료 확인
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
+      cacheLogger.miss(key);
       return null;
     }
 
@@ -48,6 +52,7 @@ class CacheManager {
     entry.accessCount++;
     entry.lastAccessedAt = Date.now();
 
+    cacheLogger.hit(key);
     return entry.data as T;
   }
 
@@ -68,6 +73,8 @@ class CacheManager {
       accessCount: 0,
       lastAccessedAt: Date.now()
     });
+
+    cacheLogger.set(key, ttl);
   }
 
   /**
