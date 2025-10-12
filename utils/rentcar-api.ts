@@ -3,6 +3,7 @@
 // ============================================
 
 import { db } from './database-cloud';
+import { cache, CacheKeys, CacheInvalidation } from './cache';
 import type {
   RentcarVendor,
   RentcarVendorFormData,
@@ -35,18 +36,60 @@ import type {
 // ============================================
 
 export const rentcarVendorApi = {
-  // 벤더 목록 조회
+  // 벤더 목록 조회 (최적화: 차량/예약 수를 JOIN으로 한 번에 조회 + 캐싱)
   getAll: async (): Promise<RentcarApiResponse<RentcarVendor[]>> => {
     try {
+      // 캐시 확인
+      const cacheKey = CacheKeys.vendorList();
+      const cached = cache.get<RentcarApiResponse<RentcarVendor[]>>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       const vendors = await db.query<RentcarVendor>(`
-        SELECT * FROM rentcar_vendors
-        ORDER BY created_at DESC
+        SELECT
+          v.*,
+          COALESCE(vehicle_counts.total, 0) as total_vehicles,
+          COALESCE(vehicle_counts.active, 0) as active_vehicles,
+          COALESCE(booking_counts.total, 0) as total_bookings,
+          COALESCE(booking_counts.confirmed, 0) as confirmed_bookings,
+          COALESCE(review_stats.avg_rating, 0) as average_rating,
+          COALESCE(review_stats.review_count, 0) as review_count
+        FROM rentcar_vendors v
+        LEFT JOIN (
+          SELECT vendor_id,
+            COUNT(*) as total,
+            SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active
+          FROM rentcar_vehicles
+          GROUP BY vendor_id
+        ) vehicle_counts ON v.id = vehicle_counts.vendor_id
+        LEFT JOIN (
+          SELECT vendor_id,
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed
+          FROM rentcar_bookings
+          GROUP BY vendor_id
+        ) booking_counts ON v.id = booking_counts.vendor_id
+        LEFT JOIN (
+          SELECT rentcar_vendor_id,
+            AVG(rating) as avg_rating,
+            COUNT(*) as review_count
+          FROM reviews
+          WHERE review_type = 'rentcar' AND rentcar_vendor_id IS NOT NULL
+          GROUP BY rentcar_vendor_id
+        ) review_stats ON v.id = review_stats.rentcar_vendor_id
+        ORDER BY v.created_at DESC
       `);
 
-      return {
+      const result = {
         success: true,
         data: vendors
       };
+
+      // 캐시 저장 (5분)
+      cache.set(cacheKey, result, 5 * 60 * 1000);
+
+      return result;
     } catch (error) {
       console.error('Failed to fetch vendors:', error);
       return {
@@ -107,6 +150,10 @@ export const rentcarVendorApi = {
 
       const newVendor = await rentcarVendorApi.getById(result.insertId!);
 
+      // 캐시 무효화
+      cache.delete(CacheKeys.vendorList());
+      cache.delete(CacheKeys.adminStats());
+
       return {
         success: true,
         data: newVendor.data,
@@ -142,6 +189,9 @@ export const rentcarVendorApi = {
 
       const updated = await rentcarVendorApi.getById(id);
 
+      // 캐시 무효화
+      CacheInvalidation.invalidateVendor(id);
+
       return {
         success: true,
         data: updated.data,
@@ -160,6 +210,9 @@ export const rentcarVendorApi = {
   delete: async (id: number): Promise<RentcarApiResponse<null>> => {
     try {
       await db.execute(`DELETE FROM rentcar_vendors WHERE id = ?`, [id]);
+
+      // 캐시 무효화
+      CacheInvalidation.invalidateVendor(id);
 
       return {
         success: true,
@@ -185,6 +238,9 @@ export const rentcarVendorApi = {
       `, [status, status === 'active' ? 1 : 0, id]);
 
       const updated = await rentcarVendorApi.getById(id);
+
+      // 캐시 무효화
+      CacheInvalidation.invalidateVendor(id);
 
       return {
         success: true,
@@ -871,22 +927,50 @@ export const rentcarBookingApi = {
 // ============================================
 
 export const rentcarStatsApi = {
-  // 벤더 통계
+  // 벤더 통계 (최적화: 서브쿼리를 단일 쿼리로 통합 + 캐싱)
   getVendorStats: async (vendorId: number): Promise<RentcarApiResponse<RentcarVendorStats>> => {
     try {
+      // 캐시 확인
+      const cacheKey = CacheKeys.vendorStats(vendorId);
+      const cached = cache.get<RentcarApiResponse<RentcarVendorStats>>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       const stats = await db.query(`
         SELECT
-          (SELECT COUNT(*) FROM rentcar_vehicles WHERE vendor_id = ?) as total_vehicles,
-          (SELECT COUNT(*) FROM rentcar_vehicles WHERE vendor_id = ? AND is_active = 1) as active_vehicles,
-          (SELECT COUNT(*) FROM rentcar_bookings WHERE vendor_id = ?) as total_bookings,
-          (SELECT COUNT(*) FROM rentcar_bookings WHERE vendor_id = ? AND status = 'confirmed') as confirmed_bookings,
-          (SELECT COALESCE(SUM(total_krw), 0) FROM rentcar_bookings WHERE vendor_id = ? AND payment_status = 'paid') as total_revenue_krw
-      `, [vendorId, vendorId, vendorId, vendorId, vendorId]);
+          COALESCE(vehicle_stats.total, 0) as total_vehicles,
+          COALESCE(vehicle_stats.active, 0) as active_vehicles,
+          COALESCE(booking_stats.total, 0) as total_bookings,
+          COALESCE(booking_stats.confirmed, 0) as confirmed_bookings,
+          COALESCE(booking_stats.revenue, 0) as total_revenue_krw
+        FROM (SELECT 1) as dummy
+        LEFT JOIN (
+          SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active
+          FROM rentcar_vehicles
+          WHERE vendor_id = ?
+        ) vehicle_stats ON 1=1
+        LEFT JOIN (
+          SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
+            COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN total_krw ELSE 0 END), 0) as revenue
+          FROM rentcar_bookings
+          WHERE vendor_id = ?
+        ) booking_stats ON 1=1
+      `, [vendorId, vendorId]);
 
-      return {
+      const result = {
         success: true,
         data: stats[0] as any
       };
+
+      // 캐시 저장 (3분)
+      cache.set(cacheKey, result, 3 * 60 * 1000);
+
+      return result;
     } catch (error) {
       console.error('Failed to fetch vendor stats:', error);
       return {
@@ -896,22 +980,50 @@ export const rentcarStatsApi = {
     }
   },
 
-  // Admin 통계
+  // Admin 통계 (최적화: 서브쿼리를 단일 쿼리로 통합 + 캐싱)
   getAdminStats: async (): Promise<RentcarApiResponse<Partial<RentcarAdminStats>>> => {
     try {
+      // 캐시 확인
+      const cacheKey = CacheKeys.adminStats();
+      const cached = cache.get<RentcarApiResponse<Partial<RentcarAdminStats>>>(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       const stats = await db.query(`
         SELECT
-          (SELECT COUNT(*) FROM rentcar_vendors) as total_vendors,
-          (SELECT COUNT(*) FROM rentcar_vendors WHERE status = 'active') as active_vendors,
-          (SELECT COUNT(*) FROM rentcar_vehicles) as total_vehicles,
-          (SELECT COUNT(*) FROM rentcar_bookings) as total_bookings,
-          (SELECT COALESCE(SUM(total_krw), 0) FROM rentcar_bookings WHERE payment_status = 'paid') as total_revenue_krw
+          COALESCE(vendor_stats.total, 0) as total_vendors,
+          COALESCE(vendor_stats.active, 0) as active_vendors,
+          COALESCE(vehicle_stats.total, 0) as total_vehicles,
+          COALESCE(booking_stats.total, 0) as total_bookings,
+          COALESCE(booking_stats.revenue, 0) as total_revenue_krw
+        FROM (SELECT 1) as dummy
+        LEFT JOIN (
+          SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active
+          FROM rentcar_vendors
+        ) vendor_stats ON 1=1
+        LEFT JOIN (
+          SELECT COUNT(*) as total FROM rentcar_vehicles
+        ) vehicle_stats ON 1=1
+        LEFT JOIN (
+          SELECT
+            COUNT(*) as total,
+            COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN total_krw ELSE 0 END), 0) as revenue
+          FROM rentcar_bookings
+        ) booking_stats ON 1=1
       `);
 
-      return {
+      const result = {
         success: true,
         data: stats[0] as any
       };
+
+      // 캐시 저장 (3분)
+      cache.set(cacheKey, result, 3 * 60 * 1000);
+
+      return result;
     } catch (error) {
       console.error('Failed to fetch admin stats:', error);
       return {
