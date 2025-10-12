@@ -69,6 +69,9 @@ export const RentcarManagement: React.FC = () => {
   const [isCsvUploadDialogOpen, setIsCsvUploadDialogOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<any[]>([]);
+  const [vehicleSearchQuery, setVehicleSearchQuery] = useState('');
+  const [vehicleCurrentPage, setVehicleCurrentPage] = useState(1);
+  const [vehicleItemsPerPage] = useState(10);
   const [vehicleFormData, setVehicleFormData] = useState<RentcarVehicleFormData>({
     vehicle_code: '',
     brand: '',
@@ -826,6 +829,20 @@ export const RentcarManagement: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="차량명, 브랜드, 모델 검색..."
+                  className="pl-10"
+                  value={vehicleSearchQuery}
+                  onChange={(e) => {
+                    setVehicleSearchQuery(e.target.value);
+                    setVehicleCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -843,7 +860,18 @@ export const RentcarManagement: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {vehicles.map((vehicle) => (
+                  {(() => {
+                    const filtered = vehicles.filter(vehicle =>
+                      vehicle.display_name?.toLowerCase().includes(vehicleSearchQuery.toLowerCase()) ||
+                      vehicle.brand?.toLowerCase().includes(vehicleSearchQuery.toLowerCase()) ||
+                      vehicle.model?.toLowerCase().includes(vehicleSearchQuery.toLowerCase()) ||
+                      vehicle.vehicle_code?.toLowerCase().includes(vehicleSearchQuery.toLowerCase())
+                    );
+                    const totalPages = Math.ceil(filtered.length / vehicleItemsPerPage);
+                    const startIndex = (vehicleCurrentPage - 1) * vehicleItemsPerPage;
+                    const paginatedVehicles = filtered.slice(startIndex, startIndex + vehicleItemsPerPage);
+
+                    return paginatedVehicles.map((vehicle) => (
                     <TableRow key={vehicle.id}>
                       <TableCell className="font-medium">{vehicle.vehicle_code}</TableCell>
                       <TableCell>{vehicle.display_name}</TableCell>
@@ -901,10 +929,86 @@ export const RentcarManagement: React.FC = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ));
+                  })()}
                 </TableBody>
               </Table>
             </div>
+
+            {/* 페이지네이션 */}
+            {(() => {
+              const filtered = vehicles.filter(vehicle =>
+                vehicle.display_name?.toLowerCase().includes(vehicleSearchQuery.toLowerCase()) ||
+                vehicle.brand?.toLowerCase().includes(vehicleSearchQuery.toLowerCase()) ||
+                vehicle.model?.toLowerCase().includes(vehicleSearchQuery.toLowerCase()) ||
+                vehicle.vehicle_code?.toLowerCase().includes(vehicleSearchQuery.toLowerCase())
+              );
+              const totalPages = Math.ceil(filtered.length / vehicleItemsPerPage);
+
+              if (totalPages <= 1) return null;
+
+              return (
+                <div className="flex items-center justify-between mt-4">
+                  <div className="text-sm text-gray-600">
+                    총 {filtered.length}개 차량 (페이지 {vehicleCurrentPage} / {totalPages})
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVehicleCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={vehicleCurrentPage === 1}
+                    >
+                      이전
+                    </Button>
+                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (vehicleCurrentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (vehicleCurrentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = vehicleCurrentPage - 2 + i;
+                      }
+
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={vehicleCurrentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setVehicleCurrentPage(pageNum)}
+                          className={vehicleCurrentPage === pageNum ? "bg-[#8B5FBF] hover:bg-[#7A4FB5]" : ""}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                    {totalPages > 5 && vehicleCurrentPage < totalPages - 2 && (
+                      <>
+                        <span className="px-2 py-1 text-gray-400">...</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setVehicleCurrentPage(totalPages)}
+                        >
+                          {totalPages}
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVehicleCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={vehicleCurrentPage === totalPages}
+                    >
+                      다음
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </TabsContent>
