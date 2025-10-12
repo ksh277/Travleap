@@ -568,6 +568,7 @@ export const rentcarVehicleApi = {
   // 차량 등록
   create: async (vendorId: number, data: RentcarVehicleFormData): Promise<RentcarApiResponse<RentcarVehicle>> => {
     try {
+      // 1. rentcar_vehicles 테이블에 저장
       const result = await db.execute(`
         INSERT INTO rentcar_vehicles (
           vendor_id, vehicle_code, brand, model, year, display_name,
@@ -604,7 +605,93 @@ export const rentcarVehicleApi = {
         data.daily_rate_krw
       ]);
 
-      // 벤더 차량 수 업데이트
+      const vehicleId = result.insertId!;
+
+      // 2. listings 테이블에도 저장 (사용자가 검색/상세페이지에서 볼 수 있도록)
+      try {
+        // rentcar 카테고리 ID 조회 (없으면 기본값 7)
+        const categories = await db.query<{ id: number }>(`
+          SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1
+        `);
+        const categoryId = categories[0]?.id || 7;
+
+        // 벤더 정보 조회 (partner_id 연결)
+        const vendors = await db.query<{ id: number }>(`
+          SELECT id FROM rentcar_vendors WHERE id = ? LIMIT 1
+        `, [vendorId]);
+
+        const title = data.display_name || `${data.brand} ${data.model}`;
+        const description = `
+${data.brand} ${data.model} (${data.year}년식)
+
+**차량 정보**
+- 등급: ${data.vehicle_class}
+- 연료: ${data.fuel_type}
+- 변속기: ${data.transmission}
+- 탑승인원: ${data.seating_capacity}명
+- 대형 수하물: ${data.large_bags}개
+- 소형 수하물: ${data.small_bags}개
+
+**대여 조건**
+- 최소 연령: ${data.age_requirement}세
+- 면허: ${data.license_requirement || '1종 보통'}
+- 일일 주행거리: ${data.unlimited_mileage ? '무제한' : data.mileage_limit_per_day + 'km'}
+- 보증금: ${data.deposit_amount_krw?.toLocaleString()}원
+- 흡연: ${data.smoking_allowed ? '가능' : '불가'}
+
+**가격**
+- 1일 대여료: ${data.daily_rate_krw?.toLocaleString()}원
+        `.trim();
+
+        const listingResult = await db.execute(`
+          INSERT INTO listings (
+            category_id, title, short_description, description_md,
+            price_from, price_to, currency,
+            images, location, address,
+            duration, max_capacity, min_capacity,
+            tags, amenities,
+            is_active, is_published, is_featured,
+            rentcar_vehicle_id,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        `, [
+          categoryId,
+          title,
+          `${data.brand} ${data.model} - ${data.vehicle_class}`,
+          description,
+          data.daily_rate_krw || 0,
+          data.daily_rate_krw || 0,
+          'KRW',
+          JSON.stringify(data.images || [data.thumbnail_url]),
+          '신안군',
+          '전라남도 신안군',
+          '1일',
+          data.seating_capacity,
+          1,
+          JSON.stringify([data.vehicle_class, data.fuel_type, data.transmission, '렌트카']),
+          JSON.stringify(data.features || []),
+          1, // is_active
+          1, // is_published
+          0, // is_featured
+          vehicleId, // rentcar_vehicle_id 양방향 참조
+        ]);
+
+        const listingId = listingResult.insertId!;
+
+        // rentcar_vehicles에 listing_id 저장 (양방향 참조)
+        await db.execute(`
+          UPDATE rentcar_vehicles
+          SET listing_id = ?
+          WHERE id = ?
+        `, [listingId, vehicleId]);
+
+        console.log(`✅ 차량 ${vehicleId} ↔ 상품 ${listingId} 연결 완료`);
+      } catch (listingError) {
+        console.error('⚠️ listings 테이블 저장 실패 (rentcar_vehicles는 저장됨):', listingError);
+        // listings 저장 실패해도 rentcar_vehicles 저장은 성공으로 처리
+      }
+
+      // 3. 벤더 차량 수 업데이트
       await db.execute(`
         UPDATE rentcar_vendors
         SET total_vehicles = (SELECT COUNT(*) FROM rentcar_vehicles WHERE vendor_id = ?)
@@ -613,7 +700,7 @@ export const rentcarVehicleApi = {
 
       return {
         success: true,
-        data: { id: result.insertId!, ...data } as any,
+        data: { id: vehicleId, ...data } as any,
         message: '차량이 등록되었습니다.'
       };
     } catch (error) {
@@ -628,6 +715,7 @@ export const rentcarVehicleApi = {
   // 차량 수정
   update: async (id: number, data: Partial<RentcarVehicleFormData>): Promise<RentcarApiResponse<RentcarVehicle>> => {
     try {
+      // 1. rentcar_vehicles 업데이트
       const fields: string[] = [];
       const values: any[] = [];
 
@@ -649,6 +737,60 @@ export const rentcarVehicleApi = {
         WHERE id = ?
       `, values);
 
+      // 2. listings 테이블도 동기화 (listing_id가 있으면)
+      try {
+        const vehicle = await db.query<{ listing_id: number | null }>(`
+          SELECT listing_id FROM rentcar_vehicles WHERE id = ? LIMIT 1
+        `, [id]);
+
+        if (vehicle[0]?.listing_id) {
+          const listingId = vehicle[0].listing_id;
+
+          // 업데이트할 필드 매핑
+          const listingFields: string[] = [];
+          const listingValues: any[] = [];
+
+          if (data.display_name || data.brand || data.model) {
+            const vehicleData = await db.query(`SELECT * FROM rentcar_vehicles WHERE id = ? LIMIT 1`, [id]);
+            const v = vehicleData[0];
+            const newTitle = data.display_name || `${data.brand || v.brand} ${data.model || v.model}`;
+            listingFields.push('title = ?');
+            listingValues.push(newTitle);
+          }
+
+          if (data.daily_rate_krw) {
+            listingFields.push('price_from = ?', 'price_to = ?');
+            listingValues.push(data.daily_rate_krw, data.daily_rate_krw);
+          }
+
+          if (data.images || data.thumbnail_url) {
+            const images = data.images || [data.thumbnail_url];
+            listingFields.push('images = ?');
+            listingValues.push(JSON.stringify(images));
+          }
+
+          if (data.seating_capacity) {
+            listingFields.push('max_capacity = ?');
+            listingValues.push(data.seating_capacity);
+          }
+
+          if (listingFields.length > 0) {
+            listingFields.push('updated_at = NOW()');
+            listingValues.push(listingId);
+
+            await db.execute(`
+              UPDATE listings
+              SET ${listingFields.join(', ')}
+              WHERE id = ?
+            `, listingValues);
+
+            console.log(`✅ 상품 ${listingId} listings 테이블도 업데이트됨`);
+          }
+        }
+      } catch (listingError) {
+        console.error('⚠️ listings 테이블 업데이트 실패 (rentcar_vehicles는 업데이트됨):', listingError);
+      }
+
       return {
         success: true,
         data: null as any,
@@ -666,8 +808,10 @@ export const rentcarVehicleApi = {
   // 차량 삭제
   delete: async (id: number): Promise<RentcarApiResponse<null>> => {
     try {
-      // 차량 정보 가져오기 (vendor_id 필요)
-      const vehicle = await db.query(`SELECT vendor_id FROM rentcar_vehicles WHERE id = ?`, [id]);
+      // 차량 정보 가져오기 (vendor_id, listing_id 필요)
+      const vehicle = await db.query<{ vendor_id: number; listing_id: number | null }>(`
+        SELECT vendor_id, listing_id FROM rentcar_vehicles WHERE id = ?
+      `, [id]);
 
       if (vehicle.length === 0) {
         return {
@@ -677,10 +821,22 @@ export const rentcarVehicleApi = {
       }
 
       const vendorId = vehicle[0].vendor_id;
+      const listingId = vehicle[0].listing_id;
 
+      // 1. listings 테이블에서도 삭제 (있으면)
+      if (listingId) {
+        try {
+          await db.execute(`DELETE FROM listings WHERE id = ?`, [listingId]);
+          console.log(`✅ 상품 ${listingId} listings 테이블에서도 삭제됨`);
+        } catch (listingError) {
+          console.error('⚠️ listings 테이블 삭제 실패:', listingError);
+        }
+      }
+
+      // 2. rentcar_vehicles 삭제
       await db.execute(`DELETE FROM rentcar_vehicles WHERE id = ?`, [id]);
 
-      // 벤더 차량 수 업데이트
+      // 3. 벤더 차량 수 업데이트
       await db.execute(`
         UPDATE rentcar_vendors
         SET total_vehicles = (SELECT COUNT(*) FROM rentcar_vehicles WHERE vendor_id = ?)
@@ -952,6 +1108,40 @@ export const rentcarBookingApi = {
       return {
         success: false,
         error: '예약 상태 변경에 실패했습니다.'
+      };
+    }
+  },
+
+  // 차량 예약 가능 여부 확인 (날짜 중복 체크)
+  checkAvailability: async (
+    pickupDate: string,
+    returnDate: string
+  ): Promise<RentcarApiResponse<{ unavailableVehicleIds: number[] }>> => {
+    try {
+      // 선택한 날짜 범위와 겹치는 예약 조회
+      // status가 'confirmed' 또는 'in_progress'인 예약만 체크
+      const overlappingBookings = await db.query<{ vehicle_id: number }>(`
+        SELECT DISTINCT vehicle_id
+        FROM rentcar_bookings
+        WHERE status IN ('confirmed', 'in_progress')
+        AND (
+          (pickup_date <= ? AND dropoff_date >= ?) OR
+          (pickup_date <= ? AND dropoff_date >= ?) OR
+          (pickup_date >= ? AND dropoff_date <= ?)
+        )
+      `, [returnDate, pickupDate, returnDate, returnDate, pickupDate, returnDate]);
+
+      const unavailableVehicleIds = overlappingBookings.map(row => row.vehicle_id);
+
+      return {
+        success: true,
+        data: { unavailableVehicleIds }
+      };
+    } catch (error) {
+      console.error('Failed to check availability:', error);
+      return {
+        success: false,
+        error: '예약 가능 여부 확인에 실패했습니다.'
       };
     }
   }

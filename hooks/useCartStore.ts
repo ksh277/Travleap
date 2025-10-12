@@ -81,6 +81,12 @@ export function useCartStore() {
   }, [cartState.cartItems, isLoggedIn]);
 
   const addToCart = async (item: Partial<CartItem>) => {
+    // 필수 필드 검증
+    if (!item.id) {
+      console.error('Cannot add item to cart: missing id', item);
+      throw new Error('상품 ID가 없습니다.');
+    }
+
     // 로그인한 사용자는 DB에 저장
     if (isLoggedIn && user?.id) {
       try {
@@ -109,12 +115,12 @@ export function useCartStore() {
           } else {
             const newCartItem: CartItem = {
               id: item.id!,
-              title: item.title || '',
+              title: item.title || '상품',
               price: item.price || 0,
               quantity: 1,
-              image: item.image,
-              category: item.category,
-              location: item.location,
+              image: item.image || '',
+              category: item.category || '',
+              location: item.location || '',
               date: item.date,
               guests: item.guests,
             };
@@ -125,6 +131,7 @@ export function useCartStore() {
         });
       } catch (error) {
         console.error('Failed to add item to cart in database:', error);
+        throw error;
       }
     } else {
       // 비로그인 사용자는 localStorage만 사용
@@ -142,12 +149,14 @@ export function useCartStore() {
         } else {
           const newCartItem: CartItem = {
             id: item.id!,
-            title: item.title || '',
+            title: item.title || '상품',
             price: item.price || 0,
             quantity: 1,
-            image: item.image,
-            category: item.category,
-            location: item.location,
+            image: item.image || '',
+            category: item.category || '',
+            location: item.location || '',
+            date: item.date,
+            guests: item.guests,
           };
           return {
             cartItems: [...prev.cartItems, newCartItem],

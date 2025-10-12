@@ -45,6 +45,14 @@ interface FilterState {
   tags: string[];
   availability: string;
   location: string[];
+  // 렌트카 전용 필터
+  vehicleClass?: string[];
+  fuelType?: string[];
+  transmission?: string[];
+  seatingCapacity?: number;
+  // 렌트카 날짜 선택
+  pickupDate?: string;
+  returnDate?: string;
 }
 
 interface SortOption {
@@ -72,6 +80,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
   const [totalCount, setTotalCount] = useState(0);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [unavailableVehicleIds, setUnavailableVehicleIds] = useState<number[]>([]);
 
   // Enhanced filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -82,7 +91,12 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
     sponsorOnly: false,
     tags: [],
     availability: 'all',
-    location: []
+    location: [],
+    // 렌트카 필터 초기값
+    vehicleClass: [],
+    fuelType: [],
+    transmission: [],
+    seatingCapacity: undefined
   });
 
   const categoryNames: { [key: string]: string } = {
@@ -202,6 +216,27 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
     setListings([]);
     fetchListings(false);
   }, [category, sortBy, filters.search, filters.priceRange, filters.verifiedOnly, filters.ratings]);
+
+  // 렌트카 날짜 선택 시 예약 가능 여부 확인
+  useEffect(() => {
+    if (category === 'rentcar' && filters.pickupDate && filters.returnDate) {
+      const checkAvailability = async () => {
+        try {
+          const response = await api.checkRentcarAvailability(filters.pickupDate!, filters.returnDate!);
+          if (response.success && response.data) {
+            setUnavailableVehicleIds(response.data);
+            console.log(`📅 날짜 선택됨: ${filters.pickupDate} ~ ${filters.returnDate}`);
+            console.log(`❌ 예약 불가능한 차량: ${response.data.length}개`);
+          }
+        } catch (error) {
+          console.error('Failed to check availability:', error);
+        }
+      };
+      checkAvailability();
+    } else {
+      setUnavailableVehicleIds([]);
+    }
+  }, [category, filters.pickupDate, filters.returnDate]);
 
   // Infinite scroll setup
   useEffect(() => {
@@ -332,8 +367,62 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
       });
     }
 
+    // 렌트카 전용 클라이언트 사이드 필터링
+    if (category === 'rentcar') {
+      // 차량 등급 필터
+      if (filters.vehicleClass && filters.vehicleClass.length > 0) {
+        filtered = filtered.filter(item =>
+          filters.vehicleClass?.some(vc =>
+            item.tags?.includes(vc) ||
+            item.title.includes(vc) ||
+            item.description_md?.includes(vc)
+          )
+        );
+      }
+
+      // 연료 타입 필터
+      if (filters.fuelType && filters.fuelType.length > 0) {
+        filtered = filtered.filter(item =>
+          filters.fuelType?.some(ft =>
+            item.tags?.includes(ft) ||
+            item.description_md?.includes(ft)
+          )
+        );
+      }
+
+      // 변속기 필터
+      if (filters.transmission && filters.transmission.length > 0) {
+        filtered = filtered.filter(item =>
+          filters.transmission?.some(t =>
+            item.tags?.includes(t) ||
+            item.description_md?.includes(t)
+          )
+        );
+      }
+
+      // 탑승 인원 필터
+      if (filters.seatingCapacity && filters.seatingCapacity > 1) {
+        filtered = filtered.filter(item =>
+          (item.max_capacity || 5) >= filters.seatingCapacity!
+        );
+      }
+
+      // 날짜 선택 시 예약 가능한 차량 우선 정렬 (예약 불가능한 차량은 맨 아래로)
+      if (filters.pickupDate && filters.returnDate && unavailableVehicleIds.length > 0) {
+        filtered.sort((a, b) => {
+          const aUnavailable = unavailableVehicleIds.includes(a.id);
+          const bUnavailable = unavailableVehicleIds.includes(b.id);
+
+          // 예약 가능한 차량이 위로
+          if (aUnavailable && !bUnavailable) return 1;
+          if (!aUnavailable && bUnavailable) return -1;
+          return 0;
+        });
+      }
+    }
+
     return filtered;
-  }, [listings, filters]);
+  }, [listings, filters, category, unavailableVehicleIds]);
 
   const renderGridView = () => {
     // 숙박 카테고리인 경우 AccommodationCard 사용
@@ -357,10 +446,14 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
           }
 
           // 기본 카드 렌더링 (다른 카테고리)
+          const isUnavailable = category === 'rentcar' && unavailableVehicleIds.includes(item.id);
+
           return (
             <Card
               key={item.id}
-              className="flex-none w-[280px] md:w-auto snap-start overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple"
+              className={`flex-none w-[280px] md:w-auto snap-start overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple ${
+                isUnavailable ? 'opacity-60' : ''
+              }`}
               onClick={() => navigate(`/detail/${item.id}`)}
             >
               <div className="relative">
@@ -370,6 +463,11 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                   className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute top-2 left-2 flex gap-1">
+                  {isUnavailable && (
+                    <Badge variant="secondary" className="bg-red-500 text-white text-xs">
+                      예약 불가
+                    </Badge>
+                  )}
                   {item.partner?.is_verified && (
                     <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
                       Verified
@@ -781,6 +879,114 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                   ))}
                 </div>
               </div>
+
+              {/* 렌트카 전용 필터 */}
+              {category === 'rentcar' && (
+                <>
+                  {/* 차량 등급 */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">차량 등급</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['경형', '소형', '중형', '대형', 'SUV', '승합', '럭셔리', '전기차'].map((vehicleClass) => (
+                        <Button
+                          key={vehicleClass}
+                          variant={filters.vehicleClass?.includes(vehicleClass) ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const newClasses = filters.vehicleClass?.includes(vehicleClass)
+                              ? filters.vehicleClass.filter(c => c !== vehicleClass)
+                              : [...(filters.vehicleClass || []), vehicleClass];
+                            updateFilters({ vehicleClass: newClasses });
+                          }}
+                        >
+                          {vehicleClass}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 연료 타입 */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">연료 타입</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['휘발유', '경유', '하이브리드', '전기'].map((fuelType) => (
+                        <Button
+                          key={fuelType}
+                          variant={filters.fuelType?.includes(fuelType) ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const newFuels = filters.fuelType?.includes(fuelType)
+                              ? filters.fuelType.filter(f => f !== fuelType)
+                              : [...(filters.fuelType || []), fuelType];
+                            updateFilters({ fuelType: newFuels });
+                          }}
+                        >
+                          {fuelType}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 변속기 */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">변속기</label>
+                    <div className="flex gap-2">
+                      {['자동', '수동'].map((transmission) => (
+                        <Button
+                          key={transmission}
+                          variant={filters.transmission?.includes(transmission) ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const newTransmissions = filters.transmission?.includes(transmission)
+                              ? filters.transmission.filter(t => t !== transmission)
+                              : [...(filters.transmission || []), transmission];
+                            updateFilters({ transmission: newTransmissions });
+                          }}
+                        >
+                          {transmission}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 탑승 인원 */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">최소 탑승 인원: {filters.seatingCapacity || 1}명</label>
+                    <Slider
+                      value={[filters.seatingCapacity || 1]}
+                      onValueChange={(value) => updateFilters({ seatingCapacity: value[0] })}
+                      min={1}
+                      max={12}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* 렌탈 날짜 선택 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">픽업 날짜</label>
+                      <Input
+                        type="date"
+                        value={filters.pickupDate || ''}
+                        onChange={(e) => updateFilters({ pickupDate: e.target.value })}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">반납 날짜</label>
+                      <Input
+                        type="date"
+                        value={filters.returnDate || ''}
+                        onChange={(e) => updateFilters({ returnDate: e.target.value })}
+                        min={filters.pickupDate || new Date().toISOString().split('T')[0]}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Reset Button */}
               <div className="flex justify-end">

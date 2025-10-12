@@ -533,29 +533,62 @@ export function DetailPage() {
   }, [selectedDate, bookingData, adults, children, infants, item?.maxCapacity]);
 
   const handleBooking = useCallback(async () => {
-    if (!validateBookingForm() || !item) return;
+    // 상품 정보 검증
+    if (!item || !item.id) {
+      toast.error('상품 정보를 찾을 수 없습니다. 페이지를 새로고침 해주세요.');
+      console.error('Item is null or missing ID:', item);
+      return;
+    }
+
+    // 날짜 선택 검증
+    if (!selectedDate) {
+      toast.error('날짜를 선택해주세요.');
+      return;
+    }
+
+    // 폼 검증
+    if (!validateBookingForm()) {
+      return;
+    }
 
     try {
       setBookingLoading(true);
       const totalGuests = adults + children + infants;
+
+      // 필수 필드 검증
+      if (!bookingData.name.trim()) {
+        toast.error('예약자 이름을 입력해주세요.');
+        return;
+      }
+      if (!bookingData.phone.trim()) {
+        toast.error('연락처를 입력해주세요.');
+        return;
+      }
+      if (!bookingData.email.trim()) {
+        toast.error('이메일을 입력해주세요.');
+        return;
+      }
+
       const bookingRequest = {
         listing_id: Number(item.id),
         user_id: user?.id || 1,
         num_adults: adults,
         num_children: children,
         num_seniors: infants,
-        start_time: startTime || undefined,
+        start_time: startTime || '09:00',
         guest_name: bookingData.name.trim(),
         guest_phone: bookingData.phone.trim(),
         guest_email: bookingData.email.trim(),
-        booking_date: selectedDate!.toISOString().split('T')[0],
+        booking_date: selectedDate.toISOString().split('T')[0],
         guest_count: totalGuests,
-        special_requests: bookingData.requests.trim(),
+        special_requests: bookingData.requests.trim() || '',
         total_amount: priceCalculation.total,
-        emergency_contact: bookingData.emergencyContact?.trim(),
-        dietary_restrictions: bookingData.dietaryRestrictions?.trim(),
-        special_needs: bookingData.specialNeeds?.trim()
+        emergency_contact: bookingData.emergencyContact?.trim() || '',
+        dietary_restrictions: bookingData.dietaryRestrictions?.trim() || '',
+        special_needs: bookingData.specialNeeds?.trim() || ''
       };
+
+      console.log('Creating booking:', bookingRequest);
 
       const response = await api.createBooking(bookingRequest);
       if (response.success && response.data) {
@@ -566,7 +599,7 @@ export function DetailPage() {
           bookingId: response.data.id.toString(),
           amount: priceCalculation.total.toString(),
           title: item.title,
-          date: selectedDate!.toISOString().split('T')[0],
+          date: selectedDate.toISOString().split('T')[0],
           guests: totalGuests.toString()
         });
         navigate(`/payment?${paymentParams.toString()}`);
@@ -580,7 +613,7 @@ export function DetailPage() {
     } finally {
       setBookingLoading(false);
     }
-  }, [validateBookingForm, item, bookingData, selectedDate, adults, children, infants, startTime, priceCalculation.total, user?.id, navigate]);
+  }, [item, selectedDate, validateBookingForm, bookingData, adults, children, infants, startTime, priceCalculation.total, user?.id, navigate]);
 
   const handleReviewSubmit = useCallback(async () => {
     if (!newReview.comment.trim()) {
@@ -630,21 +663,38 @@ export function DetailPage() {
   }, []);
 
   const addToCartHandler = useCallback(() => {
-    if (!item || !selectedDate) {
+    if (!item) {
+      toast.error('상품 정보를 불러올 수 없습니다.');
+      return;
+    }
+
+    if (!selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return;
     }
 
     const totalGuests = adults + children + infants;
-    addToCart({
+
+    // 필수 필드 검증
+    if (!item.id) {
+      toast.error('상품 ID가 올바르지 않습니다.');
+      console.error('Item missing ID:', item);
+      return;
+    }
+
+    const cartItem = {
       id: item.id,
-      title: item.title,
-      price: item.price,
-      image: item.images[0],
+      title: item.title || '상품',
+      price: priceCalculation.total || item.price || 0,
+      image: item.images?.[0] || '',
+      category: item.category || '',
+      location: item.location || '',
       date: selectedDate.toISOString().split('T')[0],
-      guests: totalGuests,
-      total: priceCalculation.total
-    });
+      guests: totalGuests
+    };
+
+    console.log('Adding to cart:', cartItem);
+    addToCart(cartItem);
     toast.success('장바구니에 추가되었습니다.');
   }, [item, selectedDate, adults, children, infants, priceCalculation.total, addToCart]);
 

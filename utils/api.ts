@@ -338,22 +338,44 @@ export const api = {
 
   getListing: async (id: number): Promise<TravelItem | null> => {
     try {
+      // 상품 ID 검증
+      if (!id || id <= 0) {
+        console.error('Invalid listing ID:', id);
+        return null;
+      }
+
       const response = await db.select('listings', { id });
       const listing = response?.[0];
 
       if (!listing) {
+        console.warn(`Listing not found with ID: ${id}`);
         return null;
       }
 
-      return {
+      // 안전한 JSON 파싱 헬퍼
+      const safeJsonParse = (data: any, fallback: any = []) => {
+        try {
+          if (Array.isArray(data)) return data;
+          if (typeof data === 'string') return JSON.parse(data);
+          return fallback;
+        } catch (e) {
+          console.warn('JSON parse error:', e);
+          return fallback;
+        }
+      };
+
+      // 기본 상품 정보
+      const result: any = {
         id: listing.id,
-        title: listing.title,
-        description_md: listing.description_md,
-        short_description: listing.short_description,
-        category: listing.category,
-        category_id: listing.category_id,
-        price_from: listing.price_from,
-        price_to: listing.price_to,
+        title: listing.title || '상품',
+        description_md: listing.description_md || listing.short_description || '',
+        short_description: listing.short_description || '',
+        category: listing.category || '',
+        category_id: listing.category_id || 1,
+        price_from: listing.price_from || 0,
+        price_to: listing.price_to || listing.price_from || 0,
+        child_price: listing.child_price,
+        infant_price: listing.infant_price,
         images: (() => {
           try {
             if (Array.isArray(listing.images)) {
@@ -373,14 +395,32 @@ export const api = {
             return typeof listing.images === 'string' ? [listing.images] : ['https://via.placeholder.com/400x300'];
           }
         })(),
-        location: listing.location,
+        location: listing.location || '',
+        address: listing.address,
         rating_avg: listing.rating_avg || 0,
         rating_count: listing.rating_count || 0,
-        duration: listing.duration,
-        max_capacity: listing.max_capacity,
+        duration: listing.duration || '1시간',
+        max_capacity: listing.max_capacity || 10,
+        highlights: safeJsonParse(listing.highlights, []),
+        included: safeJsonParse(listing.included, []),
+        excluded: safeJsonParse(listing.excluded, []),
+        tags: safeJsonParse(listing.tags, []),
+        amenities: safeJsonParse(listing.amenities, []),
+        difficulty: listing.difficulty,
+        language: safeJsonParse(listing.language, ['한국어']),
+        min_age: listing.min_age,
+        cancellation_policy: listing.cancellation_policy,
+        refund_policy: listing.refund_policy,
+        weather_policy: listing.weather_policy,
+        meeting_point: listing.meeting_point,
+        is_active: listing.is_active,
+        is_published: listing.is_published,
+        is_featured: listing.is_featured,
         created_at: listing.created_at,
         updated_at: listing.updated_at
       };
+
+      return result;
     } catch (error) {
       console.error('Failed to fetch listing:', error);
       return null;
@@ -1668,15 +1708,12 @@ export const api = {
   // 로그인
   loginUser: async (email: string, password: string): Promise<ApiResponse<{ user: any; token: string }>> => {
     try {
-      console.log('🔑 PlanetScale API 로그인 시도:', email);
+      console.log('🔑 로그인 API 호출:', email);
 
-      // 프로덕션에서는 상대 경로, 로컬에서는 절대 경로
-      const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
-      const apiUrl = isProduction ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3004');
-      const response = await fetch(`${apiUrl}/api/auth?action=login`, {
+      const response = await fetch('/api/auth?action=login', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password })
       });
@@ -1684,17 +1721,21 @@ export const api = {
       const data = await response.json();
 
       if (!response.ok) {
+        console.log('❌ 로그인 실패:', data.error);
         return {
           success: false,
           error: data.error || '로그인에 실패했습니다.'
         };
       }
 
-      console.log('✅ PlanetScale 로그인 성공:', data.data.user.email);
-
-      return data;
+      console.log('✅ 로그인 성공:', data.data.user.email);
+      return {
+        success: true,
+        data: data.data,
+        message: data.message
+      };
     } catch (error) {
-      console.error('Failed to login:', error);
+      console.error('❌ 로그인 API 호출 오류:', error);
       return {
         success: false,
         error: '로그인 처리 중 오류가 발생했습니다.'
@@ -1702,7 +1743,7 @@ export const api = {
     }
   },
 
-  // 회원가입 (PlanetScale API 호출)
+  // 회원가입
   registerUser: async (userData: {
     email: string;
     password: string;
@@ -1710,15 +1751,12 @@ export const api = {
     phone?: string;
   }): Promise<ApiResponse<{ user: any; token: string }>> => {
     try {
-      console.log('📝 PlanetScale API 회원가입 시도:', userData.email);
+      console.log('📝 회원가입 API 호출:', userData.email);
 
-      // 프로덕션에서는 상대 경로, 로컬에서는 절대 경로
-      const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
-      const apiUrl = isProduction ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3004');
-      const response = await fetch(`${apiUrl}/api/auth?action=register`, {
+      const response = await fetch('/api/auth?action=register', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(userData)
       });
@@ -1726,17 +1764,21 @@ export const api = {
       const data = await response.json();
 
       if (!response.ok) {
+        console.log('❌ 회원가입 실패:', data.error);
         return {
           success: false,
           error: data.error || '회원가입에 실패했습니다.'
         };
       }
 
-      console.log('✅ PlanetScale 회원가입 성공:', data.data.user.email);
-
-      return data;
+      console.log('✅ 회원가입 성공:', data.data.user.email);
+      return {
+        success: true,
+        data: data.data,
+        message: data.message
+      };
     } catch (error) {
-      console.error('Failed to register:', error);
+      console.error('❌ 회원가입 API 호출 오류:', error);
       return {
         success: false,
         error: '회원가입 처리 중 오류가 발생했습니다.'
@@ -4115,6 +4157,42 @@ export const api = {
         background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
         background_overlay_opacity: 0.4,
         is_active: true
+      };
+    }
+  },
+
+  // 렌트카 예약 가능 여부 확인
+  checkRentcarAvailability: async (pickupDate: string, returnDate: string): Promise<ApiResponse<number[]>> => {
+    try {
+      console.log(`🔍 예약 가능 여부 확인: ${pickupDate} ~ ${returnDate}`);
+
+      // rentcar_bookings 테이블에서 날짜 중복되는 차량 조회
+      const overlappingBookings = await db.query<{ vehicle_id: number }>(`
+        SELECT DISTINCT rv.id as vehicle_id
+        FROM rentcar_bookings rb
+        INNER JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
+        WHERE rb.status IN ('confirmed', 'in_progress')
+        AND (
+          (rb.pickup_date <= ? AND rb.dropoff_date >= ?) OR
+          (rb.pickup_date <= ? AND rb.dropoff_date >= ?) OR
+          (rb.pickup_date >= ? AND rb.dropoff_date <= ?)
+        )
+      `, [returnDate, pickupDate, returnDate, returnDate, pickupDate, returnDate]);
+
+      const unavailableVehicleIds = overlappingBookings.map(row => row.vehicle_id);
+
+      console.log(`✅ 예약 불가능한 차량 ${unavailableVehicleIds.length}개 발견`);
+
+      return {
+        success: true,
+        data: unavailableVehicleIds
+      };
+    } catch (error) {
+      console.error('Failed to check rentcar availability:', error);
+      return {
+        success: false,
+        error: '예약 가능 여부 확인 실패',
+        data: []
       };
     }
   },

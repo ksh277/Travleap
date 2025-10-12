@@ -32,6 +32,8 @@ import { AffiliatePage } from './components/AffiliatePage';
 import { DBTestComponent } from './components/DBTestComponent';
 import { RentcarSearchPage } from './components/RentcarSearchPage';
 import { AccommodationDetailPage } from './components/AccommodationDetailPage';
+import { VendorRegistrationPage } from './components/VendorRegistrationPage';
+import { VendorDashboardPage } from './components/VendorDashboardPage';
 
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
@@ -116,6 +118,18 @@ function AppContent() {
           {/* 인증 관련 */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+
+          {/* 렌트카 업체 등록 */}
+          <Route path="/vendor/register" element={<VendorRegistrationPage />} />
+
+          {/* 렌트카 업체 대시보드 */}
+          <Route path="/vendor/dashboard" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <VendorDashboardPage />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
 
           {/* 장바구니 */}
           <Route path="/cart" element={<CartPage />} />
