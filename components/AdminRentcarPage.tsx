@@ -98,7 +98,15 @@ export function AdminRentcarPage() {
 
       // 1. 모든 업체 조회
       const vendorsResult = await db.query<Vendor>(`
-        SELECT * FROM rentcar_vendors
+        SELECT
+          id,
+          business_name as name,
+          contact_email,
+          contact_phone,
+          is_verified,
+          total_vehicles as vehicle_count,
+          created_at
+        FROM rentcar_vendors
         ORDER BY created_at DESC
       `);
       setVendors(vendorsResult);
@@ -107,7 +115,7 @@ export function AdminRentcarPage() {
       const vehiclesResult = await db.query<Vehicle>(`
         SELECT
           rv.*,
-          v.name as vendor_name
+          v.business_name as vendor_name
         FROM rentcar_vehicles rv
         INNER JOIN rentcar_vendors v ON rv.vendor_id = v.id
         ORDER BY rv.created_at DESC
@@ -120,7 +128,7 @@ export function AdminRentcarPage() {
           rb.id,
           rb.vehicle_id,
           rv.display_name as vehicle_name,
-          v.name as vendor_name,
+          v.business_name as vendor_name,
           rb.customer_name,
           rb.customer_phone,
           rb.pickup_date,
