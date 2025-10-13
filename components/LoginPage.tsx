@@ -283,12 +283,10 @@ export function LoginPage() {
               onClick={handleNaverLogin}
               className="w-full h-11 px-3 rounded-lg mb-2.5 flex items-center gap-2.5 text-sm font-medium cursor-pointer transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.12)] hover:-translate-y-px bg-[#03C75A] border border-[#02b351] text-white"
             >
-              <span className="flex-none w-[22px] h-[22px] inline-flex items-center justify-center">
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Naver_Logo.svg/1200px-Naver_Logo.svg.png"
-                  alt="Naver 로고"
-                  className="max-w-full max-h-full block"
-                />
+              <span className="flex-none w-[22px] h-[22px] inline-flex items-center justify-center bg-white rounded-sm">
+                <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">
+                  <path d="M10 0C4.477 0 0 3.866 0 8.636c0 3.03 2.012 5.688 5.02 7.105l-.636 2.298c-.067.243.186.434.404.305l3.18-1.88c.664.093 1.341.142 2.032.142 5.523 0 10-3.866 10-8.636S15.523 0 10 0z" fill="#03C75A"/>
+                </svg>
               </span>
               <span className="flex-1 text-center leading-none tracking-wide">
                 네이버 계정으로 로그인
