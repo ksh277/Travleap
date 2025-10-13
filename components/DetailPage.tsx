@@ -1777,25 +1777,7 @@ export function DetailPage() {
                         variant="outline"
                         className="w-full min-h-[48px] text-sm md:text-base"
                         size="lg"
-                        onClick={() => {
-                          if (!isLoggedIn) {
-                            toast.error('로그인이 필요합니다');
-                            navigate('/login');
-                            return;
-                          }
-
-                          const cartItem = {
-                            id: item.id,
-                            title: item.title,
-                            category: item.category || '여행',
-                            price: item.price,
-                            quantity: 1,
-                            image: images[0],
-                            location: item.location
-                          };
-                          addToCart(cartItem);
-                          toast.success('장바구니에 추가되었습니다!');
-                        }}
+                        onClick={addToCartHandler}
                       >
                         <ShoppingCart className="h-4 w-4 mr-2" />
                         장바구니 담기
