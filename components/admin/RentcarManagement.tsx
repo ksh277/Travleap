@@ -789,7 +789,7 @@ export const RentcarManagement: React.FC = () => {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                          {vendor.average_rating.toFixed(1)}
+                          {vendor.average_rating ? Number(vendor.average_rating).toFixed(1) : '0.0'}
                         </div>
                       </TableCell>
                       <TableCell>
