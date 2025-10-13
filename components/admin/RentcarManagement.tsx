@@ -425,7 +425,8 @@ export const RentcarManagement: React.FC = () => {
             transmission: (row['transmission'] || row['변속기'] || 'automatic') as TransmissionType,
             seating_capacity: parseInt(row['seating_capacity'] || row['승차인원']) || 5,
             door_count: parseInt(row['door_count'] || row['문수']) || 4,
-            luggage_capacity: parseInt(row['luggage_capacity'] || row['트렁크']) || 2,
+            large_bags: parseInt(row['large_bags'] || row['대형수하물']) || 2,
+            small_bags: parseInt(row['small_bags'] || row['소형수하물']) || 2,
             daily_rate_krw: parseInt(row['daily_rate_krw'] || row['일일요금']) || 50000,
             deposit_amount_krw: parseInt(row['deposit_amount_krw'] || row['보증금']) || 100000,
             license_requirement: row['license_requirement'] || row['면허조건'] || '',
@@ -433,7 +434,7 @@ export const RentcarManagement: React.FC = () => {
             mileage_limit_per_day: parseInt(row['mileage_limit_per_day'] || row['주행제한']) || 200,
             unlimited_mileage: (row['unlimited_mileage'] || row['무제한주행']) === 'true' || (row['unlimited_mileage'] || row['무제한주행']) === '1',
             smoking_allowed: (row['smoking_allowed'] || row['흡연허용']) === 'true' || (row['smoking_allowed'] || row['흡연허용']) === '1',
-            thumbnail_image_url: row['thumbnail_image_url'] || row['이미지'] || '',
+            thumbnail_url: row['thumbnail_url'] || row['썸네일'] || '',
             images: row['images'] ? row['images'].split('|').map((s: string) => s.trim()) : [],
             features: row['features'] || row['특징'] ? (row['features'] || row['특징']).split('|').map((s: string) => s.trim()) : []
           };
@@ -463,11 +464,11 @@ export const RentcarManagement: React.FC = () => {
     const headers = [
       'vehicle_code', 'brand', 'model', 'year', 'display_name',
       'vehicle_class', 'vehicle_type', 'fuel_type', 'transmission',
-      'seating_capacity', 'door_count', 'luggage_capacity',
+      'seating_capacity', 'door_count', 'large_bags', 'small_bags',
       'daily_rate_krw', 'deposit_amount_krw',
       'license_requirement', 'age_requirement', 'mileage_limit_per_day',
       'unlimited_mileage', 'smoking_allowed',
-      'thumbnail_image_url', 'images', 'features'
+      'thumbnail_url', 'images', 'features'
     ];
 
     const examples = [
@@ -475,7 +476,7 @@ export const RentcarManagement: React.FC = () => {
       [
         'AVANTE2024', '현대', '아반떼', '2024', '현대 아반떼 2024',
         'compact', '세단', 'gasoline', 'automatic',
-        '5', '4', '2',
+        '5', '4', '2', '2',
         '50000', '100000',
         '1종 보통 1년 이상', '21', '200',
         'false', 'false',
@@ -485,7 +486,7 @@ export const RentcarManagement: React.FC = () => {
       [
         'TUCSON2024', '현대', '투싼', '2024', '현대 투싼 하이브리드',
         'suv', 'SUV', 'hybrid', 'automatic',
-        '5', '4', '3',
+        '5', '4', '3', '2',
         '80000', '150000',
         '2종 보통', '23', '250',
         'false', 'false',
@@ -495,7 +496,7 @@ export const RentcarManagement: React.FC = () => {
       [
         'GENESIS2024', '제네시스', 'G80', '2024', '제네시스 G80 3.5',
         'luxury', '세단', 'gasoline', 'automatic',
-        '5', '4', '3',
+        '5', '4', '3', '2',
         '150000', '300000',
         '1종 보통 3년 이상', '26', '',
         'true', 'false',
@@ -505,7 +506,7 @@ export const RentcarManagement: React.FC = () => {
       [
         'IONIQ5', '현대', '아이오닉5', '2024', '현대 아이오닉5 롱레인지',
         'electric', 'SUV', 'electric', 'automatic',
-        '5', '4', '2',
+        '5', '4', '2', '1',
         '90000', '200000',
         '2종 보통', '21', '',
         'true', 'false',
@@ -515,7 +516,7 @@ export const RentcarManagement: React.FC = () => {
       [
         'CARNIVAL2024', '기아', '카니발', '2024', '기아 카니발 11인승',
         'van', '승합', 'diesel', 'automatic',
-        '11', '4', '4',
+        '11', '4', '4', '3',
         '120000', '200000',
         '1종 보통', '26', '300',
         'false', 'false',
@@ -1743,12 +1744,12 @@ export const RentcarManagement: React.FC = () => {
                 <div className="text-xs space-y-1 text-gray-600">
                   <p><strong>기본:</strong> year(연식), display_name(차량명), vehicle_type(차량타입)</p>
                   <p><strong>사양:</strong> vehicle_class(클래스), fuel_type(연료), transmission(변속기)</p>
-                  <p><strong>용량:</strong> seating_capacity(승차인원), door_count(문수), luggage_capacity(트렁크)</p>
+                  <p><strong>용량:</strong> seating_capacity(승차인원), door_count(문수), large_bags(대형수하물), small_bags(소형수하물)</p>
                   <p><strong>가격:</strong> deposit_amount_krw(보증금)</p>
                   <p><strong>조건:</strong> license_requirement(면허), age_requirement(최소나이)</p>
                   <p><strong>주행:</strong> mileage_limit_per_day(주행제한), unlimited_mileage(무제한주행: true/false)</p>
                   <p><strong>기타:</strong> smoking_allowed(흡연: true/false)</p>
-                  <p><strong>이미지:</strong> thumbnail_image_url(썸네일), images(추가이미지들, | 구분)</p>
+                  <p><strong>이미지:</strong> thumbnail_url(썸네일), images(추가이미지들, | 구분)</p>
                   <p><strong>특징:</strong> features(특징들, | 구분)</p>
                 </div>
               </div>
