@@ -251,7 +251,15 @@ export const useAuth = () => {
         role: dbUser.role
       };
 
-      const token = `token_${dbUser.id}_${Date.now()}`;
+      // JWT 토큰 생성 (7일 유효)
+      const token = JWTUtils.generateToken({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      });
+
+      console.log('🔑 JWT 토큰 생성:', token.substring(0, 50) + '...');
 
       // 전역 상태 업데이트
       globalState = {
