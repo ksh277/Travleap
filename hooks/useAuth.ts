@@ -237,13 +237,6 @@ export const useAuth = () => {
         console.log('🔐 간단한 해시 검증 결과:', passwordValid);
       }
 
-      console.log('🔐 비밀번호 검증:', {
-        입력한비밀번호: password,
-        기대값_간단한해시: simpleHash,
-        실제값: dbUser.password_hash,
-        검증결과: passwordValid
-      });
-
       if (!passwordValid) {
         console.log('❌ 비밀번호 불일치');
         return false;
