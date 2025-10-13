@@ -37,13 +37,9 @@ export async function confirmPayment(request: PaymentConfirmRequest): Promise<Pa
 
   console.log('💳 결제 승인 처리 시작:', { paymentKey, orderId, amount });
 
-  const connection = await db.getConnection();
-
   try {
-    await connection.beginTransaction();
-
     // 1. orderId로 예약 조회
-    const [bookings] = await connection.query(`
+    const bookings = await db.query(`
       SELECT id, listing_id, user_id, total_amount, status, payment_status, hold_expires_at
       FROM bookings
       WHERE booking_number = ?
@@ -87,7 +83,7 @@ export async function confirmPayment(request: PaymentConfirmRequest): Promise<Pa
     console.log('✅ Toss Payments 승인 성공:', paymentResult);
 
     // 6. 예약 상태 변경 (HOLD → CONFIRMED)
-    await connection.execute(`
+    await db.execute(`
       UPDATE bookings
       SET
         status = 'confirmed',
@@ -99,7 +95,7 @@ export async function confirmPayment(request: PaymentConfirmRequest): Promise<Pa
     console.log(`✅ 예약 상태 변경: ${booking.id} (pending → confirmed)`);
 
     // 7. 결제 정보 기록
-    await connection.execute(`
+    await db.execute(`
       INSERT INTO payment_history
       (booking_id, payment_key, payment_method, amount, status, paid_at, created_at)
       VALUES (?, ?, ?, ?, 'completed', NOW(), NOW())
@@ -113,7 +109,7 @@ export async function confirmPayment(request: PaymentConfirmRequest): Promise<Pa
     console.log('✅ 결제 정보 기록 완료');
 
     // 8. 로그 기록
-    await connection.execute(`
+    await db.execute(`
       INSERT INTO booking_logs
       (booking_id, action, details, created_at)
       VALUES (?, 'PAYMENT_CONFIRMED', ?, NOW())
@@ -130,8 +126,6 @@ export async function confirmPayment(request: PaymentConfirmRequest): Promise<Pa
       })
     ]);
 
-    await connection.commit();
-
     console.log('🎉 결제 승인 완료!');
 
     return {
@@ -143,19 +137,17 @@ export async function confirmPayment(request: PaymentConfirmRequest): Promise<Pa
     };
 
   } catch (error: any) {
-    await connection.rollback();
-
     console.error('❌ 결제 승인 실패:', error);
 
     // 결제 실패 로그 기록 (best effort)
     try {
-      const [bookings] = await connection.query(
+      const bookings = await db.query(
         'SELECT id FROM bookings WHERE booking_number = ?',
         [orderId]
       );
 
       if (bookings && bookings.length > 0) {
-        await connection.execute(`
+        await db.execute(`
           INSERT INTO booking_logs
           (booking_id, action, details, created_at)
           VALUES (?, 'PAYMENT_FAILED', ?, NOW())
@@ -178,9 +170,6 @@ export async function confirmPayment(request: PaymentConfirmRequest): Promise<Pa
       message: error.message || '결제 승인 중 오류가 발생했습니다.',
       code: 'PAYMENT_FAILED'
     };
-
-  } finally {
-    connection.release();
   }
 }
 
@@ -192,13 +181,9 @@ export async function confirmPayment(request: PaymentConfirmRequest): Promise<Pa
 export async function handlePaymentFailure(orderId: string, reason?: string): Promise<PaymentConfirmResponse> {
   console.log(`🚫 결제 실패 처리: ${orderId} (사유: ${reason || '알 수 없음'})`);
 
-  const connection = await db.getConnection();
-
   try {
-    await connection.beginTransaction();
-
     // 1. 예약 조회
-    const [bookings] = await connection.query(`
+    const bookings = await db.query(`
       SELECT id, status FROM bookings
       WHERE booking_number = ?
       LIMIT 1
@@ -212,7 +197,7 @@ export async function handlePaymentFailure(orderId: string, reason?: string): Pr
 
     // 2. 예약 취소 (HOLD 상태만 취소 가능)
     if (booking.status === 'pending') {
-      await connection.execute(`
+      await db.execute(`
         UPDATE bookings
         SET
           status = 'cancelled',
@@ -227,7 +212,7 @@ export async function handlePaymentFailure(orderId: string, reason?: string): Pr
     }
 
     // 3. 로그 기록
-    await connection.execute(`
+    await db.execute(`
       INSERT INTO booking_logs
       (booking_id, action, details, created_at)
       VALUES (?, 'PAYMENT_FAILED', ?, NOW())
@@ -240,8 +225,6 @@ export async function handlePaymentFailure(orderId: string, reason?: string): Pr
       })
     ]);
 
-    await connection.commit();
-
     return {
       success: true,
       message: '예약이 취소되었습니다.',
@@ -249,7 +232,6 @@ export async function handlePaymentFailure(orderId: string, reason?: string): Pr
     };
 
   } catch (error: any) {
-    await connection.rollback();
     console.error('❌ 결제 실패 처리 중 오류:', error);
 
     return {
@@ -257,9 +239,6 @@ export async function handlePaymentFailure(orderId: string, reason?: string): Pr
       message: error.message || '처리 중 오류가 발생했습니다.',
       code: 'PROCESS_FAILED'
     };
-
-  } finally {
-    connection.release();
   }
 }
 
