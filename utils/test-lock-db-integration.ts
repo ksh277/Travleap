@@ -6,8 +6,8 @@
 
 import { db } from './database-cloud';
 import { lockManager } from './lock-manager';
-import { createBooking, cancelBooking } from '../api/lodging/bookings';
-import type { LodgingBooking } from '../api/lodging/bookings';
+import { createBooking, cancelBooking } from '../api/lodging';
+import type { LodgingBooking } from '../api/lodging';
 
 /**
  * 테스트용 임시 객실 생성
