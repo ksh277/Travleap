@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner';
 import { api } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
+import PaymentWidget from './PaymentWidget';
 
 export function PaymentPage() {
   const navigate = useNavigate();
@@ -26,10 +27,16 @@ export function PaymentPage() {
   const { user, isLoggedIn } = useAuth();
 
   const bookingId = searchParams.get('bookingId');
+  const bookingNumber = searchParams.get('bookingNumber');
   const amount = searchParams.get('amount');
   const title = searchParams.get('title');
   const totalAmount = searchParams.get('totalAmount');
+  const customerName = searchParams.get('customerName');
+  const customerEmail = searchParams.get('customerEmail');
   const orderDataParam = searchParams.get('orderData');
+
+  // Lock 기반 HOLD 예약인지 확인
+  const isLockBasedBooking = Boolean(bookingNumber);
 
   let orderData = null;
   if (orderDataParam) {
@@ -452,7 +459,20 @@ export function PaymentPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4" />
-                      <span>예약번호: {bookingId?.slice(-8)}</span>
+                      <span>예약번호: {bookingNumber || bookingId?.slice(-8)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* HOLD 예약 시 만료 시간 표시 */}
+                {isLockBasedBooking && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
+                      <div className="text-xs text-yellow-700">
+                        <p className="font-medium mb-1">예약 대기 중</p>
+                        <p>10분 이내에 결제를 완료하지 않으면 예약이 자동 취소됩니다.</p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -517,36 +537,52 @@ export function PaymentPage() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={handlePayment}
-                  disabled={isProcessing}
-                  className="w-full bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white py-3"
-                  size="lg"
-                >
-                  {isProcessing ? (
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      결제 처리 중...
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" />
-                      {orderData
-                        ? `${orderData.total.toLocaleString()}원 결제하기`
-                        : `${parseInt(amount || totalAmount || '0').toLocaleString()}원 결제하기`
-                      }
-                    </div>
-                  )}
-                </Button>
-
-                <div className="text-xs text-gray-500 text-center">
-                  <div className="flex items-center justify-center gap-1 mb-2">
-                    <AlertCircle className="h-3 w-3" />
-                    <span>결제 시 유의사항</span>
+                {/* Lock 기반 예약이면 PaymentWidget 표시, 아니면 기존 결제 버튼 */}
+                {isLockBasedBooking && bookingId && bookingNumber ? (
+                  <div className="mt-4">
+                    <PaymentWidget
+                      bookingId={parseInt(bookingId)}
+                      bookingNumber={bookingNumber}
+                      amount={parseInt(amount || totalAmount || '0')}
+                      orderName={title || '예약 결제'}
+                      customerEmail={customerEmail || user?.email || ''}
+                      customerName={customerName || user?.name || '고객'}
+                    />
                   </div>
-                  <p>• 결제 완료 후 즉시 예약이 확정됩니다</p>
-                  <p>• 취소 정책에 따라 수수료가 발생할 수 있습니다</p>
-                </div>
+                ) : (
+                  <>
+                    <Button
+                      onClick={handlePayment}
+                      disabled={isProcessing}
+                      className="w-full bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white py-3"
+                      size="lg"
+                    >
+                      {isProcessing ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          결제 처리 중...
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4" />
+                          {orderData
+                            ? `${orderData.total.toLocaleString()}원 결제하기`
+                            : `${parseInt(amount || totalAmount || '0').toLocaleString()}원 결제하기`
+                          }
+                        </div>
+                      )}
+                    </Button>
+
+                    <div className="text-xs text-gray-500 text-center">
+                      <div className="flex items-center justify-center gap-1 mb-2">
+                        <AlertCircle className="h-3 w-3" />
+                        <span>결제 시 유의사항</span>
+                      </div>
+                      <p>• 결제 완료 후 즉시 예약이 확정됩니다</p>
+                      <p>• 취소 정책에 따라 수수료가 발생할 수 있습니다</p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>

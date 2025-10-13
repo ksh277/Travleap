@@ -513,6 +513,49 @@ export const api = {
     }
   },
 
+  // Lock Manager를 사용한 안전한 예약 생성
+  createBookingWithLock: async (bookingData: BookingRequest): Promise<ApiResponse<any>> => {
+    try {
+      // 동적 import로 Lock Manager 함수 가져오기
+      const { createBookingWithLock } = await import('../api/bookings/create-with-lock');
+
+      const result = await createBookingWithLock({
+        listing_id: bookingData.listing_id,
+        user_id: bookingData.user_id,
+        num_adults: bookingData.num_adults,
+        num_children: bookingData.num_children,
+        start_date: bookingData.start_date || bookingData.booking_date || '',
+        end_date: bookingData.end_date || bookingData.start_date || bookingData.booking_date || '',
+        check_in_time: '14:00',
+        guest_name: bookingData.guest_name || '',
+        guest_phone: bookingData.guest_phone || '',
+        guest_email: bookingData.guest_email || '',
+        total_amount: bookingData.total_amount || 0,
+        special_requests: bookingData.special_requests
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.message
+        };
+      }
+
+      return {
+        success: true,
+        data: result.data,
+        message: result.message
+      };
+
+    } catch (error) {
+      console.error('Lock-based booking failed:', error);
+      return {
+        success: false,
+        error: 'Lock 기반 예약 생성 실패'
+      };
+    }
+  },
+
   // 예약 취소
   cancelBooking: async (bookingId: string, cancellationData: {
     cancellationFee: number;

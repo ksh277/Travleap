@@ -37,6 +37,12 @@ import { VendorDashboardPage } from './components/VendorDashboardPage';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentFailPage from './components/PaymentFailPage';
+import PaymentSuccessPage2 from './components/PaymentSuccessPage2';
+import PaymentFailPage2 from './components/PaymentFailPage2';
+import MonitoringDashboard from './components/MonitoringDashboard';
+import VendorPricingSettings from './components/VendorPricingSettings';
+import VendorLodgingDashboard from './components/VendorLodgingDashboard';
+import LockTestPage from './components/LockTestPage';
 
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
@@ -134,6 +140,24 @@ function AppContent() {
             )
           } />
 
+          {/* 렌트카 업체 요금/보험/옵션 설정 */}
+          <Route path="/vendor/pricing" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <VendorPricingSettings />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 숙박 업체 대시보드 */}
+          <Route path="/vendor/lodging" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <VendorLodgingDashboard />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
           {/* 장바구니 */}
           <Route path="/cart" element={<CartPage />} />
 
@@ -141,6 +165,10 @@ function AppContent() {
           <Route path="/payment" element={<PaymentPage />} />
           <Route path="/payment/success" element={<PaymentSuccessPage />} />
           <Route path="/payment/fail" element={<PaymentFailPage />} />
+
+          {/* Toss Payments 전용 결제 페이지 (신규) */}
+          <Route path="/payment/success2" element={<PaymentSuccessPage2 />} />
+          <Route path="/payment/fail2" element={<PaymentFailPage2 />} />
 
           {/* 보호된 라우트 - 로그인 필요 */}
           <Route path="/mypage" element={
@@ -176,6 +204,15 @@ function AppContent() {
             )
           } />
 
+          {/* 관리자 모니터링 대시보드 */}
+          <Route path="/admin/monitoring" element={
+            isLoggedIn && isAdmin ? (
+              <MonitoringDashboard />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
           {/* 정보 페이지들 */}
           <Route path="/company" element={<AboutPage />} />
           <Route path="/about" element={<ShinanPage />} />
@@ -197,6 +234,9 @@ function AppContent() {
 
           {/* DB 테스트 페이지 (개발용) */}
           <Route path="/db-test" element={<DBTestComponent />} />
+
+          {/* Lock 시스템 테스트 페이지 (개발용) */}
+          <Route path="/lock-test" element={<LockTestPage />} />
 
           {/* 404 페이지 - 모든 정의되지 않은 경로 */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -28,11 +28,13 @@ import {
   Settings,
   Loader2,
   LogOut,
-  Building2
+  Building2,
+  Tag
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { db } from '../utils/database-cloud';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Vehicle {
   id: number;
@@ -80,7 +82,18 @@ export function VendorDashboardPage() {
   const [vendorInfo, setVendorInfo] = useState<VendorInfo | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [activeTab, setActiveTab] = useState('vehicles');
+  const [revenueData, setRevenueData] = useState<Array<{ date: string; revenue: number }>>([]);
+
+  // 예약 필터
+  const [bookingFilters, setBookingFilters] = useState({
+    startDate: '',
+    endDate: '',
+    vehicleId: '',
+    status: '',
+    searchQuery: ''
+  });
 
   // 업체 정보 수정 관련 state
   const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -157,6 +170,26 @@ export function VendorDashboardPage() {
       `, [vendor.id]);
 
       setBookings(bookingsResult);
+      setFilteredBookings(bookingsResult); // 초기에는 필터 없이 전체 표시
+
+      // 4. 최근 7일 매출 데이터 조회
+      const revenueResult = await db.query(`
+        SELECT
+          DATE(rb.created_at) as date,
+          SUM(rb.total_amount) as revenue
+        FROM rentcar_bookings rb
+        INNER JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
+        WHERE rv.vendor_id = ?
+          AND rb.status IN ('confirmed', 'completed')
+          AND rb.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        GROUP BY DATE(rb.created_at)
+        ORDER BY date ASC
+      `, [vendor.id]);
+
+      setRevenueData(revenueResult.map((r: any) => ({
+        date: new Date(r.date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }),
+        revenue: r.revenue
+      })));
 
       console.log(`✅ 업체 데이터 로드 완료: ${vendor.name}`);
       console.log(`   차량: ${vehiclesResult.length}대`);
@@ -307,6 +340,81 @@ export function VendorDashboardPage() {
     }
   };
 
+  // 예약 필터 적용
+  const applyBookingFilters = () => {
+    let filtered = [...bookings];
+
+    // 날짜 필터
+    if (bookingFilters.startDate) {
+      filtered = filtered.filter(
+        (b) => new Date(b.pickup_date) >= new Date(bookingFilters.startDate)
+      );
+    }
+    if (bookingFilters.endDate) {
+      filtered = filtered.filter(
+        (b) => new Date(b.pickup_date) <= new Date(bookingFilters.endDate)
+      );
+    }
+
+    // 차량 필터
+    if (bookingFilters.vehicleId) {
+      filtered = filtered.filter(
+        (b) => b.vehicle_id === parseInt(bookingFilters.vehicleId)
+      );
+    }
+
+    // 상태 필터
+    if (bookingFilters.status) {
+      filtered = filtered.filter((b) => b.status === bookingFilters.status);
+    }
+
+    // 검색어 필터 (고객명, 예약번호)
+    if (bookingFilters.searchQuery) {
+      const query = bookingFilters.searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (b) =>
+          b.customer_name.toLowerCase().includes(query) ||
+          b.id.toString().includes(query)
+      );
+    }
+
+    setFilteredBookings(filtered);
+  };
+
+  // 필터 초기화
+  const resetBookingFilters = () => {
+    setBookingFilters({
+      startDate: '',
+      endDate: '',
+      vehicleId: '',
+      status: '',
+      searchQuery: ''
+    });
+    setFilteredBookings(bookings);
+  };
+
+  // 필터 변경 시 자동 적용
+  useEffect(() => {
+    applyBookingFilters();
+  }, [bookingFilters, bookings]);
+
+  // CSV 템플릿 다운로드
+  const downloadCSVTemplate = () => {
+    const csv = `차량명,제조사,모델,연식,차량등급,승차인원,변속기,연료,일일요금,주간요금,월간요금,주행제한(km),초과요금
+아반떼 2024,현대,아반떼,2024,중형,5,자동,가솔린,50000,300000,1000000,200,100
+쏘나타 2024,현대,쏘나타,2024,중형,5,자동,가솔린,70000,420000,1400000,200,100
+그랜저 2024,현대,그랜저,2024,대형,5,자동,가솔린,100000,600000,2000000,200,150
+싼타페 2024,현대,싼타페,2024,SUV,7,자동,디젤,90000,540000,1800000,200,150`;
+
+    const BOM = '\uFEFF'; // UTF-8 BOM for Excel
+    const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'vehicles_template.csv';
+    link.click();
+    toast.success('CSV 템플릿이 다운로드되었습니다!');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -402,6 +510,76 @@ export function VendorDashboardPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* 최근 7일 매출 차트 */}
+        {revenueData.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>최근 7일 매출 추이</CardTitle>
+              <CardDescription>
+                일별 매출 현황 (확정 + 완료 예약 기준)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis
+                    tickFormatter={(value) => `${(value / 10000).toFixed(0)}만`}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [`${value.toLocaleString()}원`, '매출']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 빠른 액션 버튼 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <Button
+            variant="outline"
+            className="h-20 flex flex-col items-center justify-center gap-2"
+            onClick={() => setActiveTab('vehicles')}
+          >
+            <Car className="w-6 h-6" />
+            <span>차량 관리</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-20 flex flex-col items-center justify-center gap-2"
+            onClick={() => navigate('/vendor/pricing')}
+          >
+            <Tag className="w-6 h-6" />
+            <span>요금 설정</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-20 flex flex-col items-center justify-center gap-2"
+            onClick={() => setActiveTab('bookings')}
+          >
+            <Calendar className="w-6 h-6" />
+            <span>예약 관리</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-20 flex flex-col items-center justify-center gap-2"
+            onClick={() => setActiveTab('settings')}
+          >
+            <Settings className="w-6 h-6" />
+            <span>업체 정보</span>
+          </Button>
         </div>
 
         {/* 탭 메뉴 */}
@@ -512,10 +690,15 @@ export function VendorDashboardPage() {
                   <CardTitle>차량 목록</CardTitle>
                   <CardDescription>등록된 차량 {vehicles.length}대</CardDescription>
                 </div>
-                <Button onClick={handleAddVehicle} disabled={isAddingVehicle}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  차량 추가
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={downloadCSVTemplate}>
+                    📥 CSV 템플릿
+                  </Button>
+                  <Button onClick={handleAddVehicle} disabled={isAddingVehicle}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    차량 추가
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {vehicles.length === 0 ? (
@@ -586,13 +769,100 @@ export function VendorDashboardPage() {
 
           {/* 예약 관리 */}
           <TabsContent value="bookings">
-            <Card>
+            {/* 필터 UI */}
+            <Card className="mb-6">
               <CardHeader>
-                <CardTitle>예약 내역</CardTitle>
-                <CardDescription>최근 예약 {bookings.length}건</CardDescription>
+                <CardTitle>예약 검색 및 필터</CardTitle>
+                <CardDescription>
+                  총 {bookings.length}건 중 {filteredBookings.length}건 표시
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {bookings.length === 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <Label>픽업일 시작</Label>
+                    <Input
+                      type="date"
+                      value={bookingFilters.startDate}
+                      onChange={(e) =>
+                        setBookingFilters({ ...bookingFilters, startDate: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>픽업일 종료</Label>
+                    <Input
+                      type="date"
+                      value={bookingFilters.endDate}
+                      onChange={(e) =>
+                        setBookingFilters({ ...bookingFilters, endDate: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>차량 선택</Label>
+                    <select
+                      className="w-full p-2 border rounded"
+                      value={bookingFilters.vehicleId}
+                      onChange={(e) =>
+                        setBookingFilters({ ...bookingFilters, vehicleId: e.target.value })
+                      }
+                    >
+                      <option value="">전체 차량</option>
+                      {vehicles.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.display_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>예약 상태</Label>
+                    <select
+                      className="w-full p-2 border rounded"
+                      value={bookingFilters.status}
+                      onChange={(e) =>
+                        setBookingFilters({ ...bookingFilters, status: e.target.value })
+                      }
+                    >
+                      <option value="">전체 상태</option>
+                      <option value="pending">대기</option>
+                      <option value="confirmed">확정</option>
+                      <option value="completed">완료</option>
+                      <option value="cancelled">취소</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label>고객명 / 예약번호 검색</Label>
+                    <Input
+                      type="text"
+                      placeholder="홍길동 또는 예약번호"
+                      value={bookingFilters.searchQuery}
+                      onChange={(e) =>
+                        setBookingFilters({ ...bookingFilters, searchQuery: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      variant="outline"
+                      onClick={resetBookingFilters}
+                      className="w-full"
+                    >
+                      필터 초기화
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>예약 목록</CardTitle>
+                <CardDescription>필터링된 예약 {filteredBookings.length}건</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {filteredBookings.length === 0 ? (
                   <div className="text-center py-12">
                     <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-600">예약 내역이 없습니다.</p>
@@ -612,7 +882,7 @@ export function VendorDashboardPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {bookings.map((booking) => (
+                      {filteredBookings.map((booking) => (
                         <TableRow key={booking.id}>
                           <TableCell>#{booking.id}</TableCell>
                           <TableCell className="font-medium">

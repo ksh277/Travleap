@@ -588,23 +588,40 @@ export function DetailPage() {
         special_needs: bookingData.specialNeeds?.trim() || ''
       };
 
-      console.log('Creating booking:', bookingRequest);
+      console.log('Creating booking with Lock Manager:', bookingRequest);
 
-      const response = await api.createBooking(bookingRequest);
-      if (response.success && response.data) {
-        toast.success('예약이 성공적으로 접수되었습니다!');
+      // Lock Manager를 사용한 안전한 예약 생성
+      const response = await api.createBookingWithLock(bookingRequest);
 
-        // 결제 페이지로 이동
+      if (!response.success) {
+        // Lock 획득 실패 시 사용자 친화적 메시지
+        throw new Error(response.error || '예약 처리 중 오류가 발생했습니다.');
+      }
+
+      if (response.data) {
+        // HOLD 상태 예약 생성 성공
+        toast.success('예약이 생성되었습니다! 10분 이내에 결제를 완료해주세요.', {
+          duration: 5000
+        });
+
+        console.log('✅ 예약 생성 완료:', response.data);
+        console.log('   - 예약번호:', response.data.booking_number);
+        console.log('   - 만료시간:', response.data.hold_expires_at);
+
+        // 결제 위젯 페이지로 이동 (결제 위젯 통합)
         const paymentParams = new URLSearchParams({
-          bookingId: response.data.id.toString(),
-          amount: priceCalculation.total.toString(),
+          bookingId: response.data.booking_id.toString(),
+          bookingNumber: response.data.booking_number,
+          amount: response.data.total_amount.toString(),
           title: item.title,
           date: selectedDate.toISOString().split('T')[0],
-          guests: totalGuests.toString()
+          guests: totalGuests.toString(),
+          customerName: response.data.guest_name,
+          customerEmail: response.data.guest_email
         });
         navigate(`/payment?${paymentParams.toString()}`);
       } else {
-        throw new Error(response.error || '예약 처리 중 오류가 발생했습니다.');
+        throw new Error('예약 데이터가 올바르지 않습니다.');
       }
     } catch (error) {
       console.error('Error creating booking:', error);
