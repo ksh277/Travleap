@@ -1120,16 +1120,15 @@ export const rentcarBookingApi = {
     try {
       // 선택한 날짜 범위와 겹치는 예약 조회
       // status가 'confirmed' 또는 'in_progress'인 예약만 체크
+      // 날짜 중복 로직: 기존 예약의 pickup_date가 새 returnDate 이전이고
+      // 기존 예약의 dropoff_date가 새 pickupDate 이후이면 중복
       const overlappingBookings = await db.query<{ vehicle_id: number }>(`
         SELECT DISTINCT vehicle_id
         FROM rentcar_bookings
         WHERE status IN ('confirmed', 'in_progress')
-        AND (
-          (pickup_date <= ? AND dropoff_date >= ?) OR
-          (pickup_date <= ? AND dropoff_date >= ?) OR
-          (pickup_date >= ? AND dropoff_date <= ?)
-        )
-      `, [returnDate, pickupDate, returnDate, returnDate, pickupDate, returnDate]);
+        AND pickup_date < ?
+        AND dropoff_date > ?
+      `, [returnDate, pickupDate]);
 
       const unavailableVehicleIds = overlappingBookings.map(row => row.vehicle_id);
 
