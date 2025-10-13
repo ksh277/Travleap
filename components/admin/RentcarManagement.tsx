@@ -856,14 +856,14 @@ export const RentcarManagement: React.FC = () => {
               <CardTitle>차량 관리</CardTitle>
               <div className="flex gap-2">
                 <Select
-                  value={vendorFilter?.toString() || ''}
-                  onValueChange={(value) => setVendorFilter(value ? parseInt(value) : null)}
+                  value={vendorFilter?.toString() || 'all'}
+                  onValueChange={(value) => setVendorFilter(value === 'all' ? null : parseInt(value))}
                 >
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="벤더 선택" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">전체 벤더</SelectItem>
+                    <SelectItem value="all">전체 벤더</SelectItem>
                     {vendors.map((vendor) => (
                       <SelectItem key={vendor.id} value={vendor.id.toString()}>
                         {vendor.business_name}
@@ -1083,13 +1083,14 @@ export const RentcarManagement: React.FC = () => {
               <CardTitle>지점 관리</CardTitle>
               <div className="flex gap-2">
                 <Select
-                  value={vendorFilter?.toString() || ''}
-                  onValueChange={(value) => setVendorFilter(value ? parseInt(value) : null)}
+                  value={vendorFilter?.toString() || 'none'}
+                  onValueChange={(value) => setVendorFilter(value === 'none' ? null : parseInt(value))}
                 >
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="벤더 선택" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">벤더 선택 (필수)</SelectItem>
                     {vendors.map((vendor) => (
                       <SelectItem key={vendor.id} value={vendor.id.toString()}>
                         {vendor.business_name}
