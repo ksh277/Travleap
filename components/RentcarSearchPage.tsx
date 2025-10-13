@@ -42,61 +42,101 @@ interface RentcarSearchPageProps {
   selectedCurrency?: string;
 }
 
-// 실제 DB에서 렌트카 검색
+// 실제 DB에서 렌트카 검색 (rentcar_vehicles + 가용성 체크)
 async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult[]> {
   try {
-    // listings 테이블에서 렌트카 카테고리 조회
-    const response = await api.getListings({
-      category: 'rentcar',
-      limit: 100
+    // 1. rentcar_vehicles 테이블에서 모든 활성 차량 조회
+    const vehiclesResponse = await fetch('/api/rentcar/vehicles/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: request.pickupPlaceId,
+        is_active: true
+      })
     });
 
-    if (!response.success || !response.data) {
+    if (!vehiclesResponse.ok) {
+      console.error('Failed to fetch vehicles');
       return [];
     }
 
-    // 검색 조건에 맞는 렌트카 필터링
-    const rentcars = response.data.filter((listing: any) => {
-      // 위치 필터링
-      if (request.pickupPlaceId && listing.location &&
-          !listing.location.includes(request.pickupPlaceId)) {
-        return false;
-      }
-      return true;
+    const vehiclesData = await vehiclesResponse.json();
+    const vehicles = vehiclesData.data || [];
+
+    if (vehicles.length === 0) {
+      return [];
+    }
+
+    // 2. 날짜 기반 가용성 체크
+    const pickupDate = request.pickupAt.split('T')[0];
+    const dropoffDate = request.dropoffAt.split('T')[0];
+
+    const availabilityResponse = await fetch('/api/rentcar/bookings/check-availability', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pickupDate,
+        returnDate: dropoffDate
+      })
     });
 
-    // CarSearchResult 형식으로 변환 (proper nested structure)
-    return rentcars.map((listing: any): CarSearchResult => {
-      const images = Array.isArray(listing.images)
-        ? listing.images
-        : (typeof listing.images === 'string' && listing.images)
-          ? [listing.images]
+    const availabilityData = await availabilityResponse.json();
+    const unavailableVehicleIds = availabilityData.data?.unavailableVehicleIds || [];
+
+    // 3. 가용 차량만 필터링
+    const availableVehicles = vehicles.filter((vehicle: any) =>
+      !unavailableVehicleIds.includes(vehicle.id)
+    );
+
+    // 4. CarSearchResult 형식으로 변환
+    const pickupLoc = LOCATIONS.find(l => l.code === request.pickupPlaceId) || LOCATIONS[0];
+    const dropoffLoc = LOCATIONS.find(l => l.code === request.dropoffPlaceId) || LOCATIONS[0];
+
+    return availableVehicles.map((vehicle: any): CarSearchResult => {
+      const images = vehicle.images && Array.isArray(vehicle.images) && vehicle.images.length > 0
+        ? vehicle.images
+        : vehicle.thumbnail_url
+          ? [vehicle.thumbnail_url]
           : ['https://images.unsplash.com/photo-1550355291-bbee04a92027?w=400'];
 
-      const pickupLoc = LOCATIONS.find(l => l.code === request.pickupPlaceId) || LOCATIONS[0];
-      const dropoffLoc = LOCATIONS.find(l => l.code === request.dropoffPlaceId) || LOCATIONS[0];
+      // 연료 타입 매핑
+      const fuelMap: Record<string, string> = {
+        gasoline: 'Gasoline',
+        diesel: 'Diesel',
+        electric: 'Electric',
+        hybrid: 'Hybrid'
+      };
+
+      // 변속기 매핑
+      const transmissionMap: Record<string, string> = {
+        automatic: 'Automatic',
+        manual: 'Manual'
+      };
 
       return {
-        supplierId: 'custom',
-        supplierName: listing.partner?.business_name || '신안렌트카',
+        supplierId: `vendor_${vehicle.vendor_id}`,
+        supplierName: vehicle.vendor?.business_name || '신안렌트카',
         vehicle: {
-          acriss: 'ECMR',
-          make: '현대',
-          model: listing.title,
-          transmission: 'Automatic',
-          fuel: 'Gasoline',
-          seats: listing.max_capacity || 4,
-          doors: 4,
-          luggage: { large: 2, small: 1 },
+          acriss: vehicle.vehicle_code || 'ECMR',
+          make: vehicle.brand || '현대',
+          model: vehicle.model || vehicle.display_name,
+          transmission: transmissionMap[vehicle.transmission] || 'Automatic',
+          fuel: fuelMap[vehicle.fuel_type] || 'Gasoline',
+          seats: vehicle.seating_capacity || 5,
+          doors: vehicle.door_count || 4,
+          luggage: {
+            large: vehicle.large_bags || 2,
+            small: vehicle.small_bags || 1
+          },
           airConditioning: true,
           images: images,
-          features: listing.features || ['GPS', '보험포함', 'Bluetooth']
+          features: vehicle.features || []
         },
         price: {
-          base: listing.price_from || 50000,
-          taxes: Math.floor((listing.price_from || 50000) * 0.1),
+          base: vehicle.daily_rate_krw || 50000,
+          taxes: Math.floor((vehicle.daily_rate_krw || 50000) * 0.1),
           fees: [],
-          total: Math.floor((listing.price_from || 50000) * 1.1),
+          total: Math.floor((vehicle.daily_rate_krw || 50000) * 1.1),
           currency: 'KRW',
           paymentType: 'PREPAID'
         },
@@ -119,7 +159,7 @@ async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult
           }
         },
         policies: {
-          mileage: 'UNLIMITED',
+          mileage: vehicle.unlimited_mileage ? 'UNLIMITED' : `${vehicle.mileage_limit_per_day}km/day`,
           fuel: 'FULL_TO_FULL',
           insurance: {
             cdw: true,
@@ -127,7 +167,7 @@ async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult
             tp: true,
             pai: false,
             excess: 300000,
-            deposit: 500000
+            deposit: vehicle.deposit_amount_krw || 500000
           },
           cancellation: {
             free: true,
@@ -137,14 +177,14 @@ async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult
             allowed: true,
             fee: 10000
           },
-          minDriverAge: 21,
+          minDriverAge: vehicle.age_requirement || 21,
           youngDriverFee: 15000
         },
         extras: [
           { code: 'GPS', name: '내비게이션', price: 5000, per: 'DAY' },
           { code: 'CHILD_SEAT', name: '카시트', price: 8000, per: 'DAY' }
         ],
-        rateKey: `rental_${listing.id}_${Date.now()}`,
+        rateKey: `rental_${vehicle.id}_${Date.now()}`,
         expiresAt: format(new Date(Date.now() + 900000), "yyyy-MM-dd'T'HH:mm:ssXXX") // 15분 후
       };
     });
@@ -297,11 +337,25 @@ export function RentcarSearchPage({ selectedCurrency = 'KRW' }: RentcarSearchPag
     }
   };
 
-  // 차량 예약
+  // 차량 예약 (검색 정보를 DetailPage로 전달)
   const handleBook = (car: CarSearchResult) => {
-    // Extract listing ID from rateKey (format: rental_123_timestamp)
-    const listingId = car.rateKey.split('_')[1];
-    navigate(`/detail/${listingId}`);
+    // Extract vehicle ID from rateKey (format: rental_123_timestamp)
+    const vehicleId = car.rateKey.split('_')[1];
+
+    // 검색한 날짜/시간 정보를 query params로 전달
+    const params = new URLSearchParams({
+      category: 'rentcar',
+      vehicleId: vehicleId,
+      pickupDate: pickupDate ? format(pickupDate, 'yyyy-MM-dd') : '',
+      dropoffDate: dropoffDate ? format(dropoffDate, 'yyyy-MM-dd') : '',
+      pickupTime: pickupTime,
+      dropoffTime: dropoffTime,
+      pickupLocation: pickupLocation,
+      dropoffLocation: sameLocation ? pickupLocation : dropoffLocation
+    });
+
+    // listing_id가 있으면 DetailPage로, 없으면 렌트카 전용 페이지로
+    navigate(`/detail/${vehicleId}?${params.toString()}`);
   };
 
   // 필터 초기화
