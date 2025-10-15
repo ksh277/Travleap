@@ -451,7 +451,7 @@ export function PartnerPage() {
         }}
       >
         <div className="absolute inset-0 flex items-center justify-center">
-          <h1 className="text-4xl font-bold text-white">신안퍼플섬 투어 전체보기</h1>
+          <h1 className="text-4xl font-bold text-white">가맹점</h1>
         </div>
       </div>
 
