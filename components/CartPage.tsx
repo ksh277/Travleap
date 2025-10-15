@@ -25,8 +25,6 @@ import {
   CheckCircle,
   RefreshCw,
   Shield,
-  Truck,
-  Clock,
   Tag,
   Info
 } from 'lucide-react';
@@ -70,11 +68,9 @@ interface Coupon {
 interface OrderSummary {
   items: CartItem[];
   subtotal: number;
-  deliveryFee: number;
   couponDiscount: number;
   couponCode: string | null;
   total: number;
-  estimatedDelivery?: string;
 }
 
 export function CartPage() {
@@ -175,13 +171,12 @@ export function CartPage() {
   // Memoized calculations
   const calculations = useMemo(() => {
     const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const deliveryFee = subtotal >= 100000 ? 0 : 3000;
     const couponDiscount = appliedCoupon
       ? appliedCoupon.type === 'fixed'
         ? appliedCoupon.discount
         : Math.floor(subtotal * appliedCoupon.discount / 100)
       : 0;
-    const total = Math.max(0, subtotal + deliveryFee - couponDiscount);
+    const total = Math.max(0, subtotal - couponDiscount);
     const savings = cartItems.reduce((sum, item) => {
       if (item.originalPrice && item.originalPrice > item.price) {
         return sum + ((item.originalPrice - item.price) * item.quantity);
@@ -189,10 +184,10 @@ export function CartPage() {
       return sum;
     }, 0);
 
-    return { subtotal, deliveryFee, couponDiscount, total, savings };
+    return { subtotal, couponDiscount, total, savings };
   }, [cartItems, appliedCoupon]);
 
-  const { subtotal, deliveryFee, couponDiscount, total, savings } = calculations;
+  const { subtotal, couponDiscount, total, savings } = calculations;
 
   // Enhanced item removal with confirmation
   const removeItem = useCallback((id: number, itemName: string) => {
@@ -393,15 +388,12 @@ export function CartPage() {
           // Ensure we have clean data
           image: item.image || '/placeholder.jpg',
           category: item.category || 'general',
-          name: item.name || item.title || 'Unknown Item',
-          estimatedDelivery: item.estimatedDelivery || '3-5일'
+          name: item.name || item.title || 'Unknown Item'
         })),
         subtotal,
-        deliveryFee,
         couponDiscount,
         couponCode: appliedCoupon?.code || null,
-        total,
-        estimatedDelivery: '3-5일'
+        total
       };
 
       // Validate order summary
@@ -428,7 +420,7 @@ export function CartPage() {
     } finally {
       setIsProcessingCheckout(false);
     }
-  }, [isProcessingCheckout, isLoggedIn, cartItems, itemErrors, total, subtotal, deliveryFee, couponDiscount, appliedCoupon, user, navigate]);
+  }, [isProcessingCheckout, isLoggedIn, cartItems, itemErrors, total, subtotal, couponDiscount, appliedCoupon, user, navigate]);
 
   // Auto-suggest best coupon when subtotal changes
   useEffect(() => {
@@ -451,7 +443,7 @@ export function CartPage() {
     <>
       <Helmet>
         <title>{`장바구니 (${cartItems.length}개 상품) - Travleap`}</title>
-        <meta name="description" content="선택하신 여행 상품을 확인하고 안전하게 결제하세요. 다양한 할인 쿠폰과 무료 배송 혜택을 제공합니다." />
+        <meta name="description" content="선택하신 여행 상품을 확인하고 안전하게 결제하세요. 다양한 할인 쿠폰 혜택을 제공합니다." />
         <meta property="og:title" content="장바구니 - Travleap" />
         <meta property="og:description" content="선택하신 여행 상품을 확인하고 안전하게 결제하세요." />
         <link rel="canonical" href="https://travleap.com/cart" />
@@ -525,12 +517,8 @@ export function CartPage() {
                   <span>SSL 보안 결제</span>
                 </div>
                 <div className="flex items-center gap-1 text-blue-600">
-                  <Truck className="h-4 w-4" />
-                  <span>{deliveryFee === 0 ? '무료 배송' : `배송비 ${deliveryFee.toLocaleString()}원`}</span>
-                </div>
-                <div className="flex items-center gap-1 text-gray-600">
-                  <Clock className="h-4 w-4" />
-                  <span>3-5일 내 배송</span>
+                  <CheckCircle className="h-4 w-4" />
+                  <span>즉시 예약 확정</span>
                 </div>
               </div>
             )}
@@ -746,12 +734,6 @@ export function CartPage() {
                                 <div className="flex items-center gap-1">
                                   <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />
                                   <span>{item.rating.toFixed(1)} ({item.reviewCount.toLocaleString()}개 리뷰)</span>
-                                </div>
-                              )}
-                              {item.estimatedDelivery && (
-                                <div className="flex items-center gap-1">
-                                  <Truck className="h-3 w-3 flex-shrink-0" />
-                                  <span>예상 배송: {item.estimatedDelivery}</span>
                                 </div>
                               )}
                             </div>
@@ -1026,18 +1008,6 @@ export function CartPage() {
                         <span className="font-medium">{subtotal.toLocaleString()}원</span>
                       </div>
 
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-1">
-                          <Truck className="h-3 w-3 text-gray-500" />
-                          <span className="text-gray-600">배송비</span>
-                        </div>
-                        <span className={`font-medium ${
-                          deliveryFee === 0 ? 'text-green-600' : 'text-gray-800'
-                        }`}>
-                          {deliveryFee === 0 ? '무료' : `${deliveryFee.toLocaleString()}원`}
-                        </span>
-                      </div>
-
                       {savings > 0 && (
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-1">
@@ -1076,34 +1046,6 @@ export function CartPage() {
                       </div>
                     </div>
 
-                    {/* Free shipping progress */}
-                    {subtotal < 100000 && (
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Truck className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-medium text-blue-700">무료 배송까지</span>
-                        </div>
-                        <div className="relative">
-                          <div className="w-full bg-blue-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min((subtotal / 100000) * 100, 100)}%` }}
-                            />
-                          </div>
-                          <div className="flex justify-between items-center mt-2">
-                            <span className="text-xs text-blue-600">
-                              {subtotal.toLocaleString()}원
-                            </span>
-                            <span className="text-xs text-blue-600 font-medium">
-                              {(100000 - subtotal).toLocaleString()}원 더 구매하시면 무료!
-                            </span>
-                            <span className="text-xs text-blue-600">
-                              100,000원
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
 
