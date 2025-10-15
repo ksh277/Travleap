@@ -8,7 +8,6 @@ import { Badge } from './ui/badge';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import {
-  Star,
   MapPin,
   Calendar as CalendarIcon,
   Filter,
@@ -67,9 +66,9 @@ const loadPartners = async (): Promise<Partner[]> => {
           id: partner.id.toString(),
           name: partner.business_name || '업체명 없음',
           category: category,
-          location: partner.phone || '신안군',
-          rating: 4.5, // 기본값 (리뷰 시스템 연동 필요)
-          reviewCount: 0, // 기본값 (리뷰 시스템 연동 필요)
+          location: partner.address || partner.phone || '신안군',
+          rating: 0,
+          reviewCount: 0,
           price: '가격 문의',
           image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
           description: partner.description || '신안의 아름다운 자연과 함께하는 특별한 체험',
@@ -338,11 +337,8 @@ export function PartnerPage() {
         content: `
           <div style="max-width: 200px;">
             <h3 style="margin: 0 0 8px 0; font-size: 16px;">${partner.name}</h3>
-            <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${partner.category} • ${partner.location}</p>
-            <div style="display: flex; align-items: center; margin: 4px 0;">
-              <span style="color: #fbbf24;">★</span>
-              <span style="margin-left: 4px; font-size: 14px;">${partner.rating} (${partner.reviewCount})</span>
-            </div>
+            <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${partner.category}</p>
+            <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${partner.location}</p>
             <p style="margin: 4px 0 0 0; font-weight: 600; color: #ff6a3d;">${partner.price}</p>
           </div>
         `
@@ -603,8 +599,8 @@ export function PartnerPage() {
                   <span className="font-medium">필터:</span>
                 </div>
 
-                <Select 
-                  value={filters.category} 
+                <Select
+                  value={filters.category}
                   onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}
                 >
                   <SelectTrigger className="w-[120px]">
@@ -616,21 +612,6 @@ export function PartnerPage() {
                     <SelectItem value="숙박">숙박</SelectItem>
                     <SelectItem value="음식">음식</SelectItem>
                     <SelectItem value="렌트카">렌트카</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select 
-                  value={filters.rating} 
-                  onValueChange={(value) => setFilters(prev => ({ ...prev, rating: value }))}
-                >
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="평점" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">전체 평점</SelectItem>
-                    <SelectItem value="4.5">4.5★ 이상</SelectItem>
-                    <SelectItem value="4.0">4.0★ 이상</SelectItem>
-                    <SelectItem value="3.5">3.5★ 이상</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -721,16 +702,6 @@ export function PartnerPage() {
                           }
                         </div>
                       )}
-
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="flex items-center">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <span className="ml-1 text-sm font-medium">{partner.rating}</span>
-                        </div>
-                        <span className="text-xs text-gray-500">
-                          ({partner.reviewCount}개)
-                        </span>
-                      </div>
 
                       <p className="text-xs text-gray-600 mb-3 line-clamp-2">{partner.description}</p>
 
