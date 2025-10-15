@@ -43,226 +43,55 @@ interface Partner {
   distance?: number; // km 단위 거리
 }
 
-// 파트너 데이터 로딩 - partners 테이블에서 데이터 가져오기
+// 상품 데이터 로딩 - listings 테이블에서 데이터 가져오기
 const loadPartners = async (): Promise<Partner[]> => {
   try {
-    // 파트너 데이터 로드
-    const partnersResponse = await api.getPartners();
+    // listings 테이블에서 상품 데이터 로드
+    const listingsResponse = await api.getListings();
     const partnersList: Partner[] = [];
 
-    if (partnersResponse.success && partnersResponse.data && partnersResponse.data.length > 0) {
-      // 신안군 실제 좌표 배열 (각 카테고리별 대표 위치)
-      const categoryCoordinates: { [key: string]: { lat: number; lng: number } } = {
-        '여행': { lat: 34.8278, lng: 126.1063 }, // 증도면
-        '렌트카': { lat: 34.7845, lng: 126.0932 }, // 임자면
-        '숙박': { lat: 34.7123, lng: 125.9876 }, // 자은면
-        '음식': { lat: 34.6834, lng: 126.0445 }, // 비금면
-        '관광지': { lat: 34.7567, lng: 126.1234 }, // 도초면
-        '팝업': { lat: 34.8597, lng: 126.1533 }, // 임자도
-        '행사': { lat: 34.8194, lng: 126.3031 }, // 지도읍
-        '체험': { lat: 34.8726, lng: 126.1094 }  // 증도 태평염전
-      };
+    if (listingsResponse.success && listingsResponse.data && listingsResponse.data.length > 0) {
+      // 신안군 기본 좌표
+      const defaultCoord = { lat: 34.9654, lng: 126.1234 };
 
-      partnersResponse.data.forEach((partner: any, index: number) => {
-        // tier에 따라 카테고리 매핑
-        const tierToCategoryMap: { [key: string]: string } = {
-          'gold': '여행',
-          'silver': '관광지',
-          'bronze': '음식'
-        };
-        const category = tierToCategoryMap[partner.tier] || '체험';
-
-        // 카테고리별 좌표 할당
-        const coord = categoryCoordinates[category] || { lat: 34.8278, lng: 126.1063 };
+      listingsResponse.data.forEach((listing: any) => {
+        // 위치 정보 파싱 (있는 경우)
+        let position = defaultCoord;
+        if (listing.latitude && listing.longitude) {
+          position = {
+            lat: parseFloat(listing.latitude),
+            lng: parseFloat(listing.longitude)
+          };
+        }
 
         const partnerCard: Partner = {
-          id: partner.id.toString(),
-          name: partner.business_name,  // DB 필드명 수정
-          category: category,
-          location: partner.phone || '신안군',  // phone을 임시로 표시
-          rating: 4.5,
-          reviewCount: 0,
-          price: partner.tier === 'gold' ? '50,000원~' : partner.tier === 'silver' ? '30,000원~' : '10,000원~',
-          image: `https://images.unsplash.com/photo-${1506905925346 + index}?w=400&h=300&fit=crop`,
-          description: partner.description || '신안의 아름다운 자연과 함께하는 특별한 체험',
-          position: coord,
-          featured: partner.is_featured === 1
+          id: listing.id.toString(),
+          name: listing.title || listing.name,
+          category: listing.category || '여행',
+          location: listing.location || '신안군',
+          rating: listing.rating || 4.5,
+          reviewCount: listing.review_count || 0,
+          price: listing.price ? `${parseInt(listing.price).toLocaleString()}원` : '문의',
+          image: listing.main_image || listing.image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
+          description: listing.description || '신안의 아름다운 자연과 함께하는 특별한 체험',
+          position: position,
+          featured: listing.is_featured === 1 || listing.featured === true
         };
 
         partnersList.push(partnerCard);
       });
-    }
 
-    if (partnersList.length > 0) {
+      console.log(`✅ DB에서 ${partnersList.length}개 상품 로드 완료`);
       return partnersList;
     }
 
+    console.warn('⚠️  DB에 상품 데이터가 없습니다');
+    return [];
+
   } catch (error) {
-    console.error('파트너 데이터 로드 실패:', error);
+    console.error('❌ 상품 데이터 로드 실패:', error);
+    return [];
   }
-
-  // API 실패 시 샘플 파트너 데이터 (신안군 실제 좌표 사용)
-  const samplePartners: Partner[] = [
-    {
-      id: '1',
-      name: '신안 퍼플섬 투어',
-      category: '투어',
-      location: '신안군 안좌면',
-      rating: 4.8,
-      reviewCount: 156,
-      price: '45,000원',
-      image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
-      description: '보라색으로 물든 아름다운 퍼플섬에서의 특별한 투어 체험',
-      position: { lat: 34.7856, lng: 126.2383 },
-      featured: true
-    },
-    {
-      id: '2',
-      name: '임자도 대광해수욕장 리조트',
-      category: '숙박',
-      location: '신안군 임자면',
-      rating: 4.7,
-      reviewCount: 89,
-      price: '180,000원',
-      image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&h=300&fit=crop',
-      description: '12km 백사장이 펼쳐진 대광해수욕장의 프리미엄 리조트',
-      position: { lat: 34.8597, lng: 126.1533 },
-      featured: true
-    },
-    {
-      id: '3',
-      name: '신안 전통 젓갈 맛집',
-      category: '음식',
-      location: '신안군 지도읍',
-      rating: 4.9,
-      reviewCount: 234,
-      price: '25,000원',
-      image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop',
-      description: '3대째 이어져 내려오는 전통 젓갈과 신선한 해산물 요리',
-      position: { lat: 34.8194, lng: 126.3031 },
-      featured: false
-    },
-    {
-      id: '4',
-      name: '흑산도 상라봉 트레킹',
-      category: '투어',
-      location: '신안군 흑산면',
-      rating: 4.6,
-      reviewCount: 112,
-      price: '50,000원',
-      image: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&h=300&fit=crop',
-      description: '흑산도 최고봉에서 바라보는 서해의 장관과 트레킹의 즐거움',
-      position: { lat: 34.6839, lng: 125.4367 },
-      featured: true
-    },
-    {
-      id: '5',
-      name: '청산도 슬로우길',
-      category: '투어',
-      location: '신안군 청산면',
-      rating: 4.9,
-      reviewCount: 234,
-      price: '30,000원',
-      image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
-      description: '영화 촬영지로 유명한 청산도의 아름다운 슬로우길 트레킹',
-      position: { lat: 34.1167, lng: 126.9333 },
-      featured: true
-    },
-    {
-      id: '6',
-      name: '팔금도 해물탕집',
-      category: '음식',
-      location: '신안군 팔금면',
-      rating: 4.7,
-      reviewCount: 189,
-      price: '35,000원',
-      image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=300&fit=crop',
-      description: '팔금도 근해에서 잡은 신선한 해산물로 끓인 진짜 해물탕',
-      position: { lat: 34.8403, lng: 126.2125 },
-      featured: false
-    },
-    {
-      id: '7',
-      name: '증도 태평염전 체험관',
-      category: '투어',
-      location: '신안군 증도면',
-      rating: 4.5,
-      reviewCount: 98,
-      price: '15,000원',
-      image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop',
-      description: '세계 최대 염전에서 소금 만들기 체험과 염전 투어',
-      position: { lat: 34.8726, lng: 126.1094 },
-      featured: true
-    },
-    {
-      id: '8',
-      name: '자은도 백길해수욕장 펜션',
-      category: '숙박',
-      location: '신안군 자은면',
-      rating: 4.4,
-      reviewCount: 76,
-      price: '120,000원',
-      image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400&h=300&fit=crop',
-      description: '아름다운 백길해수욕장 바로 앞 오션뷰 펜션',
-      position: { lat: 34.7899, lng: 126.1756 },
-      featured: false
-    },
-    {
-      id: '9',
-      name: '도초도 수국정원',
-      category: '투어',
-      location: '신안군 도초면',
-      rating: 4.6,
-      reviewCount: 142,
-      price: '8,000원',
-      image: 'https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=400&h=300&fit=crop',
-      description: '6월이면 만개하는 아름다운 수국으로 유명한 정원',
-      position: { lat: 34.7394, lng: 126.2189 },
-      featured: true
-    },
-    {
-      id: '10',
-      name: '비금도 원평해수욕장 캠핑장',
-      category: '숙박',
-      location: '신안군 비금면',
-      rating: 4.3,
-      reviewCount: 65,
-      price: '35,000원',
-      image: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=400&h=300&fit=crop',
-      description: '해변 바로 앞 오토캠핑장, 일출과 일몰을 모두 볼 수 있는 명소',
-      position: { lat: 34.7547, lng: 126.1542 },
-      featured: false
-    },
-    {
-      id: '11',
-      name: '압해도 천사대교 전망대',
-      category: '투어',
-      location: '신안군 압해읍',
-      rating: 4.7,
-      reviewCount: 203,
-      price: '무료',
-      image: 'https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=300&fit=crop',
-      description: '천사대교의 아름다운 전경을 한눈에 볼 수 있는 전망대',
-      position: { lat: 34.9654, lng: 126.1234 },
-      featured: true
-    },
-    {
-      id: '12',
-      name: '신안군 해산물 직판장',
-      category: '음식',
-      location: '신안군 지도읍',
-      rating: 4.8,
-      reviewCount: 178,
-      price: '40,000원',
-      image: 'https://images.unsplash.com/photo-1559737558-2789262b9d50?w=400&h=300&fit=crop',
-      description: '신안 어민들이 직접 잡은 신선한 해산물을 맛볼 수 있는 직판장',
-      position: { lat: 34.8167, lng: 126.2956 },
-      featured: false
-    }
-  ];
-
-  // API 실패 시 샘플 데이터 사용
-  return samplePartners;
 };
 
 export function PartnerPage() {
@@ -281,7 +110,8 @@ export function PartnerPage() {
   const [filters, setFilters] = useState({
     category: '',
     priceRange: '',
-    rating: ''
+    rating: '',
+    sortBy: 'recommended' // 추천순, 최신순
   });
   const [partners, setPartners] = useState<Partner[]>([]);
   const [filteredPartners, setFilteredPartners] = useState<Partner[]>([]);
@@ -297,7 +127,7 @@ export function PartnerPage() {
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(6); // 페이지당 6개 (2행 x 3열)
+  const [itemsPerPage] = useState(6); // 페이지당 6개 (3행 x 2열)
 
   // 날짜 포맷 함수
   const formatDate = (date: Date | undefined) => {
@@ -525,7 +355,7 @@ export function PartnerPage() {
     });
   };
 
-  // 필터링 함수
+  // 필터링 및 정렬 함수
   useEffect(() => {
     let filtered = partners;
 
@@ -544,6 +374,19 @@ export function PartnerPage() {
     if (filters.rating && filters.rating !== 'all') {
       const minRating = parseFloat(filters.rating);
       filtered = filtered.filter(partner => partner.rating >= minRating);
+    }
+
+    // 정렬 적용
+    if (filters.sortBy === 'recommended') {
+      // 추천순: featured 우선, 그다음 평점 높은 순
+      filtered = [...filtered].sort((a, b) => {
+        if (a.featured && !b.featured) return -1;
+        if (!a.featured && b.featured) return 1;
+        return b.rating - a.rating;
+      });
+    } else if (filters.sortBy === 'latest') {
+      // 최신순: id 역순 (id가 클수록 최신)
+      filtered = [...filtered].sort((a, b) => parseInt(b.id) - parseInt(a.id));
     }
 
     setFilteredPartners(filtered);
@@ -633,7 +476,7 @@ export function PartnerPage() {
 
           <div className="flex flex-wrap gap-4 items-end">
             {/* 검색어 */}
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[300px]">
               <label className="block text-sm font-medium text-gray-700 mb-1">검색어</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -647,169 +490,9 @@ export function PartnerPage() {
               </div>
             </div>
 
-            {/* From - To 날짜 선택 */}
-            <div className="min-w-[240px]">
-              <label className="block text-sm font-medium text-gray-700 mb-1">From - To</label>
-              <Popover open={showCalendar} onOpenChange={setShowCalendar}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={`w-full justify-start text-left font-normal ${
-                      !fromDate && !toDate ? "text-muted-foreground" : ""
-                    }`}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {fromDate && toDate ? (
-                      `${formatDate(fromDate)} - ${formatDate(toDate)}`
-                    ) : fromDate ? (
-                      `${formatDate(fromDate)} - To`
-                    ) : toDate ? (
-                      `From - ${formatDate(toDate)}`
-                    ) : (
-                      "dd/mm/yyyy - dd/mm/yyyy"
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="flex">
-                    <div className="p-3">
-                      <div className="text-sm font-medium mb-2 text-center">From 날짜</div>
-                      <Calendar
-                        mode="single"
-                        selected={fromDate}
-                        onSelect={(date) => {
-                          setFromDate(date);
-                          if (date && toDate && date > toDate) {
-                            setToDate(undefined);
-                          }
-                        }}
-                        disabled={(date) => {
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          return date < today || (toDate && date > toDate);
-                        }}
-                        initialFocus 
-                      />
-                    </div>
-                    <div className="p-3 border-l">
-                      <div className="text-sm font-medium mb-2 text-center">To 날짜</div>
-                      <Calendar
-                        mode="single"
-                        selected={toDate}
-                        onSelect={(date) => {
-                          setToDate(date);
-                        }}
-                        disabled={(date) => {
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          return date < today || (fromDate && date < fromDate);
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="p-3 border-t flex justify-end gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        setFromDate(undefined);
-                        setToDate(undefined);
-                      }}
-                    >
-                      초기화
-                    </Button>
-                    <Button 
-                      size="sm"
-                      onClick={() => setShowCalendar(false)}
-                      className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                    >
-                      확인
-                    </Button>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* More 옵션 */}
-            <div className="min-w-[100px]">
-              <label className="block text-sm font-medium text-gray-700 mb-1">More</label>
-              <Popover open={showMoreOptions} onOpenChange={setShowMoreOptions}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between">
-                    More
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56" align="start">
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="attractions"
-                        checked={moreOptions.attractions}
-                        onCheckedChange={(checked) =>
-                          setMoreOptions(prev => ({ ...prev, attractions: checked as boolean }))
-                        }
-                      />
-                      <label
-                        htmlFor="attractions"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Attractions
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="partners"
-                        checked={moreOptions.partners}
-                        onCheckedChange={(checked) =>
-                          setMoreOptions(prev => ({ ...prev, partners: checked as boolean }))
-                        }
-                      />
-                      <label
-                        htmlFor="partners"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        제휴업체
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="food"
-                        checked={moreOptions.food}
-                        onCheckedChange={(checked) =>
-                          setMoreOptions(prev => ({ ...prev, food: checked as boolean }))
-                        }
-                      />
-                      <label
-                        htmlFor="food"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        음식점
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="accommodation"
-                        checked={moreOptions.accommodation}
-                        onCheckedChange={(checked) =>
-                          setMoreOptions(prev => ({ ...prev, accommodation: checked as boolean }))
-                        }
-                      />
-                      <label
-                        htmlFor="accommodation"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        숙박업소
-                      </label>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-
             {/* GPS 버튼 */}
-            <Button 
-              onClick={getCurrentLocation} 
+            <Button
+              onClick={getCurrentLocation}
               disabled={gpsLoading}
               variant="outline"
               className="px-6"
@@ -906,13 +589,22 @@ export function PartnerPage() {
               <h2 className="text-lg font-semibold text-gray-800">
                 총 {filteredPartners.length}개 업체 ({currentPage}/{totalPages} 페이지)
               </h2>
-              <div className="text-sm text-gray-600">
-                정렬: 추천순 | 페이지당 {itemsPerPage}개
-              </div>
+              <Select
+                value={filters.sortBy}
+                onValueChange={(value) => setFilters(prev => ({ ...prev, sortBy: value }))}
+              >
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="정렬" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recommended">추천순</SelectItem>
+                  <SelectItem value="latest">최신순</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* 업체 리스트 - 그리드 형태 (2행 3열) */}
-            <div className="grid grid-cols-3 gap-4">
+            {/* 업체 리스트 - 그리드 형태 (3행 2열) */}
+            <div className="grid grid-cols-2 gap-4">
               {currentPartners.map((partner) => (
                 <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handlePartnerClick(partner)}>
                   <div className="flex flex-col">
@@ -1042,11 +734,11 @@ export function PartnerPage() {
           </div>
 
           {/* 오른쪽: 지도 */}
-          <div className="w-[500px] flex-shrink-0">
+          <div className="w-[800px] flex-shrink-0">
             <div className="sticky top-4">
               <Card className="overflow-hidden">
                 {mapError ? (
-                  <div className="w-full h-[600px] flex items-center justify-center bg-gray-100">
+                  <div className="w-full h-[900px] flex items-center justify-center bg-gray-100">
                     <div className="text-center p-8 max-w-sm">
                       <div className="text-gray-400 mb-4">
                         <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1068,8 +760,8 @@ export function PartnerPage() {
                 ) : (
                   <div
                     ref={mapRef}
-                    className="w-full h-[600px]"
-                    style={{ minHeight: '600px' }}
+                    className="w-full h-[900px]"
+                    style={{ minHeight: '900px' }}
                   />
                 )}
               </Card>
