@@ -370,16 +370,19 @@ export function RentcarSearchPage({ selectedCurrency = 'KRW' }: RentcarSearchPag
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 + 검색 폼 */}
-      <div className="bg-white border-b sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold mb-4">렌트카 검색</h1>
+      <div className="container mx-auto px-4 py-4 md:py-8">
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">렌트카 검색</h1>
+        </div>
 
-          {/* 컴팩트 검색 폼 */}
+        {/* 검색 박스 */}
+        <div className="bg-white rounded-lg p-4 md:p-6 mb-6 md:mb-8 shadow-sm">
           <div className="flex flex-wrap gap-3">
             {/* 픽업 위치 */}
             <div className="flex-1 min-w-[150px]">
+              <Label className="text-sm font-medium mb-1 block">픽업 장소</Label>
               <Select value={pickupLocation} onValueChange={setPickupLocation}>
-                <SelectTrigger>
+                <SelectTrigger className="h-12">
                   <MapPin className="mr-2 h-4 w-4" />
                   <SelectValue />
                 </SelectTrigger>
@@ -393,11 +396,12 @@ export function RentcarSearchPage({ selectedCurrency = 'KRW' }: RentcarSearchPag
 
             {/* 픽업 날짜 */}
             <div className="flex-1 min-w-[180px]">
+              <Label className="text-sm font-medium mb-1 block">픽업일</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button variant="outline" className="w-full justify-start h-12">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {pickupDate ? format(pickupDate, 'MM/dd') : '픽업일'}
+                    {pickupDate ? format(pickupDate, 'yyyy-MM-dd', { locale: ko }) : '날짜 선택'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent>
@@ -414,11 +418,12 @@ export function RentcarSearchPage({ selectedCurrency = 'KRW' }: RentcarSearchPag
 
             {/* 반납 날짜 */}
             <div className="flex-1 min-w-[180px]">
+              <Label className="text-sm font-medium mb-1 block">반납일</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button variant="outline" className="w-full justify-start h-12">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dropoffDate ? format(dropoffDate, 'MM/dd') : '반납일'}
+                    {dropoffDate ? format(dropoffDate, 'yyyy-MM-dd', { locale: ko }) : '날짜 선택'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent>
@@ -434,18 +439,20 @@ export function RentcarSearchPage({ selectedCurrency = 'KRW' }: RentcarSearchPag
             </div>
 
             {/* 검색 버튼 */}
-            <Button
-              onClick={handleSearch}
-              disabled={loading}
-              className="px-8"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-              <span className="ml-2">검색</span>
-            </Button>
+            <div className="flex items-end">
+              <Button
+                onClick={handleSearch}
+                disabled={loading}
+                className="px-8 h-12 bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+                <span className="ml-2">검색</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>

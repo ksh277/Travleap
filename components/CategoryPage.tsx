@@ -31,6 +31,7 @@ import { formatPrice } from '../utils/translations';
 import { api, type TravelItem } from '../utils/api';
 import { toast } from 'sonner';
 import { AccommodationCard } from './cards/AccommodationCard';
+import { getGoogleMapsApiKey } from '../utils/env';
 
 interface CategoryPageProps {
   selectedCurrency?: string;
@@ -81,6 +82,14 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const [unavailableVehicleIds, setUnavailableVehicleIds] = useState<number[]>([]);
+
+  // Google Maps state
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [mapError, setMapError] = useState(false);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const infoWindowsRef = useRef<Map<string, google.maps.InfoWindow>>(new Map());
+  const listingPositionsRef = useRef<Map<number, {lat: number, lng: number}>>(new Map());
 
   // Enhanced filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -238,6 +247,113 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
     }
   }, [category, filters.pickupDate, filters.returnDate]);
 
+  // Google Maps 초기화
+  useEffect(() => {
+    const initMap = () => {
+      if (!mapRef.current) return;
+
+      const newMap = new google.maps.Map(mapRef.current, {
+        center: { lat: 34.9654, lng: 126.1234 }, // 신안군 중심
+        zoom: 11,
+        styles: [
+          {
+            featureType: 'water',
+            elementType: 'geometry',
+            stylers: [{ color: '#a2daf2' }]
+          }
+        ]
+      });
+
+      setMap(newMap);
+    };
+
+    // Google Maps API 로드
+    if (!(window as any).google) {
+      const apiKey = getGoogleMapsApiKey();
+
+      if (!apiKey) {
+        console.error('Google Maps API key is not configured');
+        setMapError(true);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initMap;
+      script.onerror = () => {
+        console.error('Failed to load Google Maps API');
+        setMapError(true);
+      };
+      document.head.appendChild(script);
+    } else {
+      initMap();
+    }
+  }, []);
+
+  // 마커 추가 함수
+  const addMarkers = useCallback((map: google.maps.Map, listingsList: TravelItem[]) => {
+    // 기존 마커 제거
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current = [];
+    infoWindowsRef.current.clear();
+
+    listingsList.forEach(listing => {
+      // 좌표가 없으면 기본 좌표 사용 (신안군 중심 근처에 랜덤 배치)
+      // 이미 저장된 좌표가 있으면 그것을 사용하고, 없으면 새로 생성
+      let position = listingPositionsRef.current.get(listing.id);
+      if (!position) {
+        position = listing.latitude && listing.longitude
+          ? { lat: parseFloat(listing.latitude.toString()), lng: parseFloat(listing.longitude.toString()) }
+          : {
+              lat: 34.9654 + (Math.random() - 0.5) * 0.3,
+              lng: 126.1234 + (Math.random() - 0.5) * 0.3
+            };
+        listingPositionsRef.current.set(listing.id, position);
+      }
+
+      const marker = new google.maps.Marker({
+        position: position,
+        map: map,
+        title: listing.title,
+        icon: {
+          url: listing.partner?.is_verified ?
+            'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ff6a3d"%3E%3Cpath d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/%3E%3C/svg%3E' :
+            'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234299e1"%3E%3Cpath d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/%3E%3C/svg%3E',
+          scaledSize: new google.maps.Size(30, 30)
+        }
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="max-width: 200px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 16px;">${listing.title}</h3>
+            <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${listing.location || '신안군'}</p>
+            ${listing.rating_avg > 0 ? `
+              <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">⭐ ${listing.rating_avg.toFixed(1)} (${listing.rating_count})</p>
+            ` : ''}
+            <p style="margin: 4px 0 0 0; font-weight: 600; color: #ff6a3d;">${formatPrice(listing.price_from || 0, selectedCurrency)}</p>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+
+      markersRef.current.push(marker);
+      infoWindowsRef.current.set(listing.title, infoWindow);
+    });
+  }, [selectedCurrency]);
+
+  // 지도에 마커 업데이트 (filteredListings 변경 시)
+  useEffect(() => {
+    if (map && filteredListings.length > 0) {
+      addMarkers(map, filteredListings);
+    }
+  }, [map, filteredListings, addMarkers]);
+
   // Infinite scroll setup
   useEffect(() => {
     if (observerRef.current) observerRef.current.disconnect();
@@ -339,6 +455,27 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
     }
   }, []);
 
+  // 카드 클릭 핸들러 - 지도에 마커 표시 및 중심 이동
+  const handleListingClick = useCallback((item: TravelItem) => {
+    if (map) {
+      // 저장된 좌표를 가져옴 (addMarkers에서 저장된 것과 동일)
+      const position = listingPositionsRef.current.get(item.id);
+
+      if (position) {
+        // 지도 중심을 해당 위치로 이동
+        map.setCenter(position);
+        map.setZoom(15);
+
+        // 해당 상품의 InfoWindow를 찾아서 열기
+        const infoWindow = infoWindowsRef.current.get(item.title);
+        const marker = markersRef.current.find(m => m.getTitle() === item.title);
+        if (infoWindow && marker) {
+          infoWindow.open(map, marker);
+        }
+      }
+    }
+  }, [map]);
+
 
 
   // Filtered listings (additional client-side filtering)
@@ -429,11 +566,11 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
     const isAccommodation = category === 'accommodation' || category === 'stay';
 
     return (
-      <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible md:snap-none lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4">
         {filteredListings.map((item) => {
           if (isAccommodation) {
             return (
-              <div key={item.id} className="flex-none w-[280px] md:w-auto snap-start">
+              <div key={item.id} onClick={() => handleListingClick(item)} className="cursor-pointer">
                 <AccommodationCard
                   listing={item}
                   selectedCurrency={selectedCurrency}
@@ -451,10 +588,10 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
           return (
             <Card
               key={item.id}
-              className={`flex-none w-[280px] md:w-auto snap-start overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple ${
+              className={`overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple ${
                 isUnavailable ? 'opacity-60' : ''
               }`}
-              onClick={() => navigate(`/detail/${item.id}`)}
+              onClick={() => handleListingClick(item)}
             >
               <div className="relative">
                 <ImageWithFallback
@@ -684,7 +821,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="카테고리 상품 목록">
-      <div className="container mx-auto px-4 py-4 md:py-8">
+      <div className="max-w-[1400px] mx-auto px-4 py-4 md:py-8">
         {/* Enhanced Header */}
         <div className="mb-6 md:mb-8">
           <div className="flex flex-col gap-4">
@@ -730,8 +867,12 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
           </div>
         </div>
 
-        {/* Enhanced Filters */}
-        <div className="mobile-card bg-white rounded-lg p-4 md:p-6 mb-6 md:mb-8 shadow-sm">
+        {/* Main Content: Left (Filters + Cards) + Right (Map) */}
+        <div className="flex gap-6">
+          {/* 왼쪽: 필터 + 카드 리스트 */}
+          <div className="flex-1 min-w-[400px]">
+            {/* Enhanced Filters */}
+            <div className="mobile-card bg-white rounded-lg p-4 md:p-6 mb-6 md:mb-8 shadow-sm">
           {/* Search Bar */}
           <div className="mb-4 md:mb-6">
             <div className="relative">
@@ -998,14 +1139,14 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
           )}
         </div>
 
-        {/* Enhanced Results */}
-        <div className="space-y-6">
-          {/* Loading State */}
-          {loading && filteredListings.length === 0 ? (
-            <div className={viewMode === 'grid'
-              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-              : "space-y-4"
-            }>
+            {/* Enhanced Results */}
+            <div className="space-y-6">
+              {/* Loading State */}
+              {loading && filteredListings.length === 0 ? (
+                <div className={viewMode === 'grid'
+                  ? "grid grid-cols-2 gap-4"
+                  : "space-y-4"
+                }>
               {[...Array(8)].map((_, i) => (
                 <Card key={i} className="animate-pulse overflow-hidden">
                   <div className="w-full h-48 bg-gray-200"></div>
@@ -1072,42 +1213,79 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                   </Button>
                 </div>
               </div>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ArrowLeftRight Bar */}
-        {compareList.length > 0 && (
-          <div className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 z-50 mobile-safe-bottom">
-            <Card className="mobile-card bg-white shadow-lg border-2 border-blue-200">
-              <CardContent className="px-4 py-3">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <ArrowLeftRight className="h-5 w-5 text-blue-600" />
-                    <span className="font-medium">비교 대상: {compareList.length}개</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => navigate(`/compare?items=${compareList.join(',')}`)}
-                      className="mobile-button bg-blue-600 hover:bg-blue-700 h-10"
-                    >
-                      비교하기
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setArrowLeftRightList([])}
-                      className="mobile-button h-10"
-                    >
-                      취소
-                    </Button>
+        {/* 오른쪽: 지도 */}
+        <div className="w-[800px] flex-shrink-0">
+          <div className="sticky top-4">
+            <Card className="overflow-hidden">
+              {mapError ? (
+                <div className="w-full h-[900px] flex items-center justify-center bg-gray-100">
+                  <div className="text-center p-8 max-w-sm">
+                    <div className="text-gray-400 mb-4">
+                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-600 mb-2">지도를 불러올 수 없습니다</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Google Maps API 키가 필요합니다.
+                    </p>
+                    <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded border">
+                      <p className="mb-2"><strong>설정 방법:</strong></p>
+                      <p>1. Google Cloud Console에서 Maps JavaScript API 키 발급</p>
+                      <p>2. 환경변수 GOOGLE_MAPS_API_KEY에 키 설정</p>
+                      <p>3. 페이지 새로고침</p>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
+              ) : (
+                <div
+                  ref={mapRef}
+                  className="w-full h-[900px]"
+                  style={{ minHeight: '900px' }}
+                />
+              )}
             </Card>
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* ArrowLeftRight Bar */}
+      {compareList.length > 0 && (
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 z-50 mobile-safe-bottom">
+          <Card className="mobile-card bg-white shadow-lg border-2 border-blue-200">
+            <CardContent className="px-4 py-3">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <ArrowLeftRight className="h-5 w-5 text-blue-600" />
+                  <span className="font-medium">비교 대상: {compareList.length}개</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => navigate(`/compare?items=${compareList.join(',')}`)}
+                    className="mobile-button bg-blue-600 hover:bg-blue-700 h-10"
+                  >
+                    비교하기
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setArrowLeftRightList([])}
+                    className="mobile-button h-10"
+                  >
+                    취소
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       </div>
     </div>
   );

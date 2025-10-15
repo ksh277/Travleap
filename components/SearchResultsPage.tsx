@@ -215,11 +215,11 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
       
       <div className="bg-white rounded-lg overflow-hidden shadow-sm">
         {/* 이미지 */}
-        <div className="relative w-full h-[400px]">
+        <div className="relative w-full h-[400px] bg-gray-100">
           <ImageWithFallback
             src={result.image}
             alt={result.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
           {/* 이미지 오버레이 버튼들 */}
           <div className="absolute top-4 right-4 flex gap-2">

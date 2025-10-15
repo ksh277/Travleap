@@ -586,7 +586,9 @@ export function AdminPage({}: AdminPageProps) {
     featured_image: '',
     is_published: true,
     author_id: 1,
-    slug: ''
+    slug: '',
+    event_start_date: '',
+    event_end_date: ''
   });
 
   // 주문 관리 상태
@@ -1686,7 +1688,9 @@ export function AdminPage({}: AdminPageProps) {
         featured_image: blog.featured_image || '',
         is_published: blog.is_published ?? true,
         author_id: blog.author_id || 1,
-        slug: blog.slug || ''
+        slug: blog.slug || '',
+        event_start_date: blog.event_start_date || '',
+        event_end_date: blog.event_end_date || ''
       });
     } else {
       // 생성 모드: 빈 값으로 초기화
@@ -1698,7 +1702,9 @@ export function AdminPage({}: AdminPageProps) {
         featured_image: '',
         is_published: true,
         author_id: 1,
-        slug: ''
+        slug: '',
+        event_start_date: '',
+        event_end_date: ''
       });
     }
     setIsBlogDialogOpen(true);
@@ -5407,6 +5413,28 @@ export function AdminPage({}: AdminPageProps) {
                     <SelectItem value="draft">초안</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">이벤트 시작일</label>
+                <Input
+                  type="date"
+                  placeholder="이벤트 시작일"
+                  value={newBlog.event_start_date || ''}
+                  onChange={(e) => setNewBlog({ ...newBlog, event_start_date: e.target.value })}
+                  id="blog_event_start"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">이벤트 종료일</label>
+                <Input
+                  type="date"
+                  placeholder="이벤트 종료일"
+                  value={newBlog.event_end_date || ''}
+                  onChange={(e) => setNewBlog({ ...newBlog, event_end_date: e.target.value })}
+                  id="blog_event_end"
+                />
               </div>
             </div>
             <div>

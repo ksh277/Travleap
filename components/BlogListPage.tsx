@@ -18,6 +18,8 @@ interface BlogPost {
   category: string;
   tags: string[];
   published_date: string;
+  event_start_date?: string;
+  event_end_date?: string;
   view_count: number;
   is_featured: boolean;
   is_published: boolean;
@@ -32,13 +34,15 @@ export default function BlogListPage() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'all');
   const [selectedTag, setSelectedTag] = useState(searchParams.get('tag') || '');
+  const startDate = searchParams.get('checkin') || searchParams.get('startDate') || '';
+  const endDate = searchParams.get('checkout') || searchParams.get('endDate') || '';
 
   const categories = ['all', '여행 팁', '맛집', '관광지', '숙박', '액티비티', '문화'];
   const [allTags, setAllTags] = useState<string[]>([]);
 
   useEffect(() => {
     fetchPosts();
-  }, [selectedCategory, selectedTag, searchQuery]);
+  }, [selectedCategory, selectedTag, searchQuery, startDate, endDate]);
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -47,7 +51,9 @@ export default function BlogListPage() {
       const response = await api.getBlogPosts({
         category: selectedCategory !== 'all' ? selectedCategory : undefined,
         tag: selectedTag || undefined,
-        search: searchQuery || undefined
+        search: searchQuery || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined
       });
 
       if (response?.success && response.data) {
@@ -168,85 +174,8 @@ export default function BlogListPage() {
 
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
-          <aside className="lg:w-1/4">
-            {/* Search */}
-            <Card className="mb-6">
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Search className="h-5 w-5" />
-                  검색
-                </h3>
-                <form onSubmit={handleSearch}>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="블로그 검색..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                    <Button type="submit" size="sm">
-                      <Search className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-
-            {/* Categories */}
-            <Card className="mb-6">
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Filter className="h-5 w-5" />
-                  카테고리
-                </h3>
-                <div className="space-y-2">
-                  {categories.map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => handleCategoryClick(category)}
-                      className={`w-full text-left px-3 py-2 rounded transition-colors ${
-                        selectedCategory === category
-                          ? 'bg-blue-600 text-white'
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      {category === 'all' ? '전체' : category}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Tags */}
-            {allTags.length > 0 && (
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Tag className="h-5 w-5" />
-                    태그
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {allTags.map((tag) => (
-                      <button
-                        key={tag}
-                        onClick={() => handleTagClick(tag)}
-                        className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                          selectedTag === tag
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 hover:bg-gray-300'
-                        }`}
-                      >
-                        #{tag}
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </aside>
-
           {/* Main Content */}
-          <main className="lg:w-3/4">
+          <main className="lg:w-3/4 lg:order-1">
             {loading ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -375,6 +304,84 @@ export default function BlogListPage() {
               </>
             )}
           </main>
+
+          {/* Sidebar */}
+          <aside className="lg:w-1/4 lg:order-2">
+            {/* Search */}
+            <Card className="mb-6 bg-gray-700">
+              <CardContent className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-white">
+                  <Search className="h-5 w-5" />
+                  검색
+                </h3>
+                <form onSubmit={handleSearch}>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="블로그 검색..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="bg-white"
+                    />
+                    <Button type="submit" size="sm">
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Categories */}
+            <Card className="mb-6">
+              <CardContent className="p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  카테고리
+                </h3>
+                <div className="space-y-2">
+                  {categories.map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => handleCategoryClick(category)}
+                      className={`w-full text-left px-3 py-2 rounded transition-colors ${
+                        selectedCategory === category
+                          ? 'bg-blue-600 text-white'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      {category === 'all' ? '전체' : category}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tags */}
+            {allTags.length > 0 && (
+              <Card>
+                <CardContent className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Tag className="h-5 w-5" />
+                    태그
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {allTags.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => handleTagClick(tag)}
+                        className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                          selectedTag === tag
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 hover:bg-gray-300'
+                        }`}
+                      >
+                        #{tag}
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </aside>
         </div>
       </div>
     </div>

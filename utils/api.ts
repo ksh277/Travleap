@@ -73,6 +73,8 @@ export interface TravelItem {
   min_age?: number;
   highlights?: string[];
   address?: string;
+  latitude?: number | string;
+  longitude?: number | string;
   partner?: {
     business_name: string;
     tier: string;
@@ -204,7 +206,8 @@ export const api = {
     try {
       // 직접 DB에서 가져오기 (활성화되고 게시된 상품만)
       let sql = `
-        SELECT l.*, c.slug as category_slug, c.name_ko as category_name
+        SELECT l.*, c.slug as category_slug, c.name_ko as category_name,
+               l.latitude, l.longitude
         FROM listings l
         LEFT JOIN categories c ON l.category_id = c.id
         WHERE l.is_published = 1 AND l.is_active = 1
@@ -305,6 +308,8 @@ export const api = {
         max_capacity: item.max_capacity,
         is_active: Boolean(item.is_published),
         is_featured: Boolean(item.is_featured),
+        latitude: item.latitude || null,
+        longitude: item.longitude || null,
         created_at: item.created_at,
         updated_at: item.updated_at
       }));
@@ -3666,7 +3671,7 @@ export const api = {
     }
   },
 
-  getBlogPosts: async (filters?: { category?: string; tag?: string; search?: string }): Promise<ApiResponse<any[]>> => {
+  getBlogPosts: async (filters?: { category?: string; tag?: string; search?: string; startDate?: string; endDate?: string }): Promise<ApiResponse<any[]>> => {
     try {
       let sql = 'SELECT * FROM blog_posts WHERE is_published = 1';
       const params: any[] = [];
@@ -3685,6 +3690,12 @@ export const api = {
         sql += ' AND (title LIKE ? OR content LIKE ?)';
         const searchPattern = `%${filters.search}%`;
         params.push(searchPattern, searchPattern);
+      }
+
+      if (filters?.startDate && filters?.endDate) {
+        // Filter blogs where event date range overlaps with search date range
+        sql += ' AND ((event_start_date IS NOT NULL AND event_end_date IS NOT NULL) AND (event_start_date <= ? AND event_end_date >= ?))';
+        params.push(filters.endDate, filters.startDate);
       }
 
       sql += ' ORDER BY published_date DESC';

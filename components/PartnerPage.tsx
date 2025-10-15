@@ -109,7 +109,8 @@ export function PartnerPage() {
     category: '',
     priceRange: '',
     rating: '',
-    sortBy: 'recommended' // 추천순, 최신순
+    sortBy: 'recommended', // 추천순, 최신순
+    timeSlot: '' // 시간대 필터
   });
   const [partners, setPartners] = useState<Partner[]>([]);
   const [filteredPartners, setFilteredPartners] = useState<Partner[]>([]);
@@ -430,7 +431,30 @@ export function PartnerPage() {
   };
 
   const handleSearch = () => {
-    // 검색 로직 실행
+    // 검색 로직 실행 - 현재 searchQuery, fromDate, toDate, timeSlot으로 필터링
+    let filtered = partners;
+
+    // 목적지 검색 (업체명, 카테고리, 주소)
+    if (searchQuery) {
+      filtered = filtered.filter(partner =>
+        partner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        partner.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        partner.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        partner.description.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // 날짜 필터 (현재는 사용 안 함 - 가맹점은 항상 영업)
+    // 추후 영업시간, 휴무일 등의 데이터가 있으면 활용 가능
+
+    // 시간대 필터
+    if (filters.timeSlot) {
+      // 현재는 시간대 데이터가 없으므로 필터링 안 함
+      // 추후 영업시간 데이터 추가 시 필터링 로직 구현
+    }
+
+    setFilteredPartners(filtered);
+    setCurrentPage(1);
   };
 
   // 제휴업체 카드 클릭 핸들러 - 지도에 마커 표시 및 중심 이동
@@ -492,6 +516,11 @@ export function PartnerPage() {
                   placeholder="어디에 가시나요?"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch();
+                    }
+                  }}
                   className="pl-10 h-12 text-sm"
                 />
                 <div className="absolute left-3 -top-2 bg-white px-1 text-xs text-gray-600">
@@ -522,24 +551,25 @@ export function PartnerPage() {
                   </div>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <div className="p-4 space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">시작일</label>
-                      <Calendar
-                        mode="single"
-                        selected={fromDate}
-                        onSelect={setFromDate}
-                        initialFocus
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">종료일</label>
-                      <Calendar
-                        mode="single"
-                        selected={toDate}
-                        onSelect={setToDate}
-                        disabled={(date) => fromDate ? date < fromDate : false}
-                      />
+                  <div className="p-4">
+                    <div className="flex gap-4 mb-4">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">시작일</label>
+                        <Calendar
+                          mode="single"
+                          selected={fromDate}
+                          onSelect={setFromDate}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">종료일</label>
+                        <Calendar
+                          mode="single"
+                          selected={toDate}
+                          onSelect={setToDate}
+                          disabled={(date) => fromDate ? date < fromDate : false}
+                        />
+                      </div>
                     </div>
                     <Button
                       onClick={() => setShowCalendar(false)}
@@ -559,16 +589,17 @@ export function PartnerPage() {
             <div className="w-[180px]">
               <div className="relative">
                 <Select
-                  value=""
-                  onValueChange={() => {}}
+                  value={filters.timeSlot}
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, timeSlot: value }))}
                 >
                   <SelectTrigger className="h-12 text-sm">
-                    <SelectValue placeholder="More" />
+                    <SelectValue placeholder="선택안함" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="morning">오전</SelectItem>
-                    <SelectItem value="afternoon">오후</SelectItem>
-                    <SelectItem value="evening">저녁</SelectItem>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="morning">오전 (09:00-12:00)</SelectItem>
+                    <SelectItem value="afternoon">오후 (12:00-18:00)</SelectItem>
+                    <SelectItem value="evening">저녁 (18:00-22:00)</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="absolute left-3 -top-2 bg-white px-1 text-xs text-gray-600">

@@ -21,6 +21,7 @@ import { MyPage } from './components/MyPage';
 import { ReviewsPage } from './components/ReviewsPage';
 import { PaymentPage } from './components/PaymentPage';
 import { CommunityBlogPage } from './components/CommunityBlogPage';
+import BlogListPage from './components/BlogListPage';
 import { RewardsPage } from './components/RewardsPage';
 import { WorkWithUsPage } from './components/WorkWithUsPage';
 import { PlaceGoodsPage } from './components/PlaceGoodsPage';
@@ -218,6 +219,7 @@ function AppContent() {
           <Route path="/about" element={<ShinanPage />} />
           <Route path="/contact" element={<ContactPage onBack={() => navigate(-1)} />} />
           <Route path="/reviews" element={<ReviewsPage />} />
+          <Route path="/blog" element={<BlogListPage />} />
           <Route path="/community-blog" element={<CommunityBlogPage />} />
           <Route path="/rewards" element={<RewardsPage />} />
           <Route path="/work-with-us" element={<WorkWithUsPage />} />
