@@ -43,53 +43,57 @@ interface Partner {
   distance?: number; // km 단위 거리
 }
 
-// 상품 데이터 로딩 - listings 테이블에서 데이터 가져오기
+// 파트너 데이터 로딩 - partners 테이블에서 데이터 가져오기
 const loadPartners = async (): Promise<Partner[]> => {
   try {
-    // listings 테이블에서 상품 데이터 로드
-    const listingsResponse = await api.getListings();
+    // partners 테이블에서 파트너 데이터 로드
+    const partnersResponse = await api.getPartners();
     const partnersList: Partner[] = [];
 
-    if (listingsResponse.success && listingsResponse.data && listingsResponse.data.length > 0) {
+    if (partnersResponse.success && partnersResponse.data && partnersResponse.data.length > 0) {
       // 신안군 기본 좌표
       const defaultCoord = { lat: 34.9654, lng: 126.1234 };
 
-      listingsResponse.data.forEach((listing: any) => {
+      partnersResponse.data.forEach((partner: any) => {
         // 위치 정보 파싱 (있는 경우)
         let position = defaultCoord;
-        if (listing.latitude && listing.longitude) {
+        if (partner.lat && partner.lng) {
           position = {
-            lat: parseFloat(listing.latitude),
-            lng: parseFloat(listing.longitude)
+            lat: parseFloat(partner.lat),
+            lng: parseFloat(partner.lng)
           };
         }
 
+        // services를 카테고리로 사용 (첫 번째 서비스)
+        const services = partner.services ? partner.services.split(',').map((s: string) => s.trim()) : ['여행'];
+        const category = services[0] || '여행';
+
         const partnerCard: Partner = {
-          id: listing.id.toString(),
-          name: listing.title || listing.name,
-          category: listing.category || '여행',
-          location: listing.location || '신안군',
-          rating: listing.rating || 4.5,
-          reviewCount: listing.review_count || 0,
-          price: listing.price ? `${parseInt(listing.price).toLocaleString()}원` : '문의',
-          image: listing.main_image || listing.image || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
-          description: listing.description || '신안의 아름다운 자연과 함께하는 특별한 체험',
+          id: partner.id.toString(),
+          name: partner.business_name || '업체명 없음',
+          category: category,
+          location: partner.phone || '신안군',
+          rating: 4.5, // 기본값 (리뷰 시스템 연동 필요)
+          reviewCount: 0, // 기본값 (리뷰 시스템 연동 필요)
+          price: '가격 문의',
+          image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
+          description: partner.description || '신안의 아름다운 자연과 함께하는 특별한 체험',
           position: position,
-          featured: listing.is_featured === 1 || listing.featured === true
+          featured: partner.is_featured === 1
         };
 
         partnersList.push(partnerCard);
       });
 
-      console.log(`✅ DB에서 ${partnersList.length}개 상품 로드 완료`);
+      console.log(`✅ DB에서 ${partnersList.length}개 파트너 로드 완료`);
       return partnersList;
     }
 
-    console.warn('⚠️  DB에 상품 데이터가 없습니다');
+    console.warn('⚠️  DB에 파트너 데이터가 없습니다');
     return [];
 
   } catch (error) {
-    console.error('❌ 상품 데이터 로드 실패:', error);
+    console.error('❌ 파트너 데이터 로드 실패:', error);
     return [];
   }
 };
