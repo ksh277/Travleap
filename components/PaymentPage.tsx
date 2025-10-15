@@ -147,7 +147,6 @@ export function PaymentPage() {
             subtotal: item.price * item.quantity
           })),
           subtotal: orderData.subtotal,
-          deliveryFee: orderData.deliveryFee,
           couponDiscount: orderData.couponDiscount,
           couponCode: orderData.couponCode,
           total: orderData.total,
@@ -491,10 +490,6 @@ export function PaymentPage() {
                       <div className="flex justify-between">
                         <span>상품 금액</span>
                         <span>{orderData.subtotal.toLocaleString()}원</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>배송비</span>
-                        <span>{orderData.deliveryFee > 0 ? `${orderData.deliveryFee.toLocaleString()}원` : '무료'}</span>
                       </div>
                       {orderData.couponDiscount > 0 && (
                         <div className="flex justify-between text-green-600">
