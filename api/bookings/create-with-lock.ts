@@ -9,7 +9,7 @@
  * 5. Lock 해제
  */
 
-import { db } from '../../utils/database-cloud';
+import { db } from '../../utils/database';
 import { lockManager } from '../../utils/lock-manager';
 
 export interface BookingRequest {
@@ -265,3 +265,9 @@ export async function getBookingForPayment(bookingId: number) {
     return { success: false, message: '예약 조회 실패' };
   }
 }
+
+// Default export for tsx compatibility
+export default {
+  createBookingWithLock,
+  getBookingForPayment
+};

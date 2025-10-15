@@ -35,6 +35,34 @@ import type {
 } from '../types/rentcar';
 
 // ============================================
+// 상수 정의 (Constants)
+// ============================================
+
+// 캐시 TTL (Time To Live) - 밀리초 단위
+const CACHE_TTL = {
+  VENDOR_LIST: 5 * 60 * 1000,      // 5분
+  VENDOR_STATS: 3 * 60 * 1000,     // 3분
+  ADMIN_STATS: 3 * 60 * 1000,      // 3분
+  DASHBOARD_STATS: 2 * 60 * 1000   // 2분
+} as const;
+
+// 세금 및 수수료
+const TAX_RATE = 0.1;                // 10% 세금
+const DEFAULT_COMMISSION_RATE = 15.00; // 기본 수수료율 15%
+
+// 대여 조건 기본값
+const RENTAL_DEFAULTS = {
+  MIN_AGE: 21,                       // 최소 연령 21세
+  MIN_LICENSE_YEARS: 1,              // 최소 면허 취득 기간 1년
+  DOOR_COUNT: 4,                     // 기본 도어 수
+  LARGE_BAGS: 2,                     // 기본 대형 수하물 수
+  SMALL_BAGS: 2,                     // 기본 소형 수하물 수
+  MILEAGE_LIMIT_PER_DAY: 200,        // 일일 주행거리 제한 200km
+  MIN_RENTAL_DAYS: 1,                // 최소 대여일 수
+  MAX_QUANTITY: 1                    // 부가옵션 기본 최대 수량
+} as const;
+
+// ============================================
 // 1. VENDOR API (벤더 관리)
 // ============================================
 
@@ -90,7 +118,7 @@ export const rentcarVendorApi = {
       };
 
       // 캐시 저장 (5분)
-      cache.set(cacheKey, result, 5 * 60 * 1000);
+      cache.set(cacheKey, result, CACHE_TTL.VENDOR_LIST);
 
       return result;
     } catch (error) {
@@ -155,10 +183,10 @@ export const rentcarVendorApi = {
         validatedData.contact_phone,
         validatedData.description || null,
         validatedData.logo_url || null,
-        validatedData.commission_rate || 15.00
+        validatedData.commission_rate || DEFAULT_COMMISSION_RATE
       ]);
 
-      logDbEnd(result);
+      logDbEnd();
 
       const newVendor = await rentcarVendorApi.getById(result.insertId!);
 
@@ -189,8 +217,7 @@ export const rentcarVendorApi = {
         rentcarLogger.error('Failed to create vendor (Validation error)', error);
         return {
           success: false,
-          error: error.userMessage,
-          field: error.field
+          error: error.userMessage
         };
       }
 
@@ -206,13 +233,35 @@ export const rentcarVendorApi = {
   // 벤더 수정
   update: async (id: number, data: Partial<RentcarVendorFormData>): Promise<RentcarApiResponse<RentcarVendor>> => {
     try {
+      // ✅ 화이트리스트 검증: 수정 가능한 필드만 허용
+      const ALLOWED_FIELDS = [
+        'business_name', 'brand_name', 'business_number',
+        'contact_name', 'contact_email', 'contact_phone',
+        'description', 'logo_url', 'commission_rate'
+      ];
+
       const fields: string[] = [];
       const values: any[] = [];
 
       Object.entries(data).forEach(([key, value]) => {
+        if (!ALLOWED_FIELDS.includes(key)) {
+          throw new AppError(
+            RentcarErrors.INVALID_FIELD.code,
+            `수정할 수 없는 필드입니다: ${key}`,
+            RentcarErrors.INVALID_FIELD.userMessage,
+            key
+          );
+        }
         fields.push(`${key} = ?`);
         values.push(value);
       });
+
+      if (fields.length === 0) {
+        return {
+          success: false,
+          error: '수정할 데이터가 없습니다.'
+        };
+      }
 
       values.push(id);
 
@@ -233,6 +282,12 @@ export const rentcarVendorApi = {
         message: '벤더 정보가 수정되었습니다.'
       };
     } catch (error) {
+      if (error instanceof AppError) {
+        return {
+          success: false,
+          error: error.userMessage
+        };
+      }
       console.error('Failed to update vendor:', error);
       return {
         success: false,
@@ -359,13 +414,35 @@ export const rentcarLocationApi = {
   // 지점 수정
   update: async (id: number, data: Partial<RentcarLocationFormData>): Promise<RentcarApiResponse<RentcarLocation>> => {
     try {
+      // ✅ 화이트리스트 검증: 수정 가능한 필드만 허용
+      const ALLOWED_FIELDS = [
+        'location_code', 'name', 'location_type', 'address', 'city',
+        'postal_code', 'lat', 'lng', 'phone',
+        'pickup_fee_krw', 'dropoff_fee_krw', 'is_active', 'display_order'
+      ];
+
       const fields: string[] = [];
       const values: any[] = [];
 
       Object.entries(data).forEach(([key, value]) => {
+        if (!ALLOWED_FIELDS.includes(key)) {
+          throw new AppError(
+            RentcarErrors.INVALID_FIELD.code,
+            `수정할 수 없는 필드입니다: ${key}`,
+            RentcarErrors.INVALID_FIELD.userMessage,
+            key
+          );
+        }
         fields.push(`${key} = ?`);
         values.push(value);
       });
+
+      if (fields.length === 0) {
+        return {
+          success: false,
+          error: '수정할 데이터가 없습니다.'
+        };
+      }
 
       values.push(id);
 
@@ -381,6 +458,12 @@ export const rentcarLocationApi = {
         message: '지점 정보가 수정되었습니다.'
       };
     } catch (error) {
+      if (error instanceof AppError) {
+        return {
+          success: false,
+          error: error.userMessage
+        };
+      }
       console.error('Failed to update location:', error);
       return {
         success: false,
@@ -715,11 +798,31 @@ ${data.brand} ${data.model} (${data.year}년식)
   // 차량 수정
   update: async (id: number, data: Partial<RentcarVehicleFormData>): Promise<RentcarApiResponse<RentcarVehicle>> => {
     try {
+      // ✅ 화이트리스트 검증: 수정 가능한 필드만 허용
+      const ALLOWED_FIELDS = [
+        'vehicle_code', 'brand', 'model', 'year', 'display_name',
+        'vehicle_class', 'vehicle_type', 'fuel_type', 'transmission',
+        'seating_capacity', 'door_count', 'large_bags', 'small_bags',
+        'thumbnail_url', 'images', 'features',
+        'age_requirement', 'license_requirement', 'mileage_limit_per_day',
+        'unlimited_mileage', 'deposit_amount_krw', 'smoking_allowed',
+        'daily_rate_krw', 'is_active', 'is_featured'
+      ];
+
       // 1. rentcar_vehicles 업데이트
       const fields: string[] = [];
       const values: any[] = [];
 
       Object.entries(data).forEach(([key, value]) => {
+        if (!ALLOWED_FIELDS.includes(key)) {
+          throw new AppError(
+            RentcarErrors.INVALID_FIELD.code,
+            `수정할 수 없는 필드입니다: ${key}`,
+            RentcarErrors.INVALID_FIELD.userMessage,
+            key
+          );
+        }
+
         if (key === 'images' || key === 'features') {
           fields.push(`${key} = ?`);
           values.push(JSON.stringify(value));
@@ -728,6 +831,13 @@ ${data.brand} ${data.model} (${data.year}년식)
           values.push(value);
         }
       });
+
+      if (fields.length === 0) {
+        return {
+          success: false,
+          error: '수정할 데이터가 없습니다.'
+        };
+      }
 
       values.push(id);
 
@@ -797,6 +907,12 @@ ${data.brand} ${data.model} (${data.year}년식)
         message: '차량 정보가 수정되었습니다.'
       };
     } catch (error) {
+      if (error instanceof AppError) {
+        return {
+          success: false,
+          error: error.userMessage
+        };
+      }
       console.error('Failed to update vehicle:', error);
       return {
         success: false,
@@ -1384,7 +1500,7 @@ export const rentcarRatePlanApi = {
         ORDER BY priority DESC, start_date DESC
       `, [vendorId]);
 
-      return { success: true, data: result.rows as RentcarRatePlan[] };
+      return { success: true, data: result as RentcarRatePlan[] };
     } catch (error) {
       console.error('Failed to fetch rate plans:', error);
       return {
@@ -1417,7 +1533,7 @@ export const rentcarRatePlanApi = {
         LIMIT 1
       `, [vendorId, startDate, startDate, vehicleId, vehicleClass]);
 
-      const ratePlan = result.rows.length > 0 ? result.rows[0] as RentcarRatePlan : null;
+      const ratePlan = result.length > 0 ? result[0] as RentcarRatePlan : null;
       return { success: true, data: ratePlan };
     } catch (error) {
       console.error('Failed to get active rate plan:', error);
@@ -1467,7 +1583,7 @@ export const rentcarRatePlanApi = {
 
       return {
         success: true,
-        data: ratePlan.rows[0] as RentcarRatePlan,
+        data: ratePlan[0] as RentcarRatePlan,
         message: '요금제가 등록되었습니다.'
       };
     } catch (error: any) {
@@ -1520,7 +1636,7 @@ export const rentcarRatePlanApi = {
 
       return {
         success: true,
-        data: ratePlan.rows[0] as RentcarRatePlan,
+        data: ratePlan[0] as RentcarRatePlan,
         message: '요금제가 수정되었습니다.'
       };
     } catch (error) {
@@ -1561,7 +1677,7 @@ export const rentcarRatePlanApi = {
 
       return {
         success: true,
-        data: ratePlan.rows[0] as RentcarRatePlan,
+        data: ratePlan[0] as RentcarRatePlan,
         message: isActive ? '요금제가 활성화되었습니다.' : '요금제가 비활성화되었습니다.'
       };
     } catch (error) {
@@ -1588,7 +1704,7 @@ export const rentcarInsuranceApi = {
         ORDER BY display_order ASC, insurance_name ASC
       `, [vendorId]);
 
-      return { success: true, data: result.rows as RentcarInsurancePlan[] };
+      return { success: true, data: result as RentcarInsurancePlan[] };
     } catch (error) {
       console.error('Failed to fetch insurance plans:', error);
       return {
@@ -1607,7 +1723,7 @@ export const rentcarInsuranceApi = {
         ORDER BY display_order ASC, insurance_name ASC
       `, [vendorId]);
 
-      return { success: true, data: result.rows as RentcarInsurancePlan[] };
+      return { success: true, data: result as RentcarInsurancePlan[] };
     } catch (error) {
       console.error('Failed to fetch active insurance plans:', error);
       return {
@@ -1649,7 +1765,7 @@ export const rentcarInsuranceApi = {
 
       return {
         success: true,
-        data: insurance.rows[0] as RentcarInsurancePlan,
+        data: insurance[0] as RentcarInsurancePlan,
         message: '보험 상품이 등록되었습니다.'
       };
     } catch (error: any) {
@@ -1696,7 +1812,7 @@ export const rentcarInsuranceApi = {
 
       return {
         success: true,
-        data: insurance.rows[0] as RentcarInsurancePlan,
+        data: insurance[0] as RentcarInsurancePlan,
         message: '보험 상품이 수정되었습니다.'
       };
     } catch (error) {
@@ -1737,7 +1853,7 @@ export const rentcarInsuranceApi = {
 
       return {
         success: true,
-        data: insurance.rows[0] as RentcarInsurancePlan,
+        data: insurance[0] as RentcarInsurancePlan,
         message: isActive ? '보험 상품이 활성화되었습니다.' : '보험 상품이 비활성화되었습니다.'
       };
     } catch (error) {
@@ -1764,7 +1880,7 @@ export const rentcarExtrasApi = {
         ORDER BY display_order ASC, extra_name ASC
       `, [vendorId]);
 
-      return { success: true, data: result.rows as RentcarExtra[] };
+      return { success: true, data: result as RentcarExtra[] };
     } catch (error) {
       console.error('Failed to fetch extras:', error);
       return {
@@ -1783,7 +1899,7 @@ export const rentcarExtrasApi = {
         ORDER BY display_order ASC, extra_name ASC
       `, [vendorId]);
 
-      return { success: true, data: result.rows as RentcarExtra[] };
+      return { success: true, data: result as RentcarExtra[] };
     } catch (error) {
       console.error('Failed to fetch active extras:', error);
       return {
@@ -1825,7 +1941,7 @@ export const rentcarExtrasApi = {
 
       return {
         success: true,
-        data: extra.rows[0] as RentcarExtra,
+        data: extra[0] as RentcarExtra,
         message: '부가 옵션이 등록되었습니다.'
       };
     } catch (error: any) {
@@ -1872,7 +1988,7 @@ export const rentcarExtrasApi = {
 
       return {
         success: true,
-        data: extra.rows[0] as RentcarExtra,
+        data: extra[0] as RentcarExtra,
         message: '부가 옵션이 수정되었습니다.'
       };
     } catch (error) {
@@ -1913,7 +2029,7 @@ export const rentcarExtrasApi = {
 
       return {
         success: true,
-        data: extra.rows[0] as RentcarExtra,
+        data: extra[0] as RentcarExtra,
         message: isActive ? '부가 옵션이 활성화되었습니다.' : '부가 옵션이 비활성화되었습니다.'
       };
     } catch (error) {

@@ -33,6 +33,7 @@ export enum ErrorCode {
   INSUFFICIENT_INVENTORY = 3004,
   INVALID_LOCATION = 3005,
   INVALID_RATE_PLAN = 3006,
+  INVALID_FIELD = 3007,
 
   // 외부 API 에러 (4000번대)
   EXTERNAL_API_ERROR = 4000,
@@ -287,7 +288,13 @@ export const RentcarErrors = {
       ErrorCode.NOT_FOUND,
       `${resource} not found: ${id}`,
       `${resource}을(를) 찾을 수 없습니다.`
-    )
+    ),
+
+  INVALID_FIELD: {
+    code: ErrorCode.INVALID_FIELD,
+    message: 'Invalid field for update operation',
+    userMessage: '수정할 수 없는 필드입니다.'
+  }
 };
 
 export default {

@@ -14,14 +14,31 @@ class Database {
   private connection: Connection;
 
   constructor() {
-    const databaseUrl = import.meta.env.VITE_DATABASE_URL;
+    // PlanetScale 연결 설정
+    let host: string;
+    let username: string;
+    let password: string;
 
-    if (!databaseUrl) {
-      console.warn('VITE_DATABASE_URL not set - using fallback');
+    if (typeof window === 'undefined') {
+      // Node.js 서버 환경
+      host = process.env.DATABASE_HOST || process.env.VITE_PLANETSCALE_HOST || 'aws.connect.psdb.cloud';
+      username = process.env.DATABASE_USERNAME || process.env.VITE_PLANETSCALE_USERNAME || '';
+      password = process.env.DATABASE_PASSWORD || process.env.VITE_PLANETSCALE_PASSWORD || '';
+    } else {
+      // 브라우저 환경
+      host = import.meta.env.VITE_PLANETSCALE_HOST || 'aws.connect.psdb.cloud';
+      username = import.meta.env.VITE_PLANETSCALE_USERNAME || '';
+      password = import.meta.env.VITE_PLANETSCALE_PASSWORD || '';
+    }
+
+    if (!username || !password) {
+      console.warn('⚠️  PlanetScale credentials not configured');
     }
 
     const config = {
-      url: databaseUrl || 'mysql://localhost:3306/travleap'
+      host,
+      username,
+      password
     };
 
     this.connection = connect(config);
@@ -810,15 +827,31 @@ class Database {
   }
 }
 
-// 단일 인스턴스 생성 및 내보내기
-export const db = new Database();
+// Lazy initialization - database instance is created only when first accessed
+let dbInstance: Database | null = null;
 
-// 앱 시작 시 초기화
-db.initializeIfEmpty().catch(console.error);
+export function getDatabase(): Database {
+  if (!dbInstance) {
+    dbInstance = new Database();
+  }
+  return dbInstance;
+}
+
+// Getter for backwards compatibility - will create instance on first access
+export const db = new Proxy({} as Database, {
+  get(target, prop) {
+    const instance = getDatabase();
+    const value = instance[prop as keyof Database];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  }
+});
 
 // 개발 환경에서 강제 재초기화 실행 (관리자 계정 생성)
 if (typeof window !== 'undefined') {
-  (window as any).forceReinitDB = () => db.forceReinitialize();
+  (window as any).forceReinitDB = () => getDatabase().forceReinitialize();
 }
 
 export default db;

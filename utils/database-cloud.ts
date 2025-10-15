@@ -9,8 +9,11 @@ export interface QueryResult {
 
 class CloudDatabase {
   private getApiBase(): string {
-    // 프로덕션에서는 상대 경로, 로컬에서는 절대 경로
-    if (typeof window === 'undefined') return '/api/db';
+    // 서버 사이드에서는 항상 절대 경로 사용
+    if (typeof window === 'undefined') {
+      return process.env.API_URL || 'http://localhost:3004/api/db';
+    }
+    // 브라우저에서는 프로덕션에서 상대 경로, 로컬에서 절대 경로
     const isProduction = import.meta.env.PROD || window.location.hostname !== 'localhost';
     return isProduction ? '/api/db' : 'http://localhost:3004/api/db';
   }
@@ -34,8 +37,8 @@ class CloudDatabase {
 
       return {
         rows: data.data || [],
-        insertId: 0,
-        affectedRows: 0
+        insertId: data.insertId || 0,
+        affectedRows: data.affectedRows || 0
       };
     } catch (error) {
       console.error('Database execution error:', error);
@@ -175,9 +178,9 @@ class CloudDatabase {
   }
 
   // QUERY (raw SQL)
-  async query(sql: string, params: any[] = []): Promise<any[]> {
+  async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     const result = await this.execute(sql, params);
-    return result.rows;
+    return result.rows as T[];
   }
 
   // Test Connection

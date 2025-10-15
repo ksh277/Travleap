@@ -118,8 +118,8 @@ export function Header({
   return (
     <header className="sticky top-0 z-50 w-full">
       {/* 상단 연보라 탑바 */}
-      <div className="bg-[#A8A8D8] h-[42px] md:h-[42px] flex items-center">
-        <div className="w-full px-4 flex items-center justify-between text-[11px] md:text-[12px] text-white">
+      <div className="bg-[#858dc5] h-[55px] md:h-[55px] flex items-center">
+        <div className="w-full px-[60px] flex items-center justify-between text-[13px] md:text-[14px] text-white">
           {/* 왼쪽 */}
           <div className="flex items-center gap-2 md:gap-3">
             <div className="flex gap-2 md:gap-3 items-center">
@@ -148,9 +148,9 @@ export function Header({
             ></span>
             <a
               className="text-white hover:text-blue-100 transition-colors hidden sm:inline"
-              href="mailto:wazeplan@naver.com"
+              href="mailto:awesomeplan4606@naver.com"
             >
-              wazeplan@naver.com
+              awesomeplan4606@naver.com
             </a>
           </div>
 
@@ -199,7 +199,7 @@ export function Header({
 
       {/* 네비게이션 바 */}
       <nav className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="h-[70px] w-full px-4 flex items-center">
+        <div className="h-[100px] w-full px-[60px] flex items-center">
           {/* 왼쪽: 로고 + 메뉴 */}
           <div className="flex items-center gap-4 md:gap-8">
             {/* 로고 */}
@@ -207,7 +207,7 @@ export function Header({
               className="cursor-pointer flex items-center gap-2"
               onClick={() => navigate("/")}
             >
-              <span className="text-xl md:text-2xl font-bold text-[#A8A8D8] tracking-tight select-none">Travelap</span>
+              <span className="text-2xl md:text-3xl font-bold text-[#A8A8D8] tracking-tight select-none">Travelap</span>
             </a>
 
             {/* 메뉴 */}
@@ -216,7 +216,7 @@ export function Header({
                 <div key={item.id}>
                   {item.hasDropdown ? (
                     <div className="relative group">
-                      <button className="text-[#4A5568] hover:text-[#2D3748] transition-colors font-semibold text-[14px] tracking-wide flex items-center">
+                      <button className="text-[#4A5568] hover:text-[#2D3748] transition-colors font-semibold text-[16px] tracking-wide flex items-center">
                         {item.name}
                         <ChevronDown className="w-3 h-3 ml-1" />
                       </button>
@@ -246,7 +246,7 @@ export function Header({
                     </div>
                   ) : (
                     <button
-                      className={`text-[#4A5568] hover:text-[#2D3748] transition-colors font-semibold text-[14px] tracking-wide ${
+                      className={`text-[#4A5568] hover:text-[#2D3748] transition-colors font-semibold text-[16px] tracking-wide ${
                         currentView === `/${item.id === 'home' ? '' : item.id}`
                           ? "text-[#2D3748]"
                           : ""
@@ -340,8 +340,8 @@ export function Header({
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right">
-                <div className="grid gap-6 py-6">
+              <SheetContent side="right" className="p-0 w-[300px]">
+                <div className="grid gap-0 py-6">
                   {navigation.map((item) => (
                     <button
                       key={item.id}
@@ -354,23 +354,23 @@ export function Header({
                           navigate(`/${item.id}`);
                         }
                       }}
-                      className="text-left text-lg hover:text-[#4A5568] transition-colors min-h-[48px] flex items-center py-2"
+                      className="text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center px-6 border-b border-gray-100"
                     >
                       {item.name}
                     </button>
                   ))}
-                  <div className="border-t pt-6">
-                    <div className="mb-4 font-semibold">
+                  <div className="border-t pt-4 mt-2">
+                    <div className="mb-2 px-6 font-semibold text-gray-600 text-sm">
                       {t('categories', selectedLanguage)}
                     </div>
-                    <div className="grid gap-2">
+                    <div className="grid gap-0">
                       {categories.map((category) => (
                         <button
                           key={category.id}
                           onClick={() =>
                             navigate(`/category/${category.id}`)
                           }
-                          className="flex items-center space-x-3 text-left p-3 hover:bg-gray-100 rounded min-h-[48px]"
+                          className="flex items-center space-x-3 text-left px-6 py-4 hover:bg-gray-50 min-h-[56px] border-b border-gray-100"
                         >
                           <span className="text-lg">{category.icon}</span>
                           <span className="text-base">{category.name}</span>
@@ -378,29 +378,29 @@ export function Header({
                       ))}
                     </div>
                   </div>
-                  
+
                   {/* 모바일 로그인/관리자/마이페이지 메뉴 */}
-                  <div className="border-t pt-6">
+                  <div className="border-t pt-2 mt-2">
                     {isLoggedIn ? (
-                      <div className="space-y-2">
+                      <div className="grid gap-0">
                         {isAdmin ? (
                           <button
                             onClick={() => navigate("/admin")}
-                            className="block w-full text-left p-3 hover:bg-purple-50 rounded text-purple-600 font-medium min-h-[48px] flex items-center"
+                            className="block w-full text-left px-6 py-4 hover:bg-purple-50 text-purple-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
                           >
                             {t('admin', selectedLanguage)} 페이지
                           </button>
                         ) : (
                           <button
                             onClick={() => navigate("/mypage")}
-                            className="block w-full text-left p-3 hover:bg-blue-50 rounded text-blue-600 font-medium min-h-[48px] flex items-center"
+                            className="block w-full text-left px-6 py-4 hover:bg-blue-50 text-blue-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
                           >
                             {t('mypage', selectedLanguage)}
                           </button>
                         )}
                         <button
                           onClick={logout}
-                          className="block w-full text-left p-3 hover:bg-gray-100 rounded text-gray-600 min-h-[48px] flex items-center"
+                          className="block w-full text-left px-6 py-4 hover:bg-gray-50 text-gray-600 min-h-[56px] flex items-center"
                         >
                           {t('logout', selectedLanguage)}
                         </button>
@@ -408,7 +408,7 @@ export function Header({
                     ) : (
                       <button
                         onClick={() => navigate("/login")}
-                        className="block w-full text-left p-3 hover:bg-gray-100 rounded text-gray-600 min-h-[48px] flex items-center"
+                        className="block w-full text-left px-6 py-4 hover:bg-gray-50 text-gray-600 min-h-[56px] flex items-center"
                       >
                         {t('login', selectedLanguage)}
                       </button>
@@ -424,7 +424,7 @@ export function Header({
       {/* 검색바 (조건부 표시) */}
       {showSearchBar && (
         <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="w-full px-4 py-3 md:py-4">
+          <div className="w-full px-[60px] py-3 md:py-4">
             <form onSubmit={handleSearch} className="space-y-4">
               {/* 기본 검색 옵션 */}
               <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">

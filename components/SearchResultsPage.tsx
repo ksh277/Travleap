@@ -320,8 +320,8 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom">
       {/* 페이지 헤더 */}
       <div className="bg-[#A8A8D8] py-6 md:py-8 mobile-safe-top">
-        <div className="mobile-container">
-          <div className="max-w-4xl mx-auto text-center text-white">
+        <div className="w-full px-[60px]">
+          <div className="text-center text-white">
             <h1 className="text-3xl mb-2">
               {searchQuery ? `"${searchQuery}" 검색 결과` : '검색 결과'}
             </h1>
@@ -338,8 +338,7 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+      <div className="w-full px-[60px] py-8">
           {/* 필터 및 정렬 옵션 */}
           <div className="flex items-center justify-between mb-8 p-4 bg-white rounded-lg shadow-sm">
             <div className="flex items-center gap-4">
@@ -394,11 +393,9 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
               ))}
             </div>
           ) : (
-            <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory md:space-y-0 md:block md:overflow-visible md:snap-none">
+            <div className="space-y-8">
               {results.map((result, index) => (
-                <div key={result.id} className="flex-none w-[320px] md:w-auto snap-start md:mb-8">
-                  {renderBlogPost(result, index === 0)}
-                </div>
+                renderBlogPost(result, index === 0)
               ))}
             </div>
           )}
@@ -433,39 +430,6 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
               </Button>
             </div>
           )}
-        </div>
-
-        {/* 사이드바 (선택사항) */}
-        <div className="max-w-6xl mx-auto mt-16">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <div className="lg:col-span-3">
-              {/* 메인 컨텐츠는 위에 있음 */}
-            </div>
-            
-            {/* 사이드바 */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg p-6 shadow-sm">
-                <h3 className="text-lg mb-4 text-gray-800">ABOUT US</h3>
-                <p className="text-sm text-gray-600 leading-relaxed mb-4">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-                </p>
-                
-                <h4 className="text-sm mb-3 text-gray-700">TAGS</h4>
-                <div className="flex flex-wrap gap-2">
-                  {['Nature', 'Beach', 'Mountain', 'Adventure', 'Culture', 'Food', 'History', 'Art', 'Photography'].map((tag) => (
-                    <Badge 
-                      key={tag}
-                      variant="secondary" 
-                      className="bg-[#ff6a3d] text-white text-xs hover:bg-[#e5582b] cursor-pointer"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

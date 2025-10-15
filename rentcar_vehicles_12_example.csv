@@ -1,0 +1,13 @@
+vehicle_code,brand,model,year,display_name,vehicle_class,vehicle_type,fuel_type,transmission,seating_capacity,door_count,large_bags,small_bags,daily_rate_krw,deposit_amount_krw,license_requirement,age_requirement,mileage_limit_per_day,unlimited_mileage,smoking_allowed,thumbnail_url,images,features
+COMPACT_001,현대,아반떼,2024,현대 아반떼 2024,compact,세단,gasoline,automatic,5,4,2,2,45000,100000,1종 보통,21,200,false,false,https://example.com/avante.jpg,https://img1.jpg|https://img2.jpg,블루투스|후방카메라|크루즈컨트롤|열선시트
+COMPACT_002,기아,K3,2024,기아 K3 2024,compact,세단,gasoline,automatic,5,4,2,2,48000,100000,1종 보통,21,200,false,false,https://example.com/k3.jpg,https://img1.jpg|https://img2.jpg,블루투스|후방카메라|어댑티브크루즈|스마트키
+MIDSIZE_001,현대,쏘나타,2024,현대 쏘나타 하이브리드,midsize,세단,hybrid,automatic,5,4,3,2,65000,120000,1종 보통,23,250,false,false,https://example.com/sonata.jpg,https://img1.jpg|https://img2.jpg,어댑티브크루즈|사각지대경고|열선시트|통풍시트
+MIDSIZE_002,기아,K5,2024,기아 K5 2024,midsize,세단,gasoline,automatic,5,4,3,2,68000,120000,1종 보통,23,250,false,false,https://example.com/k5.jpg,https://img1.jpg|https://img2.jpg,스마트크루즈|후방카메라|블루투스|열선시트
+SUV_001,현대,투싼,2024,현대 투싼 하이브리드,suv,SUV,hybrid,automatic,5,4,3,2,80000,150000,2종 보통,23,250,false,false,https://example.com/tucson.jpg,https://img1.jpg|https://img2.jpg,사각지대경고|스마트크루즈|파노라마선루프|전동시트
+SUV_002,쌍용,토레스,2024,쌍용 토레스 EVX,suv,SUV,electric,automatic,5,4,3,2,95000,180000,2종 보통,23,,true,false,https://example.com/torres.jpg,https://img1.jpg|https://img2.jpg,급속충전|V2L|파노라마선루프|통풍시트
+LUXURY_001,제네시스,G80,2024,제네시스 G80 3.5 터보,luxury,세단,gasoline,automatic,5,4,3,2,150000,300000,1종 보통 3년 이상,26,,true,false,https://example.com/g80.jpg,https://img1.jpg|https://img2.jpg,어댑티브크루즈|HUD|마사지시트|Bang&Olufsen|자율주행2단계
+LUXURY_002,제네시스,GV70,2024,제네시스 GV70 스포츠,luxury,SUV,gasoline,automatic,5,4,3,2,165000,300000,1종 보통 3년 이상,26,,true,false,https://example.com/gv70.jpg,https://img1.jpg|https://img2.jpg,스포츠시트|HUD|파노라마선루프|어댑티브크루즈|Bang&Olufsen
+VAN_001,기아,카니발,2024,기아 카니발 11인승,van,승합,diesel,automatic,11,4,4,3,120000,200000,1종 보통,26,300,false,false,https://example.com/carnival.jpg,https://img1.jpg|https://img2.jpg,듀얼선루프|전좌석통풍|후석모니터|빌트인캠
+VAN_002,현대,스타리아,2024,현대 스타리아 9인승,van,승합,diesel,automatic,9,4,3,3,110000,180000,1종 보통,26,300,false,false,https://example.com/staria.jpg,https://img1.jpg|https://img2.jpg,파노라마선루프|후석모니터|열선시트|크루즈컨트롤
+ELECTRIC_001,현대,아이오닉5,2024,현대 아이오닉5 롱레인지,electric,SUV,electric,automatic,5,4,2,1,90000,200000,2종 보통,21,,true,false,https://example.com/ioniq5.jpg,https://img1.jpg|https://img2.jpg,V2L|급속충전|열펌프시스템|원격주차
+FULLSIZE_001,현대,팰리세이드,2024,현대 팰리세이드 캘리그래피,fullsize,SUV,diesel,automatic,7,4,4,3,140000,250000,1종 보통,26,350,false,false,https://example.com/palisade.jpg,https://img1.jpg|https://img2.jpg,나파가죽시트|마사지시트|파노라마선루프|HUD|후석모니터|통풍시트

@@ -371,7 +371,7 @@ export function RentcarSearchPage({ selectedCurrency = 'KRW' }: RentcarSearchPag
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 + 검색 폼 */}
       <div className="bg-white border-b sticky top-0 z-40">
-        <div className="max-w-[1400px] mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-4">
           <h1 className="text-2xl font-bold mb-4">렌트카 검색</h1>
 
           {/* 컴팩트 검색 폼 */}

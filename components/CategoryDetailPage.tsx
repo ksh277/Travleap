@@ -85,6 +85,10 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('latest');
   const [priceRange, setPriceRange] = useState('all');
+  const [destination, setDestination] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [adults, setAdults] = useState(1);
 
   // 현재 카테고리 정보
   const currentCategory = categorySlug ? categoryMeta[categorySlug as keyof typeof categoryMeta] : null;
@@ -189,88 +193,104 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
+      {/* 헤더 배너 with 검색 */}
       <div
-        className="relative w-full h-[300px] bg-cover bg-center flex items-center justify-center"
+        className="relative w-full h-[200px] bg-cover bg-center flex items-center"
         style={{
           backgroundImage: 'url("https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=300&fit=crop")',
           backgroundColor: currentCategory.color
         }}
       >
-        <div className="absolute inset-0 bg-black/40"></div>
-        <div className="relative z-10 max-w-6xl mx-auto px-4 text-center">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="absolute left-4 top-4 text-white hover:bg-white/20"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            돌아가기
-          </Button>
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            {currentCategory.title}
-          </h1>
-          <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            {currentCategory.description}
-          </p>
+        <div className="absolute inset-0 bg-black/50"></div>
+        <div className="relative z-10 w-full px-[60px]">
+          {/* 검색 폼 */}
+          <div className="bg-white rounded-lg shadow-xl p-4">
+            <div className="flex flex-col md:flex-row items-center gap-3">
+              {/* 왼쪽: 목적지 */}
+              <div className="flex flex-col flex-1">
+                <label className="text-xs text-gray-500 mb-1">{currentCategory.title}</label>
+                <Input
+                  type="text"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  placeholder="어디로 가실거야?"
+                  className="border-gray-300"
+                />
+              </div>
+
+              {/* 날짜 선택 */}
+              <div className="flex flex-col flex-1">
+                <label className="text-xs text-gray-500 mb-1">From ~ to</label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    placeholder="ddmmyyyy"
+                    className="flex-1 border-gray-300"
+                  />
+                  <span className="text-gray-400">~</span>
+                  <Input
+                    type="text"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    placeholder="ddmmyyyy"
+                    className="flex-1 border-gray-300"
+                  />
+                </div>
+              </div>
+
+              {/* 인원 선택 */}
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-500 mb-1">성인</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm">Mine</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAdults(adults + 1)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* 검색 버튼 */}
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white h-10 px-8 mt-auto">
+                검색
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* 메인 콘텐츠 */}
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* 검색 및 필터 */}
-        <Card className="mb-8">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              {/* 검색 */}
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="상품명, 위치로 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {/* 가격 필터 */}
-              <Select value={priceRange} onValueChange={setPriceRange}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="가격대" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">전체 가격</SelectItem>
-                  <SelectItem value="under50">5만원 미만</SelectItem>
-                  <SelectItem value="50to100">5만원-10만원</SelectItem>
-                  <SelectItem value="over100">10만원 이상</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* 정렬 */}
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="정렬" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="latest">최신순</SelectItem>
-                  <SelectItem value="popular">인기순</SelectItem>
-                  <SelectItem value="rating">평점순</SelectItem>
-                  <SelectItem value="price_low">가격 낮은순</SelectItem>
-                  <SelectItem value="price_high">가격 높은순</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 결과 헤더 */}
+      <div className="w-full px-[60px] py-8">
+        {/* 결과 헤더 및 정렬 */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {currentCategory.title} 상품 ({filteredItems.length}개)
-          </h2>
-          <Badge variant="outline" style={{ backgroundColor: `${currentCategory.color}20`, color: currentCategory.color }}>
-            {currentCategory.title}
-          </Badge>
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold text-gray-900">
+              {currentCategory.title} 상품
+            </h2>
+            <Badge variant="outline" style={{ backgroundColor: `${currentCategory.color}20`, color: currentCategory.color }}>
+              {filteredItems.length}개
+            </Badge>
+          </div>
+
+          {/* 정렬 옵션 */}
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="정렬" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="latest">최신순</SelectItem>
+              <SelectItem value="popular">인기순</SelectItem>
+              <SelectItem value="rating">평점순</SelectItem>
+              <SelectItem value="price_low">가격 낮은순</SelectItem>
+              <SelectItem value="price_high">가격 높은순</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* 상품 목록 */}

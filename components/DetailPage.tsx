@@ -864,7 +864,7 @@ export function DetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="상품 상세 정보">
-      <div className="mobile-container py-4 md:py-6 lg:py-8">
+      <div className="container mx-auto px-4 py-4 md:py-6 lg:py-8">
         {/* Enhanced Navigation */}
         <nav className="flex items-center justify-between mb-6" aria-label="페이지 내비게이션">
           <Button

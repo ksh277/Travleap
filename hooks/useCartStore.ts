@@ -35,7 +35,9 @@ export function useCartStore() {
       // 로그인한 사용자는 DB에서 로드
       setIsLoading(true);
       try {
+        console.log('🛒 [장바구니] DB에서 로드 시작, user_id:', user.id);
         const cartItems = await db.select('cart_items', { user_id: user.id });
+        console.log('🛒 [장바구니] DB에서 가져온 항목 수:', cartItems.length, cartItems);
 
         // DB의 cart_items를 CartItem 형식으로 변환
         const formattedItems: CartItem[] = await Promise.all(
@@ -44,14 +46,31 @@ export function useCartStore() {
             const listings = await db.select('listings', { id: item.listing_id });
             const listing = listings[0];
 
+            console.log('🛒 [장바구니] listing_id:', item.listing_id, '→ listing:', listing ? '찾음' : '❌ 없음');
+
             if (!listing) return null;
+
+            // images가 문자열이면 파싱, 배열이면 그대로 사용
+            let imageUrl = '';
+            if (listing.images) {
+              if (typeof listing.images === 'string') {
+                try {
+                  const parsed = JSON.parse(listing.images);
+                  imageUrl = Array.isArray(parsed) ? parsed[0] : '';
+                } catch {
+                  imageUrl = listing.images;
+                }
+              } else if (Array.isArray(listing.images)) {
+                imageUrl = listing.images[0] || '';
+              }
+            }
 
             return {
               id: item.listing_id,
               title: listing.title,
-              price: item.price_snapshot || listing.price_per_person || 0,
+              price: item.price_snapshot || listing.price_from || 0,
               quantity: 1, // DB에는 개별 항목으로 저장되므로 수량은 1
-              image: listing.images ? JSON.parse(listing.images)[0] : '',
+              image: imageUrl,
               category: listing.category || '',
               location: listing.location,
               date: item.selected_date,
@@ -60,11 +79,27 @@ export function useCartStore() {
           })
         );
 
+        const validItems = formattedItems.filter(item => item !== null) as CartItem[];
+        console.log('🛒 [장바구니] 변환된 항목 수:', validItems.length);
+
+        // 중복된 listing_id를 합쳐서 quantity로 계산
+        const mergedItems = validItems.reduce((acc: CartItem[], item) => {
+          const existing = acc.find(i => i.id === item.id);
+          if (existing) {
+            existing.quantity += 1;
+          } else {
+            acc.push({ ...item, quantity: 1 });
+          }
+          return acc;
+        }, []);
+
+        console.log('🛒 [장바구니] 최종 장바구니 항목 수 (중복 합침):', mergedItems.length, mergedItems);
+
         setCartState({
-          cartItems: formattedItems.filter(item => item !== null) as CartItem[]
+          cartItems: mergedItems
         });
       } catch (error) {
-        console.error('Failed to load cart from database:', error);
+        console.error('❌ [장바구니] DB 로드 실패:', error);
       } finally {
         setIsLoading(false);
       }
@@ -83,14 +118,17 @@ export function useCartStore() {
   const addToCart = async (item: Partial<CartItem>) => {
     // 필수 필드 검증
     if (!item.id) {
-      console.error('Cannot add item to cart: missing id', item);
+      console.error('❌ [장바구니 추가] 상품 ID 없음:', item);
       throw new Error('상품 ID가 없습니다.');
     }
+
+    console.log('➕ [장바구니 추가] 시작:', item);
+    console.log('   로그인 상태:', isLoggedIn, '/ user_id:', user?.id);
 
     // 로그인한 사용자는 DB에 저장
     if (isLoggedIn && user?.id) {
       try {
-        await db.insert('cart_items', {
+        const dbData = {
           user_id: user.id,
           listing_id: item.id,
           selected_date: item.date || null,
@@ -98,7 +136,11 @@ export function useCartStore() {
           num_children: 0,
           num_seniors: 0,
           price_snapshot: item.price || 0,
-        });
+        };
+
+        console.log('💾 [장바구니 추가] DB에 저장:', dbData);
+        const result = await db.insert('cart_items', dbData);
+        console.log('✅ [장바구니 추가] DB 저장 성공:', result);
 
         // 상태 업데이트
         setCartState((prev) => {
@@ -195,20 +237,64 @@ export function useCartStore() {
       return;
     }
 
+    console.log(`🔢 [수량 변경] listing_id: ${itemId}, 새 수량: ${quantity}`);
+
     // 로그인한 사용자는 DB에서도 업데이트
     if (isLoggedIn && user?.id) {
       try {
-        // DB는 개별 항목으로 관리하므로 수량 변경 시 로직 필요
-        // 현재는 상태만 업데이트
+        // 현재 수량 확인
+        const currentItem = cartState.cartItems.find(item => item.id === itemId);
+        const currentQuantity = currentItem?.quantity || 0;
+        const diff = quantity - currentQuantity;
+
+        console.log(`   현재 수량: ${currentQuantity}, 차이: ${diff}`);
+
+        if (diff > 0) {
+          // 수량 증가: 새 행 추가
+          console.log(`   ➕ DB에 ${diff}개 행 추가`);
+
+          for (let i = 0; i < diff; i++) {
+            const dbData = {
+              user_id: user.id,
+              listing_id: itemId,
+              selected_date: currentItem?.date || null,
+              num_adults: currentItem?.guests || 1,
+              num_children: 0,
+              num_seniors: 0,
+              price_snapshot: currentItem?.price || 0,
+            };
+            await db.insert('cart_items', dbData);
+          }
+          console.log(`   ✅ ${diff}개 행 추가 완료`);
+        } else if (diff < 0) {
+          // 수량 감소: 행 삭제
+          const deleteCount = Math.abs(diff);
+          console.log(`   ➖ DB에서 ${deleteCount}개 행 삭제`);
+
+          // LIMIT는 placeholder를 사용할 수 없으므로 직접 SQL에 포함
+          // deleteCount는 Math.abs()로 보장된 양의 정수이므로 안전함
+          const safeDeleteCount = Math.floor(Math.abs(deleteCount));
+          await db.execute(
+            `DELETE FROM cart_items WHERE user_id = ? AND listing_id = ? LIMIT ${safeDeleteCount}`,
+            [user.id, itemId]
+          );
+          console.log(`   ✅ ${safeDeleteCount}개 행 삭제 완료`);
+        } else {
+          console.log(`   ℹ️ 수량 변화 없음`);
+        }
+
+        // 상태 업데이트
         setCartState((prev) => ({
           cartItems: prev.cartItems.map((item) =>
             item.id === itemId ? { ...item, quantity } : item
           ),
         }));
       } catch (error) {
-        console.error('Failed to update quantity in database:', error);
+        console.error('❌ [수량 변경] DB 업데이트 실패:', error);
+        throw error;
       }
     } else {
+      // 비로그인 사용자는 상태만 업데이트
       setCartState((prev) => ({
         cartItems: prev.cartItems.map((item) =>
           item.id === itemId ? { ...item, quantity } : item

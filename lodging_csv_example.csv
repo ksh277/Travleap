@@ -1,0 +1,13 @@
+name,type,city,address,description,phone,email,checkin_time,checkout_time,room_name,room_type,base_price,max_occupancy,bed_type,room_size_sqm,amenities,images
+신안 그랜드 호텔,hotel,신안군,전라남도 신안군 압해읍 중앙로 123,신안의 중심에 위치한 프리미엄 비즈니스 호텔,061-240-1000,info@sinangrand.com,15:00,11:00,디럭스 더블룸,deluxe,120000,2,더블,32,WiFi|에어컨|냉장고|TV|금고|미니바,https://example.com/hotel1.jpg
+신안 그랜드 호텔,hotel,신안군,전라남도 신안군 압해읍 중앙로 123,신안의 중심에 위치한 프리미엄 비즈니스 호텔,061-240-1000,info@sinangrand.com,15:00,11:00,디럭스 트윈룸,deluxe,120000,2,트윈,32,WiFi|에어컨|냉장고|TV|금고|미니바,https://example.com/hotel1.jpg
+신안 그랜드 호텔,hotel,신안군,전라남도 신안군 압해읍 중앙로 123,신안의 중심에 위치한 프리미엄 비즈니스 호텔,061-240-1000,info@sinangrand.com,15:00,11:00,스위트룸,suite,200000,3,킹,55,WiFi|에어컨|냉장고|TV|금고|미니바|거실|욕조,https://example.com/hotel1.jpg
+바다뷰 펜션,pension,신안군,전라남도 신안군 증도면 해안로 456,증도 앞바다가 한눈에 보이는 오션뷰 펜션,061-275-2000,contact@oceanview.com,14:00,11:00,오션뷰 스탠다드,standard,80000,2,더블,28,WiFi|에어컨|냉장고|TV|발코니,https://example.com/pension1.jpg
+바다뷰 펜션,pension,신안군,전라남도 신안군 증도면 해안로 456,증도 앞바다가 한눈에 보이는 오션뷰 펜션,061-275-2000,contact@oceanview.com,14:00,11:00,오션뷰 패밀리,family,150000,4,퀸2개,45,WiFi|에어컨|냉장고|TV|발코니|주방,https://example.com/pension1.jpg
+소금밭 게스트하우스,guesthouse,신안군,전라남도 신안군 증도면 염전길 789,태평염전 인근의 아늑한 게스트하우스,061-261-3000,stay@saltfield.com,14:00,11:00,도미토리 6인실,dormitory,30000,6,2층침대,20,WiFi|에어컨|공용화장실|공용주방,https://example.com/guesthouse1.jpg
+소금밭 게스트하우스,guesthouse,신안군,전라남도 신안군 증도면 염전길 789,태평염전 인근의 아늑한 게스트하우스,061-261-3000,stay@saltfield.com,14:00,11:00,프라이빗룸,private,60000,2,더블,18,WiFi|에어컨|전용화장실,https://example.com/guesthouse1.jpg
+섬마을 민박,homestay,신안군,전라남도 신안군 자은면 마을길 234,현지인이 운영하는 따뜻한 민박,061-240-4000,island@homestay.com,자유,자유,민박 2인실,standard,50000,2,온돌,16,WiFi|에어컨|공용주방|세탁기,https://example.com/homestay1.jpg
+섬마을 민박,homestay,신안군,전라남도 신안군 자은면 마을길 234,현지인이 운영하는 따뜻한 민박,061-240-4000,island@homestay.com,자유,자유,민박 4인실,family,90000,4,온돌,28,WiFi|에어컨|공용주방|세탁기,https://example.com/homestay1.jpg
+힐링 리조트,resort,신안군,전라남도 신안군 임자면 리조트로 567,자연 속의 힐링 공간,061-270-5000,info@healingresort.com,15:00,12:00,스탠다드 객실,standard,100000,2,더블,30,WiFi|에어컨|냉장고|TV|미니바|수영장이용,https://example.com/resort1.jpg
+힐링 리조트,resort,신안군,전라남도 신안군 임자면 리조트로 567,자연 속의 힐링 공간,061-270-5000,info@healingresort.com,15:00,12:00,디럭스 객실,deluxe,140000,2,킹,40,WiFi|에어컨|냉장고|TV|미니바|수영장이용|스파이용,https://example.com/resort1.jpg
+힐링 리조트,resort,신안군,전라남도 신안군 임자면 리조트로 567,자연 속의 힐링 공간,061-270-5000,info@healingresort.com,15:00,12:00,빌라 (독채),villa,300000,6,킹+퀸,80,WiFi|에어컨|냉장고|TV|미니바|수영장이용|스파이용|프라이빗풀|바비큐,https://example.com/resort1.jpg

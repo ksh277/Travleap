@@ -5,8 +5,13 @@
  */
 
 // Toss Payments 환경 변수 (개발/운영 분리)
-const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
-const TOSS_SECRET_KEY = import.meta.env.VITE_TOSS_SECRET_KEY || 'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R';
+// Node.js에서는 process.env, 브라우저(Vite)에서는 import.meta.env 사용
+const TOSS_CLIENT_KEY = (typeof process !== 'undefined' && process.env?.VITE_TOSS_CLIENT_KEY) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_TOSS_CLIENT_KEY) ||
+  'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+const TOSS_SECRET_KEY = (typeof process !== 'undefined' && process.env?.VITE_TOSS_SECRET_KEY) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_TOSS_SECRET_KEY) ||
+  'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R';
 
 // API 엔드포인트
 const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
@@ -225,7 +230,9 @@ export function generateOrderId(): string {
 /**
  * 개발 환경에서 전역으로 노출
  */
-if (typeof window !== 'undefined' && import.meta.env.DEV) {
+if (typeof window !== 'undefined' &&
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV ||
+     typeof process !== 'undefined' && process.env.NODE_ENV === 'development')) {
   (window as any).tossPayments = tossPayments;
   console.log('🔧 개발 도구: tossPayments - Toss Payments API 클라이언트');
   console.log('   - tossPayments.approvePayment(approval)');

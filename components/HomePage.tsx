@@ -10,6 +10,7 @@ import { formatPrice, t } from '../utils/translations';
 import { api, type TravelItem } from '../utils/api';
 import type { Category } from '../types/database';
 import { toast } from 'sonner';
+import { HomeBanner } from './HomeBanner';
 
 interface HomePageProps {
   selectedCurrency?: string;
@@ -40,6 +41,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
   const [featuredListings, setFeaturedListings] = useState<TravelItem[]>([]);
   const [accommodationListings, setAccommodationListings] = useState<TravelItem[]>([]);
   const [recentReviews, setRecentReviews] = useState<any[]>([]);
+  const [activityImages, setActivityImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       ];
 
       // 모든 API 호출을 api.getListings()로 통일
-      const [categoriesResult, featuredResult, accommodationResult, reviewsResult, homepageSettings] = await Promise.all([
+      const [categoriesResult, featuredResult, accommodationResult, reviewsResult, homepageSettings, activitiesResult] = await Promise.all([
         api.getCategories().catch(() => []),
         api.getListings({ limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
         api.getListings({ category: 'stay', limit: 4, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
@@ -77,13 +79,15 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
         api.getHomepageSettings().catch(() => ({
           background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
           background_overlay_opacity: 0.4
-        }))
+        })),
+        fetch('/api/activities').then(res => res.json()).then(data => data.activities || []).catch(() => [])
       ]);
 
       setCategories(categoriesResult.length > 0 ? categoriesResult : sampleCategories);
       setFeaturedListings(featuredResult);
       setAccommodationListings(accommodationResult);
       setRecentReviews(reviewsResult);
+      setActivityImages(activitiesResult);
       setBackgroundVideo({
         url: homepageSettings.background_video_url || 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
         overlayOpacity: homepageSettings.background_overlay_opacity || 0.4
@@ -221,7 +225,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
   return (
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="홈페이지 메인 콘텐츠">
       {/* Hero Section - Mobile Optimized with Video Background */}
-      <div className="relative h-[60vh] md:h-[48vh] overflow-hidden mobile-safe-top">
+      <div className="relative h-[600px] overflow-hidden mobile-safe-top">
         {/* Background Video */}
         <video
           autoPlay
@@ -273,15 +277,15 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
             )}
           </div>
 
-          {/* Mobile-Optimized Search Form */}
-          <div className="w-full max-w-6xl mobile-container">
+          {/* Mobile-Optimized Search Form - 2x2 Grid on Mobile, Original on Desktop */}
+          <div className="w-full max-w-2xl lg:max-w-6xl mobile-container">
             <div className="mobile-card bg-white shadow-2xl">
               <div className="flex flex-col gap-4">
-                {/* Mobile-First Search Fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Enhanced destination input with suggestions */}
-                  <div className="space-y-1 md:space-y-2 relative">
-                    <label className="text-xs md:text-sm font-medium text-gray-700 block">{t('destination', selectedLanguage)}</label>
+                {/* 모바일: 2x2 그리드, 데스크탑: 원래대로 */}
+                <div className="grid grid-cols-2 lg:flex lg:flex-row gap-3 lg:gap-4">
+                  {/* 목적지 */}
+                  <div className="space-y-2 relative lg:flex-1">
+                    <label className="text-sm font-medium text-gray-700 block">{t('destination', selectedLanguage)}</label>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 z-10" />
                       <input
@@ -291,7 +295,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                         onChange={(e) => handleDestinationChange(e.target.value)}
                         onFocus={() => destination.length > 0 && setShowSuggestions(true)}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        className="w-full pl-10 pr-3 py-2.5 md:py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] md:min-h-[36px]"
+                        className="w-full pl-10 pr-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px]"
                         autoComplete="off"
                       />
                       {showSuggestions && searchSuggestions.length > 0 && (
@@ -314,34 +318,12 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                     </div>
                   </div>
 
-                  {/* 체크인 날짜 */}
-                  <div className="space-y-1 md:space-y-2">
-                    <label className="text-xs md:text-sm font-medium text-gray-700 block">{t('checkIn', selectedLanguage)}</label>
-                    <input
-                      type="date"
-                      value={checkInDate ? checkInDate.toISOString().split('T')[0] : ''}
-                      onChange={(e) => setCheckInDate(e.target.value ? new Date(e.target.value) : undefined)}
-                      className="w-full px-3 py-2.5 md:py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] md:min-h-[36px]"
-                    />
-                  </div>
-
-                  {/* 체크아웃 날짜 */}
-                  <div className="space-y-1 md:space-y-2">
-                    <label className="text-xs md:text-sm font-medium text-gray-700 block">{t('checkOut', selectedLanguage)}</label>
-                    <input
-                      type="date"
-                      value={checkOutDate ? checkOutDate.toISOString().split('T')[0] : ''}
-                      onChange={(e) => setCheckOutDate(e.target.value ? new Date(e.target.value) : undefined)}
-                      className="w-full px-3 py-2.5 md:py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] md:min-h-[36px]"
-                    />
-                  </div>
-
-                  {/* 게스트 */}
-                  <div className="space-y-1 md:space-y-2">
-                    <label className="text-xs md:text-sm font-medium text-gray-700 block">{t('guests', selectedLanguage)}</label>
+                  {/* 인원 */}
+                  <div className="space-y-2 lg:flex-1">
+                    <label className="text-sm font-medium text-gray-700 block">{t('guests', selectedLanguage)}</label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal min-h-[44px] md:min-h-[36px] text-sm">
+                        <Button variant="outline" className="w-full justify-start text-left font-normal min-h-[56px] lg:min-h-[44px] text-sm border-gray-200 rounded-lg hover:border-purple-500">
                           <Users className="mr-2 h-4 w-4" />
                           <span className="truncate">{`${t('rooms', selectedLanguage)} ${guestCounts.rooms}, ${t('adults', selectedLanguage)} ${guestCounts.adults}${guestCounts.children > 0 ? `, ${t('children', selectedLanguage)} ${guestCounts.children}` : ''}`}</span>
                         </Button>
@@ -420,9 +402,31 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                       </PopoverContent>
                     </Popover>
                   </div>
+
+                  {/* 체크인 날짜 */}
+                  <div className="space-y-2 lg:flex-1">
+                    <label className="text-sm font-medium text-gray-700 block">{t('checkIn', selectedLanguage)}</label>
+                    <input
+                      type="date"
+                      value={checkInDate ? checkInDate.toISOString().split('T')[0] : ''}
+                      onChange={(e) => setCheckInDate(e.target.value ? new Date(e.target.value) : undefined)}
+                      className="w-full px-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px]"
+                    />
+                  </div>
+
+                  {/* 체크아웃 날짜 */}
+                  <div className="space-y-2 lg:flex-1">
+                    <label className="text-sm font-medium text-gray-700 block">{t('checkOut', selectedLanguage)}</label>
+                    <input
+                      type="date"
+                      value={checkOutDate ? checkOutDate.toISOString().split('T')[0] : ''}
+                      onChange={(e) => setCheckOutDate(e.target.value ? new Date(e.target.value) : undefined)}
+                      className="w-full px-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px]"
+                    />
+                  </div>
                 </div>
 
-                {/* 두 번째 행: 추가 정보 및 검색 버튼 */}
+                {/* 두 번째 행: 날짜 범위 표시 및 검색 버튼 */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                   {/* 날짜 범위 표시 */}
                   <div className="flex-1 w-full sm:w-auto">
@@ -466,136 +470,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
         </div>
       </div>
 
-      {/* Main Content Container */}
+      {/* Enhanced activities section */}
       <div className="container mx-auto px-4 py-12 md:py-16 space-y-12 md:space-y-16">
-        {/* Service Information */}
-        <section className="-mt-6 md:-mt-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {serviceCards.map((card) => (
-              <div key={card.id} className="text-center px-6 py-8">
-                <h3 className="text-lg md:text-xl font-semibold mb-3 text-gray-800">{card.title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{card.description}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Enhanced popular products section */}
-        <section>
-          <div className="mb-6 md:mb-8">
-            <div className="container mx-auto px-4">
-              <div className="mb-4 md:mb-6">
-                <div className="flex items-center gap-3">
-                  <TrendingUp className="h-6 w-6 text-purple-600" />
-                  <h2 className="text-2xl md:text-3xl font-semibold text-gray-800">지금 신안은?</h2>
-                </div>
-              </div>
-
-              {loading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                  {[1, 2, 3, 4].map((i) => (
-                    <Card key={i} className="animate-pulse overflow-hidden">
-                      <div className="bg-gray-200 h-56"></div>
-                      <CardContent className="p-4 space-y-3">
-                        <div className="bg-gray-200 h-4 rounded"></div>
-                        <div className="bg-gray-200 h-4 rounded w-3/4"></div>
-                        <div className="bg-gray-200 h-4 rounded w-1/2"></div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : featuredListings.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                  {featuredListings.slice(0, 4).map((listing) => (
-                    <Card
-                      key={listing.id}
-                      className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer"
-                      onClick={() => navigate(`/detail/${listing.id}`)}
-                    >
-                      <div className="relative group overflow-hidden rounded-t-lg">
-                        <ImageWithFallback
-                          src={listing.images?.[0] || 'https://via.placeholder.com/400x300'}
-                          alt={listing.title}
-                          className="w-full h-40 md:h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-gray-800 px-2 py-1 rounded text-xs font-medium shadow-sm">
-                          {listing.category}
-                        </div>
-                        <button className="absolute top-2 right-2 p-1 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
-                          <Heart className="h-5 w-5 text-white drop-shadow-sm" />
-                        </button>
-                        {listing.discount_rate && (
-                          <div className="absolute bottom-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
-                            {listing.discount_rate}% 할인
-                          </div>
-                        )}
-                      </div>
-                      <CardContent className="p-3 md:p-4">
-                        <div className="space-y-2 md:space-y-3">
-                          <div className="flex items-center text-gray-600 text-xs md:text-sm">
-                            <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                            <span>{listing.location || '신안군'}</span>
-                          </div>
-
-                          <h3 className="text-base md:text-lg font-semibold text-gray-800 line-clamp-2">{listing.title}</h3>
-
-                          <div className="flex items-center">
-                            {listing.rating_avg > 0 && listing.rating_count > 0 && (
-                              <div className="flex items-center space-x-1">
-                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                <span className="text-sm font-medium">{listing.rating_avg.toFixed(1)}</span>
-                                <span className="text-xs text-gray-500">({listing.rating_count})</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            {listing.duration && (
-                              <div className="flex items-center text-gray-600 text-sm">
-                                <Clock className="h-4 w-4 mr-1" />
-                                <span>{listing.duration}</span>
-                              </div>
-                            )}
-                            <div className="text-lg font-semibold text-gray-800">
-                              {listing.price_from ? (
-                                <>
-                                  <span>{formatPrice(listing.price_from, selectedCurrency)}</span>
-                                  <span className="text-sm text-gray-600 ml-1">/1인</span>
-                                </>
-                              ) : (
-                                <span className="text-sm text-gray-600">가격 문의</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="max-w-md mx-auto">
-                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Gift className="h-10 w-10 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">상품 준비 중</h3>
-                    <p className="text-gray-600 mb-4">더 많은 여행 상품을 준비하고 있습니다.</p>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate('/categories')}
-                      className="text-sm"
-                    >
-                      전체 카테고리 보기
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Enhanced activities section */}
         <section>
           <div className="mb-6 md:mb-8">
             <div className="flex items-center gap-3">
@@ -603,7 +479,6 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
               <h2 className="text-2xl md:text-3xl font-semibold text-gray-800">액티비티</h2>
             </div>
           </div>
-
           {loading ? (
             <div className="flex flex-col md:flex-row gap-3 md:gap-4 h-[500px] md:h-96">
               <div className="w-full md:w-1/2 h-1/2 md:h-full animate-pulse">
@@ -618,61 +493,98 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                 </div>
               </div>
             </div>
+          ) : activityImages.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {activityImages.map((activity, index) => {
+                const isLarge = activity.size === 'large';
+                const heightClass = isLarge ? 'h-[420px] md:h-[560px]' : 'h-[200px] md:h-[320px]';
+                const colSpanClass = isLarge && index === 0 ? 'md:col-span-2' : '';
+
+                return (
+                  <div key={activity.id} className={`${colSpanClass} relative group ${heightClass}`}>
+                    <div
+                      className="cursor-pointer h-full overflow-hidden rounded-lg"
+                      onClick={() => activity.link_url && (window.location.href = activity.link_url)}
+                    >
+                      <ImageWithFallback
+                        src={activity.image_url}
+                        alt={activity.title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className={`absolute ${isLarge ? 'bottom-4 left-4' : 'bottom-3 left-3'} text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300`}>
+                        <h3 className={`${isLarge ? 'text-xl md:text-2xl' : 'text-base md:text-lg'} font-semibold mb-1`}>{activity.title}</h3>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
-            <div className="flex flex-col md:flex-row gap-3 md:gap-4 h-[500px] md:h-96">
-              {/* Enhanced main activity image */}
-              <div className="w-full md:w-1/2 h-1/2 md:h-full relative group">
-                <div
-                  className="cursor-pointer h-full overflow-hidden rounded-lg"
-                  onClick={() => navigate('/category/stay')}
-                >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 기본 이미지들 - DB에 데이터가 없을 때 */}
+              <div className="md:col-span-2 relative group h-[420px] md:h-[560px]">
+                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/stay')}>
                   <ImageWithFallback
-                    src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=500&h=400&fit=crop"
-                    alt="신안 민박"
+                    src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=400&fit=crop"
+                    alt="신안 숙박"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <div className="absolute bottom-4 left-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <h3 className="text-xl font-semibold mb-1">신안 숙박</h3>
-                    <p className="text-sm text-white/80">편안한 휴식 공간</p>
+                    <h3 className="text-xl md:text-2xl font-semibold mb-1">신안 숙박</h3>
                   </div>
                 </div>
               </div>
-
-              {/* Enhanced smaller activity images */}
-              <div className="w-full md:w-1/2 h-1/2 md:h-full flex flex-row md:flex-col gap-3 md:gap-4">
-                <div className="w-1/2 md:w-full h-full md:h-1/2 relative group">
-                  <div
-                    className="cursor-pointer h-full overflow-hidden rounded-lg"
-                    onClick={() => navigate('/category/experience')}
-                  >
-                    <ImageWithFallback
-                      src="https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=300&h=200&fit=crop"
-                      alt="갯벌체험"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <div className="absolute bottom-2 left-2 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <h4 className="font-semibold text-sm">갯벌 체험</h4>
-                      <p className="text-xs text-white/80">특별한 경험</p>
-                    </div>
+              <div className="relative group h-[420px] md:h-[560px]">
+                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/tour')}>
+                  <ImageWithFallback
+                    src="https://images.unsplash.com/photo-1464822759880-4601b726be04?w=800&h=400&fit=crop"
+                    alt="홍도 투어"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute bottom-4 left-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <h3 className="text-xl md:text-2xl font-semibold mb-1">홍도 투어</h3>
                   </div>
                 </div>
-                <div className="w-1/2 md:w-full h-full md:h-1/2 relative group">
-                  <div
-                    className="cursor-pointer h-full overflow-hidden rounded-lg"
-                    onClick={() => navigate('/category/tour')}
-                  >
-                    <ImageWithFallback
-                      src="https://images.unsplash.com/photo-1464822759880-4601b726be04?w=300&h=200&fit=crop"
-                      alt="홍도 유람선"
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <div className="absolute bottom-2 left-2 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <h4 className="font-semibold text-sm">홍도 투어</h4>
-                      <p className="text-xs text-white/80">눈부신 풍경</p>
-                    </div>
+              </div>
+              <div className="relative group h-[200px] md:h-[320px]">
+                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/experience')}>
+                  <ImageWithFallback
+                    src="https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=400&h=300&fit=crop"
+                    alt="갯벌 체험"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <h4 className="text-base md:text-lg font-semibold">갯벌 체험</h4>
+                  </div>
+                </div>
+              </div>
+              <div className="relative group h-[200px] md:h-[320px]">
+                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/food')}>
+                  <ImageWithFallback
+                    src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop"
+                    alt="신안 맛집"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <h4 className="text-base md:text-lg font-semibold">신안 맛집</h4>
+                  </div>
+                </div>
+              </div>
+              <div className="relative group h-[200px] md:h-[320px]">
+                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/attraction')}>
+                  <ImageWithFallback
+                    src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop"
+                    alt="관광 명소"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <h4 className="text-base md:text-lg font-semibold">관광 명소</h4>
                   </div>
                 </div>
               </div>
@@ -680,10 +592,14 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
           )}
         </section>
 
+        {/* 배너 섹션 */}
+        <section>
+          <HomeBanner autoSlideInterval={5000} />
+        </section>
+
         {/* 주변 숙소 */}
         <section>
           <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 mb-6 md:mb-8">주변 숙소 보기</h2>
-
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               {[1, 2, 3, 4].map((i) => (
@@ -725,9 +641,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                         <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                         <span>{item.location || '신안군'}</span>
                       </div>
-
                       <h3 className="text-base md:text-lg font-semibold text-gray-800 line-clamp-2">{item.title}</h3>
-
                       <div className="flex items-center">
                         {item.rating_avg > 0 && item.rating_count > 0 && (
                           <div className="flex items-center space-x-1">
@@ -737,7 +651,6 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                           </div>
                         )}
                       </div>
-
                       <div className="flex items-center justify-between">
                         {item.duration && (
                           <div className="flex items-center text-gray-600 text-sm">
@@ -759,39 +672,27 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                     </div>
                   </CardContent>
                 </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <div className="max-w-md mx-auto">
-                  <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <MapPin className="h-10 w-10 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">숙박 상품 준비 중</h3>
-                  <p className="text-gray-600 mb-4">편안한 숙박 시설을 준비하고 있습니다.</p>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate('/category/stay')}
-                    className="text-sm"
-                  >
-                    숙박 카테고리 보기
-                  </Button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="max-w-md mx-auto">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="h-10 w-10 text-gray-400" />
                 </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">숙박 상품 준비 중</h3>
+                <p className="text-gray-600 mb-4">편안한 숙박 시설을 준비하고 있습니다.</p>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/category/stay')}
+                  className="text-sm"
+                >
+                  숙박 카테고리 보기
+                </Button>
               </div>
-            )}
-
-          {/* 더 보기 버튼 */}
-          <div className="text-center mt-6 md:mt-8">
-            <Button
-              variant="outline"
-              className="px-6 md:px-8 py-2.5 md:py-2 text-sm min-h-[44px] md:min-h-[36px]"
-              onClick={() => navigate('/search')}
-            >
-              더 많은 상품 보기
-            </Button>
-          </div>
+            </div>
+          )}
         </section>
-
       </div>
     </div>
   );

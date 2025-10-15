@@ -5,7 +5,7 @@
  * HOLD 상태의 예약을 CONFIRMED로 변경하고 결제 정보를 기록
  */
 
-import { db } from '../../utils/database-cloud';
+import { db } from '../../utils/database';
 import { tossPayments, type PaymentApproval } from '../../utils/toss-payments';
 
 export interface PaymentConfirmRequest {
@@ -242,7 +242,3 @@ export async function handlePaymentFailure(orderId: string, reason?: string): Pr
   }
 }
 
-export default {
-  confirmPayment,
-  handlePaymentFailure
-};

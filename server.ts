@@ -1,18 +1,23 @@
 /**
- * Custom Next.js Server with WebSocket Support
+ * Custom Next.js Server with WebSocket Support + Booking System Workers
  *
- * Usage:
- * 1. npm install socket.io
- * 2. Update package.json scripts:
- *    "dev": "ts-node --project tsconfig.server.json server.ts"
- *    "build": "next build"
- *    "start": "NODE_ENV=production ts-node --project tsconfig.server.json server.ts"
+ * 통합 기능:
+ * - Next.js 앱 서버
+ * - WebSocket (기존)
+ * - Socket.IO 실시간 서버
+ * - HOLD 만료 워커
+ * - 보증금 사전승인 워커
  */
 
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { wsServer } from './utils/websocket-server';
+
+// 예약 시스템 통합
+import { realtimeServer } from './services/realtime/socketServer';
+import { startExpiryWorker, getExpiryMetrics } from './services/jobs/bookingExpiry.worker';
+import { startDepositPreauthWorker, getDepositPreauthMetrics } from './services/jobs/depositPreauth.worker';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOST || 'localhost';
@@ -33,14 +38,41 @@ app.prepare().then(() => {
     }
   });
 
-  // WebSocket 서버 연결
+  // ===== WebSocket 서버 연결 (기존) =====
   wsServer.attach(server);
 
-  // 서버 통계 출력 (10초마다)
+  // ===== Socket.IO 실시간 서버 연결 (신규) =====
+  console.log('🚀 [Server] Initializing Socket.IO realtime server...');
+  realtimeServer.initialize(server);
+
+  // ===== 예약 시스템 워커 시작 =====
+  console.log('🚀 [Server] Starting booking system workers...');
+
+  try {
+    // HOLD 만료 워커
+    startExpiryWorker();
+    console.log('✅ [Server] Booking expiry worker started');
+
+    // 보증금 사전승인 워커
+    startDepositPreauthWorker();
+    console.log('✅ [Server] Deposit preauth worker started');
+  } catch (error) {
+    console.error('❌ [Server] Failed to start workers:', error);
+  }
+
+  // ===== 서버 통계 출력 (30초마다) =====
   setInterval(() => {
-    const stats = wsServer.getStats();
-    console.log('[WebSocket Stats]', stats);
-  }, 10000);
+    const wsStats = wsServer.getStats();
+    const realtimeStats = realtimeServer.getMetrics();
+    const expiryStats = getExpiryMetrics();
+    const preauthStats = getDepositPreauthMetrics();
+
+    console.log('\n📊 [Server Stats]');
+    console.log('   WebSocket:', wsStats);
+    console.log('   Realtime:', realtimeStats);
+    console.log('   Expiry Worker:', expiryStats);
+    console.log('   Preauth Worker:', preauthStats);
+  }, 30000);
 
   server
     .once('error', (err) => {
@@ -48,26 +80,43 @@ app.prepare().then(() => {
       process.exit(1);
     })
     .listen(port, () => {
-      console.log(`> Ready on http://${hostname}:${port}`);
-      console.log(`> WebSocket ready on ws://${hostname}:${port}`);
+      console.log('\n🎉 ===== Server Ready =====');
+      console.log(`✅ Next.js: http://${hostname}:${port}`);
+      console.log(`✅ WebSocket: ws://${hostname}:${port}`);
+      console.log(`✅ Socket.IO: http://${hostname}:${port}/socket.io`);
+      console.log(`✅ Booking Workers: Active`);
+      console.log('===========================\n');
     });
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    console.log('SIGTERM signal received: closing HTTP server');
-    wsServer.close();
-    server.close(() => {
-      console.log('HTTP server closed');
-      process.exit(0);
-    });
-  });
+  // ===== Graceful shutdown =====
+  const shutdown = async () => {
+    console.log('\n👋 [Server] Shutting down gracefully...');
 
-  process.on('SIGINT', () => {
-    console.log('SIGINT signal received: closing HTTP server');
+    // 워커 정리 (cron은 자동으로 정리됨)
+    console.log('   - Stopping workers...');
+
+    // 실시간 서버 종료
+    console.log('   - Closing realtime server...');
+    await realtimeServer.shutdown();
+
+    // WebSocket 종료
+    console.log('   - Closing WebSocket...');
     wsServer.close();
+
+    // HTTP 서버 종료
+    console.log('   - Closing HTTP server...');
     server.close(() => {
-      console.log('HTTP server closed');
+      console.log('✅ [Server] Shutdown complete');
       process.exit(0);
     });
-  });
+
+    // 강제 종료 타임아웃 (10초)
+    setTimeout(() => {
+      console.error('⚠️ [Server] Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 });

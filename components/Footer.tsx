@@ -4,6 +4,7 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { t } from '../utils/translations';
+import { toast } from 'sonner';
 
 interface FooterProps {
   selectedLanguage?: string;
@@ -21,6 +22,7 @@ export function Footer({
   onCategorySelect
 }: FooterProps) {
   const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLanguageChange = (value: string) => {
     if (onLanguageChange) {
@@ -34,11 +36,42 @@ export function Footer({
     }
   };
 
-  const handleSubscribe = () => {
-    if (email) {
-      console.log('Subscribing email:', email);
-      setEmail('');
-      // 여기서 실제 구독 로직을 구현할 수 있습니다
+  const handleSubscribe = async () => {
+    if (!email || !email.trim()) {
+      toast.error('이메일을 입력해주세요.');
+      return;
+    }
+
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error('올바른 이메일 형식이 아닙니다.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email.trim() })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message || '뉴스레터 구독이 완료되었습니다!');
+        setEmail('');
+      } else {
+        toast.error(data.error || '구독 처리 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('Subscribe error:', error);
+      toast.error('구독 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -47,7 +80,7 @@ export function Footer({
       <div className="container mx-auto px-4 py-6 md:py-8">
         {/* 뉴스레터 구독 섹션 */}
         <div className="flex items-center justify-center mb-6 md:mb-8">
-          <div className="bg-white rounded-lg p-4 md:p-6 shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 max-w-md w-full">
+          <div className="bg-white rounded-lg p-4 md:p-6 shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full max-w-4xl">
             <div className="flex-shrink-0">
               <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
                 <Mail className="h-4 w-4 text-gray-600" />
@@ -66,9 +99,10 @@ export function Footer({
                 />
                 <Button
                   onClick={handleSubscribe}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 min-h-[44px] sm:h-8 text-xs flex-shrink-0"
+                  disabled={isSubmitting}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 min-h-[44px] sm:h-8 text-xs flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {t('subscribe', selectedLanguage)}
+                  {isSubmitting ? '처리 중...' : t('subscribe', selectedLanguage)}
                 </Button>
               </div>
             </div>

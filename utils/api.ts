@@ -298,7 +298,7 @@ export const api = {
             return typeof item.images === 'string' ? [item.images] : ['https://via.placeholder.com/400x300'];
           }
         })(),
-        location: item.location || '전라남도 신안군',
+        location: item.location || 'Shinan-gun, Jeollanam-do',
         rating_avg: Number(item.rating_avg) || 0,
         rating_count: item.rating_count || 0,
         duration: item.duration,

@@ -167,6 +167,7 @@ export function RentcarStatsDashboard() {
       ]);
 
       setLastUpdated(new Date());
+      }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {

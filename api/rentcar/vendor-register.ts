@@ -102,29 +102,25 @@ export async function registerVendor(
     // 4. rentcar_vendors 테이블에 업체 정보 등록
     const vendorResult = await db.execute(`
       INSERT INTO rentcar_vendors (
-        name, business_registration_number,
-        contact_email, contact_phone, contact_person,
-        address, description, website_url, operating_hours,
-        supported_languages, is_active, is_verified,
-        user_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        business_name, business_number,
+        contact_email, contact_phone, contact_name,
+        description, logo_url, commission_rate,
+        status, user_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `, [
       request.business_name,
       request.business_registration_number || null,
       request.contact_email,
       request.contact_phone,
       request.contact_person,
-      request.address || null,
       request.description || null,
-      request.website_url || null,
-      request.operating_hours || '09:00-18:00',
-      JSON.stringify(request.supported_languages || ['ko']),
-      false, // 관리자 승인 전까지 비활성
-      false, // 검증 전
+      null, // logo_url
+      15.00, // commission_rate (기본 15%)
+      'pending', // status (관리자 승인 대기)
       userId
     ]);
 
-    const vendorId = vendorResult.insertId;
+    const vendorId = vendorResult.insertId || 0;
 
     console.log(`✅ 렌트카 업체 등록 완료: ${request.business_name} (ID: ${vendorId})`);
     console.log(`👤 연결된 사용자 계정 ID: ${userId}`);
@@ -188,10 +184,10 @@ async function notifyAdminNewVendor(data: {
  */
 export async function approveVendor(vendorId: number): Promise<{ success: boolean; message: string }> {
   try {
-    // 1. 업체 활성화
+    // 1. 업체 승인 (status를 'active'로 변경)
     await db.execute(`
       UPDATE rentcar_vendors
-      SET is_active = true, is_verified = true, updated_at = NOW()
+      SET status = 'active', updated_at = NOW()
       WHERE id = ?
     `, [vendorId]);
 
@@ -272,20 +268,20 @@ export async function createTemporaryVendorAccount(
     // 2. 빈 rentcar_vendors 레코드 생성
     const vendorResult = await db.execute(`
       INSERT INTO rentcar_vendors (
-        name, contact_email, contact_person,
-        is_active, is_verified, user_id,
+        business_name, contact_email, contact_name,
+        status, user_id, commission_rate,
         created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
     `, [
       tempName,
       email,
       tempName,
-      false, // 비활성
-      false, // 미검증
-      userId
+      'pending', // 관리자 승인 대기
+      userId,
+      15.00 // 기본 수수료율
     ]);
 
-    const vendorId = vendorResult.insertId;
+    const vendorId = vendorResult.insertId || 0;
 
     console.log(`✅ 임시 계정 생성 완료: User ID ${userId}, Vendor ID ${vendorId}`);
     console.log(`📝 이메일: ${email}`);
@@ -342,11 +338,11 @@ export async function updateVendorInfo(
     const values: any[] = [];
 
     if (updateData.business_name) {
-      fields.push('name = ?');
+      fields.push('business_name = ?');
       values.push(updateData.business_name);
     }
     if (updateData.business_registration_number) {
-      fields.push('business_registration_number = ?');
+      fields.push('business_number = ?');
       values.push(updateData.business_registration_number);
     }
     if (updateData.contact_email) {
@@ -358,24 +354,12 @@ export async function updateVendorInfo(
       values.push(updateData.contact_phone);
     }
     if (updateData.contact_person) {
-      fields.push('contact_person = ?');
+      fields.push('contact_name = ?');
       values.push(updateData.contact_person);
-    }
-    if (updateData.address) {
-      fields.push('address = ?');
-      values.push(updateData.address);
     }
     if (updateData.description) {
       fields.push('description = ?');
       values.push(updateData.description);
-    }
-    if (updateData.website_url) {
-      fields.push('website_url = ?');
-      values.push(updateData.website_url);
-    }
-    if (updateData.operating_hours) {
-      fields.push('operating_hours = ?');
-      values.push(updateData.operating_hours);
     }
 
     fields.push('updated_at = NOW()');

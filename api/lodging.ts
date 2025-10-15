@@ -579,24 +579,15 @@ export async function cancelBooking(bookingId: number, reason?: string) {
 // ============================================================
 
 export default {
-  // Lodgings
   getLodgings,
   getLodgingById,
   createLodging,
-
-  // Rooms
   getRooms,
   createRoom,
-
-  // Rate Plans
   getRatePlans,
   createRatePlan,
-
-  // Availability
   getAvailability,
   updateAvailability,
-
-  // Bookings
   getBookings,
   createBooking,
   cancelBooking

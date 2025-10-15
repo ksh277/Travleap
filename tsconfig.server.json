@@ -1,10 +1,23 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "target": "ES2020",
     "outDir": "dist",
-    "noEmit": false
+    "noEmit": true,
+    "allowImportingTsExtensions": false,
+    "esModuleInterop": true
   },
-  "include": ["server.ts", "utils/websocket-server.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "server-api.ts",
+    "api/**/*",
+    "services/**/*",
+    "middleware/**/*",
+    "utils/database.ts",
+    "utils/lock-manager.ts",
+    "utils/toss-payments.ts",
+    "utils/toss-payments-server.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
 }

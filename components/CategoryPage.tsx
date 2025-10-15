@@ -684,7 +684,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="카테고리 상품 목록">
-      <div className="mobile-container py-4 md:py-8">
+      <div className="container mx-auto px-4 py-4 md:py-8">
         {/* Enhanced Header */}
         <div className="mb-6 md:mb-8">
           <div className="flex flex-col gap-4">
