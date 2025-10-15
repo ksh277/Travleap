@@ -297,7 +297,7 @@ export function PartnerPage() {
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5); // 페이지당 5개
+  const [itemsPerPage] = useState(6); // 페이지당 6개 (2행 x 3열)
 
   // 날짜 포맷 함수
   const formatDate = (date: Date | undefined) => {
@@ -601,20 +601,21 @@ export function PartnerPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 배너 헤더 */}
-      <div 
-        className="relative h-[300px] bg-cover bg-center"
+      <div
+        className="relative h-[400px] bg-cover bg-center"
         style={{
           backgroundImage: 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=300&fit=crop")'
         }}
       >
         <div className="absolute inset-0 flex items-center justify-center">
-          <h1 className="text-4xl font-bold text-white">제휴 업체보기</h1>
+          <h1 className="text-4xl font-bold text-white">신안퍼플섬 투어 전체보기</h1>
         </div>
       </div>
 
-      {/* 검색 바 */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-[1400px] mx-auto px-4 py-4">
+      {/* 검색 바 - 배경 이미지 위에 반쯤 걸쳐진 박스 */}
+      <div className="relative -mt-20 mb-6">
+        <div className="max-w-[1200px] mx-auto px-4">
+          <div className="bg-white rounded-lg shadow-lg p-6">
           {/* GPS 에러 메시지 */}
           {gpsError && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -826,6 +827,7 @@ export function PartnerPage() {
               검색
             </Button>
           </div>
+          </div>
         </div>
       </div>
 
@@ -909,13 +911,13 @@ export function PartnerPage() {
               </div>
             </div>
 
-            {/* 업체 리스트 */}
-            <div className="space-y-4">
+            {/* 업체 리스트 - 그리드 형태 (2행 3열) */}
+            <div className="grid grid-cols-3 gap-4">
               {currentPartners.map((partner) => (
-                <Card key={partner.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                  <div className="flex">
+                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handlePartnerClick(partner)}>
+                  <div className="flex flex-col">
                     {/* 이미지 */}
-                    <div className="relative w-48 h-32 flex-shrink-0">
+                    <div className="relative w-full h-48">
                       <img
                         src={partner.image}
                         alt={partner.name}
@@ -926,60 +928,51 @@ export function PartnerPage() {
                           Featured
                         </Badge>
                       )}
-                      <button className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors">
+                      <button
+                        className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Heart className="h-4 w-4 text-gray-600" />
                       </button>
                     </div>
 
                     {/* 정보 */}
-                    <CardContent className="flex-1 p-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-lg">{partner.name}</h3>
-                            <Badge variant="outline" className="text-xs">
-                              {partner.category}
-                            </Badge>
-                          </div>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-2 mb-2">
+                        <h3 className="font-semibold text-base flex-1 line-clamp-1">{partner.name}</h3>
+                        <Badge variant="outline" className="text-xs flex-shrink-0">
+                          {partner.category}
+                        </Badge>
+                      </div>
 
-                          <div className="flex items-center gap-1 mb-2">
-                            <MapPin className="h-4 w-4 text-gray-500" />
-                            <span className="text-sm text-gray-600">{partner.location}</span>
-                            {partner.distance !== undefined && (
-                              <span className="text-xs text-blue-600 ml-2 bg-blue-50 px-2 py-1 rounded">
-                                {partner.distance < 1 
-                                  ? `${Math.round(partner.distance * 1000)}m` 
-                                  : `${partner.distance.toFixed(1)}km`
-                                }
-                              </span>
-                            )}
-                          </div>
+                      <div className="flex items-center gap-1 mb-2">
+                        <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                        <span className="text-xs text-gray-600 line-clamp-1">{partner.location}</span>
+                      </div>
 
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="flex items-center">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="ml-1 font-medium">{partner.rating}</span>
-                            </div>
-                            <span className="text-sm text-gray-500">
-                              ({partner.reviewCount}개 리뷰)
-                            </span>
-                          </div>
-
-                          <p className="text-sm text-gray-600 mb-3">{partner.description}</p>
+                      {partner.distance !== undefined && (
+                        <div className="text-xs text-blue-600 mb-2 bg-blue-50 px-2 py-1 rounded inline-block">
+                          {partner.distance < 1
+                            ? `${Math.round(partner.distance * 1000)}m`
+                            : `${partner.distance.toFixed(1)}km`
+                          }
                         </div>
+                      )}
 
-                        <div className="text-right">
-                          <div className="text-lg font-bold text-[#ff6a3d] mb-2">
-                            {partner.price}
-                          </div>
-                          <Button
-                            size="sm"
-                            className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                            onClick={() => handlePartnerClick(partner)}
-                          >
-                            상세보기
-                          </Button>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center">
+                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          <span className="ml-1 text-sm font-medium">{partner.rating}</span>
                         </div>
+                        <span className="text-xs text-gray-500">
+                          ({partner.reviewCount}개)
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">{partner.description}</p>
+
+                      <div className="text-base font-bold text-[#ff6a3d]">
+                        {partner.price}
                       </div>
                     </CardContent>
                   </div>
@@ -1049,11 +1042,11 @@ export function PartnerPage() {
           </div>
 
           {/* 오른쪽: 지도 */}
-          <div className="w-[880px] flex-shrink-0">
+          <div className="w-[500px] flex-shrink-0">
             <div className="sticky top-4">
               <Card className="overflow-hidden">
                 {mapError ? (
-                  <div className="w-full h-[700px] flex items-center justify-center bg-gray-100">
+                  <div className="w-full h-[600px] flex items-center justify-center bg-gray-100">
                     <div className="text-center p-8 max-w-sm">
                       <div className="text-gray-400 mb-4">
                         <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1073,10 +1066,10 @@ export function PartnerPage() {
                     </div>
                   </div>
                 ) : (
-                  <div 
+                  <div
                     ref={mapRef}
-                    className="w-full h-[700px]"
-                    style={{ minHeight: '700px' }}
+                    className="w-full h-[600px]"
+                    style={{ minHeight: '600px' }}
                   />
                 )}
               </Card>
