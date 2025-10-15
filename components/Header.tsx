@@ -54,7 +54,7 @@ export function Header({
 
   const location = useLocation();
   const currentView = location.pathname;
-  const showSearchBar = ['/category/', '/partner'].some(path => currentView.includes(path));
+  const showSearchBar = currentView.includes('/category/');
   const [searchQuery] = useState("");
   const [destination, setDestination] = useState("");
   const [dateRange, setDateRange] = useState("");

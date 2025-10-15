@@ -7,23 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Checkbox } from './ui/checkbox';
 import {
   Star,
   MapPin,
   Calendar as CalendarIcon,
   Filter,
-  Search,
   Heart,
-  ChevronDown,
   Navigation,
-  Loader2,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
 import { getGoogleMapsApiKey } from '../utils/env';
-import { api, type TravelItem } from '../utils/api';
-import { useRealTimeListings, useRealTimePartners } from '../hooks/useRealTimeData';
+import { api } from '../utils/api';
 
 interface Partner {
   id: string;
@@ -124,6 +119,7 @@ export function PartnerPage() {
   const [mapError, setMapError] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const infoWindowsRef = useRef<Map<string, google.maps.InfoWindow>>(new Map());
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
@@ -323,6 +319,7 @@ export function PartnerPage() {
     // 기존 마커 제거
     markersRef.current.forEach(marker => marker.setMap(null));
     markersRef.current = [];
+    infoWindowsRef.current.clear();
 
     partnersList.forEach(partner => {
       const marker = new google.maps.Marker({
@@ -330,7 +327,7 @@ export function PartnerPage() {
         map: map,
         title: partner.name,
         icon: {
-          url: partner.featured ? 
+          url: partner.featured ?
             'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ff6a3d"%3E%3Cpath d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/%3E%3C/svg%3E' :
             'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234299e1"%3E%3Cpath d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/%3E%3C/svg%3E',
           scaledSize: new google.maps.Size(30, 30)
@@ -356,6 +353,7 @@ export function PartnerPage() {
       });
 
       markersRef.current.push(marker);
+      infoWindowsRef.current.set(partner.name, infoWindow);
     });
   };
 
@@ -439,17 +437,27 @@ export function PartnerPage() {
     // 검색 로직 실행
   };
 
-  // 제휴업체 카드 클릭 핸들러 - 모든 항목을 상세페이지로 이동
+  // 제휴업체 카드 클릭 핸들러 - 지도에 마커 표시 및 중심 이동
   const handlePartnerClick = (partner: Partner) => {
-    // 모든 파트너 카드는 상품 데이터이므로 상세페이지로 이동
-    navigate(`/detail/${partner.id}`);
+    if (map) {
+      // 지도 중심을 해당 파트너 위치로 이동
+      map.setCenter(partner.position);
+      map.setZoom(15);
+
+      // 해당 파트너의 InfoWindow를 찾아서 열기
+      const infoWindow = infoWindowsRef.current.get(partner.name);
+      const marker = markersRef.current.find(m => m.getTitle() === partner.name);
+      if (infoWindow && marker) {
+        infoWindow.open(map, marker);
+      }
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 배너 헤더 */}
       <div
-        className="relative h-[400px] bg-cover bg-center"
+        className="relative h-[200px] bg-cover bg-center"
         style={{
           backgroundImage: 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=300&fit=crop")'
         }}
@@ -460,7 +468,7 @@ export function PartnerPage() {
       </div>
 
       {/* 검색 바 - 배경 이미지 위에 반쯤 걸쳐진 박스 */}
-      <div className="relative -mt-20 mb-6">
+      <div className="relative -mt-16 mb-6">
         <div className="max-w-[1200px] mx-auto px-4">
           <div className="bg-white rounded-lg shadow-lg p-6">
           {/* GPS 에러 메시지 */}
@@ -469,7 +477,7 @@ export function PartnerPage() {
               {gpsError}
             </div>
           )}
-          
+
           {/* 현재 위치 정보 */}
           {userLocation && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm flex items-center">
@@ -478,39 +486,103 @@ export function PartnerPage() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-4 items-end">
-            {/* 검색어 */}
-            <div className="flex-1 min-w-[300px]">
-              <label className="block text-sm font-medium text-gray-700 mb-1">검색어</label>
+          <div className="flex gap-4 items-center">
+            {/* 목적지 */}
+            <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <Input
                   type="text"
-                  placeholder="업체명, 지역명 검색"
+                  placeholder="어디에 가시나요?"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-12 text-sm"
                 />
+                <div className="absolute left-3 -top-2 bg-white px-1 text-xs text-gray-600">
+                  목적지
+                </div>
               </div>
             </div>
 
-            {/* GPS 버튼 */}
-            <Button
-              onClick={getCurrentLocation}
-              disabled={gpsLoading}
-              variant="outline"
-              className="px-6"
-            >
-              {gpsLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Navigation className="h-4 w-4 mr-2" />
-              )}
-              {gpsLoading ? '위치 찾는 중...' : '내 위치'}
-            </Button>
+            {/* 구분선 */}
+            <div className="h-12 w-px bg-gray-300"></div>
+
+            {/* From - To 날짜 */}
+            <div className="flex-1">
+              <Popover open={showCalendar} onOpenChange={setShowCalendar}>
+                <PopoverTrigger asChild>
+                  <div className="relative cursor-pointer">
+                    <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <Input
+                      type="text"
+                      readOnly
+                      placeholder="dd/mm/yyyy - dd/mm/yyyy"
+                      value={fromDate && toDate ? `${formatDate(fromDate)} - ${formatDate(toDate)}` : ''}
+                      className="pl-10 h-12 cursor-pointer text-sm"
+                    />
+                    <div className="absolute left-3 -top-2 bg-white px-1 text-xs text-gray-600">
+                      From - To
+                    </div>
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <div className="p-4 space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">시작일</label>
+                      <Calendar
+                        mode="single"
+                        selected={fromDate}
+                        onSelect={setFromDate}
+                        initialFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">종료일</label>
+                      <Calendar
+                        mode="single"
+                        selected={toDate}
+                        onSelect={setToDate}
+                        disabled={(date) => fromDate ? date < fromDate : false}
+                      />
+                    </div>
+                    <Button
+                      onClick={() => setShowCalendar(false)}
+                      className="w-full bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                    >
+                      확인
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* 구분선 */}
+            <div className="h-12 w-px bg-gray-300"></div>
+
+            {/* 시간 (More 드롭다운) */}
+            <div className="w-[180px]">
+              <div className="relative">
+                <Select
+                  value=""
+                  onValueChange={() => {}}
+                >
+                  <SelectTrigger className="h-12 text-sm">
+                    <SelectValue placeholder="More" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="morning">오전</SelectItem>
+                    <SelectItem value="afternoon">오후</SelectItem>
+                    <SelectItem value="evening">저녁</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="absolute left-3 -top-2 bg-white px-1 text-xs text-gray-600">
+                  시간
+                </div>
+              </div>
+            </div>
 
             {/* 검색 버튼 */}
-            <Button onClick={handleSearch} className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white px-8">
+            <Button onClick={handleSearch} className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white px-12 h-12">
               검색
             </Button>
           </div>
@@ -619,11 +691,6 @@ export function PartnerPage() {
                         alt={partner.name}
                         className="w-full h-full object-cover"
                       />
-                      {partner.featured && (
-                        <Badge className="absolute top-2 left-2 bg-[#ff6a3d] text-white text-xs">
-                          Featured
-                        </Badge>
-                      )}
                       <button
                         className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
                         onClick={(e) => e.stopPropagation()}
@@ -667,8 +734,20 @@ export function PartnerPage() {
 
                       <p className="text-xs text-gray-600 mb-3 line-clamp-2">{partner.description}</p>
 
-                      <div className="text-base font-bold text-[#ff6a3d]">
-                        {partner.price}
+                      <div className="flex items-center justify-between">
+                        <div className="text-base font-bold text-[#ff6a3d]">
+                          {partner.price}
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/detail/${partner.id}`);
+                          }}
+                          className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4"
+                        >
+                          상세보기
+                        </Button>
                       </div>
                     </CardContent>
                   </div>
