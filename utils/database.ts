@@ -609,11 +609,14 @@ class Database {
         is_published BOOLEAN DEFAULT FALSE,
         is_featured BOOLEAN DEFAULT FALSE,
         published_at TIMESTAMP,
+        event_start_date DATE,
+        event_end_date DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_published (is_published),
         INDEX idx_category (category),
-        INDEX idx_author (author_id)
+        INDEX idx_author (author_id),
+        INDEX idx_event_dates (event_start_date, event_end_date)
       )
     `);
 
