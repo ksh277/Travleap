@@ -184,7 +184,7 @@ export function LoginPage() {
             <li className="font-bold text-black">로그인</li>
             <li>
               <button
-                onClick={() => window.location.hash = 'signup'}
+                onClick={() => navigate('/signup')}
                 className="text-black no-underline hover:underline bg-none border-none cursor-pointer"
               >
                 회원가입
@@ -298,7 +298,7 @@ export function LoginPage() {
           <div className="text-center mt-4 text-sm text-gray-600">
             계정이 없으신가요? {' '}
             <button
-              onClick={() => window.location.hash = 'signup'}
+              onClick={() => navigate('/signup')}
               className="text-[#5c2d91] hover:underline bg-none border-none cursor-pointer"
             >
               회원가입
