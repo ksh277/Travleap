@@ -2,6 +2,11 @@ import { getApiBaseUrl } from './env';
 import { db } from './database.js'; // PlanetScale 클라우드 DB 사용
 import { notifyDataChange } from '../hooks/useRealTimeData';
 import { notifyPartnerNewBooking, notifyCustomerBookingConfirmed } from './notification';
+
+// API Base URL
+const API_BASE_URL = typeof window !== 'undefined'
+  ? window.location.origin
+  : process.env.VITE_API_URL || 'http://localhost:3004';
 // 인증 서비스 제거됨
 import type {
   Listing,
@@ -280,10 +285,10 @@ export const api = {
         success: true,
         data: travelItems,
         pagination: {
-          page,
-          limit,
+          page: filters?.page || 1,
+          limit: filters?.limit || travelItems.length,
           total: travelItems.length,
-          total_pages: Math.ceil(travelItems.length / limit)
+          total_pages: Math.ceil(travelItems.length / (filters?.limit || travelItems.length || 1))
         }
       };
     } catch (error) {
