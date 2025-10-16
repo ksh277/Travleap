@@ -1,14 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { connect } from '@planetscale/database';
 
-// PlanetScale connection
+// PlanetScale connection using DATABASE_URL
 const getDbConnection = () => {
-  const config = {
-    host: process.env.DATABASE_HOST || 'aws.connect.psdb.cloud',
-    username: process.env.DATABASE_USERNAME || '',
-    password: process.env.DATABASE_PASSWORD || ''
-  };
-  return connect(config);
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('DATABASE_URL environment variable is not set');
+  }
+  return connect({ url });
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
