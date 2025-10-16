@@ -1,5 +1,9 @@
 {
   "functions": {
+    "api/*.ts": {
+      "memory": 1024,
+      "maxDuration": 10
+    },
     "api/*.js": {
       "memory": 1024,
       "maxDuration": 10
