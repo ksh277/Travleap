@@ -36,7 +36,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
-import { db } from '../utils/database-cloud';
 import { PMSIntegrationManager } from '../utils/pms-integrations';
 
 interface Lodging {
@@ -130,53 +129,42 @@ export function VendorLodgingDashboard() {
     try {
       setLoading(true);
 
-      // 1. 업체 정보 조회
-      const vendorResult = await db.query(`
-        SELECT * FROM rentcar_vendors WHERE user_id = ? LIMIT 1
-      `, [user.id]);
+      // 1. 업체 정보 조회 API
+      const vendorResponse = await fetch(`http://localhost:3004/api/vendor/lodging/info?userId=${user.id}`);
+      const vendorData = await vendorResponse.json();
 
-      if (vendorResult.length === 0) {
+      if (!vendorData.success || !vendorData.data) {
         toast.error('업체 정보를 찾을 수 없습니다.');
         navigate('/login');
         return;
       }
 
-      const vendor = vendorResult[0];
+      const vendor = vendorData.data;
       setVendorInfo(vendor);
 
-      // 2. 숙소 목록 조회
-      const lodgingsResult = await db.query(`
-        SELECT
-          l.*,
-          COUNT(r.id) as room_count
-        FROM lodgings l
-        LEFT JOIN rooms r ON l.id = r.lodging_id
-        WHERE l.vendor_id = ?
-        GROUP BY l.id
-        ORDER BY l.created_at DESC
-      `, [vendor.id]);
+      // 2. 숙소 목록 조회 API
+      const lodgingsResponse = await fetch(`http://localhost:3004/api/vendor/lodgings?userId=${user.id}`);
+      const lodgingsData = await lodgingsResponse.json();
 
-      setLodgings(lodgingsResult);
+      if (lodgingsData.success && lodgingsData.data) {
+        setLodgings(lodgingsData.data);
+      } else {
+        setLodgings([]);
+      }
 
-      // 3. 예약 목록 조회
-      const bookingsResult = await db.query(`
-        SELECT
-          lb.*,
-          l.name as lodging_name,
-          r.name as room_name
-        FROM lodging_bookings lb
-        JOIN lodgings l ON lb.lodging_id = l.id
-        JOIN rooms r ON lb.room_id = r.id
-        WHERE l.vendor_id = ?
-        ORDER BY lb.created_at DESC
-        LIMIT 100
-      `, [vendor.id]);
+      // 3. 예약 목록 조회 API
+      const bookingsResponse = await fetch(`http://localhost:3004/api/vendor/lodging/bookings?userId=${user.id}`);
+      const bookingsData = await bookingsResponse.json();
 
-      setBookings(bookingsResult);
+      if (bookingsData.success && bookingsData.data) {
+        setBookings(bookingsData.data);
+      } else {
+        setBookings([]);
+      }
 
       console.log(`✅ 숙박 업체 데이터 로드 완료: ${vendor.name}`);
-      console.log(`   숙소: ${lodgingsResult.length}개`);
-      console.log(`   예약: ${bookingsResult.length}건`);
+      console.log(`   숙소: ${lodgingsData.data?.length || 0}개`);
+      console.log(`   예약: ${bookingsData.data?.length || 0}건`);
 
     } catch (error) {
       console.error('업체 데이터 로드 실패:', error);
@@ -226,38 +214,51 @@ export function VendorLodgingDashboard() {
       return;
     }
 
+    if (!user?.id) return;
+
     try {
       if (editingLodging) {
-        // 수정
-        await db.execute(`
-          UPDATE lodgings SET
-            name = ?, type = ?, city = ?, address = ?,
-            description = ?, phone = ?, email = ?,
-            checkin_time = ?, checkout_time = ?, is_active = ?,
-            updated_at = NOW()
-          WHERE id = ? AND vendor_id = ?
-        `, [
-          lodgingForm.name, lodgingForm.type, lodgingForm.city, lodgingForm.address,
-          lodgingForm.description, lodgingForm.phone, lodgingForm.email,
-          lodgingForm.checkin_time, lodgingForm.checkout_time, lodgingForm.is_active,
-          editingLodging.id, vendorInfo?.id
-        ]);
-        toast.success('숙소 정보가 수정되었습니다.');
+        // 수정 - PUT API
+        const response = await fetch(`http://localhost:3004/api/vendor/lodgings/${editingLodging.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': user.id.toString()
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            ...lodgingForm
+          })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          toast.success('숙소 정보가 수정되었습니다.');
+        } else {
+          toast.error(result.message || '숙소 수정에 실패했습니다.');
+          return;
+        }
       } else {
-        // 추가
-        await db.execute(`
-          INSERT INTO lodgings (
-            vendor_id, name, type, city, address, description,
-            phone, email, checkin_time, checkout_time, is_active,
-            timezone, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Asia/Seoul', NOW(), NOW())
-        `, [
-          vendorInfo?.id, lodgingForm.name, lodgingForm.type, lodgingForm.city,
-          lodgingForm.address, lodgingForm.description, lodgingForm.phone,
-          lodgingForm.email, lodgingForm.checkin_time, lodgingForm.checkout_time,
-          lodgingForm.is_active
-        ]);
-        toast.success('숙소가 등록되었습니다.');
+        // 추가 - POST API
+        const response = await fetch('http://localhost:3004/api/vendor/lodgings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': user.id.toString()
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            ...lodgingForm
+          })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          toast.success('숙소가 등록되었습니다.');
+        } else {
+          toast.error(result.message || '숙소 등록에 실패했습니다.');
+          return;
+        }
       }
 
       setIsLodgingDialogOpen(false);
@@ -277,13 +278,21 @@ export function VendorLodgingDashboard() {
   const handleDeleteLodging = async (lodgingId: number) => {
     if (!confirm('정말 이 숙소를 삭제하시겠습니까? 모든 객실 정보도 함께 삭제됩니다.')) return;
 
-    try {
-      await db.execute(`
-        DELETE FROM lodgings WHERE id = ? AND vendor_id = ?
-      `, [lodgingId, vendorInfo?.id]);
+    if (!user?.id) return;
 
-      toast.success('숙소가 삭제되었습니다.');
-      loadVendorData();
+    try {
+      const response = await fetch(`http://localhost:3004/api/vendor/lodgings/${lodgingId}?userId=${user.id}`, {
+        method: 'DELETE',
+        headers: { 'x-user-id': user.id.toString() }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('숙소가 삭제되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.message || '숙소 삭제에 실패했습니다.');
+      }
     } catch (error) {
       console.error('숙소 삭제 실패:', error);
       toast.error('숙소 삭제에 실패했습니다.');
@@ -330,7 +339,7 @@ export function VendorLodgingDashboard() {
 
   // CSV 업로드 실행
   const handleCsvUpload = async () => {
-    if (!vendorInfo?.id) return;
+    if (!vendorInfo?.id || !user?.id) return;
     if (csvPreview.length === 0) {
       toast.error('업로드할 데이터가 없습니다.');
       return;
@@ -343,63 +352,84 @@ export function VendorLodgingDashboard() {
 
       for (const row of csvPreview) {
         try {
-          // 1. 숙소가 이미 있는지 확인 (같은 이름)
+          // 1. 숙소가 이미 있는지 확인 (같은 이름) - API 호출
           let lodgingId = lodgingMap.get(row.name);
 
           if (!lodgingId) {
-            // 기존 숙소 확인
-            const existing = await db.query(`
-              SELECT id FROM lodgings WHERE vendor_id = ? AND name = ? LIMIT 1
-            `, [vendorInfo.id, row.name]);
+            // 기존 숙소 확인 API
+            const checkResponse = await fetch(`http://localhost:3004/api/vendor/lodgings/check?userId=${user.id}&name=${encodeURIComponent(row.name)}`);
+            const checkData = await checkResponse.json();
 
-            if (existing.length > 0) {
-              lodgingId = existing[0].id;
+            if (checkData.success && checkData.exists) {
+              lodgingId = checkData.lodgingId;
             } else {
-              // 새 숙소 생성
-              const lodgingResult = await db.execute(`
-                INSERT INTO lodgings (
-                  vendor_id, name, type, city, address, description,
-                  phone, email, checkin_time, checkout_time, is_active,
-                  timezone, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'Asia/Seoul', NOW(), NOW())
-              `, [
-                vendorInfo.id,
-                row.name,
-                row.type || 'hotel',
-                row.city || '신안군',
-                row.address || '',
-                row.description || '',
-                row.phone || '',
-                row.email || '',
-                row.checkin_time || '15:00',
-                row.checkout_time || '11:00'
-              ]);
-              lodgingId = lodgingResult.insertId!;
+              // 새 숙소 생성 API
+              const createLodgingResponse = await fetch('http://localhost:3004/api/vendor/lodgings', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-user-id': user.id.toString()
+                },
+                body: JSON.stringify({
+                  userId: user.id,
+                  name: row.name,
+                  type: row.type || 'hotel',
+                  city: row.city || '신안군',
+                  address: row.address || '',
+                  description: row.description || '',
+                  phone: row.phone || '',
+                  email: row.email || '',
+                  checkin_time: row.checkin_time || '15:00',
+                  checkout_time: row.checkout_time || '11:00',
+                  is_active: true
+                })
+              });
+
+              const createLodgingData = await createLodgingResponse.json();
+              if (createLodgingData.success) {
+                // Refetch to get the ID (or modify API to return the ID)
+                const refetchResponse = await fetch(`http://localhost:3004/api/vendor/lodgings/check?userId=${user.id}&name=${encodeURIComponent(row.name)}`);
+                const refetchData = await refetchResponse.json();
+                lodgingId = refetchData.lodgingId;
+              }
             }
 
-            lodgingMap.set(row.name, lodgingId);
+            if (lodgingId) {
+              lodgingMap.set(row.name, lodgingId);
+            }
           }
 
-          // 2. 객실 생성
-          await db.execute(`
-            INSERT INTO rooms (
-              lodging_id, name, room_type, base_price, max_occupancy,
-              bed_type, room_size_sqm, amenities, images,
-              is_available, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
-          `, [
-            lodgingId,
-            row.room_name || '객실',
-            row.room_type || 'standard',
-            parseFloat(row.base_price) || 50000,
-            parseInt(row.max_occupancy) || 2,
-            row.bed_type || '더블',
-            parseFloat(row.room_size_sqm) || 20,
-            row.amenities || '',
-            row.images || ''
-          ]);
+          // 2. 객실 생성 API
+          if (lodgingId) {
+            const createRoomResponse = await fetch('http://localhost:3004/api/vendor/rooms', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-user-id': user.id.toString()
+              },
+              body: JSON.stringify({
+                userId: user.id,
+                lodging_id: lodgingId,
+                name: row.room_name || '객실',
+                room_type: row.room_type || 'standard',
+                base_price: row.base_price || 50000,
+                max_occupancy: row.max_occupancy || 2,
+                bed_type: row.bed_type || '더블',
+                room_size_sqm: row.room_size_sqm || 20,
+                amenities: row.amenities || '',
+                images: row.images || ''
+              })
+            });
 
-          successCount++;
+            const createRoomData = await createRoomResponse.json();
+            if (createRoomData.success) {
+              successCount++;
+            } else {
+              errorCount++;
+            }
+          } else {
+            errorCount++;
+          }
         } catch (error) {
           console.error('Row upload error:', error);
           errorCount++;
@@ -429,15 +459,31 @@ export function VendorLodgingDashboard() {
       return;
     }
 
+    if (!user?.id || !vendorInfo?.id) return;
+
     try {
       toast.info('PMS 연동을 시작합니다...');
 
-      // 1. 벤더 정보에 PMS 설정 저장
-      await db.execute(`
-        UPDATE rentcar_vendors
-        SET pms_provider = ?, pms_api_key = ?, pms_property_id = ?, updated_at = NOW()
-        WHERE id = ?
-      `, [pmsConfig.provider, pmsConfig.api_key, pmsConfig.property_id, vendorInfo?.id]);
+      // 1. 벤더 정보에 PMS 설정 저장 - API 호출
+      const response = await fetch('http://localhost:3004/api/vendor/pms-settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id.toString()
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          pms_provider: pmsConfig.provider,
+          pms_api_key: pmsConfig.api_key,
+          pms_property_id: pmsConfig.property_id
+        })
+      });
+
+      const saveResult = await response.json();
+      if (!saveResult.success) {
+        toast.error('PMS 설정 저장에 실패했습니다.');
+        return;
+      }
 
       // 2. PMS Integration Manager 생성
       const pmsManager = new PMSIntegrationManager({
@@ -449,7 +495,7 @@ export function VendorLodgingDashboard() {
 
       // 3. PMS에서 데이터 가져와서 동기화
       toast.info('PMS에서 데이터를 가져오는 중...');
-      const result = await pmsManager.syncLodgingData(vendorInfo!.id);
+      const result = await pmsManager.syncLodgingData(vendorInfo.id);
 
       if (result.success) {
         toast.success(`✅ ${result.message}`);

@@ -9,7 +9,7 @@
  * - 로그 기록 (감사 추적)
  */
 
-import { db } from '../utils/database-cloud';
+import { db } from '../utils/database.js';
 
 export class SimpleHoldWorker {
   private intervalId: NodeJS.Timeout | null = null;

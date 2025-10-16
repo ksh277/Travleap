@@ -20,7 +20,6 @@ import {
   Camera,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { db } from '../utils/database-cloud';
 
 interface Partner {
   id: number;
@@ -65,9 +64,12 @@ export function PartnerDetailPage() {
 
     setLoading(true);
     try {
-      const partners = await db.select('partners', { id: parseInt(id) });
-      if (partners.length > 0) {
-        const partnerData = partners[0];
+      // API 호출
+      const response = await fetch(`http://localhost:3004/api/partners/${id}`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const partnerData = result.data;
         setPartner({
           id: partnerData.id,
           name: partnerData.business_name || partnerData.name,
@@ -85,10 +87,12 @@ export function PartnerDetailPage() {
           discount_rate: partnerData.discount_rate,
           member_since: partnerData.created_at ? new Date(partnerData.created_at).getFullYear().toString() : new Date().getFullYear().toString(),
         });
+      } else {
+        throw new Error(result.message || '파트너 정보를 찾을 수 없습니다');
       }
     } catch (error) {
       console.error('Failed to load partner:', error);
-      toast.error('가맹점 정보를 불러오는데 실패했습니다');
+      toast.error(error instanceof Error ? error.message : '가맹점 정보를 불러오는데 실패했습니다');
     } finally {
       setLoading(false);
     }

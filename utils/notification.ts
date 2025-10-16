@@ -1,5 +1,5 @@
 // 파트너 알림 시스템 (야놀자 스타일)
-import { db } from './database-cloud';
+import { db } from './database.js';
 
 export interface BookingNotification {
   booking_id: number;

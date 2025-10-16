@@ -1,76 +1,112 @@
-// JWT 토큰 유틸리티
+// JWT 토큰 유틸리티 (Secure Implementation)
+import jwt from 'jsonwebtoken';
+
 export interface JWTPayload {
   userId: number;
   email: string;
   role: 'admin' | 'user' | 'partner' | 'vendor';
   name: string;
-  iat: number;
-  exp: number;
+  iat?: number;
+  exp?: number;
 }
 
-// 간단한 JWT 시뮬레이션 (실제 프로덕션에서는 실제 JWT 라이브러리 사용)
+// JWT 유틸리티 클래스 (jsonwebtoken 라이브러리 사용)
 export class JWTUtils {
-  private static SECRET_KEY = 'travleap_secret_key_2024';
+  // 환경변수에서 시크릿 키 가져오기
+  private static get SECRET_KEY(): string {
+    const secret = process.env.JWT_SECRET;
 
-  // JWT 토큰 생성
-  static generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
-    const now = Math.floor(Date.now() / 1000);
-    const fullPayload: JWTPayload = {
-      ...payload,
-      iat: now,
-      exp: now + (24 * 60 * 60) // 24시간 후 만료
-    };
-
-    // UTF-8 안전한 Base64 인코딩
-    const utf8ToBase64 = (str: string): string => {
-      try {
-        return btoa(unescape(encodeURIComponent(str)));
-      } catch (error) {
-        console.error('Base64 인코딩 오류:', error);
-        // 한글 문자를 영문으로 변경한 안전한 버전
-        const safePayload = {
-          ...fullPayload,
-          name: payload.name.replace(/[^\x00-\x7F]/g, 'User') // 한글을 'User'로 대체
-        };
-        return btoa(JSON.stringify(safePayload));
+    // Production에서 시크릿이 없으면 에러
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('JWT_SECRET must be set in production environment');
       }
-    };
+      // Development에서는 경고만 표시하고 임시 키 사용
+      console.warn('⚠️  JWT_SECRET not set - using temporary key (NOT FOR PRODUCTION!)');
+      return 'dev_temporary_secret_DO_NOT_USE_IN_PRODUCTION_' + Math.random();
+    }
 
-    const header = utf8ToBase64(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-    const payloadStr = utf8ToBase64(JSON.stringify(fullPayload));
-    const signature = btoa(`${header}.${payloadStr}.${this.SECRET_KEY}`);
+    return secret;
+  }
 
-    return `${header}.${payloadStr}.${signature}`;
+  // Access Token 생성 (24시간 유효)
+  static generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
+    try {
+      return jwt.sign(
+        {
+          userId: payload.userId,
+          email: payload.email,
+          role: payload.role,
+          name: payload.name
+        },
+        this.SECRET_KEY,
+        {
+          expiresIn: '24h',
+          algorithm: 'HS256',
+          issuer: 'travleap',
+          audience: 'travleap-users'
+        }
+      );
+    } catch (error) {
+      console.error('❌ JWT 토큰 생성 실패:', error);
+      throw new Error('Failed to generate JWT token');
+    }
+  }
+
+  // Refresh Token 생성 (7일 유효)
+  static generateRefreshToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
+    try {
+      return jwt.sign(
+        {
+          userId: payload.userId,
+          email: payload.email,
+          role: payload.role,
+          name: payload.name,
+          type: 'refresh'
+        },
+        this.SECRET_KEY,
+        {
+          expiresIn: '7d',
+          algorithm: 'HS256',
+          issuer: 'travleap',
+          audience: 'travleap-users'
+        }
+      );
+    } catch (error) {
+      console.error('❌ Refresh 토큰 생성 실패:', error);
+      throw new Error('Failed to generate refresh token');
+    }
   }
 
   // JWT 토큰 검증 및 디코딩
   static verifyToken(token: string): JWTPayload | null {
     try {
-      const parts = token.split('.');
-      if (parts.length !== 3) return null;
+      const decoded = jwt.verify(token, this.SECRET_KEY, {
+        algorithms: ['HS256'],
+        issuer: 'travleap',
+        audience: 'travleap-users'
+      }) as JWTPayload;
 
-      // UTF-8 안전한 Base64 디코딩
-      const base64ToUtf8 = (str: string): string => {
-        try {
-          return decodeURIComponent(escape(atob(str)));
-        } catch (error) {
-          console.error('Base64 디코딩 오류:', error);
-          return atob(str); // 폴백으로 일반 atob 사용
-        }
-      };
-
-      const payload = JSON.parse(base64ToUtf8(parts[1]));
-      const now = Math.floor(Date.now() / 1000);
-
-      // 만료 시간 체크
-      if (payload.exp < now) {
-        console.log('🔒 JWT 토큰이 만료되었습니다');
-        return null;
-      }
-
-      return payload;
+      return decoded;
     } catch (error) {
-      console.error('JWT 토큰 검증 실패:', error);
+      if (error instanceof jwt.TokenExpiredError) {
+        console.log('🔒 JWT 토큰이 만료되었습니다');
+      } else if (error instanceof jwt.JsonWebTokenError) {
+        console.error('❌ JWT 토큰이 유효하지 않습니다:', error.message);
+      } else {
+        console.error('❌ JWT 토큰 검증 실패:', error);
+      }
+      return null;
+    }
+  }
+
+  // 토큰 디코딩 (검증 없이, 만료된 토큰도 읽기)
+  static decodeToken(token: string): JWTPayload | null {
+    try {
+      const decoded = jwt.decode(token) as JWTPayload;
+      return decoded;
+    } catch (error) {
+      console.error('❌ JWT 토큰 디코딩 실패:', error);
       return null;
     }
   }
@@ -79,13 +115,13 @@ export class JWTUtils {
   static needsRefresh(token: string): boolean {
     try {
       const payload = this.verifyToken(token);
-      if (!payload) return false;
+      if (!payload || !payload.exp) return false;
 
       const now = Math.floor(Date.now() / 1000);
       const timeUntilExp = payload.exp - now;
       const oneHour = 60 * 60;
 
-      return timeUntilExp < oneHour;
+      return timeUntilExp < oneHour && timeUntilExp > 0;
     } catch {
       return false;
     }
@@ -104,16 +140,42 @@ export class JWTUtils {
       name: payload.name
     });
   }
+
+  // 토큰 만료 시간 확인
+  static getTokenExpiration(token: string): Date | null {
+    try {
+      const payload = this.decodeToken(token);
+      if (!payload || !payload.exp) return null;
+
+      return new Date(payload.exp * 1000);
+    } catch {
+      return null;
+    }
+  }
+
+  // 토큰이 만료되었는지 확인
+  static isTokenExpired(token: string): boolean {
+    try {
+      const payload = this.verifyToken(token);
+      return payload === null;
+    } catch {
+      return true;
+    }
+  }
 }
 
 // 쿠키 관리 유틸리티
 export class CookieUtils {
-  // 쿠키 설정
+  // 쿠키 설정 (httpOnly는 서버에서만 설정 가능)
   static setCookie(name: string, value: string, days: number = 7): void {
     const expires = new Date();
     expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
 
-    document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; secure; samesite=strict`;
+    // SameSite=Strict, Secure는 HTTPS에서만 작동
+    const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const secureFlag = isSecure ? 'secure;' : '';
+
+    document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; ${secureFlag} samesite=strict`;
   }
 
   // 쿠키 가져오기

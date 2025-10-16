@@ -1,5 +1,7 @@
 /**
- * 렌트카 가격 계산 유틸리티
+ * 렌트카 가격 계산 유틸리티 (SERVER-SIDE ONLY)
+ * ⚠️ 이 파일은 서버에서만 사용됩니다. 클라이언트에서는 /api/rentcar/calculate-price API를 호출하세요.
+ *
  * - 기본 차량 대여료
  * - 기간별 할인
  * - 요일별 요금
@@ -9,9 +11,9 @@
  * - 추가 옵션
  */
 
-import { db } from './database-cloud';
+import type { Database } from './database.js';
 
-interface PriceCalculationParams {
+export interface PriceCalculationParams {
   vehicleId: number;
   vendorId: number;
   pickupDate: Date;
@@ -21,7 +23,7 @@ interface PriceCalculationParams {
   bookingDate?: Date; // 예약 생성 날짜 (얼리버드 계산용)
 }
 
-interface PriceBreakdown {
+export interface PriceBreakdown {
   // 기본 요금
   baseDailyRate: number;
   days: number;
@@ -86,6 +88,7 @@ interface PriceBreakdown {
  * 렌트카 가격 계산 (모든 정책 반영)
  */
 export async function calculateRentcarPrice(
+  db: Database,
   params: PriceCalculationParams
 ): Promise<PriceBreakdown> {
   const {
@@ -405,12 +408,13 @@ export function formatPriceBreakdown(breakdown: PriceBreakdown): string {
  * 간단한 가격 미리보기 (보험/옵션 제외)
  */
 export async function getQuickPriceEstimate(
+  db: Database,
   vehicleId: number,
   vendorId: number,
   pickupDate: Date,
   dropoffDate: Date
 ): Promise<{ estimatedPrice: number; days: number }> {
-  const breakdown = await calculateRentcarPrice({
+  const breakdown = await calculateRentcarPrice(db, {
     vehicleId,
     vendorId,
     pickupDate,

@@ -25,7 +25,7 @@ async function getVendorsNeedingSync(): Promise<any[]> {
 
   try {
     const result = await conn.execute(`
-      SELECT id, company_name, pms_provider, pms_last_sync, pms_sync_interval
+      SELECT id, business_name, pms_provider, pms_last_sync, pms_sync_interval
       FROM rentcar_vendors
       WHERE pms_sync_enabled = TRUE
         AND pms_provider IS NOT NULL
@@ -96,7 +96,7 @@ async function runSchedulerTask() {
 
   // 순차적으로 동기화 실행 (API 과부하 방지)
   for (const vendor of vendors) {
-    await syncVendor(vendor.id, vendor.company_name);
+    await syncVendor(vendor.id, vendor.business_name);
 
     // 각 벤더 사이 1초 대기 (API rate limit 방지)
     await new Promise(resolve => setTimeout(resolve, 1000));

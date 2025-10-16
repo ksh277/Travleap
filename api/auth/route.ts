@@ -7,7 +7,7 @@
 // @ts-ignore - Next.js types not installed in Vite project
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db } from '../../utils/database-cloud';
+import { db } from '../../utils/database.js';
 import { JWTUtils } from '../../utils/jwt';
 
 // CORS 헤더
@@ -190,42 +190,6 @@ async function handleLogin(request: NextRequest) {
 
     if (!users || users.length === 0) {
       console.log('❌ 사용자를 찾을 수 없음:', email);
-
-      // 관리자 계정 폴백 (DB에 없을 때만)
-      if (email === 'admin@shinan.com' && password === 'admin123') {
-        console.log('✅ 관리자 폴백 로그인');
-
-        const adminUser = {
-          id: 1,
-          user_id: 'admin_shinan',
-          email: 'admin@shinan.com',
-          name: '관리자',
-          phone: '010-0000-0000',
-          role: 'admin' as const,
-          is_active: true,
-          preferred_language: 'ko',
-          preferred_currency: 'KRW',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        const token = JWTUtils.generateToken({
-          userId: adminUser.id,
-          email: adminUser.email,
-          name: adminUser.name,
-          role: adminUser.role,
-        });
-
-        return NextResponse.json(
-          {
-            success: true,
-            data: { user: adminUser, token },
-            message: '관리자 로그인 성공',
-          },
-          { status: 200, headers: corsHeaders }
-        );
-      }
-
       return NextResponse.json(
         { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' },
         { status: 401, headers: corsHeaders }

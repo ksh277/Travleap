@@ -32,7 +32,6 @@ import {
 import { toast } from 'sonner';
 import { api } from '../utils/api';
 import { rentcarApi } from '../utils/rentcar-api';
-import { db } from '../utils/database-cloud';
 import { useAuth } from '../hooks/useAuth';
 import { notifyDataChange, refreshAllData, useRealTimeData } from '../hooks/useRealTimeData';
 import { MediaLibraryModal } from './MediaLibraryModal';
@@ -519,18 +518,19 @@ export function AdminPage({}: AdminPageProps) {
         }
       };
 
-      // 데이터베이스 스키마 확인 함수
-      (window as any).checkDBSchema = async () => {
-
-        try {
-          // listings 테이블 구조 확인
-          const response = await db.query('DESCRIBE listings', []);
-          toast.success('✅ DB 스키마 확인 완료 - 콘솔을 확인하세요');
-        } catch (error) {
-          console.error('❌ [DEBUG] DB 스키마 확인 실패:', error);
-          toast.error('❌ DB 스키마 확인 실패');
-        }
-      };
+      // 데이터베이스 스키마 확인 함수 (더 이상 사용하지 않음 - API를 통해 접근)
+      // (window as any).checkDBSchema = async () => {
+      //   try {
+      //     // listings 테이블 구조 확인
+      //     const response = await fetch('http://localhost:3004/api/admin/schema/listings');
+      //     const data = await response.json();
+      //     console.log('✅ DB Schema:', data);
+      //     toast.success('✅ DB 스키마 확인 완료 - 콘솔을 확인하세요');
+      //   } catch (error) {
+      //     console.error('❌ [DEBUG] DB 스키마 확인 실패:', error);
+      //     toast.error('❌ DB 스키마 확인 실패');
+      //   }
+      // };
 
       // 데이터베이스 강제 재초기화는 클라우드 DB에서 지원하지 않음
       // PlanetScale 콘솔에서 직접 관리해야 함

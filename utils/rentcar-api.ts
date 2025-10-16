@@ -2,7 +2,7 @@
 // 렌트카 API 모듈
 // ============================================
 
-import { db } from './database-cloud';
+import { db } from './database.js';
 import { cache, CacheKeys, CacheInvalidation } from './cache';
 import { AppError, RentcarErrors, handleDatabaseError, formatErrorResponse, catchAsync } from './error-handler';
 import { validate, VendorSchema, LocationSchema, VehicleSchema, BookingSchema, RatePlanSchema } from './rentcar-validation';
@@ -48,7 +48,7 @@ const CACHE_TTL = {
 
 // 세금 및 수수료
 const TAX_RATE = 0.1;                // 10% 세금
-const DEFAULT_COMMISSION_RATE = 15.00; // 기본 수수료율 15%
+const DEFAULT_COMMISSION_RATE = 10.00; // 기본 수수료율 10% (admin_settings와 동일)
 
 // 대여 조건 기본값
 const RENTAL_DEFAULTS = {

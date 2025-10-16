@@ -9,7 +9,7 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { db } from './database-cloud';
+import { db } from './database.js';
 
 // ============================================
 // 타입 정의

@@ -8,7 +8,7 @@
  * - Custom REST API
  */
 
-import { db } from './database-cloud';
+import { db } from './database.js';
 
 export interface PMSConfig {
   provider: 'turo' | 'getaround' | 'rentcars' | 'custom';

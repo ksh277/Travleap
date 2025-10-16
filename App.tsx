@@ -30,11 +30,9 @@ import { PartnerDetailPage } from './components/PartnerDetailPage';
 import { AIRecommendationPage } from './components/AIRecommendationPage';
 import { LegalPage } from './components/LegalPage';
 import { AffiliatePage } from './components/AffiliatePage';
-import { DBTestComponent } from './components/DBTestComponent';
 import { RentcarSearchPage } from './components/RentcarSearchPage';
 import { AccommodationDetailPage } from './components/AccommodationDetailPage';
 import { VendorRegistrationPage } from './components/VendorRegistrationPage';
-import { VendorDashboardPage } from './components/VendorDashboardPage';
 import VendorDashboardPageEnhanced from './components/VendorDashboardPageEnhanced';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
@@ -68,24 +66,8 @@ function AppContent() {
   const { isLoggedIn, isAdmin, user, login, logout, sessionRestored } = useAuth();
   const { cartItems } = useCartStore();
 
-  // 개발 환경에서만 전역으로 노출
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      (window as any).adminLogin = async () => {
-        console.log('🚀 관리자 로그인 시도...');
-        const result = await login('admin@shinan.com', 'admin123');
-        if (result) {
-          console.log('✅ 관리자 로그인 성공!');
-          navigate('/admin');
-        } else {
-          console.log('❌ 로그인 실패');
-        }
-      };
-
-      console.log('🚀 개발 도구:');
-      console.log('- adminLogin(): 관리자 로그인');
-    }
-  }, [login, navigate]);
+  // REMOVED: Hardcoded admin credentials (security risk)
+  // To create an admin account, use: tsx scripts/create-admin.ts
 
 
 
@@ -241,9 +223,6 @@ function AppContent() {
           <Route path="/partners-discount" element={<PartnersDiscountPage />} />
           <Route path="/ai-recommendations" element={<AIRecommendationPage />} />
           <Route path="/ai-recommendation" element={<AIRecommendationPage />} />
-
-          {/* DB 테스트 페이지 (개발용) */}
-          <Route path="/db-test" element={<DBTestComponent />} />
 
           {/* Lock 시스템 테스트 페이지 (개발용) */}
           <Route path="/lock-test" element={<LockTestPage />} />

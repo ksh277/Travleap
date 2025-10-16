@@ -31,7 +31,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
-import { db } from '../utils/database-cloud';
 
 interface Vendor {
   id: number;
@@ -96,58 +95,37 @@ export function AdminRentcarPage() {
     try {
       setLoading(true);
 
-      // 1. 모든 업체 조회
-      const vendorsResult = await db.query<Vendor>(`
-        SELECT
-          id,
-          business_name as name,
-          contact_email,
-          contact_phone,
-          is_verified,
-          total_vehicles as vehicle_count,
-          created_at
-        FROM rentcar_vendors
-        ORDER BY created_at DESC
-      `);
-      setVendors(vendorsResult);
+      // 1. 모든 업체 조회 API
+      const vendorsResponse = await fetch('http://localhost:3004/api/admin/rentcar/vendors');
+      const vendorsData = await vendorsResponse.json();
+      if (vendorsData.success && vendorsData.data) {
+        setVendors(vendorsData.data);
+      } else {
+        setVendors([]);
+      }
 
-      // 2. 모든 차량 조회 (업체명 포함)
-      const vehiclesResult = await db.query<Vehicle>(`
-        SELECT
-          rv.*,
-          v.business_name as vendor_name
-        FROM rentcar_vehicles rv
-        INNER JOIN rentcar_vendors v ON rv.vendor_id = v.id
-        ORDER BY rv.created_at DESC
-      `);
-      setVehicles(vehiclesResult);
+      // 2. 모든 차량 조회 API (업체명 포함)
+      const vehiclesResponse = await fetch('http://localhost:3004/api/admin/rentcar/vehicles');
+      const vehiclesData = await vehiclesResponse.json();
+      if (vehiclesData.success && vehiclesData.data) {
+        setVehicles(vehiclesData.data);
+      } else {
+        setVehicles([]);
+      }
 
-      // 3. 모든 예약 조회 (차량명, 업체명 포함)
-      const bookingsResult = await db.query<Booking>(`
-        SELECT
-          rb.id,
-          rb.vehicle_id,
-          rv.display_name as vehicle_name,
-          v.business_name as vendor_name,
-          rb.customer_name,
-          rb.customer_phone,
-          rb.pickup_date,
-          rb.dropoff_date,
-          rb.total_amount,
-          rb.status,
-          rb.created_at
-        FROM rentcar_bookings rb
-        INNER JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
-        INNER JOIN rentcar_vendors v ON rv.vendor_id = v.id
-        ORDER BY rb.created_at DESC
-        LIMIT 100
-      `);
-      setBookings(bookingsResult);
+      // 3. 모든 예약 조회 API (차량명, 업체명 포함)
+      const bookingsResponse = await fetch('http://localhost:3004/api/admin/rentcar/bookings');
+      const bookingsData = await bookingsResponse.json();
+      if (bookingsData.success && bookingsData.data) {
+        setBookings(bookingsData.data);
+      } else {
+        setBookings([]);
+      }
 
       console.log(`✅ 관리자 렌트카 데이터 로드 완료`);
-      console.log(`   업체: ${vendorsResult.length}개`);
-      console.log(`   차량: ${vehiclesResult.length}대`);
-      console.log(`   예약: ${bookingsResult.length}건`);
+      console.log(`   업체: ${vendorsData.data?.length || 0}개`);
+      console.log(`   차량: ${vehiclesData.data?.length || 0}대`);
+      console.log(`   예약: ${bookingsData.data?.length || 0}건`);
 
     } catch (error) {
       console.error('데이터 로드 실패:', error);
@@ -161,12 +139,17 @@ export function AdminRentcarPage() {
     if (!confirm(`정말 "${vehicleName}" 차량을 삭제하시겠습니까?`)) return;
 
     try {
-      await db.execute(`
-        DELETE FROM rentcar_vehicles WHERE id = ?
-      `, [vehicleId]);
+      const response = await fetch(`http://localhost:3004/api/admin/rentcar/vehicles/${vehicleId}`, {
+        method: 'DELETE'
+      });
 
-      toast.success('차량이 삭제되었습니다.');
-      loadAllData();
+      const result = await response.json();
+      if (result.success) {
+        toast.success('차량이 삭제되었습니다.');
+        loadAllData();
+      } else {
+        toast.error(result.message || '차량 삭제에 실패했습니다.');
+      }
     } catch (error) {
       console.error('차량 삭제 실패:', error);
       toast.error('차량 삭제에 실패했습니다.');
@@ -177,18 +160,17 @@ export function AdminRentcarPage() {
     if (!confirm(`정말 "${vendorName}" 업체를 삭제하시겠습니까?\n\n⚠️ 해당 업체의 모든 차량도 함께 삭제됩니다.`)) return;
 
     try {
-      // 1. 업체 차량 삭제
-      await db.execute(`
-        DELETE FROM rentcar_vehicles WHERE vendor_id = ?
-      `, [vendorId]);
+      const response = await fetch(`http://localhost:3004/api/admin/rentcar/vendors/${vendorId}`, {
+        method: 'DELETE'
+      });
 
-      // 2. 업체 삭제
-      await db.execute(`
-        DELETE FROM rentcar_vendors WHERE id = ?
-      `, [vendorId]);
-
-      toast.success('업체가 삭제되었습니다.');
-      loadAllData();
+      const result = await response.json();
+      if (result.success) {
+        toast.success('업체가 삭제되었습니다.');
+        loadAllData();
+      } else {
+        toast.error(result.message || '업체 삭제에 실패했습니다.');
+      }
     } catch (error) {
       console.error('업체 삭제 실패:', error);
       toast.error('업체 삭제에 실패했습니다.');

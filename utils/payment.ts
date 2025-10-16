@@ -17,7 +17,7 @@
  */
 
 import { logger } from './logger';
-import { db } from './database-cloud';
+import { db } from './database.js';
 import { AppError, ErrorCode } from './error-handler';
 
 // ============================================

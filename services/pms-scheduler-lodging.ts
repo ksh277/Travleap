@@ -35,7 +35,7 @@ async function getLodgingVendorsNeedingSync(): Promise<any[]> {
     const result = await conn.execute(`
       SELECT
         rv.id as vendor_id,
-        rv.company_name,
+        rv.business_name,
         pms.id as pms_id,
         pms.pms_provider,
         pms.api_endpoint,
@@ -69,7 +69,7 @@ async function syncLodgingVendor(vendor: any) {
   const conn = getConnection();
 
   try {
-    console.log(`🔄 [Lodging PMS] 동기화 시작 - ${vendor.company_name} (Provider: ${vendor.pms_provider})`);
+    console.log(`🔄 [Lodging PMS] 동기화 시작 - ${vendor.business_name} (Provider: ${vendor.pms_provider})`);
 
     const syncStartTime = new Date();
 
@@ -140,7 +140,7 @@ async function syncLodgingVendor(vendor: any) {
           WHERE id = ?
         `, [vendor.pms_id]);
 
-        console.log(`✅ [Lodging PMS] ${vendor.company_name} - 성공`);
+        console.log(`✅ [Lodging PMS] ${vendor.business_name} - 성공`);
         console.log(`   - Rooms: ${result.data?.roomsSynced || 0}`);
         console.log(`   - Rates: ${result.data?.ratesSynced || 0}`);
         console.log(`   - Availability: ${result.data?.availabilitySynced || 0}`);
@@ -160,11 +160,11 @@ async function syncLodgingVendor(vendor: any) {
         WHERE id = ?
       `, [apiError.message, jobId]);
 
-      console.error(`❌ [Lodging PMS] ${vendor.company_name} - 실패: ${apiError.message}`);
+      console.error(`❌ [Lodging PMS] ${vendor.business_name} - 실패: ${apiError.message}`);
     }
 
   } catch (error: any) {
-    console.error(`❌ [Lodging PMS] ${vendor.company_name} - 동기화 오류:`, error.message);
+    console.error(`❌ [Lodging PMS] ${vendor.business_name} - 동기화 오류:`, error.message);
   }
 }
 

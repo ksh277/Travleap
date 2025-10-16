@@ -20,7 +20,6 @@ import {
   Filter
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { db } from '../../utils/database-cloud';
 
 interface PageMedia {
   id: number;
@@ -62,14 +61,17 @@ export function MediaManagement() {
   const loadMedia = async () => {
     try {
       setLoading(true);
-      const result = await db.query(`
-        SELECT * FROM page_media
-        ORDER BY page_name, position_order
-      `);
-      setMedia(result);
+      const response = await fetch('http://localhost:3004/api/admin/media');
+      const result = await response.json();
+
+      if (result.success) {
+        setMedia(result.data);
+      } else {
+        throw new Error(result.message || '미디어 로드 실패');
+      }
     } catch (error) {
       console.error('Failed to load media:', error);
-      toast.error('미디어 로드 실패');
+      toast.error(error instanceof Error ? error.message : '미디어 로드 실패');
     } finally {
       setLoading(false);
     }
@@ -83,13 +85,33 @@ export function MediaManagement() {
       }
 
       if (editingMedia) {
-        // Update
-        await db.update('page_media', editingMedia.id, formData);
-        toast.success('미디어가 수정되었습니다');
+        // Update - API 호출
+        const response = await fetch(`http://localhost:3004/api/admin/media/${editingMedia.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          toast.success('미디어가 수정되었습니다');
+        } else {
+          throw new Error(result.message || '미디어 수정 실패');
+        }
       } else {
-        // Insert
-        await db.insert('page_media', formData);
-        toast.success('미디어가 추가되었습니다');
+        // Insert - API 호출
+        const response = await fetch('http://localhost:3004/api/admin/media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          toast.success('미디어가 추가되었습니다');
+        } else {
+          throw new Error(result.message || '미디어 추가 실패');
+        }
       }
 
       setIsDialogOpen(false);
@@ -97,7 +119,7 @@ export function MediaManagement() {
       loadMedia();
     } catch (error) {
       console.error('Failed to save media:', error);
-      toast.error('저장 실패');
+      toast.error(error instanceof Error ? error.message : '저장 실패');
     }
   };
 
@@ -105,12 +127,20 @@ export function MediaManagement() {
     if (!confirm(`"${section}" 미디어를 삭제하시겠습니까?`)) return;
 
     try {
-      await db.delete('page_media', id);
-      toast.success('미디어가 삭제되었습니다');
-      loadMedia();
+      const response = await fetch(`http://localhost:3004/api/admin/media/${id}`, {
+        method: 'DELETE'
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('미디어가 삭제되었습니다');
+        loadMedia();
+      } else {
+        throw new Error(result.message || '삭제 실패');
+      }
     } catch (error) {
       console.error('Failed to delete media:', error);
-      toast.error('삭제 실패');
+      toast.error(error instanceof Error ? error.message : '삭제 실패');
     }
   };
 
@@ -130,12 +160,22 @@ export function MediaManagement() {
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
     try {
-      await db.update('page_media', id, { is_active: !currentStatus });
-      toast.success(currentStatus ? '비활성화되었습니다' : '활성화되었습니다');
-      loadMedia();
+      const response = await fetch(`http://localhost:3004/api/admin/media/${id}/toggle`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(currentStatus ? '비활성화되었습니다' : '활성화되었습니다');
+        loadMedia();
+      } else {
+        throw new Error(result.message || '상태 변경 실패');
+      }
     } catch (error) {
       console.error('Failed to toggle status:', error);
-      toast.error('상태 변경 실패');
+      toast.error(error instanceof Error ? error.message : '상태 변경 실패');
     }
   };
 

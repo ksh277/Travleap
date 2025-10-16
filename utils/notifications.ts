@@ -11,7 +11,7 @@
  */
 
 import { logger } from './logger';
-import { db } from './database-cloud';
+import { db } from './database.js';
 
 // ============================================
 // 알림 타입 정의

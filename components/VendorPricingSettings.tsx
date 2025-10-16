@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../utils/database-cloud';
+import { toast } from 'sonner';
 
 interface PricingPolicy {
   id?: number;
@@ -81,180 +81,200 @@ export function VendorPricingSettings() {
   // 요금 정책 로드
   const loadPricingPolicies = async () => {
     try {
-      const result = await db.execute(
-        'SELECT * FROM rentcar_pricing_policies WHERE vendor_id = ? ORDER BY policy_type, id',
-        [vendorId]
-      );
-      setPricingPolicies(result.rows as PricingPolicy[]);
+      const response = await fetch(`http://localhost:3004/api/vendor/pricing/policies?userId=${vendorId}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setPricingPolicies(result.data);
+      } else {
+        throw new Error(result.message || '요금 정책 로드 실패');
+      }
     } catch (error) {
       console.error('요금 정책 로드 실패:', error);
+      toast.error(error instanceof Error ? error.message : '요금 정책 로드 실패');
     }
   };
 
   // 보험 상품 로드
   const loadInsurances = async () => {
     try {
-      const result = await db.execute(
-        'SELECT * FROM rentcar_insurance_products WHERE vendor_id = ? ORDER BY display_order',
-        [vendorId]
-      );
-      setInsurances(result.rows as InsuranceProduct[]);
+      const response = await fetch(`http://localhost:3004/api/vendor/insurance?userId=${vendorId}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setInsurances(result.data);
+      } else {
+        throw new Error(result.message || '보험 상품 로드 실패');
+      }
     } catch (error) {
       console.error('보험 상품 로드 실패:', error);
+      toast.error(error instanceof Error ? error.message : '보험 상품 로드 실패');
     }
   };
 
   // 추가 옵션 로드
   const loadOptions = async () => {
     try {
-      const result = await db.execute(
-        'SELECT * FROM rentcar_additional_options WHERE vendor_id = ? ORDER BY display_order',
-        [vendorId]
-      );
-      setOptions(result.rows as AdditionalOption[]);
+      const response = await fetch(`http://localhost:3004/api/vendor/options?userId=${vendorId}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setOptions(result.data);
+      } else {
+        throw new Error(result.message || '추가 옵션 로드 실패');
+      }
     } catch (error) {
       console.error('추가 옵션 로드 실패:', error);
+      toast.error(error instanceof Error ? error.message : '추가 옵션 로드 실패');
     }
   };
 
   // 요금 정책 추가
   const addPricingPolicy = async () => {
     try {
-      await db.execute(
-        `INSERT INTO rentcar_pricing_policies
-        (vendor_id, policy_type, min_days, max_days, discount_percentage,
-         day_of_week, price_multiplier, season_name, start_date, end_date,
-         season_multiplier, days_before_pickup, early_bird_discount, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          vendorId,
-          newPolicy.policy_type,
-          newPolicy.min_days || null,
-          newPolicy.max_days || null,
-          newPolicy.discount_percentage || null,
-          newPolicy.day_of_week || null,
-          newPolicy.price_multiplier || null,
-          newPolicy.season_name || null,
-          newPolicy.start_date || null,
-          newPolicy.end_date || null,
-          newPolicy.season_multiplier || null,
-          newPolicy.days_before_pickup || null,
-          newPolicy.early_bird_discount || null,
-          newPolicy.is_active
-        ]
-      );
-      alert('요금 정책이 추가되었습니다!');
-      loadPricingPolicies();
-      setNewPolicy({ policy_type: 'duration_discount', is_active: true });
+      const response = await fetch('http://localhost:3004/api/vendor/pricing/policies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: vendorId,
+          ...newPolicy
+        })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('요금 정책이 추가되었습니다!');
+        loadPricingPolicies();
+        setNewPolicy({ policy_type: 'duration_discount', is_active: true });
+      } else {
+        throw new Error(result.message || '추가 실패');
+      }
     } catch (error) {
       console.error('요금 정책 추가 실패:', error);
-      alert('추가 실패');
+      toast.error(error instanceof Error ? error.message : '추가 실패');
     }
   };
 
   // 보험 상품 추가
   const addInsurance = async () => {
     try {
-      await db.execute(
-        `INSERT INTO rentcar_insurance_products
-        (vendor_id, insurance_name, insurance_type, description, coverage_limit,
-         deductible, daily_price, is_included, is_active, display_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          vendorId,
-          newInsurance.insurance_name,
-          newInsurance.insurance_type,
-          newInsurance.description,
-          newInsurance.coverage_limit,
-          newInsurance.deductible,
-          newInsurance.daily_price,
-          newInsurance.is_included,
-          newInsurance.is_active,
-          newInsurance.display_order
-        ]
-      );
-      alert('보험 상품이 추가되었습니다!');
-      loadInsurances();
-      setNewInsurance({
-        insurance_type: 'basic',
-        is_included: false,
-        is_active: true,
-        display_order: 0
+      const response = await fetch('http://localhost:3004/api/vendor/insurance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: vendorId,
+          ...newInsurance
+        })
       });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('보험 상품이 추가되었습니다!');
+        loadInsurances();
+        setNewInsurance({
+          insurance_type: 'basic',
+          is_included: false,
+          is_active: true,
+          display_order: 0
+        });
+      } else {
+        throw new Error(result.message || '추가 실패');
+      }
     } catch (error) {
       console.error('보험 상품 추가 실패:', error);
-      alert('추가 실패');
+      toast.error(error instanceof Error ? error.message : '추가 실패');
     }
   };
 
   // 추가 옵션 추가
   const addOption = async () => {
     try {
-      await db.execute(
-        `INSERT INTO rentcar_additional_options
-        (vendor_id, option_name, option_type, description, daily_price,
-         one_time_price, quantity_available, is_active, display_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          vendorId,
-          newOption.option_name,
-          newOption.option_type,
-          newOption.description,
-          newOption.daily_price,
-          newOption.one_time_price,
-          newOption.quantity_available,
-          newOption.is_active,
-          newOption.display_order
-        ]
-      );
-      alert('추가 옵션이 등록되었습니다!');
-      loadOptions();
-      setNewOption({
-        option_type: 'navigation',
-        quantity_available: 999,
-        is_active: true,
-        display_order: 0
+      const response = await fetch('http://localhost:3004/api/vendor/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: vendorId,
+          ...newOption
+        })
       });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('추가 옵션이 등록되었습니다!');
+        loadOptions();
+        setNewOption({
+          option_type: 'navigation',
+          quantity_available: 999,
+          is_active: true,
+          display_order: 0
+        });
+      } else {
+        throw new Error(result.message || '등록 실패');
+      }
     } catch (error) {
       console.error('추가 옵션 등록 실패:', error);
-      alert('등록 실패');
+      toast.error(error instanceof Error ? error.message : '등록 실패');
     }
   };
 
   // 활성화/비활성화 토글
   const togglePolicyActive = async (id: number, currentStatus: boolean) => {
     try {
-      await db.execute(
-        'UPDATE rentcar_pricing_policies SET is_active = ? WHERE id = ?',
-        [!currentStatus, id]
-      );
-      loadPricingPolicies();
+      const response = await fetch(`http://localhost:3004/api/vendor/pricing/policies/${id}/toggle`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        loadPricingPolicies();
+      } else {
+        throw new Error(result.message || '상태 변경 실패');
+      }
     } catch (error) {
       console.error('상태 변경 실패:', error);
+      toast.error(error instanceof Error ? error.message : '상태 변경 실패');
     }
   };
 
   const toggleInsuranceActive = async (id: number, currentStatus: boolean) => {
     try {
-      await db.execute(
-        'UPDATE rentcar_insurance_products SET is_active = ? WHERE id = ?',
-        [!currentStatus, id]
-      );
-      loadInsurances();
+      const response = await fetch(`http://localhost:3004/api/vendor/insurance/${id}/toggle`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        loadInsurances();
+      } else {
+        throw new Error(result.message || '상태 변경 실패');
+      }
     } catch (error) {
       console.error('상태 변경 실패:', error);
+      toast.error(error instanceof Error ? error.message : '상태 변경 실패');
     }
   };
 
   const toggleOptionActive = async (id: number, currentStatus: boolean) => {
     try {
-      await db.execute(
-        'UPDATE rentcar_additional_options SET is_active = ? WHERE id = ?',
-        [!currentStatus, id]
-      );
-      loadOptions();
+      const response = await fetch(`http://localhost:3004/api/vendor/options/${id}/toggle`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        loadOptions();
+      } else {
+        throw new Error(result.message || '상태 변경 실패');
+      }
     } catch (error) {
       console.error('상태 변경 실패:', error);
+      toast.error(error instanceof Error ? error.message : '상태 변경 실패');
     }
   };
 
@@ -262,30 +282,60 @@ export function VendorPricingSettings() {
   const deletePolicy = async (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     try {
-      await db.execute('DELETE FROM rentcar_pricing_policies WHERE id = ?', [id]);
-      loadPricingPolicies();
+      const response = await fetch(`http://localhost:3004/api/vendor/pricing/policies/${id}`, {
+        method: 'DELETE'
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('삭제되었습니다');
+        loadPricingPolicies();
+      } else {
+        throw new Error(result.message || '삭제 실패');
+      }
     } catch (error) {
       console.error('삭제 실패:', error);
+      toast.error(error instanceof Error ? error.message : '삭제 실패');
     }
   };
 
   const deleteInsurance = async (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     try {
-      await db.execute('DELETE FROM rentcar_insurance_products WHERE id = ?', [id]);
-      loadInsurances();
+      const response = await fetch(`http://localhost:3004/api/vendor/insurance/${id}`, {
+        method: 'DELETE'
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('삭제되었습니다');
+        loadInsurances();
+      } else {
+        throw new Error(result.message || '삭제 실패');
+      }
     } catch (error) {
       console.error('삭제 실패:', error);
+      toast.error(error instanceof Error ? error.message : '삭제 실패');
     }
   };
 
   const deleteOption = async (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     try {
-      await db.execute('DELETE FROM rentcar_additional_options WHERE id = ?', [id]);
-      loadOptions();
+      const response = await fetch(`http://localhost:3004/api/vendor/options/${id}`, {
+        method: 'DELETE'
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('삭제되었습니다');
+        loadOptions();
+      } else {
+        throw new Error(result.message || '삭제 실패');
+      }
     } catch (error) {
       console.error('삭제 실패:', error);
+      toast.error(error instanceof Error ? error.message : '삭제 실패');
     }
   };
 

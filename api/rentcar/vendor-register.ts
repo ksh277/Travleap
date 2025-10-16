@@ -7,7 +7,7 @@
  * 3. 업체는 자기 차량만 관리 가능
  */
 
-import { db } from '../../utils/database-cloud';
+import { db } from '../../utils/database.js';
 import { authService } from '../../utils/auth';
 
 export interface VendorRegistrationRequest {
@@ -115,7 +115,7 @@ export async function registerVendor(
       request.contact_person,
       request.description || null,
       null, // logo_url
-      15.00, // commission_rate (기본 15%)
+      10.00, // commission_rate (기본 10% - admin_settings와 동일)
       'pending', // status (관리자 승인 대기)
       userId
     ]);
@@ -278,7 +278,7 @@ export async function createTemporaryVendorAccount(
       tempName,
       'pending', // 관리자 승인 대기
       userId,
-      15.00 // 기본 수수료율
+      10.00 // 기본 수수료율 10% (admin_settings와 동일)
     ]);
 
     const vendorId = vendorResult.insertId || 0;

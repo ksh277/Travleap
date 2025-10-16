@@ -11,7 +11,7 @@
 
 import { AppError, ErrorCode } from './error-handler';
 import { businessLogger } from './logger';
-import { db } from './database-cloud';
+import { db } from './database.js';
 
 // ============================================
 // 예약 상태 정의

@@ -5,7 +5,7 @@
 
 import { PMSService } from './service';
 import type { PMSVendor, PMSConfig } from '../../types/database';
-import { db } from '../database-cloud';
+import { db } from '../database.js';
 
 // 폴링 작업 상태
 interface PollingSyncStatus {

@@ -11,7 +11,7 @@
  * - bookings (예약 관리)
  */
 
-import { db } from '../utils/database-cloud';
+import { db } from '../utils/database.js';
 import { lockManager } from '../utils/lock-manager';
 
 // ============================================================

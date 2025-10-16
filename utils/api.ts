@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from './env';
-import { db } from './database-cloud'; // PlanetScale 클라우드 DB 사용
+import { db } from './database.js'; // PlanetScale 클라우드 DB 사용
 import { notifyDataChange } from '../hooks/useRealTimeData';
 import { notifyPartnerNewBooking, notifyCustomerBookingConfirmed } from './notification';
 // 인증 서비스 제거됨
@@ -193,8 +193,12 @@ export const api = {
   // 카테고리 관리
   getCategories: async (): Promise<Category[]> => {
     try {
-      const response = await db.select('categories');
-      return response || [];
+      const response = await fetch(`${API_BASE_URL}/api/categories`);
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+      const result = await response.json();
+      return result.data || [];
     } catch (error) {
       console.error('Failed to fetch categories:', error);
       return [];
@@ -204,73 +208,29 @@ export const api = {
   // 리스팅 관리
   getListings: async (filters?: SearchFilters): Promise<PaginatedResponse<TravelItem>> => {
     try {
-      // 직접 DB에서 가져오기 (활성화되고 게시된 상품만)
-      let sql = `
-        SELECT l.*, c.slug as category_slug, c.name_ko as category_name,
-               l.latitude, l.longitude
-        FROM listings l
-        LEFT JOIN categories c ON l.category_id = c.id
-        WHERE l.is_published = 1 AND l.is_active = 1
-      `;
-      const params: any[] = [];
+      // API 서버에서 가져오기
+      const params = new URLSearchParams();
 
-      // 카테고리 필터
-      if (filters?.category && filters.category !== 'all') {
-        sql += ' AND c.slug = ?';
-        params.push(filters.category);
+      if (filters?.category) params.append('category', filters.category);
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.sortBy) params.append('sortBy', filters.sortBy);
+      if (filters?.search) params.append('search', filters.search);
+      if (filters?.minPrice) params.append('minPrice', filters.minPrice.toString());
+      if (filters?.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
+      if (filters?.rating) params.append('rating', filters.rating.toString());
+
+      const url = `${API_BASE_URL}/api/listings?${params.toString()}`;
+      console.log('📡 Fetching listings from API:', url);
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
       }
 
-      // 가격 필터
-      if (filters?.minPrice) {
-        sql += ' AND l.price_from >= ?';
-        params.push(filters.minPrice);
-      }
-
-      if (filters?.maxPrice) {
-        sql += ' AND l.price_from <= ?';
-        params.push(filters.maxPrice);
-      }
-
-      // 평점 필터
-      if (filters?.rating) {
-        sql += ' AND l.rating_avg >= ?';
-        params.push(filters.rating);
-      }
-
-      // 검색어
-      if (filters?.search) {
-        sql += ' AND (l.title LIKE ? OR l.short_description LIKE ? OR l.location LIKE ?)';
-        const searchTerm = `%${filters.search}%`;
-        params.push(searchTerm, searchTerm, searchTerm);
-      }
-
-      // 정렬
-      switch (filters?.sortBy) {
-        case 'price':
-          sql += ' ORDER BY l.price_from ASC';
-          break;
-        case 'rating':
-          sql += ' ORDER BY l.rating_avg DESC';
-          break;
-        case 'newest':
-          sql += ' ORDER BY l.created_at DESC';
-          break;
-        case 'popular':
-        default:
-          sql += ' ORDER BY l.view_count DESC, l.booking_count DESC';
-          break;
-      }
-
-      // 페이징
-      const page = filters?.page || 1;
-      const limit = filters?.limit || 20;
-      const offset = (page - 1) * limit;
-      sql += ` LIMIT ${limit} OFFSET ${offset}`;
-
-      console.log('📡 Executing SQL:', sql, params);
-
-      const response = await db.query(sql, params);
-      const listings = response || [];
+      const result = await response.json();
+      const listings = result.data || [];
 
       // TravelItem 형식으로 변환
       const travelItems: TravelItem[] = listings.map((item: any) => ({
@@ -349,11 +309,20 @@ export const api = {
         return null;
       }
 
-      const response = await db.select('listings', { id });
-      const listing = response?.[0];
+      const response = await fetch(`${API_BASE_URL}/api/listings/${id}`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn(`Listing not found with ID: ${id}`);
+          return null;
+        }
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const result = await response.json();
+      const listing = result.data;
 
       if (!listing) {
-        console.warn(`Listing not found with ID: ${id}`);
         return null;
       }
 
@@ -364,42 +333,23 @@ export const api = {
           if (typeof data === 'string') return JSON.parse(data);
           return fallback;
         } catch (e) {
-          console.warn('JSON parse error:', e);
           return fallback;
         }
       };
 
-      // 기본 상품 정보
-      const result: any = {
+      // TravelItem 형식으로 변환
+      return {
         id: listing.id,
         title: listing.title || '상품',
         description_md: listing.description_md || listing.short_description || '',
         short_description: listing.short_description || '',
-        category: listing.category || '',
+        category: listing.category_slug || listing.category || '',
         category_id: listing.category_id || 1,
         price_from: listing.price_from || 0,
         price_to: listing.price_to || listing.price_from || 0,
         child_price: listing.child_price,
         infant_price: listing.infant_price,
-        images: (() => {
-          try {
-            if (Array.isArray(listing.images)) {
-              return listing.images;
-            }
-            if (typeof listing.images === 'string') {
-              // URL 문자열인 경우 배열로 감싸기
-              if (listing.images.startsWith('http://') || listing.images.startsWith('https://') || listing.images.startsWith('data:')) {
-                return [listing.images];
-              }
-              // JSON 배열인 경우 파싱
-              return JSON.parse(listing.images);
-            }
-            return ['https://via.placeholder.com/400x300'];
-          } catch (e) {
-            console.warn('Invalid JSON in images field:', listing.images);
-            return typeof listing.images === 'string' ? [listing.images] : ['https://via.placeholder.com/400x300'];
-          }
-        })(),
+        images: safeJsonParse(listing.images, ['https://via.placeholder.com/400x300']),
         location: listing.location || '',
         address: listing.address,
         rating_avg: listing.rating_avg || 0,
@@ -424,8 +374,6 @@ export const api = {
         created_at: listing.created_at,
         updated_at: listing.updated_at
       };
-
-      return result;
     } catch (error) {
       console.error('Failed to fetch listing:', error);
       return null;
@@ -1533,20 +1481,18 @@ export const api = {
   // 최신 리뷰 가져오기 (HomePage용)
   getRecentReviews: async (limit: number = 4): Promise<any[]> => {
     try {
-      // 실제 DB에서 가져오기 시도
-      const response = await db.query(`
-        SELECT r.*, l.title as listing_title, u.name as user_name,
-               l.location as listing_location, l.images as listing_images
-        FROM reviews r
-        LEFT JOIN listings l ON r.listing_id = l.id
-        LEFT JOIN users u ON r.user_id = u.id
-        WHERE r.is_verified = 1
-        ORDER BY r.created_at DESC
-        LIMIT ${limit}
-      `);
+      // API 서버에서 가져오기
+      const response = await fetch(`${API_BASE_URL}/api/reviews/recent?limit=${limit}`);
 
-      if (response && response.length > 0) {
-        return response.map((review: any) => {
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const result = await response.json();
+      const reviews = result.data || [];
+
+      if (reviews && reviews.length > 0) {
+        return reviews.map((review: any) => {
           // listing_images 안전하게 파싱
           let listingImages = [];
           if (review.listing_images) {

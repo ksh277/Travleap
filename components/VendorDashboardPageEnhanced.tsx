@@ -40,7 +40,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
-import { db } from '../utils/database-cloud';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Vehicle {
@@ -181,68 +180,58 @@ export function VendorDashboardPageEnhanced() {
     try {
       setLoading(true);
 
-      const vendorResult = await db.query(`
-        SELECT * FROM rentcar_vendors WHERE user_id = ? LIMIT 1
-      `, [user.id]);
+      // 1. 업체 정보 조회 API
+      const vendorResponse = await fetch(`http://localhost:3004/api/vendor/info?userId=${user.id}`);
+      const vendorData = await vendorResponse.json();
 
-      if (vendorResult.length === 0) {
+      if (!vendorData.success || !vendorData.data) {
         toast.error('업체 정보를 찾을 수 없습니다.');
         navigate('/login');
         return;
       }
 
-      const vendor = vendorResult[0];
+      const vendor = vendorData.data;
       setVendorInfo(vendor);
 
-      const vehiclesResult = await db.query(`
-        SELECT * FROM rentcar_vehicles
-        WHERE vendor_id = ?
-        ORDER BY created_at DESC
-      `, [vendor.id]);
+      // 2. 차량 목록 조회 API
+      const vehiclesResponse = await fetch(`http://localhost:3004/api/vendor/vehicles?userId=${user.id}`);
+      const vehiclesData = await vehiclesResponse.json();
 
-      setVehicles(vehiclesResult);
+      if (vehiclesData.success && vehiclesData.data) {
+        // Parse images from JSON string to array
+        const parsedVehicles = vehiclesData.data.map((v: any) => ({
+          ...v,
+          images: typeof v.images === 'string' ? JSON.parse(v.images) : v.images
+        }));
+        setVehicles(parsedVehicles);
+      } else {
+        setVehicles([]);
+      }
 
-      const bookingsResult = await db.query(`
-        SELECT
-          b.id,
-          b.listing_id as vehicle_id,
-          l.title as vehicle_name,
-          JSON_UNQUOTE(JSON_EXTRACT(b.customer_info, '$.name')) as customer_name,
-          JSON_UNQUOTE(JSON_EXTRACT(b.customer_info, '$.phone')) as customer_phone,
-          b.start_date as pickup_date,
-          b.end_date as dropoff_date,
-          b.total_amount,
-          b.status,
-          b.created_at
-        FROM bookings b
-        INNER JOIN listings l ON b.listing_id = l.id
-        WHERE l.partner_id = ?
-          AND l.category_id = (SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1)
-        ORDER BY b.created_at DESC
-        LIMIT 50
-      `, [vendor.id]);
+      // 3. 예약 목록 조회 API
+      const bookingsResponse = await fetch(`http://localhost:3004/api/vendor/bookings?userId=${user.id}`);
+      const bookingsData = await bookingsResponse.json();
 
-      setBookings(bookingsResult);
-      setFilteredBookings(bookingsResult);
+      if (bookingsData.success && bookingsData.data) {
+        setBookings(bookingsData.data);
+        setFilteredBookings(bookingsData.data);
+      } else {
+        setBookings([]);
+        setFilteredBookings([]);
+      }
 
-      const revenueResult = await db.query(`
-        SELECT
-          DATE(b.created_at) as date,
-          SUM(b.total_amount) as revenue
-        FROM bookings b
-        INNER JOIN listings l ON b.listing_id = l.id
-        WHERE l.partner_id = ?
-          AND l.category_id = (SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1)
-          AND b.status IN ('confirmed', 'completed')
-          AND b.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-        GROUP BY DATE(b.created_at)
-        ORDER BY date ASC
-      `, [vendor.id]);
+      // 4. 매출 통계 조회 API
+      const revenueResponse = await fetch(`http://localhost:3004/api/vendor/revenue?userId=${user.id}`);
+      const revenueData = await revenueResponse.json();
 
-      setRevenueData(revenueResult.map((r: any) => ({
-        date: new Date(r.date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }),
-        revenue: r.revenue
-      })));
+      if (revenueData.success && revenueData.data) {
+        setRevenueData(revenueData.data.map((r: any) => ({
+          date: new Date(r.date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }),
+          revenue: r.revenue
+        })));
+      } else {
+        setRevenueData([]);
+      }
 
       console.log(`✅ 업체 데이터 로드 완료: ${vendor.name}`);
     } catch (error) {
@@ -353,7 +342,7 @@ export function VendorDashboardPageEnhanced() {
   };
 
   const handleSaveVehicle = async () => {
-    if (!vendorInfo?.id) return;
+    if (!vendorInfo?.id || !user?.id) return;
 
     if (!vehicleForm.display_name.trim()) {
       toast.error('차량명을 입력해주세요.');
@@ -361,144 +350,57 @@ export function VendorDashboardPageEnhanced() {
     }
 
     try {
-      const imagesJson = JSON.stringify(vehicleForm.image_urls.length > 0
+      const image_urls = vehicleForm.image_urls.length > 0
         ? vehicleForm.image_urls
         : [
             'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
             'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop'
-          ]
-      );
+          ];
 
       if (isEditingVehicle && editingVehicleId) {
-        // 수정
-        await db.execute(`
-          UPDATE rentcar_vehicles
-          SET display_name = ?, vehicle_class = ?, seating_capacity = ?,
-              transmission_type = ?, fuel_type = ?, daily_rate_krw = ?,
-              weekly_rate_krw = ?, monthly_rate_krw = ?, mileage_limit_km = ?,
-              excess_mileage_fee_krw = ?, is_available = ?, images = ?,
-              insurance_included = ?, insurance_options = ?, available_options = ?,
-              pickup_location = ?, dropoff_location = ?, min_rental_days = ?,
-              max_rental_days = ?, instant_booking = ?,
-              updated_at = NOW()
-          WHERE id = ? AND vendor_id = ?
-        `, [
-          vehicleForm.display_name,
-          vehicleForm.vehicle_class,
-          vehicleForm.seating_capacity,
-          vehicleForm.transmission_type,
-          vehicleForm.fuel_type,
-          vehicleForm.daily_rate_krw,
-          vehicleForm.weekly_rate_krw,
-          vehicleForm.monthly_rate_krw,
-          vehicleForm.mileage_limit_km,
-          vehicleForm.excess_mileage_fee_krw,
-          vehicleForm.is_available ? 1 : 0,
-          imagesJson,
-          vehicleForm.insurance_included ? 1 : 0,
-          vehicleForm.insurance_options,
-          vehicleForm.available_options,
-          vehicleForm.pickup_location,
-          vehicleForm.dropoff_location,
-          vehicleForm.min_rental_days,
-          vehicleForm.max_rental_days,
-          vehicleForm.instant_booking ? 1 : 0,
-          editingVehicleId,
-          vendorInfo.id
-        ]);
+        // 수정 - PUT API
+        const response = await fetch(`http://localhost:3004/api/vendor/vehicles/${editingVehicleId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': user.id.toString()
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            ...vehicleForm,
+            image_urls
+          })
+        });
 
-        // listings 테이블도 업데이트
-        const categoryResult = await db.query(`SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1`);
-        const categoryId = categoryResult?.[0]?.id || 5;
-
-        await db.execute(`
-          UPDATE listings
-          SET title = ?,
-              short_description = ?,
-              description_md = ?,
-              price_from = ?,
-              price_to = ?,
-              max_capacity = ?,
-              images = ?,
-              is_published = ?,
-              updated_at = NOW()
-          WHERE partner_id = ? AND category_id = ?
-            AND title = (SELECT display_name FROM rentcar_vehicles WHERE id = ?)
-        `, [
-          vehicleForm.display_name,
-          `${vehicleForm.vehicle_class} / ${vehicleForm.transmission_type} / ${vehicleForm.fuel_type} / ${vehicleForm.seating_capacity}인승`,
-          `### 차량 정보\n- 차종: ${vehicleForm.vehicle_class}\n- 변속기: ${vehicleForm.transmission_type}\n- 연료: ${vehicleForm.fuel_type}\n- 정원: ${vehicleForm.seating_capacity}명\n- 주행거리 제한: ${vehicleForm.mileage_limit_km}km/일\n\n### 요금 정보\n- 1일: ₩${vehicleForm.daily_rate_krw?.toLocaleString()}\n- 주간: ₩${vehicleForm.weekly_rate_krw?.toLocaleString()}\n- 월간: ₩${vehicleForm.monthly_rate_krw?.toLocaleString()}\n- 초과 주행료: ₩${vehicleForm.excess_mileage_fee_krw}/km\n\n### 보험 정보\n- 보험 포함: ${vehicleForm.insurance_included ? '포함' : '별도'}\n- 보험 옵션: ${vehicleForm.insurance_options}\n\n### 차량 옵션\n${vehicleForm.available_options}`,
-          vehicleForm.daily_rate_krw,
-          vehicleForm.monthly_rate_krw,
-          vehicleForm.seating_capacity,
-          imagesJson,
-          vehicleForm.is_available ? 1 : 0,
-          vendorInfo.id,
-          categoryId,
-          editingVehicleId
-        ]);
-
-        toast.success('차량이 수정되었습니다!');
+        const result = await response.json();
+        if (result.success) {
+          toast.success('차량이 수정되었습니다!');
+        } else {
+          toast.error(result.message || '차량 수정에 실패했습니다.');
+          return;
+        }
       } else {
-        // 신규 등록
-        await db.execute(`
-          INSERT INTO rentcar_vehicles (
-            vendor_id, display_name, vehicle_class, seating_capacity,
-            transmission_type, fuel_type, daily_rate_krw, weekly_rate_krw,
-            monthly_rate_krw, mileage_limit_km, excess_mileage_fee_krw,
-            is_available, images, insurance_included, insurance_options,
-            available_options, pickup_location, dropoff_location, min_rental_days,
-            max_rental_days, instant_booking, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-        `, [
-          vendorInfo.id,
-          vehicleForm.display_name,
-          vehicleForm.vehicle_class,
-          vehicleForm.seating_capacity,
-          vehicleForm.transmission_type,
-          vehicleForm.fuel_type,
-          vehicleForm.daily_rate_krw,
-          vehicleForm.weekly_rate_krw,
-          vehicleForm.monthly_rate_krw,
-          vehicleForm.mileage_limit_km,
-          vehicleForm.excess_mileage_fee_krw,
-          vehicleForm.is_available ? 1 : 0,
-          imagesJson,
-          vehicleForm.insurance_included ? 1 : 0,
-          vehicleForm.insurance_options,
-          vehicleForm.available_options,
-          vehicleForm.pickup_location,
-          vehicleForm.dropoff_location,
-          vehicleForm.min_rental_days,
-          vehicleForm.max_rental_days,
-          vehicleForm.instant_booking ? 1 : 0
-        ]);
+        // 신규 등록 - POST API
+        const response = await fetch('http://localhost:3004/api/vendor/vehicles', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': user.id.toString()
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            ...vehicleForm,
+            image_urls
+          })
+        });
 
-        // listings 테이블에도 삽입
-        const categoryResult = await db.query(`SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1`);
-        const categoryId = categoryResult?.[0]?.id || 5;
-
-        await db.execute(`
-          INSERT INTO listings (
-            partner_id, category_id, title, short_description, description_md,
-            price_from, price_to, location, duration, max_capacity,
-            is_published, is_active, is_featured, images, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 0, ?, NOW(), NOW())
-        `, [
-          vendorInfo.id,
-          categoryId,
-          vehicleForm.display_name,
-          `${vehicleForm.vehicle_class} / ${vehicleForm.transmission_type} / ${vehicleForm.fuel_type} / ${vehicleForm.seating_capacity}인승`,
-          `### 차량 정보\n- 차종: ${vehicleForm.vehicle_class}\n- 변속기: ${vehicleForm.transmission_type}\n- 연료: ${vehicleForm.fuel_type}\n- 정원: ${vehicleForm.seating_capacity}명\n- 주행거리 제한: ${vehicleForm.mileage_limit_km}km/일\n\n### 요금 정보\n- 1일: ₩${vehicleForm.daily_rate_krw?.toLocaleString()}\n- 주간: ₩${vehicleForm.weekly_rate_krw?.toLocaleString()}\n- 월간: ₩${vehicleForm.monthly_rate_krw?.toLocaleString()}\n- 초과 주행료: ₩${vehicleForm.excess_mileage_fee_krw}/km\n\n### 보험 정보\n- 보험 포함: ${vehicleForm.insurance_included ? '포함' : '별도'}\n- 보험 옵션: ${vehicleForm.insurance_options}\n\n### 차량 옵션\n${vehicleForm.available_options}`,
-          vehicleForm.daily_rate_krw,
-          vehicleForm.monthly_rate_krw,
-          '신안군, 전라남도',
-          '1일~',
-          vehicleForm.seating_capacity,
-          imagesJson
-        ]);
-
-        toast.success('차량이 등록되었습니다!');
+        const result = await response.json();
+        if (result.success) {
+          toast.success('차량이 등록되었습니다!');
+        } else {
+          toast.error(result.message || '차량 등록에 실패했습니다.');
+          return;
+        }
       }
 
       handleCancelForm();
@@ -511,23 +413,24 @@ export function VendorDashboardPageEnhanced() {
 
   const handleDeleteVehicle = async (vehicleId: number) => {
     if (!confirm('정말 이 차량을 삭제하시겠습니까?')) return;
+    if (!user?.id) return;
 
     try {
-      const vehicleInfo = vehicles.find(v => v.id === vehicleId);
+      // DELETE API
+      const response = await fetch(`http://localhost:3004/api/vendor/vehicles/${vehicleId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-id': user.id.toString()
+        }
+      });
 
-      await db.execute(`
-        DELETE FROM rentcar_vehicles WHERE id = ? AND vendor_id = ?
-      `, [vehicleId, vendorInfo?.id]);
-
-      if (vehicleInfo) {
-        await db.execute(`
-          DELETE FROM listings
-          WHERE partner_id = ? AND title = ? AND category_id = (SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1)
-        `, [vendorInfo?.id, vehicleInfo.display_name]);
+      const result = await response.json();
+      if (result.success) {
+        toast.success('차량이 삭제되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.message || '차량 삭제에 실패했습니다.');
       }
-
-      toast.success('차량이 삭제되었습니다.');
-      loadVendorData();
     } catch (error) {
       console.error('차량 삭제 실패:', error);
       toast.error('차량 삭제에 실패했습니다.');
@@ -535,23 +438,29 @@ export function VendorDashboardPageEnhanced() {
   };
 
   const toggleVehicleAvailability = async (vehicleId: number, currentStatus: boolean) => {
+    if (!user?.id) return;
+
     try {
-      await db.execute(`
-        UPDATE rentcar_vehicles
-        SET is_available = ?, updated_at = NOW()
-        WHERE id = ? AND vendor_id = ?
-      `, [currentStatus ? 0 : 1, vehicleId, vendorInfo?.id]);
+      // PATCH API - Toggle availability
+      const response = await fetch(`http://localhost:3004/api/vendor/vehicles/${vehicleId}/availability`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id.toString()
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          is_available: !currentStatus
+        })
+      });
 
-      // listings 테이블도 업데이트
-      await db.execute(`
-        UPDATE listings l
-        INNER JOIN rentcar_vehicles rv ON l.title = rv.display_name
-        SET l.is_published = ?
-        WHERE rv.id = ? AND l.partner_id = ?
-      `, [currentStatus ? 0 : 1, vehicleId, vendorInfo?.id]);
-
-      toast.success(currentStatus ? '차량이 예약 불가로 변경되었습니다.' : '차량이 예약 가능으로 변경되었습니다.');
-      loadVendorData();
+      const result = await response.json();
+      if (result.success) {
+        toast.success(currentStatus ? '차량이 예약 불가로 변경되었습니다.' : '차량이 예약 가능으로 변경되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.message || '상태 변경에 실패했습니다.');
+      }
     } catch (error) {
       console.error('상태 변경 실패:', error);
       toast.error('상태 변경에 실패했습니다.');
@@ -561,7 +470,7 @@ export function VendorDashboardPageEnhanced() {
   // CSV 업로드
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !user?.id) return;
 
     if (!file.name.endsWith('.csv')) {
       toast.error('CSV 파일만 업로드할 수 있습니다.');
@@ -597,7 +506,20 @@ export function VendorDashboardPageEnhanced() {
             weekly_rate_krw: parseInt(values[9]) || 300000,
             monthly_rate_krw: parseInt(values[10]) || 1000000,
             mileage_limit_km: parseInt(values[11]) || 200,
-            excess_mileage_fee_krw: parseInt(values[12]) || 100
+            excess_mileage_fee_krw: parseInt(values[12]) || 100,
+            is_available: true,
+            image_urls: [
+              'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
+              'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop'
+            ],
+            insurance_included: true,
+            insurance_options: '자차보험, 대인배상, 대물배상',
+            available_options: 'GPS, 블랙박스',
+            pickup_location: '신안군 렌트카 본점',
+            dropoff_location: '신안군 렌트카 본점',
+            min_rental_days: 1,
+            max_rental_days: 30,
+            instant_booking: true
           };
 
           if (!vehicleData.display_name.trim()) {
@@ -605,58 +527,25 @@ export function VendorDashboardPageEnhanced() {
             continue;
           }
 
-          const imagesJson = JSON.stringify([
-            'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop'
-          ]);
+          // POST API로 차량 등록
+          const response = await fetch('http://localhost:3004/api/vendor/vehicles', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-id': user.id.toString()
+            },
+            body: JSON.stringify({
+              userId: user.id,
+              ...vehicleData
+            })
+          });
 
-          await db.execute(`
-            INSERT INTO rentcar_vehicles (
-              vendor_id, display_name, vehicle_class, seating_capacity,
-              transmission_type, fuel_type, daily_rate_krw, weekly_rate_krw,
-              monthly_rate_krw, mileage_limit_km, excess_mileage_fee_krw,
-              is_available, images, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), NOW())
-          `, [
-            vendorInfo?.id,
-            vehicleData.display_name,
-            vehicleData.vehicle_class,
-            vehicleData.seating_capacity,
-            vehicleData.transmission_type,
-            vehicleData.fuel_type,
-            vehicleData.daily_rate_krw,
-            vehicleData.weekly_rate_krw,
-            vehicleData.monthly_rate_krw,
-            vehicleData.mileage_limit_km,
-            vehicleData.excess_mileage_fee_krw,
-            imagesJson
-          ]);
-
-          // listings 테이블에도 삽입
-          const categoryResult = await db.query(`SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1`);
-          const categoryId = categoryResult?.[0]?.id || 5;
-
-          await db.execute(`
-            INSERT INTO listings (
-              partner_id, category_id, title, short_description, description_md,
-              price_from, price_to, location, duration, max_capacity,
-              is_published, is_active, is_featured, images, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 0, ?, NOW(), NOW())
-          `, [
-            vendorInfo?.id,
-            categoryId,
-            vehicleData.display_name,
-            `${vehicleData.vehicle_class} / ${vehicleData.transmission_type} / ${vehicleData.fuel_type} / ${vehicleData.seating_capacity}인승`,
-            `### 차량 정보\n- 차종: ${vehicleData.vehicle_class}\n- 변속기: ${vehicleData.transmission_type}\n- 연료: ${vehicleData.fuel_type}\n- 정원: ${vehicleData.seating_capacity}명\n- 주행거리 제한: ${vehicleData.mileage_limit_km}km/일\n\n### 요금 정보\n- 1일: ₩${vehicleData.daily_rate_krw?.toLocaleString()}\n- 주간: ₩${vehicleData.weekly_rate_krw?.toLocaleString()}\n- 월간: ₩${vehicleData.monthly_rate_krw?.toLocaleString()}\n- 초과 주행료: ₩${vehicleData.excess_mileage_fee_krw}/km`,
-            vehicleData.daily_rate_krw,
-            vehicleData.monthly_rate_krw,
-            '신안군, 전라남도',
-            '1일~',
-            vehicleData.seating_capacity,
-            imagesJson
-          ]);
-
-          successCount++;
+          const result = await response.json();
+          if (result.success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
         } catch (err) {
           console.error('차량 등록 실패:', err);
           errorCount++;
@@ -761,34 +650,43 @@ export function VendorDashboardPageEnhanced() {
   };
 
   const handleSaveInfo = async () => {
-    if (!vendorInfo?.id) return;
+    if (!vendorInfo?.id || !user?.id) return;
 
     try {
-      await db.execute(`
-        UPDATE rentcar_vendors
-        SET name = ?, contact_person = ?, contact_email = ?, contact_phone = ?, address = ?
-        WHERE id = ?
-      `, [
-        editedInfo.name,
-        editedInfo.contact_person,
-        editedInfo.contact_email,
-        editedInfo.contact_phone,
-        editedInfo.address,
-        vendorInfo.id
-      ]);
-
-      setVendorInfo({
-        ...vendorInfo,
-        name: editedInfo.name!,
-        contact_person: editedInfo.contact_person!,
-        contact_email: editedInfo.contact_email!,
-        contact_phone: editedInfo.contact_phone!,
-        address: editedInfo.address!
+      // PUT API로 업체 정보 수정
+      const response = await fetch('http://localhost:3004/api/vendor/info', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id.toString()
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          name: editedInfo.name,
+          contact_person: editedInfo.contact_person,
+          contact_email: editedInfo.contact_email,
+          contact_phone: editedInfo.contact_phone,
+          address: editedInfo.address
+        })
       });
 
-      setIsEditingInfo(false);
-      setEditedInfo({});
-      toast.success('업체 정보가 수정되었습니다!');
+      const result = await response.json();
+      if (result.success) {
+        setVendorInfo({
+          ...vendorInfo,
+          name: editedInfo.name!,
+          contact_person: editedInfo.contact_person!,
+          contact_email: editedInfo.contact_email!,
+          contact_phone: editedInfo.contact_phone!,
+          address: editedInfo.address!
+        });
+
+        setIsEditingInfo(false);
+        setEditedInfo({});
+        toast.success('업체 정보가 수정되었습니다!');
+      } else {
+        toast.error(result.message || '정보 수정에 실패했습니다.');
+      }
     } catch (error) {
       console.error('정보 수정 실패:', error);
       toast.error('정보 수정에 실패했습니다.');

@@ -1,4 +1,4 @@
-import { db } from '../utils/database-cloud';
+import { db } from '../utils/database.js';
 
 export interface NewsletterSubscriber {
   id: number;

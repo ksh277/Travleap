@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { JWTUtils, CookieUtils, StorageUtils, type JWTPayload } from '../utils/jwt';
+import { JWTClientUtils, CookieUtils, StorageUtils, type JWTPayload } from '../utils/jwt-client';
 import type { User as DatabaseUser } from '../types/database';
 
 // useAuth에서 사용하는 간소화된 User 타입
@@ -41,10 +41,16 @@ const notifyListeners = () => {
   });
 };
 
-// 토큰에서 사용자 정보 복원
+// 토큰에서 사용자 정보 복원 (클라이언트에서는 디코딩만, 검증은 서버에서)
 const restoreUserFromToken = (token: string): User | null => {
-  const payload = JWTUtils.verifyToken(token);
+  const payload = JWTClientUtils.decodeToken(token);
   if (!payload) return null;
+
+  // 토큰 만료 확인
+  if (JWTClientUtils.isTokenExpired(token)) {
+    console.log('🔒 토큰이 만료되었습니다');
+    return null;
+  }
 
   return {
     id: payload.userId,
@@ -81,18 +87,10 @@ const restoreSession = () => {
     }
 
     // 4. 토큰 갱신 필요 여부 확인
-    if (JWTUtils.needsRefresh(token)) {
-      console.log('🔄 토큰 갱신 중...');
-      const newToken = JWTUtils.refreshToken(token);
-      if (newToken) {
-        token = newToken;
-        saveSession(token);
-        console.log('✅ 토큰 갱신 완료');
-      } else {
-        console.log('❌ 토큰 갱신 실패');
-        clearSession();
-        return;
-      }
+    if (JWTClientUtils.needsRefresh(token)) {
+      console.log('🔄 토큰 갱신 필요 - 서버에 요청...');
+      // TODO: 서버 API로 토큰 갱신 요청
+      // 지금은 일단 기존 토큰 사용
     }
 
     // 5. 전역 상태 복원
@@ -193,73 +191,34 @@ export const useAuth = () => {
     console.log('🔑 로그인 시도:', email);
 
     try {
-      // DB에서 직접 조회
-      const { db } = await import('../utils/database-cloud');
-
-      console.log('📊 DB 쿼리 실행...');
-      const users = await db.query<any>(`
-        SELECT * FROM users WHERE email = ? LIMIT 1
-      `, [email]);
-
-      console.log('📊 쿼리 결과:', users);
-
-      if (!users || users.length === 0) {
-        console.log('❌ 사용자를 찾을 수 없음');
-        return false;
-      }
-
-      const dbUser = users[0];
-      console.log('✅ 사용자 찾음:', {
-        id: dbUser.id,
-        email: dbUser.email,
-        role: dbUser.role,
-        password_hash: dbUser.password_hash
+      // 서버 API로 로그인 요청
+      const response = await fetch('http://localhost:3004/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
 
-      // 비밀번호 검증 (bcrypt와 간단한 해시 모두 지원)
-      let passwordValid = false;
-      const bcrypt = await import('bcryptjs');
+      const data = await response.json();
 
-      // 1. bcrypt 해시 체크 ($2a$, $2b$, $2y$ 모두 지원)
-      if (dbUser.password_hash && (
-        dbUser.password_hash.startsWith('$2a$') ||
-        dbUser.password_hash.startsWith('$2b$') ||
-        dbUser.password_hash.startsWith('$2y$')
-      )) {
-        console.log('🔐 bcrypt 비밀번호 검증 중...');
-        passwordValid = await bcrypt.compare(password, dbUser.password_hash);
-        console.log('🔐 bcrypt 검증 결과:', passwordValid);
-      }
-      // 2. 간단한 해시 체크
-      else {
-        const simpleHash = `hashed_${password}`;
-        passwordValid = dbUser.password_hash === simpleHash;
-        console.log('🔐 간단한 해시 검증 결과:', passwordValid);
-      }
-
-      if (!passwordValid) {
-        console.log('❌ 비밀번호 불일치');
+      if (!response.ok || !data.success) {
+        console.log('❌ 로그인 실패:', data.message);
         return false;
       }
 
-      // 로그인 성공
+      const { token, user: serverUser } = data;
+
+      // 사용자 정보 설정
       const user: User = {
-        id: dbUser.id,
-        email: dbUser.email,
-        name: dbUser.name,
-        phone: dbUser.phone,
-        role: dbUser.role
+        id: serverUser.id,
+        email: serverUser.email,
+        name: serverUser.name,
+        phone: serverUser.phone,
+        role: serverUser.role
       };
 
-      // JWT 토큰 생성 (7일 유효)
-      const token = JWTUtils.generateToken({
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      });
-
-      console.log('🔑 JWT 토큰 생성:', token.substring(0, 50) + '...');
+      console.log('🔑 서버에서 JWT 토큰 받음:', token.substring(0, 50) + '...');
 
       // 전역 상태 업데이트
       globalState = {
@@ -289,27 +248,43 @@ export const useAuth = () => {
     console.log('✅ 로그아웃 완료');
   }, []);
 
-  // 토큰 유효성 확인 함수
+  // 토큰 유효성 확인 함수 (클라이언트에서는 만료 여부만 체크)
   const validateToken = useCallback(() => {
     if (!globalState.token) return false;
-    return JWTUtils.verifyToken(globalState.token) !== null;
+    return !JWTClientUtils.isTokenExpired(globalState.token);
   }, []);
 
-  // 토큰 갱신 함수
-  const refreshToken = useCallback(() => {
+  // 토큰 갱신 함수 (서버 API 호출)
+  const refreshToken = useCallback(async () => {
     if (!globalState.token) return false;
 
-    const newToken = JWTUtils.refreshToken(globalState.token);
-    if (newToken) {
-      globalState.token = newToken;
-      saveSession(newToken);
-      console.log('🔄 토큰 갱신 완료');
-      return true;
-    }
+    try {
+      // 서버 API로 토큰 갱신 요청
+      const response = await fetch('http://localhost:3004/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${globalState.token}`
+        },
+      });
 
-    console.log('❌ 토큰 갱신 실패');
-    logout();
-    return false;
+      const data = await response.json();
+
+      if (data.success && data.token) {
+        globalState.token = data.token;
+        saveSession(data.token);
+        console.log('🔄 토큰 갱신 완료');
+        return true;
+      }
+
+      console.log('❌ 토큰 갱신 실패');
+      logout();
+      return false;
+    } catch (error) {
+      console.error('❌ 토큰 갱신 오류:', error);
+      logout();
+      return false;
+    }
   }, [logout]);
 
   console.log('🎯 useAuth 반환 상태:', {

@@ -35,7 +35,6 @@ import {
 import { toast } from 'sonner';
 import { api, type TravelItem } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
-import { db } from '../utils/database-cloud';
 
 interface Booking {
   id: string;
@@ -346,26 +345,38 @@ export function MyPage() {
     if (!user) return;
 
     try {
-      // DB에 저장
-      const updateData: any = {
-        name: editProfile.name,
-        phone: editProfile.phone,
-        birth_date: editProfile.birthDate || null,
-        bio: editProfile.bio || null,
-        avatar: editProfile.avatar || null
-      };
+      // API를 통해 저장
+      const response = await fetch('http://localhost:3004/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id.toString()
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          name: editProfile.name,
+          phone: editProfile.phone,
+          birth_date: editProfile.birthDate || null,
+          bio: editProfile.bio || null,
+          avatar: editProfile.avatar || null
+        })
+      });
 
-      await db.update('users', Number(user.id), updateData);
+      const result = await response.json();
 
-      // localStorage에도 저장 (백업)
-      localStorage.setItem(`userProfile_${user.id}`, JSON.stringify(editProfile));
+      if (result.success) {
+        // localStorage에도 저장 (백업)
+        localStorage.setItem(`userProfile_${user.id}`, JSON.stringify(editProfile));
 
-      setUserProfile(editProfile);
-      setIsEditingProfile(false);
-      toast.success('프로필이 업데이트되었습니다.');
+        setUserProfile(editProfile);
+        setIsEditingProfile(false);
+        toast.success('프로필이 업데이트되었습니다.');
+      } else {
+        throw new Error(result.message || '프로필 저장 실패');
+      }
     } catch (error) {
       console.error('프로필 저장 오류:', error);
-      toast.error('프로필 저장에 실패했습니다.');
+      toast.error(error instanceof Error ? error.message : '프로필 저장에 실패했습니다.');
     }
   };
 

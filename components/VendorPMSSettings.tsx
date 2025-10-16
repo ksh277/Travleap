@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
-import { db } from '../utils/database-cloud';
 
 interface VendorPMSConfig {
   id: number;
@@ -77,22 +76,17 @@ export function VendorPMSSettings() {
     try {
       setLoading(true);
 
-      // 1. 벤더 ID 가져오기
-      const vendorResult = await db.query(`
-        SELECT id, pms_provider, pms_api_key, pms_api_secret, pms_endpoint,
-               pms_sync_enabled, pms_last_sync, pms_sync_interval
-        FROM rentcar_vendors
-        WHERE user_id = ?
-        LIMIT 1
-      `, [user.id]);
+      // 1. PMS 설정 가져오기 - API 호출
+      const configResponse = await fetch(`http://localhost:3004/api/vendor/pms-config?userId=${user.id}`);
+      const configResult = await configResponse.json();
 
-      if (vendorResult.length === 0) {
+      if (!configResult.success || !configResult.data) {
         toast.error('업체 정보를 찾을 수 없습니다.');
         navigate('/vendor/dashboard');
         return;
       }
 
-      const vendor = vendorResult[0];
+      const vendor = configResult.data;
       setVendorId(vendor.id);
       setPmsConfig(vendor);
 
@@ -104,28 +98,24 @@ export function VendorPMSSettings() {
       setSyncEnabled(vendor.pms_sync_enabled || false);
       setSyncInterval(vendor.pms_sync_interval || 3600);
 
-      // 2. 동기화 로그 가져오기
-      const logsResult = await db.query(`
-        SELECT id, sync_status, vehicles_added, vehicles_updated, vehicles_deleted,
-               error_message, created_at
-        FROM pms_sync_logs
-        WHERE vendor_id = ?
-        ORDER BY created_at DESC
-        LIMIT 20
-      `, [vendor.id]);
+      // 2. 동기화 로그 가져오기 - API 호출
+      const logsResponse = await fetch(`http://localhost:3004/api/vendor/pms/logs?userId=${user.id}`);
+      const logsResult = await logsResponse.json();
 
-      setSyncLogs(logsResult);
+      if (logsResult.success) {
+        setSyncLogs(logsResult.data);
+      }
 
     } catch (error) {
       console.error('PMS 설정 로드 실패:', error);
-      toast.error('설정을 불러오는데 실패했습니다.');
+      toast.error(error instanceof Error ? error.message : '설정을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSaveConfig = async () => {
-    if (!vendorId) return;
+    if (!user?.id) return;
 
     if (!provider) {
       toast.error('PMS 제공사를 선택해주세요.');
@@ -143,23 +133,36 @@ export function VendorPMSSettings() {
     }
 
     try {
-      await db.execute(`
-        UPDATE rentcar_vendors
-        SET pms_provider = ?,
-            pms_api_key = ?,
-            pms_api_secret = ?,
-            pms_endpoint = ?,
-            pms_sync_enabled = ?,
-            pms_sync_interval = ?
-        WHERE id = ?
-      `, [provider, apiKey, apiSecret || null, endpoint || null, syncEnabled ? 1 : 0, syncInterval, vendorId]);
+      // API 호출
+      const response = await fetch('http://localhost:3004/api/vendor/pms-config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id.toString()
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          provider,
+          apiKey,
+          apiSecret: apiSecret || null,
+          endpoint: endpoint || null,
+          syncEnabled,
+          syncInterval
+        })
+      });
 
-      toast.success('PMS 설정이 저장되었습니다!');
-      loadPMSConfig();
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('PMS 설정이 저장되었습니다!');
+        loadPMSConfig();
+      } else {
+        throw new Error(result.message || '설정 저장 실패');
+      }
 
     } catch (error) {
       console.error('PMS 설정 저장 실패:', error);
-      toast.error('설정 저장에 실패했습니다.');
+      toast.error(error instanceof Error ? error.message : '설정 저장에 실패했습니다.');
     }
   };
 

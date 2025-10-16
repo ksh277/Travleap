@@ -62,7 +62,7 @@ export const RentcarManagement: React.FC = () => {
     contact_phone: '',
     description: '',
     logo_url: '',
-    commission_rate: 15
+    commission_rate: 10
   });
 
   // State for vehicles
@@ -201,7 +201,7 @@ export const RentcarManagement: React.FC = () => {
         contact_phone: '',
         description: '',
         logo_url: '',
-        commission_rate: 15
+        commission_rate: 10
       });
     }
     setIsVendorDialogOpen(true);
@@ -1436,9 +1436,9 @@ export const RentcarManagement: React.FC = () => {
                 <Label>수수료율 (%)</Label>
                 <Input
                   type="number"
-                  value={vendorFormData.commission_rate || 15}
+                  value={vendorFormData.commission_rate || 10}
                   onChange={(e) => setVendorFormData({ ...vendorFormData, commission_rate: parseFloat(e.target.value) })}
-                  placeholder="15"
+                  placeholder="10"
                 />
               </div>
             </div>

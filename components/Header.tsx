@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useCategories } from '../hooks/useCategories';
 import {
   ShoppingBasket,
   ChevronDown,
@@ -65,16 +66,15 @@ export function Header({
   const [partnersOnly, setPartnersOnly] = useState(false);
   const [sponsorFirst, setSponsorFirst] = useState(false);
 
-  const categories = [
-    { id: "tour", name: t('travel', selectedLanguage), icon: "🗺️" },
-    { id: "rentcar", name: t('camping', selectedLanguage), icon: "🚗" },
-    { id: "accommodation", name: t('accommodation', selectedLanguage), icon: "🏨" },
-    { id: "food", name: t('food', selectedLanguage), icon: "🍽️" },
-    { id: "attraction", name: t('tourism', selectedLanguage), icon: "📷" },
-    { id: "popup", name: t('popup', selectedLanguage), icon: "🎪" },
-    { id: "event", name: t('events', selectedLanguage), icon: "📅" },
-    { id: "experience", name: t('experience', selectedLanguage), icon: "🎡" },
-  ];
+  // Fetch categories from DB
+  const { categories: dbCategories, loading: categoriesLoading } = useCategories();
+
+  // Map DB categories to component format - use name_ko for Korean, name_en for English
+  const categories = dbCategories.map(cat => ({
+    id: cat.slug,
+    name: selectedLanguage === 'ko' ? cat.name_ko : cat.name_en,
+    icon: cat.icon || "📦"
+  }));
 
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();

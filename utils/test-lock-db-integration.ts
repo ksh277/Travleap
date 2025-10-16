@@ -4,7 +4,7 @@
  * 실제 PlanetScale DB에 연결하여 중복 예약 방지를 테스트
  */
 
-import { db } from './database-cloud';
+import { db } from './database.js';
 import { lockManager } from './lock-manager';
 import { createBooking, cancelBooking } from '../api/lodging';
 import type { LodgingBooking } from '../api/lodging';

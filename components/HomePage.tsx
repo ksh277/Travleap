@@ -633,13 +633,15 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
             </div>
           )}
         </section>
+      </div>
 
-        {/* 배너 섹션 */}
-        <section>
-          <HomeBanner autoSlideInterval={5000} />
-        </section>
+      {/* 배너 섹션 - Full Width (Header처럼) */}
+      <section className="w-full">
+        <HomeBanner autoSlideInterval={5000} />
+      </section>
 
-        {/* 주변 숙소 */}
+      {/* 주변 숙소 */}
+      <div className="container mx-auto px-4 py-12 md:py-16">
         <section>
           <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 mb-6 md:mb-8">주변 숙소 보기</h2>
           {loading ? (
