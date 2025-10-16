@@ -12,22 +12,68 @@ const getDbConnection = () => {
 module.exports = async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  const conn = getDbConnection();
+
+  // POST - Create new partner
+  if (req.method === 'POST') {
+    try {
+      const partnerData = req.body;
+
+      const sql = `
+        INSERT INTO partners (
+          business_name, contact_name, email, phone, business_number,
+          website, instagram, description, services, tier,
+          is_verified, is_featured, status, lat, lng,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `;
+
+      const result = await conn.execute(sql, [
+        partnerData.business_name || '',
+        partnerData.contact_name || '',
+        partnerData.email || '',
+        partnerData.phone || '',
+        partnerData.business_number || '',
+        partnerData.website || '',
+        partnerData.instagram || '',
+        partnerData.description || '',
+        partnerData.services || '',
+        partnerData.tier || 'bronze',
+        partnerData.is_verified || false,
+        partnerData.is_featured || false,
+        partnerData.status || 'pending',
+        partnerData.lat || null,
+        partnerData.lng || null
+      ]);
+
+      res.status(201).json({
+        success: true,
+        data: { id: result.insertId, ...partnerData },
+        message: '파트너가 생성되었습니다.'
+      });
+    } catch (error) {
+      console.error('API POST /admin/partners error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create partner',
+        errorMessage: error.message || 'Unknown error'
+      });
+    }
+    return;
   }
 
-  try {
-    const conn = getDbConnection();
-
-    // Query parameters for filtering
-    const { status, tier, business_name, page = '1', limit = '20' } = req.query;
+  // GET - List partners
+  if (req.method === 'GET') {
+    try {
+      // Query parameters for filtering
+      const { status, tier, business_name, page = '1', limit = '20' } = req.query;
 
     let sql = `
       SELECT p.*, u.name as user_name, u.email as user_email
