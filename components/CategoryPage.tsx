@@ -566,12 +566,12 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
               return (
                 <Card
                   key={item.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[420px] flex flex-col"
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[450px] flex flex-col"
                   onClick={() => navigate(`/detail/${item.id}`)}
                 >
                   <div className="flex flex-col h-full">
                     {/* 이미지 */}
-                    <div className="relative w-full h-48 flex-shrink-0">
+                    <div className="relative w-full h-52 flex-shrink-0">
                       <ImageWithFallback
                         src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
                         alt={item.title}
