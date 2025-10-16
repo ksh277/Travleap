@@ -1,0 +1,1323 @@
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { Button } from './ui/button';
+import { Card, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Input } from './ui/input';
+import { Checkbox } from './ui/checkbox';
+import { Slider } from './ui/slider';
+import {
+  Star,
+  MapPin,
+  LayoutGrid,
+  List,
+  Clock,
+  Heart,
+  Share2,
+  Filter,
+  Search,
+  X,
+  ChevronDown,
+  ArrowUpDown,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  SlidersHorizontal,
+  ArrowLeftRight
+} from 'lucide-react';
+import { ImageWithFallback } from './figma/ImageWithFallback';
+import { formatPrice } from '../utils/translations';
+import { api, type TravelItem } from '../utils/api';
+import { toast } from 'sonner';
+import { AccommodationCard } from './cards/AccommodationCard';
+import { getGoogleMapsApiKey } from '../utils/env';
+import CategorySearchBar from './CategorySearchBar';
+
+interface CategoryPageProps {
+  selectedCurrency?: string;
+}
+
+interface FilterState {
+  search: string;
+  priceRange: [number, number];
+  ratings: number[];
+  verifiedOnly: boolean;
+  sponsorOnly: boolean;
+  tags: string[];
+  availability: string;
+  location: string[];
+  // ?뚰듃移??꾩슜 ?꾪꽣
+  vehicleClass?: string[];
+  fuelType?: string[];
+  transmission?: string[];
+  seatingCapacity?: number;
+  // ?뚰듃移??좎쭨 ?좏깮
+  pickupDate?: string;
+  returnDate?: string;
+}
+
+interface SortOption {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+}
+
+
+export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
+  const { category } = useParams<{ category: string }>();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [listings, setListings] = useState<TravelItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [sortBy, setSortBy] = useState('recommended');
+  const [showFilters, setShowFilters] = useState(false);
+  const [compareList, setArrowLeftRightList] = useState<number[]>([]);
+  const [favorites, setFavorites] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [unavailableVehicleIds, setUnavailableVehicleIds] = useState<number[]>([]);
+
+  // Google Maps state
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [mapError, setMapError] = useState(false);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const infoWindowsRef = useRef<Map<string, google.maps.InfoWindow>>(new Map());
+  const listingPositionsRef = useRef<Map<number, {lat: number, lng: number}>>(new Map());
+
+  // Enhanced filter state
+  const [filters, setFilters] = useState<FilterState>({
+    search: searchParams.get('q') || '',
+    priceRange: [0, 500000],
+    ratings: [],
+    verifiedOnly: false,
+    sponsorOnly: false,
+    tags: [],
+    availability: 'all',
+    location: [],
+    // ?뚰듃移??꾪꽣 珥덇린媛?
+    vehicleClass: [],
+    fuelType: [],
+    transmission: [],
+    seatingCapacity: undefined
+  });
+
+  const categoryNames: { [key: string]: string } = {
+    tour: '여행상품',
+    accommodation: '숙박',
+    stay: '숙박',
+    rentcar: '렌터카',
+    food: '맛집',
+    attraction: '관광지',
+    tourist: '관광지',
+    package: '패키지',
+    event: '행사',
+    popup: '팝업',
+    experience: '체험'
+  };
+
+  const sortOptions: SortOption[] = useMemo(() => [
+    { value: 'recommended', label: 'Recommended', icon: <Star className="h-4 w-4" /> },
+    { value: 'price-low', label: 'Price: Low', icon: <ArrowUpDown className="h-4 w-4" /> },
+    { value: 'price-high', label: 'Price: High', icon: <ArrowUpDown className="h-4 w-4" /> },
+    { value: 'rating', label: 'Rating', icon: <Star className="h-4 w-4" /> },
+    { value: 'newest', label: 'Newest', icon: <Clock className="h-4 w-4" /> },
+    { value: 'popular', label: 'Popular', icon: <Heart className="h-4 w-4" /> }
+  ], []);
+
+  // SEO metadata
+  useEffect(() => {
+    const categoryName = categoryNames[category || ''] || '?꾩껜 ?곹뭹';
+    document.title = `${categoryName} - Travleap | ?좎븞 ?ы뻾`;
+    const metaDescription = document.querySelector('meta[name="description"]');
+    if (metaDescription) {
+      metaDescription.setAttribute('content', `?좎븞援?${categoryName} ?곹뭹 紐⑸줉. 理쒓퀬???ы뻾 ?곹뭹??鍮꾧탳?섍퀬 ?덉빟?섏꽭??`);
+    }
+  }, [category]);
+
+  // Enhanced data fetching with infinite scroll
+  const fetchListings = useCallback(async (isLoadMore = false) => {
+    try {
+      if (!isLoadMore) {
+        setLoading(true);
+        setError(null);
+      }
+
+      const currentPage = isLoadMore ? page : 1;
+      const minPrice = filters.priceRange[0];
+      const maxPrice = filters.priceRange[1];
+
+  console.log(`CategoryPage: fetching listings for "${category}"`);
+
+      // accommodation ??stay 留ㅽ븨 (DB?먮뒗 stay slug留??덉쓬)
+      const mappedCategory = category === 'accommodation' ? 'stay' : category;
+  console.log(`CategoryPage: mapped category => "${mappedCategory}"`);
+
+      const response = await api.getListings({
+        category: mappedCategory || '',
+        page: currentPage,
+        limit: 20,
+        sortBy: sortBy === 'recommended' ? 'popular' : sortBy as any,
+        minPrice: minPrice > 0 ? minPrice : undefined,
+        maxPrice: maxPrice < 500000 ? maxPrice : undefined,
+        search: filters.search || undefined,
+        verifiedOnly: filters.verifiedOnly || undefined,
+        rating: filters.ratings.length > 0 ? Math.min(...filters.ratings) : undefined
+      });
+
+        console.log('CategoryPage: API response', {
+          success: response.success,
+          dataLength: response.data?.length,
+          category: category
+        });
+
+  if (response.success && response.data) {
+  const newListings = Array.isArray(response.data) ? response.data : [];
+  console.log(`CategoryPage: ${newListings.length} listings received`);
+
+        if (isLoadMore) {
+          setListings(prev => [...prev, ...newListings]);
+        } else {
+          setListings(newListings);
+        }
+
+        setTotalCount(response.pagination?.total || newListings.length);
+        setHasMore(newListings.length === 20);
+        setRetryCount(0);
+      } else {
+  console.log('CategoryPage: API returned no data or failed');
+        if (!isLoadMore) {
+          setListings([]);
+          setTotalCount(0);
+        }
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Error fetching listings:', error);
+      const errorMessage = error instanceof Error ? error.message : '?곗씠?곕? 遺덈윭?ㅻ뒗???ㅽ뙣?덉뒿?덈떎';
+      setError(errorMessage);
+
+      if (!isLoadMore && retryCount < 2) {
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => fetchListings(false), 2000);
+      } else {
+        if (!isLoadMore) {
+          setListings([]);
+          setTotalCount(0);
+        }
+        setHasMore(false);
+        toast.error('?곹뭹??遺덈윭?????놁뒿?덈떎. ?섏쨷???ㅼ떆 ?쒕룄?댁＜?몄슂.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [category, sortBy, filters, page, retryCount]);
+
+  // Reset and fetch on filter changes
+  useEffect(() => {
+    setPage(1);
+    setListings([]);
+    fetchListings(false);
+  }, [category, sortBy, filters.search, filters.priceRange, filters.verifiedOnly, filters.ratings]);
+
+  // ?뚰듃移??좎쭨 ?좏깮 ???덉빟 媛???щ? ?뺤씤
+  useEffect(() => {
+    if (category === 'rentcar' && filters.pickupDate && filters.returnDate) {
+      const checkAvailability = async () => {
+        try {
+          const response = await api.checkRentcarAvailability(filters.pickupDate!, filters.returnDate!);
+          if (response.success && response.data) {
+            setUnavailableVehicleIds(response.data);
+        console.log(`Checking availability ${filters.pickupDate} ~ ${filters.returnDate}`);
+          console.log(`Availability check returned ${response.data.length} unavailable items`);
+          }
+        } catch (error) {
+          console.error('Failed to check availability:', error);
+        }
+      };
+      checkAvailability();
+    } else {
+      setUnavailableVehicleIds([]);
+    }
+  }, [category, filters.pickupDate, filters.returnDate]);
+
+  // Google Maps 珥덇린??
+  useEffect(() => {
+    const initMap = () => {
+      if (!mapRef.current) return;
+
+      const newMap = new google.maps.Map(mapRef.current, {
+        center: { lat: 34.9654, lng: 126.1234 }, // ?좎븞援?以묒떖
+        zoom: 11,
+        styles: [
+          {
+            featureType: 'water',
+            elementType: 'geometry',
+            stylers: [{ color: '#a2daf2' }]
+          }
+        ]
+      });
+
+      setMap(newMap);
+    };
+
+    // Google Maps API 濡쒕뱶
+    if (!(window as any).google) {
+      const apiKey = getGoogleMapsApiKey();
+
+      if (!apiKey) {
+        console.error('Google Maps API key is not configured');
+        setMapError(true);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initMap;
+      script.onerror = () => {
+        console.error('Failed to load Google Maps API');
+        setMapError(true);
+      };
+      document.head.appendChild(script);
+    } else {
+      initMap();
+    }
+  }, []);
+
+  // Category hero search state
+  const [heroDestination, setHeroDestination] = useState(filters.search || '');
+  const [heroDates, setHeroDates] = useState<{ from?: string; to?: string }>(() => ({ from: undefined, to: undefined }));
+  const [heroGuests, setHeroGuests] = useState(() => ({ rooms: 1, adults: 1, children: 0 }));
+
+  const handleHeroSearch = () => {
+    setFilters(prev => ({ ...prev, search: heroDestination }));
+    if (heroDates.from && heroDates.to) {
+      setFilters(prev => ({ ...prev, availability: 'date', }));
+      // also set pickup/return for rentcar if needed
+      setFilters(prev => ({ ...prev, pickupDate: heroDates.from, returnDate: heroDates.to }));
+    }
+    setPage(1);
+    fetchListings(false);
+  };
+
+  // 留덉빱 異붽? ?⑥닔
+  const addMarkers = useCallback((map: google.maps.Map, listingsList: TravelItem[]) => {
+    // 湲곗〈 留덉빱 ?쒓굅
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current = [];
+    infoWindowsRef.current.clear();
+
+    listingsList.forEach(listing => {
+      // 醫뚰몴媛 ?놁쑝硫?湲곕낯 醫뚰몴 ?ъ슜 (?좎븞援?以묒떖 洹쇱쿂???쒕뜡 諛곗튂)
+      // ?대? ??λ맂 醫뚰몴媛 ?덉쑝硫?洹멸쾬???ъ슜?섍퀬, ?놁쑝硫??덈줈 ?앹꽦
+      let position = listingPositionsRef.current.get(listing.id);
+      if (!position) {
+        position = listing.latitude && listing.longitude
+          ? { lat: parseFloat(listing.latitude.toString()), lng: parseFloat(listing.longitude.toString()) }
+          : {
+              lat: 34.9654 + (Math.random() - 0.5) * 0.3,
+              lng: 126.1234 + (Math.random() - 0.5) * 0.3
+            };
+        listingPositionsRef.current.set(listing.id, position);
+      }
+
+      const marker = new google.maps.Marker({
+        position: position,
+        map: map,
+        title: listing.title,
+        icon: {
+          url: listing.partner?.is_verified ?
+            'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ff6a3d"%3E%3Cpath d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/%3E%3C/svg%3E' :
+            'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234299e1"%3E%3Cpath d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/%3E%3C/svg%3E',
+          scaledSize: new google.maps.Size(30, 30)
+        }
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="max-width: 200px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 16px;">${listing.title}</h3>
+            <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${listing.location || 'Location unknown'}</p>
+            ${listing.rating_avg > 0 ? `<p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">Rating ${listing.rating_avg.toFixed(1)} (${listing.rating_count})</p>` : ''}
+            <p style="margin: 4px 0 0 0; font-weight: 600; color: #ff6a3d;">${formatPrice(listing.price_from || 0, selectedCurrency)}</p>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+
+      markersRef.current.push(marker);
+      infoWindowsRef.current.set(listing.title, infoWindow);
+    });
+  }, [selectedCurrency]);
+
+  // 吏?꾩뿉 留덉빱 ?낅뜲?댄듃 (filteredListings 蹂寃???
+  useEffect(() => {
+    if (map && filteredListings.length > 0) {
+      addMarkers(map, filteredListings);
+    }
+	  }, [map, addMarkers, listings, filters, category, unavailableVehicleIds]);
+
+  // Infinite scroll setup
+  useEffect(() => {
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          setPage(prev => prev + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, [hasMore, loading]);
+
+  // Load more when page changes
+  useEffect(() => {
+    if (page > 1) {
+      fetchListings(true);
+    }
+  }, [page]);
+
+  // Enhanced utility functions
+  const handleRetry = useCallback(() => {
+    setRetryCount(0);
+    setError(null);
+    fetchListings(false);
+  }, [fetchListings]);
+
+  const updateFilters = useCallback((newFilters: Partial<FilterState>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+  }, []);
+
+  const resetFilters = useCallback(() => {
+    setFilters({
+      search: '',
+      priceRange: [0, 500000],
+      ratings: [],
+      verifiedOnly: false,
+      sponsorOnly: false,
+      tags: [],
+      availability: 'all',
+      location: []
+    });
+    setSortBy('recommended');
+  }, []);
+
+  const toggleFavorite = useCallback((itemId: number) => {
+    setFavorites(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(itemId)) {
+        newFavorites.delete(itemId);
+        toast.success('Removed from favorites');
+      } else {
+        newFavorites.add(itemId);
+        toast.success('Added to favorites');
+      }
+      return newFavorites;
+    });
+  }, []);
+
+  const toggleArrowLeftRight = useCallback((itemId: number) => {
+    setArrowLeftRightList(prev => {
+      const newArrowLeftRightList = [...prev];
+      const index = newArrowLeftRightList.indexOf(itemId);
+      if (index > -1) {
+        newArrowLeftRightList.splice(index, 1);
+        toast.success('Removed from compare list');
+      } else {
+        if (newArrowLeftRightList.length >= 3) {
+          toast.error('You can compare up to 3 items');
+          return prev;
+        }
+        newArrowLeftRightList.push(itemId);
+        toast.success('Added to compare list');
+      }
+      return newArrowLeftRightList;
+    });
+  }, []);
+
+  const handleShare = useCallback(async (item: TravelItem) => {
+    try {
+      await navigator.share({
+        title: item.title,
+        text: item.short_description || item.description_md || '',
+        url: `${window.location.origin}/detail/${item.id}`
+      });
+    } catch (error) {
+      // Fallback to clipboard
+  navigator.clipboard.writeText(`${window.location.origin}/detail/${item.id}`);
+  toast.success('Link copied to clipboard');
+    }
+  }, []);
+
+  // 移대뱶 ?대┃ ?몃뱾??- 吏?꾩뿉 留덉빱 ?쒖떆 諛?以묒떖 ?대룞
+  const handleListingClick = useCallback((item: TravelItem) => {
+    if (map) {
+      // ??λ맂 醫뚰몴瑜?媛?몄샂 (addMarkers?먯꽌 ??λ맂 寃껉낵 ?숈씪)
+      const position = listingPositionsRef.current.get(item.id);
+
+      if (position) {
+        // 吏??以묒떖???대떦 ?꾩튂濡??대룞
+        map.setCenter(position);
+        map.setZoom(15);
+
+        // ?대떦 ?곹뭹??InfoWindow瑜?李얠븘???닿린
+        const infoWindow = infoWindowsRef.current.get(item.title);
+        const marker = markersRef.current.find(m => m.getTitle() === item.title);
+        if (infoWindow && marker) {
+          infoWindow.open(map, marker);
+        }
+      }
+    }
+  }, [map]);
+
+
+
+  // Filtered listings (additional client-side filtering)
+  const filteredListings = useMemo(() => {
+    let filtered = [...listings];
+
+    if (filters.sponsorOnly) {
+      filtered = filtered.filter(item =>
+        item.partner?.tier === 'gold' || item.partner?.tier === 'platinum'
+      );
+    }
+
+    if (filters.tags.length > 0) {
+      filtered = filtered.filter(item =>
+        filters.tags.some(tag =>
+          item.tags?.includes(tag) ||
+          item.title.toLowerCase().includes(tag.toLowerCase())
+        )
+      );
+    }
+
+    if (filters.availability !== 'all') {
+      filtered = filtered.filter(item => {
+        // Add availability logic based on your data structure
+        return true; // Placeholder
+      });
+    }
+
+    // ?뚰듃移??꾩슜 ?대씪?댁뼵???ъ씠???꾪꽣留?
+    if (category === 'rentcar') {
+      // 李⑤웾 ?깃툒 ?꾪꽣
+      if (filters.vehicleClass && filters.vehicleClass.length > 0) {
+        filtered = filtered.filter(item =>
+          filters.vehicleClass?.some(vc =>
+            item.tags?.includes(vc) ||
+            item.title.includes(vc) ||
+            item.description_md?.includes(vc)
+          )
+        );
+      }
+
+      // ?곕즺 ????꾪꽣
+      if (filters.fuelType && filters.fuelType.length > 0) {
+        filtered = filtered.filter(item =>
+          filters.fuelType?.some(ft =>
+            item.tags?.includes(ft) ||
+            item.description_md?.includes(ft)
+          )
+        );
+      }
+
+      // 蹂?띻린 ?꾪꽣
+      if (filters.transmission && filters.transmission.length > 0) {
+        filtered = filtered.filter(item =>
+          filters.transmission?.some(t =>
+            item.tags?.includes(t) ||
+            item.description_md?.includes(t)
+          )
+        );
+      }
+
+      // ?묒듅 ?몄썝 ?꾪꽣
+      if (filters.seatingCapacity && filters.seatingCapacity > 1) {
+        filtered = filtered.filter(item =>
+          (item.max_capacity || 5) >= filters.seatingCapacity!
+        );
+      }
+
+      // ?좎쭨 ?좏깮 ???덉빟 媛?ν븳 李⑤웾 ?곗꽑 ?뺣젹 (?덉빟 遺덇??ν븳 李⑤웾? 留??꾨옒濡?
+      if (filters.pickupDate && filters.returnDate && unavailableVehicleIds.length > 0) {
+        filtered.sort((a, b) => {
+          const aUnavailable = unavailableVehicleIds.includes(a.id);
+          const bUnavailable = unavailableVehicleIds.includes(b.id);
+
+          // ?덉빟 媛?ν븳 李⑤웾???꾨줈
+          if (aUnavailable && !bUnavailable) return 1;
+          if (!aUnavailable && bUnavailable) return -1;
+          return 0;
+        });
+      }
+    }
+
+    return filtered;
+  }, [listings, filters, category, unavailableVehicleIds]);
+
+  const renderGridView = () => {
+    // ?숇컯 移댄뀒怨좊━??寃쎌슦 AccommodationCard ?ъ슜
+    const isAccommodation = category === 'accommodation' || category === 'stay';
+
+    return (
+      <div className="grid grid-cols-2 gap-4">
+        {filteredListings.map((item) => {
+          if (isAccommodation) {
+            return (
+              <div key={item.id} onClick={() => handleListingClick(item)} className="cursor-pointer">
+                <AccommodationCard
+                  listing={item}
+                  selectedCurrency={selectedCurrency}
+                  onFavorite={() => toggleFavorite(item.id)}
+                  isFavorite={favorites.has(item.id)}
+                  onNavigate={() => navigate(`/accommodation/${item.id}`)}
+                />
+              </div>
+            );
+          }
+
+          // 湲곕낯 移대뱶 ?뚮뜑留?(?ㅻⅨ 移댄뀒怨좊━)
+          const isUnavailable = category === 'rentcar' && unavailableVehicleIds.includes(item.id);
+
+          return (
+            <Card
+              key={item.id}
+              className={`overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple ${
+                isUnavailable ? 'opacity-60' : ''
+              }`}
+              onClick={() => handleListingClick(item)}
+            >
+              <div className="relative">
+                <ImageWithFallback
+                  src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
+                  alt={item.title}
+                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute top-2 left-2 flex gap-1">
+                  {isUnavailable && (
+                    <Badge variant="secondary" className="bg-red-500 text-white text-xs">
+                      ?덉빟 遺덇?
+                    </Badge>
+                  )}
+                  {item.partner?.is_verified && (
+                    <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
+                      Verified
+                    </Badge>
+                  )}
+                  {item.partner?.tier === 'gold' || item.partner?.tier === 'platinum' && (
+                    <Badge variant="secondary" className="bg-yellow-500 text-black text-xs">
+                      ?ㅽ룿??
+                    </Badge>
+                  )}
+                </div>
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={`tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white transition-colors ${
+                      favorites.has(item.id) ? 'text-red-500' : 'text-gray-600'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(item.id);
+                    }}
+                    aria-label={favorites.has(item.id) ? '利먭꺼李얘린?먯꽌 ?쒓굅' : '利먭꺼李얘린??異붽?'}
+                  >
+                    <Heart className={`h-5 w-5 ${favorites.has(item.id) ? 'fill-current' : ''}`} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShare(item);
+                    }}
+                    aria-label="怨듭쑀"
+                  >
+                    <Share2 className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={`tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white transition-colors ${
+                      compareList.includes(item.id) ? 'text-blue-500' : 'text-gray-600'
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleArrowLeftRight(item.id);
+                    }}
+                    aria-label={compareList.includes(item.id) ? '鍮꾧탳?먯꽌 ?쒓굅' : '鍮꾧탳??異붽?'}
+                  >
+                    <ArrowLeftRight className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+              <CardContent className="p-4">
+                <h3 className="mobile-body font-semibold mb-2 line-clamp-2">{item.title}</h3>
+                <p className="mobile-body text-gray-600 mb-3 line-clamp-2">{item.short_description || item.description_md || ''}</p>
+
+                <div className="flex items-center space-x-2 mb-2 text-sm text-gray-500">
+                  <MapPin className="h-4 w-4" />
+                  <span>{item.location || 'Unknown location'}</span>
+                  {item.duration && (
+                    <>
+                      <Clock className="h-4 w-4 ml-2" />
+                      <span>{item.duration}</span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  {item.rating_avg > 0 && item.rating_count > 0 && (
+                    <div className="flex items-center space-x-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm">{item.rating_avg.toFixed(1)}</span>
+                      <span className="text-xs text-gray-500">({item.rating_count})</span>
+                    </div>
+                  )}
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">Price</div>
+                    <div className="text-lg text-blue-600">{formatPrice(item.price_from || 0, selectedCurrency)}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderListView = () => (
+    <div className="space-y-4">
+      {filteredListings.map((item) => (
+        <Card
+          key={item.id}
+          className="mobile-card overflow-hidden hover:shadow-lg transition-shadow cursor-pointer mobile-ripple"
+          onClick={() => navigate(`/detail/${item.id}`)}
+        >
+          <CardContent className="p-4">
+            <div className="flex space-x-4">
+              <div className="relative w-32 h-24 flex-shrink-0">
+                <ImageWithFallback
+                  src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
+                  alt={item.title}
+                  className="w-full h-full object-cover rounded"
+                />
+                <div className="absolute top-1 left-1 flex gap-1">
+                  {item.partner?.is_verified && (
+                    <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
+                      Verified
+                    </Badge>
+                  )}
+                  {item.partner?.tier === 'gold' || item.partner?.tier === 'platinum' && (
+                    <Badge variant="secondary" className="bg-yellow-500 text-black text-xs">
+                      ?ㅽ룿??
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="text-lg truncate">{item.title}</h3>
+                  <div className="flex gap-1 ml-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={`tap-target h-10 w-10 p-0 transition-colors ${
+                        favorites.has(item.id) ? 'text-red-500' : 'text-gray-600'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(item.id);
+                      }}
+                    >
+                      <Heart className={`h-5 w-5 ${favorites.has(item.id) ? 'fill-current' : ''}`} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="tap-target h-10 w-10 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShare(item);
+                      }}
+                    >
+                      <Share2 className="h-5 w-5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={`tap-target h-10 w-10 p-0 transition-colors ${
+                        compareList.includes(item.id) ? 'text-blue-500' : 'text-gray-600'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleArrowLeftRight(item.id);
+                      }}
+                    >
+                      <ArrowLeftRight className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <p className="mobile-body text-gray-600 mb-2 line-clamp-2">{item.short_description || item.description_md || ''}</p>
+                
+                <div className="flex items-center space-x-4 mb-2 text-sm text-gray-500">
+                  <div className="flex items-center space-x-1">
+                    <MapPin className="h-4 w-4" />
+                    <span>{item.location || 'Unknown location'}</span>
+                  </div>
+                  {item.duration && (
+                    <div className="flex items-center space-x-1">
+                      <Clock className="h-4 w-4" />
+                      <span>{item.duration}</span>
+                    </div>
+                  )}
+                  {item.rating_avg > 0 && item.rating_count > 0 && (
+                    <div className="flex items-center space-x-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      <span>{item.rating_avg.toFixed(1)}</span>
+                      <span className="text-gray-400">({item.rating_count})</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex justify-between items-end">
+                  <div className="text-sm text-gray-500">
+                    {item.partner?.business_name || 'Unknown partner'}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-gray-500">Price</div>
+                    <div className="text-xl text-blue-600">{formatPrice(item.price_from || 0, selectedCurrency)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+
+  if (!category) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl mb-4">Category not specified</h1>
+          <Button onClick={() => navigate('/')}>Go to home</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="移댄뀒怨좊━ ?곹뭹 紐⑸줉">
+      <div className="max-w-[1400px] mx-auto px-4 py-4 md:py-8">
+        {/* Enhanced Header */}
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h1 className="mobile-title md:text-3xl font-bold mb-2 text-gray-900">
+                {categoryNames[category || ''] || '?꾩껜 ?곹뭹'}
+              </h1>
+              <div className="flex items-center gap-2 md:gap-4 text-sm text-gray-600 flex-wrap">
+                <span>珥?{totalCount.toLocaleString()}媛??곹뭹</span>
+                {loading && <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />濡쒕뵫 以?..</span>}
+                {error && (
+                  <span className="flex items-center gap-1 text-red-600">
+                    <AlertCircle className="h-3 w-3" />
+                    ?ㅻ쪟 諛쒖깮
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {compareList.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/compare?items=${compareList.join(',')}`)}
+                  className="mobile-button flex items-center gap-2 text-sm h-10"
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                  鍮꾧탳?섍린 ({compareList.length})
+                </Button>
+              )}
+              {error && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetry}
+                  className="mobile-button flex items-center gap-2 text-sm h-10"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  ?ㅼ떆 ?쒕룄
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* Hero search bar (matches site design) */}
+        <CategorySearchBar
+          {...({
+            destination: heroDestination,
+            onDestinationChange: setHeroDestination,
+            checkIn: heroDates.from,
+            checkOut: heroDates.to,
+            onDateChange: (from: string, to: string) => setHeroDates({ from, to }),
+            guests: heroGuests,
+            onGuestsChange: setHeroGuests,
+            onSearch: handleHeroSearch
+          } as any)}
+        />
+
+        {/* Main Content: Left (Filters + Cards) + Right (Map) */}
+        <div className="flex gap-6">
+          {/* ?쇱そ: ?꾪꽣 + 移대뱶 由ъ뒪??*/}
+          <div className="flex-1 min-w-[400px]">
+            {/* Enhanced Filters */}
+            <div className="mobile-card bg-white rounded-lg p-4 md:p-6 mb-6 md:mb-8 shadow-sm">
+          {/* Search Bar */}
+          <div className="mb-4 md:mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="?곹뭹紐? 吏?? ?ㅼ썙??寃??.."
+                value={filters.search}
+                onChange={(e) => updateFilters({ search: e.target.value })}
+                className="mobile-form-input pl-10 pr-10 h-12 text-base"
+              />
+              {filters.search && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => updateFilters({ search: '' })}
+                  className="absolute right-2 top-1/2 h-6 w-6 p-0 -translate-y-1/2"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter Controls */}
+          <div className="mobile-filter-container mb-4">
+            {/* Sort */}
+            <div className="mobile-filter-chip flex items-center gap-2 min-w-fit">
+              <ArrowUpDown className="h-4 w-4 text-gray-500" />
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[140px] border-none bg-transparent p-0 h-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex items-center gap-2">
+                        {option.icon}
+                        {option.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Price Range */}
+            <div className="mobile-filter-chip flex items-center gap-2">
+              <span className="text-sm text-gray-600">媛寃?</span>
+              <span className="text-sm font-medium whitespace-nowrap">
+                {formatPrice(filters.priceRange[0], selectedCurrency)} - {formatPrice(filters.priceRange[1], selectedCurrency)}
+              </span>
+            </div>
+
+            {/* Quick Filters */}
+            <Button
+              variant={filters.verifiedOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => updateFilters({ verifiedOnly: !filters.verifiedOnly })}
+              className={`mobile-filter-chip ${filters.verifiedOnly ? 'active' : ''} border-0`}
+            >
+              ?몄쬆?낆껜留?
+            </Button>
+            <Button
+              variant={filters.sponsorOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => updateFilters({ sponsorOnly: !filters.sponsorOnly })}
+              className={`mobile-filter-chip ${filters.sponsorOnly ? 'active' : ''} border-0`}
+            >
+              ?ㅽ룿??
+            </Button>
+
+            {/* Filter Toggle */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="mobile-filter-chip flex items-center gap-2 border-0"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              ?곸꽭?꾪꽣
+              <ChevronDown className={`h-3 w-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            </Button>
+          </div>
+
+          {/* View Mode - Separate row on mobile */}
+          <div className="flex justify-end mb-4">
+            <div className="flex items-center gap-1">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                aria-label="洹몃━??蹂닿린"
+                className="tap-target"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                aria-label="由ъ뒪??蹂닿린"
+                className="tap-target"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Advanced Filters */}
+          {showFilters && (
+            <div className="border-t pt-4 space-y-4">
+              {/* Price Range Slider */}
+              <div>
+                <label className="block text-sm font-medium mb-2">媛寃?踰붿쐞</label>
+                <Slider
+                  value={filters.priceRange}
+                  onValueChange={(value) => updateFilters({ priceRange: value as [number, number] })}
+                  max={500000}
+                  step={10000}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Rating Filter */}
+              <div>
+                <label className="block text-sm font-medium mb-2">理쒖냼 ?됱젏</label>
+                <div className="flex gap-2">
+                  {[5, 4, 3, 2, 1].map(rating => (
+                    <Button
+                      key={rating}
+                      variant={filters.ratings.includes(rating) ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        const newRatings = filters.ratings.includes(rating)
+                          ? filters.ratings.filter(r => r !== rating)
+                          : [...filters.ratings, rating];
+                        updateFilters({ ratings: newRatings });
+                      }}
+                      className="flex items-center gap-1"
+                    >
+                      <Star className="h-3 w-3 fill-current" />
+                      {rating}+
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ?뚰듃移??꾩슜 ?꾪꽣 */}
+              {category === 'rentcar' && (
+                <>
+                  {/* 李⑤웾 ?깃툒 */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">李⑤웾 ?깃툒</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Sedan', 'Compact', 'Hatchback', 'SUV', 'Van'].map((vehicleClass) => (
+                        <Button
+                          key={vehicleClass}
+                          variant={filters.vehicleClass?.includes(vehicleClass) ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const newClasses = filters.vehicleClass?.includes(vehicleClass)
+                              ? filters.vehicleClass.filter(c => c !== vehicleClass)
+                              : [...(filters.vehicleClass || []), vehicleClass];
+                            updateFilters({ vehicleClass: newClasses });
+                          }}
+                        >
+                          {vehicleClass}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ?곕즺 ???*/}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Fuel type</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Petrol', 'Diesel', 'Hybrid', 'Electric'].map((fuelType) => (
+                        <Button
+                          key={fuelType}
+                          variant={filters.fuelType?.includes(fuelType) ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const newFuels = filters.fuelType?.includes(fuelType)
+                              ? filters.fuelType.filter(f => f !== fuelType)
+                              : [...(filters.fuelType || []), fuelType];
+                            updateFilters({ fuelType: newFuels });
+                          }}
+                        >
+                          {fuelType}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 蹂?띻린 */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">蹂?띻린</label>
+                    <div className="flex gap-2">
+                      {['Automatic', 'Manual'].map((transmission) => (
+                        <Button
+                          key={transmission}
+                          variant={filters.transmission?.includes(transmission) ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            const newTransmissions = filters.transmission?.includes(transmission)
+                              ? filters.transmission.filter(t => t !== transmission)
+                              : [...(filters.transmission || []), transmission];
+                            updateFilters({ transmission: newTransmissions });
+                          }}
+                        >
+                          {transmission}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ?묒듅 ?몄썝 */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Seating capacity: {filters.seatingCapacity || 1}</label>
+                    <Slider
+                      value={[filters.seatingCapacity || 1]}
+                      onValueChange={(value) => updateFilters({ seatingCapacity: value[0] })}
+                      min={1}
+                      max={12}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* ?뚰깉 ?좎쭨 ?좏깮 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">?쎌뾽 ?좎쭨</label>
+                      <Input
+                        type="date"
+                        value={filters.pickupDate || ''}
+                        onChange={(e) => updateFilters({ pickupDate: e.target.value })}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">諛섎궔 ?좎쭨</label>
+                      <Input
+                        type="date"
+                        value={filters.returnDate || ''}
+                        onChange={(e) => updateFilters({ returnDate: e.target.value })}
+                        min={filters.pickupDate || new Date().toISOString().split('T')[0]}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Reset Button */}
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={resetFilters}>
+                  ?꾪꽣 珥덇린??
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+            {/* Enhanced Results */}
+            <div className="space-y-6">
+              {/* Loading State */}
+              {loading && filteredListings.length === 0 ? (
+                <div className={viewMode === 'grid'
+                  ? "grid grid-cols-2 gap-4"
+                  : "space-y-4"
+                }>
+              {[...Array(8)].map((_, i) => (
+                <Card key={i} className="animate-pulse overflow-hidden">
+                  <div className="w-full h-48 bg-gray-200"></div>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                    <div className="flex justify-between items-center">
+                      <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                      <div className="h-6 bg-gray-200 rounded w-1/4"></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredListings.length > 0 ? (
+            <>
+              {/* Results */}
+              {viewMode === 'grid' ? renderGridView() : renderListView()}
+
+              {/* Infinite Scroll Trigger */}
+              <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
+                {loading && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>??留롮? ?곹뭹??遺덈윭?ㅻ뒗 以?..</span>
+                  </div>
+                )}
+                {!hasMore && filteredListings.length > 0 && (
+                  <div className="text-center text-gray-500">
+                    <p>No more listings to load</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                      className="mt-2"
+                    >
+                      留??꾨줈
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            /* Empty State */
+            <div className="text-center py-16">
+              <div className="max-w-md mx-auto">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Search className="h-10 w-10 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                  議곌굔??留욌뒗 ?곹뭹???놁뒿?덈떎
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  ?ㅻⅨ ?ㅼ썙?쒕굹 ?꾪꽣 議곌굔?쇰줈 ?ㅼ떆 寃?됲빐蹂댁꽭??
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button onClick={resetFilters} className="flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    ?꾪꽣 珥덇린??
+                  </Button>
+                  <Button variant="outline" onClick={() => navigate('/')}>
+                    ?덉쑝濡??뚯븘媛湲?
+                  </Button>
+                </div>
+              </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ?ㅻⅨ履? 吏??*/}
+        <div className="w-[800px] flex-shrink-0">
+          <div className="sticky top-4">
+            <Card className="overflow-hidden">
+              {mapError ? (
+                <div className="w-full h-[900px] flex items-center justify-center bg-gray-100">
+                  <div className="text-center p-8 max-w-sm">
+                    <div className="text-gray-400 mb-4">
+                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-600 mb-2">吏?꾨? 遺덈윭?????놁뒿?덈떎</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Google Maps API ?ㅺ? ?꾩슂?⑸땲??
+                    </p>
+                    <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded border">
+                      <p className="mb-2"><strong>?ㅼ젙 諛⑸쾿:</strong></p>
+                      <p>1. Google Cloud Console?먯꽌 Maps JavaScript API ??諛쒓툒</p>
+                      <p>2. ?섍꼍蹂??GOOGLE_MAPS_API_KEY?????ㅼ젙</p>
+                      <p>3. ?섏씠吏 ?덈줈怨좎묠</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  ref={mapRef}
+                  className="w-full h-[900px]"
+                  style={{ minHeight: '900px' }}
+                />
+              )}
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* ArrowLeftRight Bar */}
+      {compareList.length > 0 && (
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 z-50 mobile-safe-bottom">
+          <Card className="mobile-card bg-white shadow-lg border-2 border-blue-200">
+            <CardContent className="px-4 py-3">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <ArrowLeftRight className="h-5 w-5 text-blue-600" />
+                  <span className="font-medium">Compare selection ({compareList.length})</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => navigate(`/compare?items=${compareList.join(',')}`)}
+                    className="mobile-button bg-blue-600 hover:bg-blue-700 h-10"
+                  >
+                    鍮꾧탳?섍린
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setArrowLeftRightList([])}
+                    className="mobile-button h-10"
+                  >
+                    痍⑥냼
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      </div>
+    </div>
+  );
+}
+
+
+

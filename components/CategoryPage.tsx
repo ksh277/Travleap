@@ -1,119 +1,69 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Input } from './ui/input';
-import { Checkbox } from './ui/checkbox';
-import { Slider } from './ui/slider';
+import { Calendar } from './ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import {
   Star,
   MapPin,
-  LayoutGrid,
-  List,
   Clock,
   Heart,
   Share2,
   Filter,
-  Search,
-  X,
-  ChevronDown,
-  ArrowUpDown,
-  Loader2,
-  AlertCircle,
-  RefreshCw,
-  SlidersHorizontal,
-  ArrowLeftRight
+  ArrowLeftRight,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { formatPrice } from '../utils/translations';
 import { api, type TravelItem } from '../utils/api';
 import { toast } from 'sonner';
 import { AccommodationCard } from './cards/AccommodationCard';
-import { getGoogleMapsApiKey } from '../utils/env';
+import React from 'react';
 
 interface CategoryPageProps {
   selectedCurrency?: string;
 }
 
-interface FilterState {
-  search: string;
-  priceRange: [number, number];
-  ratings: number[];
-  verifiedOnly: boolean;
-  sponsorOnly: boolean;
-  tags: string[];
-  availability: string;
-  location: string[];
-  // 렌트카 전용 필터
-  vehicleClass?: string[];
-  fuelType?: string[];
-  transmission?: string[];
-  seatingCapacity?: number;
-  // 렌트카 날짜 선택
-  pickupDate?: string;
-  returnDate?: string;
-}
-
-interface SortOption {
-  value: string;
-  label: string;
-  icon?: React.ReactNode;
-}
-
-
 export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
   const { category } = useParams<{ category: string }>();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [listings, setListings] = useState<TravelItem[]>([]);
+  const [filteredListings, setFilteredListings] = useState<TravelItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState('recommended');
-  const [showFilters, setShowFilters] = useState(false);
-  const [compareList, setArrowLeftRightList] = useState<number[]>([]);
+  const [compareList, setCompareList] = useState<number[]>([]);
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState(0);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  const [unavailableVehicleIds, setUnavailableVehicleIds] = useState<number[]>([]);
 
-  // Google Maps state
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [mapError, setMapError] = useState(false);
-  const mapRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  const infoWindowsRef = useRef<Map<string, google.maps.InfoWindow>>(new Map());
-  const listingPositionsRef = useRef<Map<number, {lat: number, lng: number}>>(new Map());
+  // 검색 바 state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [fromDate, setFromDate] = useState<Date | undefined>();
+  const [toDate, setToDate] = useState<Date | undefined>();
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [timeSlot, setTimeSlot] = useState('all');
 
-  // Enhanced filter state
-  const [filters, setFilters] = useState<FilterState>({
-    search: searchParams.get('q') || '',
-    priceRange: [0, 500000],
-    ratings: [],
-    verifiedOnly: false,
-    sponsorOnly: false,
-    tags: [],
-    availability: 'all',
-    location: [],
-    // 렌트카 필터 초기값
-    vehicleClass: [],
-    fuelType: [],
-    transmission: [],
-    seatingCapacity: undefined
+  // 필터 state
+  const [filters, setFilters] = useState({
+    category: 'all',
+    priceRange: '',
+    rating: '',
+    sortBy: 'recommended'
   });
+
+  // 페이지네이션 state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6);
 
   const categoryNames: { [key: string]: string } = {
     tour: '여행상품',
     accommodation: '숙박',
     stay: '숙박',
-    rentcar: '렌트카',
-    food: '음식',
+    rentcar: '렌터카',
+    food: '맛집',
     attraction: '관광지',
     tourist: '관광지',
     package: '패키지',
@@ -122,292 +72,156 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
     experience: '체험'
   };
 
-  const sortOptions: SortOption[] = useMemo(() => [
-    { value: 'recommended', label: '추천순', icon: <Star className="h-4 w-4" /> },
-    { value: 'price-low', label: '가격 낮은순', icon: <ArrowUpDown className="h-4 w-4" /> },
-    { value: 'price-high', label: '가격 높은순', icon: <ArrowUpDown className="h-4 w-4" /> },
-    { value: 'rating', label: '평점순', icon: <Star className="h-4 w-4" /> },
-    { value: 'newest', label: '최신순', icon: <Clock className="h-4 w-4" /> },
-    { value: 'popular', label: '인기순', icon: <Heart className="h-4 w-4" /> }
-  ], []);
+  // 날짜 포맷 함수
+  const formatDate = (date: Date | undefined) => {
+    if (!date) return '';
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\./g, '/').replace(/\s/g, '');
+  };
 
-  // SEO metadata
+  // 데이터 fetch
   useEffect(() => {
-    const categoryName = categoryNames[category || ''] || '전체 상품';
-    document.title = `${categoryName} - Travleap | 신안 여행`;
-    const metaDescription = document.querySelector('meta[name="description"]');
-    if (metaDescription) {
-      metaDescription.setAttribute('content', `신안군 ${categoryName} 상품 목록. 최고의 여행 상품을 비교하고 예약하세요.`);
-    }
-  }, [category]);
-
-  // Enhanced data fetching with infinite scroll
-  const fetchListings = useCallback(async (isLoadMore = false) => {
-    try {
-      if (!isLoadMore) {
+    const fetchListings = async () => {
+      try {
         setLoading(true);
-        setError(null);
-      }
+        const mappedCategory = category === 'accommodation' ? 'stay' : category;
 
-      const currentPage = isLoadMore ? page : 1;
-      const minPrice = filters.priceRange[0];
-      const maxPrice = filters.priceRange[1];
+        const response = await api.getListings({
+          category: mappedCategory || '',
+          page: 1,
+          limit: 100,
+          sortBy: filters.sortBy === 'recommended' ? 'popular' : filters.sortBy as any
+        });
 
-      console.log(`🔍 CategoryPage: 카테고리 "${category}" 상품 조회 시작`);
-
-      // accommodation → stay 매핑 (DB에는 stay slug만 있음)
-      const mappedCategory = category === 'accommodation' ? 'stay' : category;
-      console.log(`📍 CategoryPage: 매핑된 카테고리 "${mappedCategory}"`);
-
-      const response = await api.getListings({
-        category: mappedCategory || '',
-        page: currentPage,
-        limit: 20,
-        sortBy: sortBy === 'recommended' ? 'popular' : sortBy as any,
-        minPrice: minPrice > 0 ? minPrice : undefined,
-        maxPrice: maxPrice < 500000 ? maxPrice : undefined,
-        search: filters.search || undefined,
-        verifiedOnly: filters.verifiedOnly || undefined,
-        rating: filters.ratings.length > 0 ? Math.min(...filters.ratings) : undefined
-      });
-
-      console.log(`📦 CategoryPage: API 응답`, {
-        success: response.success,
-        dataLength: response.data?.length,
-        category: category
-      });
-
-      if (response.success && response.data) {
-        const newListings = Array.isArray(response.data) ? response.data : [];
-        console.log(`✅ CategoryPage: ${newListings.length}개 상품 로드됨`);
-
-        if (isLoadMore) {
-          setListings(prev => [...prev, ...newListings]);
-        } else {
+        if (response.success && response.data) {
+          const newListings = Array.isArray(response.data) ? response.data : [];
           setListings(newListings);
-        }
-
-        setTotalCount(response.pagination?.total || newListings.length);
-        setHasMore(newListings.length === 20);
-        setRetryCount(0);
-      } else {
-        console.log(`⚠️ CategoryPage: 응답 실패 또는 데이터 없음`);
-        if (!isLoadMore) {
+          setFilteredListings(newListings);
+        } else {
           setListings([]);
-          setTotalCount(0);
+          setFilteredListings([]);
         }
-        setHasMore(false);
+      } catch (error) {
+        console.error('Error fetching listings:', error);
+        setListings([]);
+        setFilteredListings([]);
+        toast.error('상품을 불러올 수 없습니다.');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching listings:', error);
-      const errorMessage = error instanceof Error ? error.message : '데이터를 불러오는데 실패했습니다';
-      setError(errorMessage);
-
-      if (!isLoadMore && retryCount < 2) {
-        setRetryCount(prev => prev + 1);
-        setTimeout(() => fetchListings(false), 2000);
-      } else {
-        if (!isLoadMore) {
-          setListings([]);
-          setTotalCount(0);
-        }
-        setHasMore(false);
-        toast.error('상품을 불러올 수 없습니다. 나중에 다시 시도해주세요.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [category, sortBy, filters, page, retryCount]);
-
-  // Reset and fetch on filter changes
-  useEffect(() => {
-    setPage(1);
-    setListings([]);
-    fetchListings(false);
-  }, [category, sortBy, filters.search, filters.priceRange, filters.verifiedOnly, filters.ratings]);
-
-  // 렌트카 날짜 선택 시 예약 가능 여부 확인
-  useEffect(() => {
-    if (category === 'rentcar' && filters.pickupDate && filters.returnDate) {
-      const checkAvailability = async () => {
-        try {
-          const response = await api.checkRentcarAvailability(filters.pickupDate!, filters.returnDate!);
-          if (response.success && response.data) {
-            setUnavailableVehicleIds(response.data);
-            console.log(`📅 날짜 선택됨: ${filters.pickupDate} ~ ${filters.returnDate}`);
-            console.log(`❌ 예약 불가능한 차량: ${response.data.length}개`);
-          }
-        } catch (error) {
-          console.error('Failed to check availability:', error);
-        }
-      };
-      checkAvailability();
-    } else {
-      setUnavailableVehicleIds([]);
-    }
-  }, [category, filters.pickupDate, filters.returnDate]);
-
-  // Google Maps 초기화
-  useEffect(() => {
-    const initMap = () => {
-      if (!mapRef.current) return;
-
-      const newMap = new google.maps.Map(mapRef.current, {
-        center: { lat: 34.9654, lng: 126.1234 }, // 신안군 중심
-        zoom: 11,
-        styles: [
-          {
-            featureType: 'water',
-            elementType: 'geometry',
-            stylers: [{ color: '#a2daf2' }]
-          }
-        ]
-      });
-
-      setMap(newMap);
     };
 
-    // Google Maps API 로드
-    if (!(window as any).google) {
-      const apiKey = getGoogleMapsApiKey();
+    if (category) {
+      fetchListings();
+    }
+  }, [category, filters.sortBy]);
 
-      if (!apiKey) {
-        console.error('Google Maps API key is not configured');
-        setMapError(true);
-        return;
-      }
+  // 검색 핸들러
+  const handleSearch = () => {
+    let filtered = listings;
 
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      script.onload = initMap;
-      script.onerror = () => {
-        console.error('Failed to load Google Maps API');
-        setMapError(true);
-      };
-      document.head.appendChild(script);
+    if (searchQuery) {
+      filtered = filtered.filter(item =>
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description_md?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    setFilteredListings(filtered);
+    setCurrentPage(1);
+  };
+
+  // 필터링 및 정렬
+  useEffect(() => {
+    let filtered = [...listings];
+
+    // 검색어 필터
+    if (searchQuery) {
+      filtered = filtered.filter(item =>
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.location?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // 가격 필터
+    if (filters.priceRange) {
+      filtered = filtered.filter(item => {
+        const price = item.price_from || 0;
+        if (filters.priceRange === '200000+') return price >= 200000;
+        if (filters.priceRange === '100000+') return price >= 100000;
+
+        const [min, max] = filters.priceRange.split('-').map(Number);
+        return price >= min && price <= max;
+      });
+    }
+
+    // 차량 종류 필터 (렌트카 전용)
+    if (filters.category && filters.category !== 'all') {
+      filtered = filtered.filter(item =>
+        item.category === filters.category || item.title.includes(filters.category)
+      );
+    }
+
+    // 평점 필터 (숙박 전용)
+    if (filters.rating) {
+      const minRating = parseFloat(filters.rating);
+      filtered = filtered.filter(item => (item.rating_avg || 0) >= minRating);
+    }
+
+    // 정렬 적용
+    if (filters.sortBy === 'recommended') {
+      filtered = filtered.sort((a, b) => {
+        const aVerified = a.partner?.is_verified ? 1 : 0;
+        const bVerified = b.partner?.is_verified ? 1 : 0;
+        if (aVerified !== bVerified) return bVerified - aVerified;
+        return (b.rating_avg || 0) - (a.rating_avg || 0);
+      });
+    } else if (filters.sortBy === 'latest') {
+      filtered = filtered.sort((a, b) => b.id - a.id);
+    }
+
+    setFilteredListings(filtered);
+    setCurrentPage(1);
+  }, [searchQuery, filters, listings]);
+
+  // 페이지네이션
+  const totalPages = Math.ceil(filteredListings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentListings = filteredListings.slice(startIndex, endIndex);
+
+  // 페이지 번호 생성
+  const getVisiblePageNumbers = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+
+    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...');
     } else {
-      initMap();
-    }
-  }, []);
-
-  // 마커 추가 함수
-  const addMarkers = useCallback((map: google.maps.Map, listingsList: TravelItem[]) => {
-    // 기존 마커 제거
-    markersRef.current.forEach(marker => marker.setMap(null));
-    markersRef.current = [];
-    infoWindowsRef.current.clear();
-
-    listingsList.forEach(listing => {
-      // 좌표가 없으면 기본 좌표 사용 (신안군 중심 근처에 랜덤 배치)
-      // 이미 저장된 좌표가 있으면 그것을 사용하고, 없으면 새로 생성
-      let position = listingPositionsRef.current.get(listing.id);
-      if (!position) {
-        position = listing.latitude && listing.longitude
-          ? { lat: parseFloat(listing.latitude.toString()), lng: parseFloat(listing.longitude.toString()) }
-          : {
-              lat: 34.9654 + (Math.random() - 0.5) * 0.3,
-              lng: 126.1234 + (Math.random() - 0.5) * 0.3
-            };
-        listingPositionsRef.current.set(listing.id, position);
-      }
-
-      const marker = new google.maps.Marker({
-        position: position,
-        map: map,
-        title: listing.title,
-        icon: {
-          url: listing.partner?.is_verified ?
-            'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ff6a3d"%3E%3Cpath d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/%3E%3C/svg%3E' :
-            'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234299e1"%3E%3Cpath d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/%3E%3C/svg%3E',
-          scaledSize: new google.maps.Size(30, 30)
-        }
-      });
-
-      const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="max-width: 200px;">
-            <h3 style="margin: 0 0 8px 0; font-size: 16px;">${listing.title}</h3>
-            <p style="margin: 0 0 4px 0; color: #666; font-size: 14px;">${listing.location || '신안군'}</p>
-            ${listing.rating_avg > 0 ? `
-              <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">⭐ ${listing.rating_avg.toFixed(1)} (${listing.rating_count})</p>
-            ` : ''}
-            <p style="margin: 4px 0 0 0; font-weight: 600; color: #ff6a3d;">${formatPrice(listing.price_from || 0, selectedCurrency)}</p>
-          </div>
-        `
-      });
-
-      marker.addListener('click', () => {
-        infoWindow.open(map, marker);
-      });
-
-      markersRef.current.push(marker);
-      infoWindowsRef.current.set(listing.title, infoWindow);
-    });
-  }, [selectedCurrency]);
-
-  // 지도에 마커 업데이트 (filteredListings 변경 시)
-  useEffect(() => {
-    if (map && filteredListings.length > 0) {
-      addMarkers(map, filteredListings);
-    }
-  }, [map, filteredListings, addMarkers]);
-
-  // Infinite scroll setup
-  useEffect(() => {
-    if (observerRef.current) observerRef.current.disconnect();
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          setPage(prev => prev + 1);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (loadMoreRef.current) {
-      observerRef.current.observe(loadMoreRef.current);
+      rangeWithDots.push(1);
     }
 
-    return () => {
-      if (observerRef.current) observerRef.current.disconnect();
-    };
-  }, [hasMore, loading]);
+    rangeWithDots.push(...range);
 
-  // Load more when page changes
-  useEffect(() => {
-    if (page > 1) {
-      fetchListings(true);
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages);
+    } else if (totalPages > 1) {
+      rangeWithDots.push(totalPages);
     }
-  }, [page]);
 
-  // Enhanced utility functions
-  const handleRetry = useCallback(() => {
-    setRetryCount(0);
-    setError(null);
-    fetchListings(false);
-  }, [fetchListings]);
+    return rangeWithDots.filter((page, index, array) => array.indexOf(page) === index);
+  };
 
-  const updateFilters = useCallback((newFilters: Partial<FilterState>) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
-  }, []);
-
-  const resetFilters = useCallback(() => {
-    setFilters({
-      search: '',
-      priceRange: [0, 500000],
-      ratings: [],
-      verifiedOnly: false,
-      sponsorOnly: false,
-      tags: [],
-      availability: 'all',
-      location: []
-    });
-    setSortBy('recommended');
-  }, []);
-
+  // 즐겨찾기 토글
   const toggleFavorite = useCallback((itemId: number) => {
     setFavorites(prev => {
       const newFavorites = new Set(prev);
@@ -422,25 +236,27 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
     });
   }, []);
 
-  const toggleArrowLeftRight = useCallback((itemId: number) => {
-    setArrowLeftRightList(prev => {
-      const newArrowLeftRightList = [...prev];
-      const index = newArrowLeftRightList.indexOf(itemId);
+  // 비교 리스트 토글
+  const toggleCompare = useCallback((itemId: number) => {
+    setCompareList(prev => {
+      const newList = [...prev];
+      const index = newList.indexOf(itemId);
       if (index > -1) {
-        newArrowLeftRightList.splice(index, 1);
+        newList.splice(index, 1);
         toast.success('비교 목록에서 제거되었습니다');
       } else {
-        if (newArrowLeftRightList.length >= 3) {
+        if (newList.length >= 3) {
           toast.error('최대 3개까지 비교할 수 있습니다');
           return prev;
         }
-        newArrowLeftRightList.push(itemId);
+        newList.push(itemId);
         toast.success('비교 목록에 추가되었습니다');
       }
-      return newArrowLeftRightList;
+      return newList;
     });
   }, []);
 
+  // 공유
   const handleShare = useCallback(async (item: TravelItem) => {
     try {
       await navigator.share({
@@ -449,834 +265,501 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         url: `${window.location.origin}/detail/${item.id}`
       });
     } catch (error) {
-      // Fallback to clipboard
       navigator.clipboard.writeText(`${window.location.origin}/detail/${item.id}`);
       toast.success('링크가 클립보드에 복사되었습니다');
     }
   }, []);
 
-  // 카드 클릭 핸들러 - 지도에 마커 표시 및 중심 이동
-  const handleListingClick = useCallback((item: TravelItem) => {
-    if (map) {
-      // 저장된 좌표를 가져옴 (addMarkers에서 저장된 것과 동일)
-      const position = listingPositionsRef.current.get(item.id);
-
-      if (position) {
-        // 지도 중심을 해당 위치로 이동
-        map.setCenter(position);
-        map.setZoom(15);
-
-        // 해당 상품의 InfoWindow를 찾아서 열기
-        const infoWindow = infoWindowsRef.current.get(item.title);
-        const marker = markersRef.current.find(m => m.getTitle() === item.title);
-        if (infoWindow && marker) {
-          infoWindow.open(map, marker);
-        }
-      }
-    }
-  }, [map]);
-
-
-
-  // Filtered listings (additional client-side filtering)
-  const filteredListings = useMemo(() => {
-    let filtered = [...listings];
-
-    if (filters.sponsorOnly) {
-      filtered = filtered.filter(item =>
-        item.partner?.tier === 'gold' || item.partner?.tier === 'platinum'
-      );
-    }
-
-    if (filters.tags.length > 0) {
-      filtered = filtered.filter(item =>
-        filters.tags.some(tag =>
-          item.tags?.includes(tag) ||
-          item.title.toLowerCase().includes(tag.toLowerCase())
-        )
-      );
-    }
-
-    if (filters.availability !== 'all') {
-      filtered = filtered.filter(item => {
-        // Add availability logic based on your data structure
-        return true; // Placeholder
-      });
-    }
-
-    // 렌트카 전용 클라이언트 사이드 필터링
-    if (category === 'rentcar') {
-      // 차량 등급 필터
-      if (filters.vehicleClass && filters.vehicleClass.length > 0) {
-        filtered = filtered.filter(item =>
-          filters.vehicleClass?.some(vc =>
-            item.tags?.includes(vc) ||
-            item.title.includes(vc) ||
-            item.description_md?.includes(vc)
-          )
-        );
-      }
-
-      // 연료 타입 필터
-      if (filters.fuelType && filters.fuelType.length > 0) {
-        filtered = filtered.filter(item =>
-          filters.fuelType?.some(ft =>
-            item.tags?.includes(ft) ||
-            item.description_md?.includes(ft)
-          )
-        );
-      }
-
-      // 변속기 필터
-      if (filters.transmission && filters.transmission.length > 0) {
-        filtered = filtered.filter(item =>
-          filters.transmission?.some(t =>
-            item.tags?.includes(t) ||
-            item.description_md?.includes(t)
-          )
-        );
-      }
-
-      // 탑승 인원 필터
-      if (filters.seatingCapacity && filters.seatingCapacity > 1) {
-        filtered = filtered.filter(item =>
-          (item.max_capacity || 5) >= filters.seatingCapacity!
-        );
-      }
-
-      // 날짜 선택 시 예약 가능한 차량 우선 정렬 (예약 불가능한 차량은 맨 아래로)
-      if (filters.pickupDate && filters.returnDate && unavailableVehicleIds.length > 0) {
-        filtered.sort((a, b) => {
-          const aUnavailable = unavailableVehicleIds.includes(a.id);
-          const bUnavailable = unavailableVehicleIds.includes(b.id);
-
-          // 예약 가능한 차량이 위로
-          if (aUnavailable && !bUnavailable) return 1;
-          if (!aUnavailable && bUnavailable) return -1;
-          return 0;
-        });
-      }
-    }
-
-    return filtered;
-  }, [listings, filters, category, unavailableVehicleIds]);
-
-  const renderGridView = () => {
-    // 숙박 카테고리인 경우 AccommodationCard 사용
-    const isAccommodation = category === 'accommodation' || category === 'stay';
-
-    return (
-      <div className="grid grid-cols-2 gap-4">
-        {filteredListings.map((item) => {
-          if (isAccommodation) {
-            return (
-              <div key={item.id} onClick={() => handleListingClick(item)} className="cursor-pointer">
-                <AccommodationCard
-                  listing={item}
-                  selectedCurrency={selectedCurrency}
-                  onFavorite={() => toggleFavorite(item.id)}
-                  isFavorite={favorites.has(item.id)}
-                  onNavigate={() => navigate(`/accommodation/${item.id}`)}
-                />
-              </div>
-            );
-          }
-
-          // 기본 카드 렌더링 (다른 카테고리)
-          const isUnavailable = category === 'rentcar' && unavailableVehicleIds.includes(item.id);
-
-          return (
-            <Card
-              key={item.id}
-              className={`overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group mobile-ripple ${
-                isUnavailable ? 'opacity-60' : ''
-              }`}
-              onClick={() => handleListingClick(item)}
-            >
-              <div className="relative">
-                <ImageWithFallback
-                  src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
-                  alt={item.title}
-                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute top-2 left-2 flex gap-1">
-                  {isUnavailable && (
-                    <Badge variant="secondary" className="bg-red-500 text-white text-xs">
-                      예약 불가
-                    </Badge>
-                  )}
-                  {item.partner?.is_verified && (
-                    <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
-                      Verified
-                    </Badge>
-                  )}
-                  {item.partner?.tier === 'gold' || item.partner?.tier === 'platinum' && (
-                    <Badge variant="secondary" className="bg-yellow-500 text-black text-xs">
-                      스폰서
-                    </Badge>
-                  )}
-                </div>
-                <div className="absolute top-2 right-2 flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={`tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white transition-colors ${
-                      favorites.has(item.id) ? 'text-red-500' : 'text-gray-600'
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFavorite(item.id);
-                    }}
-                    aria-label={favorites.has(item.id) ? '즐겨찾기에서 제거' : '즐겨찾기에 추가'}
-                  >
-                    <Heart className={`h-5 w-5 ${favorites.has(item.id) ? 'fill-current' : ''}`} />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleShare(item);
-                    }}
-                    aria-label="공유"
-                  >
-                    <Share2 className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className={`tap-target h-10 w-10 p-0 bg-white/90 hover:bg-white transition-colors ${
-                      compareList.includes(item.id) ? 'text-blue-500' : 'text-gray-600'
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleArrowLeftRight(item.id);
-                    }}
-                    aria-label={compareList.includes(item.id) ? '비교에서 제거' : '비교에 추가'}
-                  >
-                    <ArrowLeftRight className="h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
-              <CardContent className="p-4">
-                <h3 className="mobile-body font-semibold mb-2 line-clamp-2">{item.title}</h3>
-                <p className="mobile-body text-gray-600 mb-3 line-clamp-2">{item.short_description || item.description_md || ''}</p>
-
-                <div className="flex items-center space-x-2 mb-2 text-sm text-gray-500">
-                  <MapPin className="h-4 w-4" />
-                  <span>{item.location || '신안군'}</span>
-                  {item.duration && (
-                    <>
-                      <Clock className="h-4 w-4 ml-2" />
-                      <span>{item.duration}</span>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  {item.rating_avg > 0 && item.rating_count > 0 && (
-                    <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="text-sm">{item.rating_avg.toFixed(1)}</span>
-                      <span className="text-xs text-gray-500">({item.rating_count})</span>
-                    </div>
-                  )}
-                  <div className="text-right">
-                    <div className="text-sm text-gray-500">부터</div>
-                    <div className="text-lg text-blue-600">{formatPrice(item.price_from || 0, selectedCurrency)}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const renderListView = () => (
-    <div className="space-y-4">
-      {filteredListings.map((item) => (
-        <Card
-          key={item.id}
-          className="mobile-card overflow-hidden hover:shadow-lg transition-shadow cursor-pointer mobile-ripple"
-          onClick={() => navigate(`/detail/${item.id}`)}
-        >
-          <CardContent className="p-4">
-            <div className="flex space-x-4">
-              <div className="relative w-32 h-24 flex-shrink-0">
-                <ImageWithFallback
-                  src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
-                  alt={item.title}
-                  className="w-full h-full object-cover rounded"
-                />
-                <div className="absolute top-1 left-1 flex gap-1">
-                  {item.partner?.is_verified && (
-                    <Badge variant="secondary" className="bg-blue-500 text-white text-xs">
-                      Verified
-                    </Badge>
-                  )}
-                  {item.partner?.tier === 'gold' || item.partner?.tier === 'platinum' && (
-                    <Badge variant="secondary" className="bg-yellow-500 text-black text-xs">
-                      스폰서
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-lg truncate">{item.title}</h3>
-                  <div className="flex gap-1 ml-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className={`tap-target h-10 w-10 p-0 transition-colors ${
-                        favorites.has(item.id) ? 'text-red-500' : 'text-gray-600'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(item.id);
-                      }}
-                    >
-                      <Heart className={`h-5 w-5 ${favorites.has(item.id) ? 'fill-current' : ''}`} />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="tap-target h-10 w-10 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleShare(item);
-                      }}
-                    >
-                      <Share2 className="h-5 w-5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className={`tap-target h-10 w-10 p-0 transition-colors ${
-                        compareList.includes(item.id) ? 'text-blue-500' : 'text-gray-600'
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleArrowLeftRight(item.id);
-                      }}
-                    >
-                      <ArrowLeftRight className="h-5 w-5" />
-                    </Button>
-                  </div>
-                </div>
-                
-                <p className="mobile-body text-gray-600 mb-2 line-clamp-2">{item.short_description || item.description_md || ''}</p>
-                
-                <div className="flex items-center space-x-4 mb-2 text-sm text-gray-500">
-                  <div className="flex items-center space-x-1">
-                    <MapPin className="h-4 w-4" />
-                    <span>{item.location || '신안군'}</span>
-                  </div>
-                  {item.duration && (
-                    <div className="flex items-center space-x-1">
-                      <Clock className="h-4 w-4" />
-                      <span>{item.duration}</span>
-                    </div>
-                  )}
-                  {item.rating_avg > 0 && item.rating_count > 0 && (
-                    <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span>{item.rating_avg.toFixed(1)}</span>
-                      <span className="text-gray-400">({item.rating_count})</span>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex justify-between items-end">
-                  <div className="text-sm text-gray-500">
-                    {item.partner?.business_name || '신안관광협회'}
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-gray-500">부터</div>
-                    <div className="text-xl text-blue-600">{formatPrice(item.price_from || 0, selectedCurrency)}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-
   if (!category) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl mb-4">카테고리를 찾을 수 없습니다</h1>
-          <Button onClick={() => navigate('/')}>홈으로 돌아가기</Button>
+          <h1 className="text-2xl mb-4">카테고리를 선택해주세요</h1>
+          <Button onClick={() => navigate('/')}>홈으로 이동</Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="카테고리 상품 목록">
-      <div className="max-w-[1400px] mx-auto px-4 py-4 md:py-8">
-        {/* Enhanced Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="flex flex-col gap-4">
-            <div>
-              <h1 className="mobile-title md:text-3xl font-bold mb-2 text-gray-900">
-                {categoryNames[category || ''] || '전체 상품'}
-              </h1>
-              <div className="flex items-center gap-2 md:gap-4 text-sm text-gray-600 flex-wrap">
-                <span>총 {totalCount.toLocaleString()}개 상품</span>
-                {loading && <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />로딩 중...</span>}
-                {error && (
-                  <span className="flex items-center gap-1 text-red-600">
-                    <AlertCircle className="h-3 w-3" />
-                    오류 발생
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {compareList.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/compare?items=${compareList.join(',')}`)}
-                  className="mobile-button flex items-center gap-2 text-sm h-10"
-                >
-                  <ArrowLeftRight className="h-4 w-4" />
-                  비교하기 ({compareList.length})
-                </Button>
-              )}
-              {error && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRetry}
-                  className="mobile-button flex items-center gap-2 text-sm h-10"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  다시 시도
-                </Button>
-              )}
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* 배너 헤더 */}
+      <div
+        className="relative h-[200px] bg-cover bg-center"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=300&fit=crop")'
+        }}
+      >
+        <div className="absolute inset-0 flex items-center justify-center">
+          <h1 className="text-4xl font-bold text-white">
+            {categoryNames[category] || '전체 상품'}
+          </h1>
         </div>
+      </div>
 
-        {/* Main Content: Left (Filters + Cards) + Right (Map) */}
-        <div className="flex gap-6">
-          {/* 왼쪽: 필터 + 카드 리스트 */}
-          <div className="flex-1 min-w-[400px]">
-            {/* Enhanced Filters */}
-            <div className="mobile-card bg-white rounded-lg p-4 md:p-6 mb-6 md:mb-8 shadow-sm">
-          {/* Search Bar */}
-          <div className="mb-4 md:mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                type="text"
-                placeholder="상품명, 지역, 키워드 검색..."
-                value={filters.search}
-                onChange={(e) => updateFilters({ search: e.target.value })}
-                className="mobile-form-input pl-10 pr-10 h-12 text-base"
-              />
-              {filters.search && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => updateFilters({ search: '' })}
-                  className="absolute right-2 top-1/2 h-6 w-6 p-0 -translate-y-1/2"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Filter Controls */}
-          <div className="mobile-filter-container mb-4">
-            {/* Sort */}
-            <div className="mobile-filter-chip flex items-center gap-2 min-w-fit">
-              <ArrowUpDown className="h-4 w-4 text-gray-500" />
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[140px] border-none bg-transparent p-0 h-auto">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <div className="flex items-center gap-2">
-                        {option.icon}
-                        {option.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Price Range */}
-            <div className="mobile-filter-chip flex items-center gap-2">
-              <span className="text-sm text-gray-600">가격:</span>
-              <span className="text-sm font-medium whitespace-nowrap">
-                {formatPrice(filters.priceRange[0], selectedCurrency)} - {formatPrice(filters.priceRange[1], selectedCurrency)}
-              </span>
-            </div>
-
-            {/* Quick Filters */}
-            <Button
-              variant={filters.verifiedOnly ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => updateFilters({ verifiedOnly: !filters.verifiedOnly })}
-              className={`mobile-filter-chip ${filters.verifiedOnly ? 'active' : ''} border-0`}
-            >
-              인증업체만
-            </Button>
-            <Button
-              variant={filters.sponsorOnly ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => updateFilters({ sponsorOnly: !filters.sponsorOnly })}
-              className={`mobile-filter-chip ${filters.sponsorOnly ? 'active' : ''} border-0`}
-            >
-              스폰서
-            </Button>
-
-            {/* Filter Toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className="mobile-filter-chip flex items-center gap-2 border-0"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-              상세필터
-              <ChevronDown className={`h-3 w-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-            </Button>
-          </div>
-
-          {/* View Mode - Separate row on mobile */}
-          <div className="flex justify-end mb-4">
-            <div className="flex items-center gap-1">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                aria-label="그리드 보기"
-                className="tap-target"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                aria-label="리스트 보기"
-                className="tap-target"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Advanced Filters */}
-          {showFilters && (
-            <div className="border-t pt-4 space-y-4">
-              {/* Price Range Slider */}
-              <div>
-                <label className="block text-sm font-medium mb-2">가격 범위</label>
-                <Slider
-                  value={filters.priceRange}
-                  onValueChange={(value) => updateFilters({ priceRange: value as [number, number] })}
-                  max={500000}
-                  step={10000}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Rating Filter */}
-              <div>
-                <label className="block text-sm font-medium mb-2">최소 평점</label>
-                <div className="flex gap-2">
-                  {[5, 4, 3, 2, 1].map(rating => (
-                    <Button
-                      key={rating}
-                      variant={filters.ratings.includes(rating) ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        const newRatings = filters.ratings.includes(rating)
-                          ? filters.ratings.filter(r => r !== rating)
-                          : [...filters.ratings, rating];
-                        updateFilters({ ratings: newRatings });
-                      }}
-                      className="flex items-center gap-1"
-                    >
-                      <Star className="h-3 w-3 fill-current" />
-                      {rating}+
-                    </Button>
-                  ))}
+      {/* 검색 바 - 배경 이미지 위에 반쯤 걸쳐진 박스 */}
+      <div className="relative -mt-16 mb-6">
+        <div className="max-w-[1200px] mx-auto px-4">
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="flex gap-4 items-center">
+              {/* 목적지 */}
+              <div className="flex-1">
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <Input
+                    type="text"
+                    placeholder="어디에 가시나요?"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearch();
+                    }}
+                    className="pl-10 h-12 text-sm"
+                  />
+                  <div className="absolute left-3 -top-2 bg-white px-1 text-xs text-gray-600">
+                    목적지
+                  </div>
                 </div>
               </div>
 
-              {/* 렌트카 전용 필터 */}
-              {category === 'rentcar' && (
+              {/* 구분선 */}
+              <div className="h-12 w-px bg-gray-300"></div>
+
+              {/* From - To 날짜 (렌트카일 경우 픽업/반납으로 표시) */}
+              <div className="flex-1">
+                <Popover open={showCalendar} onOpenChange={setShowCalendar}>
+                  <PopoverTrigger asChild>
+                    <div className="relative cursor-pointer">
+                      <CalendarIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                      <Input
+                        type="text"
+                        readOnly
+                        placeholder="dd/mm/yyyy - dd/mm/yyyy"
+                        value={fromDate && toDate ? `${formatDate(fromDate)} - ${formatDate(toDate)}` : ''}
+                        className="pl-10 h-12 cursor-pointer text-sm"
+                      />
+                      <div className="absolute left-3 -top-2 bg-white px-1 text-xs text-gray-600">
+                        {category === 'rentcar' ? '픽업 - 반납' : 'From - To'}
+                      </div>
+                    </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="p-4">
+                      <div className="flex gap-4 mb-4">
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">
+                            {category === 'rentcar' ? '픽업 날짜' : '시작일'}
+                          </label>
+                          <Calendar
+                            mode="single"
+                            selected={fromDate}
+                            onSelect={setFromDate}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">
+                            {category === 'rentcar' ? '반납 날짜' : '종료일'}
+                          </label>
+                          <Calendar
+                            mode="single"
+                            selected={toDate}
+                            onSelect={setToDate}
+                            disabled={(date) => fromDate ? date < fromDate : false}
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => setShowCalendar(false)}
+                        className="w-full bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                      >
+                        확인
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* 구분선 */}
+              <div className="h-12 w-px bg-gray-300"></div>
+
+              {/* 시간 (렌트카일 경우 숨김) */}
+              {category !== 'rentcar' && (
                 <>
-                  {/* 차량 등급 */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">차량 등급</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['경형', '소형', '중형', '대형', 'SUV', '승합', '럭셔리', '전기차'].map((vehicleClass) => (
-                        <Button
-                          key={vehicleClass}
-                          variant={filters.vehicleClass?.includes(vehicleClass) ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => {
-                            const newClasses = filters.vehicleClass?.includes(vehicleClass)
-                              ? filters.vehicleClass.filter(c => c !== vehicleClass)
-                              : [...(filters.vehicleClass || []), vehicleClass];
-                            updateFilters({ vehicleClass: newClasses });
-                          }}
-                        >
-                          {vehicleClass}
-                        </Button>
-                      ))}
+                  <div className="w-[180px]">
+                    <div className="relative">
+                      <Select value={timeSlot} onValueChange={setTimeSlot}>
+                        <SelectTrigger className="h-12 text-sm">
+                          <SelectValue placeholder="선택안함" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">전체</SelectItem>
+                          <SelectItem value="morning">오전 (09:00-12:00)</SelectItem>
+                          <SelectItem value="afternoon">오후 (12:00-18:00)</SelectItem>
+                          <SelectItem value="evening">저녁 (18:00-22:00)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="absolute left-3 -top-2 bg-white px-1 text-xs text-gray-600">
+                        시간
+                      </div>
                     </div>
                   </div>
-
-                  {/* 연료 타입 */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">연료 타입</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['휘발유', '경유', '하이브리드', '전기'].map((fuelType) => (
-                        <Button
-                          key={fuelType}
-                          variant={filters.fuelType?.includes(fuelType) ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => {
-                            const newFuels = filters.fuelType?.includes(fuelType)
-                              ? filters.fuelType.filter(f => f !== fuelType)
-                              : [...(filters.fuelType || []), fuelType];
-                            updateFilters({ fuelType: newFuels });
-                          }}
-                        >
-                          {fuelType}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 변속기 */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">변속기</label>
-                    <div className="flex gap-2">
-                      {['자동', '수동'].map((transmission) => (
-                        <Button
-                          key={transmission}
-                          variant={filters.transmission?.includes(transmission) ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => {
-                            const newTransmissions = filters.transmission?.includes(transmission)
-                              ? filters.transmission.filter(t => t !== transmission)
-                              : [...(filters.transmission || []), transmission];
-                            updateFilters({ transmission: newTransmissions });
-                          }}
-                        >
-                          {transmission}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 탑승 인원 */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">최소 탑승 인원: {filters.seatingCapacity || 1}명</label>
-                    <Slider
-                      value={[filters.seatingCapacity || 1]}
-                      onValueChange={(value) => updateFilters({ seatingCapacity: value[0] })}
-                      min={1}
-                      max={12}
-                      step={1}
-                      className="w-full"
-                    />
-                  </div>
-
-                  {/* 렌탈 날짜 선택 */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">픽업 날짜</label>
-                      <Input
-                        type="date"
-                        value={filters.pickupDate || ''}
-                        onChange={(e) => updateFilters({ pickupDate: e.target.value })}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="w-full"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-2">반납 날짜</label>
-                      <Input
-                        type="date"
-                        value={filters.returnDate || ''}
-                        onChange={(e) => updateFilters({ returnDate: e.target.value })}
-                        min={filters.pickupDate || new Date().toISOString().split('T')[0]}
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
+                  {/* 구분선 */}
+                  <div className="h-12 w-px bg-gray-300"></div>
                 </>
               )}
 
-              {/* Reset Button */}
-              <div className="flex justify-end">
-                <Button variant="outline" size="sm" onClick={resetFilters}>
-                  필터 초기화
-                </Button>
-              </div>
+              {/* 검색 버튼 */}
+              <Button onClick={handleSearch} className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white px-12 h-12">
+                검색
+              </Button>
             </div>
-          )}
-        </div>
-
-            {/* Enhanced Results */}
-            <div className="space-y-6">
-              {/* Loading State */}
-              {loading && filteredListings.length === 0 ? (
-                <div className={viewMode === 'grid'
-                  ? "grid grid-cols-2 gap-4"
-                  : "space-y-4"
-                }>
-              {[...Array(8)].map((_, i) => (
-                <Card key={i} className="animate-pulse overflow-hidden">
-                  <div className="w-full h-48 bg-gray-200"></div>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                    <div className="flex justify-between items-center">
-                      <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-                      <div className="h-6 bg-gray-200 rounded w-1/4"></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredListings.length > 0 ? (
-            <>
-              {/* Results */}
-              {viewMode === 'grid' ? renderGridView() : renderListView()}
-
-              {/* Infinite Scroll Trigger */}
-              <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
-                {loading && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>더 많은 상품을 불러오는 중...</span>
-                  </div>
-                )}
-                {!hasMore && filteredListings.length > 0 && (
-                  <div className="text-center text-gray-500">
-                    <p>모든 상품을 보여드렸습니다</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                      className="mt-2"
-                    >
-                      맨 위로
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            /* Empty State */
-            <div className="text-center py-16">
-              <div className="max-w-md mx-auto">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Search className="h-10 w-10 text-gray-400" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                  조건에 맞는 상품이 없습니다
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  다른 키워드나 필터 조건으로 다시 검색해보세요.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button onClick={resetFilters} className="flex items-center gap-2">
-                    <RefreshCw className="h-4 w-4" />
-                    필터 초기화
-                  </Button>
-                  <Button variant="outline" onClick={() => navigate('/')}>
-                    홈으로 돌아가기
-                  </Button>
-                </div>
-              </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 오른쪽: 지도 */}
-        <div className="w-[800px] flex-shrink-0">
-          <div className="sticky top-4">
-            <Card className="overflow-hidden">
-              {mapError ? (
-                <div className="w-full h-[900px] flex items-center justify-center bg-gray-100">
-                  <div className="text-center p-8 max-w-sm">
-                    <div className="text-gray-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-600 mb-2">지도를 불러올 수 없습니다</h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Google Maps API 키가 필요합니다.
-                    </p>
-                    <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded border">
-                      <p className="mb-2"><strong>설정 방법:</strong></p>
-                      <p>1. Google Cloud Console에서 Maps JavaScript API 키 발급</p>
-                      <p>2. 환경변수 GOOGLE_MAPS_API_KEY에 키 설정</p>
-                      <p>3. 페이지 새로고침</p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  ref={mapRef}
-                  className="w-full h-[900px]"
-                  style={{ minHeight: '900px' }}
-                />
-              )}
-            </Card>
           </div>
         </div>
       </div>
 
-      {/* ArrowLeftRight Bar */}
+      {/* 메인 컨텐츠 */}
+      <div className="max-w-[1400px] mx-auto px-4 py-6">
+        {/* 필터 바 */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-500" />
+              <span className="font-medium">필터:</span>
+            </div>
+
+            {/* 렌트카 전용 필터 */}
+            {category === 'rentcar' && (
+              <>
+                <Select value={filters.priceRange || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, priceRange: value === 'all' ? '' : value }))}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="가격대" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="0-50000">5만원 이하</SelectItem>
+                    <SelectItem value="50000-100000">5-10만원</SelectItem>
+                    <SelectItem value="100000-200000">10-20만원</SelectItem>
+                    <SelectItem value="200000+">20만원 이상</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.category} onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="차량 종류" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="경차">경차</SelectItem>
+                    <SelectItem value="소형">소형</SelectItem>
+                    <SelectItem value="중형">중형</SelectItem>
+                    <SelectItem value="대형">대형</SelectItem>
+                    <SelectItem value="SUV">SUV</SelectItem>
+                    <SelectItem value="승합">승합</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
+            {/* 숙박 전용 필터 */}
+            {(category === 'accommodation' || category === 'stay') && (
+              <>
+                <Select value={filters.priceRange || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, priceRange: value === 'all' ? '' : value }))}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="가격대" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="0-50000">5만원 이하</SelectItem>
+                    <SelectItem value="50000-100000">5-10만원</SelectItem>
+                    <SelectItem value="100000-200000">10-20만원</SelectItem>
+                    <SelectItem value="200000+">20만원 이상</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.rating || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, rating: value === 'all' ? '' : value }))}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="평점" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="4">⭐ 4점 이상</SelectItem>
+                    <SelectItem value="4.5">⭐ 4.5점 이상</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
+            )}
+
+            {/* 기타 카테고리 필터 */}
+            {category !== 'rentcar' && category !== 'accommodation' && category !== 'stay' && (
+              <Select value={filters.priceRange || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, priceRange: value === 'all' ? '' : value }))}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="가격대" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="0-30000">3만원 이하</SelectItem>
+                  <SelectItem value="30000-50000">3-5만원</SelectItem>
+                  <SelectItem value="50000-100000">5-10만원</SelectItem>
+                  <SelectItem value="100000+">10만원 이상</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
+            <div className="ml-auto text-sm text-gray-600">
+              <span className="font-medium">{filteredListings.length}</span>개 상품 발견
+            </div>
+          </div>
+        </div>
+
+        {/* 결과 헤더 */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">
+            총 {filteredListings.length}개 상품 ({currentPage}/{totalPages} 페이지)
+          </h2>
+          <Select
+            value={filters.sortBy}
+            onValueChange={(value) => setFilters(prev => ({ ...prev, sortBy: value }))}
+          >
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="정렬" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recommended">추천순</SelectItem>
+              <SelectItem value="latest">최신순</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* 상품 리스트 - 그리드 형태 (4열) */}
+        {loading ? (
+          <div className="grid grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <Card key={i} className="animate-pulse overflow-hidden">
+                <div className="w-full h-48 bg-gray-200"></div>
+                <CardContent className="p-4 space-y-3">
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : currentListings.length > 0 ? (
+          <div className="grid grid-cols-4 gap-4">
+            {currentListings.map((item) => {
+              const isAccommodation = category === 'accommodation' || category === 'stay';
+
+              if (isAccommodation) {
+                return (
+                  <div key={item.id} className="cursor-pointer" onClick={() => navigate(`/accommodation/${item.id}`)}>
+                    <AccommodationCard
+                      listing={item}
+                      selectedCurrency={selectedCurrency}
+                      onFavorite={() => toggleFavorite(item.id)}
+                      isFavorite={favorites.has(item.id)}
+                      onNavigate={() => navigate(`/accommodation/${item.id}`)}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
+                  <div className="flex flex-col">
+                    {/* 이미지 */}
+                    <div className="relative w-full h-48">
+                      <ImageWithFallback
+                        src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(item.id);
+                        }}
+                      >
+                        <Heart className={`h-4 w-4 ${favorites.has(item.id) ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+                      </button>
+                    </div>
+
+                    {/* 정보 */}
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-2 mb-2">
+                        <h3 className="font-semibold text-base flex-1 line-clamp-1">{item.title}</h3>
+                        {item.partner?.is_verified && (
+                          <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
+                            인증
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 mb-2">
+                        <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                        <span className="text-xs text-gray-600 line-clamp-1">{item.location || '위치 정보 없음'}</span>
+                      </div>
+
+                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">{item.short_description || item.description_md || ''}</p>
+
+                      <div className="flex items-center justify-between">
+                        {item.rating_avg > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            <span className="text-xs">{item.rating_avg.toFixed(1)}</span>
+                            <span className="text-xs text-gray-500">({item.rating_count})</span>
+                          </div>
+                        )}
+                        <div className="text-base font-bold text-[#ff6a3d]">
+                          {formatPrice(item.price_from || 0, selectedCurrency)}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/detail/${item.id}`);
+                          }}
+                          className="flex-1 bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs"
+                        >
+                          상세보기
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCompare(item.id);
+                          }}
+                          className={`text-xs ${compareList.includes(item.id) ? 'bg-blue-50 border-blue-500' : ''}`}
+                        >
+                          <ArrowLeftRight className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShare(item);
+                          }}
+                          className="text-xs"
+                        >
+                          <Share2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <div className="max-w-md mx-auto">
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                조건에 맞는 상품이 없습니다
+              </h3>
+              <p className="text-gray-600 mb-6">
+                다른 검색어나 필터 조건으로 다시 검색해보세요
+              </p>
+              <Button onClick={() => {
+                setSearchQuery('');
+                setFromDate(undefined);
+                setToDate(undefined);
+                setTimeSlot('all');
+              }}>
+                검색 초기화
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* 페이지네이션 */}
+        {totalPages > 1 && !loading && currentListings.length > 0 && (
+          <div className="flex items-center justify-center mt-8 space-x-2">
+            {/* 이전 페이지 */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="flex items-center"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              이전
+            </Button>
+
+            {/* 페이지 번호들 */}
+            <div className="flex items-center space-x-1">
+              {getVisiblePageNumbers().map((pageNum, index) => (
+                <React.Fragment key={index}>
+                  {pageNum === '...' ? (
+                    <span className="px-2 py-1 text-gray-500">...</span>
+                  ) : (
+                    <Button
+                      variant={currentPage === pageNum ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum as number)}
+                      className={`min-w-[40px] ${
+                        currentPage === pageNum
+                          ? "bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white"
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      {pageNum}
+                    </Button>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* 다음 페이지 */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="flex items-center"
+            >
+              다음
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        )}
+
+        {/* 페이지 정보 */}
+        {filteredListings.length > 0 && !loading && (
+          <div className="text-center mt-4 text-sm text-gray-600">
+            {startIndex + 1}-{Math.min(endIndex, filteredListings.length)} / {filteredListings.length}개 상품 표시
+          </div>
+        )}
+      </div>
+
+      {/* 비교 바 */}
       {compareList.length > 0 && (
-        <div className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 z-50 mobile-safe-bottom">
-          <Card className="mobile-card bg-white shadow-lg border-2 border-blue-200">
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+          <Card className="bg-white shadow-lg border-2 border-blue-200">
             <CardContent className="px-4 py-3">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <ArrowLeftRight className="h-5 w-5 text-blue-600" />
-                  <span className="font-medium">비교 대상: {compareList.length}개</span>
+                  <span className="font-medium">비교 선택 ({compareList.length})</span>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     onClick={() => navigate(`/compare?items=${compareList.join(',')}`)}
-                    className="mobile-button bg-blue-600 hover:bg-blue-700 h-10"
+                    className="bg-blue-600 hover:bg-blue-700 h-10"
                   >
                     비교하기
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setArrowLeftRightList([])}
-                    className="mobile-button h-10"
+                    onClick={() => setCompareList([])}
+                    className="h-10"
                   >
                     취소
                   </Button>
@@ -1286,7 +769,6 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
           </Card>
         </div>
       )}
-      </div>
     </div>
   );
 }

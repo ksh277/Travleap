@@ -1,13 +1,12 @@
 /**
- * 결제 실패 페이지 (신규 - Toss Payments 전용)
+ * 결제 실패 페이지 (신규 - Toss Payments 용)
  *
- * Toss Payments에서 결제 실패 시 리다이렉트되는 페이지
+ * Toss Payments에서 결제 실패 후 리다이렉트되는 페이지
  * Query Params: code, message, orderId
  */
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { handlePaymentFailure } from '../api/payments/confirm';
 
 export default function PaymentFailPage2() {
   const [searchParams] = useSearchParams();
@@ -17,6 +16,7 @@ export default function PaymentFailPage2() {
 
   useEffect(() => {
     processFailure();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function processFailure() {
@@ -25,16 +25,20 @@ export default function PaymentFailPage2() {
       const code = searchParams.get('code');
       const message = searchParams.get('message');
 
-      console.log('❌ 결제 실패:', { orderId, code, message });
+      console.log('결제 실패:', { orderId, code, message });
 
       if (orderId) {
         // 예약 취소 처리
-        await handlePaymentFailure(orderId, message || '결제 실패');
-        console.log('✅ 예약 취소 처리 완료');
+        await fetch('/api/payments/fail', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, reason: message || '사유 없음' })
+        }).catch(() => {});
+        console.log('예약 취소 처리 완료');
       }
 
     } catch (error) {
-      console.error('❌ 실패 처리 중 오류:', error);
+      console.error('실패 처리 중 오류:', error);
     } finally {
       setIsProcessing(false);
     }
@@ -44,7 +48,7 @@ export default function PaymentFailPage2() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-gray-400 mx-auto mb-6"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-gray-400 mx-auto mb-6" />
           <h2 className="text-xl font-semibold text-gray-900">처리 중...</h2>
         </div>
       </div>
@@ -55,7 +59,7 @@ export default function PaymentFailPage2() {
   const errorMessage = searchParams.get('message') || '결제 처리 중 문제가 발생했습니다.';
   const orderId = searchParams.get('orderId');
 
-  // 에러 코드별 친절한 메시지
+  // 에러 코드와 안내 메시지
   const getErrorDetails = (code: string | null) => {
     switch (code) {
       case 'PAY_PROCESS_CANCELED':
@@ -67,20 +71,20 @@ export default function PaymentFailPage2() {
       case 'PAY_PROCESS_ABORTED':
         return {
           title: '결제가 중단되었습니다',
-          description: '결제 도중 문제가 발생하여 중단되었습니다.',
+          description: '오류로 인해 결제 과정이 중단되었습니다.',
           icon: '⚠️'
         };
       case 'REJECT_CARD_COMPANY':
         return {
-          title: '카드사 승인 거부',
-          description: '카드사에서 결제를 거부했습니다. 다른 카드로 시도해주세요.',
-          icon: '💳'
+          title: '카드 승인 거절',
+          description: '카드사에서 결제가 거절되었습니다. 다른 결제 수단을 시도해 주세요.',
+          icon: '💳❌'
         };
       default:
         return {
           title: '결제 실패',
           description: errorMessage,
-          icon: '❌'
+          icon: '❗'
         };
     }
   };
@@ -113,21 +117,19 @@ export default function PaymentFailPage2() {
               </div>
             )}
             <div className="pt-2 border-t border-red-200">
-              <p className="text-red-800 text-xs">
-                {errorMessage}
-              </p>
+              <p className="text-red-800 text-xs">{errorMessage}</p>
             </div>
           </div>
         </div>
 
         {/* 안내 사항 */}
         <div className="bg-blue-50 rounded-lg p-4 mb-6">
-          <h3 className="text-sm font-semibold text-blue-900 mb-2">💡 다음 사항을 확인해주세요</h3>
+          <h3 className="text-sm font-semibold text-blue-900 mb-2">다음 사항을 확인해 주세요</h3>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• 카드 한도가 충분한지 확인</li>
-            <li>• 카드 정보가 정확한지 확인</li>
-            <li>• 인터넷 연결 상태 확인</li>
-            <li>• 다른 결제 수단으로 시도</li>
+            <li>카드 한도가 충분한지 확인</li>
+            <li>카드 정보가 정확한지 확인</li>
+            <li>인터넷/카드 결제 상태 확인</li>
+            <li>다른 결제 수단으로 시도</li>
           </ul>
         </div>
 
@@ -149,15 +151,13 @@ export default function PaymentFailPage2() {
             onClick={() => navigate('/')}
             className="w-full py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
-            홈으로 돌아가기
+            메인으로 돌아가기
           </button>
         </div>
 
         {/* 고객센터 안내 */}
         <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-          <p className="text-sm text-gray-600 mb-2">
-            문제가 계속되시나요?
-          </p>
+          <p className="text-sm text-gray-600 mb-2">문제가 계속되시나요?</p>
           <button
             onClick={() => navigate('/contact')}
             className="text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -169,3 +169,4 @@ export default function PaymentFailPage2() {
     </div>
   );
 }
+

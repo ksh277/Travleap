@@ -8,7 +8,7 @@ interface User {
   email: string;
   name: string;
   phone?: string;
-  role: 'admin' | 'user' | 'partner';
+  role: 'admin' | 'user' | 'partner' | 'vendor';
 }
 
 interface AuthState {

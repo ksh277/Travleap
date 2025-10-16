@@ -2,7 +2,7 @@
 export interface JWTPayload {
   userId: number;
   email: string;
-  role: 'admin' | 'user' | 'partner';
+  role: 'admin' | 'user' | 'partner' | 'vendor';
   name: string;
   iat: number;
   exp: number;

@@ -421,8 +421,8 @@ export function Header({
         </div>
       </nav>
 
-      {/* 검색바 (조건부 표시) */}
-      {showSearchBar && (
+      {/* 검색바 제거됨 */}
+      {false && showSearchBar && (
         <div className="bg-white border-b border-gray-200 shadow-sm">
           <div className="w-full px-[60px] py-3 md:py-4">
             <form onSubmit={handleSearch} className="space-y-4">

@@ -35,6 +35,7 @@ import { RentcarSearchPage } from './components/RentcarSearchPage';
 import { AccommodationDetailPage } from './components/AccommodationDetailPage';
 import { VendorRegistrationPage } from './components/VendorRegistrationPage';
 import { VendorDashboardPage } from './components/VendorDashboardPage';
+import VendorDashboardPageEnhanced from './components/VendorDashboardPageEnhanced';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentFailPage from './components/PaymentFailPage';
@@ -43,6 +44,7 @@ import PaymentFailPage2 from './components/PaymentFailPage2';
 import MonitoringDashboard from './components/MonitoringDashboard';
 import VendorPricingSettings from './components/VendorPricingSettings';
 import VendorLodgingDashboard from './components/VendorLodgingDashboard';
+import VendorPMSSettings from './components/VendorPMSSettings';
 import LockTestPage from './components/LockTestPage';
 
 import { Toaster } from './components/ui/sonner';
@@ -100,10 +102,7 @@ function AppContent() {
           {/* 홈페이지 */}
           <Route path="/" element={<HomePage />} />
 
-          {/* 렌트카 검색 페이지 (카테고리보다 먼저 매칭) */}
-          <Route path="/category/rentcar" element={<RentcarSearchPage />} />
-
-          {/* 카테고리 페이지 */}
+          {/* 카테고리 페이지 (렌트카 포함) */}
           <Route path="/category/:category" element={<CategoryPage />} />
 
           {/* 카테고리별 상세 페이지 */}
@@ -132,10 +131,10 @@ function AppContent() {
           {/* 렌트카 업체 등록 */}
           <Route path="/vendor/register" element={<VendorRegistrationPage />} />
 
-          {/* 렌트카 업체 대시보드 */}
+          {/* 렌트카 업체 대시보드 (강화 버전) */}
           <Route path="/vendor/dashboard" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <VendorDashboardPage />
+              <VendorDashboardPageEnhanced />
             ) : (
               <Navigate to="/login" replace />
             )
@@ -145,6 +144,15 @@ function AppContent() {
           <Route path="/vendor/pricing" element={
             isLoggedIn && user?.role === 'vendor' ? (
               <VendorPricingSettings />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 렌트카 업체 PMS 연동 설정 */}
+          <Route path="/vendor/pms" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <VendorPMSSettings />
             ) : (
               <Navigate to="/login" replace />
             )

@@ -1,13 +1,12 @@
 /**
- * 결제 성공 페이지 (신규 - Toss Payments 전용)
+ * 결제 성공 페이지 (신규 - Toss Payments 용)
  *
- * Toss Payments에서 결제 완료 후 리다이렉트되는 페이지
+ * Toss Payments에서 결제 성공 후 리다이렉트되는 페이지
  * Query Params: paymentKey, orderId, amount
  */
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { confirmPayment } from '../api/payments/confirm';
 
 export default function PaymentSuccessPage2() {
   const [searchParams] = useSearchParams();
@@ -20,6 +19,7 @@ export default function PaymentSuccessPage2() {
 
   useEffect(() => {
     processPayment();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function processPayment() {
@@ -27,7 +27,7 @@ export default function PaymentSuccessPage2() {
       setIsProcessing(true);
       setError(null);
 
-      // URL에서 결제 정보 추출
+      // URL 파라미터 추출
       const paymentKey = searchParams.get('paymentKey');
       const orderId = searchParams.get('orderId');
       const amount = searchParams.get('amount');
@@ -36,28 +36,37 @@ export default function PaymentSuccessPage2() {
         throw new Error('결제 정보가 올바르지 않습니다.');
       }
 
-      console.log('💳 결제 승인 처리 중...', { paymentKey, orderId, amount });
+      console.log('결제 확인 요청...', { paymentKey, orderId, amount });
 
-      // 결제 승인 API 호출
-      const result = await confirmPayment({
-        paymentKey,
-        orderId,
-        amount: parseInt(amount)
+      // 결제 확인 API 호출
+      const resp = await fetch('/api/payments/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentKey,
+          orderId,
+          amount: parseInt(amount)
+        })
       });
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        throw new Error(errJson.message || '결제 확인 요청 실패');
+      }
+      const result = await resp.json();
 
       if (!result.success) {
-        throw new Error(result.message || '결제 승인에 실패했습니다.');
+        throw new Error(result.message || '결제 처리에 실패했습니다.');
       }
 
-      console.log('✅ 결제 승인 완료:', result);
+      console.log('결제 확인 완료:', result);
 
       setBookingId(result.bookingId || null);
       setReceiptUrl(result.receiptUrl || null);
       setIsProcessing(false);
 
     } catch (err: any) {
-      console.error('❌ 결제 승인 실패:', err);
-      setError(err.message || '결제 승인 중 오류가 발생했습니다.');
+      console.error('결제 처리 실패:', err);
+      setError(err.message || '결제 처리 중 문제가 발생했습니다.');
       setIsProcessing(false);
     }
   }
@@ -66,12 +75,10 @@ export default function PaymentSuccessPage2() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">결제 승인 처리 중</h2>
-          <p className="text-gray-600">잠시만 기다려주세요...</p>
-          <p className="text-sm text-gray-500 mt-4">
-            ⚠️ 이 페이지를 닫지 마세요
-          </p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-6" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">결제 처리 중...</h2>
+          <p className="text-gray-600">결제를 최종 확인하고 있습니다. 잠시만 기다려 주세요.</p>
+          <p className="text-sm text-gray-500 mt-4">영수증 페이지는 새 창에서 열릴 수 있습니다.</p>
         </div>
       </div>
     );
@@ -82,7 +89,7 @@ export default function PaymentSuccessPage2() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
           <div className="text-red-500 text-6xl mb-6">❌</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">결제 승인 실패</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">결제 처리 실패</h2>
           <p className="text-gray-600 mb-6">{error}</p>
 
           <div className="space-y-3">
@@ -101,9 +108,7 @@ export default function PaymentSuccessPage2() {
           </div>
 
           <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-500">
-              문제가 계속되면 고객센터로 문의해주세요.
-            </p>
+            <p className="text-sm text-gray-500">문제가 지속되면 고객센터에 문의해 주세요.</p>
           </div>
         </div>
       </div>
@@ -114,14 +119,14 @@ export default function PaymentSuccessPage2() {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
-        {/* 성공 아이콘 */}
+        {/* 완료 아이콘 */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4">
             <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">결제가 완료되었습니다!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">결제가 완료되었습니다</h2>
           <p className="text-gray-600">예약이 확정되었습니다.</p>
         </div>
 
@@ -145,7 +150,7 @@ export default function PaymentSuccessPage2() {
           </div>
         </div>
 
-        {/* 영수증 버튼 */}
+        {/* 영수증 링크 */}
         {receiptUrl && (
           <a
             href={receiptUrl}
@@ -153,7 +158,7 @@ export default function PaymentSuccessPage2() {
             rel="noopener noreferrer"
             className="block w-full py-3 mb-3 bg-gray-100 text-gray-700 text-center rounded-lg hover:bg-gray-200 transition-colors"
           >
-            📄 영수증 보기
+            영수증 보기
           </a>
         )}
 
@@ -163,7 +168,7 @@ export default function PaymentSuccessPage2() {
             onClick={() => navigate(`/mypage`)}
             className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
           >
-            예약 확인하기
+            내 예약 확인하러 가기
           </button>
           <button
             onClick={() => navigate('/')}
@@ -173,16 +178,13 @@ export default function PaymentSuccessPage2() {
           </button>
         </div>
 
-        {/* 안내 문구 */}
+        {/* 추가 안내 */}
         <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-          <p className="text-sm text-gray-600 mb-2">
-            예약 확인서가 이메일로 발송되었습니다.
-          </p>
-          <p className="text-xs text-gray-500">
-            문의사항이 있으시면 고객센터로 연락해주세요.
-          </p>
+          <p className="text-sm text-gray-600 mb-2">예약 확인은 마이페이지에서 확인하실 수 있습니다.</p>
+          <p className="text-xs text-gray-500">추가 문의 사항이 있으면 고객센터로 문의해 주세요.</p>
         </div>
       </div>
     </div>
   );
 }
+

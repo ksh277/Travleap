@@ -3578,7 +3578,8 @@ export const api = {
 
     deleteOrder: async (orderId: number): Promise<ApiResponse<null>> => {
       try {
-        await db.delete('payments', orderId);
+        // bookings 테이블에서 삭제 (주문 내역은 bookings 테이블에 있음)
+        await db.delete('bookings', orderId);
         return {
           success: true,
           data: null,
