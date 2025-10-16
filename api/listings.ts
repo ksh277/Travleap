@@ -1,5 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db } from '../utils/database';
+import { connect } from '@planetscale/database';
+
+// PlanetScale connection
+const getDbConnection = () => {
+  const config = {
+    host: process.env.DATABASE_HOST || 'aws.connect.psdb.cloud',
+    username: process.env.DATABASE_USERNAME || '',
+    password: process.env.DATABASE_PASSWORD || ''
+  };
+  return connect(config);
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
@@ -90,17 +100,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     sql += ' LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const listings = await db.query(sql, params);
+    const conn = getDbConnection();
+    const result = await conn.execute(sql, params);
+    const listings = result.rows || [];
 
-    // 이미지 JSON 파싱
+    // 이미지 JSON 파싱 (안전하게)
+    const parseJsonField = (field: any): any => {
+      if (!field) return [];
+      if (typeof field === 'string') {
+        try {
+          return JSON.parse(field);
+        } catch {
+          return [];
+        }
+      }
+      return field;
+    };
+
     const parsedListings = listings.map((listing: any) => ({
       ...listing,
-      images: typeof listing.images === 'string' ? JSON.parse(listing.images || '[]') : listing.images,
-      amenities: typeof listing.amenities === 'string' ? JSON.parse(listing.amenities || '[]') : listing.amenities,
-      highlights: typeof listing.highlights === 'string' ? JSON.parse(listing.highlights || '[]') : listing.highlights,
-      included: typeof listing.included === 'string' ? JSON.parse(listing.included || '[]') : listing.included,
-      excluded: typeof listing.excluded === 'string' ? JSON.parse(listing.excluded || '[]') : listing.excluded,
-      tags: typeof listing.tags === 'string' ? JSON.parse(listing.tags || '[]') : listing.tags
+      images: parseJsonField(listing.images),
+      amenities: parseJsonField(listing.amenities),
+      highlights: parseJsonField(listing.highlights),
+      included: parseJsonField(listing.included),
+      excluded: parseJsonField(listing.excluded),
+      tags: parseJsonField(listing.tags)
     }));
 
     res.status(200).json({
