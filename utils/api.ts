@@ -72,6 +72,8 @@ export interface TravelItem {
   refund_policy?: string;
   weather_policy?: string;
   amenities?: string[];
+  child_price?: number;
+  infant_price?: number;
   tags?: string[];
   difficulty?: string;
   language?: string;
@@ -4248,7 +4250,7 @@ export const api = {
       console.log(`🔍 예약 가능 여부 확인: ${pickupDate} ~ ${returnDate}`);
 
       // rentcar_bookings 테이블에서 날짜 중복되는 차량 조회
-      const overlappingBookings = await db.query<{ vehicle_id: number }>(`
+      const overlappingBookings = await db.query(`
         SELECT DISTINCT rv.id as vehicle_id
         FROM rentcar_bookings rb
         INNER JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id

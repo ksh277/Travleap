@@ -1,8 +1,8 @@
 // 렌트카 예약 API
 import { db } from '../../utils/database';
-import { InventoryLockManager } from '../../utils/inventory-lock';
+// import { InventoryLockManager } from '../../utils/inventory-lock';
 
-const lockManager = InventoryLockManager.getInstance();
+// const lockManager = InventoryLockManager.getInstance();
 
 interface CreateBookingRequest {
   vehicle_id: number;
@@ -153,20 +153,20 @@ export async function checkAvailability(request: CheckAvailabilityRequest) {
 
 // 예약 생성 (Lock 보호)
 export async function createBooking(request: CreateBookingRequest) {
-  const lockKey = `rentcar:booking:${request.vehicle_id}:${request.pickup_date}`;
-  const lockOwner = `user_${request.user_id || 'guest'}`;
+  // const lockKey = `rentcar:booking:${request.vehicle_id}:${request.pickup_date}`;
+  // const lockOwner = `user_${request.user_id || 'guest'}`;
 
   try {
-    // 1. Lock 획득
-    const lockAcquired = await lockManager.acquireLock(lockKey, lockOwner, 600); // 10분
-    if (!lockAcquired) {
-      return {
-        success: false,
-        message: '다른 사용자가 예약 중입니다. 잠시 후 다시 시도해주세요'
-      };
-    }
+    // 1. Lock 획득 (temporarily disabled)
+    // const lockAcquired = await lockManager.acquireLock(lockKey, lockOwner, 600); // 10분
+    // if (!lockAcquired) {
+    //   return {
+    //     success: false,
+    //     message: '다른 사용자가 예약 중입니다. 잠시 후 다시 시도해주세요'
+    //   };
+    // }
 
-    console.log('🔒 [Rentcar] Lock 획득:', lockKey);
+    // console.log('🔒 [Rentcar] Lock 획득:', lockKey);
 
     // 2. 날짜 검증
     const dateValidation = validateDates(request.pickup_date, request.dropoff_date);
@@ -343,11 +343,12 @@ export async function createBooking(request: CreateBookingRequest) {
       success: false,
       message: '예약 생성 중 오류가 발생했습니다'
     };
-  } finally {
-    // Lock 해제
-    await lockManager.releaseLock(lockKey, lockOwner);
-    console.log('🔓 [Rentcar] Lock 해제:', lockKey);
   }
+  // finally {
+  //   // Lock 해제
+  //   await lockManager.releaseLock(lockKey, lockOwner);
+  //   console.log('🔓 [Rentcar] Lock 해제:', lockKey);
+  // }
 }
 
 // 예약 취소

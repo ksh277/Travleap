@@ -288,13 +288,14 @@ export function startCleanupWorker(): NodeJS.Timeout {
   }, 5 * 60 * 1000); // 5분마다
 }
 
-export default {
-  acquireInventoryLock,
-  releaseInventoryLock,
-  checkAvailability,
-  cleanupExpiredLocks,
-  extendLock,
-  commitLock,
-  restoreInventory,
-  startCleanupWorker
+// Temporarily disabled due to API method dependencies
+// export default {
+//   acquireInventoryLock,
+//   releaseInventoryLock,
+//   checkAvailability,
+//   cleanupExpiredLocks,
+//   extendLock,
+//   commitLock,
+//   restoreInventory,
+//   startCleanupWorker
 };
