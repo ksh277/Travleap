@@ -81,7 +81,7 @@ const loadProducts = async (): Promise<Product[]> => {
     return listings.data.map((listing) => ({
       id: listing.id.toString(),
       title: listing.title,
-      category: listing.category, // 이미 한글로 저장되어 있음
+      category: listing.category_name || listing.category_slug || listing.category || '미분류',
       price: listing.price_from || 0,
       location: listing.location || '',
       rating: listing.rating_avg || 0,

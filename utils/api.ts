@@ -2445,9 +2445,61 @@ export const api = {
     // 상품 생성
     createListing: async (listingData: any): Promise<ApiResponse<any>> => {
       try {
+        // category_id가 없으면 category에서 변환
+        let categoryId = listingData.category_id;
+
+        if (!categoryId && listingData.category) {
+          // slug 매핑 (한글/영문 → slug)
+          const slugMapping: { [key: string]: string } = {
+            '투어': 'tour',
+            '여행': 'tour',
+            'tour': 'tour',
+            '렌트카': 'rentcar',
+            'rentcar': 'rentcar',
+            'rental': 'rentcar',
+            '숙박': 'stay',
+            'stay': 'stay',
+            'accommodation': 'stay',
+            '음식': 'food',
+            'food': 'food',
+            'restaurant': 'food',
+            '관광지': 'tourist',
+            'tourist': 'tourist',
+            'attraction': 'tourist',
+            '체험': 'experience',
+            'experience': 'experience',
+            'exp': 'experience',
+            '팝업': 'popup',
+            'popup': 'popup',
+            'pup': 'popup',
+            'po': 'popup',
+            '행사': 'event',
+            'event': 'event'
+          };
+
+          const categoryKey = listingData.category.toLowerCase().trim();
+          const slug = slugMapping[categoryKey] || slugMapping[listingData.category] || 'tour';
+
+          // DB에서 실제 category_id 조회
+          const category = await db.query(
+            'SELECT id FROM categories WHERE slug = ? LIMIT 1',
+            [slug]
+          );
+
+          if (category && category.length > 0) {
+            categoryId = category[0].id;
+          } else {
+            // 기본값: tour 카테고리
+            const tourCategory = await db.query(
+              'SELECT id FROM categories WHERE slug = "tour" LIMIT 1'
+            );
+            categoryId = tourCategory && tourCategory.length > 0 ? tourCategory[0].id : 1855;
+          }
+        }
 
         const listing = {
           ...listingData,
+          category_id: categoryId,
           images: JSON.stringify(listingData.images || []),
           amenities: JSON.stringify(listingData.amenities || []),
           highlights: JSON.stringify(listingData.highlights || []),
@@ -2458,7 +2510,9 @@ export const api = {
           rating_count: 0,
           view_count: 0,
           booking_count: 0,
-          is_featured: listingData.is_featured || false
+          is_featured: listingData.is_featured || false,
+          is_active: listingData.is_active !== false ? 1 : 0,
+          is_published: listingData.is_published !== false ? 1 : 0
         };
 
         const response = await db.insert('listings', listing);
