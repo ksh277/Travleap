@@ -1,16 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import { Gift, Star, Award, Trophy, Coins, Calendar, User, ArrowLeft, Crown } from 'lucide-react';
+import { Gift, Star, Award, Trophy, Coins, Calendar, User, ArrowLeft, Crown, LogIn } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useAuth } from '../hooks/useAuth';
 
 interface RewardsPageProps {
   onBack?: () => void;
 }
 
 export function RewardsPage({ onBack }: RewardsPageProps) {
-  const [userPoints, setUserPoints] = useState(2450);
-  const [userTier, setUserTier] = useState('골드');
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const [userPoints, setUserPoints] = useState(0);
+  const [userTier, setUserTier] = useState('브론즈');
+  const [loading, setLoading] = useState(true);
 
   const rewardTiers = [
     {
@@ -149,10 +154,103 @@ export function RewardsPage({ onBack }: RewardsPageProps) {
   const nextTier = getNextTierInfo();
   const currentTier = getCurrentTierInfo();
 
+  // 로그인 시 사용자 포인트 정보 로드
+  useEffect(() => {
+    const loadUserRewards = async () => {
+      if (isAuthenticated && user) {
+        try {
+          // TODO: 실제 API 연동
+          // const response = await fetch('/api/user/rewards');
+          // const data = await response.json();
+          // setUserPoints(data.points);
+          // setUserTier(data.tier);
+
+          // 임시: 로그인한 사용자에게는 기본 포인트 부여
+          setUserPoints(0);
+          setUserTier('브론즈');
+        } catch (error) {
+          console.error('포인트 정보 로드 실패:', error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+
+    loadUserRewards();
+  }, [isAuthenticated, user]);
+
+  // 비로그인 사용자 처리
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="container mx-auto px-4">
+          <Card className="max-w-md mx-auto text-center">
+            <CardContent className="p-12">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-100 mb-6">
+                <Gift className="h-10 w-10 text-purple-600" />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">리워드 프로그램</h2>
+              <p className="text-gray-600 mb-8">
+                로그인하고 여행할수록 더 많은 혜택을 받으세요!
+              </p>
+              <div className="space-y-4">
+                <ul className="text-left text-gray-600 space-y-2 mb-6">
+                  <li className="flex items-center">
+                    <Star className="h-4 w-4 text-yellow-400 mr-2" />
+                    예약 시 포인트 적립
+                  </li>
+                  <li className="flex items-center">
+                    <Star className="h-4 w-4 text-yellow-400 mr-2" />
+                    등급별 할인 혜택
+                  </li>
+                  <li className="flex items-center">
+                    <Star className="h-4 w-4 text-yellow-400 mr-2" />
+                    포인트로 상품 교환
+                  </li>
+                  <li className="flex items-center">
+                    <Star className="h-4 w-4 text-yellow-400 mr-2" />
+                    VIP 전용 서비스
+                  </li>
+                </ul>
+                <Button
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                  onClick={() => navigate('/login')}
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  로그인하고 혜택 받기
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate('/')}
+                >
+                  홈으로 돌아가기
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 mobile-safe-bottom">
       {/* 헤더 */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white mobile-safe-top">
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center space-x-4 mb-6">
             {onBack && (
