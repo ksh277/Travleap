@@ -1,5 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { connect } from '@planetscale/database';
+const { connect } = require('@planetscale/database');
 
 // PlanetScale connection using DATABASE_URL
 const getDbConnection = () => {
@@ -10,7 +9,7 @@ const getDbConnection = () => {
   return connect({ url });
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
