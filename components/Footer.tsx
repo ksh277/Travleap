@@ -144,14 +144,6 @@ export function Footer({
               </li>
               <li>
                 <button
-                  onClick={() => onCategorySelect?.('about')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[44px] py-2 flex items-center"
-                >
-                  신안 소개
-                </button>
-              </li>
-              <li>
-                <button
                   onClick={() => onCategorySelect?.('community-blog')}
                   className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[44px] py-2 flex items-center"
                 >

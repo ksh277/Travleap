@@ -412,7 +412,7 @@ export function LegalPage({ onBack }: LegalPageProps) {
                 <div className="space-y-1 text-sm text-gray-700">
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4" />
-                    <span>ham0149@naver.com</span>
+                    <span>awesomeplan4606@naver.com</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4" />

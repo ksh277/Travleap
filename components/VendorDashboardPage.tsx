@@ -149,40 +149,42 @@ export function VendorDashboardPage() {
 
       setVehicles(vehiclesResult);
 
-      // 3. 자기 업체 예약만 조회
+      // 3. 자기 업체 예약만 조회 (bookings 테이블과 listings 조인)
       const bookingsResult = await db.query(`
         SELECT
-          rb.id,
-          rb.vehicle_id,
-          rv.display_name as vehicle_name,
-          rb.customer_name,
-          rb.customer_phone,
-          rb.pickup_date,
-          rb.dropoff_date,
-          rb.total_amount,
-          rb.status,
-          rb.created_at
-        FROM rentcar_bookings rb
-        INNER JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
-        WHERE rv.vendor_id = ?
-        ORDER BY rb.created_at DESC
+          b.id,
+          b.listing_id as vehicle_id,
+          l.title as vehicle_name,
+          JSON_UNQUOTE(JSON_EXTRACT(b.customer_info, '$.name')) as customer_name,
+          JSON_UNQUOTE(JSON_EXTRACT(b.customer_info, '$.phone')) as customer_phone,
+          b.start_date as pickup_date,
+          b.end_date as dropoff_date,
+          b.total_amount,
+          b.status,
+          b.created_at
+        FROM bookings b
+        INNER JOIN listings l ON b.listing_id = l.id
+        WHERE l.partner_id = ?
+          AND l.category_id = (SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1)
+        ORDER BY b.created_at DESC
         LIMIT 50
       `, [vendor.id]);
 
       setBookings(bookingsResult);
       setFilteredBookings(bookingsResult); // 초기에는 필터 없이 전체 표시
 
-      // 4. 최근 7일 매출 데이터 조회
+      // 4. 최근 7일 매출 데이터 조회 (bookings 테이블 사용)
       const revenueResult = await db.query(`
         SELECT
-          DATE(rb.created_at) as date,
-          SUM(rb.total_amount) as revenue
-        FROM rentcar_bookings rb
-        INNER JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
-        WHERE rv.vendor_id = ?
-          AND rb.status IN ('confirmed', 'completed')
-          AND rb.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-        GROUP BY DATE(rb.created_at)
+          DATE(b.created_at) as date,
+          SUM(b.total_amount) as revenue
+        FROM bookings b
+        INNER JOIN listings l ON b.listing_id = l.id
+        WHERE l.partner_id = ?
+          AND l.category_id = (SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1)
+          AND b.status IN ('confirmed', 'completed')
+          AND b.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        GROUP BY DATE(b.created_at)
         ORDER BY date ASC
       `, [vendor.id]);
 
@@ -239,8 +241,8 @@ export function VendorDashboardPage() {
     }
 
     try {
-      // rentcar_vehicles 테이블에 삽입
-      await db.execute(`
+      // 1. rentcar_vehicles 테이블에 삽입
+      const vehicleResult = await db.execute(`
         INSERT INTO rentcar_vehicles (
           vendor_id, display_name, vehicle_class, seating_capacity,
           transmission_type, fuel_type, daily_rate_krw, weekly_rate_krw,
@@ -263,6 +265,38 @@ export function VendorDashboardPage() {
         '[]'
       ]);
 
+      // 2. rentcar 카테고리 ID 조회
+      const categoryResult = await db.query(`SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1`);
+      const categoryId = categoryResult && categoryResult.length > 0 ? categoryResult[0].id : 5;
+
+      // 3. listings 테이블에도 삽입 (사용자가 볼 수 있도록)
+      // 차량 등급에 맞는 기본 이미지 설정
+      const defaultImages = JSON.stringify([
+        'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
+        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop',
+        'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&h=600&fit=crop'
+      ]);
+
+      await db.execute(`
+        INSERT INTO listings (
+          partner_id, category_id, title, short_description, description_md,
+          price_from, price_to, location, duration, max_capacity,
+          is_published, is_active, is_featured, images, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, 0, ?, NOW(), NOW())
+      `, [
+        vendorInfo.id,
+        categoryId,
+        newVehicle.display_name,
+        `${newVehicle.vehicle_class} / ${newVehicle.transmission_type} / ${newVehicle.fuel_type} / ${newVehicle.seating_capacity}인승`,
+        `### 차량 정보\n- 차종: ${newVehicle.vehicle_class}\n- 변속기: ${newVehicle.transmission_type}\n- 연료: ${newVehicle.fuel_type}\n- 정원: ${newVehicle.seating_capacity}명\n- 주행거리 제한: ${newVehicle.mileage_limit_km}km/일\n\n### 요금 정보\n- 1일: ₩${newVehicle.daily_rate_krw?.toLocaleString()}\n- 주간: ₩${newVehicle.weekly_rate_krw?.toLocaleString()}\n- 월간: ₩${newVehicle.monthly_rate_krw?.toLocaleString()}\n- 초과 주행료: ₩${newVehicle.excess_mileage_fee_krw}/km`,
+        newVehicle.daily_rate_krw,
+        newVehicle.monthly_rate_krw,
+        '신안군, 전라남도',
+        '1일~',
+        newVehicle.seating_capacity,
+        defaultImages
+      ]);
+
       toast.success('차량이 등록되었습니다!');
       setIsAddingVehicle(false);
       loadVendorData(); // 새로고침
@@ -276,9 +310,21 @@ export function VendorDashboardPage() {
     if (!confirm('정말 이 차량을 삭제하시겠습니까?')) return;
 
     try {
+      // 1. 차량 정보 조회 (삭제 전)
+      const vehicleInfo = vehicles.find(v => v.id === vehicleId);
+
+      // 2. rentcar_vehicles 테이블에서 삭제
       await db.execute(`
         DELETE FROM rentcar_vehicles WHERE id = ? AND vendor_id = ?
       `, [vehicleId, vendorInfo?.id]);
+
+      // 3. listings 테이블에서도 삭제 (차량명으로 매칭)
+      if (vehicleInfo) {
+        await db.execute(`
+          DELETE FROM listings
+          WHERE partner_id = ? AND title = ? AND category_id = (SELECT id FROM categories WHERE slug = 'rentcar' LIMIT 1)
+        `, [vendorInfo?.id, vehicleInfo.display_name]);
+      }
 
       toast.success('차량이 삭제되었습니다.');
       loadVendorData();
