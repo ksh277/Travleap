@@ -45,6 +45,10 @@ let lodgingAPI: any;
 let bannerAPI: any;
 let activityAPI: any;
 let newsletterAPI: any;
+let startPMSScheduler: any;
+let startLodgingExpiryWorker: any;
+let getLodgingExpiryMetrics: any;
+let startLodgingPMSScheduler: any;
 
 // ===== 서버 시작 =====
 
@@ -67,7 +71,10 @@ async function startServer() {
     bannerModule,
     activityModule,
     newsletterModule,
-    databaseModule
+    databaseModule,
+    pmsSchedulerModule,
+    lodgingExpiryWorkerModule,
+    lodgingPMSSchedulerModule
   ] = await Promise.all([
     import('./services/realtime/socketServer'),
     import('./services/jobs/bookingExpiry.worker'),
@@ -81,7 +88,10 @@ async function startServer() {
     import('./api/banners'),
     import('./api/activities'),
     import('./api/newsletter'),
-    import('./utils/database.js')
+    import('./utils/database.js'),
+    import('./services/pms-scheduler'),
+    import('./services/jobs/lodgingExpiry.worker'),
+    import('./services/pms-scheduler-lodging')
   ]);
 
   // Assign to module variables
@@ -99,6 +109,10 @@ async function startServer() {
   bannerAPI = bannerModule;
   activityAPI = activityModule;
   newsletterAPI = newsletterModule;
+  startPMSScheduler = pmsSchedulerModule.startPMSScheduler;
+  startLodgingExpiryWorker = lodgingExpiryWorkerModule.startLodgingExpiryWorker;
+  getLodgingExpiryMetrics = lodgingExpiryWorkerModule.getLodgingExpiryMetrics;
+  startLodgingPMSScheduler = lodgingPMSSchedulerModule.startLodgingPMSScheduler;
 
   const { db } = databaseModule;
 
@@ -130,6 +144,18 @@ async function startServer() {
     // 보증금 사전승인 워커
     startDepositPreauthWorker();
     console.log('   ✅ Deposit preauth worker started');
+
+    // PMS 자동 동기화 스케줄러 (렌트카)
+    startPMSScheduler();
+    console.log('   ✅ PMS auto-sync scheduler started (rentcar)');
+
+    // 숙박 HOLD 만료 워커
+    startLodgingExpiryWorker();
+    console.log('   ✅ Lodging expiry worker started');
+
+    // 숙박 PMS 자동 동기화 스케줄러
+    startLodgingPMSScheduler();
+    console.log('   ✅ Lodging PMS auto-sync scheduler started');
   } catch (error) {
     console.error('   ❌ Failed to start workers:', error);
   }
