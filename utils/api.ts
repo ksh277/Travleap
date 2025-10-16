@@ -1316,39 +1316,22 @@ export const api = {
   // 파트너 조회 (일반 API)
   getPartners: async (): Promise<ApiResponse<Partner[]>> => {
     try {
-      console.log('📡 Fetching partners from DB...');
+      console.log('📡 Fetching partners from API...');
 
-      // 직접 DB에서 파트너 조회 (승인된 파트너만)
-      const partners = await db.query(`
-        SELECT
-          p.id,
-          p.business_name,
-          p.contact_name,
-          p.email,
-          p.phone,
-          p.business_number,
-          p.website,
-          p.instagram,
-          p.description,
-          p.services,
-          p.tier,
-          p.is_verified,
-          p.is_featured,
-          p.status,
-          p.lat,
-          p.lng,
-          p.created_at,
-          p.updated_at
-        FROM partners p
-        WHERE p.status = 'approved'
-        ORDER BY p.is_featured DESC, p.tier DESC, p.created_at DESC
-      `);
+      const response = await fetch(`${API_BASE_URL}/api/partners`);
 
-      console.log(`✅ Partners 데이터 로드 성공: ${partners.length}개`);
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
 
-      return {
-        success: true,
-        data: partners || []
+      const result = await response.json();
+
+      console.log(`✅ Partners 데이터 로드 성공: ${result.data?.length || 0}개`);
+
+      return result.success ? result : {
+        success: false,
+        error: '파트너 조회에 실패했습니다.',
+        data: []
       };
     } catch (error) {
       console.error('🔥 getPartners 오류:', error);
@@ -1857,80 +1840,39 @@ export const api = {
     // 대시보드 통계
     getDashboardStats: async (): Promise<AdminDashboardStats | null> => {
       try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/stats`);
+
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.success || !result.data) {
+          throw new Error('Invalid response from stats API');
+        }
+
+        const stats = result.data;
         const today = new Date().toISOString().split('T')[0];
-
-        // 실제 DB에서 통계 계산 (payments 테이블 사용 - 주문관리와 동일)
-        const [
-          users,
-          partners,
-          listings,
-          payments,
-          reviews
-        ] = await Promise.all([
-          db.select('users') || [],
-          db.select('partners') || [],
-          db.select('listings') || [],
-          db.select('payments') || [],
-          db.select('reviews') || []
-        ]);
-
-        // cart 주문만 필터링 (bookings가 아닌 실제 주문)
-        const orders = payments.filter(p => {
-          try {
-            let notes: any = {};
-            if (p.notes) {
-              notes = typeof p.notes === 'string' ? JSON.parse(p.notes) : p.notes;
-            }
-            return notes.orderType === 'cart';
-          } catch {
-            return false;
-          }
-        });
-
-        // 오늘 생성된 데이터 계산
-        const todayUsers = users.filter(u => u.created_at?.startsWith(today)) || [];
-        const todayOrders = orders.filter(o => o.created_at?.startsWith(today)) || [];
-
-        // 파트너 상태별 계산
-        const pendingPartners = partners.filter(p => p.status === 'pending') || [];
-
-        // 상품 상태별 계산
-        const publishedListings = listings.filter(l => l.is_active === true) || [];
-
-        // 평균 평점 계산
-        const ratingsSum = reviews.reduce((sum, r) => sum + (r.rating || 0), 0);
-        const avgRating = reviews.length > 0 ? ratingsSum / reviews.length : 0;
-
-        // 총 수익 계산 (실제 주문 금액 기준)
-        const totalRevenue = orders.reduce((sum, o) => sum + (o.amount || 0), 0);
-        const todayRevenue = todayOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
-
-        // 수수료 계산 (10% 가정)
-        const commissionEarned = totalRevenue * 0.1;
-
-        const stats = {
-          date: today,
-          total_users: users.length,
-          new_users_today: todayUsers.length,
-          total_partners: partners.length,
-          pending_partners: pendingPartners.length,
-          total_listings: listings.length,
-          published_listings: publishedListings.length,
-          total_bookings: orders.length,
-          bookings_today: todayOrders.length,
-          total_revenue: Math.round(totalRevenue),
-          revenue_today: Math.round(todayRevenue),
-          commission_earned: Math.round(commissionEarned),
-          avg_rating: Math.round(avgRating * 10) / 10,
-          total_reviews: reviews.length,
-          pending_refunds: orders.filter(o => o.status === 'refund_requested').length,
-          support_tickets_open: 0
-        };
-
 
         return {
           id: 1,
-          ...stats,
+          date: today,
+          total_users: stats.totalUsers || 0,
+          new_users_today: stats.newSignups || 0,
+          total_partners: stats.totalPartners || 0,
+          pending_partners: stats.pendingPartners || 0,
+          total_listings: stats.totalProducts || 0,
+          published_listings: stats.activeProducts || 0,
+          total_bookings: stats.totalOrders || 0,
+          bookings_today: stats.todayOrders || 0,
+          total_revenue: stats.revenue || 0,
+          revenue_today: stats.revenue || 0,
+          commission_earned: stats.commission || 0,
+          avg_rating: stats.avgRating || 0,
+          total_reviews: stats.totalReviews || 0,
+          pending_refunds: stats.refunds || 0,
+          support_tickets_open: stats.inquiries || 0,
           created_at: new Date().toISOString()
         };
       } catch (error) {
@@ -1963,48 +1905,39 @@ export const api = {
     // 사용자 관리
     getUsers: async (filters?: AdminUserFilters): Promise<PaginatedResponse<User>> => {
       try {
-        let sql = 'SELECT * FROM users WHERE 1=1';
-        const params: any[] = [];
+        const params = new URLSearchParams();
 
         if (filters?.role && filters.role.length > 0) {
-          sql += ` AND role IN (${filters.role.map(() => '?').join(',')})`;
-          params.push(...filters.role);
+          params.append('role', filters.role.join(','));
         }
-
         if (filters?.search) {
-          sql += ' AND (name LIKE ? OR email LIKE ?)';
-          params.push(`%${filters.search}%`, `%${filters.search}%`);
+          params.append('search', filters.search);
         }
-
         if (filters?.date_from) {
-          sql += ' AND created_at >= ?';
-          params.push(filters.date_from);
+          params.append('date_from', filters.date_from);
         }
-
         if (filters?.date_to) {
-          sql += ' AND created_at <= ?';
-          params.push(filters.date_to);
+          params.append('date_to', filters.date_to);
+        }
+        if (filters?.page) {
+          params.append('page', filters.page.toString());
+        }
+        if (filters?.limit) {
+          params.append('limit', filters.limit.toString());
         }
 
-        sql += ' ORDER BY created_at DESC';
+        const url = `${API_BASE_URL}/api/admin/users${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url);
 
-        const page = filters?.page || 1;
-        const limit = filters?.limit || 20;
-        const offset = (page - 1) * limit;
-        sql += ` LIMIT ${limit} OFFSET ${offset}`;
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
 
-        const response = await db.query(sql, params);
-        const users = response || [];
-
-        return {
+        const result = await response.json();
+        return result.success ? result : {
           success: true,
-          data: users,
-          pagination: {
-            page,
-            limit,
-            total: users.length,
-            total_pages: Math.ceil(users.length / limit)
-          }
+          data: [],
+          pagination: { page: 1, limit: 20, total: 0, total_pages: 0 }
         };
       } catch (error) {
         console.error('Failed to fetch admin users:', error);
@@ -2019,41 +1952,36 @@ export const api = {
     // 파트너 관리
     getPartners: async (filters?: AdminPartnerFilters): Promise<PaginatedResponse<Partner>> => {
       try {
-        let sql = `
-          SELECT p.*, u.name as user_name, u.email as user_email
-          FROM partners p
-          LEFT JOIN users u ON p.user_id = u.id
-          WHERE 1=1
-        `;
-        const params: any[] = [];
+        const params = new URLSearchParams();
 
         if (filters?.status && filters.status.length > 0) {
-          sql += ` AND p.status IN (${filters.status.map(() => '?').join(',')})`;
-          params.push(...filters.status);
+          params.append('status', filters.status.join(','));
         }
-
         if (filters?.tier && filters.tier.length > 0) {
-          sql += ` AND p.tier IN (${filters.tier.map(() => '?').join(',')})`;
-          params.push(...filters.tier);
+          params.append('tier', filters.tier.join(','));
         }
-
         if (filters?.business_name) {
-          sql += ' AND p.business_name LIKE ?';
-          params.push(`%${filters.business_name}%`);
+          params.append('business_name', filters.business_name);
+        }
+        if (filters?.page) {
+          params.append('page', filters.page.toString());
+        }
+        if (filters?.limit) {
+          params.append('limit', filters.limit.toString());
         }
 
-        sql += ' ORDER BY p.created_at DESC';
+        const url = `${API_BASE_URL}/api/admin/partners${params.toString() ? '?' + params.toString() : ''}`;
+        const response = await fetch(url);
 
-        const response = await db.query(sql, params);
-        return {
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result.success ? result : {
           success: true,
-          data: response || [],
-          pagination: {
-            page: filters?.page || 1,
-            limit: filters?.limit || 20,
-            total: (response || []).length,
-            total_pages: Math.ceil((response || []).length / (filters?.limit || 20))
-          }
+          data: [],
+          pagination: { page: 1, limit: 20, total: 0, total_pages: 0 }
         };
       } catch (error) {
         console.error('Failed to fetch admin partners:', error);
@@ -2368,27 +2296,25 @@ export const api = {
       }
     },
 
-    // 관리자 상품 목록 조회 (DB Direct)
+    // 관리자 상품 목록 조회 (API)
     getListings: async (): Promise<ApiResponse<any[]>> => {
       try {
-        console.log('📡 Fetching admin listings from DB...');
+        console.log('📡 Fetching admin listings from API...');
 
-        // 직접 DB에서 모든 상품 조회
-        const listings = await db.query(`
-          SELECT
-            l.*,
-            c.name_ko as category_name,
-            c.slug as category_slug
-          FROM listings l
-          LEFT JOIN categories c ON l.category_id = c.id
-          ORDER BY l.created_at DESC
-        `);
+        const response = await fetch(`${API_BASE_URL}/api/admin/listings`);
 
-        console.log(`✅ Loaded ${listings.length} listings for admin`);
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
 
-        return {
-          success: true,
-          data: listings
+        const result = await response.json();
+
+        console.log(`✅ Loaded ${result.data?.length || 0} listings for admin`);
+
+        return result.success ? result : {
+          success: false,
+          data: [],
+          error: 'Failed to fetch listings'
         };
       } catch (error) {
         console.error('❌ Failed to fetch admin listings:', error);
