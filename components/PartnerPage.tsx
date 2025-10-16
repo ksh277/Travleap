@@ -59,7 +59,14 @@ const loadPartners = async (): Promise<Partner[]> => {
         }
 
         // services를 카테고리로 사용 (첫 번째 서비스)
-        const services = partner.services ? partner.services.split(',').map((s: string) => s.trim()) : ['여행'];
+        let services = ['여행'];
+        if (partner.services) {
+          if (Array.isArray(partner.services)) {
+            services = partner.services.length > 0 ? partner.services : ['여행'];
+          } else if (typeof partner.services === 'string' && partner.services.trim()) {
+            services = partner.services.split(',').map((s: string) => s.trim());
+          }
+        }
         const category = services[0] || '여행';
 
         const partnerCard: Partner = {
