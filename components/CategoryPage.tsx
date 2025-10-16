@@ -564,10 +564,14 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
               }
 
               return (
-                <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-                  <div className="flex flex-col">
+                <Card
+                  key={item.id}
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[380px] flex flex-col"
+                  onClick={() => navigate(`/detail/${item.id}`)}
+                >
+                  <div className="flex flex-col h-full">
                     {/* 이미지 */}
-                    <div className="relative w-full h-48">
+                    <div className="relative w-full h-48 flex-shrink-0">
                       <ImageWithFallback
                         src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
                         alt={item.title}
@@ -582,27 +586,38 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                       >
                         <Heart className={`h-4 w-4 ${favorites.has(item.id) ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
                       </button>
+                      <button
+                        className="absolute top-2 left-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShare(item);
+                        }}
+                      >
+                        <Share2 className="h-4 w-4 text-gray-600" />
+                      </button>
                     </div>
 
                     {/* 정보 */}
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-2 mb-2">
-                        <h3 className="font-semibold text-base flex-1 line-clamp-1">{item.title}</h3>
-                        {item.partner?.is_verified && (
-                          <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
-                            인증
-                          </Badge>
-                        )}
+                    <CardContent className="p-4 flex flex-col flex-1 justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <h3 className="font-semibold text-base flex-1 line-clamp-2 min-h-[2.5rem]">{item.title}</h3>
+                          {item.partner?.is_verified && (
+                            <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
+                              인증
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                          <span className="text-xs text-gray-600 line-clamp-1">{item.location || '위치 정보 없음'}</span>
+                        </div>
+
+                        <p className="text-xs text-gray-600 line-clamp-2">{item.short_description || item.description_md || ''}</p>
                       </div>
 
-                      <div className="flex items-center gap-1 mb-2">
-                        <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                        <span className="text-xs text-gray-600 line-clamp-1">{item.location || '위치 정보 없음'}</span>
-                      </div>
-
-                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">{item.short_description || item.description_md || ''}</p>
-
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mt-auto pt-2">
                         {item.rating_avg > 0 && (
                           <div className="flex items-center gap-1">
                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
@@ -613,41 +628,6 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                         <div className="text-base font-bold text-[#ff6a3d]">
                           {formatPrice(item.price_from || 0, selectedCurrency)}
                         </div>
-                      </div>
-
-                      <div className="flex gap-2 mt-3">
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/detail/${item.id}`);
-                          }}
-                          className="flex-1 bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs"
-                        >
-                          상세보기
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleCompare(item.id);
-                          }}
-                          className={`text-xs ${compareList.includes(item.id) ? 'bg-blue-50 border-blue-500' : ''}`}
-                        >
-                          <ArrowLeftRight className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleShare(item);
-                          }}
-                          className="text-xs"
-                        >
-                          <Share2 className="h-3 w-3" />
-                        </Button>
                       </div>
                     </CardContent>
                   </div>
@@ -737,38 +717,6 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         )}
       </div>
 
-      {/* 비교 바 */}
-      {compareList.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-          <Card className="bg-white shadow-lg border-2 border-blue-200">
-            <CardContent className="px-4 py-3">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <ArrowLeftRight className="h-5 w-5 text-blue-600" />
-                  <span className="font-medium">비교 선택 ({compareList.length})</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => navigate(`/compare?items=${compareList.join(',')}`)}
-                    className="bg-blue-600 hover:bg-blue-700 h-10"
-                  >
-                    비교하기
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCompareList([])}
-                    className="h-10"
-                  >
-                    취소
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
