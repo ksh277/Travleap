@@ -137,9 +137,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     console.error('API /listings error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch listings',
+      errorMessage: error.message || 'Unknown error',
       data: []
     });
   }
