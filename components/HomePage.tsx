@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import { Star, MapPin, Clock, Gift, Sparkles, Heart, Zap, Search, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
+import { Star, MapPin, Clock, Gift, Sparkles, Heart, Zap, Search, Loader2, AlertCircle, TrendingUp, CalendarIcon } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
+import { Calendar } from './ui/calendar';
 import { Users } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { formatPrice, t } from '../utils/translations';
@@ -11,6 +12,8 @@ import { api, type TravelItem } from '../utils/api';
 import type { Category } from '../types/database';
 import { toast } from 'sonner';
 import { HomeBanner } from './HomeBanner';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
 
 interface HomePageProps {
   selectedCurrency?: string;
@@ -406,23 +409,62 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                   {/* 체크인 날짜 */}
                   <div className="space-y-2 lg:flex-1">
                     <label className="text-sm font-medium text-gray-700 block">{t('checkIn', selectedLanguage)}</label>
-                    <input
-                      type="date"
-                      value={checkInDate ? checkInDate.toISOString().split('T')[0] : ''}
-                      onChange={(e) => setCheckInDate(e.target.value ? new Date(e.target.value) : undefined)}
-                      className="w-full px-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px]"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px] text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                        >
+                          <span className={checkInDate ? 'text-gray-900' : 'text-gray-400'}>
+                            {checkInDate ? format(checkInDate, 'yyyy년 MM월 dd일', { locale: ko }) : '날짜 선택'}
+                          </span>
+                          <CalendarIcon className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={checkInDate}
+                          onSelect={setCheckInDate}
+                          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                          locale={ko}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   {/* 체크아웃 날짜 */}
                   <div className="space-y-2 lg:flex-1">
                     <label className="text-sm font-medium text-gray-700 block">{t('checkOut', selectedLanguage)}</label>
-                    <input
-                      type="date"
-                      value={checkOutDate ? checkOutDate.toISOString().split('T')[0] : ''}
-                      onChange={(e) => setCheckOutDate(e.target.value ? new Date(e.target.value) : undefined)}
-                      className="w-full px-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px]"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="w-full px-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px] text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                        >
+                          <span className={checkOutDate ? 'text-gray-900' : 'text-gray-400'}>
+                            {checkOutDate ? format(checkOutDate, 'yyyy년 MM월 dd일', { locale: ko }) : '날짜 선택'}
+                          </span>
+                          <CalendarIcon className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={checkOutDate}
+                          onSelect={setCheckOutDate}
+                          disabled={(date) => {
+                            const today = new Date(new Date().setHours(0, 0, 0, 0));
+                            if (date < today) return true;
+                            if (checkInDate && date <= checkInDate) return true;
+                            return false;
+                          }}
+                          locale={ko}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
