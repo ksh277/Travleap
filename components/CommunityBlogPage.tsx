@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Calendar, User, Tag, Eye, Heart, MessageCircle, ArrowLeft } from 'lucide-react';
@@ -9,6 +10,7 @@ interface CommunityBlogPageProps {
 }
 
 export function CommunityBlogPage({ onBack }: CommunityBlogPageProps) {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   const categories = [
@@ -157,7 +159,11 @@ export function CommunityBlogPage({ onBack }: CommunityBlogPageProps) {
         {/* 블로그 포스트 그리드 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredPosts.map((post) => (
-            <Card key={post.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer">
+            <Card
+              key={post.id}
+              className="overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+              onClick={() => navigate(`/community-blog/${post.id}`)}
+            >
               <div className="relative">
                 <ImageWithFallback
                   src={post.image}
@@ -240,7 +246,11 @@ export function CommunityBlogPage({ onBack }: CommunityBlogPageProps) {
           <p className="text-gray-600 mb-6">
             신안에서의 특별한 경험과 추억을 다른 여행자들과 나누어보세요.
           </p>
-          <Button size="lg" className="bg-purple-600 hover:bg-purple-700">
+          <Button
+            size="lg"
+            className="bg-purple-600 hover:bg-purple-700"
+            onClick={() => navigate('/community-blog/write')}
+          >
             글쓰기
           </Button>
         </div>
