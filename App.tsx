@@ -17,13 +17,14 @@ import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
 import { CartPage } from './components/CartPage';
 import { AdminPage } from './components/AdminPage';
-import { AdminPageOptimized } from './components/AdminPageOptimized';
-import { ErrorBoundary } from './components/ErrorBoundary';
 import { MyPage } from './components/MyPage';
 import { ReviewsPage } from './components/ReviewsPage';
 import { PaymentPage } from './components/PaymentPage';
 import { CommunityBlogPage } from './components/CommunityBlogPage';
 import BlogListPage from './components/BlogListPage';
+import BlogDetailPage from './components/BlogDetailPage';
+import CommunityBlogDetailPage from './components/CommunityBlogDetailPage';
+import CommunityBlogWritePage from './components/CommunityBlogWritePage';
 import { RewardsPage } from './components/RewardsPage';
 import { WorkWithUsPage } from './components/WorkWithUsPage';
 import { PlaceGoodsPage } from './components/PlaceGoodsPage';
@@ -172,7 +173,7 @@ function AppContent() {
             )
           } />
 
-          {/* 관리자 전용 라우트 - 최적화 버전 (기본) */}
+          {/* 관리자 전용 라우트 */}
           <Route path="/admin" element={
             !sessionRestored ? (
               <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -182,27 +183,7 @@ function AppContent() {
                 </div>
               </div>
             ) : isLoggedIn && isAdmin ? (
-              <ErrorBoundary>
-                <AdminPageOptimized />
-              </ErrorBoundary>
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          } />
-
-          {/* 관리자 전체 기능 (기존 버전 - 필요시 사용) */}
-          <Route path="/admin/full" element={
-            !sessionRestored ? (
-              <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">세션을 확인하는 중...</p>
-                </div>
-              </div>
-            ) : isLoggedIn && isAdmin ? (
-              <ErrorBoundary>
-                <AdminPage />
-              </ErrorBoundary>
+              <AdminPage />
             ) : (
               <Navigate to="/login" replace />
             )
@@ -232,7 +213,10 @@ function AppContent() {
           <Route path="/contact" element={<ContactPage onBack={() => navigate(-1)} />} />
           <Route path="/reviews" element={<ReviewsPage />} />
           <Route path="/blog" element={<BlogListPage />} />
+          <Route path="/blog/:slug" element={<BlogDetailPage />} />
           <Route path="/community-blog" element={<CommunityBlogPage />} />
+          <Route path="/community-blog/write" element={<CommunityBlogWritePage />} />
+          <Route path="/community-blog/:id" element={<CommunityBlogDetailPage />} />
           <Route path="/rewards" element={<RewardsPage />} />
           <Route path="/work-with-us" element={<WorkWithUsPage />} />
           <Route path="/legal" element={<LegalPage onBack={() => navigate(-1)} />} />
