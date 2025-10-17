@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const limit = parseInt(url.searchParams.get('limit') || '10', 10);
 
     const conn = connect({ url: process.env.DATABASE_URL! });
-    const result = await conn.execute(\`
+    const result = await conn.execute(`
       SELECT r.id, r.rating, r.comment, r.created_at,
              u.name as user_name, l.title as listing_title, l.id as listing_id
       FROM reviews r
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
       WHERE r.is_visible = TRUE
       ORDER BY r.created_at DESC
       LIMIT ?
-    \`, [limit]);
+    `, [limit]);
 
     return new Response(
       JSON.stringify({ success: true, reviews: result.rows || [] }),

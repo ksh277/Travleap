@@ -10,12 +10,12 @@ export async function GET(request: Request) {
 
   try {
     const conn = connect({ url: process.env.DATABASE_URL! });
-    const result = await conn.execute(\`
+    const result = await conn.execute(`
       SELECT id, name_ko, name_en, slug, icon, description_ko, description_en, sort_order, is_active
       FROM categories
       WHERE is_active = TRUE
       ORDER BY sort_order ASC, id ASC
-    \`);
+    `);
 
     return new Response(
       JSON.stringify({ success: true, categories: result.rows || [] }),
