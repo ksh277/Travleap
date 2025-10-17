@@ -37,16 +37,8 @@ class Database {
         console.log('✅ [Database] Connected using individual credentials');
       }
     } else {
-      // 브라우저 환경
-      const host = import.meta.env.VITE_PLANETSCALE_HOST || 'aws.connect.psdb.cloud';
-      const username = import.meta.env.VITE_PLANETSCALE_USERNAME || '';
-      const password = import.meta.env.VITE_PLANETSCALE_PASSWORD || '';
-
-      if (!username || !password) {
-        console.warn('⚠️  PlanetScale credentials not configured');
-      }
-
-      this.connection = connect({ host, username, password });
+      // 브라우저 환경에서는 DB 직접 접속 불가 - 에러 던지기
+      throw new Error('❌ Database cannot be accessed from browser! Use API routes instead.');
     }
   }
 
