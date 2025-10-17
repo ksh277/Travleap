@@ -5,9 +5,14 @@ import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
 import { ArrowLeft, Eye, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '../hooks/useAuth';
+import { renderMarkdown } from '../utils/markdown';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004';
 
 export default function CommunityBlogWritePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // ========================================
   // 상태 변수들 ✅
@@ -19,6 +24,7 @@ export default function CommunityBlogWritePage() {
   const [tags, setTags] = useState('');             // 태그 (쉼표로 구분)
   const [imageUrl, setImageUrl] = useState('');     // 이미지 URL
   const [showPreview, setShowPreview] = useState(false); // 미리보기 모드
+  const [submitting, setSubmitting] = useState(false); // 제출 중 상태
 
   // 카테고리 목록
   const categories = [
@@ -29,72 +35,7 @@ export default function CommunityBlogWritePage() {
     { id: 'news', name: '소식' }
   ];
 
-  // ========================================
-  // 마크다운을 HTML로 변환하는 함수 ✅ 완료!
-  // ========================================
-  const renderMarkdown = (text: string) => {
-    return text.split('\n').map((line, index) => {
-      // 제목: # ## ###
-      if (line.startsWith('# ')) {
-        return <h1 key={index} className="text-3xl font-bold mt-8 mb-4">{line.substring(2)}</h1>;
-      } else if (line.startsWith('## ')) {
-        return <h2 key={index} className="text-2xl font-bold mt-6 mb-3">{line.substring(3)}</h2>;
-      } else if (line.startsWith('### ')) {
-        return <h3 key={index} className="text-xl font-bold mt-4 mb-2">{line.substring(4)}</h3>;
-      }
-
-      // 인용구: > 텍스트
-      else if (line.startsWith('> ')) {
-        return (
-          <blockquote key={index} className="border-l-4 border-purple-500 pl-4 my-4 italic text-gray-700">
-            {line.substring(2)}
-          </blockquote>
-        );
-      }
-
-      // 코드 블록: ```
-      else if (line.startsWith('```')) {
-        return <code key={index} className="block bg-gray-100 p-4 rounded my-4 font-mono text-sm">{line.substring(3)}</code>;
-      }
-
-      // 리스트: - 또는 숫자
-      else if (line.startsWith('- ')) {
-        return <li key={index} className="ml-6 my-1 list-disc">{line.substring(2)}</li>;
-      } else if (line.match(/^\d+\./)) {
-        return <li key={index} className="ml-6 my-1 list-decimal">{line.substring(line.indexOf('.') + 2)}</li>;
-      }
-
-      // 빈 줄
-      else if (line.trim() === '') {
-        return <br key={index} />;
-      }
-
-      // 일반 텍스트 (인라인 마크다운 처리)
-      else {
-        let processed = line;
-
-        // **굵게** 처리
-        processed = processed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-        // *기울임* 처리
-        processed = processed.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-        // `코드` 처리
-        processed = processed.replace(/`(.*?)`/g, '<code class="bg-gray-100 px-2 py-1 rounded text-sm font-mono text-purple-600">$1</code>');
-
-        // [링크](url) 처리
-        processed = processed.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-purple-600 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
-
-        return (
-          <p
-            key={index}
-            className="my-4 leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: processed }}
-          />
-        );
-      }
-    });
-  };
+  // 마크다운 렌더링은 utils/markdown.tsx에서 import
 
   // ========================================
   // 이미지 업로드 처리 함수 ✅
@@ -130,7 +71,14 @@ export default function CommunityBlogWritePage() {
   // 폼 제출 (저장) 함수 ✅
   // ========================================
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); // 페이지 새로고침 방지
+    e.preventDefault();
+
+    // 로그인 체크
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
 
     // 유효성 검사
     if (!title.trim()) {
@@ -146,45 +94,55 @@ export default function CommunityBlogWritePage() {
       return;
     }
 
+    setSubmitting(true);
+
+    // 태그 배열 생성
+    const tagsArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+
     // 데이터 객체 만들기
-    const newPost = {
-      id: Date.now(), // 임시 ID (실제로는 서버에서 생성)
+    const blogData = {
       title: title.trim(),
-      excerpt: excerpt.trim() || title.trim().substring(0, 100) + '...',
-      content: content.trim(),
+      excerpt: excerpt.trim() || title.trim().substring(0, 100),
+      content_md: content.trim(),
       category,
-      tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag), // 빈 태그 제거
-      image: imageUrl,
-      author: '익명', // 실제로는 로그인한 사용자 정보 사용
-      date: new Date().toLocaleDateString('ko-KR'),
-      views: 0,
-      likes: 0,
-      comments: 0
+      tags: JSON.stringify(tagsArray),
+      featured_image: imageUrl,
+      is_published: 1 // 바로 공개
     };
 
     try {
-      // TODO: 실제 API 호출은 여기서!
-      // const response = await fetch('/api/community-blog', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(newPost)
-      // });
-      // if (!response.ok) throw new Error('저장 실패');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+        navigate('/login');
+        return;
+      }
 
-      // 임시: 콘솔에 출력 (개발 단계)
-      console.log('✅ 저장할 데이터:', newPost);
+      const response = await fetch(`${API_BASE_URL}/api/blogs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(blogData)
+      });
 
-      // 성공 메시지
-      toast.success('🎉 글이 작성되었습니다!');
+      const data = await response.json();
 
-      // 1초 후 목록으로 이동
-      setTimeout(() => {
-        navigate('/community-blog');
-      }, 1000);
+      if (data.success) {
+        toast.success('🎉 글이 작성되었습니다!');
+        setTimeout(() => {
+          navigate(`/community-blog/${data.blog.id}`);
+        }, 1000);
+      } else {
+        throw new Error(data.error || '저장 실패');
+      }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('저장 오류:', error);
-      toast.error('글 작성에 실패했습니다. 다시 시도해주세요.');
+      toast.error(error.message || '글 작성에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -378,14 +336,16 @@ export default function CommunityBlogWritePage() {
                     variant="outline"
                     onClick={() => navigate('/community-blog')}
                     className="flex-1"
+                    disabled={submitting}
                   >
                     취소
                   </Button>
                   <Button
                     type="submit"
                     className="flex-1 bg-purple-600 hover:bg-purple-700"
+                    disabled={submitting}
                   >
-                    작성 완료
+                    {submitting ? '작성 중...' : '작성 완료'}
                   </Button>
                 </div>
               </CardContent>

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, User, Eye, Heart, MessageCircle, ArrowLeft, Share2, Tag } from 'lucide-react';
+import { Calendar, User, Eye, Heart, MessageCircle, ArrowLeft, Share2, Tag, Bookmark, Trash2, Reply, Edit2 } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { toast } from 'sonner';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useAuth } from '../hooks/useAuth';
+import { renderMarkdown } from '../utils/markdown';
 
 interface CommunityPost {
   id: number;
@@ -28,127 +30,157 @@ interface Comment {
   date: string;
   content: string;
   likes: number;
+  user_id: number;
+  liked?: boolean;
+  parent_comment_id?: number | null;
+  replies?: Comment[];
 }
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004';
 
 export default function CommunityBlogDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [post, setPost] = useState<CommunityPost | null>(null);
   const [liked, setLiked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(true);
+  const [replyingTo, setReplyingTo] = useState<number | null>(null);
+  const [editingComment, setEditingComment] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState('');
 
   useEffect(() => {
     fetchPost();
+    fetchComments();
     window.scrollTo(0, 0);
   }, [id]);
 
-  const fetchPost = () => {
-    setLoading(false);
-
-    // Mock data - 실제로는 API 호출
-    const mockPost: CommunityPost = {
-      id: Number(id),
-      title: '신안 증도 천일염전에서의 특별한 하루',
-      excerpt: '천일염전에서 직접 소금을 채취하고, 갯벌체험까지! 신안 여행의 백미를 소개합니다.',
-      content: `
-# 증도 천일염전, 그곳에서의 특별한 경험
-
-안녕하세요! 이번 주말에 신안 증도를 다녀왔습니다. 증도는 신안군에서 가장 큰 섬으로, 유네스코 생물권보전지역으로 지정된 곳입니다.
-
-## 천일염전 체험
-
-증도의 하이라이트는 바로 천일염전 체험입니다. 직접 소금을 채취하는 경험은 정말 특별했어요!
-
-### 체험 과정
-1. **오전 10시 - 염전 도착**: 넓은 염전이 펼쳐져 있어요
-2. **염전 설명**: 전문가분이 천일염 제조 과정을 자세히 설명해주십니다
-3. **직접 채취**: 실제로 소금을 긁어모으는 체험
-4. **포장 체험**: 채취한 소금을 직접 포장해 가져갈 수 있어요
-
-## 갯벌 체험
-
-오후에는 갯벌 체험도 했습니다. 짱뚱어, 게, 조개 등 다양한 생물들을 만날 수 있었어요.
-
-**준비물**:
-- 편한 옷 (더러워질 수 있어요!)
-- 모자와 선크림
-- 갈아입을 옷
-- 수건
-
-## 추천 맛집
-
-염전 체험 후 들른 맛집을 소개합니다.
-
-**증도 식당**
-- 메뉴: 백합정식, 낙지볶음
-- 가격: 1인 15,000원
-- 후기: 싱싱한 해산물이 일품!
-
-## 여행 팁
-
-💡 **최적의 방문 시기**: 4월~10월 (날씨가 좋을 때 추천)
-
-💡 **소요 시간**: 반나절 정도 여유있게 계획하세요
-
-💡 **주의사항**:
-- 햇빛이 강하니 자외선 차단 필수
-- 염전은 미끄러우니 조심하세요
-- 갯벌체험은 간조 시간을 확인하세요
-
-## 마무리
-
-증도에서의 하루는 정말 특별한 경험이었습니다. 천일염 제조 과정을 직접 보고, 체험하면서 소금의 소중함을 다시 한번 느낄 수 있었어요.
-
-신안 여행을 계획하신다면 꼭 증도에 들러보세요! 후회하지 않으실 거예요 😊
-      `,
-      category: 'travel',
-      author: '김민지',
-      date: '2024.03.20',
-      image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1200&h=600&fit=crop',
-      views: 1245,
-      likes: 89,
-      comments: 23,
-      tags: ['증도', '천일염', '갯벌체험', '유네스코']
-    };
-
-    const mockComments: Comment[] = [
-      {
-        id: 1,
-        author: '박지훈',
-        date: '2024.03.21',
-        content: '저도 다음주에 증도 가려고 하는데 너무 유용한 정보네요! 감사합니다 😊',
-        likes: 5
-      },
-      {
-        id: 2,
-        author: '이수진',
-        date: '2024.03.21',
-        content: '작년에 갔었는데 정말 좋더라고요. 사진 보니까 또 가고 싶어지네요!',
-        likes: 3
-      },
-      {
-        id: 3,
-        author: '최민호',
-        date: '2024.03.20',
-        content: '갯벌체험 시간은 어떻게 확인하나요?',
-        likes: 1
+  const fetchPost = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers: any = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
-    ];
 
-    setPost(mockPost);
-    setLikeCount(mockPost.likes);
-    setComments(mockComments);
-    setLoading(false);
+      const response = await fetch(`${API_BASE_URL}/api/blogs/${id}`, { headers });
+      const data = await response.json();
+
+      if (data.success && data.post) {
+        const blogPost: CommunityPost = {
+          id: data.post.id,
+          title: data.post.title,
+          excerpt: data.post.excerpt || '',
+          content: data.post.content_md || data.post.content || '',
+          category: data.post.category || 'general',
+          author: data.post.author_name || data.post.author || '익명',
+          date: new Date(data.post.created_at).toLocaleDateString('ko-KR'),
+          image: data.post.featured_image || data.post.image_url || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1200&h=600&fit=crop',
+          views: data.post.views || 0,
+          likes: data.post.likes || 0,
+          comments: data.post.comments_count || 0,
+          tags: data.post.tags ? (typeof data.post.tags === 'string' ? JSON.parse(data.post.tags) : data.post.tags) : []
+        };
+
+        setPost(blogPost);
+        setLikeCount(blogPost.likes);
+        setLiked(data.liked || false);
+        setBookmarked(data.bookmarked || false);
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch post:', error);
+      setLoading(false);
+    }
   };
 
-  const handleLike = () => {
-    setLiked(!liked);
-    setLikeCount(prev => liked ? prev - 1 : prev + 1);
-    toast.success(liked ? '좋아요를 취소했습니다' : '좋아요를 눌렀습니다!');
+  const fetchComments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers: any = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/blogs/${id}/comments`, { headers });
+      const data = await response.json();
+
+      if (data.success && data.comments) {
+        const formattedComments: Comment[] = data.comments.map((c: any) => ({
+          id: c.id,
+          author: c.author_name || c.user_name || '익명',
+          date: new Date(c.created_at).toLocaleDateString('ko-KR'),
+          content: c.content,
+          likes: c.likes || 0,
+          user_id: c.user_id,
+          liked: c.liked || false,
+          parent_comment_id: c.parent_comment_id
+        }));
+
+        // 댓글을 트리 구조로 변환 (부모 댓글에 replies 추가)
+        const commentMap = new Map<number, Comment>();
+        const rootComments: Comment[] = [];
+
+        formattedComments.forEach(comment => {
+          commentMap.set(comment.id, { ...comment, replies: [] });
+        });
+
+        formattedComments.forEach(comment => {
+          const commentWithReplies = commentMap.get(comment.id)!;
+          if (comment.parent_comment_id) {
+            const parent = commentMap.get(comment.parent_comment_id);
+            if (parent) {
+              parent.replies!.push(commentWithReplies);
+            } else {
+              rootComments.push(commentWithReplies);
+            }
+          } else {
+            rootComments.push(commentWithReplies);
+          }
+        });
+
+        setComments(rootComments);
+      }
+    } catch (error) {
+      console.error('Failed to fetch comments:', error);
+    }
+  };
+
+  const handleLike = async () => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/blogs/${id}/like`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setLiked(data.liked);
+        setLikeCount(data.likes);
+        toast.success(data.message);
+      } else {
+        toast.error(data.message || '좋아요 처리 실패');
+      }
+    } catch (error) {
+      console.error('좋아요 처리 실패:', error);
+      toast.error('좋아요 처리 중 오류가 발생했습니다.');
+    }
   };
 
   const handleShare = async () => {
@@ -168,25 +200,275 @@ export default function CommunityBlogDetailPage() {
     }
   };
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent, parentCommentId: number | null = null) => {
     e.preventDefault();
+
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
     if (!newComment.trim()) {
       toast.error('댓글 내용을 입력해주세요.');
       return;
     }
 
-    const newCommentObj: Comment = {
-      id: comments.length + 1,
-      author: '익명',
-      date: new Date().toLocaleDateString('ko-KR'),
-      content: newComment,
-      likes: 0
-    };
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/blogs/${id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          content: newComment,
+          parent_comment_id: parentCommentId
+        })
+      });
 
-    setComments([...comments, newCommentObj]);
-    setNewComment('');
-    toast.success('댓글이 등록되었습니다!');
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchComments();
+        setNewComment('');
+        setReplyingTo(null);
+        toast.success(data.message);
+
+        if (post) {
+          setPost({
+            ...post,
+            comments: post.comments + 1
+          });
+        }
+      } else {
+        toast.error(data.message || '댓글 작성 실패');
+      }
+    } catch (error) {
+      console.error('댓글 작성 실패:', error);
+      toast.error('댓글 작성 중 오류가 발생했습니다.');
+    }
   };
+
+  const handleEditComment = async (commentId: number) => {
+    if (!editContent.trim()) {
+      toast.error('댓글 내용을 입력해주세요.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/blogs/comments/${commentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          content: editContent
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchComments();
+        setEditingComment(null);
+        setEditContent('');
+        toast.success(data.message);
+      } else {
+        toast.error(data.message || '댓글 수정 실패');
+      }
+    } catch (error) {
+      console.error('댓글 수정 실패:', error);
+      toast.error('댓글 수정 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/blogs/${id}/bookmark`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setBookmarked(data.bookmarked);
+        toast.success(data.message);
+      } else {
+        toast.error(data.message || '북마크 처리 실패');
+      }
+    } catch (error) {
+      console.error('북마크 처리 실패:', error);
+      toast.error('북마크 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!confirm('정말 이 댓글을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/blogs/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchComments();
+        toast.success(data.message);
+
+        // 포스트 정보도 업데이트 (댓글 수 감소)
+        if (post) {
+          setPost({
+            ...post,
+            comments: Math.max(0, post.comments - 1)
+          });
+        }
+      } else {
+        toast.error(data.message || '댓글 삭제 실패');
+      }
+    } catch (error) {
+      console.error('댓글 삭제 실패:', error);
+      toast.error('댓글 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleCommentLike = async (commentId: number) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/blogs/comments/${commentId}/like`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await fetchComments();
+        toast.success(data.message);
+      } else {
+        toast.error(data.message || '좋아요 처리 실패');
+      }
+    } catch (error) {
+      console.error('댓글 좋아요 처리 실패:', error);
+      toast.error('좋아요 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 재귀 댓글 렌더링 컴포넌트
+  const renderComment = (comment: Comment, depth: number = 0) => (
+    <div key={comment.id} className={`pb-6 border-b last:border-b-0 ${depth > 0 ? 'ml-12 mt-4' : ''}`}>
+      {editingComment === comment.id ? (
+        // 수정 모드
+        <div className="flex gap-2 mb-2">
+          <Input
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            placeholder="댓글을 수정하세요..."
+            className="flex-1"
+          />
+          <Button onClick={() => handleEditComment(comment.id)} size="sm" className="bg-purple-600">
+            저장
+          </Button>
+          <Button onClick={() => {setEditingComment(null); setEditContent('');}} variant="outline" size="sm">
+            취소
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                {comment.author[0]}
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800">{comment.author}</p>
+                <p className="text-xs text-gray-500">{comment.date}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCommentLike(comment.id)}
+                className={comment.liked ? "text-purple-600" : "text-gray-500 hover:text-purple-600"}
+              >
+                <Heart className={`h-4 w-4 mr-1 ${comment.liked ? 'fill-current' : ''}`} />
+                {comment.likes}
+              </Button>
+              {user && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {setReplyingTo(comment.id); window.scrollTo({top: 500, behavior: 'smooth'});}}
+                  className="text-gray-500 hover:text-purple-600"
+                >
+                  <Reply className="h-4 w-4" />
+                </Button>
+              )}
+              {user && user.userId === comment.user_id && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {setEditingComment(comment.id); setEditContent(comment.content);}}
+                  className="text-gray-500 hover:text-blue-600"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              )}
+              {user && (user.userId === comment.user_id || user.role === 'admin') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteComment(comment.id)}
+                  className="text-gray-500 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+          <p className="text-gray-700 ml-13">{comment.content}</p>
+          {/* 대댓글 렌더링 */}
+          {comment.replies && comment.replies.length > 0 && (
+            <div className="mt-4">
+              {comment.replies.map(reply => renderComment(reply, depth + 1))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 
   if (loading) {
     return (
@@ -288,71 +570,7 @@ export default function CommunityBlogDetailPage() {
 
               {/* Content */}
               <div className="prose prose-lg max-w-none">
-                {post.content.split('\n').map((line, index) => {
-                  // ========================================
-                  // 마크다운 렌더링 (향상된 버전)
-                  // ========================================
-
-                  // 제목: # ## ###
-                  if (line.startsWith('# ')) {
-                    return <h1 key={index} className="text-3xl font-bold mt-8 mb-4">{line.substring(2)}</h1>;
-                  } else if (line.startsWith('## ')) {
-                    return <h2 key={index} className="text-2xl font-bold mt-6 mb-3">{line.substring(3)}</h2>;
-                  } else if (line.startsWith('### ')) {
-                    return <h3 key={index} className="text-xl font-bold mt-4 mb-2">{line.substring(4)}</h3>;
-                  }
-
-                  // 인용구: > 텍스트
-                  else if (line.startsWith('> ')) {
-                    return (
-                      <blockquote key={index} className="border-l-4 border-purple-500 pl-4 my-4 italic text-gray-700">
-                        {line.substring(2)}
-                      </blockquote>
-                    );
-                  }
-
-                  // 코드 블록: ```
-                  else if (line.startsWith('```')) {
-                    return <code key={index} className="block bg-gray-100 p-4 rounded my-4 font-mono text-sm">{line.substring(3)}</code>;
-                  }
-
-                  // 리스트: - 또는 숫자
-                  else if (line.startsWith('- ')) {
-                    return <li key={index} className="ml-6 my-1 list-disc">{line.substring(2)}</li>;
-                  } else if (line.match(/^\d+\./)) {
-                    return <li key={index} className="ml-6 my-1 list-decimal">{line.substring(line.indexOf('.') + 2)}</li>;
-                  }
-
-                  // 빈 줄
-                  else if (line.trim() === '') {
-                    return <br key={index} />;
-                  }
-
-                  // 일반 텍스트 (인라인 마크다운 처리)
-                  else {
-                    let processed = line;
-
-                    // **굵게** 처리
-                    processed = processed.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-                    // *기울임* 처리
-                    processed = processed.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-                    // `코드` 처리
-                    processed = processed.replace(/`(.*?)`/g, '<code class="bg-gray-100 px-2 py-1 rounded text-sm font-mono text-purple-600">$1</code>');
-
-                    // [링크](url) 처리
-                    processed = processed.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-purple-600 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
-
-                    return (
-                      <p
-                        key={index}
-                        className="my-4 leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: processed }}
-                      />
-                    );
-                  }
-                })}
+                {renderMarkdown(post.content)}
               </div>
 
               {/* Tags */}
@@ -385,6 +603,14 @@ export default function CommunityBlogDetailPage() {
                   좋아요 ({likeCount})
                 </Button>
                 <Button
+                  variant={bookmarked ? "default" : "outline"}
+                  onClick={handleBookmark}
+                  className={`flex items-center gap-2 ${bookmarked ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
+                >
+                  <Bookmark className={`h-5 w-5 ${bookmarked ? 'fill-current' : ''}`} />
+                  북마크
+                </Button>
+                <Button
                   variant="outline"
                   onClick={handleShare}
                   className="flex items-center gap-2"
@@ -405,12 +631,26 @@ export default function CommunityBlogDetailPage() {
               </h3>
 
               {/* Comment Form */}
-              <form onSubmit={handleCommentSubmit} className="mb-8">
+              <form onSubmit={(e) => handleCommentSubmit(e, replyingTo)} className="mb-8">
+                {replyingTo && (
+                  <div className="mb-2 text-sm text-purple-600 flex items-center gap-2">
+                    <Reply className="h-4 w-4" />
+                    답글 작성 중
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setReplyingTo(null)}
+                      className="text-gray-500"
+                    >
+                      취소
+                    </Button>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Input
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="댓글을 남겨보세요..."
+                    placeholder={replyingTo ? "답글을 입력하세요..." : "댓글을 남겨보세요..."}
                     className="flex-1"
                   />
                   <Button type="submit" className="bg-purple-600 hover:bg-purple-700">
@@ -421,30 +661,7 @@ export default function CommunityBlogDetailPage() {
 
               {/* Comments List */}
               <div className="space-y-6">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="pb-6 border-b last:border-b-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                          {comment.author[0]}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-800">{comment.author}</p>
-                          <p className="text-xs text-gray-500">{comment.date}</p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-gray-500 hover:text-purple-600"
-                      >
-                        <Heart className="h-4 w-4 mr-1" />
-                        {comment.likes}
-                      </Button>
-                    </div>
-                    <p className="text-gray-700 ml-13">{comment.content}</p>
-                  </div>
-                ))}
+                {comments.map((comment) => renderComment(comment))}
               </div>
             </CardContent>
           </Card>

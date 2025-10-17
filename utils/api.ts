@@ -3156,19 +3156,81 @@ export const api = {
       }
     },
 
+    // 댓글 관리
+    getAllComments: async (): Promise<ApiResponse<any[]>> => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          return {
+            success: false,
+            error: '인증 토큰이 없습니다.',
+            data: []
+          };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/admin/comments`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || '댓글 조회에 실패했습니다.');
+        }
+
+        return {
+          success: true,
+          data: result.comments || []
+        };
+      } catch (error: any) {
+        console.error('Failed to fetch comments:', error);
+        return {
+          success: false,
+          error: error.message || '댓글 조회에 실패했습니다.',
+          data: []
+        };
+      }
+    },
+
     // 블로그 관리
     getBlogs: async (filters?: any): Promise<ApiResponse<any[]>> => {
       try {
-        const response = await db.select('blog_posts');
+        const token = localStorage.getItem('token');
+        if (!token) {
+          return {
+            success: false,
+            error: '인증 토큰이 없습니다.',
+            data: []
+          };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/blogs`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || '블로그 조회에 실패했습니다.');
+        }
+
         return {
           success: true,
-          data: response || []
+          data: result.blogs || []
         };
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to fetch blogs:', error);
         return {
           success: false,
-          error: '블로그 조회에 실패했습니다.',
+          error: error.message || '블로그 조회에 실패했습니다.',
           data: []
         };
       }
@@ -3176,18 +3238,39 @@ export const api = {
 
     createBlog: async (blogData: any): Promise<ApiResponse<any>> => {
       try {
-        const response = await db.insert('blog_posts', {
-          ...blogData,
-          tags: JSON.stringify(blogData.tags || []),
-          views: 0,
-          likes: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+        const token = localStorage.getItem('token');
+        if (!token) {
+          return {
+            success: false,
+            error: '인증 토큰이 없습니다.'
+          };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/blogs`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            ...blogData,
+            tags: blogData.tags ? JSON.stringify(blogData.tags) : '[]'
+          })
         });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return {
+            success: false,
+            error: result.error || '블로그 생성에 실패했습니다.'
+          };
+        }
+
         return {
           success: true,
-          data: response,
-          message: '블로그 포스트가 생성되었습니다.'
+          data: result.blog,
+          message: result.message || '블로그 포스트가 생성되었습니다.'
         };
       } catch (error) {
         console.error('Failed to create blog:', error);
@@ -3200,16 +3283,39 @@ export const api = {
 
     updateBlog: async (blogId: number, blogData: any): Promise<ApiResponse<any>> => {
       try {
-        await db.update('blog_posts', blogId, {
-          ...blogData,
-          tags: blogData.tags ? JSON.stringify(blogData.tags) : undefined,
-          updated_at: new Date().toISOString()
+        const token = localStorage.getItem('token');
+        if (!token) {
+          return {
+            success: false,
+            error: '인증 토큰이 없습니다.'
+          };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/blogs/${blogId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            ...blogData,
+            tags: blogData.tags ? JSON.stringify(blogData.tags) : undefined
+          })
         });
-        const updated = await db.select('blog_posts', { id: blogId });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return {
+            success: false,
+            error: result.error || '블로그 수정에 실패했습니다.'
+          };
+        }
+
         return {
           success: true,
-          data: updated[0],
-          message: '블로그 포스트가 수정되었습니다.'
+          data: result.blog,
+          message: result.message || '블로그 포스트가 수정되었습니다.'
         };
       } catch (error) {
         console.error('Failed to update blog:', error);
@@ -3222,11 +3328,35 @@ export const api = {
 
     deleteBlog: async (blogId: number): Promise<ApiResponse<null>> => {
       try {
-        await db.delete('blog_posts', blogId);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          return {
+            success: false,
+            error: '인증 토큰이 없습니다.'
+          };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/blogs/${blogId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return {
+            success: false,
+            error: result.error || '블로그 삭제에 실패했습니다.'
+          };
+        }
+
         return {
           success: true,
           data: null,
-          message: '블로그 포스트가 삭제되었습니다.'
+          message: result.message || '블로그 포스트가 삭제되었습니다.'
         };
       } catch (error) {
         console.error('Failed to delete blog:', error);

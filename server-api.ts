@@ -638,9 +638,10 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       const blogs = await db.query(`
-        SELECT id, title, slug, author, excerpt, content_md,
+        SELECT id, title, slug, author, author_id, excerpt, content_md,
                featured_image, category, tags, is_published,
-               view_count, created_at, updated_at
+               views, likes, comments_count, published_at,
+               created_at, updated_at
         FROM blog_posts
         ORDER BY created_at DESC
       `);
@@ -652,6 +653,745 @@ function setupRoutes() {
     } catch (error) {
       console.error('❌ [API] Get blogs error:', error);
       res.status(500).json({ success: false, message: '블로그 목록 조회 실패', blogs: [] });
+    }
+  });
+
+  // 블로그 작성 (인증된 사용자)
+  app.post('/api/blogs', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const userId = (req as any).user.userId;
+      const userName = (req as any).user.name || '익명';
+
+      const { title, excerpt, content_md, category, tags, featured_image, is_published = 0 } = req.body;
+
+      // 유효성 검사
+      if (!title || !content_md) {
+        return res.status(400).json({
+          success: false,
+          error: '제목과 내용은 필수입니다.'
+        });
+      }
+
+      // slug 생성 (제목을 URL-safe하게 변환)
+      const slug = title
+        .toLowerCase()
+        .replace(/[^a-z0-9가-힣\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .substring(0, 100);
+
+      // published_at 설정
+      const publishedAt = is_published ? new Date() : null;
+
+      // 블로그 포스트 삽입
+      const result = await db.query(
+        `INSERT INTO blog_posts
+         (title, slug, author, author_id, excerpt, content_md,
+          featured_image, category, tags, is_published, published_at,
+          views, likes, comments_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)`,
+        [
+          title,
+          slug,
+          userName,
+          userId,
+          excerpt || title.substring(0, 100),
+          content_md,
+          featured_image || null,
+          category || 'general',
+          tags || '[]',
+          is_published ? 1 : 0,
+          publishedAt
+        ]
+      );
+
+      const insertId = (result as any).insertId;
+
+      // 생성된 블로그 조회
+      const newBlog = await db.query(
+        'SELECT * FROM blog_posts WHERE id = ?',
+        [insertId]
+      );
+
+      console.log(`✅ 블로그 생성 완료: ID ${insertId}, 작성자: ${userName}`);
+
+      res.json({
+        success: true,
+        blog: newBlog[0],
+        message: '블로그가 작성되었습니다.'
+      });
+
+    } catch (error: any) {
+      console.error('❌ [API] Create blog error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || '블로그 작성 실패'
+      });
+    }
+  });
+
+  // 블로그 수정 (작성자 또는 관리자만)
+  app.put('/api/blogs/:id', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const blogId = parseInt(req.params.id);
+      const userId = (req as any).user.userId;
+      const userRole = (req as any).user.role;
+
+      // 기존 블로그 확인
+      const existingBlog = await db.query('SELECT * FROM blog_posts WHERE id = ?', [blogId]);
+
+      if (!existingBlog || existingBlog.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '블로그를 찾을 수 없습니다.'
+        });
+      }
+
+      // 권한 확인 (작성자 본인 또는 관리자만 수정 가능)
+      if (existingBlog[0].author_id !== userId && userRole !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          error: '수정 권한이 없습니다.'
+        });
+      }
+
+      const { title, excerpt, content_md, category, tags, featured_image, is_published } = req.body;
+
+      // 수정할 필드만 업데이트
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+
+      if (title !== undefined) {
+        updateFields.push('title = ?');
+        updateValues.push(title);
+
+        // 제목이 변경되면 slug도 업데이트
+        const newSlug = title
+          .toLowerCase()
+          .replace(/[^a-z0-9가-힣\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .substring(0, 100);
+        updateFields.push('slug = ?');
+        updateValues.push(newSlug);
+      }
+
+      if (excerpt !== undefined) {
+        updateFields.push('excerpt = ?');
+        updateValues.push(excerpt);
+      }
+
+      if (content_md !== undefined) {
+        updateFields.push('content_md = ?');
+        updateValues.push(content_md);
+      }
+
+      if (category !== undefined) {
+        updateFields.push('category = ?');
+        updateValues.push(category);
+      }
+
+      if (tags !== undefined) {
+        updateFields.push('tags = ?');
+        updateValues.push(tags);
+      }
+
+      if (featured_image !== undefined) {
+        updateFields.push('featured_image = ?');
+        updateValues.push(featured_image);
+      }
+
+      if (is_published !== undefined) {
+        updateFields.push('is_published = ?');
+        updateValues.push(is_published ? 1 : 0);
+
+        // 게시 상태가 변경되면 published_at도 업데이트
+        if (is_published && !existingBlog[0].published_at) {
+          updateFields.push('published_at = ?');
+          updateValues.push(new Date());
+        }
+      }
+
+      updateFields.push('updated_at = ?');
+      updateValues.push(new Date());
+
+      // 업데이트 쿼리 실행
+      updateValues.push(blogId);
+      await db.query(
+        `UPDATE blog_posts SET ${updateFields.join(', ')} WHERE id = ?`,
+        updateValues
+      );
+
+      // 수정된 블로그 조회
+      const updatedBlog = await db.query('SELECT * FROM blog_posts WHERE id = ?', [blogId]);
+
+      console.log(`✅ 블로그 수정 완료: ID ${blogId}`);
+
+      res.json({
+        success: true,
+        blog: updatedBlog[0],
+        message: '블로그가 수정되었습니다.'
+      });
+
+    } catch (error: any) {
+      console.error('❌ [API] Update blog error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || '블로그 수정 실패'
+      });
+    }
+  });
+
+  // 블로그 삭제 (작성자 또는 관리자만)
+  app.delete('/api/blogs/:id', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const blogId = parseInt(req.params.id);
+      const userId = (req as any).user.userId;
+      const userRole = (req as any).user.role;
+
+      // 기존 블로그 확인
+      const existingBlog = await db.query('SELECT * FROM blog_posts WHERE id = ?', [blogId]);
+
+      if (!existingBlog || existingBlog.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '블로그를 찾을 수 없습니다.'
+        });
+      }
+
+      // 권한 확인 (작성자 본인 또는 관리자만 삭제 가능)
+      if (existingBlog[0].author_id !== userId && userRole !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          error: '삭제 권한이 없습니다.'
+        });
+      }
+
+      // 블로그 삭제 (실제 삭제)
+      await db.query('DELETE FROM blog_posts WHERE id = ?', [blogId]);
+
+      // 관련 데이터도 삭제
+      await db.query('DELETE FROM blog_likes WHERE post_id = ?', [blogId]);
+      await db.query('DELETE FROM blog_comments WHERE post_id = ?', [blogId]);
+      await db.query('DELETE FROM blog_bookmarks WHERE post_id = ?', [blogId]);
+      await db.query('DELETE FROM blog_views WHERE post_id = ?', [blogId]);
+
+      console.log(`✅ 블로그 삭제 완료: ID ${blogId}`);
+
+      res.json({
+        success: true,
+        message: '블로그가 삭제되었습니다.'
+      });
+
+    } catch (error: any) {
+      console.error('❌ [API] Delete blog error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || '블로그 삭제 실패'
+      });
+    }
+  });
+
+  // ===== 블로그 상호작용 API =====
+
+  // 공개 블로그 목록 조회 (일반 사용자용)
+  app.get('/api/blogs/published', async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const { category, tag, limit = 50, offset = 0 } = req.query;
+
+      let sql = `
+        SELECT
+          bp.id, bp.title, bp.slug, bp.author_id, bp.excerpt,
+          bp.featured_image, bp.image_url, bp.category, bp.tags,
+          bp.views, bp.likes, bp.comments_count,
+          bp.published_at, bp.created_at,
+          u.name as author_name
+        FROM blog_posts bp
+        LEFT JOIN users u ON bp.author_id = u.id
+        WHERE bp.is_published = 1
+      `;
+      const params: any[] = [];
+
+      if (category && category !== 'all') {
+        sql += ' AND bp.category = ?';
+        params.push(category);
+      }
+
+      if (tag) {
+        sql += ' AND JSON_CONTAINS(bp.tags, ?)';
+        params.push(JSON.stringify(tag));
+      }
+
+      sql += ' ORDER BY bp.published_at DESC, bp.created_at DESC';
+      sql += ' LIMIT ? OFFSET ?';
+      params.push(parseInt(limit as string), parseInt(offset as string));
+
+      const blogs = await db.query(sql, params);
+
+      res.json({
+        success: true,
+        blogs: blogs || [],
+        total: blogs.length
+      });
+    } catch (error) {
+      console.error('❌ [API] Get published blogs error:', error);
+      res.status(500).json({ success: false, message: '블로그 목록 조회 실패', blogs: [] });
+    }
+  });
+
+  // 블로그 상세 조회 (조회수 증가)
+  app.get('/api/blogs/:id', optionalAuth, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const postId = parseInt(req.params.id);
+      const userId = req.user?.userId; // 로그인한 경우에만
+
+      // 블로그 포스트 조회
+      const posts = await db.query(`
+        SELECT id, title, slug, author_id, excerpt, content_md,
+               featured_image, image_url, category, tags,
+               views, likes, comments_count,
+               is_published, published_at, created_at, updated_at
+        FROM blog_posts
+        WHERE id = ? AND is_published = 1
+      `, [postId]);
+
+      if (!posts || posts.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '포스트를 찾을 수 없습니다.'
+        });
+      }
+
+      const post = posts[0];
+
+      // 조회수 증가
+      await db.query('UPDATE blog_posts SET views = views + 1 WHERE id = ?', [postId]);
+      post.views = (post.views || 0) + 1;
+
+      // 사용자가 로그인한 경우, 좋아요/북마크 상태 확인
+      let liked = false;
+      let bookmarked = false;
+
+      if (userId) {
+        const likeCheck = await db.query(
+          'SELECT id FROM blog_likes WHERE post_id = ? AND user_id = ?',
+          [postId, userId]
+        );
+        liked = likeCheck && likeCheck.length > 0;
+
+        const bookmarkCheck = await db.query(
+          'SELECT id FROM blog_bookmarks WHERE post_id = ? AND user_id = ?',
+          [postId, userId]
+        );
+        bookmarked = bookmarkCheck && bookmarkCheck.length > 0;
+      }
+
+      // 작성자 이름 조회
+      if (post.author_id) {
+        const authorResult = await db.query('SELECT name FROM users WHERE id = ?', [post.author_id]);
+        if (authorResult && authorResult.length > 0) {
+          post.author_name = authorResult[0].name;
+        }
+      }
+
+      res.json({
+        success: true,
+        post,
+        liked,
+        bookmarked
+      });
+    } catch (error) {
+      console.error('❌ [API] Get blog post error:', error);
+      res.status(500).json({ success: false, message: '포스트 조회 실패' });
+    }
+  });
+
+  // 블로그 좋아요 토글
+  app.post('/api/blogs/:id/like', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const postId = parseInt(req.params.id);
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '로그인이 필요합니다.' });
+      }
+
+      // 이미 좋아요 했는지 확인
+      const existing = await db.query(
+        'SELECT id FROM blog_likes WHERE post_id = ? AND user_id = ?',
+        [postId, userId]
+      );
+
+      if (existing && existing.length > 0) {
+        // 좋아요 취소
+        await db.query('DELETE FROM blog_likes WHERE post_id = ? AND user_id = ?', [postId, userId]);
+
+        // blog_posts의 likes 카운트 감소
+        await db.query('UPDATE blog_posts SET likes = GREATEST(likes - 1, 0) WHERE id = ?', [postId]);
+
+        const updated = await db.query('SELECT likes FROM blog_posts WHERE id = ?', [postId]);
+
+        res.json({
+          success: true,
+          liked: false,
+          likes: updated[0]?.likes || 0,
+          message: '좋아요 취소'
+        });
+      } else {
+        // 좋아요 추가
+        await db.query(
+          'INSERT INTO blog_likes (post_id, user_id) VALUES (?, ?)',
+          [postId, userId]
+        );
+
+        // blog_posts의 likes 카운트 증가
+        await db.query('UPDATE blog_posts SET likes = likes + 1 WHERE id = ?', [postId]);
+
+        const updated = await db.query('SELECT likes FROM blog_posts WHERE id = ?', [postId]);
+
+        res.json({
+          success: true,
+          liked: true,
+          likes: updated[0]?.likes || 0,
+          message: '좋아요 추가'
+        });
+      }
+    } catch (error) {
+      console.error('❌ [API] Blog like error:', error);
+      res.status(500).json({ success: false, message: '좋아요 처리 실패' });
+    }
+  });
+
+  // 관리자 전체 댓글 조회
+  app.get('/api/admin/comments', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      const comments = await db.query(`
+        SELECT
+          c.id, c.content, c.likes, c.is_deleted, c.created_at, c.updated_at,
+          c.post_id, c.user_id, c.parent_comment_id,
+          u.name as user_name,
+          bp.title as post_title
+        FROM blog_comments c
+        LEFT JOIN users u ON c.user_id = u.id
+        LEFT JOIN blog_posts bp ON c.post_id = bp.id
+        ORDER BY c.created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        comments: comments || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get all comments error:', error);
+      res.status(500).json({ success: false, message: '댓글 목록 조회 실패', comments: [] });
+    }
+  });
+
+  // 블로그 댓글 조회
+  app.get('/api/blogs/:id/comments', optionalAuth, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const postId = parseInt(req.params.id);
+      const userId = req.user?.userId; // 로그인한 경우에만
+
+      const comments = await db.query(`
+        SELECT c.*, u.name as user_name, u.profile_image
+        FROM blog_comments c
+        LEFT JOIN users u ON c.user_id = u.id
+        WHERE c.post_id = ? AND c.is_deleted = 0
+        ORDER BY c.created_at DESC
+      `, [postId]);
+
+      // 로그인한 사용자가 있다면, 각 댓글에 대한 좋아요 상태 확인
+      if (userId && comments && comments.length > 0) {
+        const commentIds = comments.map((c: any) => c.id);
+        const likesCheck = await db.query(
+          `SELECT comment_id FROM blog_comment_likes WHERE comment_id IN (?) AND user_id = ?`,
+          [commentIds, userId]
+        );
+
+        const likedCommentIds = new Set((likesCheck || []).map((l: any) => l.comment_id));
+
+        // 각 댓글에 liked 속성 추가
+        comments.forEach((comment: any) => {
+          comment.liked = likedCommentIds.has(comment.id);
+        });
+      }
+
+      res.json({
+        success: true,
+        comments: comments || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get comments error:', error);
+      res.status(500).json({ success: false, message: '댓글 조회 실패', comments: [] });
+    }
+  });
+
+  // 블로그 댓글 작성
+  app.post('/api/blogs/:id/comments', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const postId = parseInt(req.params.id);
+      const userId = req.user?.userId;
+      const { content, parent_comment_id } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '로그인이 필요합니다.' });
+      }
+
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ success: false, message: '댓글 내용을 입력해주세요.' });
+      }
+
+      // 사용자 이름 조회
+      const user = await db.query('SELECT name FROM users WHERE id = ?', [userId]);
+      const authorName = user[0]?.name || '익명';
+
+      // 댓글 추가
+      const result = await db.query(`
+        INSERT INTO blog_comments (post_id, user_id, parent_comment_id, content, author_name)
+        VALUES (?, ?, ?, ?, ?)
+      `, [postId, userId, parent_comment_id || null, content, authorName]);
+
+      // blog_posts의 comments_count 증가
+      await db.query('UPDATE blog_posts SET comments_count = comments_count + 1 WHERE id = ?', [postId]);
+
+      res.json({
+        success: true,
+        message: '댓글이 작성되었습니다.',
+        comment: {
+          id: result.insertId,
+          post_id: postId,
+          user_id: userId,
+          author_name: authorName,
+          content,
+          parent_comment_id: parent_comment_id || null,
+          created_at: new Date()
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Create comment error:', error);
+      res.status(500).json({ success: false, message: '댓글 작성 실패' });
+    }
+  });
+
+  // 블로그 댓글 수정
+  app.put('/api/blogs/comments/:commentId', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const commentId = parseInt(req.params.commentId);
+      const userId = req.user?.userId;
+      const { content } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '로그인이 필요합니다.' });
+      }
+
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ success: false, message: '댓글 내용을 입력해주세요.' });
+      }
+
+      // 댓글 소유자 확인
+      const comment = await db.query('SELECT user_id, is_deleted FROM blog_comments WHERE id = ?', [commentId]);
+
+      if (!comment || comment.length === 0) {
+        return res.status(404).json({ success: false, message: '댓글을 찾을 수 없습니다.' });
+      }
+
+      if (comment[0].is_deleted === 1) {
+        return res.status(400).json({ success: false, message: '삭제된 댓글은 수정할 수 없습니다.' });
+      }
+
+      if (comment[0].user_id !== userId) {
+        return res.status(403).json({ success: false, message: '수정 권한이 없습니다.' });
+      }
+
+      // 댓글 수정
+      await db.query('UPDATE blog_comments SET content = ?, updated_at = NOW() WHERE id = ?', [content, commentId]);
+
+      res.json({
+        success: true,
+        message: '댓글이 수정되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update comment error:', error);
+      res.status(500).json({ success: false, message: '댓글 수정 실패' });
+    }
+  });
+
+  // 블로그 댓글 삭제 (소프트 삭제)
+  app.delete('/api/blogs/comments/:commentId', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const commentId = parseInt(req.params.commentId);
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '로그인이 필요합니다.' });
+      }
+
+      // 댓글 소유자 확인 및 is_deleted 상태 확인
+      const comment = await db.query('SELECT user_id, post_id, is_deleted FROM blog_comments WHERE id = ?', [commentId]);
+
+      if (!comment || comment.length === 0) {
+        return res.status(404).json({ success: false, message: '댓글을 찾을 수 없습니다.' });
+      }
+
+      // 이미 삭제된 댓글인지 확인
+      if (comment[0].is_deleted === 1) {
+        return res.status(400).json({ success: false, message: '이미 삭제된 댓글입니다.' });
+      }
+
+      if (comment[0].user_id !== userId && req.user?.role !== 'admin') {
+        return res.status(403).json({ success: false, message: '삭제 권한이 없습니다.' });
+      }
+
+      // 소프트 삭제
+      await db.query('UPDATE blog_comments SET is_deleted = 1 WHERE id = ?', [commentId]);
+
+      // blog_posts의 comments_count 감소 (삭제되지 않은 댓글만 카운트하므로)
+      await db.query('UPDATE blog_posts SET comments_count = GREATEST(comments_count - 1, 0) WHERE id = ?', [comment[0].post_id]);
+
+      res.json({
+        success: true,
+        message: '댓글이 삭제되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Delete comment error:', error);
+      res.status(500).json({ success: false, message: '댓글 삭제 실패' });
+    }
+  });
+
+  // 댓글 좋아요 토글
+  app.post('/api/blogs/comments/:commentId/like', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const commentId = parseInt(req.params.commentId);
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '로그인이 필요합니다.' });
+      }
+
+      // 댓글 존재 확인
+      const comment = await db.query('SELECT id, likes FROM blog_comments WHERE id = ? AND is_deleted = 0', [commentId]);
+
+      if (!comment || comment.length === 0) {
+        return res.status(404).json({ success: false, message: '댓글을 찾을 수 없습니다.' });
+      }
+
+      // 이미 좋아요를 눌렀는지 확인
+      const existing = await db.query(
+        'SELECT id FROM blog_comment_likes WHERE comment_id = ? AND user_id = ?',
+        [commentId, userId]
+      );
+
+      let liked = false;
+      let likes = comment[0].likes || 0;
+
+      if (existing && existing.length > 0) {
+        // 좋아요 취소
+        await db.query('DELETE FROM blog_comment_likes WHERE comment_id = ? AND user_id = ?', [commentId, userId]);
+        likes = Math.max(0, likes - 1);
+        await db.query('UPDATE blog_comments SET likes = ? WHERE id = ?', [likes, commentId]);
+        liked = false;
+      } else {
+        // 좋아요 추가
+        await db.query('INSERT INTO blog_comment_likes (comment_id, user_id) VALUES (?, ?)', [commentId, userId]);
+        likes = likes + 1;
+        await db.query('UPDATE blog_comments SET likes = ? WHERE id = ?', [likes, commentId]);
+        liked = true;
+      }
+
+      res.json({
+        success: true,
+        liked,
+        likes,
+        message: liked ? '좋아요를 눌렀습니다.' : '좋아요를 취소했습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Comment like error:', error);
+      res.status(500).json({ success: false, message: '좋아요 처리 실패' });
+    }
+  });
+
+  // 블로그 북마크 토글
+  app.post('/api/blogs/:id/bookmark', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const postId = parseInt(req.params.id);
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '로그인이 필요합니다.' });
+      }
+
+      // 이미 북마크 했는지 확인
+      const existing = await db.query(
+        'SELECT id FROM blog_bookmarks WHERE post_id = ? AND user_id = ?',
+        [postId, userId]
+      );
+
+      if (existing && existing.length > 0) {
+        // 북마크 취소
+        await db.query('DELETE FROM blog_bookmarks WHERE post_id = ? AND user_id = ?', [postId, userId]);
+
+        res.json({
+          success: true,
+          bookmarked: false,
+          message: '북마크 취소'
+        });
+      } else {
+        // 북마크 추가
+        await db.query(
+          'INSERT INTO blog_bookmarks (post_id, user_id) VALUES (?, ?)',
+          [postId, userId]
+        );
+
+        res.json({
+          success: true,
+          bookmarked: true,
+          message: '북마크 추가'
+        });
+      }
+    } catch (error) {
+      console.error('❌ [API] Blog bookmark error:', error);
+      res.status(500).json({ success: false, message: '북마크 처리 실패' });
+    }
+  });
+
+  // 사용자의 북마크 목록 조회
+  app.get('/api/blogs/bookmarks/my', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '로그인이 필요합니다.' });
+      }
+
+      const bookmarks = await db.query(`
+        SELECT bp.*, bb.created_at as bookmarked_at
+        FROM blog_bookmarks bb
+        JOIN blog_posts bp ON bb.post_id = bp.id
+        WHERE bb.user_id = ?
+        ORDER BY bb.created_at DESC
+      `, [userId]);
+
+      res.json({
+        success: true,
+        bookmarks: bookmarks || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get bookmarks error:', error);
+      res.status(500).json({ success: false, message: '북마크 조회 실패', bookmarks: [] });
     }
   });
 
