@@ -192,7 +192,7 @@ export const useAuth = () => {
 
     try {
       // 서버 API로 로그인 요청
-      const response = await fetch('http://localhost:3004/api/login', {
+      const response = await fetch('http://localhost:3004/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

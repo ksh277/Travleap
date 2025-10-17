@@ -228,8 +228,8 @@ function setupRoutes() {
     });
   });
 
-  // 로그인 API
-  app.post('/api/login', async (req, res) => {
+  // 로그인 API 핸들러 함수
+  const handleLogin = async (req: any, res: any) => {
     try {
       const bcrypt = await import('bcryptjs');
       const { JWTUtils } = await import('./utils/jwt.js');
@@ -315,7 +315,11 @@ function setupRoutes() {
         error: error instanceof Error ? error.message : '로그인 처리 중 오류가 발생했습니다.'
       });
     }
-  });
+  };
+
+  // 로그인 API - 두 경로 모두 지원 (Vercel 호환)
+  app.post('/api/login', handleLogin);
+  app.post('/api/auth/login', handleLogin);
 
   // 회원가입 API
   app.post('/api/register', async (req, res) => {
