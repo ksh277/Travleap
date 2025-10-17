@@ -15,33 +15,39 @@ class Database {
 
   constructor() {
     // PlanetScale 연결 설정
-    let host: string;
-    let username: string;
-    let password: string;
-
     if (typeof window === 'undefined') {
-      // Node.js 서버 환경
-      host = process.env.DATABASE_HOST || process.env.VITE_PLANETSCALE_HOST || 'aws.connect.psdb.cloud';
-      username = process.env.DATABASE_USERNAME || process.env.VITE_PLANETSCALE_USERNAME || '';
-      password = process.env.DATABASE_PASSWORD || process.env.VITE_PLANETSCALE_PASSWORD || '';
+      // Node.js 서버 환경 - DATABASE_URL 우선 사용 (Vercel 환경)
+      const databaseUrl = process.env.DATABASE_URL;
+
+      if (databaseUrl) {
+        // DATABASE_URL이 있으면 그것을 사용 (Vercel)
+        this.connection = connect({ url: databaseUrl });
+        console.log('✅ [Database] Connected using DATABASE_URL');
+      } else {
+        // DATABASE_URL이 없으면 개별 환경변수 사용 (로컬)
+        const host = process.env.DATABASE_HOST || process.env.VITE_PLANETSCALE_HOST || 'aws.connect.psdb.cloud';
+        const username = process.env.DATABASE_USERNAME || process.env.VITE_PLANETSCALE_USERNAME || '';
+        const password = process.env.DATABASE_PASSWORD || process.env.VITE_PLANETSCALE_PASSWORD || '';
+
+        if (!username || !password) {
+          console.warn('⚠️  PlanetScale credentials not configured');
+        }
+
+        this.connection = connect({ host, username, password });
+        console.log('✅ [Database] Connected using individual credentials');
+      }
     } else {
       // 브라우저 환경
-      host = import.meta.env.VITE_PLANETSCALE_HOST || 'aws.connect.psdb.cloud';
-      username = import.meta.env.VITE_PLANETSCALE_USERNAME || '';
-      password = import.meta.env.VITE_PLANETSCALE_PASSWORD || '';
+      const host = import.meta.env.VITE_PLANETSCALE_HOST || 'aws.connect.psdb.cloud';
+      const username = import.meta.env.VITE_PLANETSCALE_USERNAME || '';
+      const password = import.meta.env.VITE_PLANETSCALE_PASSWORD || '';
+
+      if (!username || !password) {
+        console.warn('⚠️  PlanetScale credentials not configured');
+      }
+
+      this.connection = connect({ host, username, password });
     }
-
-    if (!username || !password) {
-      console.warn('⚠️  PlanetScale credentials not configured');
-    }
-
-    const config = {
-      host,
-      username,
-      password
-    };
-
-    this.connection = connect(config);
   }
 
   async execute(sql: string, params: any[] = []): Promise<QueryResult> {

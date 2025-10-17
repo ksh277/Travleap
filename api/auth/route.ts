@@ -7,9 +7,9 @@
 // @ts-ignore - Next.js types not installed in Vite project
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db } from '../../utils/database.js';
+import { db } from '../../utils/database';
 import { JWTUtils } from '../../utils/jwt';
-import { getCorsHeaders } from '../../utils/cors.js';
+import { getCorsHeaders } from '../../utils/cors';
 
 // CORS 헤더 (동적 생성)
 function getCorsHeadersForRequest(request: NextRequest) {
