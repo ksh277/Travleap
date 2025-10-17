@@ -102,18 +102,12 @@ async function handleRegister(request: NextRequest) {
 
     // 6. 사용자 데이터 준비
     const newUser = {
-      user_id: `user_${Date.now()}`,
       email,
       password_hash: hashedPassword,
       name,
       phone: phone || '',
       role: 'user',
-      is_active: true,
-      preferred_language: 'ko',
-      preferred_currency: 'KRW',
-      marketing_consent: false,
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
     // 7. DB에 저장
@@ -140,16 +134,10 @@ async function handleRegister(request: NextRequest) {
     // 10. 비밀번호 해시 제거 후 반환
     const userResponse = {
       id: savedUser.id,
-      user_id: savedUser.user_id,
       email: savedUser.email,
       name: savedUser.name,
       phone: savedUser.phone,
       role: savedUser.role,
-      is_active: savedUser.is_active,
-      preferred_language: savedUser.preferred_language,
-      preferred_currency: savedUser.preferred_currency,
-      created_at: savedUser.created_at,
-      updated_at: savedUser.updated_at,
     };
 
     console.log('✅ 회원가입 완료:', email);
@@ -237,15 +225,7 @@ async function handleLogin(request: NextRequest) {
       );
     }
 
-    // 4. 계정 활성화 확인
-    if (!user.is_active) {
-      return NextResponse.json(
-        { success: false, error: '비활성화된 계정입니다. 관리자에게 문의하세요.' },
-        { status: 403, headers: corsHeaders }
-      );
-    }
-
-    // 5. JWT 토큰 생성
+    // 4. JWT 토큰 생성
     const token = JWTUtils.generateToken({
       userId: user.id,
       email: user.email,
@@ -253,19 +233,13 @@ async function handleLogin(request: NextRequest) {
       role: user.role,
     });
 
-    // 6. 비밀번호 해시 제거 후 반환
+    // 5. 비밀번호 해시 제거 후 반환
     const userResponse = {
       id: user.id,
-      user_id: user.user_id,
       email: user.email,
       name: user.name,
       phone: user.phone,
       role: user.role,
-      is_active: user.is_active,
-      preferred_language: user.preferred_language,
-      preferred_currency: user.preferred_currency,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
     };
 
     console.log('✅ 로그인 성공:', user.email, 'role:', user.role);
