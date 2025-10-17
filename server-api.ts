@@ -228,6 +228,191 @@ function setupRoutes() {
     });
   });
 
+  // 로그인 API
+  app.post('/api/login', async (req, res) => {
+    try {
+      const bcrypt = await import('bcryptjs');
+      const { JWTUtils } = await import('./utils/jwt.js');
+      const { connect } = await import('@planetscale/database');
+
+      const { email, password } = req.body;
+
+      console.log('🔑 로그인 요청:', email);
+
+      // 1. 필수 필드 검증
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          error: '이메일과 비밀번호를 입력해주세요.'
+        });
+      }
+
+      // 2. DB에서 사용자 조회
+      const conn = connect({ url: process.env.DATABASE_URL! });
+      const result = await conn.execute(
+        'SELECT id, email, name, role, password_hash FROM users WHERE email = ?',
+        [email]
+      );
+
+      if (!result.rows || result.rows.length === 0) {
+        console.log('❌ 사용자를 찾을 수 없음:', email);
+        return res.status(401).json({
+          success: false,
+          error: '이메일 또는 비밀번호가 올바르지 않습니다.'
+        });
+      }
+
+      const user: any = result.rows[0];
+      console.log('✅ 사용자 찾음:', user.email, 'role:', user.role);
+
+      // 3. 비밀번호 검증
+      if (!user.password_hash || !user.password_hash.startsWith('$2')) {
+        console.error('❌ SECURITY: Invalid password hash format for user:', email);
+        return res.status(500).json({
+          success: false,
+          error: '비밀번호 형식 오류입니다. 관리자에게 문의하세요.'
+        });
+      }
+
+      const isPasswordValid = await bcrypt.default.compare(password, user.password_hash);
+      console.log('🔐 비밀번호 검증:', isPasswordValid);
+
+      if (!isPasswordValid) {
+        console.log('❌ 비밀번호 불일치');
+        return res.status(401).json({
+          success: false,
+          error: '이메일 또는 비밀번호가 올바르지 않습니다.'
+        });
+      }
+
+      // 4. JWT 토큰 생성
+      const token = JWTUtils.generateToken({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      });
+
+      // 5. 비밀번호 해시 제거 후 반환
+      const userResponse = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      };
+
+      console.log('✅ 로그인 성공:', user.email, 'role:', user.role);
+
+      res.json({
+        success: true,
+        data: { user: userResponse, token },
+        message: '로그인 성공'
+      });
+    } catch (error) {
+      console.error('❌ 로그인 오류:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : '로그인 처리 중 오류가 발생했습니다.'
+      });
+    }
+  });
+
+  // 회원가입 API
+  app.post('/api/register', async (req, res) => {
+    try {
+      const bcrypt = await import('bcryptjs');
+      const { JWTUtils } = await import('./utils/jwt.js');
+      const { connect } = await import('@planetscale/database');
+
+      const { email, password, name, phone } = req.body;
+
+      console.log('📝 회원가입 요청:', email);
+
+      // 1. 필수 필드 검증
+      if (!email || !password || !name) {
+        return res.status(400).json({
+          success: false,
+          error: '이메일, 비밀번호, 이름은 필수입니다.'
+        });
+      }
+
+      // 2. 이메일 형식 검증
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          error: '올바른 이메일 형식이 아닙니다.'
+        });
+      }
+
+      // 3. 비밀번호 길이 검증
+      if (password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          error: '비밀번호는 최소 6자 이상이어야 합니다.'
+        });
+      }
+
+      // 4. 이메일 중복 체크
+      const conn = connect({ url: process.env.DATABASE_URL! });
+      const existingResult = await conn.execute(
+        'SELECT id FROM users WHERE email = ?',
+        [email]
+      );
+
+      if (existingResult.rows && existingResult.rows.length > 0) {
+        console.log('❌ 이미 존재하는 이메일:', email);
+        return res.status(400).json({
+          success: false,
+          error: '이미 가입된 이메일입니다.'
+        });
+      }
+
+      // 5. 비밀번호 해싱
+      const salt = await bcrypt.default.genSalt(10);
+      const hashedPassword = await bcrypt.default.hash(password, salt);
+      console.log('🔐 비밀번호 해싱 완료');
+
+      // 6. 사용자 생성
+      await conn.execute(
+        `INSERT INTO users (email, password_hash, name, phone, role, created_at)
+         VALUES (?, ?, ?, ?, 'user', NOW())`,
+        [email, hashedPassword, name, phone || '']
+      );
+
+      // 7. 생성된 사용자 조회
+      const newUserResult = await conn.execute(
+        'SELECT id, email, name, role FROM users WHERE email = ?',
+        [email]
+      );
+
+      const newUser: any = newUserResult.rows[0];
+      console.log('✅ 사용자 생성 완료 - ID:', newUser.id);
+
+      // 8. JWT 토큰 생성
+      const token = JWTUtils.generateToken({
+        userId: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role
+      });
+
+      console.log('✅ 회원가입 완료:', email);
+
+      res.status(201).json({
+        success: true,
+        data: { user: newUser, token },
+        message: '회원가입이 완료되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ 회원가입 오류:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : '회원가입 처리 중 오류가 발생했습니다.'
+      });
+    }
+  });
+
   // 예약 생성 (Lock 사용)
   app.post('/api/bookings/create', idempotencyMiddleware, async (req, res) => {
     try {
@@ -898,13 +1083,14 @@ function setupRoutes() {
   // 공개 블로그 목록 조회 (일반 사용자용)
   app.get('/api/blogs/published', async (req, res) => {
     try {
-      const { db } = await import('./utils/database.js');
+      const { connect } = await import('@planetscale/database');
+      const conn = connect({ url: process.env.DATABASE_URL! });
       const { category, tag, limit = 50, offset = 0 } = req.query;
 
       let sql = `
         SELECT
           bp.id, bp.title, bp.slug, bp.author_id, bp.excerpt,
-          bp.featured_image, bp.image_url, bp.category, bp.tags,
+          bp.featured_image, bp.category, bp.tags,
           bp.views, bp.likes, bp.comments_count,
           bp.published_at, bp.created_at,
           u.name as author_name
@@ -928,11 +1114,12 @@ function setupRoutes() {
       sql += ' LIMIT ? OFFSET ?';
       params.push(parseInt(limit as string), parseInt(offset as string));
 
-      const blogs = await db.query(sql, params);
+      const result = await conn.execute(sql, params);
+      const blogs = result.rows || [];
 
       res.json({
         success: true,
-        blogs: blogs || [],
+        blogs,
         total: blogs.length
       });
     } catch (error) {
