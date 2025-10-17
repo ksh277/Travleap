@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -13,6 +13,14 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004
 export default function CommunityBlogWritePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // 페이지 진입 시 로그인 체크
+  useEffect(() => {
+    if (!user) {
+      toast.error('로그인이 필요한 서비스입니다.');
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
   // ========================================
   // 상태 변수들 ✅

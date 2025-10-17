@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Calendar, User, Tag, Eye, Heart, MessageCircle, ArrowLeft } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useAuth } from '../contexts/AuthContext';
 
 interface CommunityBlogPageProps {
   onBack?: () => void;
@@ -13,6 +14,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004
 
 export function CommunityBlogPage({ onBack }: CommunityBlogPageProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -247,22 +249,40 @@ export function CommunityBlogPage({ onBack }: CommunityBlogPageProps) {
           </div>
         )}
 
-        {/* 글쓰기 CTA */}
-        <div className="mt-16 bg-white rounded-lg shadow-lg p-8 text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            나만의 신안 여행 이야기를 공유해보세요!
-          </h2>
-          <p className="text-gray-600 mb-6">
-            신안에서의 특별한 경험과 추억을 다른 여행자들과 나누어보세요.
-          </p>
-          <Button
-            size="lg"
-            className="bg-purple-600 hover:bg-purple-700"
-            onClick={() => navigate('/community-blog/write')}
-          >
-            글쓰기
-          </Button>
-        </div>
+        {/* 글쓰기 CTA - 로그인한 사용자만 표시 */}
+        {user ? (
+          <div className="mt-16 bg-white rounded-lg shadow-lg p-8 text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              나만의 신안 여행 이야기를 공유해보세요!
+            </h2>
+            <p className="text-gray-600 mb-6">
+              신안에서의 특별한 경험과 추억을 다른 여행자들과 나누어보세요.
+            </p>
+            <Button
+              size="lg"
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => navigate('/community-blog/write')}
+            >
+              글쓰기
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-16 bg-white rounded-lg shadow-lg p-8 text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              신안 여행 이야기를 공유하고 싶으신가요?
+            </h2>
+            <p className="text-gray-600 mb-6">
+              로그인하시면 나만의 여행 경험과 추억을 다른 여행자들과 나눌 수 있습니다.
+            </p>
+            <Button
+              size="lg"
+              className="bg-purple-600 hover:bg-purple-700"
+              onClick={() => navigate('/login')}
+            >
+              로그인하기
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
