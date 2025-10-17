@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -9,9 +9,17 @@ interface CommunityBlogPageProps {
   onBack?: () => void;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004';
+
 export function CommunityBlogPage({ onBack }: CommunityBlogPageProps) {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const LIMIT = 9;
 
   const categories = [
     { id: 'all', name: '전체' },
@@ -22,96 +30,84 @@ export function CommunityBlogPage({ onBack }: CommunityBlogPageProps) {
     { id: 'news', name: '소식' }
   ];
 
-  const blogPosts = [
-    {
-      id: 1,
-      title: '신안 증도 천일염전에서의 특별한 하루',
-      excerpt: '천일염전에서 직접 소금을 채취하고, 갯벌체험까지! 신안 여행의 백미를 소개합니다.',
-      content: '증도는 신안군에서 가장 큰 섬으로, 유네스코 생물권보전지역으로 지정된 곳입니다...',
-      category: 'travel',
-      author: '김민지',
-      date: '2024.03.20',
-      image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=250&fit=crop',
-      views: 1245,
-      likes: 89,
-      comments: 23,
-      tags: ['증도', '천일염', '갯벌체험', '유네스코']
-    },
-    {
-      id: 2,
-      title: '흑산도 홍어삼합 맛집 BEST 5',
-      excerpt: '흑산도에서만 맛볼 수 있는 진짜 홍어삼합! 현지인이 추천하는 맛집들을 소개합니다.',
-      content: '흑산도는 홍어의 고향으로 불리는 곳입니다. 특히 홍어삼합은...',
-      category: 'local',
-      author: '박정훈',
-      date: '2024.03.18',
-      image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=250&fit=crop',
-      views: 2156,
-      likes: 156,
-      comments: 34,
-      tags: ['흑산도', '홍어삼합', '맛집', '해산물']
-    },
-    {
-      id: 3,
-      title: '신안 섬 호핑 투어 완벽 가이드',
-      excerpt: '1004개의 섬을 자랑하는 신안! 효율적인 섬 호핑 코스와 꿀팁을 공유합니다.',
-      content: '신안군은 1004개의 섬으로 이루어진 군도입니다. 모든 섬을 다 돌 수는 없지만...',
-      category: 'tips',
-      author: '이수연',
-      date: '2024.03.15',
-      image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=250&fit=crop',
-      views: 3421,
-      likes: 267,
-      comments: 56,
-      tags: ['섬호핑', '여행팁', '신안투어', '가이드']
-    },
-    {
-      id: 4,
-      title: '천사대교에서 바라본 신안의 일몰',
-      excerpt: '천사대교 위에서 바라본 환상적인 일몰 풍경. 최고의 포토스팟을 공유합니다.',
-      content: '천사대교는 신안과 목포를 연결하는 다리로, 특히 일몰 시간에는...',
-      category: 'travel',
-      author: '최동하',
-      date: '2024.03.12',
-      image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=250&fit=crop',
-      views: 1876,
-      likes: 134,
-      comments: 28,
-      tags: ['천사대교', '일몰', '포토스팟', '드라이브']
-    },
-    {
-      id: 5,
-      title: '자은도 모래사장에서의 캠핑 후기',
-      excerpt: '백사장이 아름다운 자은도에서의 캠핑 경험담. 준비물과 주의사항을 정리했습니다.',
-      content: '자은도는 신안에서 가장 아름다운 해변을 자랑하는 섬입니다...',
-      category: 'travel',
-      author: '정유진',
-      date: '2024.03.10',
-      image: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=400&h=250&fit=crop',
-      views: 2340,
-      likes: 189,
-      comments: 41,
-      tags: ['자은도', '캠핑', '해변', '백사장']
-    },
-    {
-      id: 6,
-      title: '신안군 새로운 관광지 개발 소식',
-      excerpt: '신안군에서 발표한 새로운 관광지 개발 계획과 기대되는 변화들을 소개합니다.',
-      content: '신안군에서는 지속가능한 관광 발전을 위한 새로운 계획을 발표했습니다...',
-      category: 'news',
-      author: '어썸플랜',
-      date: '2024.03.08',
-      image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=250&fit=crop',
-      views: 1567,
-      likes: 98,
-      comments: 19,
-      tags: ['신안군', '관광개발', '소식', '계획']
-    }
-  ];
+  useEffect(() => {
+    // 카테고리가 변경되면 처음부터 다시 로드
+    setOffset(0);
+    setHasMore(true);
+    fetchBlogs(true);
+  }, [selectedCategory]);
 
-  const filteredPosts = selectedCategory === 'all'
-    ? blogPosts
-    : blogPosts.filter(post => post.category === selectedCategory);
+  const fetchBlogs = async (reset = false) => {
+    try {
+      if (reset) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const currentOffset = reset ? 0 : offset;
+      const baseUrl = selectedCategory === 'all'
+        ? `${API_BASE_URL}/api/blogs/published`
+        : `${API_BASE_URL}/api/blogs/published?category=${selectedCategory}`;
+
+      const url = `${baseUrl}${selectedCategory === 'all' ? '?' : '&'}limit=${LIMIT}&offset=${currentOffset}`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.success && data.blogs) {
+        const formattedBlogs = data.blogs.map((blog: any) => ({
+          id: blog.id,
+          title: blog.title,
+          excerpt: blog.excerpt || '',
+          category: blog.category || 'general',
+          author: blog.author_name || '익명',
+          date: new Date(blog.created_at).toLocaleDateString('ko-KR'),
+          image: blog.featured_image || blog.image_url || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=250&fit=crop',
+          views: blog.views || 0,
+          likes: blog.likes || 0,
+          comments: blog.comments_count || 0,
+          tags: blog.tags ? (typeof blog.tags === 'string' ? JSON.parse(blog.tags) : blog.tags) : []
+        }));
+
+        if (reset) {
+          setBlogPosts(formattedBlogs);
+        } else {
+          setBlogPosts(prev => [...prev, ...formattedBlogs]);
+        }
+
+        // 더 이상 데이터가 없으면 hasMore를 false로 설정
+        setHasMore(formattedBlogs.length === LIMIT);
+      }
+
+      setLoading(false);
+      setLoadingMore(false);
+    } catch (error) {
+      console.error('Failed to fetch blogs:', error);
+      if (reset) {
+        setBlogPosts([]);
+      }
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    const newOffset = offset + LIMIT;
+    setOffset(newOffset);
+    fetchBlogs(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -157,13 +153,18 @@ export function CommunityBlogPage({ onBack }: CommunityBlogPageProps) {
         </div>
 
         {/* 블로그 포스트 그리드 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredPosts.map((post) => (
-            <Card
-              key={post.id}
-              className="overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
-              onClick={() => navigate(`/community-blog/${post.id}`)}
-            >
+        {blogPosts.length === 0 ? (
+          <div className="col-span-full text-center py-16">
+            <p className="text-gray-500 text-lg">등록된 블로그가 없습니다.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {blogPosts.map((post) => (
+              <Card
+                key={post.id}
+                className="overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+                onClick={() => navigate(`/community-blog/${post.id}`)}
+              >
               <div className="relative">
                 <ImageWithFallback
                   src={post.image}
@@ -229,14 +230,22 @@ export function CommunityBlogPage({ onBack }: CommunityBlogPageProps) {
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
+        )}
 
         {/* 더 보기 버튼 */}
-        <div className="text-center mt-12">
-          <Button variant="outline" size="lg">
-            더 많은 글 보기
-          </Button>
-        </div>
+        {hasMore && blogPosts.length > 0 && (
+          <div className="text-center mt-12">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? '로딩 중...' : '더 많은 글 보기'}
+            </Button>
+          </div>
+        )}
 
         {/* 글쓰기 CTA */}
         <div className="mt-16 bg-white rounded-lg shadow-lg p-8 text-center">

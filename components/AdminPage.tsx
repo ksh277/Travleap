@@ -136,6 +136,16 @@ export function AdminPage({}: AdminPageProps) {
   const [reviewSearchQuery, setReviewSearchQuery] = useState('');
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [blogSearchQuery, setBlogSearchQuery] = useState('');
+  const [blogCategoryFilter, setBlogCategoryFilter] = useState('all');
+
+  // 블로그 카테고리 매핑
+  const blogCategoryNames: Record<string, string> = {
+    'travel': '여행기',
+    'tips': '여행팁',
+    'local': '로컬맛집',
+    'culture': '문화체험',
+    'news': '소식'
+  };
   const [contactSearchQuery, setContactSearchQuery] = useState('');
 
   // 문의 관리 state
@@ -575,12 +585,13 @@ export function AdminPage({}: AdminPageProps) {
 
   // 블로그 관리 상태
   const [blogs, setBlogs] = useState<any[]>([]);
+  const [blogComments, setBlogComments] = useState<any[]>([]);
   const [editingBlog, setEditingBlog] = useState<any | null>(null);
   const [isBlogDialogOpen, setIsBlogDialogOpen] = useState(false);
   const [isCreateBlogMode, setIsCreateBlogMode] = useState(false);
   const [newBlog, setNewBlog] = useState({
     title: '',
-    category: '여행 가이드',
+    category: 'travel',
     excerpt: '',
     content_md: '',
     featured_image: '',
@@ -831,6 +842,14 @@ export function AdminPage({}: AdminPageProps) {
             const data = res?.success ? res.data || [] : [];
             setBlogs(data);
             console.log(`✅ 블로그 ${data.length}개 로드 완료`);
+          })
+        },
+        {
+          name: '댓글',
+          fn: () => api.admin.getAllComments().then(res => {
+            const data = res?.success ? res.data || [] : [];
+            setBlogComments(data);
+            console.log(`✅ 댓글 ${data.length}개 로드 완료`);
           })
         },
         {
@@ -1682,7 +1701,7 @@ export function AdminPage({}: AdminPageProps) {
       // 수정 모드: 기존 블로그 데이터로 초기화
       setNewBlog({
         title: blog.title || '',
-        category: blog.category || '여행 가이드',
+        category: blog.category || 'travel',
         excerpt: blog.excerpt || '',
         content_md: blog.content_md || '',
         featured_image: blog.featured_image || '',
@@ -1696,7 +1715,7 @@ export function AdminPage({}: AdminPageProps) {
       // 생성 모드: 빈 값으로 초기화
       setNewBlog({
         title: '',
-        category: '여행 가이드',
+        category: 'travel',
         excerpt: '',
         content_md: '',
         featured_image: '',
@@ -2107,13 +2126,14 @@ export function AdminPage({}: AdminPageProps) {
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid grid-cols-4 md:grid-cols-11 w-full min-w-[1200px] md:min-w-0 md:max-w-6xl">
+            <TabsList className="grid grid-cols-4 md:grid-cols-12 w-full min-w-[1200px] md:min-w-0 md:max-w-6xl">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
               <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
               <TabsTrigger value="rentcar" className="text-xs md:text-sm">렌트카 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
+              <TabsTrigger value="blog-comments" className="text-xs md:text-sm">댓글 관리</TabsTrigger>
               <TabsTrigger value="media" className="text-xs md:text-sm">미디어 라이브러리</TabsTrigger>
               <TabsTrigger value="pagemedia" className="text-xs md:text-sm">페이지 미디어</TabsTrigger>
               <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
@@ -4486,16 +4506,17 @@ export function AdminPage({}: AdminPageProps) {
                       onChange={(e) => setBlogSearchQuery(e.target.value)}
                     />
                   </div>
-                  <Select defaultValue="all">
+                  <Select value={blogCategoryFilter} onValueChange={setBlogCategoryFilter}>
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="카테고리 필터" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">전체</SelectItem>
-                      <SelectItem value="여행 가이드">여행 가이드</SelectItem>
-                      <SelectItem value="포토 스팟">포토 스팟</SelectItem>
-                      <SelectItem value="맛집 리뷰">맛집 리뷰</SelectItem>
-                      <SelectItem value="숙박 후기">숙박 후기</SelectItem>
+                      <SelectItem value="travel">여행기</SelectItem>
+                      <SelectItem value="tips">여행팁</SelectItem>
+                      <SelectItem value="local">로컬맛집</SelectItem>
+                      <SelectItem value="culture">문화체험</SelectItem>
+                      <SelectItem value="news">소식</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -4507,6 +4528,8 @@ export function AdminPage({}: AdminPageProps) {
                       <TableHead>카테고리</TableHead>
                       <TableHead>작성자</TableHead>
                       <TableHead>조회수</TableHead>
+                      <TableHead>좋아요</TableHead>
+                      <TableHead>댓글</TableHead>
                       <TableHead>게시일</TableHead>
                       <TableHead>상태</TableHead>
                       <TableHead>작업</TableHead>
@@ -4514,17 +4537,25 @@ export function AdminPage({}: AdminPageProps) {
                   </TableHeader>
                   <TableBody>
                     {blogs.length > 0 ? blogs
-                      .filter(blog =>
-                        blog.title?.toLowerCase().includes(blogSearchQuery.toLowerCase()) ||
-                        blog.author?.toLowerCase().includes(blogSearchQuery.toLowerCase()) ||
-                        blog.category?.toLowerCase().includes(blogSearchQuery.toLowerCase())
-                      )
+                      .filter(blog => {
+                        // 검색어 필터
+                        const matchesSearch = blog.title?.toLowerCase().includes(blogSearchQuery.toLowerCase()) ||
+                          blog.author?.toLowerCase().includes(blogSearchQuery.toLowerCase()) ||
+                          blog.category?.toLowerCase().includes(blogSearchQuery.toLowerCase());
+
+                        // 카테고리 필터
+                        const matchesCategory = blogCategoryFilter === 'all' || blog.category === blogCategoryFilter;
+
+                        return matchesSearch && matchesCategory;
+                      })
                       .map((blog: any) => (
                       <TableRow key={blog.id}>
                         <TableCell className="font-medium">{blog.title}</TableCell>
-                        <TableCell>{blog.category || '일반'}</TableCell>
+                        <TableCell>{blogCategoryNames[blog.category] || blog.category || '일반'}</TableCell>
                         <TableCell>{blog.author_name || '관리자'}</TableCell>
                         <TableCell>{blog.views || 0}</TableCell>
+                        <TableCell>{blog.likes || 0}</TableCell>
+                        <TableCell>{blog.comments_count || 0}</TableCell>
                         <TableCell>
                           {blog.published_at ? new Date(blog.published_at).toLocaleDateString() : '-'}
                         </TableCell>
@@ -4554,7 +4585,7 @@ export function AdminPage({}: AdminPageProps) {
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                           블로그 포스트가 없습니다.
                         </TableCell>
                       </TableRow>
@@ -4564,6 +4595,90 @@ export function AdminPage({}: AdminPageProps) {
 
                 <div className="mt-4 text-center">
                   <p className="text-sm text-gray-500">총 {blogs.length}개의 포스트</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 댓글 관리 탭 */}
+          <TabsContent value="blog-comments" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>댓글 관리</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>댓글 내용</TableHead>
+                      <TableHead>작성자</TableHead>
+                      <TableHead>블로그 제목</TableHead>
+                      <TableHead>좋아요</TableHead>
+                      <TableHead>작성일</TableHead>
+                      <TableHead>상태</TableHead>
+                      <TableHead>작업</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {blogComments.length > 0 ? blogComments.map((comment: any) => (
+                      <TableRow key={comment.id}>
+                        <TableCell className="font-medium max-w-xs truncate">{comment.content}</TableCell>
+                        <TableCell>{comment.user_name || '익명'}</TableCell>
+                        <TableCell className="max-w-xs truncate">{comment.post_title || '-'}</TableCell>
+                        <TableCell>{comment.likes || 0}</TableCell>
+                        <TableCell>{new Date(comment.created_at).toLocaleDateString('ko-KR')}</TableCell>
+                        <TableCell>
+                          <Badge variant={comment.is_deleted ? 'destructive' : 'default'}>
+                            {comment.is_deleted ? '삭제됨' : '정상'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {!comment.is_deleted && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                if (confirm('정말 이 댓글을 삭제하시겠습니까?')) {
+                                  try {
+                                    const token = localStorage.getItem('token');
+                                    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004'}/api/blogs/comments/${comment.id}`, {
+                                      method: 'DELETE',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`
+                                      }
+                                    });
+                                    const data = await response.json();
+                                    if (data.success) {
+                                      setBlogComments(prev => prev.map(c => c.id === comment.id ? { ...c, is_deleted: 1 } : c));
+                                      toast.success('댓글이 삭제되었습니다.');
+                                    } else {
+                                      toast.error(data.message || '삭제 실패');
+                                    }
+                                  } catch (error) {
+                                    console.error('댓글 삭제 실패:', error);
+                                    toast.error('댓글 삭제 중 오류가 발생했습니다.');
+                                  }
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                          댓글이 없습니다.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-gray-500">총 {blogComments.length}개의 댓글</p>
                 </div>
               </CardContent>
             </Card>
@@ -5395,10 +5510,11 @@ export function AdminPage({}: AdminPageProps) {
                     <SelectValue placeholder="카테고리 선택" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="여행 가이드">여행 가이드</SelectItem>
-                    <SelectItem value="포토 스팟">포토 스팟</SelectItem>
-                    <SelectItem value="맛집 리뷰">맛집 리뷰</SelectItem>
-                    <SelectItem value="숙박 후기">숙박 후기</SelectItem>
+                    <SelectItem value="travel">여행기</SelectItem>
+                    <SelectItem value="tips">여행팁</SelectItem>
+                    <SelectItem value="local">로컬맛집</SelectItem>
+                    <SelectItem value="culture">문화체험</SelectItem>
+                    <SelectItem value="news">소식</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
