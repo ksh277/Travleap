@@ -1,5 +1,18 @@
 import { getApiBaseUrl } from './env';
-import { db } from './database.js'; // PlanetScale 클라우드 DB 사용
+// DB는 서버에서만 사용 - 브라우저에서는 null
+let db: any;
+try {
+  if (typeof window === 'undefined') {
+    // 서버 환경
+    const dbModule = require('./database.js');
+    db = dbModule.db;
+  } else {
+    // 브라우저 환경 - DB 사용 안함
+    db = null;
+  }
+} catch (e) {
+  db = null;
+}
 import { notifyDataChange } from '../hooks/useRealTimeData';
 import { notifyPartnerNewBooking, notifyCustomerBookingConfirmed } from './notification';
 
