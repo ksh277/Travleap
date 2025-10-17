@@ -192,7 +192,7 @@ export const useAuth = () => {
 
     try {
       // 서버 API로 로그인 요청
-      const response = await fetch('http://localhost:3004/api/auth/login', {
+      const response = await fetch('http://localhost:3004/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -203,11 +203,11 @@ export const useAuth = () => {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        console.log('❌ 로그인 실패:', data.message);
+        console.log('❌ 로그인 실패:', data.error || data.message);
         return false;
       }
 
-      const { token, user: serverUser } = data;
+      const { token, user: serverUser } = data.data;
 
       // 사용자 정보 설정
       const user: User = {
