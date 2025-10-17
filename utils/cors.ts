@@ -8,7 +8,7 @@ import { Response } from 'express';
 
 // 허용된 도메인 목록
 const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
-  ? (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean)
+  ? (process.env.ALLOWED_ORIGINS || 'https://travleap.vercel.app').split(',').filter(Boolean)
   : [
       'http://localhost:5173',  // Vite dev server
       'http://localhost:5174',
@@ -45,9 +45,8 @@ export function setCorsHeaders(res: Response, origin?: string): void {
  * @returns CORS 헤더 객체
  */
 export function getCorsHeaders(origin?: string): Record<string, string> {
-  const allowOrigin = origin && ALLOWED_ORIGINS.includes(origin)
-    ? origin
-    : ALLOWED_ORIGINS[0] || 'http://localhost:5173';
+  // Vercel production인 경우 모든 origin 허용 (같은 도메인이므로)
+  const allowOrigin = origin || '*';
 
   return {
     'Access-Control-Allow-Origin': allowOrigin,
