@@ -4284,6 +4284,16 @@ export const api = {
   // 홈페이지 설정 관리
   getHomepageSettings: async () => {
     try {
+      // 브라우저 환경에서는 DB 접근 불가 - 기본값 반환
+      if (!db || typeof window !== 'undefined') {
+        return {
+          background_type: 'video',
+          background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
+          background_overlay_opacity: 0.4,
+          is_active: true
+        };
+      }
+
       const result = await db.query(`
         SELECT * FROM homepage_settings
         WHERE is_active = 1
@@ -4291,7 +4301,7 @@ export const api = {
         LIMIT 1
       `);
 
-      if (result.length > 0) {
+      if (result && result.length > 0) {
         return result[0];
       }
 
