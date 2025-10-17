@@ -7,9 +7,18 @@
 // @ts-ignore - Next.js types not installed in Vite project
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { db } from '../../utils/database';
+import { connect } from '@planetscale/database';
 import { JWTUtils } from '../../utils/jwt';
 import { getCorsHeaders } from '../../utils/cors';
+
+// Vercel 환경에서 직접 DB 연결 생성
+const getDbConnection = () => {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('DATABASE_URL is not set');
+  }
+  return connect({ url });
+};
 
 // CORS 헤더 (동적 생성)
 function getCorsHeadersForRequest(request: NextRequest) {
@@ -86,8 +95,9 @@ async function handleRegister(request: NextRequest) {
     }
 
     // 4. 이메일 중복 체크
-    const existingUsers = await db.select('users', { email });
-    if (existingUsers && existingUsers.length > 0) {
+    const conn = getDbConnection();
+    const checkResult = await conn.execute('SELECT id FROM users WHERE email = ?', [email]);
+    if (checkResult.rows && checkResult.rows.length > 0) {
       console.log('❌ 이미 존재하는 이메일:', email);
       return NextResponse.json(
         { success: false, error: '이미 가입된 이메일입니다.' },
@@ -111,11 +121,15 @@ async function handleRegister(request: NextRequest) {
     };
 
     // 7. DB에 저장
-    await db.insert('users', newUser);
+    await conn.execute(
+      'INSERT INTO users (email, password_hash, name, phone, role, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [newUser.email, newUser.password_hash, newUser.name, newUser.phone, newUser.role, newUser.created_at]
+    );
     console.log('✅ DB에 사용자 저장 완료');
 
     // 8. 저장된 사용자 조회 (ID 포함)
-    const savedUsers = await db.select('users', { email });
+    const savedResult = await conn.execute('SELECT * FROM users WHERE email = ?', [email]);
+    const savedUsers = savedResult.rows;
     if (!savedUsers || savedUsers.length === 0) {
       throw new Error('사용자 저장 후 조회 실패');
     }
@@ -181,7 +195,9 @@ async function handleLogin(request: NextRequest) {
     }
 
     // 2. DB에서 사용자 조회
-    const users = await db.select('users', { email });
+    const conn = getDbConnection();
+    const result = await conn.execute('SELECT * FROM users WHERE email = ?', [email]);
+    const users = result.rows;
 
     if (!users || users.length === 0) {
       console.log('❌ 사용자를 찾을 수 없음:', email);
