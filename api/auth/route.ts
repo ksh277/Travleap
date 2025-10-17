@@ -40,20 +40,33 @@ export async function POST(request: NextRequest) {
     const url = new URL(request.url);
     const action = url.searchParams.get('action');
 
+    console.log('📨 Auth API POST 요청:', {
+      action,
+      url: request.url,
+      method: request.method,
+      hasBody: request.body !== null
+    });
+
     if (action === 'register') {
       return await handleRegister(request);
     } else if (action === 'login') {
       return await handleLogin(request);
     } else {
+      console.log('❌ 잘못된 action:', action);
       return NextResponse.json(
         { success: false, error: '잘못된 요청입니다.' },
         { status: 400, headers: corsHeaders }
       );
     }
   } catch (error) {
-    console.error('Auth API error:', error);
+    console.error('❌ Auth API error:', error);
+    console.error('에러 상세:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    });
     return NextResponse.json(
-      { success: false, error: '서버 오류가 발생했습니다.' },
+      { success: false, error: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.' },
       { status: 500, headers: corsHeaders }
     );
   }
