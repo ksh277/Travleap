@@ -125,7 +125,7 @@ export function Footer({
               </li>
               <li>
                 <div className="text-gray-600">{t('emailUs', selectedLanguage)}</div>
-                <div className="text-gray-900">awesomeplan4606@naver.com</div>
+                <div className="text-gray-900">awesomeplan4606@naver.com123123</div>
               </li>
             </ul>
           </div>
@@ -137,15 +137,23 @@ export function Footer({
               <li>
                 <button
                   onClick={() => onCategorySelect?.('company')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[44px] py-2 flex items-center"
+                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
                 >
                   회사 소개
                 </button>
               </li>
               <li>
                 <button
+                  onClick={() => onCategorySelect?.('blog')}
+                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
+                >
+                  블로그
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => onCategorySelect?.('community-blog')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[44px] py-2 flex items-center"
+                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
                 >
                   {t('communityBlog', selectedLanguage)}
                 </button>
@@ -153,7 +161,7 @@ export function Footer({
               <li>
                 <button
                   onClick={() => onCategorySelect?.('rewards')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[44px] py-2 flex items-center"
+                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
                 >
                   {t('rewards', selectedLanguage)}
                 </button>
@@ -161,7 +169,7 @@ export function Footer({
               <li>
                 <button
                   onClick={() => onCategorySelect?.('work-with-us')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[44px] py-2 flex items-center"
+                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
                 >
                   {t('workWithUs', selectedLanguage)}
                 </button>
