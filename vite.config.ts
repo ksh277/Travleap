@@ -32,17 +32,19 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           ui: [
-            '@radix-ui/react-dialog', 
-            '@radix-ui/react-select', 
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-select',
             '@radix-ui/react-checkbox',
             '@radix-ui/react-tabs'
           ],
           icons: ['lucide-react'],
-          utils: ['clsx', 'tailwind-merge']
+          utils: ['clsx', 'tailwind-merge'],
+          router: ['react-router-dom'],
+          'date-utils': ['date-fns']
         }
       }
     },
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 2000  // 경고 한도 증가 (1MB → 2MB)
   },
   preview: {
     port: 3000,
