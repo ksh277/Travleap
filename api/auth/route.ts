@@ -6,7 +6,7 @@
 
 // @ts-ignore - Next.js types not installed in Vite project
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 import { connect } from '@planetscale/database';
 import { JWTUtils } from '../../utils/jwt';
 import { getCorsHeaders } from '../../utils/cors';
