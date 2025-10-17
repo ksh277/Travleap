@@ -1,4 +1,4 @@
-const { connect } = require('@planetscale/database');
+import { connect } from '@planetscale/database';
 
 // PlanetScale connection using DATABASE_URL
 const getDbConnection = () => {
@@ -9,7 +9,7 @@ const getDbConnection = () => {
   return connect({ url });
 };
 
-module.exports = async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -43,9 +43,9 @@ module.exports = async function handler(req, res) {
     const reviews = reviewsResult.rows || [];
 
     // cart 주문만 필터링
-    const orders = payments.filter(p => {
+    const orders = payments.filter((p: any) => {
       try {
-        let notes = {};
+        let notes: any = {};
         if (p.notes) {
           notes = typeof p.notes === 'string' ? JSON.parse(p.notes) : p.notes;
         }

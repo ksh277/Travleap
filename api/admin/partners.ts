@@ -1,4 +1,4 @@
-const { connect } = require('@planetscale/database');
+import { connect } from '@planetscale/database';
 
 // PlanetScale connection using DATABASE_URL
 const getDbConnection = () => {
@@ -9,7 +9,7 @@ const getDbConnection = () => {
   return connect({ url });
 };
 
-module.exports = async function handler(req, res) {
+export default async function handler(req: any, res: any) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
