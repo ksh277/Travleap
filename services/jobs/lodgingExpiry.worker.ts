@@ -71,15 +71,15 @@ async function findExpiredLodgingBookings(): Promise<ExpiredLodgingBooking[]> {
   try {
     const result = await conn.execute(`
       SELECT
-        id, booking_number, room_id,
-        checkin_date, checkout_date, hold_expires_at,
-        total_amount, rooms_booked
+        id, booking_number, room_type_id as room_id,
+        check_in_date as checkin_date, check_out_date as checkout_date, expiry_date as hold_expires_at,
+        total_amount, 1 as rooms_booked
       FROM lodging_bookings
       WHERE booking_status = 'pending'
         AND payment_status = 'pending'
-        AND hold_expires_at IS NOT NULL
-        AND hold_expires_at < NOW()
-      ORDER BY hold_expires_at ASC
+        AND expiry_date IS NOT NULL
+        AND expiry_date < NOW()
+      ORDER BY expiry_date ASC
       LIMIT 100
     `);
 

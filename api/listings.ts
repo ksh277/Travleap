@@ -1,15 +1,14 @@
-const { connect } = require('@planetscale/database');
-
-// PlanetScale connection using DATABASE_URL
-const getDbConnection = () => {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error('DATABASE_URL environment variable is not set');
-  }
-  return connect({ url });
-};
-
 module.exports = async function handler(req, res) {
+  const { connect } = require('@planetscale/database');
+
+  // PlanetScale connection using DATABASE_URL
+  const getDbConnection = () => {
+    const url = process.env.DATABASE_URL;
+    if (!url) {
+      throw new Error('DATABASE_URL environment variable is not set');
+    }
+    return connect({ url });
+  };
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
