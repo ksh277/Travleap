@@ -42,9 +42,11 @@ const loadPartners = async (): Promise<Partner[]> => {
   try {
     // partners 테이블에서 파트너 데이터 로드
     const partnersResponse = await api.getPartners();
+    console.log('📡 API Response:', partnersResponse);
     const partnersList: Partner[] = [];
 
     if (partnersResponse.success && partnersResponse.data && partnersResponse.data.length > 0) {
+      console.log('✅ 받은 파트너 데이터:', partnersResponse.data);
       // 신안군 기본 좌표
       const defaultCoord = { lat: 34.9654, lng: 126.1234 };
 

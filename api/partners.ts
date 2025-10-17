@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
   try {
     const conn = getDbConnection();
 
-    // 승인된 파트너만 조회
+    // 승인된 파트너만 조회 (pending, rejected 제외)
     const sql = `
       SELECT
         p.id,
@@ -37,6 +37,7 @@ module.exports = async function handler(req, res) {
         p.business_number,
         p.website,
         p.instagram,
+        p.address,
         p.description,
         p.services,
         p.tier,
@@ -48,7 +49,7 @@ module.exports = async function handler(req, res) {
         p.created_at,
         p.updated_at
       FROM partners p
-      WHERE p.status = 'approved' OR p.status = 'active'
+      WHERE p.status NOT IN ('pending', 'rejected')
       ORDER BY p.is_featured DESC, p.tier DESC, p.created_at DESC
     `;
 
@@ -62,7 +63,8 @@ module.exports = async function handler(req, res) {
         try {
           return JSON.parse(field);
         } catch {
-          return [];
+          // JSON 파싱 실패 시, 쉼표로 구분된 문자열인지 확인
+          return field.split(',').map(s => s.trim()).filter(s => s);
         }
       }
       return field;
@@ -72,6 +74,9 @@ module.exports = async function handler(req, res) {
       ...partner,
       services: parseJsonField(partner.services)
     }));
+
+    console.log('📊 Parsed partners count:', parsedPartners.length);
+    console.log('📋 First partner sample:', parsedPartners[0]);
 
     res.status(200).json({
       success: true,

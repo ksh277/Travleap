@@ -5355,7 +5355,10 @@ export function AdminPage({}: AdminPageProps) {
             </Button>
             <Button
               onClick={() => {
-                handleSavePartner(newPartner);
+                handleSavePartner({
+                  ...newPartner,
+                  status: isCreatePartnerMode ? 'approved' : undefined
+                });
               }}
               className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
             >

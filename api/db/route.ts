@@ -11,7 +11,7 @@
 
 // @ts-ignore - Next.js types not installed in Vite project
 import { NextRequest, NextResponse } from 'next/server';
-import { connect } from '@planetscale/database';
+import { connect, Connection } from '@planetscale/database';
 
 // CORS 헤더
 const corsHeaders = {
@@ -21,7 +21,7 @@ const corsHeaders = {
 };
 
 // PlanetScale 연결 설정
-function getConnection() {
+function getConnection(): Connection {
   const config = {
     host: process.env.DATABASE_HOST,
     username: process.env.DATABASE_USERNAME,
@@ -95,8 +95,9 @@ async function handleQuery(body: { sql: string; params?: any[] }) {
     );
   }
 
+  const conn = getConnection();
+
   try {
-    const conn = getConnection();
     const result = await conn.execute(sql, params);
 
     return NextResponse.json(
@@ -128,9 +129,9 @@ async function handleSelect(body: { table: string; where?: Record<string, any> }
     );
   }
 
-  try {
-    const conn = getConnection();
+  const conn = getConnection();
 
+  try {
     let sql = `SELECT * FROM ${table}`;
     const params: any[] = [];
 
@@ -166,9 +167,9 @@ async function handleInsert(body: { table: string; data: Record<string, any> }) 
     );
   }
 
-  try {
-    const conn = getConnection();
+  const conn = getConnection();
 
+  try {
     const columns = Object.keys(data);
     const placeholders = columns.map(() => '?').join(', ');
     const values = Object.values(data);
@@ -203,9 +204,9 @@ async function handleUpdate(body: { table: string; id: number; data: Record<stri
     );
   }
 
-  try {
-    const conn = getConnection();
+  const conn = getConnection();
 
+  try {
     const setClause = Object.keys(data)
       .map((key) => `${key} = ?`)
       .join(', ');
@@ -241,9 +242,9 @@ async function handleDelete(body: { table: string; id: number }) {
     );
   }
 
-  try {
-    const conn = getConnection();
+  const conn = getConnection();
 
+  try {
     const sql = `DELETE FROM ${table} WHERE id = ?`;
     const result = await conn.execute(sql, [id]);
 

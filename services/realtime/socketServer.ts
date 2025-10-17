@@ -22,7 +22,13 @@ import jwt from 'jsonwebtoken';
 import { createRedisFallback, isRedisAvailable } from '../../utils/redis-fallback';
 
 const REDIS_URL = process.env.REDIS_URL || '';
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// CRITICAL: JWT_SECRET must be set in production
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('CRITICAL: JWT_SECRET environment variable must be set for security');
+}
+
 const REALTIME_ENABLED = process.env.REALTIME_ENABLED !== 'false';
 
 interface InventoryUpdatePayload {

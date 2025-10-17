@@ -17,6 +17,8 @@ import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
 import { CartPage } from './components/CartPage';
 import { AdminPage } from './components/AdminPage';
+import { AdminPageOptimized } from './components/AdminPageOptimized';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { MyPage } from './components/MyPage';
 import { ReviewsPage } from './components/ReviewsPage';
 import { PaymentPage } from './components/PaymentPage';
@@ -170,7 +172,7 @@ function AppContent() {
             )
           } />
 
-          {/* 관리자 전용 라우트 */}
+          {/* 관리자 전용 라우트 - 최적화 버전 (기본) */}
           <Route path="/admin" element={
             !sessionRestored ? (
               <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -180,7 +182,27 @@ function AppContent() {
                 </div>
               </div>
             ) : isLoggedIn && isAdmin ? (
-              <AdminPage />
+              <ErrorBoundary>
+                <AdminPageOptimized />
+              </ErrorBoundary>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 관리자 전체 기능 (기존 버전 - 필요시 사용) */}
+          <Route path="/admin/full" element={
+            !sessionRestored ? (
+              <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">세션을 확인하는 중...</p>
+                </div>
+              </div>
+            ) : isLoggedIn && isAdmin ? (
+              <ErrorBoundary>
+                <AdminPage />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )

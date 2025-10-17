@@ -512,13 +512,18 @@ export async function createBooking(booking: LodgingBooking) {
 
     const bookingId = result.insertId;
 
-    // 재고 차감
-    for (const day of availability) {
+    // 재고 차감 (N+1 쿼리 최적화 - 한 번에 처리)
+    if (availability.length > 0) {
+      const dates = availability.map(day => day.date);
+      const placeholders = dates.map(() => '?').join(',');
+
       await db.execute(`
         UPDATE availability_daily
         SET sold_rooms = sold_rooms + 1, updated_at = NOW()
-        WHERE room_id = ? AND date = ?
-      `, [booking.room_id, day.date]);
+        WHERE room_id = ? AND date IN (${placeholders})
+      `, [booking.room_id, ...dates]);
+
+      console.log(`✅ 재고 차감: Room ${booking.room_id}, ${dates.length}일`);
     }
 
     console.log(`🎉 예약 생성 완료: ID ${bookingId}`);
@@ -552,12 +557,14 @@ export async function cancelBooking(bookingId: number, reason?: string) {
 
     const booking = bookings[0];
 
-    // 재고 복구
+    // 재고 복구 (이미 최적화됨 - 단일 쿼리)
     await db.execute(`
       UPDATE availability_daily
       SET sold_rooms = sold_rooms - 1, updated_at = NOW()
       WHERE room_id = ? AND date >= ? AND date < ?
     `, [booking.room_id, booking.checkin_date, booking.checkout_date]);
+
+    console.log(`✅ 재고 복구: Room ${booking.room_id}, ${booking.checkin_date} ~ ${booking.checkout_date}`);
 
     // 예약 취소
     await db.execute(`
