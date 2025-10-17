@@ -94,11 +94,20 @@ module.exports = async function handler(req, res) {
         break;
     }
 
-    // 페이지네이션
+    const conn = getDbConnection();
+
+    // 1. 전체 개수 조회 (pagination용)
+    const countSql = sql.replace(
+      /SELECT l\.\*, c\.slug as category_slug, c\.name_ko as category_name/,
+      'SELECT COUNT(*) as total'
+    );
+    const countResult = await conn.execute(countSql, params);
+    const totalCount = countResult.rows[0]?.total || 0;
+
+    // 2. 실제 데이터 조회 (pagination 적용)
     sql += ' LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const conn = getDbConnection();
     const result = await conn.execute(sql, params);
     const listings = result.rows || [];
 
@@ -131,7 +140,8 @@ module.exports = async function handler(req, res) {
       pagination: {
         page,
         limit,
-        total: parsedListings.length
+        total: totalCount,
+        total_pages: Math.ceil(totalCount / limit)
       }
     });
   } catch (error) {

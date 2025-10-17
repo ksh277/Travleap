@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
         partnerData.tier || 'bronze',
         partnerData.is_verified || false,
         partnerData.is_featured || false,
-        partnerData.status || 'pending',
+        partnerData.status || 'approved',
         partnerData.lat || null,
         partnerData.lng || null
       ]);
@@ -122,14 +122,15 @@ module.exports = async function handler(req, res) {
         total_pages: Math.ceil(partners.length / limitNum)
       }
     });
-  } catch (error) {
-    console.error('API /admin/partners error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch partners',
-      errorMessage: error.message || 'Unknown error',
-      data: [],
-      pagination: { page: 1, limit: 20, total: 0, total_pages: 0 }
-    });
+    } catch (error) {
+      console.error('API /admin/partners error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch partners',
+        errorMessage: error.message || 'Unknown error',
+        data: [],
+        pagination: { page: 1, limit: 20, total: 0, total_pages: 0 }
+      });
+    }
   }
 };

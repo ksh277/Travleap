@@ -29,7 +29,6 @@ interface ExpiredLodgingBooking {
   id: number;
   booking_number: string;
   room_id: number;
-  lodging_id: number;
   checkin_date: string;
   checkout_date: string;
   hold_expires_at: string;
@@ -72,12 +71,12 @@ async function findExpiredLodgingBookings(): Promise<ExpiredLodgingBooking[]> {
   try {
     const result = await conn.execute(`
       SELECT
-        id, booking_number, room_id, lodging_id,
+        id, booking_number, room_id,
         checkin_date, checkout_date, hold_expires_at,
         total_amount, rooms_booked
       FROM lodging_bookings
-      WHERE status = 'HOLD'
-        AND payment_status = 'PENDING'
+      WHERE booking_status = 'pending'
+        AND payment_status = 'pending'
         AND hold_expires_at IS NOT NULL
         AND hold_expires_at < NOW()
       ORDER BY hold_expires_at ASC
@@ -108,14 +107,15 @@ async function expireLodgingBooking(booking: ExpiredLodgingBooking): Promise<boo
   }
 
   try {
-    // 1. 예약 상태 변경: HOLD → EXPIRED
+    // 1. 예약 상태 변경: pending → cancelled (hold expired)
     await conn.execute(`
       UPDATE lodging_bookings
       SET
-        status = 'EXPIRED',
+        booking_status = 'cancelled',
+        cancellation_reason = 'Hold expired - payment not completed',
         updated_at = NOW()
       WHERE id = ?
-        AND status = 'HOLD'
+        AND booking_status = 'pending'
     `, [id]);
 
     console.log(`✅ [Lodging Expiry] Booking expired: ${booking_number}`);

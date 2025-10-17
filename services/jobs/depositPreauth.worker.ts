@@ -47,6 +47,39 @@ const metrics = {
 };
 
 /**
+ * 사용자 카드 정보 조회 (토큰화된 정보)
+ *
+ * IMPORTANT: 카드 정보는 반드시 결제 시 Toss Payments의 빌링키로 저장되어야 함
+ * PCI-DSS 준수를 위해 평문 카드 정보는 절대 저장하지 않음
+ */
+async function retrieveCustomerCardInfo(userId: number): Promise<any | null> {
+  try {
+    // user_payment_methods 테이블에서 빌링키 조회
+    const paymentMethods = await db.query(`
+      SELECT billing_key, card_type, card_last4
+      FROM user_payment_methods
+      WHERE user_id = ? AND is_default = 1 AND is_active = 1
+      LIMIT 1
+    `, [userId]);
+
+    if (paymentMethods.length === 0) {
+      console.error(`❌ No payment method found for user ${userId}`);
+      return null;
+    }
+
+    // 빌링키 반환 (Toss Payments가 토큰으로 처리)
+    return {
+      billingKey: paymentMethods[0].billing_key,
+      // cardNumber, cardExpiry, cardPassword는 빌링키로 대체됨
+    };
+
+  } catch (error) {
+    console.error(`❌ Failed to retrieve card info for user ${userId}:`, error);
+    return null;
+  }
+}
+
+/**
  * 사전승인 대상 예약 조회
  */
 async function findBookingsForPreauth(): Promise<BookingForPreauth[]> {
@@ -68,7 +101,6 @@ async function findBookingsForPreauth(): Promise<BookingForPreauth[]> {
       LEFT JOIN vendor_settings v ON b.listing_id = v.listing_id
       WHERE b.status = 'confirmed'
         AND b.payment_status = 'paid'
-        AND b.deposit_auth_id IS NULL
         AND b.start_date BETWEEN NOW() AND ?
       LIMIT 50
     `, [DEFAULT_DEPOSIT, targetTime.toISOString()]);
@@ -91,7 +123,25 @@ async function preauthDeposit(booking: BookingForPreauth): Promise<boolean> {
   console.log(`🔐 [Preauth] ${booking_number} - ${deposit_amount.toLocaleString()}원`);
 
   try {
-    const customerInfo = JSON.parse(booking.customer_info);
+    // JSON 파싱 안전성 검사
+    if (!booking.customer_info) {
+      throw new Error('Customer info is missing');
+    }
+
+    let customerInfo;
+    try {
+      customerInfo = JSON.parse(booking.customer_info);
+    } catch (parseError) {
+      throw new Error(`Invalid JSON in customer_info: ${parseError.message}`);
+    }
+
+    // CRITICAL: 실제 카드 정보 조회
+    // 카드 정보는 결제 시 토큰화되어 저장되어야 함
+    const cardInfo = await retrieveCustomerCardInfo(booking.user_id);
+
+    if (!cardInfo) {
+      throw new Error('CRITICAL: No card information found for user. Card must be tokenized during payment.');
+    }
 
     // Toss Payments 사전승인 API 호출
     const result = await tossPaymentsServer.preauthDeposit({
@@ -99,11 +149,7 @@ async function preauthDeposit(booking: BookingForPreauth): Promise<boolean> {
       bookingNumber: booking_number,
       depositAmount: deposit_amount,
       customerKey: `customer-${booking.user_id}`,
-      // 실제 운영에서는 카드 정보를 별도 저장/관리해야 함
-      cardNumber: '1234567812345678', // TODO: 실제 카드 정보 조회
-      cardExpiry: '2512',
-      cardPassword: '00',
-      customerBirth: '900101'
+      ...cardInfo // Use tokenized card data
     });
 
     if (result.success && result.data?.depositAuthId) {

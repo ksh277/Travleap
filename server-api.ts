@@ -27,7 +27,12 @@ const app = express();
 const httpServer = createServer(app);
 
 // 미들웨어
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://yourdomain.com'] // TODO: 실제 프로덕션 도메인으로 변경
+    : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3004'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -588,7 +593,6 @@ function setupRoutes() {
         FROM reviews r
         LEFT JOIN listings l ON r.listing_id = l.id
         LEFT JOIN users u ON r.user_id = u.id
-        WHERE r.is_approved = 1
         ORDER BY r.created_at DESC
         LIMIT ?
       `, [limit]);
@@ -600,6 +604,358 @@ function setupRoutes() {
     } catch (error) {
       console.error('❌ [API] Get recent reviews error:', error);
       res.status(500).json({ success: false, message: '리뷰 조회 실패', data: [] });
+    }
+  });
+
+  // ===== 사용자 관리 API =====
+
+  // 사용자 목록 조회 (Admin Dashboard용) - 인증 필수
+  app.get('/api/users', authenticate, requireRole('admin'), async (_req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      const users = await db.query(`
+        SELECT id, email, name, role, created_at, updated_at
+        FROM users
+        ORDER BY created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        users: users || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get users error:', error);
+      res.status(500).json({ success: false, message: '사용자 목록 조회 실패', users: [] });
+    }
+  });
+
+  // ===== 블로그 관리 API =====
+
+  // 블로그 목록 조회 (Admin Dashboard용) - 인증 필수
+  app.get('/api/blogs', authenticate, requireRole('admin'), async (_req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      const blogs = await db.query(`
+        SELECT id, title, slug, author, excerpt, content_md,
+               featured_image, category, tags, is_published,
+               view_count, created_at, updated_at
+        FROM blog_posts
+        ORDER BY created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        blogs: blogs || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get blogs error:', error);
+      res.status(500).json({ success: false, message: '블로그 목록 조회 실패', blogs: [] });
+    }
+  });
+
+  // ===== 문의 관리 API =====
+
+  // 문의 목록 조회 (Admin Dashboard용) - 인증 필수
+  app.get('/api/contacts', authenticate, requireRole('admin'), async (_req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      const contacts = await db.query(`
+        SELECT id, name, email, phone, subject, message,
+               status, created_at, updated_at
+        FROM contact_inquiries
+        ORDER BY created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        contacts: contacts || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get contacts error:', error);
+      res.status(500).json({ success: false, message: '문의 목록 조회 실패', contacts: [] });
+    }
+  });
+
+  // ===== 주문 관리 API =====
+
+  // 주문 목록 조회 (Admin Dashboard용) - 인증 필수
+  app.get('/api/orders', authenticate, requireRole('admin'), async (_req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      // payments 테이블에서 cart 주문만 필터링
+      const payments = await db.query(`
+        SELECT * FROM payments
+        ORDER BY created_at DESC
+      `);
+
+      // cart 주문만 필터링
+      const orders = (payments || []).filter((p: any) => {
+        try {
+          let notes = {};
+          if (p.notes) {
+            notes = typeof p.notes === 'string' ? JSON.parse(p.notes) : p.notes;
+          }
+          return (notes as any).orderType === 'cart';
+        } catch (e) {
+          return false;
+        }
+      });
+
+      res.json({
+        success: true,
+        orders: orders
+      });
+    } catch (error) {
+      console.error('❌ [API] Get orders error:', error);
+      res.status(500).json({ success: false, message: '주문 목록 조회 실패', orders: [] });
+    }
+  });
+
+  // ===== 파트너 신청/관리 API =====
+
+  // 파트너 신청 제출 (공개 - 누구나 신청 가능)
+  app.post('/api/partners/apply', async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const applicationData = req.body;
+
+      // 이메일 형식 검증
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(applicationData.email)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_EMAIL',
+          message: '올바른 이메일 형식이 아닙니다.'
+        });
+      }
+
+      // 전화번호 형식 검증 (010-1234-5678 또는 01012345678)
+      const phoneRegex = /^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/;
+      if (!phoneRegex.test(applicationData.phone)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_PHONE',
+          message: '올바른 전화번호 형식이 아닙니다. (예: 010-1234-5678)'
+        });
+      }
+
+      // 필수 필드 검증
+      const requiredFields = ['businessName', 'contactName', 'email', 'phone', 'businessNumber'];
+      for (const field of requiredFields) {
+        if (!applicationData[field]) {
+          return res.status(400).json({
+            success: false,
+            error: 'MISSING_FIELD',
+            message: `필수 항목이 누락되었습니다: ${field}`
+          });
+        }
+      }
+
+      // 중복 신청 체크 (이메일 기준)
+      const existing = await db.query(
+        `SELECT id FROM partners WHERE email = ? LIMIT 1`,
+        [applicationData.email]
+      );
+
+      if (existing && existing.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: 'DUPLICATE_APPLICATION',
+          message: '이미 신청된 이메일입니다.'
+        });
+      }
+
+      // 파트너 신청 저장 (status: pending)
+      await db.execute(`
+        INSERT INTO partners (
+          business_name, contact_name, email, phone, business_number,
+          address, location, description, services, website, instagram,
+          status, tier, is_verified, is_featured,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'free', 0, 0, NOW(), NOW())
+      `, [
+        applicationData.businessName,
+        applicationData.contactName,
+        applicationData.email,
+        applicationData.phone,
+        applicationData.businessNumber,
+        applicationData.address || null,
+        applicationData.location || null,
+        applicationData.description || null,
+        applicationData.services ? JSON.stringify(applicationData.services.split(',').map((s: string) => s.trim())) : null,
+        applicationData.website || null,
+        applicationData.instagram || null
+      ]);
+
+      res.json({
+        success: true,
+        message: '파트너 신청이 완료되었습니다. 관리자 승인 후 서비스 이용이 가능합니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Partner application error:', error);
+      res.status(500).json({
+        success: false,
+        message: '파트너 신청 중 오류가 발생했습니다.'
+      });
+    }
+  });
+
+  // 파트너 신청 목록 조회 (관리자 전용)
+  app.get('/api/admin/partners/applications', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const { status } = req.query;
+
+      let sql = `
+        SELECT id, business_name, contact_name, email, phone, business_number,
+               address, location, description, services, website, instagram,
+               status, tier, is_verified, is_featured, created_at, updated_at
+        FROM partners
+      `;
+
+      const params: any[] = [];
+
+      if (status) {
+        sql += ` WHERE status = ?`;
+        params.push(status);
+      }
+
+      sql += ` ORDER BY created_at DESC`;
+
+      const applications = await db.query(sql, params);
+
+      res.json({
+        success: true,
+        data: applications || [],
+        total: applications?.length || 0
+      });
+    } catch (error) {
+      console.error('❌ [API] Get partner applications error:', error);
+      res.status(500).json({
+        success: false,
+        message: '파트너 신청 목록 조회 실패'
+      });
+    }
+  });
+
+  // 파트너 신청 승인/거절 (관리자 전용)
+  app.patch('/api/admin/partners/:id/status', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const { id } = req.params;
+      const { status, reason } = req.body; // status: 'approved' | 'rejected'
+
+      if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_STATUS',
+          message: 'status는 approved 또는 rejected여야 합니다.'
+        });
+      }
+
+      // 파트너 상태 업데이트
+      await db.execute(`
+        UPDATE partners
+        SET status = ?, updated_at = NOW()
+        WHERE id = ?
+      `, [status, id]);
+
+      // TODO: 이메일 알림 발송 (승인/거절 통지)
+
+      res.json({
+        success: true,
+        message: status === 'approved' ? '파트너 신청이 승인되었습니다.' : '파트너 신청이 거절되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update partner status error:', error);
+      res.status(500).json({
+        success: false,
+        message: '파트너 상태 업데이트 실패'
+      });
+    }
+  });
+
+  // 벤더(렌트카업체) 임시 계정 생성 (관리자 전용)
+  app.post('/api/admin/vendors/create-account', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const { email, businessName, contactName, phone } = req.body;
+      const bcrypt = require('bcrypt');
+
+      // 이메일 형식 검증
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_EMAIL',
+          message: '올바른 이메일 형식이 아닙니다.'
+        });
+      }
+
+      // 전화번호 형식 검증
+      const phoneRegex = /^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/;
+      if (phone && !phoneRegex.test(phone)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_PHONE',
+          message: '올바른 전화번호 형식이 아닙니다.'
+        });
+      }
+
+      // 중복 계정 체크
+      const existing = await db.query(
+        `SELECT id FROM users WHERE email = ? LIMIT 1`,
+        [email]
+      );
+
+      if (existing && existing.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: 'DUPLICATE_EMAIL',
+          message: '이미 존재하는 이메일입니다.'
+        });
+      }
+
+      // 임시 비밀번호 생성 (8자리 랜덤)
+      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
+
+      // 비밀번호 해싱 (실제 bcrypt 사용)
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+      // 벤더 계정 생성 (role: vendor)
+      const result = await db.execute(`
+        INSERT INTO users (email, password_hash, name, role, phone, created_at, updated_at)
+        VALUES (?, ?, ?, 'vendor', ?, NOW(), NOW())
+      `, [email, hashedPassword, contactName || businessName, phone || null]);
+
+      const userId = result.insertId;
+
+      // TODO: 이메일 발송 (임시 비밀번호 안내)
+      console.log(`🔑 벤더 임시 계정 생성 완료`);
+      console.log(`   이메일: ${email}`);
+      console.log(`   임시 비밀번호: ${tempPassword}`);
+      console.log(`   ⚠️ 이 비밀번호는 로그에만 표시되며, 실제로는 이메일로 발송되어야 합니다.`);
+
+      res.json({
+        success: true,
+        message: '벤더 계정이 생성되었습니다.',
+        data: {
+          userId,
+          email,
+          tempPassword, // ⚠️ Production에서는 이메일로만 발송, API 응답에 포함 X
+          name: contactName || businessName
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Create vendor account error:', error);
+      res.status(500).json({
+        success: false,
+        message: '벤더 계정 생성 실패'
+      });
     }
   });
 
@@ -2329,8 +2685,8 @@ function setupRoutes() {
     }
   });
 
-  // 미디어 활성화 토글 (관리자용)
-  app.patch('/api/admin/media/:id/toggle', async (req, res) => {
+  // 미디어 활성화 토글 (관리자용) - 인증 필수
+  app.patch('/api/admin/media/:id/toggle', authenticate, requireRole('admin'), async (req, res) => {
     try {
       const mediaId = parseInt(req.params.id);
       const { is_active } = req.body;
@@ -3236,7 +3592,7 @@ function setupRoutes() {
       const { createBooking } = await import('./api/rentcar/bookings.js');
       const result = await createBooking({
         ...req.body,
-        user_id: req.user?.id
+        user_id: req.user?.userId
       });
       res.json(result);
     } catch (error) {
@@ -3253,7 +3609,7 @@ function setupRoutes() {
     try {
       const { cancelBooking } = await import('./api/rentcar/bookings.js');
       const bookingId = parseInt(req.params.id);
-      const result = await cancelBooking(bookingId, req.user?.id);
+      const result = await cancelBooking(bookingId, req.user?.userId);
       res.json(result);
     } catch (error) {
       console.error('❌ [API] Cancel booking error:', error);
@@ -3351,7 +3707,7 @@ function setupRoutes() {
   app.post('/api/vendor/rentcar/vehicles', authenticate, async (req, res) => {
     try {
       const { createVehicle } = await import('./api/rentcar/vendor-vehicles.js');
-      const result = await createVehicle(req.body, req.user?.id || 0);
+      const result = await createVehicle(req.body, req.user?.userId || 0);
       res.json(result);
     } catch (error) {
       console.error('❌ [API] Create vehicle error:', error);
@@ -3367,7 +3723,7 @@ function setupRoutes() {
     try {
       const { updateVehicle } = await import('./api/rentcar/vendor-vehicles.js');
       const vehicleId = parseInt(req.params.id);
-      const result = await updateVehicle({ ...req.body, id: vehicleId }, req.user?.id || 0);
+      const result = await updateVehicle({ ...req.body, id: vehicleId }, req.user?.userId || 0);
       res.json(result);
     } catch (error) {
       console.error('❌ [API] Update vehicle error:', error);
@@ -3383,7 +3739,7 @@ function setupRoutes() {
     try {
       const { deleteVehicle } = await import('./api/rentcar/vendor-vehicles.js');
       const vehicleId = parseInt(req.params.id);
-      const result = await deleteVehicle(vehicleId, req.user?.id || 0);
+      const result = await deleteVehicle(vehicleId, req.user?.userId || 0);
       res.json(result);
     } catch (error) {
       console.error('❌ [API] Delete vehicle error:', error);
@@ -3399,7 +3755,7 @@ function setupRoutes() {
     try {
       const { getVehicleBookings } = await import('./api/rentcar/vendor-vehicles.js');
       const vehicleId = parseInt(req.params.id);
-      const result = await getVehicleBookings(vehicleId, req.user?.id || 0);
+      const result = await getVehicleBookings(vehicleId, req.user?.userId || 0);
       res.json(result);
     } catch (error) {
       console.error('❌ [API] Get vehicle bookings error:', error);
@@ -3416,7 +3772,7 @@ function setupRoutes() {
     try {
       const { getVendorBookings } = await import('./api/rentcar/vendor-vehicles.js');
       const vendorId = parseInt(req.query.vendor_id as string);
-      const result = await getVendorBookings(vendorId, req.user?.id || 0);
+      const result = await getVendorBookings(vendorId, req.user?.userId || 0);
       res.json(result);
     } catch (error) {
       console.error('❌ [API] Get vendor bookings error:', error);
@@ -3433,7 +3789,7 @@ function setupRoutes() {
     try {
       const { getVendorDashboard } = await import('./api/rentcar/vendor-vehicles.js');
       const vendorId = parseInt(req.query.vendor_id as string);
-      const result = await getVendorDashboard(vendorId, req.user?.id || 0);
+      const result = await getVendorDashboard(vendorId, req.user?.userId || 0);
       res.json(result);
     } catch (error) {
       console.error('❌ [API] Get vendor dashboard error:', error);
@@ -3477,7 +3833,7 @@ function setupRoutes() {
   app.post('/api/admin/commission/rates', authenticate, requireRole('admin'), async (req, res) => {
     try {
       const { createCommissionRate } = await import('./api/admin/commission-settings.js');
-      const result = await createCommissionRate(req.body, req.user?.id || 0);
+      const result = await createCommissionRate(req.body, req.user?.userId || 0);
       res.json(result);
     } catch (error) {
       console.error('[API] Commission rate creation error:', error);
@@ -3490,7 +3846,7 @@ function setupRoutes() {
     try {
       const { updateCommissionRate } = await import('./api/admin/commission-settings.js');
       const rateId = parseInt(req.params.id);
-      const result = await updateCommissionRate(rateId, req.body, req.user?.id || 0);
+      const result = await updateCommissionRate(rateId, req.body, req.user?.userId || 0);
       res.json(result);
     } catch (error) {
       console.error('[API] Commission rate update error:', error);
@@ -3503,7 +3859,7 @@ function setupRoutes() {
     try {
       const { deactivateCommissionRate } = await import('./api/admin/commission-settings.js');
       const rateId = parseInt(req.params.id);
-      const result = await deactivateCommissionRate(rateId, req.user?.id || 0);
+      const result = await deactivateCommissionRate(rateId, req.user?.userId || 0);
       res.json(result);
     } catch (error) {
       console.error('[API] Commission rate deactivation error:', error);

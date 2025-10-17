@@ -9,21 +9,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { db } from '../../utils/database.js';
 import { JWTUtils } from '../../utils/jwt';
+import { getCorsHeaders } from '../../utils/cors.js';
 
-// CORS 헤더
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// CORS 헤더 (동적 생성)
+function getCorsHeadersForRequest(request: NextRequest) {
+  const origin = request.headers.get('origin') || undefined;
+  return getCorsHeaders(origin);
+}
 
 // OPTIONS 요청 처리 (CORS preflight)
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  const corsHeaders = getCorsHeadersForRequest(request);
   return NextResponse.json({}, { headers: corsHeaders });
 }
 
 // POST 요청 처리
 export async function POST(request: NextRequest) {
+  const corsHeaders = getCorsHeadersForRequest(request);
+
   try {
     const url = new URL(request.url);
     const action = url.searchParams.get('action');
@@ -49,6 +52,8 @@ export async function POST(request: NextRequest) {
 
 // 회원가입 처리
 async function handleRegister(request: NextRequest) {
+  const corsHeaders = getCorsHeadersForRequest(request);
+
   try {
     const body = await request.json();
     const { email, password, name, phone } = body;
@@ -171,6 +176,8 @@ async function handleRegister(request: NextRequest) {
 
 // 로그인 처리
 async function handleLogin(request: NextRequest) {
+  const corsHeaders = getCorsHeadersForRequest(request);
+
   try {
     const body = await request.json();
     const { email, password } = body;
@@ -199,23 +206,27 @@ async function handleLogin(request: NextRequest) {
     const user = users[0];
     console.log('✅ 사용자 찾음:', user.email, 'role:', user.role);
 
-    // 3. 비밀번호 검증
+    // 3. 비밀번호 검증 (bcrypt only - no plaintext fallback for security)
     let isPasswordValid = false;
 
     try {
-      // bcrypt 해시 검증
-      if (user.password_hash && user.password_hash.startsWith('$2')) {
-        isPasswordValid = await bcrypt.compare(password, user.password_hash);
-        console.log('🔐 bcrypt 비밀번호 검증:', isPasswordValid);
-      } else {
-        // 평문 비교 (개발용)
-        isPasswordValid = password === user.password_hash;
-        console.log('🔓 평문 비밀번호 비교:', isPasswordValid);
+      // CRITICAL: Only bcrypt hash verification allowed
+      if (!user.password_hash || !user.password_hash.startsWith('$2')) {
+        console.error('❌ SECURITY: Invalid password hash format for user:', email);
+        return NextResponse.json(
+          { success: false, error: '비밀번호 형식 오류입니다. 관리자에게 문의하세요.' },
+          { status: 500, headers: corsHeaders }
+        );
       }
+
+      isPasswordValid = await bcrypt.compare(password, user.password_hash);
+      console.log('🔐 bcrypt 비밀번호 검증:', isPasswordValid);
     } catch (error) {
       console.error('비밀번호 검증 오류:', error);
-      isPasswordValid = password === user.password_hash;
-      console.log('🔓 평문 비밀번호 폴백:', isPasswordValid);
+      return NextResponse.json(
+        { success: false, error: '비밀번호 검증 중 오류가 발생했습니다.' },
+        { status: 500, headers: corsHeaders }
+      );
     }
 
     if (!isPasswordValid) {

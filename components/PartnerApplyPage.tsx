@@ -184,48 +184,39 @@ export function PartnerApplyPage() {
     }
 
     try {
-      // 현재 사용자 정보 확인
-      const user = await api.getCurrentUser();
-      if (!user) {
-        toast.error('로그인이 필요합니다.');
-        return;
-      }
-
-      // 파트너 신청 데이터 준비
+      // 파트너 신청 데이터 준비 (로그인 불필요 - 누구나 신청 가능)
       const applicationData = {
-        user_id: user.id,
-        business_name: formData.businessName,
-        contact_name: formData.contactName,
+        businessName: formData.businessName,
+        contactName: formData.contactName,
         email: formData.email,
         phone: formData.phone,
-        contact_email: formData.email,
-        contact_phone: formData.phone,
-        business_registration_number: formData.businessNumber || null,
-        business_address: formData.address,
+        businessNumber: formData.businessNumber || '',
+        address: formData.address,
         location: formData.location,
-        website_url: formData.website || null,
-        instagram_url: formData.instagram || null,
-        categories: JSON.stringify(formData.categories), // JSON string으로 변환
+        website: formData.website || '',
+        instagram: formData.instagram || '',
+        services: formData.categories.join(','), // 쉼표로 구분된 문자열
         description: formData.description,
-        services_offered: formData.services,
-        promotion: formData.promotion || null,
-        business_hours: formData.businessHours,
-        discount_rate: formData.discountRate ? parseInt(formData.discountRate) : null,
-        status: 'pending' as const,
-        application_notes: JSON.stringify({
-          termsAgreed: formData.termsAgreed,
-          processAgreed: formData.processAgreed
-        })
+        businessHours: formData.businessHours,
+        discountRate: formData.discountRate || ''
       };
 
-      // DB에 파트너 신청 저장
-      const response = await api.createPartnerApplication(applicationData);
+      // 새 API 엔드포인트로 신청
+      const response = await fetch('/api/partners/apply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(applicationData),
+      });
 
-      if (response.success) {
-        toast.success('파트너 신청이 성공적으로 제출되었습니다!');
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success('파트너 신청이 성공적으로 제출되었습니다! 관리자 승인 후 연락드리겠습니다.');
         setIsSubmitted(true);
       } else {
-        throw new Error(response.error || '신청 처리 중 오류가 발생했습니다.');
+        throw new Error(data.message || '신청 처리 중 오류가 발생했습니다.');
       }
     } catch (error) {
       console.error('제출 실패:', error);

@@ -9,6 +9,7 @@
 
 import { db } from '../../utils/database.js';
 import { authService } from '../../utils/auth';
+import bcrypt from 'bcryptjs';
 
 export interface VendorRegistrationRequest {
   // 업체 정보
@@ -78,7 +79,10 @@ export async function registerVendor(
       }
     }
 
-    // 3. Users 테이블에 계정 생성 (role: 'vendor')
+    // 3. 비밀번호 해싱 (bcrypt)
+    const hashedPassword = await bcrypt.hash(request.account_password, 10);
+
+    // 4. Users 테이블에 계정 생성 (role: 'vendor')
     const userResult = await db.execute(`
       INSERT INTO users (
         user_id, email, password_hash, name, phone, role,
@@ -88,7 +92,7 @@ export async function registerVendor(
     `, [
       `vendor_${Date.now()}`,
       request.account_email,
-      `hashed_${request.account_password}`, // 실제로는 bcrypt 사용
+      hashedPassword,
       request.contact_person,
       request.contact_phone,
       'vendor', // 새로운 role: vendor
@@ -246,7 +250,10 @@ export async function createTemporaryVendorAccount(
   try {
     console.log(`🔧 임시 벤더 계정 생성: ${email}`);
 
-    // 1. Users 계정 생성
+    // 1. 비밀번호 해싱 (bcrypt)
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 2. Users 계정 생성
     const userResult = await db.execute(`
       INSERT INTO users (
         user_id, email, password_hash, name, role,
@@ -256,7 +263,7 @@ export async function createTemporaryVendorAccount(
     `, [
       `vendor_temp_${Date.now()}`,
       email,
-      `hashed_${password}`,
+      hashedPassword,
       tempName,
       'vendor',
       'ko',
