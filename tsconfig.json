@@ -27,6 +27,7 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["components", "utils", "styles", "types", "api", "App.tsx", "main.tsx", "vite-env.d.ts"],
+  "include": ["components", "styles", "types", "App.tsx", "main.tsx", "vite-env.d.ts"],
+  "exclude": ["utils", "api", "workers", "scripts", "server", "node_modules", "dist"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
