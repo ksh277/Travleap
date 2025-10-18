@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "concurrently \"vite\" \"tsx watch server-api.ts\"",
     "dev:frontend": "vite",
-    "build": "node build-frontend.js",
+    "build": "node build-frontend.cjs",
     "build:node": "node build.mjs",
     "build:vite": "npx vite build",
     "build:vercel": "node ./node_modules/vite/bin/vite.js build",
