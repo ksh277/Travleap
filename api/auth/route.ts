@@ -8,7 +8,7 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-import { connect } from '@planetscale/database';
+import { neon } from '@neondatabase/serverless';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -92,8 +92,8 @@ export async function POST(request: Request) {
 
     console.log('📧 Request:', { email, action });
 
-    // 5. DB 연결
-    const conn = connect({ url: process.env.DATABASE_URL });
+    // 5. DB 연결 (Neon Postgres)
+    const sql = neon(process.env.DATABASE_URL!);
     console.log('✅ Database connected');
 
     // 6. 로그인
@@ -105,12 +105,9 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await conn.execute(
-        'SELECT id, email, name, phone, role, password_hash FROM users WHERE email = ?',
-        [email]
-      );
+      const result = await sql`SELECT id, email, name, phone, role, password_hash FROM users WHERE email = ${email}`;
 
-      if (!result.rows || result.rows.length === 0) {
+      if (!result || result.length === 0) {
         console.log('❌ User not found:', email);
         return new Response(
           JSON.stringify({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' }),
@@ -118,7 +115,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const user: any = result.rows[0];
+      const user: any = result[0];
       console.log('✅ User found:', user.email);
 
       // 비밀번호 검증
@@ -171,8 +168,8 @@ export async function POST(request: Request) {
       }
 
       // 이메일 중복 확인
-      const checkResult = await conn.execute('SELECT id FROM users WHERE email = ?', [email]);
-      if (checkResult.rows && checkResult.rows.length > 0) {
+      const checkResult = await sql`SELECT id FROM users WHERE email = ${email}`;
+      if (checkResult && checkResult.length > 0) {
         return new Response(
           JSON.stringify({ success: false, error: '이미 가입된 이메일입니다.' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -184,17 +181,12 @@ export async function POST(request: Request) {
       const hashedPassword = await bcrypt.hash(password, salt);
 
       // 사용자 생성
-      await conn.execute(
-        'INSERT INTO users (email, password_hash, name, phone, role, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [email, hashedPassword, name, phone || '', 'user', new Date().toISOString()]
-      );
+      await sql`INSERT INTO users (email, password_hash, name, phone, role, created_at)
+                VALUES (${email}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', ${new Date().toISOString()})`;
 
-      const savedResult = await conn.execute(
-        'SELECT id, email, name, phone, role FROM users WHERE email = ?',
-        [email]
-      );
+      const savedResult = await sql`SELECT id, email, name, phone, role FROM users WHERE email = ${email}`;
 
-      const savedUser: any = savedResult.rows[0];
+      const savedUser: any = savedResult[0];
 
       // JWT 토큰 생성
       const token = JWTUtils.generateToken({
