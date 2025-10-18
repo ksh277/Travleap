@@ -1,47 +1,6 @@
 import { defineConfig, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Custom plugin to prevent backend files from being processed
-const ignoreBackendPlugin = (): Plugin => ({
-  name: 'ignore-backend-files',
-  enforce: 'pre',
-
-  resolveId(id, importer) {
-    // Don't touch node_modules
-    if (id.includes('node_modules') || importer?.includes('node_modules')) {
-      return null;
-    }
-
-    // Block backend files completely
-    const isBackendFile =
-      id.includes('/utils/database') ||
-      id.includes('\\utils\\database') ||
-      id.includes('/utils/notification') ||
-      id.includes('\\utils\\notification') ||
-      id.includes('/utils/booking-state-machine') ||
-      id.includes('/utils/payment') ||
-      id.includes('/utils/pms-integration') ||
-      id.includes('/utils/rentcar-api') ||
-      id.match(/[\/\\]api[\/\\]/) ||
-      id.match(/[\/\\]workers[\/\\]/) ||
-      id.match(/[\/\\]scripts[\/\\]/);
-
-    if (isBackendFile) {
-      // Return a virtual module ID that will be handled by load hook
-      return '\0virtual:backend-stub';
-    }
-
-    return null;
-  },
-
-  load(id) {
-    // Return empty export for virtual backend stub
-    if (id === '\0virtual:backend-stub') {
-      return 'export default {};';
-    }
-    return null;
-  }
-});
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -50,7 +9,7 @@ export default defineConfig({
   publicDir: 'public',
 
   plugins: [
-    ignoreBackendPlugin(),
+    // Plugin removed - using build-frontend.cjs instead
     react()
   ],
   define: {
@@ -63,6 +22,8 @@ export default defineConfig({
       '../utils/rentcar-api': '/utils/rentcar-api-stub.ts',
       '../utils/pms-integrations': '/utils/pms-integrations-stub.ts',
       '../utils/pms-integration': '/utils/pms-integration-stub.ts',
+      '../utils/test-lock': '/utils/test-lock-stub.ts',
+      '../utils/notification': '/utils/notification-stub.ts',
     },
   },
   optimizeDeps: {

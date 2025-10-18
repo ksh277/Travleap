@@ -489,23 +489,29 @@ export const api = {
   // Lock Manager를 사용한 안전한 예약 생성
   createBookingWithLock: async (bookingData: BookingRequest): Promise<ApiResponse<any>> => {
     try {
-      // 동적 import로 Lock Manager 함수 가져오기
-      const { createBookingWithLock } = await import('../api/bookings/create-with-lock');
-
-      const result = await createBookingWithLock({
-        listing_id: bookingData.listing_id,
-        user_id: bookingData.user_id,
-        num_adults: bookingData.num_adults,
-        num_children: bookingData.num_children,
-        start_date: bookingData.start_date || bookingData.booking_date || '',
-        end_date: bookingData.end_date || bookingData.start_date || bookingData.booking_date || '',
-        check_in_time: '14:00',
-        guest_name: bookingData.guest_name || '',
-        guest_phone: bookingData.guest_phone || '',
-        guest_email: bookingData.guest_email || '',
-        total_amount: bookingData.total_amount || 0,
-        special_requests: bookingData.special_requests
+      // API 엔드포인트로 요청
+      const response = await fetch('/api/bookings/create-with-lock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          listing_id: bookingData.listing_id,
+          user_id: bookingData.user_id,
+          num_adults: bookingData.num_adults,
+          num_children: bookingData.num_children,
+          start_date: bookingData.start_date || bookingData.booking_date || '',
+          end_date: bookingData.end_date || bookingData.start_date || bookingData.booking_date || '',
+          check_in_time: '14:00',
+          guest_name: bookingData.guest_name || '',
+          guest_phone: bookingData.guest_phone || '',
+          guest_email: bookingData.guest_email || '',
+          total_amount: bookingData.total_amount || 0,
+          special_requests: bookingData.special_requests
+        })
       });
+
+      const result = await response.json();
 
       if (!result.success) {
         return {
