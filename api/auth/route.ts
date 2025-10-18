@@ -93,7 +93,11 @@ export async function POST(request: Request) {
     console.log('📧 Request:', { email, action });
 
     // 5. DB 연결 (Neon Postgres)
-    const sql = neon(process.env.DATABASE_URL!);
+    const databaseUrl = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error('DATABASE_URL not found');
+    }
+    const sql = neon(databaseUrl);
     console.log('✅ Database connected');
 
     // 6. 로그인
