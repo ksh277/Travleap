@@ -1,4 +1,4 @@
-const { connect } = require('@planetscale/database');
+const { neon } = require('@neondatabase/serverless');
 const bcrypt = require('bcryptjs');
 
 module.exports = async function handler(req, res) {
@@ -16,11 +16,8 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const connection = connect({
-    host: process.env.VITE_PLANETSCALE_HOST,
-    username: process.env.VITE_PLANETSCALE_USERNAME,
-    password: process.env.VITE_PLANETSCALE_PASSWORD
-  });
+  const databaseUrl = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+  const sql = neon(databaseUrl);
 
   const { action } = req.query;
 
@@ -38,16 +35,13 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ success: false, error: '잘못된 입력 형식입니다.' });
       }
 
-      const result = await connection.execute(
-        'SELECT * FROM users WHERE email = ? AND status = ?',
-        [email, 'active']
-      );
+      const result = await sql`SELECT * FROM users WHERE email = ${email}`;
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return res.status(401).json({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
       }
 
-      const user = result.rows[0];
+      const user = result[0];
 
       console.log('🔍 Login attempt for:', email);
       console.log('   User found:', user.email, '(ID:', user.id, ')');
@@ -126,12 +120,9 @@ module.exports = async function handler(req, res) {
       }
 
       // 이메일 중복 확인
-      const existing = await connection.execute(
-        'SELECT id FROM users WHERE email = ?',
-        [email]
-      );
+      const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
 
-      if (existing.rows.length > 0) {
+      if (existing.length > 0) {
         return res.status(400).json({ success: false, error: '이미 사용 중인 이메일입니다.' });
       }
 
@@ -140,14 +131,16 @@ module.exports = async function handler(req, res) {
 
       // 사용자 생성
       const userId = `user_${Date.now()}`;
-      const result = await connection.execute(
-        `INSERT INTO users (user_id, email, password_hash, name, phone, role, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'user', 'ko', 'KRW', 1, NOW(), NOW())`,
-        [userId, email, hashedPassword, name, phone || '']
-      );
+      const result = await sql`
+        INSERT INTO users (user_id, email, password_hash, name, phone, role, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
+        VALUES (${userId}, ${email}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id
+      `;
+
+      const newUserId = result[0].id;
 
       const token = Buffer.from(JSON.stringify({
-        userId: result.insertId,
+        userId: newUserId,
         email,
         name,
         role: 'user',
@@ -159,7 +152,7 @@ module.exports = async function handler(req, res) {
         success: true,
         data: {
           user: {
-            id: result.insertId,
+            id: newUserId,
             email,
             name,
             role: 'user',
@@ -175,13 +168,10 @@ module.exports = async function handler(req, res) {
       const { provider, providerId, email, name, avatar } = req.body;
 
       // 기존 사용자 확인
-      const existing = await connection.execute(
-        'SELECT * FROM users WHERE provider = ? AND provider_id = ?',
-        [provider, providerId]
-      );
+      const existing = await sql`SELECT * FROM users WHERE provider = ${provider} AND provider_id = ${providerId}`;
 
-      if (existing.rows.length > 0) {
-        const user = existing.rows[0];
+      if (existing.length > 0) {
+        const user = existing[0];
         const token = Buffer.from(JSON.stringify({
           userId: user.id,
           email: user.email,
@@ -208,14 +198,16 @@ module.exports = async function handler(req, res) {
 
       // 새 사용자 생성
       const userId = `${provider}_${Date.now()}`;
-      const result = await connection.execute(
-        `INSERT INTO users (user_id, email, name, avatar, provider, provider_id, role, password_hash, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'user', '', 'ko', 'KRW', 1, NOW(), NOW())`,
-        [userId, email, name, avatar || '', provider, providerId]
-      );
+      const result = await sql`
+        INSERT INTO users (user_id, email, name, avatar, provider, provider_id, role, password_hash, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
+        VALUES (${userId}, ${email}, ${name}, ${avatar || ''}, ${provider}, ${providerId}, 'user', '', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id
+      `;
+
+      const newUserId = result[0].id;
 
       const token = Buffer.from(JSON.stringify({
-        userId: result.insertId,
+        userId: newUserId,
         email,
         name,
         role: 'user',
@@ -227,7 +219,7 @@ module.exports = async function handler(req, res) {
         success: true,
         data: {
           user: {
-            id: result.insertId,
+            id: newUserId,
             email,
             name,
             role: 'user',
