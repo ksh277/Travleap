@@ -5,19 +5,41 @@ import react from '@vitejs/plugin-react'
 const ignoreBackendPlugin = (): Plugin => ({
   name: 'ignore-backend-files',
   enforce: 'pre',
-  resolveId(id) {
-    // Ignore all imports from backend folders
-    if (id.includes('/utils/database') ||
-        id.includes('/utils/notification') ||
-        id.includes('/utils/booking-state-machine') ||
-        id.includes('/utils/payment') ||
-        id.includes('/utils/pms-integration') ||
-        id.includes('/utils/rentcar-api') ||
-        id.includes('/api/') ||
-        id.includes('/workers/') ||
-        id.includes('/scripts/')) {
+  resolveId(id, importer) {
+    // Don't touch node_modules
+    if (id.includes('node_modules') || importer?.includes('node_modules')) {
+      return null;
+    }
+
+    // Only block our backend files (absolute or relative paths from project root)
+    const projectBackendPatterns = [
+      '/utils/database',
+      '../utils/database',
+      './utils/database',
+      '/utils/notification',
+      '../utils/notification',
+      './utils/notification',
+      '/utils/booking-state-machine',
+      '../utils/booking-state-machine',
+      '/utils/payment',
+      '../utils/payment',
+      '/utils/pms-integration',
+      '../utils/pms-integration',
+      '/utils/rentcar-api',
+      '../utils/rentcar-api',
+      '/api/',
+      '../api/',
+      './api/',
+      '/workers/',
+      '../workers/',
+      '/scripts/',
+      '../scripts/'
+    ];
+
+    if (projectBackendPatterns.some(pattern => id.includes(pattern))) {
       return { id, external: true };
     }
+
     return null;
   }
 });
@@ -74,31 +96,7 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     rollupOptions: {
-      external: [
-        // Exclude all backend files from build
-        /^\/utils\//,
-        /^utils\//,
-        /^\.\.\/utils\//,
-        /^\/api\//,
-        /^api\//,
-        /^\.\.\/api\//,
-        /^\/workers\//,
-        /^workers\//,
-        /^\/scripts\//,
-        /^scripts\//,
-      ],
-      // Explicitly ignore these files during module resolution
-      onwarn(warning, warn) {
-        // Suppress warnings about external modules
-        if (warning.code === 'UNRESOLVED_IMPORT' &&
-            (warning.message.includes('utils/') ||
-             warning.message.includes('api/') ||
-             warning.message.includes('workers/') ||
-             warning.message.includes('scripts/'))) {
-          return;
-        }
-        warn(warning);
-      },
+      // Don't use broad external patterns - handled by custom plugin instead
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
