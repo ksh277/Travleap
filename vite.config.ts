@@ -5,41 +5,40 @@ import react from '@vitejs/plugin-react'
 const ignoreBackendPlugin = (): Plugin => ({
   name: 'ignore-backend-files',
   enforce: 'pre',
+
   resolveId(id, importer) {
     // Don't touch node_modules
     if (id.includes('node_modules') || importer?.includes('node_modules')) {
       return null;
     }
 
-    // Only block our backend files (absolute or relative paths from project root)
-    const projectBackendPatterns = [
-      '/utils/database',
-      '../utils/database',
-      './utils/database',
-      '/utils/notification',
-      '../utils/notification',
-      './utils/notification',
-      '/utils/booking-state-machine',
-      '../utils/booking-state-machine',
-      '/utils/payment',
-      '../utils/payment',
-      '/utils/pms-integration',
-      '../utils/pms-integration',
-      '/utils/rentcar-api',
-      '../utils/rentcar-api',
-      '/api/',
-      '../api/',
-      './api/',
-      '/workers/',
-      '../workers/',
-      '/scripts/',
-      '../scripts/'
-    ];
+    // Block backend files completely
+    const isBackendFile =
+      id.includes('/utils/database') ||
+      id.includes('\\utils\\database') ||
+      id.includes('/utils/notification') ||
+      id.includes('\\utils\\notification') ||
+      id.includes('/utils/booking-state-machine') ||
+      id.includes('/utils/payment') ||
+      id.includes('/utils/pms-integration') ||
+      id.includes('/utils/rentcar-api') ||
+      id.match(/[\/\\]api[\/\\]/) ||
+      id.match(/[\/\\]workers[\/\\]/) ||
+      id.match(/[\/\\]scripts[\/\\]/);
 
-    if (projectBackendPatterns.some(pattern => id.includes(pattern))) {
-      return { id, external: true };
+    if (isBackendFile) {
+      // Return a virtual module ID that will be handled by load hook
+      return '\0virtual:backend-stub';
     }
 
+    return null;
+  },
+
+  load(id) {
+    // Return empty export for virtual backend stub
+    if (id === '\0virtual:backend-stub') {
+      return 'export default {};';
+    }
     return null;
   }
 });
