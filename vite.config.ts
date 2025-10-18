@@ -10,6 +10,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': '/src',
+      // Prevent frontend from importing backend-only files that use database.js
+      '../utils/rentcar-api': '/utils/rentcar-api-stub.ts',
+      '../utils/pms-integrations': '/utils/pms-integrations-stub.ts',
+      '../utils/pms-integration': '/utils/pms-integration-stub.ts',
     },
   },
   optimizeDeps: {
