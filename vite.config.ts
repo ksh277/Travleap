@@ -1,9 +1,37 @@
-import { defineConfig } from 'vite'
+import { defineConfig, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// Custom plugin to prevent backend files from being processed
+const ignoreBackendPlugin = (): Plugin => ({
+  name: 'ignore-backend-files',
+  enforce: 'pre',
+  resolveId(id) {
+    // Ignore all imports from backend folders
+    if (id.includes('/utils/database') ||
+        id.includes('/utils/notification') ||
+        id.includes('/utils/booking-state-machine') ||
+        id.includes('/utils/payment') ||
+        id.includes('/utils/pms-integration') ||
+        id.includes('/utils/rentcar-api') ||
+        id.includes('/api/') ||
+        id.includes('/workers/') ||
+        id.includes('/scripts/')) {
+      return { id, external: true };
+    }
+    return null;
+  }
+});
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  // Explicitly set root to prevent scanning backend folders
+  root: './',
+  publicDir: 'public',
+
+  plugins: [
+    ignoreBackendPlugin(),
+    react()
+  ],
   define: {
     'process.env': {}
   },
@@ -47,18 +75,30 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       external: [
-        /^utils\/database/,
-        /^utils\/notification/,
-        /^utils\/booking-state-machine/,
-        /^utils\/payment/,
-        /^utils\/pms-integration/,
-        /^utils\/rentcar-api/,
-        /^utils\/rentcar-price-calculator/,
-        /^utils\/test-lock-db-integration/,
+        // Exclude all backend files from build
+        /^\/utils\//,
+        /^utils\//,
+        /^\.\.\/utils\//,
+        /^\/api\//,
         /^api\//,
+        /^\.\.\/api\//,
+        /^\/workers\//,
         /^workers\//,
-        /^scripts\//
+        /^\/scripts\//,
+        /^scripts\//,
       ],
+      // Explicitly ignore these files during module resolution
+      onwarn(warning, warn) {
+        // Suppress warnings about external modules
+        if (warning.code === 'UNRESOLVED_IMPORT' &&
+            (warning.message.includes('utils/') ||
+             warning.message.includes('api/') ||
+             warning.message.includes('workers/') ||
+             warning.message.includes('scripts/'))) {
+          return;
+        }
+        warn(warning);
+      },
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
