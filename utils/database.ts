@@ -1,4 +1,4 @@
-import { connect, Connection } from '@planetscale/database';
+import { neon } from '@neondatabase/serverless';
 
 export interface DatabaseConfig {
   url: string;
@@ -11,47 +11,48 @@ export interface QueryResult {
 }
 
 class Database {
-  private connection: Connection;
+  private sql: any;
 
   constructor() {
-    // PlanetScale 연결 설정
-    if (typeof window === 'undefined') {
-      // Node.js 서버 환경 - DATABASE_URL 우선 사용 (Vercel 환경)
-      const databaseUrl = process.env.DATABASE_URL;
-
-      if (databaseUrl) {
-        // DATABASE_URL이 있으면 그것을 사용 (Vercel)
-        this.connection = connect({ url: databaseUrl });
-        console.log('✅ [Database] Connected using DATABASE_URL');
-      } else {
-        // DATABASE_URL이 없으면 개별 환경변수 사용 (로컬)
-        const host = process.env.DATABASE_HOST || process.env.VITE_PLANETSCALE_HOST || 'aws.connect.psdb.cloud';
-        const username = process.env.DATABASE_USERNAME || process.env.VITE_PLANETSCALE_USERNAME || '';
-        const password = process.env.DATABASE_PASSWORD || process.env.VITE_PLANETSCALE_PASSWORD || '';
-
-        if (!username || !password) {
-          console.warn('⚠️  PlanetScale credentials not configured');
-        }
-
-        this.connection = connect({ host, username, password });
-        console.log('✅ [Database] Connected using individual credentials');
-      }
-    } else {
-      // 브라우저 환경에서는 DB 직접 접속 불가 - 에러 던지기
+    // 브라우저 환경에서는 DB 직접 접속 불가
+    if (typeof window !== 'undefined') {
       throw new Error('❌ Database cannot be accessed from browser! Use API routes instead.');
     }
+
+    // Neon PostgreSQL 연결
+    const databaseUrl = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+
+    if (!databaseUrl) {
+      throw new Error('DATABASE_URL not configured');
+    }
+
+    this.sql = neon(databaseUrl);
+    console.log('✅ [Database] Connected to Neon PostgreSQL');
   }
 
-  async execute(sql: string, params: any[] = []): Promise<QueryResult> {
+  async execute(sqlString: string, params: any[] = []): Promise<QueryResult> {
     try {
-      const result = await this.connection.execute(sql, params);
+      // Neon은 템플릿 리터럴을 사용하지만, 파라미터 바인딩을 위해 변환
+      let result;
+      if (params.length === 0) {
+        result = await this.sql([sqlString]);
+      } else {
+        // ? 플레이스홀더를 $1, $2로 변환
+        let paramIndex = 1;
+        const pgSql = sqlString.replace(/\?/g, () => `$${paramIndex++}`);
+
+        // 템플릿 리터럴 형식으로 실행
+        const strings = [pgSql];
+        (strings as any).raw = [pgSql];
+        result = await this.sql(strings, ...params);
+      }
 
       return {
-        rows: result.rows || [],
-        insertId: Number(result.insertId) || 0,
-        affectedRows: result.rowsAffected
+        rows: result || [],
+        insertId: result && result.length > 0 && result[0].id ? Number(result[0].id) : 0,
+        affectedRows: result ? result.length : 0
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Database execution error:', error);
 
       // DB 연결 실패 시에도 앱이 계속 작동하도록 빈 결과 반환
