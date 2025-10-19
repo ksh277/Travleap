@@ -71,11 +71,15 @@ const loadPartners = async (): Promise<Partner[]> => {
         }
         const category = services[0] || '여행';
 
+        // description에서 주소 추출 (description에 주소가 포함되어 있음)
+        const addressMatch = partner.description?.match(/전라남도 신안군[^\n]+/) || null;
+        const displayAddress = addressMatch ? addressMatch[0] : (partner.phone || '신안군');
+
         const partnerCard: Partner = {
           id: partner.id.toString(),
           name: partner.business_name || '업체명 없음',
           category: category,
-          location: partner.address || partner.phone || '신안군',
+          location: displayAddress,
           rating: 0,
           reviewCount: 0,
           price: '가격 문의',

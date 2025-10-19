@@ -1,99 +1,134 @@
-import { db } from '../utils/database';
+import { connect } from '@planetscale/database';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+const connection = connect({ url: process.env.DATABASE_URL });
 
 async function addSamplePartners() {
-  try {
-    console.log('🚀 Adding sample partners...');
+  console.log('🤝 샘플 파트너 데이터 추가 중...\n');
 
-    // 샘플 파트너 데이터 3개
-    const samplePartners = [
+  try {
+    // 기존 샘플 파트너 삭제
+    await connection.execute('DELETE FROM partners WHERE business_name LIKE "샘플%"');
+    console.log('   ✅ 기존 샘플 파트너 삭제 완료');
+
+    // 샘플 파트너 5개 추가
+    const partners = [
       {
-        company_name: '신안해상관광',
-        business_number: '123-45-67890',
-        representative_name: '김해상',
-        email: 'info@shinan-marine.com',
-        phone: '061-240-1234',
-        address: '전라남도 신안군 지도읍 읍내리 123',
-        category: '투어',
-        description: '신안 섬 투어 전문 업체입니다. 홍도, 흑산도 등 아름다운 섬 투어를 제공합니다.',
-        website: 'https://shinan-marine.com',
-        status: 'active',
-        commission_rate: 10.00
+        user_id: 1,
+        business_name: '샘플 렌트카 - 신안렌터카',
+        contact_name: '김렌트',
+        email: 'rentcar@sinan.com',
+        phone: '010-1234-5678',
+        lat: 34.9654,
+        lng: 126.1234,
+        services: '렌트카,차량대여',
+        description: '신안 전 지역 렌트카 서비스. 신차 위주로 다양한 차량 보유. 전라남도 신안군 압해읍 압해로 123 위치',
+        is_featured: 1,
+        is_verified: 1,
+        is_active: 1,
+        tier: 'gold',
+        status: 'approved'
       },
       {
-        company_name: '신안맛집',
-        business_number: '234-56-78901',
-        representative_name: '박맛집',
-        email: 'contact@shinan-food.kr',
-        phone: '061-240-5678',
-        address: '전라남도 신안군 증도면 태평염전로 10',
-        category: '음식',
-        description: '신안 특산물을 이용한 건강한 한식 전문점입니다. 천일염 정식이 유명합니다.',
-        website: 'https://shinan-food.kr',
-        status: 'active',
-        commission_rate: 8.00
+        user_id: 1,
+        business_name: '샘플 숙박 - 바다뷰 펜션',
+        contact_name: '이숙박',
+        email: 'ocean@sinan.com',
+        phone: '010-2345-6789',
+        lat: 34.9854,
+        lng: 126.1434,
+        services: '숙박,펜션',
+        description: '증도 바다가 한눈에 보이는 오션뷰 펜션. 가족 단위 여행객 환영. 전라남도 신안군 증도면 바다로 456',
+        is_featured: 1,
+        is_verified: 1,
+        is_active: 1,
+        tier: 'gold',
+        status: 'approved'
       },
       {
-        company_name: '신안펜션',
-        business_number: '345-67-89012',
-        representative_name: '이숙박',
-        email: 'stay@shinan-pension.com',
-        phone: '061-240-9012',
-        address: '전라남도 신안군 임자면 진리 456',
-        category: '숙박',
-        description: '바다가 보이는 깨끗한 펜션입니다. 가족 단위 여행객에게 적합합니다.',
-        website: 'https://shinan-pension.com',
-        status: 'active',
-        commission_rate: 12.00
+        user_id: 1,
+        business_name: '샘플 투어 - 신안 섬투어',
+        contact_name: '박투어',
+        email: 'tour@sinan.com',
+        phone: '010-3456-7890',
+        lat: 34.9454,
+        lng: 126.0834,
+        services: '투어,체험',
+        description: '신안의 아름다운 섬들을 한번에! 1004섬 투어 전문. 전라남도 신안군 지도읍 섬투어로 789',
+        is_featured: 0,
+        is_verified: 1,
+        is_active: 1,
+        tier: 'silver',
+        status: 'approved'
+      },
+      {
+        user_id: 1,
+        business_name: '샘플 음식 - 신안 해산물',
+        contact_name: '최맛집',
+        email: 'seafood@sinan.com',
+        phone: '010-4567-8901',
+        lat: 35.0054,
+        lng: 126.1634,
+        services: '음식,맛집',
+        description: '신안에서 잡은 신선한 해산물 요리 전문점. 전라남도 신안군 임자면 맛집로 321',
+        is_featured: 0,
+        is_verified: 1,
+        is_active: 1,
+        tier: 'bronze',
+        status: 'approved'
+      },
+      {
+        user_id: 1,
+        business_name: '샘플 체험 - 소금밭 체험장',
+        contact_name: '정체험',
+        email: 'salt@sinan.com',
+        phone: '010-5678-9012',
+        lat: 34.9754,
+        lng: 126.1334,
+        services: '체험,관광',
+        description: '천일염 만들기 체험, 염전 투어 프로그램 운영. 전라남도 신안군 증도면 소금로 654',
+        is_featured: 1,
+        is_verified: 1,
+        is_active: 1,
+        tier: 'silver',
+        status: 'approved'
       }
     ];
 
-    // 데이터 삽입
-    for (const partner of samplePartners) {
-      const result = await db.execute(`
-        INSERT INTO partners (
-          company_name, business_number, representative_name,
-          email, phone, address, category, description,
-          website, status, commission_rate, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-      `, [
-        partner.company_name,
-        partner.business_number,
-        partner.representative_name,
-        partner.email,
-        partner.phone,
-        partner.address,
-        partner.category,
-        partner.description,
-        partner.website,
-        partner.status,
-        partner.commission_rate
-      ]);
-
-      console.log(`✅ Added partner: ${partner.company_name} (ID: ${result.insertId})`);
+    for (const partner of partners) {
+      await connection.execute(
+        `INSERT INTO partners
+        (user_id, business_name, contact_name, email, phone, lat, lng, services, description, is_featured, is_verified, is_active, tier, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          partner.user_id,
+          partner.business_name,
+          partner.contact_name,
+          partner.email,
+          partner.phone,
+          partner.lat,
+          partner.lng,
+          partner.services,
+          partner.description,
+          partner.is_featured,
+          partner.is_verified,
+          partner.is_active,
+          partner.tier,
+          partner.status
+        ]
+      );
+      console.log(`   ✅ 파트너 추가: ${partner.business_name}`);
     }
 
-    // 추가된 파트너 확인
-    const partners = await db.query('SELECT * FROM partners WHERE status = ?', ['active']);
-    console.log(`\n📊 Total active partners: ${partners.length}`);
-    console.log('\nPartner list:');
-    partners.forEach((p: any) => {
-      console.log(`  - ${p.company_name} (${p.category}) - ${p.phone}`);
-    });
+    console.log('\n🎉 샘플 파트너 5개 추가 완료!');
+    console.log('가맹점 페이지에서 확인해보세요: http://localhost:5173/partners\n');
 
-    console.log('\n🎉 Sample partners added successfully!');
   } catch (error) {
-    console.error('❌ Error adding sample partners:', error);
+    console.error('❌ 오류 발생:', error);
     throw error;
   }
 }
 
-// 스크립트 실행
-addSamplePartners()
-  .then(() => {
-    console.log('✅ Script completed');
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error('❌ Script failed:', error);
-    process.exit(1);
-  });
+addSamplePartners();
