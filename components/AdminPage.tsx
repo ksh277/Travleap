@@ -2129,6 +2129,7 @@ export function AdminPage({}: AdminPageProps) {
             <TabsList className="grid grid-cols-4 md:grid-cols-12 w-full min-w-[1200px] md:min-w-0 md:max-w-6xl">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
               <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
+              <TabsTrigger value="accommodation" className="text-xs md:text-sm">숙박 관리</TabsTrigger>
               <TabsTrigger value="rentcar" className="text-xs md:text-sm">렌트카 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
@@ -3727,6 +3728,18 @@ export function AdminPage({}: AdminPageProps) {
                 <div className="mt-4 text-center">
                   <p className="text-sm text-gray-500">총 {orders.length}개의 주문</p>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 숙박 관리 탭 */}
+          <TabsContent value="accommodation" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>숙박 관리</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-500">숙박 파트너별 객실 관리 기능이 곧 추가됩니다.</p>
               </CardContent>
             </Card>
           </TabsContent>
