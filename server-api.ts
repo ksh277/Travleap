@@ -629,6 +629,144 @@ function setupRoutes() {
     }
   });
 
+  // ===== 숙박 & 렌트카 목록 API =====
+
+  // 숙박 호텔 목록 (partner 기준 그룹핑)
+  app.get('/api/accommodations', async (_req, res) => {
+    try {
+      const { connect } = await import('@planetscale/database');
+      const connection = connect({ url: process.env.DATABASE_URL! });
+
+      const hotels = await connection.execute(`
+        SELECT
+          p.id as partner_id,
+          p.business_name,
+          p.contact_name,
+          p.phone,
+          p.email,
+          p.tier,
+          p.is_verified,
+          p.is_featured,
+          COUNT(l.id) as room_count,
+          MIN(l.price_from) as min_price,
+          MAX(l.price_from) as max_price,
+          MIN(l.images) as sample_images,
+          GROUP_CONCAT(DISTINCT l.location SEPARATOR ', ') as locations,
+          AVG(l.rating_avg) as avg_rating,
+          SUM(l.rating_count) as total_reviews
+        FROM partners p
+        LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = 1857 AND l.is_published = 1 AND l.is_active = 1
+        WHERE p.is_active = 1
+        GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.tier, p.is_verified, p.is_featured
+        HAVING room_count > 0
+        ORDER BY p.is_verified DESC, p.is_featured DESC, avg_rating DESC
+      `);
+
+      const parsedHotels = hotels.rows.map((hotel: any) => {
+        let images = [];
+        try {
+          if (hotel.sample_images) {
+            const parsed = JSON.parse(hotel.sample_images);
+            images = Array.isArray(parsed) ? parsed : [];
+          }
+        } catch (e) {
+          // JSON 파싱 실패시 빈 배열
+        }
+
+        return {
+          partner_id: hotel.partner_id,
+          business_name: hotel.business_name,
+          contact_name: hotel.contact_name,
+          phone: hotel.phone,
+          email: hotel.email,
+          tier: hotel.tier,
+          is_verified: hotel.is_verified,
+          is_featured: hotel.is_featured,
+          room_count: hotel.room_count,
+          min_price: hotel.min_price,
+          max_price: hotel.max_price,
+          images: images,
+          locations: hotel.locations,
+          avg_rating: hotel.avg_rating ? parseFloat(hotel.avg_rating).toFixed(1) : '0.0',
+          total_reviews: hotel.total_reviews || 0,
+        };
+      });
+
+      res.json({
+        success: true,
+        data: parsedHotels,
+        total: parsedHotels.length,
+      });
+    } catch (error: any) {
+      console.error('❌ Error fetching accommodations:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // 렌트카 업체 목록 (vendor 기준 그룹핑)
+  app.get('/api/rentcars', async (_req, res) => {
+    try {
+      const { connect } = await import('@planetscale/database');
+      const connection = connect({ url: process.env.DATABASE_URL! });
+
+      const vendors = await connection.execute(`
+        SELECT
+          v.id as vendor_id,
+          v.vendor_code,
+          v.business_name,
+          v.brand_name,
+          v.average_rating,
+          v.is_verified,
+          COUNT(rv.id) as vehicle_count,
+          MIN(rv.daily_rate_krw) as min_price,
+          MAX(rv.daily_rate_krw) as max_price,
+          MIN(rv.images) as sample_images,
+          GROUP_CONCAT(DISTINCT rv.vehicle_class SEPARATOR ', ') as vehicle_classes
+        FROM rentcar_vendors v
+        LEFT JOIN rentcar_vehicles rv ON v.id = rv.vendor_id AND rv.is_active = 1
+        WHERE v.status = 'active'
+        GROUP BY v.id, v.vendor_code, v.business_name, v.brand_name, v.average_rating, v.is_verified
+        ORDER BY v.is_verified DESC, v.business_name ASC
+      `);
+
+      const parsedVendors = vendors.rows.map((vendor: any) => {
+        let images = [];
+        try {
+          if (vendor.sample_images) {
+            const parsed = JSON.parse(vendor.sample_images);
+            images = Array.isArray(parsed) ? parsed : [];
+          }
+        } catch (e) {
+          // JSON 파싱 실패시 빈 배열
+        }
+
+        return {
+          vendor_id: vendor.vendor_id,
+          vendor_code: vendor.vendor_code,
+          vendor_name: vendor.business_name || vendor.brand_name || vendor.vendor_code,
+          business_name: vendor.business_name,
+          brand_name: vendor.brand_name,
+          average_rating: vendor.average_rating ? parseFloat(vendor.average_rating).toFixed(1) : '0.0',
+          is_verified: vendor.is_verified,
+          vehicle_count: vendor.vehicle_count,
+          min_price: vendor.min_price,
+          max_price: vendor.max_price,
+          images: images,
+          vehicle_classes: vendor.vehicle_classes,
+        };
+      });
+
+      res.json({
+        success: true,
+        data: parsedVendors,
+        total: parsedVendors.length,
+      });
+    } catch (error: any) {
+      console.error('❌ Error fetching rentcar vendors:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // ===== 카테고리 API =====
 
   // 카테고리 목록 조회
