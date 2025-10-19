@@ -75,11 +75,12 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
         { id: 6, slug: 'rental', name_ko: '렌트카', icon: '🚗', sort_order: 6, is_active: true }
       ];
 
-      // 모든 API 호출을 api.getListings()로 통일
+      // 카테고리 페이지와 동일한 API 사용
       const [categoriesResult, featuredResult, hotelsResult, reviewsResult, homepageSettings, activitiesResult] = await Promise.all([
         api.getCategories().catch(() => []),
         api.getListings({ limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
-        api.getListings({ category: 'stay', limit: 100, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
+        // 숙박: 카테고리 페이지와 동일하게 /api/accommodations 사용
+        fetch('/api/accommodations').then(res => res.json()).then(result => result.success ? result.data : []).catch(() => []),
         api.getRecentReviews(4).catch(() => []),
         api.getHomepageSettings().catch(() => ({
           background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
@@ -91,34 +92,10 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       setCategories(categoriesResult.length > 0 ? categoriesResult : sampleCategories);
       setFeaturedListings(featuredResult);
 
-      // 위치 기반 거리 계산 및 정렬
-      const userLocation = { lat: 34.8, lng: 126.1 }; // 신안군 중심 (추후 GPS로 교체)
-
-      const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-        const R = 6371; // 지구 반지름 (km)
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a =
-          Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-          Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-      };
-
-      // 거리 계산 후 가까운 순 정렬
-      const hotelsWithDistance = hotelsResult.map((hotel: any) => ({
-        ...hotel,
-        distance: calculateDistance(
-          userLocation.lat,
-          userLocation.lng,
-          hotel.lat || 34.8,
-          hotel.lng || 126.1
-        )
-      })).sort((a: any, b: any) => a.distance - b.distance);
-
-      setNearbyHotels(hotelsWithDistance.slice(0, 4)); // 가까운 4개만
-      setAccommodationListings(hotelsWithDistance);
+      // 숙박 데이터 설정 (DB에서 온 순서대로 표시)
+      const hotels = Array.isArray(hotelsResult) ? hotelsResult : [];
+      setNearbyHotels(hotels.slice(0, 4)); // 최대 4개만 표시
+      setAccommodationListings(hotels);
       setRecentReviews(reviewsResult);
       setActivityImages(activitiesResult);
       setBackgroundVideo({
