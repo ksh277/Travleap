@@ -29,6 +29,7 @@ export const AccommodationManagement: React.FC = () => {
   const [selectedPartnerId, setSelectedPartnerId] = useState<number | null>(null);
   const [partnerSearchQuery, setPartnerSearchQuery] = useState('');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('partners');
 
   // Load data
   useEffect(() => {
@@ -64,11 +65,12 @@ export const AccommodationManagement: React.FC = () => {
   useEffect(() => {
     if (selectedPartnerId) {
       loadRooms(selectedPartnerId);
+      setActiveTab('rooms'); // Auto-switch to rooms tab
     }
   }, [selectedPartnerId]);
 
   return (
-    <Tabs defaultValue="partners" className="space-y-6">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
       <TabsList className="grid grid-cols-3 w-full max-w-2xl">
         <TabsTrigger value="partners">업체 관리</TabsTrigger>
         <TabsTrigger value="rooms">객실 관리</TabsTrigger>

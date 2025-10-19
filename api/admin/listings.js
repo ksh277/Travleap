@@ -26,6 +26,7 @@ module.exports = async function handler(req, res) {
       FROM listings l
       LEFT JOIN categories c ON l.category_id = c.id
       LEFT JOIN partners p ON l.partner_id = p.id
+      WHERE c.slug != 'stay' AND c.slug != 'rentcar'
       ORDER BY l.created_at DESC
     `);
 
