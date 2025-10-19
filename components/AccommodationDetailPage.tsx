@@ -59,7 +59,6 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
   // 예약 폼 상태
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
-  const [guests, setGuests] = useState(2);
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
 
   // 페이지네이션 상태
@@ -157,7 +156,6 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
       checkIn: format(checkIn, 'yyyy-MM-dd'),
       checkOut: format(checkOut, 'yyyy-MM-dd'),
       nights: nights,
-      guests: guests,
       totalPrice: totalPrice,
       image: listing.images?.[0],
       location: listing.location
