@@ -121,14 +121,36 @@ const saveSession = (token: string) => {
   try {
     // 쿠키와 로컬스토리지 모두에 저장 (이중 백업)
     CookieUtils.setCookie('auth_token', token, 7); // 7일간 유지
+    console.log('✅ 쿠키 저장 완료');
+
     StorageUtils.setItem('auth_token', token);
+    console.log('✅ localStorage 저장 완료');
 
     // 사용자 정보도 별도 저장 (빠른 접근용)
     if (globalState.user) {
       StorageUtils.setItem('user_info', globalState.user);
     }
+
+    // 저장 검증: 쿠키와 localStorage 중 최소 하나는 성공해야 함
+    const cookieVerify = CookieUtils.getCookie('auth_token');
+    const storageVerify = StorageUtils.getItem<string>('auth_token');
+
+    if (!cookieVerify && !storageVerify) {
+      throw new Error('세션 저장 실패: 쿠키와 localStorage 모두 저장되지 않았습니다.');
+    }
+
+    if (!cookieVerify) {
+      console.warn('⚠️ 쿠키 저장 실패 - localStorage만 사용됩니다.');
+    }
+
+    if (!storageVerify) {
+      console.warn('⚠️ localStorage 저장 실패 - 쿠키만 사용됩니다.');
+    }
+
+    console.log('✅ 세션 저장 검증 완료');
   } catch (error) {
-    console.error('세션 저장 오류:', error);
+    console.error('❌ 세션 저장 오류:', error);
+    throw error; // 오류를 상위로 전파
   }
 };
 
@@ -240,8 +262,21 @@ export const useAuth = () => {
         token
       };
 
-      // 세션 저장
-      saveSession(token);
+      // 세션 저장 (오류 발생 시 사용자에게 알림)
+      try {
+        saveSession(token);
+      } catch (saveError) {
+        console.error('❌ 세션 저장 실패:', saveError);
+        // 세션 저장 실패 시 로그인 상태 초기화
+        globalState = {
+          isLoggedIn: false,
+          isAdmin: false,
+          user: null,
+          token: null
+        };
+        alert('로그인은 성공했지만 세션 저장에 실패했습니다.\n브라우저 쿠키 설정을 확인해주세요.\n\n오류: ' + (saveError instanceof Error ? saveError.message : String(saveError)));
+        return false;
+      }
 
       console.log('✅ 로그인 성공!');
       console.log('👤 사용자:', user);
@@ -291,10 +326,18 @@ export const useAuth = () => {
 
       if (data.success && data.token) {
         globalState.token = data.token;
-        saveSession(data.token);
-        console.log('🔄 토큰 갱신 완료');
-        notifyListeners();
-        return true;
+
+        // 갱신된 토큰 저장 (실패 시 로그아웃)
+        try {
+          saveSession(data.token);
+          console.log('🔄 토큰 갱신 완료');
+          notifyListeners();
+          return true;
+        } catch (saveError) {
+          console.error('❌ 갱신된 토큰 저장 실패:', saveError);
+          logout();
+          return false;
+        }
       }
 
       console.log('❌ 토큰 갱신 실패:', data.error || 'Unknown error');

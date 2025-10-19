@@ -105,24 +105,38 @@ export class CookieUtils {
       const expires = new Date();
       expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
 
-      // SameSite=Lax로 변경 (Strict는 너무 엄격해서 새로고침 시 문제 발생 가능)
       const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
-      const secureFlag = isSecure ? ' Secure;' : '';
 
-      // 쿠키 설정 (공백 주의)
-      const cookieString = `${name}=${encodeURIComponent(value)}; expires=${expires.toUTCString()}; path=/;${secureFlag} SameSite=Lax`;
+      // 쿠키 속성 배열로 구성 (공백 문제 방지)
+      const attributes = [
+        `${name}=${encodeURIComponent(value)}`,
+        `expires=${expires.toUTCString()}`,
+        'path=/',
+        'SameSite=Lax'
+      ];
 
+      if (isSecure) {
+        attributes.push('Secure');
+      }
+
+      // 세미콜론과 공백으로 조인
+      const cookieString = attributes.join('; ');
       document.cookie = cookieString;
 
       console.log('🍪 쿠키 설정 완료:', name, '(만료:', expires.toLocaleString(), ')');
+      console.log('🍪 쿠키 문자열:', cookieString);
 
       // 설정 확인
       const verification = this.getCookie(name);
       if (!verification) {
-        console.warn('⚠️ 쿠키 설정 후 즉시 읽기 실패. 브라우저 설정을 확인하세요.');
+        console.error('❌ 쿠키 설정 후 즉시 읽기 실패. 브라우저 설정을 확인하세요.');
+        throw new Error('Cookie setting failed - browser may have blocked cookies');
       }
+
+      console.log('✅ 쿠키 검증 완료');
     } catch (error) {
       console.error('❌ 쿠키 설정 실패:', error);
+      throw error; // 상위로 예외 전파
     }
   }
 
@@ -165,9 +179,13 @@ export class StorageUtils {
   // 로컬스토리지에 저장
   static setItem(key: string, value: any): void {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      // 문자열이면 그대로 저장, 객체면 JSON.stringify
+      const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+      localStorage.setItem(key, stringValue);
+      console.log(`💾 localStorage 저장 완료: ${key}`);
     } catch (error) {
-      console.error('로컬스토리지 저장 실패:', error);
+      console.error('❌ 로컬스토리지 저장 실패:', error);
+      throw error; // 상위로 예외 전파
     }
   }
 
@@ -175,9 +193,17 @@ export class StorageUtils {
   static getItem<T>(key: string): T | null {
     try {
       const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
+      if (!item) return null;
+
+      // JSON 파싱 시도, 실패하면 문자열 그대로 반환
+      try {
+        return JSON.parse(item) as T;
+      } catch {
+        // JSON 파싱 실패 시 문자열 그대로 반환 (JWT 토큰 같은 경우)
+        return item as T;
+      }
     } catch (error) {
-      console.error('로컬스토리지 읽기 실패:', error);
+      console.error('❌ 로컬스토리지 읽기 실패:', error);
       return null;
     }
   }

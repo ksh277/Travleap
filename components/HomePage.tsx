@@ -12,6 +12,7 @@ import { api, type TravelItem } from '../utils/api';
 import type { Category } from '../types/database';
 import { toast } from 'sonner';
 import { HomeBanner } from './HomeBanner';
+import { HotelCard } from './cards/HotelCard';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -43,6 +44,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
   const [categories, setCategories] = useState<Category[]>([]);
   const [featuredListings, setFeaturedListings] = useState<TravelItem[]>([]);
   const [accommodationListings, setAccommodationListings] = useState<TravelItem[]>([]);
+  const [nearbyHotels, setNearbyHotels] = useState<any[]>([]);
   const [recentReviews, setRecentReviews] = useState<any[]>([]);
   const [activityImages, setActivityImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,10 +76,10 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       ];
 
       // 모든 API 호출을 api.getListings()로 통일
-      const [categoriesResult, featuredResult, accommodationResult, reviewsResult, homepageSettings, activitiesResult] = await Promise.all([
+      const [categoriesResult, featuredResult, hotelsResult, reviewsResult, homepageSettings, activitiesResult] = await Promise.all([
         api.getCategories().catch(() => []),
         api.getListings({ limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
-        api.getListings({ category: 'stay', limit: 4, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
+        fetch('/api/accommodations').then(res => res.json()).then(data => data.success ? data.data.slice(0, 4) : []).catch(() => []),
         api.getRecentReviews(4).catch(() => []),
         api.getHomepageSettings().catch(() => ({
           background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
@@ -88,7 +90,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
 
       setCategories(categoriesResult.length > 0 ? categoriesResult : sampleCategories);
       setFeaturedListings(featuredResult);
-      setAccommodationListings(accommodationResult);
+      setNearbyHotels(hotelsResult);
+      setAccommodationListings(hotelsResult);
       setRecentReviews(reviewsResult);
       setActivityImages(activitiesResult);
       setBackgroundVideo({
@@ -652,70 +655,10 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                 </div>
               ))}
             </div>
-          ) : accommodationListings.length > 0 ? (
+          ) : nearbyHotels.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-              {accommodationListings.map((item) => (
-                <Card
-                  key={item.id}
-                  className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer"
-                  onClick={() => navigate(`/detail/${item.id}`)}
-                >
-                  <div className="relative group overflow-hidden rounded-t-lg">
-                    <ImageWithFallback
-                      src={item.images?.[0] || 'https://via.placeholder.com/400x300'}
-                      alt={item.title}
-                      className="w-full h-40 md:h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm text-gray-800 px-2 py-1 rounded text-xs font-medium shadow-sm">
-                      {item.category}
-                    </div>
-                    <button className="absolute top-2 right-2 p-1 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
-                      <Heart className="h-5 w-5 text-white drop-shadow-sm" />
-                    </button>
-                    {item.price_from && item.original_price && item.original_price > item.price_from && (
-                      <div className="absolute bottom-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
-                        {Math.round((1 - item.price_from / item.original_price) * 100)}% 할인
-                      </div>
-                    )}
-                  </div>
-                  <CardContent className="p-3 md:p-4">
-                    <div className="space-y-2 md:space-y-3">
-                      <div className="flex items-center text-gray-600 text-xs md:text-sm">
-                        <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                        <span>{item.location || '신안군'}</span>
-                      </div>
-                      <h3 className="text-base md:text-lg font-semibold text-gray-800 line-clamp-2">{item.title}</h3>
-                      <div className="flex items-center">
-                        {item.rating_avg > 0 && item.rating_count > 0 && (
-                          <div className="flex items-center space-x-1">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm font-medium">{item.rating_avg.toFixed(1)}</span>
-                            <span className="text-xs text-gray-500">({item.rating_count})</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        {item.duration && (
-                          <div className="flex items-center text-gray-600 text-sm">
-                            <Clock className="h-4 w-4 mr-1" />
-                            <span>{item.duration}</span>
-                          </div>
-                        )}
-                        <div className="text-lg font-semibold text-gray-800">
-                          {item.price_from ? (
-                            <>
-                              <span>{formatPrice(item.price_from, selectedCurrency)}</span>
-                              <span className="text-sm text-gray-600 ml-1">/1인</span>
-                            </>
-                          ) : (
-                            <span className="text-sm text-gray-600">가격 문의</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+              {nearbyHotels.map((hotel) => (
+                <HotelCard key={hotel.partner_id} hotel={hotel} />
               ))}
             </div>
           ) : (

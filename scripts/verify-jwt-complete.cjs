@@ -62,7 +62,7 @@ const clientChecks = [
   { name: 'SameSite=Lax 설정', pattern: /SameSite=Lax/ },
   { name: 'URL 인코딩 (encodeURIComponent)', pattern: /encodeURIComponent\(value\)/ },
   { name: 'URL 디코딩 (decodeURIComponent)', pattern: /decodeURIComponent\(value\)/ },
-  { name: '쿠키 설정 로그', pattern: /console\.log\('🍪 쿠키 설정 완료'/ },
+  { name: '쿠키 설정 로그', pattern: /console\.log\('🍪 쿠키 설정 완료:/ },
   { name: '토큰 만료 체크', pattern: /isTokenExpired/ },
 ];
 
