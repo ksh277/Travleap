@@ -22,6 +22,7 @@ import {
   X
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '../../utils/api';
 
 export const AccommodationManagement: React.FC = () => {
   const [partners, setPartners] = useState<any[]>([]);
@@ -38,10 +39,11 @@ export const AccommodationManagement: React.FC = () => {
 
   const loadPartners = async () => {
     try {
-      const response = await fetch('/api/accommodations');
-      const result = await response.json();
-      if (result.success && result.data) {
-        setPartners(result.data);
+      // 카테고리 페이지와 동일한 API 사용
+      const response = await api.getListings({ category: 'stay', limit: 100 });
+      if (response.success && response.data) {
+        console.log(`✅ 숙박 업체 ${response.data.length}개 로드됨`);
+        setPartners(response.data);
       }
     } catch (error) {
       console.error('Failed to load partners:', error);
