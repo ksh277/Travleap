@@ -56,7 +56,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
 
   // 페이지네이션 state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(6);
+  const [itemsPerPage] = useState(8);
 
   const categoryNames: { [key: string]: string } = {
     tour: '여행상품',
