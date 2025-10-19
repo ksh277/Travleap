@@ -62,6 +62,10 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
   const [guests, setGuests] = useState(2);
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
 
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // 객실 타입 파싱 (highlights에서)
   const roomTypes: RoomTypeDisplay[] = listing?.highlights
     ?.filter(h => h.includes('원'))
@@ -215,6 +219,12 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
   const images = Array.isArray(listing.images) ? listing.images : [];
   const hasPMSIntegration = listing.highlights?.some(h => h === '실시간 예약');
 
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(roomTypes.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentRooms = roomTypes.slice(startIndex, endIndex);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -336,36 +346,88 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
             {roomTypes.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>객실 선택</CardTitle>
+                  <CardTitle>객실 선택 ({roomTypes.length}개)</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {roomTypes.map((room, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        selectedRoom === room.name
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => setSelectedRoom(room.name)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold mb-1">{room.name}</h3>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                <CardContent>
+                  {/* 2열 그리드 레이아웃 */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {currentRooms.map((room, idx) => (
+                      <div
+                        key={idx}
+                        className={`rounded-lg border overflow-hidden cursor-pointer transition-all ${
+                          selectedRoom === room.name
+                            ? 'border-blue-500 bg-blue-50 shadow-md'
+                            : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                        }`}
+                        onClick={() => setSelectedRoom(room.name)}
+                      >
+                        {/* 객실 이미지 (이미지가 없으면 placeholder) */}
+                        <div className="relative w-full aspect-video bg-gradient-to-br from-blue-50 to-blue-100">
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Users className="h-16 w-16 text-blue-300" />
+                          </div>
+                          {selectedRoom === room.name && (
+                            <Badge className="absolute top-2 right-2 bg-blue-500">선택됨</Badge>
+                          )}
+                        </div>
+
+                        {/* 객실 정보 */}
+                        <div className="p-4">
+                          <h3 className="font-semibold text-lg mb-2">{room.name}</h3>
+
+                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
                             <Users className="h-4 w-4" />
                             <span>{room.occupancy}</span>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-blue-600">
-                            {formatPrice(room.price, selectedCurrency)}
+
+                          {/* 가격 */}
+                          <div className="flex items-center justify-between pt-3 border-t">
+                            <div>
+                              <div className="text-xl font-bold text-blue-600">
+                                {formatPrice(room.price, selectedCurrency)}
+                              </div>
+                              <div className="text-xs text-gray-500">1박 기준</div>
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500">1박 기준</div>
                         </div>
                       </div>
+                    ))}
+                  </div>
+
+                  {/* 페이지네이션 */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        이전
+                      </Button>
+
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className="min-w-[40px]"
+                        >
+                          {page}
+                        </Button>
+                      ))}
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        다음
+                      </Button>
                     </div>
-                  ))}
+                  )}
                 </CardContent>
               </Card>
             )}

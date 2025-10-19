@@ -1,31 +1,33 @@
-const mysql = require('mysql2/promise');
 require('dotenv').config();
+const { connect } = require('@planetscale/database');
 
-async function checkSchema() {
-  let connection;
+async function checkRentcarSchema() {
+  const connection = connect({ url: process.env.DATABASE_URL });
+
   try {
-    connection = await mysql.createConnection({
-      host: process.env.DATABASE_HOST,
-      user: process.env.DATABASE_USERNAME,
-      password: process.env.DATABASE_PASSWORD,
-      database: process.env.DATABASE_NAME || 'travleap',
-      ssl: { rejectUnauthorized: true }
-    });
+    console.log('\n=== rentcar_vendors 테이블 구조 ===');
+    const vendorSchema = await connection.execute('DESCRIBE rentcar_vendors');
+    console.log('Columns:', vendorSchema.rows.map(r => r.Field).join(', '));
 
-    const [columns] = await connection.execute(`
-      DESCRIBE rentcar_vehicles
-    `);
+    console.log('\n=== rentcar_vehicles 테이블 구조 ===');
+    const vehicleSchema = await connection.execute('DESCRIBE rentcar_vehicles');
+    console.log('Columns:', vehicleSchema.rows.map(r => r.Field).join(', '));
 
-    console.log('\nrentcar_vehicles 테이블 컬럼:');
-    columns.forEach(col => {
-      console.log(`  - ${col.Field}: ${col.Type}`);
-    });
+    console.log('\n=== 샘플 vendor 데이터 (ID=1) ===');
+    const vendorData = await connection.execute('SELECT * FROM rentcar_vendors WHERE id = 1 LIMIT 1');
+    if (vendorData.rows.length > 0) {
+      console.log(JSON.stringify(vendorData.rows[0], null, 2));
+    }
+
+    console.log('\n=== 샘플 vehicle 데이터 (첫 1개) ===');
+    const vehicleData = await connection.execute('SELECT * FROM rentcar_vehicles LIMIT 1');
+    if (vehicleData.rows.length > 0) {
+      console.log(JSON.stringify(vehicleData.rows[0], null, 2));
+    }
 
   } catch (error) {
-    console.error('Error:', error.message);
-  } finally {
-    if (connection) await connection.end();
+    console.error('Error:', error);
   }
 }
 
-checkSchema();
+checkRentcarSchema();

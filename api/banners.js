@@ -25,6 +25,7 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
+      banners: result.rows || [],
       data: result.rows || [],
       message: result.rows && result.rows.length > 0 ? `Found ${result.rows.length} banners` : 'No banners found'
     });

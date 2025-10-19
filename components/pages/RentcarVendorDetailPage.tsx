@@ -95,6 +95,10 @@ export function RentcarVendorDetailPage() {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [existingBookings, setExistingBookings] = useState<any[]>([]);
 
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // 데이터 로드
   useEffect(() => {
     const fetchVendorData = async () => {
@@ -282,6 +286,12 @@ export function RentcarVendorDetailPage() {
     // 둘 다 재고가 있거나 없으면 가격순
     return a.daily_rate_krw - b.daily_rate_krw;
   });
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(sortedVehicles.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentVehicles = sortedVehicles.slice(startIndex, endIndex);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -472,73 +482,59 @@ export function RentcarVendorDetailPage() {
                   </p>
                 )}
               </CardHeader>
-              <CardContent className="space-y-4">
-                {sortedVehicles.map((vehicle) => {
-                  const availableStock = checkVehicleAvailability(vehicle);
-                  const isAvailable = availableStock > 0;
+              <CardContent>
+                {/* 2열 그리드 레이아웃 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {currentVehicles.map((vehicle) => {
+                    const availableStock = checkVehicleAvailability(vehicle);
+                    const isAvailable = availableStock > 0;
 
-                  return (
-                    <div
-                      key={vehicle.id}
-                      className={`rounded-lg border overflow-hidden transition-all ${
-                        !isAvailable
-                          ? 'opacity-50 cursor-not-allowed bg-gray-50'
-                          : selectedVehicle?.id === vehicle.id
-                          ? 'border-blue-500 bg-blue-50 shadow-md'
-                          : 'border-gray-200 hover:border-gray-300 cursor-pointer hover:shadow-sm'
-                      }`}
-                      onClick={() => isAvailable && setSelectedVehicle(vehicle)}
-                    >
-                      <div className="flex flex-col sm:flex-row gap-4 p-4">
+                    return (
+                      <div
+                        key={vehicle.id}
+                        className={`rounded-lg border overflow-hidden transition-all ${
+                          !isAvailable
+                            ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                            : selectedVehicle?.id === vehicle.id
+                            ? 'border-blue-500 bg-blue-50 shadow-md'
+                            : 'border-gray-200 hover:border-gray-300 cursor-pointer hover:shadow-sm'
+                        }`}
+                        onClick={() => isAvailable && setSelectedVehicle(vehicle)}
+                      >
                         {/* 차량 이미지 */}
-                        <div className="w-full sm:w-48 h-32 flex-shrink-0">
+                        <div className="relative w-full aspect-video">
                           {vehicle.images && vehicle.images.length > 0 ? (
                             <ImageWithFallback
                               src={vehicle.images[0]}
                               alt={vehicle.display_name || vehicle.model}
-                              className="w-full h-full object-cover rounded"
+                              className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center">
-                              <Car className="h-12 w-12 text-gray-400" />
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                              <Car className="h-16 w-16 text-gray-400" />
                             </div>
+                          )}
+                          {vehicle.is_featured && (
+                            <Badge className="absolute top-2 left-2 bg-blue-500">인기</Badge>
+                          )}
+                          {!isAvailable && (
+                            <Badge variant="destructive" className="absolute top-2 right-2">예약 불가</Badge>
                           )}
                         </div>
 
                         {/* 차량 정보 */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <h3 className="font-semibold text-lg">
-                                  {vehicle.display_name || `${vehicle.brand} ${vehicle.model}`}
-                                </h3>
-                                {vehicle.is_featured && (
-                                  <Badge variant="default" className="text-xs bg-blue-500">인기</Badge>
-                                )}
-                                {!isAvailable && (
-                                  <Badge variant="destructive" className="text-xs">예약 불가</Badge>
-                                )}
-                                {isAvailable && pickupDate && returnDate && (
-                                  <Badge variant="outline" className="text-xs text-green-600 border-green-600">
-                                    {availableStock}대 가능
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-gray-600 mb-2">
-                                {vehicle.year}년식 · {vehicle.vehicle_class}
-                              </p>
-                            </div>
-                            <div className="text-right ml-4">
-                              <div className={`text-2xl font-bold ${isAvailable ? 'text-blue-600' : 'text-gray-400'}`}>
-                                ₩{vehicle.daily_rate_krw.toLocaleString()}
-                              </div>
-                              <div className="text-xs text-gray-500">1일 기준</div>
-                            </div>
+                        <div className="p-4">
+                          <div className="mb-2">
+                            <h3 className="font-semibold text-lg mb-1">
+                              {vehicle.display_name || `${vehicle.brand} ${vehicle.model}`}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              {vehicle.year}년식 · {vehicle.vehicle_class}
+                            </p>
                           </div>
 
                           {/* 차량 스펙 */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                          <div className="grid grid-cols-2 gap-2 mb-3">
                             <div className="flex items-center gap-1 text-sm text-gray-600">
                               <Users className="h-4 w-4 flex-shrink-0" />
                               <span>{vehicle.seating_capacity}인승</span>
@@ -553,30 +549,64 @@ export function RentcarVendorDetailPage() {
                             </div>
                             <div className="flex items-center gap-1 text-sm text-gray-600">
                               <Car className="h-4 w-4 flex-shrink-0" />
-                              <span>짐 {vehicle.large_bags}대/{vehicle.small_bags}소</span>
+                              <span>짐 {vehicle.large_bags}/{vehicle.small_bags}</span>
                             </div>
                           </div>
 
-                          {/* 차량 설명 */}
-                          {vehicle.description && (
-                            <p className="text-sm text-gray-600 line-clamp-2">{vehicle.description}</p>
-                          )}
-
-                          {/* 차량 특징 */}
-                          {vehicle.features && vehicle.features.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {vehicle.features.slice(0, 4).map((feature, idx) => (
-                                <Badge key={idx} variant="secondary" className="text-xs">
-                                  {feature}
-                                </Badge>
-                              ))}
+                          {/* 가격 및 재고 */}
+                          <div className="flex items-center justify-between pt-3 border-t">
+                            <div>
+                              <div className={`text-xl font-bold ${isAvailable ? 'text-blue-600' : 'text-gray-400'}`}>
+                                ₩{vehicle.daily_rate_krw.toLocaleString()}
+                              </div>
+                              <div className="text-xs text-gray-500">1일 기준</div>
                             </div>
-                          )}
+                            {isAvailable && pickupDate && returnDate && (
+                              <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                                {availableStock}대 가능
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+
+                {/* 페이지네이션 */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-2 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      이전
+                    </Button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className="min-w-[40px]"
+                      >
+                        {page}
+                      </Button>
+                    ))}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      다음
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
