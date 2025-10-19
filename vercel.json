@@ -1,14 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ]
+  "cleanUrls": true,
+  "trailingSlash": false
 }
