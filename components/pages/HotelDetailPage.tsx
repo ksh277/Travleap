@@ -1,30 +1,48 @@
 /**
- * 호텔 상세 페이지
- * 선택한 호텔의 모든 객실 타입 표시
+ * 호텔 상세 페이지 (야놀자 스타일)
+ * AccommodationDetailPage와 동일한 구조
  */
 
-import React, { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '../ui/card';
-import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { ArrowLeft, Star, MapPin, Users, Wifi, Coffee, Heart } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Calendar } from '../ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Separator } from '../ui/separator';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import {
+  MapPin,
+  Users,
+  Calendar as CalendarIcon,
+  Wifi,
+  Coffee,
+  Wind,
+  Tv,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  Heart,
+  Share2,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 interface Room {
   id: number;
-  title: string;
-  short_description: string;
+  name: string;
+  room_type: string;
+  capacity: number;
+  base_price_per_night: number;
+  breakfast_included: boolean;
+  is_available: boolean;
   images: string[];
-  price_from: number;
-  price_to: number;
+  description: string;
   location: string;
-  amenities: string[];
-  highlights: string[];
-  available_spots: number;
-  rating_avg: number;
-  rating_count: number;
-  is_featured: boolean;
 }
 
 interface HotelData {
@@ -44,25 +62,40 @@ interface HotelData {
 export function HotelDetailPage() {
   const { partnerId } = useParams<{ partnerId: string }>();
   const navigate = useNavigate();
+
+  // 상태 관리
   const [hotelData, setHotelData] = useState<HotelData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
-  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isFavorite, setIsFavorite] = useState(false);
 
+  // 예약 폼 상태
+  const [checkIn, setCheckIn] = useState<Date>();
+  const [checkOut, setCheckOut] = useState<Date>();
+  const [guests, setGuests] = useState(2);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+
+  // 데이터 로드
   useEffect(() => {
     const fetchHotelData = async () => {
+      if (!partnerId) return;
+
       try {
+        setLoading(true);
+        setError(null);
+
         const response = await fetch(`/api/accommodations/${partnerId}`);
         const result = await response.json();
 
-        if (result.success) {
+        if (result.success && result.data) {
           setHotelData(result.data);
         } else {
-          setError(result.error || '데이터를 불러올 수 없습니다.');
+          setError('호텔 정보를 찾을 수 없습니다');
         }
-      } catch (err: any) {
-        setError(err.message || '오류가 발생했습니다.');
+      } catch (err) {
+        console.error('호텔 데이터 로드 오류:', err);
+        setError('호텔 정보를 불러오는데 실패했습니다');
       } finally {
         setLoading(false);
       }
@@ -71,231 +104,393 @@ export function HotelDetailPage() {
     fetchHotelData();
   }, [partnerId]);
 
-  if (loading) {
-    return <div className="container mx-auto px-4 py-8">로딩 중...</div>;
-  }
+  // 이미지 갤러리용 - 모든 방의 이미지 수집
+  const allImages = hotelData?.rooms.flatMap(room => room.images || []) || [];
 
-  if (error || !hotelData) {
+  // 이미지 네비게이션
+  const nextImage = () => {
+    if (allImages.length > 0) {
+      setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+    }
+  };
+
+  const prevImage = () => {
+    if (allImages.length > 0) {
+      setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+    }
+  };
+
+  // 예약 처리
+  const handleBooking = () => {
+    if (!checkIn || !checkOut) {
+      toast.error('체크인/체크아웃 날짜를 선택해주세요');
+      return;
+    }
+
+    if (!selectedRoom) {
+      toast.error('객실을 선택해주세요');
+      return;
+    }
+
+    // 숙박 일수 계산
+    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+    const totalPrice = selectedRoom.base_price_per_night * nights;
+
+    // 예약 정보를 결제 페이지로 전달
+    const bookingData = {
+      listingId: selectedRoom.id,
+      listingTitle: `${hotelData?.partner.business_name} - ${selectedRoom.name}`,
+      roomType: selectedRoom.name,
+      roomPrice: selectedRoom.base_price_per_night,
+      checkIn: format(checkIn, 'yyyy-MM-dd'),
+      checkOut: format(checkOut, 'yyyy-MM-dd'),
+      nights: nights,
+      guests: guests,
+      totalPrice: totalPrice,
+      image: selectedRoom.images?.[0],
+      location: selectedRoom.location
+    };
+
+    localStorage.setItem('booking_data', JSON.stringify(bookingData));
+    navigate('/payment');
+  };
+
+  // 즐겨찾기 토글
+  const toggleFavorite = () => {
+    setIsFavorite(!isFavorite);
+    toast.success(isFavorite ? '즐겨찾기에서 제거되었습니다' : '즐겨찾기에 추가되었습니다');
+  };
+
+  // 공유
+  const handleShare = async () => {
+    try {
+      await navigator.share({
+        title: hotelData?.partner.business_name || '',
+        text: `${hotelData?.partner.business_name} - ${hotelData?.total_rooms}개 객실`,
+        url: window.location.href
+      });
+    } catch (error) {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('링크가 클립보드에 복사되었습니다');
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <p className="text-red-500">{error || '호텔 정보를 찾을 수 없습니다.'}</p>
-        <Button onClick={() => navigate('/stay')} className="mt-4">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          목록으로 돌아가기
-        </Button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-500" />
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* 헤더 */}
-      <Button
-        variant="ghost"
-        onClick={() => navigate('/stay')}
-        className="mb-4"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        뒤로 가기
-      </Button>
-
-      {/* 호텔 대표 이미지 */}
-      {hotelData.rooms[0]?.images?.[0] && (
-        <div className="relative w-full h-64 md:h-96 rounded-lg overflow-hidden mb-6">
-          <ImageWithFallback
-            src={hotelData.rooms[0].images[0]}
-            alt={hotelData.partner.business_name}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )}
-
-      {/* 호텔 정보 */}
-      <div className="mb-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">{hotelData.partner.business_name}</h1>
-            <div className="flex gap-2">
-              {hotelData.partner.is_verified && (
-                <Badge className="bg-blue-500 text-white">인증된 파트너</Badge>
-              )}
-              {hotelData.partner.tier === 'premium' && (
-                <Badge className="bg-yellow-500 text-white">프리미엄</Badge>
-              )}
-            </div>
-          </div>
-        </div>
+  if (error || !hotelData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">오류 발생</h3>
+            <p className="text-gray-600 mb-4">{error || '호텔을 찾을 수 없습니다'}</p>
+            <Button onClick={() => navigate(-1)}>돌아가기</Button>
+          </CardContent>
+        </Card>
       </div>
+    );
+  }
 
-      {/* 객실 목록 - 세로 나열 (야놀자 스타일) */}
-      <div className="mb-8">
-        <h2 className="text-xl font-bold mb-4">객실 선택 ({hotelData.total_rooms}개)</h2>
-        <div className="space-y-4">
-          {hotelData.rooms.map((room) => (
-            <Card
-              key={room.id}
-              className={`hover:shadow-lg transition-shadow cursor-pointer overflow-hidden ${selectedRoom?.id === room.id ? 'ring-2 ring-[#ff6a3d]' : ''}`}
-              onClick={() => {
-                setSelectedRoom(room);
-                setShowBookingModal(true);
-              }}
-            >
-              <div className="flex gap-4">
-                {/* 객실 이미지 - 왼쪽 */}
-                <div className="relative w-32 h-32 md:w-40 md:h-40 flex-shrink-0">
-                  <ImageWithFallback
-                    src={room.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945'}
-                    alt={room.title}
-                    className="w-full h-full object-cover"
-                  />
-                  {room.is_featured && (
-                    <Badge className="absolute top-2 left-2 bg-green-500 text-white text-xs">추천</Badge>
-                  )}
+  const minPrice = Math.min(...hotelData.rooms.map(r => r.base_price_per_night));
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* 이미지 갤러리 */}
+        <div className="mb-6">
+          <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-200">
+            {allImages.length > 0 ? (
+              <>
+                <ImageWithFallback
+                  src={allImages[currentImageIndex]}
+                  alt={hotelData.partner.business_name}
+                  className="w-full h-full object-cover"
+                />
+                {allImages.length > 1 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white"
+                      onClick={prevImage}
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white"
+                      onClick={nextImage}
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </Button>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                      {currentImageIndex + 1} / {allImages.length}
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                이미지 없음
+              </div>
+            )}
+          </div>
+
+          {/* 썸네일 */}
+          {allImages.length > 1 && (
+            <div className="flex gap-2 mt-2 overflow-x-auto">
+              {allImages.slice(0, 5).map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentImageIndex(idx)}
+                  className={`flex-shrink-0 w-20 h-20 rounded border-2 overflow-hidden ${
+                    idx === currentImageIndex ? 'border-blue-500' : 'border-gray-200'
+                  }`}
+                >
+                  <ImageWithFallback src={img} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 메인 컨텐츠 */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* 기본 정보 */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h1 className="text-3xl font-bold mb-2">{hotelData.partner.business_name}</h1>
+                    <div className="flex items-center gap-4 text-gray-600 mb-2">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        <span>{hotelData.rooms[0]?.location || '위치 정보 없음'}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {hotelData.partner.is_verified && (
+                        <Badge variant="secondary">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          인증 파트너
+                        </Badge>
+                      )}
+                      {hotelData.partner.tier === 'premium' && (
+                        <Badge className="bg-yellow-500">Premium</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleFavorite}
+                      className={isFavorite ? 'text-red-500' : ''}
+                    >
+                      <Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleShare}>
+                      <Share2 className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </div>
 
-                {/* 객실 정보 - 오른쪽 */}
-                <div className="flex-1 p-4 flex flex-col justify-between">
+                <div className="space-y-2 text-gray-700">
+                  <p><strong>담당자:</strong> {hotelData.partner.contact_name}</p>
+                  <p><strong>전화:</strong> {hotelData.partner.phone}</p>
+                  <p><strong>이메일:</strong> {hotelData.partner.email}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 객실 선택 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>객실 선택 ({hotelData.total_rooms}개)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {hotelData.rooms.map((room) => (
+                  <div
+                    key={room.id}
+                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                      selectedRoom?.id === room.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedRoom(room)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold mb-1">{room.name}</h3>
+                        <div className="flex items-center gap-3 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Users className="h-4 w-4" />
+                            <span>최대 {room.capacity}명</span>
+                          </div>
+                          {room.breakfast_included && (
+                            <Badge variant="outline" className="text-xs">조식 포함</Badge>
+                          )}
+                        </div>
+                        {room.description && (
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-1">{room.description}</p>
+                        )}
+                      </div>
+                      <div className="text-right ml-4">
+                        <div className="text-2xl font-bold text-blue-600">
+                          ₩{room.base_price_per_night.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-500">1박 기준</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* 편의시설 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>편의시설</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2">
+                    <Wifi className="h-5 w-5 text-gray-600" />
+                    <span>무료 Wi-Fi</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Wind className="h-5 w-5 text-gray-600" />
+                    <span>에어컨</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Tv className="h-5 w-5 text-gray-600" />
+                    <span>TV</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Coffee className="h-5 w-5 text-gray-600" />
+                    <span>조식 제공</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 리뷰 섹션 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>이용 후기</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-gray-500">
+                  리뷰 컴포넌트는 별도로 구현됩니다
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 예약 사이드바 */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-6">
+              <CardContent className="p-6">
+                <div className="mb-6">
+                  <div className="text-sm text-gray-600 mb-1">1박 기준</div>
+                  <div className="text-3xl font-bold text-blue-600">
+                    ₩{minPrice.toLocaleString()}
+                    <span className="text-sm text-gray-500 ml-2">~</span>
+                  </div>
+                </div>
+
+                <Separator className="my-4" />
+
+                {/* 날짜 선택 */}
+                <div className="space-y-4 mb-6">
                   <div>
-                    <h3 className="font-bold text-base mb-1 line-clamp-1">
-                      {room.title}
-                    </h3>
-                    <p className="text-xs text-gray-600 line-clamp-2 mb-2">
-                      {room.short_description || room.highlights?.[0] || ''}
-                    </p>
+                    <label className="text-sm font-medium mb-2 block">체크인</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {checkIn ? format(checkIn, 'PPP', { locale: ko }) : '날짜 선택'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={checkIn}
+                          onSelect={setCheckIn}
+                          locale={ko}
+                          disabled={(date) => date < new Date()}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
-                  <div className="flex items-end justify-between">
-                    {Number(room.rating_avg || 0) > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm font-semibold">{Number(room.rating_avg || 0).toFixed(1)}</span>
-                        <span className="text-xs text-gray-500">({room.rating_count || 0})</span>
-                      </div>
-                    )}
-                    <div className="text-right">
-                      <div className="text-xl font-bold text-[#ff6a3d]">
-                        ₩{Number(room.price_from || 0).toLocaleString()}
-                      </div>
-                      <div className="text-xs text-gray-500">/박</div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">체크아웃</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {checkOut ? format(checkOut, 'PPP', { locale: ko }) : '날짜 선택'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={checkOut}
+                          onSelect={setCheckOut}
+                          locale={ko}
+                          disabled={(date) => date < (checkIn || new Date())}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">인원</label>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGuests(Math.max(1, guests - 1))}
+                      >
+                        -
+                      </Button>
+                      <span className="flex-1 text-center">{guests}명</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGuests(Math.min(10, guests + 1))}
+                      >
+                        +
+                      </Button>
                     </div>
                   </div>
                 </div>
-              </div>
+
+                <Button onClick={handleBooking} className="w-full" size="lg">
+                  바로 예약하기
+                </Button>
+
+                <p className="text-xs text-center text-gray-500 mt-3">
+                  즉시 확정됩니다
+                </p>
+              </CardContent>
             </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* 호텔 설명 */}
-      <div className="mb-8 border-t pt-6">
-        <h2 className="text-xl font-bold mb-4">호텔 정보</h2>
-        <div className="space-y-2 text-gray-700">
-          <p><strong>업체명:</strong> {hotelData.partner.business_name}</p>
-          <p><strong>담당자:</strong> {hotelData.partner.contact_name}</p>
-          <p><strong>전화:</strong> {hotelData.partner.phone}</p>
-          <p><strong>이메일:</strong> {hotelData.partner.email}</p>
-        </div>
-      </div>
-
-      {/* 예약 버튼 (하단 고정) */}
-      <div className="sticky bottom-0 left-0 right-0 bg-white border-t p-4 -mx-4 shadow-lg">
-        <div className="max-w-4xl mx-auto flex gap-3">
-          <Button variant="outline" className="flex-1">
-            <Heart className="mr-2 h-4 w-4" />
-            찜하기
-          </Button>
-          <Button
-            className="flex-1 bg-[#ff6a3d] hover:bg-[#e5612f]"
-            disabled={!selectedRoom}
-            onClick={() => setShowBookingModal(true)}
-          >
-            {selectedRoom ? `${selectedRoom.title} 예약하기` : '객실을 선택해주세요'}
-          </Button>
-        </div>
-      </div>
-
-      {/* 예약 모달 */}
-      {showBookingModal && selectedRoom && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">예약하기</h2>
-
-            <div className="mb-4 p-4 bg-gray-50 rounded">
-              <h3 className="font-semibold mb-2">{selectedRoom.title}</h3>
-              <p className="text-sm text-gray-600">{selectedRoom.short_description}</p>
-              <p className="text-lg font-bold text-[#ff6a3d] mt-2">
-                ₩{Number(selectedRoom.price_from || 0).toLocaleString()}/박
-              </p>
-            </div>
-
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium mb-2">체크인</label>
-                <input
-                  type="date"
-                  className="w-full border rounded px-3 py-2"
-                  min={new Date().toISOString().split('T')[0]}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">체크아웃</label>
-                <input
-                  type="date"
-                  className="w-full border rounded px-3 py-2"
-                  min={new Date().toISOString().split('T')[0]}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">투숙 인원</label>
-                <select className="w-full border rounded px-3 py-2">
-                  <option value="1">1명</option>
-                  <option value="2">2명</option>
-                  <option value="3">3명</option>
-                  <option value="4">4명</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  setShowBookingModal(false);
-                  setSelectedRoom(null);
-                }}
-              >
-                취소
-              </Button>
-              <Button
-                className="flex-1 bg-[#ff6a3d] hover:bg-[#e5612f]"
-                onClick={() => {
-                  alert('예약 기능은 준비 중입니다. 곧 서비스 예정입니다!');
-                  setShowBookingModal(false);
-                }}
-              >
-                결제하기
-              </Button>
-            </div>
           </div>
         </div>
-      )}
-
-      {hotelData.rooms.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">현재 예약 가능한 객실이 없습니다.</p>
-        </div>
-      )}
-
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
+      </div>
     </div>
   );
 }
