@@ -70,6 +70,15 @@ export const rentcarVendorApi = {
   // 벤더 목록 조회 (최적화: 차량/예약 수를 JOIN으로 한 번에 조회 + 캐싱)
   getAll: async (): Promise<RentcarApiResponse<RentcarVendor[]>> => {
     try {
+      // Vercel 환경: API 엔드포인트 호출
+      if (typeof window !== 'undefined') {
+        const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
+        const response = await fetch(`${apiUrl}/api/vendors`);
+        const data = await response.json();
+        return data;
+      }
+
+      // 로컬 서버 환경: 직접 DB 쿼리
       // 캐시 확인
       const cacheKey = CacheKeys.vendorList();
       const cached = cache.get<RentcarApiResponse<RentcarVendor[]>>(cacheKey);
