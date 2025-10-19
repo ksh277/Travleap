@@ -21,13 +21,12 @@ module.exports = async function handler(req, res) {
     let sql = `
       SELECT
         l.*,
-        c.name as category_name,
+        c.name_ko as category_name,
         c.slug as category_slug,
-        p.business_name as partner_name,
-        p.is_verified as partner_is_verified,
-        p.tier as partner_tier
+        p.company_name as partner_name,
+        p.status as partner_status
       FROM listings l
-      LEFT JOIN categories c ON l.category_id = c.id
+      LEFT JOIN categories c ON l.category = c.slug
       LEFT JOIN partners p ON l.partner_id = p.id
       WHERE l.is_published = 1 AND l.is_active = 1
     `;

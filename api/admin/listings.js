@@ -19,12 +19,12 @@ module.exports = async function handler(req, res) {
     const result = await connection.execute(`
       SELECT
         l.*,
-        c.name as category_name,
+        c.name_ko as category_name,
         c.slug as category_slug,
-        p.business_name as partner_name,
-        p.is_verified as partner_is_verified
+        p.company_name as partner_name,
+        p.status as partner_status
       FROM listings l
-      LEFT JOIN categories c ON l.category_id = c.id
+      LEFT JOIN categories c ON l.category = c.slug
       LEFT JOIN partners p ON l.partner_id = p.id
       ORDER BY l.created_at DESC
     `);

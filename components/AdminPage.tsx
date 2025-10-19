@@ -2126,11 +2126,12 @@ export function AdminPage({}: AdminPageProps) {
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
           <div className="overflow-x-auto">
-            <TabsList className="grid grid-cols-4 md:grid-cols-12 w-full min-w-[1200px] md:min-w-0 md:max-w-6xl">
+            <TabsList className="grid grid-cols-4 md:grid-cols-13 w-full min-w-[1300px] md:min-w-0 md:max-w-6xl">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
               <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
               <TabsTrigger value="accommodation" className="text-xs md:text-sm">숙박 관리</TabsTrigger>
               <TabsTrigger value="rentcar" className="text-xs md:text-sm">렌트카 관리</TabsTrigger>
+              <TabsTrigger value="banners" className="text-xs md:text-sm">배너 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
@@ -3747,6 +3748,32 @@ export function AdminPage({}: AdminPageProps) {
           {/* 렌트카 관리 탭 */}
           <TabsContent value="rentcar" className="space-y-6">
             <RentcarManagement />
+          </TabsContent>
+
+          {/* 배너 관리 탭 */}
+          <TabsContent value="banners" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>배너 관리</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-gray-600">홈페이지 메인 배너를 관리합니다.</p>
+                    <Button className="bg-[#8B5FBF] hover:bg-[#7A4FB5]">
+                      <Plus className="h-4 w-4 mr-2" />
+                      배너 추가
+                    </Button>
+                  </div>
+                  <div className="text-center py-12 text-gray-500">
+                    <p>배너 관리 기능이 곧 추가됩니다.</p>
+                    <p className="text-sm mt-2">
+                      현재는 <code className="bg-gray-100 px-2 py-1 rounded">/api/populate-data</code>를 통해 샘플 배너가 생성됩니다.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* 리뷰 관리 탭 */}
