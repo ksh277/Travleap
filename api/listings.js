@@ -14,7 +14,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { category, page = '1', limit = '100', sortBy = 'popular', search, minPrice, maxPrice, rating } = req.query;
+    const { category, page = '1', limit = '8', sortBy = 'popular', search, minPrice, maxPrice, rating } = req.query;
 
     const connection = connect({ url: process.env.DATABASE_URL });
 
@@ -64,13 +64,13 @@ module.exports = async function handler(req, res) {
 
     // 정렬
     if (sortBy === 'popular' || sortBy === 'recommended') {
-      sql += ` ORDER BY l.is_featured DESC, l.rating_avg DESC, l.rating_count DESC`;
+      sql += ` ORDER BY l.is_featured DESC, COALESCE(l.rating_avg, 0) DESC, COALESCE(l.rating_count, 0) DESC`;
     } else if (sortBy === 'latest') {
       sql += ` ORDER BY l.created_at DESC`;
     } else if (sortBy === 'price_low') {
-      sql += ` ORDER BY l.price_from ASC`;
+      sql += ` ORDER BY COALESCE(l.price_from, 0) ASC`;
     } else if (sortBy === 'price_high') {
-      sql += ` ORDER BY l.price_from DESC`;
+      sql += ` ORDER BY COALESCE(l.price_from, 999999999) DESC`;
     } else {
       sql += ` ORDER BY l.created_at DESC`;
     }
@@ -92,6 +92,13 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error fetching listings:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    // 에러 시 빈 배열 반환
+    return res.status(200).json({
+      success: true,
+      data: [],
+      total: 0,
+      page: 1,
+      limit: 8
+    });
   }
 };

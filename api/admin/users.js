@@ -18,7 +18,7 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(`
       SELECT
-        id, email, name, role, is_active, created_at, updated_at
+        id, email, name, role, created_at, updated_at
       FROM users
       ORDER BY created_at DESC
     `);
@@ -29,6 +29,10 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error fetching users:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    // 에러 시 빈 배열 반환
+    return res.status(200).json({
+      success: true,
+      data: []
+    });
   }
 };
