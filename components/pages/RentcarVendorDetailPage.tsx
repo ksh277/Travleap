@@ -483,37 +483,73 @@ export function RentcarVendorDetailPage() {
                 )}
               </CardHeader>
               <CardContent>
-                {/* 2열 그리드 레이아웃 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  {currentVehicles.map((vehicle) => {
+                {/* Empty State */}
+                {vendorData.vehicles.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Car className="h-20 w-20 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">등록된 차량이 없습니다</h3>
+                    <p className="text-gray-500">업체에서 곧 차량을 등록할 예정입니다</p>
+                  </div>
+                ) : currentVehicles.length === 0 && pickupDate && returnDate ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="h-20 w-20 text-orange-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">선택한 날짜에 이용 가능한 차량이 없습니다</h3>
+                    <p className="text-gray-500 mb-4">다른 날짜를 선택하시거나 문의해주세요</p>
+                    <Button onClick={() => { setPickupDate(undefined); setReturnDate(undefined); }}>
+                      날짜 다시 선택
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {/* 2열 그리드 레이아웃 */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 auto-rows-fr">
+                      {currentVehicles.map((vehicle) => {
                     const availableStock = checkVehicleAvailability(vehicle);
                     const isAvailable = availableStock > 0;
 
                     return (
-                      <div
+                      <button
                         key={vehicle.id}
-                        className={`rounded-lg border overflow-hidden transition-all ${
+                        type="button"
+                        disabled={!isAvailable}
+                        className={`w-full text-left rounded-lg border overflow-hidden transition-all ${
                           !isAvailable
                             ? 'opacity-50 cursor-not-allowed bg-gray-50'
                             : selectedVehicle?.id === vehicle.id
                             ? 'border-blue-500 bg-blue-50 shadow-md'
                             : 'border-gray-200 hover:border-gray-300 cursor-pointer hover:shadow-sm'
                         }`}
-                        onClick={() => isAvailable && setSelectedVehicle(vehicle)}
+                        onClick={() => setSelectedVehicle(vehicle)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedVehicle(vehicle);
+                          }
+                        }}
+                        aria-label={`${vehicle.display_name || vehicle.model} ${isAvailable ? `선택하기, 1일 ${vehicle.daily_rate_krw.toLocaleString()}원` : '예약 불가'}`}
+                        aria-pressed={selectedVehicle?.id === vehicle.id}
+                        aria-disabled={!isAvailable}
                       >
                         {/* 차량 이미지 */}
                         <div className="relative w-full aspect-video">
                           {vehicle.images && vehicle.images.length > 0 ? (
-                            <ImageWithFallback
+                            <img
                               src={vehicle.images[0]}
-                              alt={vehicle.display_name || vehicle.model}
+                              alt={`${vehicle.display_name || vehicle.model} - ${vehicle.brand} ${vehicle.year}년식`}
                               className="w-full h-full object-cover"
+                              loading="lazy"
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.nextElementSibling;
+                                if (fallback) fallback.classList.remove('hidden');
+                              }}
                             />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              <Car className="h-16 w-16 text-gray-400" />
-                            </div>
-                          )}
+                          ) : null}
+                          <div className={`w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col items-center justify-center ${vehicle.images && vehicle.images.length > 0 ? 'hidden' : ''}`}>
+                            <Car className="h-16 w-16 text-gray-400 mb-2" />
+                            <span className="text-sm text-gray-500">이미지 준비 중</span>
+                          </div>
                           {vehicle.is_featured && (
                             <Badge className="absolute top-2 left-2 bg-blue-500">인기</Badge>
                           )}
@@ -568,7 +604,7 @@ export function RentcarVendorDetailPage() {
                             )}
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -606,6 +642,8 @@ export function RentcarVendorDetailPage() {
                       다음
                     </Button>
                   </div>
+                )}
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -684,8 +722,9 @@ export function RentcarVendorDetailPage() {
 
           {/* 예약 사이드바 */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-20">
-              <CardContent className="p-6">
+            <div className="lg:sticky lg:top-40 lg:self-start lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto">
+              <Card>
+                <CardContent className="p-6">
                 <div className="mb-6">
                   <div className="text-sm text-gray-600 mb-1">
                     {selectedVehicle
@@ -764,6 +803,7 @@ export function RentcarVendorDetailPage() {
                 </p>
               </CardContent>
             </Card>
+            </div>
           </div>
         </div>
       </div>

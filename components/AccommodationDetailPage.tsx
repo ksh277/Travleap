@@ -488,8 +488,9 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
 
           {/* 예약 사이드바 */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-20">
-              <CardContent className="p-6">
+            <div className="lg:sticky lg:top-40 lg:self-start lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto">
+              <Card>
+                <CardContent className="p-6">
                 <div className="mb-6">
                   <div className="text-sm text-gray-600 mb-1">
                     {selectedRoom ? `${selectedRoom} - 1박 기준` : '1박 기준'}
@@ -572,6 +573,7 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
                 )}
               </CardContent>
             </Card>
+            </div>
           </div>
         </div>
       </div>

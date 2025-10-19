@@ -26,11 +26,13 @@ import {
   Heart,
   Share2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Navigation
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { api } from '../../utils/api';
 
 interface Room {
   id: number;
@@ -73,8 +75,8 @@ export function HotelDetailPage() {
   // 예약 폼 상태
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
-  const [guests, setGuests] = useState(2);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [nearbyHotels, setNearbyHotels] = useState<any[]>([]);
 
   // 데이터 로드
   useEffect(() => {
@@ -103,6 +105,60 @@ export function HotelDetailPage() {
 
     fetchHotelData();
   }, [partnerId]);
+
+  // 주변 숙소 로드 (위치 기반)
+  useEffect(() => {
+    const fetchNearbyAccommodations = async () => {
+      if (!hotelData?.rooms[0]) return;
+
+      try {
+        // 카테고리 페이지 숙박 데이터 가져오기
+        const response = await api.getCategoryListings('accommodation');
+
+        if (response.success && response.data) {
+          // 현재 호텔 위치
+          const currentLocation = {
+            lat: 34.8, // 신안군 중심 좌표 (실제로는 hotelData에서 가져와야 함)
+            lng: 126.1
+          };
+
+          // 거리 계산 함수 (Haversine formula)
+          const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+            const R = 6371; // 지구 반지름 (km)
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a =
+              Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; // 거리 (km)
+          };
+
+          // 거리 계산 및 정렬
+          const withDistance = response.data
+            .filter((item: any) => item.id !== parseInt(partnerId || '0')) // 현재 호텔 제외
+            .map((item: any) => ({
+              ...item,
+              distance: calculateDistance(
+                currentLocation.lat,
+                currentLocation.lng,
+                item.lat || 34.8,
+                item.lng || 126.1
+              )
+            }))
+            .sort((a: any, b: any) => a.distance - b.distance)
+            .slice(0, 6); // 가까운 6개만
+
+          setNearbyHotels(withDistance);
+        }
+      } catch (error) {
+        console.error('주변 숙소 로드 실패:', error);
+      }
+    };
+
+    fetchNearbyAccommodations();
+  }, [hotelData, partnerId]);
 
   // 이미지 갤러리용 - 모든 방의 이미지 수집
   const allImages = hotelData?.rooms.flatMap(room => room.images || []) || [];
@@ -145,7 +201,6 @@ export function HotelDetailPage() {
       checkIn: format(checkIn, 'yyyy-MM-dd'),
       checkOut: format(checkOut, 'yyyy-MM-dd'),
       nights: nights,
-      guests: guests,
       totalPrice: totalPrice,
       image: selectedRoom.images?.[0],
       location: selectedRoom.location
@@ -320,42 +375,88 @@ export function HotelDetailPage() {
               <CardHeader>
                 <CardTitle>객실 선택 ({hotelData.total_rooms}개)</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {hotelData.rooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                      selectedRoom?.id === room.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => setSelectedRoom(room)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold mb-1">{room.name}</h3>
-                        <div className="flex items-center gap-3 text-sm text-gray-600">
+              <CardContent>
+                {/* 2열 그리드 레이아웃 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-fr">
+                  {hotelData.rooms.map((room) => (
+                    <button
+                      key={room.id}
+                      type="button"
+                      className={`w-full text-left rounded-lg border overflow-hidden transition-all ${
+                        selectedRoom?.id === room.id
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300 cursor-pointer hover:shadow-sm'
+                      }`}
+                      onClick={() => setSelectedRoom(room)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedRoom(room);
+                        }
+                      }}
+                      aria-label={`${room.name} 선택하기, 1박 ${room.base_price_per_night.toLocaleString()}원`}
+                      aria-pressed={selectedRoom?.id === room.id}
+                    >
+                      {/* 객실 이미지 */}
+                      <div className="relative w-full aspect-video">
+                        {room.images && room.images.length > 0 ? (
+                          <img
+                            src={room.images[0]}
+                            alt={`${room.name} - ${room.room_type}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.nextElementSibling;
+                              if (fallback) fallback.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div className={`w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 flex flex-col items-center justify-center ${room.images && room.images.length > 0 ? 'hidden' : ''}`}>
+                          <Users className="h-16 w-16 text-blue-400 mb-2" />
+                          <span className="text-sm text-blue-600">객실 이미지 준비 중</span>
+                        </div>
+                        {room.breakfast_included && (
+                          <Badge className="absolute top-2 left-2 bg-green-500">조식 포함</Badge>
+                        )}
+                        {!room.is_available && (
+                          <Badge variant="destructive" className="absolute top-2 right-2">예약 불가</Badge>
+                        )}
+                      </div>
+
+                      {/* 객실 정보 */}
+                      <div className="p-4">
+                        <div className="mb-2">
+                          <h3 className="font-semibold text-lg mb-1">{room.name}</h3>
+                          <p className="text-sm text-gray-600">{room.room_type}</p>
+                        </div>
+
+                        {/* 객실 스펙 */}
+                        <div className="flex items-center gap-3 text-sm text-gray-600 mb-3">
                           <div className="flex items-center gap-1">
                             <Users className="h-4 w-4" />
                             <span>최대 {room.capacity}명</span>
                           </div>
-                          {room.breakfast_included && (
-                            <Badge variant="outline" className="text-xs">조식 포함</Badge>
-                          )}
                         </div>
+
                         {room.description && (
-                          <p className="text-sm text-gray-500 mt-1 line-clamp-1">{room.description}</p>
+                          <p className="text-sm text-gray-500 mb-3 line-clamp-2">{room.description}</p>
                         )}
-                      </div>
-                      <div className="text-right ml-4">
-                        <div className="text-2xl font-bold text-blue-600">
-                          ₩{room.base_price_per_night.toLocaleString()}
+
+                        {/* 가격 */}
+                        <div className="flex items-center justify-between pt-3 border-t">
+                          <div>
+                            <div className="text-xl font-bold text-blue-600">
+                              ₩{room.base_price_per_night.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-gray-500">1박 기준</div>
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">1박 기준</div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
@@ -401,15 +502,28 @@ export function HotelDetailPage() {
 
           {/* 예약 사이드바 */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-6">
-              <CardContent className="p-6">
-                <div className="mb-6">
-                  <div className="text-sm text-gray-600 mb-1">1박 기준</div>
-                  <div className="text-3xl font-bold text-blue-600">
-                    ₩{minPrice.toLocaleString()}
-                    <span className="text-sm text-gray-500 ml-2">~</span>
+            <div className="lg:sticky lg:top-40 lg:self-start lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="mb-6">
+                    <div className="text-sm text-gray-600 mb-1">
+                      {selectedRoom ? `${selectedRoom.name} - 1박 기준` : '1박 기준'}
+                    </div>
+                    <div className="text-3xl font-bold text-blue-600">
+                      ₩{selectedRoom
+                        ? selectedRoom.base_price_per_night.toLocaleString()
+                        : minPrice.toLocaleString()}
+                      {!selectedRoom && <span className="text-sm text-gray-500 ml-2">~</span>}
+                    </div>
+                    {checkIn && checkOut && selectedRoom && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        총 {Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))}박 = {' '}
+                        <span className="font-semibold text-blue-600">
+                          ₩{(selectedRoom.base_price_per_night * Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </div>
 
                 <Separator className="my-4" />
 
@@ -457,26 +571,6 @@ export function HotelDetailPage() {
                     </Popover>
                   </div>
 
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">인원</label>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setGuests(Math.max(1, guests - 1))}
-                      >
-                        -
-                      </Button>
-                      <span className="flex-1 text-center">{guests}명</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setGuests(Math.min(10, guests + 1))}
-                      >
-                        +
-                      </Button>
-                    </div>
-                  </div>
                 </div>
 
                 <Button onClick={handleBooking} className="w-full" size="lg">
@@ -488,6 +582,7 @@ export function HotelDetailPage() {
                 </p>
               </CardContent>
             </Card>
+            </div>
           </div>
         </div>
       </div>
