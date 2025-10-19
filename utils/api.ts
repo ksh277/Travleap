@@ -2727,6 +2727,15 @@ export const api = {
     // 모든 리뷰 조회
     getAllReviews: async (): Promise<ApiResponse<Review[]>> => {
       try {
+        // Vercel 환경: API 엔드포인트 호출
+        if (typeof window !== 'undefined') {
+          const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
+          const response = await fetch(`${apiUrl}/api/admin/reviews`);
+          const result = await response.json();
+          return result;
+        }
+
+        // 로컬 서버 환경: 직접 DB 쿼리
         const response = await db.query(`
           SELECT
             r.*,
@@ -3498,6 +3507,15 @@ export const api = {
     // 주문 관리
     getOrders: async (filters?: any): Promise<ApiResponse<any[]>> => {
       try {
+        // Vercel 환경: API 엔드포인트 호출
+        if (typeof window !== 'undefined') {
+          const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
+          const response = await fetch(`${apiUrl}/api/admin/orders`);
+          const result = await response.json();
+          return result;
+        }
+
+        // 로컬 서버 환경: 직접 DB 쿼리
         // bookings와 listings, users를 JOIN해서 상세 정보 가져오기
         let sql = `
           SELECT

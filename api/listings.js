@@ -79,8 +79,7 @@ module.exports = async function handler(req, res) {
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const offset = (pageNum - 1) * limitNum;
-    sql += ` LIMIT ? OFFSET ?`;
-    params.push(limitNum, offset);
+    sql += ` LIMIT ${limitNum} OFFSET ${offset}`;
 
     const result = await connection.execute(sql, params);
 
