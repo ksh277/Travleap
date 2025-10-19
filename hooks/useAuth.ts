@@ -271,8 +271,15 @@ export const useAuth = () => {
     if (!globalState.token) return false;
 
     try {
+      // 동적 URL 결정: 로컬에서는 localhost:3004, Vercel에서는 상대 경로
+      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+        ? 'http://localhost:3004/api/auth/refresh'
+        : '/api/auth?action=refresh';
+
+      console.log('🔄 토큰 갱신 시도:', apiUrl);
+
       // 서버 API로 토큰 갱신 요청
-      const response = await fetch('http://localhost:3004/api/auth/refresh', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -286,10 +293,11 @@ export const useAuth = () => {
         globalState.token = data.token;
         saveSession(data.token);
         console.log('🔄 토큰 갱신 완료');
+        notifyListeners();
         return true;
       }
 
-      console.log('❌ 토큰 갱신 실패');
+      console.log('❌ 토큰 갱신 실패:', data.error || 'Unknown error');
       logout();
       return false;
     } catch (error) {

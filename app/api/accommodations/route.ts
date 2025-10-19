@@ -1,0 +1,87 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { connect } from '@planetscale/database';
+
+const config = {
+  host: process.env.DATABASE_HOST,
+  username: process.env.DATABASE_USERNAME,
+  password: process.env.DATABASE_PASSWORD,
+};
+
+/**
+ * GET /api/accommodations
+ * 숙박 호텔 목록 (partner 기준 그룹핑)
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const connection = connect(config);
+
+    // 호텔별로 그룹핑 (partner_id 기준)
+    const hotels = await connection.execute(`
+      SELECT
+        p.id as partner_id,
+        p.business_name,
+        p.contact_name,
+        p.phone,
+        p.email,
+        p.tier,
+        p.is_verified,
+        COUNT(l.id) as room_count,
+        MIN(l.price_from) as min_price,
+        MAX(l.price_from) as max_price,
+        MIN(l.images) as sample_images,
+        GROUP_CONCAT(DISTINCT l.location SEPARATOR ', ') as locations,
+        AVG(l.rating_avg) as avg_rating,
+        SUM(l.rating_count) as total_reviews
+      FROM listings l
+      LEFT JOIN partners p ON l.partner_id = p.id
+      WHERE l.category_id = 1857
+        AND l.is_published = 1
+        AND l.is_active = 1
+      GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.tier, p.is_verified
+      ORDER BY p.business_name
+    `);
+
+    // 이미지 JSON 파싱
+    const parsedHotels = hotels.rows.map((hotel: any) => {
+      let images = [];
+      try {
+        if (hotel.sample_images) {
+          const parsed = JSON.parse(hotel.sample_images);
+          images = Array.isArray(parsed) ? parsed : [];
+        }
+      } catch (e) {
+        // JSON 파싱 실패시 빈 배열
+      }
+
+      return {
+        partner_id: hotel.partner_id,
+        business_name: hotel.business_name,
+        contact_name: hotel.contact_name,
+        phone: hotel.phone,
+        email: hotel.email,
+        tier: hotel.tier,
+        is_verified: hotel.is_verified,
+        room_count: hotel.room_count,
+        min_price: hotel.min_price,
+        max_price: hotel.max_price,
+        images: images,
+        locations: hotel.locations,
+        avg_rating: hotel.avg_rating ? parseFloat(hotel.avg_rating).toFixed(1) : null,
+        total_reviews: hotel.total_reviews || 0,
+      };
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: parsedHotels,
+      total: parsedHotels.length,
+    });
+
+  } catch (error: any) {
+    console.error('Error fetching accommodations:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}

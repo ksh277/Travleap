@@ -35,6 +35,8 @@ import { LegalPage } from './components/LegalPage';
 import { AffiliatePage } from './components/AffiliatePage';
 import { RentcarSearchPage } from './components/RentcarSearchPage';
 import { AccommodationDetailPage } from './components/AccommodationDetailPage';
+import { HotelDetailPage } from './components/pages/HotelDetailPage';
+import { RentcarVendorDetailPage } from './components/pages/RentcarVendorDetailPage';
 import { VendorRegistrationPage } from './components/VendorRegistrationPage';
 import VendorDashboardPageEnhanced from './components/VendorDashboardPageEnhanced';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
@@ -93,8 +95,11 @@ function AppContent() {
           {/* 카테고리별 상세 페이지 */}
           <Route path="/categories/:categorySlug" element={<CategoryDetailPage />} />
 
-          {/* 숙박 상세 페이지 (숙박 카테고리용) */}
-          <Route path="/accommodation/:id" element={<AccommodationDetailPage />} />
+          {/* 숙박 상세 페이지 (호텔별 객실 목록) */}
+          <Route path="/accommodation/:partnerId" element={<HotelDetailPage />} />
+
+          {/* 렌트카 업체 상세 페이지 (업체별 차량 목록) */}
+          <Route path="/rentcar/:vendorId" element={<RentcarVendorDetailPage />} />
 
           {/* 일반 상세페이지 */}
           <Route path="/detail/:id" element={<DetailPage />} />

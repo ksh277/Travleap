@@ -23,11 +23,37 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { formatPrice } from '../utils/translations';
 import { api, type TravelItem } from '../utils/api';
 import { toast } from 'sonner';
-import { AccommodationCard } from './cards/AccommodationCard';
+import { HotelCard } from './cards/HotelCard';
+import { RentcarVendorCard } from './cards/RentcarVendorCard';
 import React from 'react';
 
 interface CategoryPageProps {
   selectedCurrency?: string;
+}
+
+interface HotelData {
+  partner_id: number;
+  business_name: string;
+  room_count: number;
+  min_price: number;
+  max_price: number;
+  images: string[];
+  locations: string;
+  avg_rating: string | null;
+  total_reviews: number;
+  is_verified: boolean;
+  tier: string;
+}
+
+interface VendorData {
+  vendor_id: number;
+  vendor_code: string;
+  vendor_name: string;
+  vehicle_count: number;
+  min_price: number;
+  max_price: number;
+  images: string[];
+  vehicle_classes: string;
 }
 
 export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
@@ -35,6 +61,8 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
   const navigate = useNavigate();
   const [listings, setListings] = useState<TravelItem[]>([]);
   const [filteredListings, setFilteredListings] = useState<TravelItem[]>([]);
+  const [hotels, setHotels] = useState<HotelData[]>([]);
+  const [vendors, setVendors] = useState<VendorData[]>([]);
   const [loading, setLoading] = useState(true);
   const [compareList, setCompareList] = useState<number[]>([]);
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
@@ -89,6 +117,37 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         setLoading(true);
         const mappedCategory = category === 'accommodation' ? 'stay' : category;
 
+        // 숙박 카테고리: 호텔 목록 API 호출
+        if (mappedCategory === 'stay') {
+          const response = await fetch('/api/accommodations');
+          const result = await response.json();
+
+          if (result.success && result.data) {
+            setHotels(result.data);
+          } else {
+            setHotels([]);
+            toast.error('호텔 목록을 불러올 수 없습니다.');
+          }
+          setLoading(false);
+          return;
+        }
+
+        // 렌트카 카테고리: 업체 목록 API 호출
+        if (mappedCategory === 'rentcar') {
+          const response = await fetch('/api/rentcars');
+          const result = await response.json();
+
+          if (result.success && result.data) {
+            setVendors(result.data);
+          } else {
+            setVendors([]);
+            toast.error('렌트카 업체 목록을 불러올 수 없습니다.');
+          }
+          setLoading(false);
+          return;
+        }
+
+        // 기타 카테고리: 기존 방식
         const response = await api.getListings({
           category: mappedCategory || '',
           page: 1,
@@ -108,6 +167,8 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         console.error('Error fetching listings:', error);
         setListings([]);
         setFilteredListings([]);
+        setHotels([]);
+        setVendors([]);
         toast.error('상품을 불러올 수 없습니다.');
       } finally {
         setLoading(false);
@@ -189,10 +250,17 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
   }, [searchQuery, filters, listings]);
 
   // 페이지네이션
-  const totalPages = Math.ceil(filteredListings.length / itemsPerPage);
+  const mappedCategory = category === 'accommodation' ? 'stay' : category;
+  const isHotelView = mappedCategory === 'stay';
+  const isVendorView = mappedCategory === 'rentcar';
+
+  const displayItems = isHotelView ? hotels : isVendorView ? vendors : filteredListings;
+  const totalPages = Math.ceil(displayItems.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentListings = filteredListings.slice(startIndex, endIndex);
+  const currentHotels = hotels.slice(startIndex, endIndex);
+  const currentVendors = vendors.slice(startIndex, endIndex);
 
   // 페이지 번호 생성
   const getVisiblePageNumbers = () => {
@@ -506,7 +574,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
             )}
 
             <div className="ml-auto text-sm text-gray-600">
-              <span className="font-medium">{filteredListings.length}</span>개 상품 발견
+              <span className="font-medium">{displayItems.length}</span>개 상품 발견
             </div>
           </div>
         </div>
@@ -514,7 +582,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         {/* 결과 헤더 */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">
-            총 {filteredListings.length}개 상품 ({currentPage}/{totalPages} 페이지)
+            총 {displayItems.length}개 상품 ({currentPage}/{totalPages} 페이지)
           </h2>
           <Select
             value={filters.sortBy}
@@ -544,25 +612,21 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
               </Card>
             ))}
           </div>
+        ) : isHotelView && currentHotels.length > 0 ? (
+          <div className="grid grid-cols-4 gap-4">
+            {currentHotels.map((hotel) => (
+              <HotelCard key={hotel.partner_id} hotel={hotel} />
+            ))}
+          </div>
+        ) : isVendorView && currentVendors.length > 0 ? (
+          <div className="grid grid-cols-4 gap-4">
+            {currentVendors.map((vendor) => (
+              <RentcarVendorCard key={vendor.vendor_id} vendor={vendor} />
+            ))}
+          </div>
         ) : currentListings.length > 0 ? (
           <div className="grid grid-cols-4 gap-4">
             {currentListings.map((item) => {
-              const isAccommodation = category === 'accommodation' || category === 'stay';
-
-              if (isAccommodation) {
-                return (
-                  <div key={item.id} className="cursor-pointer" onClick={() => navigate(`/accommodation/${item.id}`)}>
-                    <AccommodationCard
-                      listing={item}
-                      selectedCurrency={selectedCurrency}
-                      onFavorite={() => toggleFavorite(item.id)}
-                      isFavorite={favorites.has(item.id)}
-                      onNavigate={() => navigate(`/accommodation/${item.id}`)}
-                    />
-                  </div>
-                );
-              }
-
               return (
                 <Card
                   key={item.id}
@@ -657,7 +721,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         )}
 
         {/* 페이지네이션 */}
-        {totalPages > 1 && !loading && currentListings.length > 0 && (
+        {totalPages > 1 && !loading && displayItems.length > 0 && (
           <div className="flex items-center justify-center mt-8 space-x-2">
             {/* 이전 페이지 */}
             <Button
@@ -710,9 +774,9 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         )}
 
         {/* 페이지 정보 */}
-        {filteredListings.length > 0 && !loading && (
+        {displayItems.length > 0 && !loading && (
           <div className="text-center mt-4 text-sm text-gray-600">
-            {startIndex + 1}-{Math.min(endIndex, filteredListings.length)} / {filteredListings.length}개 상품 표시
+            {startIndex + 1}-{Math.min(endIndex, displayItems.length)} / {displayItems.length}개 상품 표시
           </div>
         )}
       </div>

@@ -162,7 +162,60 @@ export async function POST(request: Request) {
       );
     }
 
-    // 7. 회원가입
+    // 7. 토큰 갱신
+    if (action === 'refresh') {
+      const authHeader = request.headers.get('Authorization');
+
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ success: false, error: '인증 토큰이 없습니다.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const token = authHeader.substring(7);
+
+      try {
+        // 토큰 검증
+        const decoded = jwt.verify(token, JWTUtils.SECRET_KEY, {
+          algorithms: ['HS256'],
+          issuer: 'travleap',
+          audience: 'travleap-users'
+        }) as any;
+
+        // 새 토큰 발급
+        const newToken = JWTUtils.generateToken({
+          userId: decoded.userId,
+          email: decoded.email,
+          name: decoded.name,
+          role: decoded.role,
+        });
+
+        console.log('✅ Token refreshed for user:', decoded.email);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            token: newToken,
+            message: '토큰이 갱신되었습니다.'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+
+      } catch (error) {
+        console.error('❌ Token refresh failed:', error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: '토큰 갱신에 실패했습니다.',
+            details: error instanceof Error ? error.message : String(error)
+          }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // 8. 회원가입
     if (action === 'register') {
       if (!email || !password || !name) {
         return new Response(
