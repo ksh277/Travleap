@@ -18,7 +18,13 @@ import {
   DollarSign,
   Shield,
   Package,
-  Calendar
+  Calendar,
+  RefreshCw,
+  Link,
+  History,
+  AlertCircle,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { rentcarApi } from '../../utils/rentcar-api';
@@ -81,12 +87,25 @@ export const RentcarAdvancedFeatures: React.FC<RentcarAdvancedFeaturesProps> = (
     price_krw: 0
   });
 
+  // State for PMS Integration
+  const [pmsProvider, setPmsProvider] = useState<'turo' | 'getaround' | 'rentcars' | 'custom'>('turo');
+  const [pmsApiKey, setPmsApiKey] = useState('');
+  const [pmsApiSecret, setPmsApiSecret] = useState('');
+  const [pmsEndpoint, setPmsEndpoint] = useState('');
+  const [pmsSyncEnabled, setPmsSyncEnabled] = useState(false);
+  const [pmsSyncInterval, setPmsSyncInterval] = useState(60); // minutes
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [syncLogs, setSyncLogs] = useState<any[]>([]);
+
   // Load data when vendor changes
   useEffect(() => {
     if (selectedVendorId) {
       loadRatePlans();
       loadInsurancePlans();
       loadExtras();
+      loadPMSSettings();
+      loadSyncLogs();
     }
   }, [selectedVendorId]);
 
@@ -374,6 +393,105 @@ export const RentcarAdvancedFeatures: React.FC<RentcarAdvancedFeaturesProps> = (
     }
   };
 
+  // PMS Integration handlers
+  const loadPMSSettings = async () => {
+    if (!selectedVendorId) return;
+    try {
+      const response = await fetch(`/api/rentcar/vendors/${selectedVendorId}/pms-settings`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setPmsProvider(data.data.pms_provider || 'turo');
+          setPmsApiKey(data.data.pms_api_key || '');
+          setPmsApiSecret(data.data.pms_api_secret || '');
+          setPmsEndpoint(data.data.pms_endpoint || '');
+          setPmsSyncEnabled(data.data.pms_sync_enabled || false);
+          setLastSyncTime(data.data.pms_last_sync);
+        }
+      }
+    } catch (error) {
+      console.error('PMS 설정 로드 실패:', error);
+    }
+  };
+
+  const loadSyncLogs = async () => {
+    if (!selectedVendorId) return;
+    try {
+      const response = await fetch(`/api/rentcar/vendors/${selectedVendorId}/pms-sync-logs`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setSyncLogs(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('동기화 로그 로드 실패:', error);
+    }
+  };
+
+  const handleSavePMSSettings = async () => {
+    if (!selectedVendorId) {
+      toast.error('벤더를 먼저 선택해주세요.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/rentcar/vendors/${selectedVendorId}/pms-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pms_provider: pmsProvider,
+          pms_api_key: pmsApiKey,
+          pms_api_secret: pmsApiSecret,
+          pms_endpoint: pmsEndpoint,
+          pms_sync_enabled: pmsSyncEnabled,
+          pms_sync_interval: pmsSyncInterval
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('PMS 설정이 저장되었습니다.');
+      } else {
+        toast.error(data.error || 'PMS 설정 저장에 실패했습니다.');
+      }
+    } catch (error) {
+      toast.error('오류가 발생했습니다.');
+    }
+  };
+
+  const handleManualSync = async () => {
+    if (!selectedVendorId) {
+      toast.error('벤더를 먼저 선택해주세요.');
+      return;
+    }
+
+    if (!pmsApiKey) {
+      toast.error('PMS API Key를 먼저 설정해주세요.');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const response = await fetch(`/api/rentcar/vendors/${selectedVendorId}/pms-sync`, {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success(`동기화 완료: +${data.data.vehiclesAdded} ~${data.data.vehiclesUpdated} -${data.data.vehiclesDeleted}`);
+        setLastSyncTime(new Date().toISOString());
+        loadSyncLogs();
+      } else {
+        toast.error(data.error || 'PMS 동기화에 실패했습니다.');
+      }
+    } catch (error) {
+      toast.error('동기화 중 오류가 발생했습니다.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Get labels
   const getInsuranceTypeLabel = (type: InsuranceType) => {
     const labels: Record<InsuranceType, string> = {
@@ -411,7 +529,7 @@ export const RentcarAdvancedFeatures: React.FC<RentcarAdvancedFeaturesProps> = (
 
   return (
     <Tabs defaultValue="rateplans" className="space-y-6">
-      <TabsList className="grid grid-cols-3 w-full max-w-2xl">
+      <TabsList className="grid grid-cols-4 w-full">
         <TabsTrigger value="rateplans">
           <DollarSign className="h-4 w-4 mr-2" />
           요금제
@@ -423,6 +541,10 @@ export const RentcarAdvancedFeatures: React.FC<RentcarAdvancedFeaturesProps> = (
         <TabsTrigger value="extras">
           <Package className="h-4 w-4 mr-2" />
           부가 옵션
+        </TabsTrigger>
+        <TabsTrigger value="pms">
+          <Link className="h-4 w-4 mr-2" />
+          PMS 연동
         </TabsTrigger>
       </TabsList>
 
@@ -977,6 +1099,265 @@ export const RentcarAdvancedFeatures: React.FC<RentcarAdvancedFeaturesProps> = (
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PMS 연동 관리 */}
+      <TabsContent value="pms" className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>PMS 연동 설정</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={loadSyncLogs}
+                  disabled={isSyncing}
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  로그 새로고침
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleManualSync}
+                  disabled={isSyncing || !pmsApiKey}
+                >
+                  {isSyncing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      동기화 중...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      수동 동기화
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* PMS 연동 정보 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-blue-900 mb-2">PMS (Property Management System) 연동이란?</h4>
+                  <p className="text-sm text-blue-800 mb-2">
+                    Turo, Getaround 같은 렌터카 관리 시스템과 자동으로 연동하여 차량 정보, 재고, 가격을 실시간으로 동기화합니다.
+                  </p>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>✓ 자동 차량 정보 업데이트 - 수동 입력 불필요</li>
+                    <li>✓ 실시간 재고 관리 - 이중 예약 방지</li>
+                    <li>✓ 가격 자동 동기화 - 최신 요금 자동 반영</li>
+                    <li>✓ 스케줄 자동 실행 - 설정한 주기로 자동 동기화</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* PMS 설정 폼 */}
+            <div className="grid gap-4">
+              <div>
+                <Label>PMS 공급업체 *</Label>
+                <Select value={pmsProvider} onValueChange={(v) => setPmsProvider(v as any)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="turo">Turo</SelectItem>
+                    <SelectItem value="getaround">Getaround</SelectItem>
+                    <SelectItem value="rentcars">RentCars.com</SelectItem>
+                    <SelectItem value="custom">Custom (직접 설정)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  차량을 관리하는 PMS 시스템을 선택하세요
+                </p>
+              </div>
+
+              {pmsProvider === 'custom' && (
+                <div>
+                  <Label>API 엔드포인트 URL</Label>
+                  <Input
+                    value={pmsEndpoint}
+                    onChange={(e) => setPmsEndpoint(e.target.value)}
+                    placeholder="https://api.yourpms.com/vehicles"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Custom PMS의 API 엔드포인트를 입력하세요
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <Label>API Key *</Label>
+                <Input
+                  type="password"
+                  value={pmsApiKey}
+                  onChange={(e) => setPmsApiKey(e.target.value)}
+                  placeholder="PMS에서 발급받은 API Key"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {pmsProvider === 'turo' && 'Turo 계정 설정에서 API Key를 발급받으세요'}
+                  {pmsProvider === 'getaround' && 'Getaround Owner Portal에서 API Key를 발급받으세요'}
+                  {pmsProvider === 'rentcars' && 'RentCars.com 파트너 센터에서 API Key를 발급받으세요'}
+                  {pmsProvider === 'custom' && '관리자에게 API Key를 요청하세요'}
+                </p>
+              </div>
+
+              <div>
+                <Label>API Secret (선택)</Label>
+                <Input
+                  type="password"
+                  value={pmsApiSecret}
+                  onChange={(e) => setPmsApiSecret(e.target.value)}
+                  placeholder="API Secret (필요한 경우)"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  일부 PMS는 API Secret이 필요합니다
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={pmsSyncEnabled}
+                    onChange={(e) => setPmsSyncEnabled(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">자동 동기화 활성화</span>
+                </label>
+                {pmsSyncEnabled && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Label className="text-sm">동기화 주기:</Label>
+                    <Select
+                      value={pmsSyncInterval.toString()}
+                      onValueChange={(v) => setPmsSyncInterval(parseInt(v))}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15">15분마다</SelectItem>
+                        <SelectItem value="30">30분마다</SelectItem>
+                        <SelectItem value="60">1시간마다</SelectItem>
+                        <SelectItem value="180">3시간마다</SelectItem>
+                        <SelectItem value="360">6시간마다</SelectItem>
+                        <SelectItem value="720">12시간마다</SelectItem>
+                        <SelectItem value="1440">24시간마다</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {lastSyncTime && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  마지막 동기화: {new Date(lastSyncTime).toLocaleString('ko-KR')}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={loadPMSSettings}
+                >
+                  취소
+                </Button>
+                <Button
+                  className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                  onClick={handleSavePMSSettings}
+                >
+                  설정 저장
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 동기화 로그 */}
+        <Card>
+          <CardHeader>
+            <CardTitle>동기화 로그</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>시작 시간</TableHead>
+                    <TableHead>완료 시간</TableHead>
+                    <TableHead>상태</TableHead>
+                    <TableHead>추가</TableHead>
+                    <TableHead>수정</TableHead>
+                    <TableHead>삭제</TableHead>
+                    <TableHead>에러 메시지</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {syncLogs.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                        동기화 기록이 없습니다
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    syncLogs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="text-sm">
+                          {new Date(log.sync_started_at).toLocaleString('ko-KR')}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {log.sync_completed_at
+                            ? new Date(log.sync_completed_at).toLocaleString('ko-KR')
+                            : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              log.sync_status === 'success'
+                                ? 'bg-green-100 text-green-800'
+                                : log.sync_status === 'partial'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                            }
+                          >
+                            {log.sync_status === 'success'
+                              ? '성공'
+                              : log.sync_status === 'partial'
+                              ? '부분 성공'
+                              : '실패'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-green-600 font-medium">
+                            +{log.vehicles_added}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-blue-600 font-medium">
+                            ~{log.vehicles_updated}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-red-600 font-medium">
+                            -{log.vehicles_deleted}
+                          </span>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate text-sm text-gray-600">
+                          {log.error_message || '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
     </Tabs>
   );
 };
