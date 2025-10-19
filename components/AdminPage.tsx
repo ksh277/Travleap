@@ -40,6 +40,7 @@ import { RentcarAPIModal, type RentcarAPISettings } from './admin/RentcarAPIModa
 import { MediaManagement } from './admin/MediaManagement';
 import { RentcarManagement } from './admin/RentcarManagement';
 import { AccommodationManagement } from './admin/AccommodationManagement';
+import { BannerManagement } from './admin/BannerManagement';
 import type { Listing, User } from '../types/database';
 import type { AdminProductFormData } from '../utils/pms/admin-integration';
 
@@ -3746,28 +3747,7 @@ export function AdminPage({}: AdminPageProps) {
 
           {/* 배너 관리 탭 */}
           <TabsContent value="banners" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>배너 관리</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-gray-600">홈페이지 메인 배너를 관리합니다.</p>
-                    <Button className="bg-[#8B5FBF] hover:bg-[#7A4FB5]">
-                      <Plus className="h-4 w-4 mr-2" />
-                      배너 추가
-                    </Button>
-                  </div>
-                  <div className="text-center py-12 text-gray-500">
-                    <p>배너 관리 기능이 곧 추가됩니다.</p>
-                    <p className="text-sm mt-2">
-                      현재는 <code className="bg-gray-100 px-2 py-1 rounded">/api/populate-data</code>를 통해 샘플 배너가 생성됩니다.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <BannerManagement />
           </TabsContent>
 
           {/* 리뷰 관리 탭 */}
