@@ -86,96 +86,123 @@ export function HotelDetailPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* 헤더 */}
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/stay')}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          뒤로 가기
-        </Button>
+      <Button
+        variant="ghost"
+        onClick={() => navigate('/stay')}
+        className="mb-4"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        뒤로 가기
+      </Button>
 
-        <div className="flex items-start justify-between">
+      {/* 호텔 대표 이미지 */}
+      {hotelData.rooms[0]?.images?.[0] && (
+        <div className="relative w-full h-64 md:h-96 rounded-lg overflow-hidden mb-6">
+          <ImageWithFallback
+            src={hotelData.rooms[0].images[0]}
+            alt={hotelData.partner.business_name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
+      {/* 호텔 정보 */}
+      <div className="mb-6">
+        <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2">{hotelData.partner.business_name}</h1>
-            {hotelData.partner.is_verified && (
-              <Badge className="bg-blue-500 text-white">인증된 파트너</Badge>
-            )}
-            {hotelData.partner.tier === 'premium' && (
-              <Badge className="bg-yellow-500 text-white ml-2">프리미엄</Badge>
-            )}
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">{hotelData.partner.business_name}</h1>
+            <div className="flex gap-2">
+              {hotelData.partner.is_verified && (
+                <Badge className="bg-blue-500 text-white">인증된 파트너</Badge>
+              )}
+              {hotelData.partner.tier === 'premium' && (
+                <Badge className="bg-yellow-500 text-white">프리미엄</Badge>
+              )}
+            </div>
           </div>
         </div>
-
-        <p className="text-gray-600 mt-4">
-          총 {hotelData.total_rooms}개 객실 타입 제공
-        </p>
       </div>
 
-      {/* 객실 목록 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {hotelData.rooms.map((room) => (
-          <Card
-            key={room.id}
-            className="group hover:shadow-lg transition-all cursor-pointer overflow-hidden h-[450px] flex flex-col"
-            onClick={() => navigate(`/detail/${room.id}`)}
-          >
-            <div className="flex flex-col h-full">
-              {/* 객실 이미지 */}
-              <div className="relative w-full h-52 flex-shrink-0 overflow-hidden">
-                <ImageWithFallback
-                  src={room.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945'}
-                  alt={room.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-
-                {/* 우측 상단 뱃지 */}
-                {room.is_featured && (
-                  <div className="absolute top-3 right-3">
-                    <Badge className="bg-green-500 text-white">추천</Badge>
-                  </div>
-                )}
-              </div>
-
-              {/* 객실 정보 */}
-              <CardContent className="p-4 flex flex-col flex-1 justify-between">
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-base line-clamp-2 min-h-[2.5rem]">
-                    {room.title}
-                  </h3>
-
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                    <span className="text-xs text-gray-600 line-clamp-1">
-                      {room.location || '위치 정보 없음'}
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-gray-600 line-clamp-2">
-                    {room.short_description || room.highlights?.[0] || ''}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between mt-auto pt-2">
-                  {room.rating_avg > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                      <span className="text-xs">{room.rating_avg.toFixed(1)}</span>
-                      <span className="text-xs text-gray-500">({room.rating_count})</span>
-                    </div>
+      {/* 객실 목록 - 세로 나열 (야놀자 스타일) */}
+      <div className="mb-8">
+        <h2 className="text-xl font-bold mb-4">객실 선택 ({hotelData.total_rooms}개)</h2>
+        <div className="space-y-4">
+          {hotelData.rooms.map((room) => (
+            <Card
+              key={room.id}
+              className="hover:shadow-lg transition-shadow cursor-pointer overflow-hidden"
+              onClick={() => navigate(`/detail/${room.id}`)}
+            >
+              <div className="flex gap-4">
+                {/* 객실 이미지 - 왼쪽 */}
+                <div className="relative w-32 h-32 md:w-40 md:h-40 flex-shrink-0">
+                  <ImageWithFallback
+                    src={room.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945'}
+                    alt={room.title}
+                    className="w-full h-full object-cover"
+                  />
+                  {room.is_featured && (
+                    <Badge className="absolute top-2 left-2 bg-green-500 text-white text-xs">추천</Badge>
                   )}
-                  <div className="text-base font-bold text-[#ff6a3d]">
-                    ₩{room.price_from.toLocaleString()}
-                    <span className="text-xs font-normal text-gray-500">/박</span>
+                </div>
+
+                {/* 객실 정보 - 오른쪽 */}
+                <div className="flex-1 p-4 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-base mb-1 line-clamp-1">
+                      {room.title}
+                    </h3>
+                    <p className="text-xs text-gray-600 line-clamp-2 mb-2">
+                      {room.short_description || room.highlights?.[0] || ''}
+                    </p>
+                  </div>
+
+                  <div className="flex items-end justify-between">
+                    {room.rating_avg > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <span className="text-sm font-semibold">{room.rating_avg.toFixed(1)}</span>
+                        <span className="text-xs text-gray-500">({room.rating_count})</span>
+                      </div>
+                    )}
+                    <div className="text-right">
+                      <div className="text-xl font-bold text-[#ff6a3d]">
+                        ₩{room.price_from.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-gray-500">/박</div>
+                    </div>
                   </div>
                 </div>
-              </CardContent>
-            </div>
-          </Card>
-        ))}
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* 호텔 설명 */}
+      <div className="mb-8 border-t pt-6">
+        <h2 className="text-xl font-bold mb-4">호텔 정보</h2>
+        <div className="space-y-2 text-gray-700">
+          <p><strong>업체명:</strong> {hotelData.partner.business_name}</p>
+          <p><strong>담당자:</strong> {hotelData.partner.contact_name}</p>
+          <p><strong>전화:</strong> {hotelData.partner.phone}</p>
+          <p><strong>이메일:</strong> {hotelData.partner.email}</p>
+        </div>
+      </div>
+
+      {/* 예약 버튼 (하단 고정) */}
+      <div className="sticky bottom-0 left-0 right-0 bg-white border-t p-4 -mx-4 shadow-lg">
+        <div className="max-w-4xl mx-auto flex gap-3">
+          <Button variant="outline" className="flex-1">
+            <Heart className="mr-2 h-4 w-4" />
+            찜하기
+          </Button>
+          <Button className="flex-1 bg-[#ff6a3d] hover:bg-[#e5612f]">
+            예약하기
+          </Button>
+        </div>
       </div>
 
       {hotelData.rooms.length === 0 && (
@@ -183,6 +210,16 @@ export function HotelDetailPage() {
           <p className="text-gray-500">현재 예약 가능한 객실이 없습니다.</p>
         </div>
       )}
+
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 }
