@@ -897,6 +897,136 @@ class Database {
       )
     `);
 
+    // 렌트카 벤더 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS rentcar_vendors (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_code VARCHAR(50) UNIQUE NOT NULL,
+        business_name VARCHAR(200) NOT NULL,
+        brand_name VARCHAR(200),
+        business_number VARCHAR(50),
+        contact_name VARCHAR(100) NOT NULL,
+        contact_email VARCHAR(255) NOT NULL,
+        contact_phone VARCHAR(20) NOT NULL,
+        description TEXT,
+        logo_url LONGTEXT,
+        pms_provider VARCHAR(50),
+        pms_api_key VARCHAR(500),
+        pms_property_id VARCHAR(100),
+        status ENUM('pending', 'active', 'suspended') DEFAULT 'pending',
+        is_verified BOOLEAN DEFAULT FALSE,
+        commission_rate DECIMAL(5, 2) DEFAULT 10.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_status (status),
+        INDEX idx_vendor_code (vendor_code)
+      )
+    `);
+
+    // 렌트카 차량 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS rentcar_vehicles (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_id INT NOT NULL,
+        vehicle_code VARCHAR(50) NOT NULL,
+        brand VARCHAR(100) NOT NULL,
+        model VARCHAR(100) NOT NULL,
+        year INT NOT NULL,
+        display_name VARCHAR(200) NOT NULL,
+        vehicle_class ENUM('compact', 'midsize', 'fullsize', 'luxury', 'suv', 'van', 'electric') NOT NULL,
+        vehicle_type VARCHAR(100),
+        fuel_type ENUM('gasoline', 'diesel', 'electric', 'hybrid') NOT NULL,
+        transmission ENUM('manual', 'automatic') NOT NULL,
+        seating_capacity INT NOT NULL,
+        door_count INT DEFAULT 4,
+        large_bags INT DEFAULT 2,
+        small_bags INT DEFAULT 2,
+        thumbnail_url LONGTEXT,
+        images JSON,
+        features JSON,
+        age_requirement INT DEFAULT 21,
+        license_requirement VARCHAR(100),
+        mileage_limit_per_day INT DEFAULT 0,
+        unlimited_mileage BOOLEAN DEFAULT TRUE,
+        deposit_amount_krw DECIMAL(10, 2) DEFAULT 0,
+        smoking_allowed BOOLEAN DEFAULT FALSE,
+        daily_rate_krw DECIMAL(10, 2) NOT NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        is_featured BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_vehicle_code (vendor_id, vehicle_code),
+        INDEX idx_vendor (vendor_id),
+        INDEX idx_class (vehicle_class),
+        INDEX idx_active (is_active)
+      )
+    `);
+
+    // 렌트카 예약 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS rentcar_bookings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_number VARCHAR(50) UNIQUE NOT NULL,
+        vendor_id INT NOT NULL,
+        vehicle_id INT NOT NULL,
+        user_id INT NOT NULL,
+        customer_name VARCHAR(100) NOT NULL,
+        customer_email VARCHAR(255) NOT NULL,
+        customer_phone VARCHAR(20) NOT NULL,
+        pickup_location_id INT,
+        dropoff_location_id INT,
+        pickup_date DATE NOT NULL,
+        pickup_time TIME NOT NULL,
+        dropoff_date DATE NOT NULL,
+        dropoff_time TIME NOT NULL,
+        daily_rate_krw DECIMAL(10, 2) NOT NULL,
+        rental_days INT NOT NULL,
+        subtotal_krw DECIMAL(10, 2) NOT NULL,
+        insurance_krw DECIMAL(10, 2) DEFAULT 0,
+        extras_krw DECIMAL(10, 2) DEFAULT 0,
+        tax_krw DECIMAL(10, 2) DEFAULT 0,
+        discount_krw DECIMAL(10, 2) DEFAULT 0,
+        total_krw DECIMAL(10, 2) NOT NULL,
+        status ENUM('pending', 'confirmed', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending',
+        payment_status ENUM('pending', 'paid', 'refunded') DEFAULT 'pending',
+        special_requests TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_vendor (vendor_id),
+        INDEX idx_vehicle (vehicle_id),
+        INDEX idx_status (status),
+        INDEX idx_dates (pickup_date, dropoff_date)
+      )
+    `);
+
+    // 렌트카 지점 테이블
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS rentcar_locations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_id INT NOT NULL,
+        location_code VARCHAR(50) NOT NULL,
+        name VARCHAR(200) NOT NULL,
+        location_type ENUM('airport', 'downtown', 'station', 'hotel') NOT NULL,
+        address TEXT NOT NULL,
+        city VARCHAR(100),
+        postal_code VARCHAR(20),
+        lat DECIMAL(10, 8),
+        lng DECIMAL(11, 8),
+        operating_hours JSON,
+        phone VARCHAR(20),
+        pickup_fee_krw DECIMAL(10, 2) DEFAULT 0,
+        dropoff_fee_krw DECIMAL(10, 2) DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        display_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_location_code (vendor_id, location_code),
+        INDEX idx_vendor (vendor_id),
+        INDEX idx_type (location_type),
+        INDEX idx_active (is_active)
+      )
+    `);
+
     console.log('✅ [Database] All tables created successfully');
   }
 
