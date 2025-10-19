@@ -47,16 +47,17 @@ export function AccommodationCard({
 
   return (
     <Card
-      className="group hover:shadow-lg transition-all cursor-pointer overflow-hidden"
+      className="group hover:shadow-lg transition-all cursor-pointer overflow-hidden h-[450px] flex flex-col"
       onClick={handleClick}
     >
-      {/* 이미지 */}
-      <div className="relative aspect-[4/3] overflow-hidden">
-        <ImageWithFallback
-          src={listing.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945'}
-          alt={listing.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+      <div className="flex flex-col h-full">
+        {/* 이미지 */}
+        <div className="relative w-full h-52 flex-shrink-0 overflow-hidden">
+          <ImageWithFallback
+            src={listing.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945'}
+            alt={listing.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
 
         {/* 우측 상단 뱃지들 */}
         <div className="absolute top-3 right-3 flex flex-col gap-2">
@@ -80,92 +81,51 @@ export function AccommodationCard({
         >
           <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
         </Button>
-      </div>
-
-      <CardContent className="p-4">
-        {/* 제목 & 위치 */}
-        <div className="mb-2">
-          <h3 className="font-semibold text-lg line-clamp-1 mb-1">
-            {listing.title}
-          </h3>
-          <div className="flex items-center text-sm text-gray-600">
-            <MapPin className="h-4 w-4 mr-1" />
-            {listing.location}
-          </div>
         </div>
 
-        {/* 평점 */}
-        {listing.rating_avg > 0 && (
-          <div className="flex items-center gap-1 mb-3">
-            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-            <span className="font-semibold">{listing.rating_avg.toFixed(1)}</span>
-            <span className="text-sm text-gray-500">
-              ({listing.rating_count.toLocaleString()}개 리뷰)
-            </span>
-          </div>
-        )}
-
-        {/* 객실 타입 미리보기 (PMS 데이터) */}
-        {roomTypes.length > 0 ? (
-          <div className="mb-3 p-2 bg-gray-50 rounded-md">
-            <div className="text-xs text-gray-600 mb-1">객실 타입</div>
-            <div className="space-y-1">
-              {roomTypes.slice(0, 2).map((room, idx) => (
-                <div key={idx} className="text-sm">
-                  {room}
-                </div>
-              ))}
-              {roomTypes.length > 2 && (
-                <div className="text-xs text-blue-600">
-                  +{roomTypes.length - 2}개 객실 더보기
-                </div>
+        {/* 정보 */}
+        <CardContent className="p-4 flex flex-col flex-1 justify-between">
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <h3 className="font-semibold text-base flex-1 line-clamp-2 min-h-[2.5rem]">{listing.title}</h3>
+              {listing.partner?.is_verified && (
+                <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
+                  인증
+                </Badge>
               )}
             </div>
-          </div>
-        ) : (
-          /* 편의시설 (PMS 없는 경우) */
-          listing.amenities && listing.amenities.length > 0 && (
-            <div className="flex items-center gap-2 mb-3 text-sm text-gray-600">
-              <Wifi className="h-4 w-4" />
-              <Coffee className="h-4 w-4" />
-              <Bed className="h-4 w-4" />
-              <Users className="h-4 w-4" />
-            </div>
-          )
-        )}
 
-        {/* 가격 */}
-        <div className="flex items-end justify-between">
-          <div>
-            {maxPrice > minPrice ? (
-              <>
-                <div className="text-sm text-gray-600">
-                  ₩{minPrice.toLocaleString()} ~
-                </div>
-                <div className="text-xl font-bold text-blue-600">
-                  ₩{maxPrice.toLocaleString()}
-                </div>
-              </>
+            <div className="flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
+              <span className="text-xs text-gray-600 line-clamp-1">{listing.location || '위치 정보 없음'}</span>
+            </div>
+
+            {/* 객실 타입 미리보기 (축약) */}
+            {roomTypes.length > 0 ? (
+              <div className="text-xs text-gray-600 line-clamp-2">
+                {roomTypes.slice(0, 1).map(r => r.split(' - ')[0]).join(', ')}
+                {roomTypes.length > 1 && ` 외 ${roomTypes.length - 1}개`}
+              </div>
             ) : (
-              <div className="text-xl font-bold text-blue-600">
-                ₩{minPrice.toLocaleString()}
+              <p className="text-xs text-gray-600 line-clamp-2">{listing.short_description || listing.description_md || ''}</p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between mt-auto pt-2">
+            {listing.rating_avg > 0 && (
+              <div className="flex items-center gap-1">
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                <span className="text-xs">{listing.rating_avg.toFixed(1)}</span>
+                <span className="text-xs text-gray-500">({listing.rating_count})</span>
               </div>
             )}
-            <div className="text-xs text-gray-500">1박 기준</div>
+            <div className="text-base font-bold text-[#ff6a3d]">
+              ₩{minPrice.toLocaleString()}
+              <span className="text-xs font-normal text-gray-500">/박</span>
+            </div>
           </div>
-
-          <Button
-            variant="default"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/listing/${listing.id}`);
-            }}
-          >
-            예약하기
-          </Button>
-        </div>
-      </CardContent>
+        </CardContent>
+      </div>
     </Card>
   );
 }
