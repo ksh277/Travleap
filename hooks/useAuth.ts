@@ -213,15 +213,10 @@ export const useAuth = () => {
     console.log('🔑 로그인 시도:', email);
 
     try {
-      // API URL 결정: Vercel에서는 상대 경로, 로컬에서는 localhost:3004
-      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      // API URL 결정: Vercel에서는 /api/login, 로컬에서는 localhost:3004
+      const loginUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
         ? 'http://localhost:3004/api/auth/login'
-        : '/api/auth';
-
-      // action 파라미터 결정
-      const loginUrl = apiUrl.includes('localhost')
-        ? apiUrl
-        : `${apiUrl}?action=login`;
+        : '/api/login';
 
       console.log('🌐 API URL:', loginUrl);
 
