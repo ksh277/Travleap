@@ -1,39 +1,29 @@
-const mysql = require('mysql2/promise');
 require('dotenv').config();
+const { connect } = require('@planetscale/database');
 
 async function checkCategories() {
-  let connection;
+  const connection = connect({ url: process.env.DATABASE_URL });
+
+  console.log('Categories in database:\n');
 
   try {
-    connection = await mysql.createConnection({
-      host: process.env.DATABASE_HOST,
-      user: process.env.DATABASE_USERNAME,
-      password: process.env.DATABASE_PASSWORD,
-      database: process.env.DATABASE_NAME || 'travleap',
-      ssl: { rejectUnauthorized: true }
+    const result = await connection.execute('SELECT id, slug, name_ko, category_type, sort_order FROM categories ORDER BY sort_order');
+
+    result.rows.forEach(row => {
+      console.log('   [' + row.id + '] ' + row.slug + ' - ' + row.name_ko);
+      console.log('       type: ' + (row.category_type || 'null') + ', sort: ' + row.sort_order);
     });
 
-    const [categories] = await connection.execute('SELECT * FROM categories ORDER BY id');
+    console.log('\nChecking which categories have listings:');
+    const listingCount = await connection.execute('SELECT c.slug, c.name_ko, c.category_type, COUNT(l.id) as listing_count FROM categories c LEFT JOIN listings l ON c.id = l.category_id AND l.is_published = 1 AND l.is_active = 1 GROUP BY c.id, c.slug, c.name_ko, c.category_type ORDER BY c.sort_order');
 
-    console.log('\n카테고리 목록:');
-    console.log('='.repeat(70));
-    categories.forEach(c => {
-      console.log(`ID: ${c.id} | Slug: ${c.slug || 'N/A'} | Name: ${c.name_ko || c.name || 'N/A'}`);
+    listingCount.rows.forEach(row => {
+      console.log('   ' + row.name_ko + ' (' + row.slug + ') [' + (row.category_type || 'null') + ']: ' + row.listing_count + ' listings');
     });
-    console.log('='.repeat(70));
-
-    // 숙박 상품 수 확인
-    const [accom1] = await connection.execute("SELECT COUNT(*) as count FROM listings WHERE category_id = 1");
-    console.log(`\n숙박 상품 (category_id=1): ${accom1[0].count}개`);
-
-    const [rentcar] = await connection.execute("SELECT COUNT(*) as count FROM listings WHERE category_id = 2");
-    console.log(`렌트카 상품 (category_id=2): ${rentcar[0].count}개`);
 
   } catch (error) {
     console.error('Error:', error.message);
-  } finally {
-    if (connection) await connection.end();
   }
 }
 
-checkCategories();
+checkCategories().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });

@@ -17,6 +17,13 @@ module.exports = async function handler(req, res) {
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
 
+    // Get stay category ID
+    const categoryResult = await connection.execute(`
+      SELECT id FROM categories WHERE slug = 'stay' LIMIT 1
+    `);
+
+    const categoryId = categoryResult.rows[0]?.id || 1857;
+
     const hotels = await connection.execute(`
       SELECT
         p.id as partner_id,
@@ -25,7 +32,7 @@ module.exports = async function handler(req, res) {
         p.phone,
         p.email,
         p.tier,
-        p.is_verified,
+        p.status,
         p.is_featured,
         COUNT(l.id) as room_count,
         MIN(l.price_from) as min_price,
@@ -35,12 +42,12 @@ module.exports = async function handler(req, res) {
         AVG(l.rating_avg) as avg_rating,
         SUM(l.rating_count) as total_reviews
       FROM partners p
-      LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = 1857 AND l.is_published = 1 AND l.is_active = 1
+      LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = ? AND l.is_published = 1 AND l.is_active = 1
       WHERE p.is_active = 1
-      GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.tier, p.is_verified, p.is_featured
+      GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.tier, p.status, p.is_featured
       HAVING room_count > 0
-      ORDER BY p.is_verified DESC, p.is_featured DESC, avg_rating DESC
-    `);
+      ORDER BY p.status = 'approved' DESC, p.is_featured DESC, avg_rating DESC
+    `, [categoryId]);
 
     const parsedHotels = hotels.rows.map((hotel) => {
       let images = [];
@@ -60,7 +67,8 @@ module.exports = async function handler(req, res) {
         phone: hotel.phone,
         email: hotel.email,
         tier: hotel.tier,
-        is_verified: hotel.is_verified,
+        is_verified: hotel.status === 'approved',
+        status: hotel.status,
         is_featured: hotel.is_featured,
         room_count: hotel.room_count,
         min_price: hotel.min_price,

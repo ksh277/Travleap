@@ -39,6 +39,7 @@ import { PMSIntegrationModal } from './admin/PMSIntegrationModal';
 import { RentcarAPIModal, type RentcarAPISettings } from './admin/RentcarAPIModal';
 import { MediaManagement } from './admin/MediaManagement';
 import { RentcarManagement } from './admin/RentcarManagement';
+import { AccommodationManagement } from './admin/AccommodationManagement';
 import type { Listing, User } from '../types/database';
 import type { AdminProductFormData } from '../utils/pms/admin-integration';
 
@@ -3735,14 +3736,7 @@ export function AdminPage({}: AdminPageProps) {
 
           {/* 숙박 관리 탭 */}
           <TabsContent value="accommodation" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>숙박 관리</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-500">숙박 파트너별 객실 관리 기능이 곧 추가됩니다.</p>
-              </CardContent>
-            </Card>
+            <AccommodationManagement />
           </TabsContent>
 
           {/* 렌트카 관리 탭 */}
