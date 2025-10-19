@@ -73,10 +73,10 @@ async function startServer() {
     createBookingModule,
     returnInspectModule,
     paymentConfirmModule,
-    lodgingModule,
+    // lodgingModule, // 파일 없음 - 주석 처리
     bannerModule,
     activityModule,
-    newsletterModule,
+    // newsletterModule, // 파일 없음 - 주석 처리
     databaseModule,
     pmsSchedulerModule,
     lodgingExpiryWorkerModule,
@@ -90,10 +90,10 @@ async function startServer() {
     import('./api/bookings/create-with-lock.js'),
     import('./api/bookings/return-inspect.js'),
     import('./api/payments/confirm'),
-    import('./api/lodging'),
+    // import('./api/lodging'), // 파일 없음 - 주석 처리
     import('./api/banners'),
     import('./api/activities'),
-    import('./api/newsletter'),
+    // import('./api/newsletter'), // 파일 없음 - 주석 처리
     import('./utils/database.js'),
     import('./services/pms-scheduler'),
     import('./services/jobs/lodgingExpiry.worker'),
@@ -111,10 +111,10 @@ async function startServer() {
   createBookingAPI = createBookingModule.default;
   returnInspectAPI = returnInspectModule.default;
   paymentConfirmAPI = paymentConfirmModule;
-  lodgingAPI = lodgingModule;
+  // lodgingAPI = lodgingModule; // 파일 없음 - 주석 처리
   bannerAPI = bannerModule;
   activityAPI = activityModule;
-  newsletterAPI = newsletterModule;
+  // newsletterAPI = newsletterModule; // 파일 없음 - 주석 처리
   startPMSScheduler = pmsSchedulerModule.startPMSScheduler;
   startLodgingExpiryWorker = lodgingExpiryWorkerModule.startLodgingExpiryWorker;
   getLodgingExpiryMetrics = lodgingExpiryWorkerModule.getLodgingExpiryMetrics;

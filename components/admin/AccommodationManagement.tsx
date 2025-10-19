@@ -93,6 +93,31 @@ export const AccommodationManagement: React.FC = () => {
     }
   };
 
+  const deleteRoom = async (roomId: number, roomName: string) => {
+    if (!confirm(`정말로 "${roomName}" 객실을 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/rooms/${roomId}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('객실이 삭제되었습니다.');
+        if (selectedPartnerId) {
+          loadRooms(selectedPartnerId); // 객실 목록 새로고침
+        }
+      } else {
+        toast.error(result.error || '객실 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete room:', error);
+      toast.error('객실 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
   useEffect(() => {
     if (selectedPartnerId) {
       loadRooms(selectedPartnerId);
@@ -290,10 +315,20 @@ export const AccommodationManagement: React.FC = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-2">
-                                <Button variant="outline" size="sm">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  title="객실 수정"
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
-                                <Button variant="outline" size="sm">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => deleteRoom(room.id, room.name)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  title="객실 삭제"
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
