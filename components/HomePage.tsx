@@ -79,7 +79,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       const [categoriesResult, featuredResult, hotelsResult, reviewsResult, homepageSettings, activitiesResult] = await Promise.all([
         api.getCategories().catch(() => []),
         api.getListings({ limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
-        api.getListingsByCategory('stay', 100).catch(() => []),
+        api.getListings({ category: 'stay', limit: 100, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
         api.getRecentReviews(4).catch(() => []),
         api.getHomepageSettings().catch(() => ({
           background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
