@@ -1,9 +1,3 @@
-/**
- * 렌트카 벤더 API
- * GET /api/rentcar/vendors - 벤더 목록 조회
- * POST /api/rentcar/vendors - 벤더 생성
- */
-
 const { connect } = require('@planetscale/database');
 
 module.exports = async function handler(req, res) {
@@ -18,7 +12,6 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // GET - 벤더 목록 조회
     if (req.method === 'GET') {
       const vendors = await connection.execute(`
         SELECT
@@ -26,9 +19,7 @@ module.exports = async function handler(req, res) {
           COALESCE(vehicle_counts.total, 0) as total_vehicles,
           COALESCE(vehicle_counts.active, 0) as active_vehicles,
           COALESCE(booking_counts.total, 0) as total_bookings,
-          COALESCE(booking_counts.confirmed, 0) as confirmed_bookings,
-          COALESCE(review_stats.avg_rating, 0) as average_rating,
-          COALESCE(review_stats.review_count, 0) as review_count
+          COALESCE(booking_counts.confirmed, 0) as confirmed_bookings
         FROM rentcar_vendors v
         LEFT JOIN (
           SELECT vendor_id,
@@ -44,14 +35,6 @@ module.exports = async function handler(req, res) {
           FROM rentcar_bookings
           GROUP BY vendor_id
         ) booking_counts ON v.id = booking_counts.vendor_id
-        LEFT JOIN (
-          SELECT rentcar_vendor_id,
-            AVG(rating) as avg_rating,
-            COUNT(*) as review_count
-          FROM reviews
-          WHERE review_type = 'rentcar' AND rentcar_vendor_id IS NOT NULL
-          GROUP BY rentcar_vendor_id
-        ) review_stats ON v.id = review_stats.rentcar_vendor_id
         ORDER BY v.created_at DESC
       `);
 
@@ -61,7 +44,6 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // POST - 벤더 생성
     if (req.method === 'POST') {
       const {
         vendor_code,
@@ -72,16 +54,15 @@ module.exports = async function handler(req, res) {
         contact_email,
         contact_phone,
         description,
-        logo_url,
-        commission_rate
+        logo_url
       } = req.body;
 
       const result = await connection.execute(`
         INSERT INTO rentcar_vendors (
           vendor_code, business_name, brand_name, business_number,
           contact_name, contact_email, contact_phone, description, logo_url,
-          commission_rate, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+          status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
       `, [
         vendor_code,
         business_name,
@@ -91,8 +72,7 @@ module.exports = async function handler(req, res) {
         contact_email,
         contact_phone,
         description || null,
-        logo_url || null,
-        commission_rate || 10.00
+        logo_url || null
       ]);
 
       return res.status(200).json({
