@@ -103,38 +103,47 @@ module.exports = async function handler(req, res) {
     if (req.method === 'PUT') {
       const {
         business_name,
+        brand_name,
+        business_number,
         contact_name,
         contact_email,
         contact_phone,
-        address,
         description,
         logo_url,
-        cancellation_policy,
+        pms_provider,
+        pms_api_key,
+        pms_property_id,
         status
       } = req.body;
 
       const result = await connection.execute(
         `UPDATE rentcar_vendors SET
           business_name = COALESCE(?, business_name),
+          brand_name = COALESCE(?, brand_name),
+          business_number = COALESCE(?, business_number),
           contact_name = COALESCE(?, contact_name),
           contact_email = COALESCE(?, contact_email),
           contact_phone = COALESCE(?, contact_phone),
-          address = COALESCE(?, address),
           description = COALESCE(?, description),
           logo_url = COALESCE(?, logo_url),
-          cancellation_policy = COALESCE(?, cancellation_policy),
+          pms_provider = COALESCE(?, pms_provider),
+          pms_api_key = COALESCE(?, pms_api_key),
+          pms_property_id = COALESCE(?, pms_property_id),
           status = COALESCE(?, status),
           updated_at = NOW()
         WHERE id = ?`,
         [
           business_name,
+          brand_name,
+          business_number,
           contact_name,
           contact_email,
           contact_phone,
-          address,
           description,
           logo_url,
-          cancellation_policy,
+          pms_provider,
+          pms_api_key,
+          pms_property_id,
           status,
           id
         ]
