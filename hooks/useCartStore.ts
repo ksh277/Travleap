@@ -36,7 +36,8 @@ export function useCartStore() {
       try {
         console.log('🛒 [장바구니] API에서 로드 시작, user_id:', user.id);
 
-        const response = await fetch(`http://localhost:3004/api/cart?userId=${user.id}`);
+        const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
+        const response = await fetch(`${apiUrl}/api/cart?userId=${user.id}`);
         const result = await response.json();
 
         if (result.success) {
@@ -79,7 +80,8 @@ export function useCartStore() {
       try {
         console.log('💾 [장바구니 추가] API 호출 시작');
 
-        const response = await fetch('http://localhost:3004/api/cart/add', {
+        const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
+        const response = await fetch(`${apiUrl}/api/cart/add`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -175,7 +177,8 @@ export function useCartStore() {
     // 로그인한 사용자는 API를 통해 삭제
     if (isLoggedIn && user?.id) {
       try {
-        const response = await fetch(`http://localhost:3004/api/cart/remove/${itemId}?userId=${user.id}`, {
+        const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
+        const response = await fetch(`${apiUrl}/api/cart/remove/${itemId}?userId=${user.id}`, {
           method: 'DELETE'
         });
 
@@ -204,7 +207,8 @@ export function useCartStore() {
     // 로그인한 사용자는 API를 통해 업데이트
     if (isLoggedIn && user?.id) {
       try {
-        const response = await fetch('http://localhost:3004/api/cart/update', {
+        const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
+        const response = await fetch(`${apiUrl}/api/cart/update`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -248,7 +252,8 @@ export function useCartStore() {
     // 로그인한 사용자는 API를 통해 삭제
     if (isLoggedIn && user?.id) {
       try {
-        const response = await fetch(`http://localhost:3004/api/cart/clear?userId=${user.id}`, {
+        const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
+        const response = await fetch(`${apiUrl}/api/cart/clear?userId=${user.id}`, {
           method: 'DELETE'
         });
 
