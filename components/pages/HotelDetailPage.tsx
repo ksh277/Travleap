@@ -47,6 +47,8 @@ export function HotelDetailPage() {
   const [hotelData, setHotelData] = useState<HotelData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   useEffect(() => {
     const fetchHotelData = async () => {
@@ -132,8 +134,11 @@ export function HotelDetailPage() {
           {hotelData.rooms.map((room) => (
             <Card
               key={room.id}
-              className="hover:shadow-lg transition-shadow cursor-pointer overflow-hidden"
-              onClick={() => navigate(`/detail/${room.id}`)}
+              className={`hover:shadow-lg transition-shadow cursor-pointer overflow-hidden ${selectedRoom?.id === room.id ? 'ring-2 ring-[#ff6a3d]' : ''}`}
+              onClick={() => {
+                setSelectedRoom(room);
+                setShowBookingModal(true);
+              }}
             >
               <div className="flex gap-4">
                 {/* 객실 이미지 - 왼쪽 */}
@@ -199,11 +204,82 @@ export function HotelDetailPage() {
             <Heart className="mr-2 h-4 w-4" />
             찜하기
           </Button>
-          <Button className="flex-1 bg-[#ff6a3d] hover:bg-[#e5612f]">
-            예약하기
+          <Button
+            className="flex-1 bg-[#ff6a3d] hover:bg-[#e5612f]"
+            disabled={!selectedRoom}
+            onClick={() => setShowBookingModal(true)}
+          >
+            {selectedRoom ? `${selectedRoom.title} 예약하기` : '객실을 선택해주세요'}
           </Button>
         </div>
       </div>
+
+      {/* 예약 모달 */}
+      {showBookingModal && selectedRoom && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">예약하기</h2>
+
+            <div className="mb-4 p-4 bg-gray-50 rounded">
+              <h3 className="font-semibold mb-2">{selectedRoom.title}</h3>
+              <p className="text-sm text-gray-600">{selectedRoom.short_description}</p>
+              <p className="text-lg font-bold text-[#ff6a3d] mt-2">
+                ₩{Number(selectedRoom.price_from || 0).toLocaleString()}/박
+              </p>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">체크인</label>
+                <input
+                  type="date"
+                  className="w-full border rounded px-3 py-2"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">체크아웃</label>
+                <input
+                  type="date"
+                  className="w-full border rounded px-3 py-2"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">투숙 인원</label>
+                <select className="w-full border rounded px-3 py-2">
+                  <option value="1">1명</option>
+                  <option value="2">2명</option>
+                  <option value="3">3명</option>
+                  <option value="4">4명</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowBookingModal(false);
+                  setSelectedRoom(null);
+                }}
+              >
+                취소
+              </Button>
+              <Button
+                className="flex-1 bg-[#ff6a3d] hover:bg-[#e5612f]"
+                onClick={() => {
+                  alert('예약 기능은 준비 중입니다. 곧 서비스 예정입니다!');
+                  setShowBookingModal(false);
+                }}
+              >
+                결제하기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {hotelData.rooms.length === 0 && (
         <div className="text-center py-12">

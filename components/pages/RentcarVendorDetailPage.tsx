@@ -52,6 +52,8 @@ export function RentcarVendorDetailPage() {
   const [vendorData, setVendorData] = useState<VendorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   useEffect(() => {
     const fetchVendorData = async () => {
@@ -127,59 +129,77 @@ export function RentcarVendorDetailPage() {
         </div>
       </div>
 
-      {/* 차량 목록 - 가로 스크롤 (야놀자 스타일) */}
+      {/* 차량 목록 - 세로 나열 (야놀자 스타일) */}
       <div className="mb-8">
         <h2 className="text-xl font-bold mb-4">차량 선택 ({vendorData.total_vehicles}대)</h2>
-        <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+        <div className="space-y-4">
           {vendorData.vehicles.map((vehicle) => (
             <Card
               key={vehicle.id}
-              className="flex-shrink-0 w-72 hover:shadow-lg transition-shadow"
+              className={`hover:shadow-lg transition-shadow cursor-pointer overflow-hidden ${selectedVehicle?.id === vehicle.id ? 'ring-2 ring-[#ff6a3d]' : ''}`}
+              onClick={() => {
+                setSelectedVehicle(vehicle);
+                setShowBookingModal(true);
+              }}
             >
-              {/* 차량 이미지 */}
-              <div className="relative w-full h-48 overflow-hidden rounded-t-lg">
-                <ImageWithFallback
-                  src={vehicle.images?.[0] || 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d'}
-                  alt={vehicle.display_name || `${vehicle.brand} ${vehicle.model}`}
-                  className="w-full h-full object-cover"
-                />
-                <Badge className="absolute top-2 right-2 bg-gray-700 text-white">
-                  {vehicle.vehicle_class}
-                </Badge>
+              <div className="flex gap-4">
+                {/* 차량 이미지 - 왼쪽 */}
+                <div className="relative w-32 h-32 md:w-40 md:h-40 flex-shrink-0">
+                  <ImageWithFallback
+                    src={vehicle.images?.[0] || 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d'}
+                    alt={vehicle.display_name || `${vehicle.brand} ${vehicle.model}`}
+                    className="w-full h-full object-cover"
+                  />
+                  {vehicle.is_featured && (
+                    <Badge className="absolute top-2 left-2 bg-green-500 text-white text-xs">인기</Badge>
+                  )}
+                  <Badge className="absolute bottom-2 left-2 bg-gray-700 text-white text-xs">
+                    {vehicle.vehicle_class}
+                  </Badge>
+                </div>
+
+                {/* 차량 정보 - 오른쪽 */}
+                <div className="flex-1 p-4 flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-base mb-1 line-clamp-1">
+                      {vehicle.display_name || `${vehicle.year} ${vehicle.brand} ${vehicle.model}`}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-1 text-xs text-gray-600 mb-2">
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        <span>{vehicle.seating_capacity}인승</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Settings className="h-3 w-3" />
+                        <span>{vehicle.transmission}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Fuel className="h-3 w-3" />
+                        <span>{vehicle.fuel_type}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Car className="h-3 w-3" />
+                        <span>짐 {vehicle.large_bags}개</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-end justify-between">
+                    {Number(vehicle.average_rating || 0) > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-semibold">{Number(vehicle.average_rating || 0).toFixed(1)}</span>
+                        <span className="text-xs text-gray-500">({vehicle.total_bookings || 0})</span>
+                      </div>
+                    )}
+                    <div className="text-right">
+                      <div className="text-xl font-bold text-[#ff6a3d]">
+                        ₩{vehicle.daily_rate_krw.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-gray-500">/일</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              {/* 차량 정보 */}
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-base mb-2 line-clamp-1">
-                  {vehicle.display_name || `${vehicle.year} ${vehicle.brand} ${vehicle.model}`}
-                </h3>
-
-                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-3">
-                  <div className="flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    <span>{vehicle.seating_capacity}인승</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Settings className="h-3 w-3" />
-                    <span>{vehicle.transmission}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Fuel className="h-3 w-3" />
-                    <span>{vehicle.fuel_type}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Car className="h-3 w-3" />
-                    <span>짐: {vehicle.large_bags}개</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">일일</span>
-                  <span className="text-lg font-bold text-[#ff6a3d]">
-                    ₩{vehicle.daily_rate_krw.toLocaleString()}
-                  </span>
-                </div>
-              </CardContent>
             </Card>
           ))}
         </div>
@@ -209,11 +229,92 @@ export function RentcarVendorDetailPage() {
             <Heart className="mr-2 h-4 w-4" />
             찜하기
           </Button>
-          <Button className="flex-1 bg-[#ff6a3d] hover:bg-[#e5612f]">
-            예약하기
+          <Button
+            className="flex-1 bg-[#ff6a3d] hover:bg-[#e5612f]"
+            disabled={!selectedVehicle}
+            onClick={() => setShowBookingModal(true)}
+          >
+            {selectedVehicle ? `${selectedVehicle.display_name || selectedVehicle.model} 예약하기` : '차량을 선택해주세요'}
           </Button>
         </div>
       </div>
+
+      {/* 예약 모달 */}
+      {showBookingModal && selectedVehicle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h2 className="text-xl font-bold mb-4">예약하기</h2>
+
+            <div className="mb-4 p-4 bg-gray-50 rounded">
+              <h3 className="font-semibold mb-2">
+                {selectedVehicle.display_name || `${selectedVehicle.year} ${selectedVehicle.brand} ${selectedVehicle.model}`}
+              </h3>
+              <div className="grid grid-cols-2 gap-1 text-xs text-gray-600 mb-2">
+                <div className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  <span>{selectedVehicle.seating_capacity}인승</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Settings className="h-3 w-3" />
+                  <span>{selectedVehicle.transmission}</span>
+                </div>
+              </div>
+              <p className="text-lg font-bold text-[#ff6a3d]">
+                ₩{selectedVehicle.daily_rate_krw.toLocaleString()}/일
+              </p>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">대여 시작일</label>
+                <input
+                  type="date"
+                  className="w-full border rounded px-3 py-2"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">반납일</label>
+                <input
+                  type="date"
+                  className="w-full border rounded px-3 py-2"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">보험 옵션</label>
+                <select className="w-full border rounded px-3 py-2">
+                  <option value="basic">기본 보험</option>
+                  <option value="full">완전 자차</option>
+                  <option value="premium">프리미엄 보험</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowBookingModal(false);
+                  setSelectedVehicle(null);
+                }}
+              >
+                취소
+              </Button>
+              <Button
+                className="flex-1 bg-[#ff6a3d] hover:bg-[#e5612f]"
+                onClick={() => {
+                  alert('예약 기능은 준비 중입니다. 곧 서비스 예정입니다!');
+                  setShowBookingModal(false);
+                }}
+              >
+                결제하기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {vendorData.vehicles.length === 0 && (
         <div className="text-center py-12">
