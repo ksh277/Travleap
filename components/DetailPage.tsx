@@ -1054,8 +1054,76 @@ export function DetailPage() {
               </div>
             </div>
 
+            {/* 예약 옵션 선택 */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>예약 옵션 선택</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* 성인 옵션 */}
+                <div className="p-4 border rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">성인</h3>
+                      <p className="text-sm text-gray-600">만 13세 이상</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {(item.price || 0).toLocaleString()}원
+                      </div>
+                      <div className="text-xs text-gray-500">1인 기준</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 아동 옵션 */}
+                {item.childPrice && item.childPrice > 0 && (
+                  <div className="p-4 border rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-white">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold mb-1">아동</h3>
+                        <p className="text-sm text-gray-600">만 6세 ~ 12세</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {item.childPrice.toLocaleString()}원
+                        </div>
+                        <div className="text-xs text-gray-500">1인 기준</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 유아 옵션 */}
+                {item.infantPrice && item.infantPrice > 0 && (
+                  <div className="p-4 border rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-white">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold mb-1">유아</h3>
+                        <p className="text-sm text-gray-600">만 0세 ~ 5세</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {item.infantPrice.toLocaleString()}원
+                        </div>
+                        <div className="text-xs text-gray-500">1인 기준</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 선택 안내 */}
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <CheckCircle className="inline h-4 w-4 mr-1" />
+                    우측 예약하기에서 날짜와 인원을 선택하세요
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Tabs */}
-            <Tabs defaultValue="description" className="w-full">
+            <Tabs defaultValue="description" className="w-full mt-6">
               <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1">
                 <TabsTrigger value="description" className="text-xs sm:text-sm">소개</TabsTrigger>
                 <TabsTrigger value="details" className="text-xs sm:text-sm">포함/불포함</TabsTrigger>
