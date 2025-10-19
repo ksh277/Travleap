@@ -770,6 +770,22 @@ class Database {
       )
     `);
 
+    // 배너 관리 테이블 (관리자 페이지용)
+    await this.execute(`
+      CREATE TABLE IF NOT EXISTS banners (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        image_url LONGTEXT NOT NULL,
+        title VARCHAR(200),
+        link_url VARCHAR(500),
+        display_order INT DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_active (is_active),
+        INDEX idx_order (display_order)
+      )
+    `);
+
     // 액티비티 이미지 테이블
     await this.execute(`
       CREATE TABLE IF NOT EXISTS activity_images (
