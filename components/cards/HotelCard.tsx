@@ -91,13 +91,19 @@ export function HotelCard({ hotel }: HotelCardProps) {
               </div>
             )}
             <div className="text-sm font-bold text-[#ff6a3d]">
-              ₩{hotel.min_price?.toLocaleString()}
-              {hotel.max_price > hotel.min_price && (
-                <span className="text-xs font-normal text-gray-500">
-                  ~ ₩{hotel.max_price?.toLocaleString()}
-                </span>
+              {hotel.min_price != null ? (
+                <>
+                  ₩{Number(hotel.min_price).toLocaleString()}
+                  {hotel.max_price != null && Number(hotel.max_price) > Number(hotel.min_price) && (
+                    <span className="text-xs font-normal text-gray-500">
+                      ~ ₩{Number(hotel.max_price).toLocaleString()}
+                    </span>
+                  )}
+                  <div className="text-xs font-normal text-gray-500">/박</div>
+                </>
+              ) : (
+                <span className="text-xs text-gray-500">가격 문의</span>
               )}
-              <div className="text-xs font-normal text-gray-500">/박</div>
             </div>
           </div>
         </CardContent>

@@ -92,9 +92,9 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       setCategories(categoriesResult.length > 0 ? categoriesResult : sampleCategories);
       setFeaturedListings(featuredResult);
 
-      // 숙박 데이터 설정 (DB에서 온 순서대로 표시)
+      // 숙박 데이터 설정 (카테고리 페이지와 동일하게 DB 데이터 그대로 표시)
       const hotels = Array.isArray(hotelsResult) ? hotelsResult : [];
-      setNearbyHotels(hotels.slice(0, 4)); // 최대 4개만 표시
+      setNearbyHotels(hotels); // DB 데이터 개수대로 표시 (slice 제거)
       setAccommodationListings(hotels);
       setRecentReviews(reviewsResult);
       setActivityImages(activitiesResult);
