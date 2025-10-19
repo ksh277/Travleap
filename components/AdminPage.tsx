@@ -2127,8 +2127,8 @@ export function AdminPage({}: AdminPageProps) {
 
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
-          <div className="overflow-x-auto">
-            <TabsList className="grid grid-cols-4 md:grid-cols-13 w-full min-w-[1300px] md:min-w-0 md:max-w-6xl">
+          <div className="space-y-2">
+            <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
               <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
               <TabsTrigger value="accommodation" className="text-xs md:text-sm">숙박 관리</TabsTrigger>
@@ -2136,6 +2136,8 @@ export function AdminPage({}: AdminPageProps) {
               <TabsTrigger value="banners" className="text-xs md:text-sm">배너 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
+            </TabsList>
+            <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full">
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
               <TabsTrigger value="blog-comments" className="text-xs md:text-sm">댓글 관리</TabsTrigger>
               <TabsTrigger value="media" className="text-xs md:text-sm">미디어 라이브러리</TabsTrigger>

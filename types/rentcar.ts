@@ -37,6 +37,9 @@ export interface RentcarVendorFormData {
   description?: string;
   logo_url?: string;
   commission_rate?: number;
+  pms_provider?: string;
+  pms_api_key?: string;
+  pms_property_id?: string;
 }
 
 // ============================================

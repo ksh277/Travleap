@@ -55,9 +55,11 @@ module.exports = async function handler(req, res) {
           [id]
         );
 
-        // 2-2. 리뷰 삭제
+        // 2-2. 리뷰 삭제 (listings를 통해서)
         await connection.execute(
-          'DELETE FROM reviews WHERE partner_id = ?',
+          `DELETE r FROM reviews r
+           JOIN listings l ON r.listing_id = l.id
+           WHERE l.partner_id = ?`,
           [id]
         );
 

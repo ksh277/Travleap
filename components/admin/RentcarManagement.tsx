@@ -61,8 +61,13 @@ export const RentcarManagement: React.FC = () => {
     contact_email: '',
     contact_phone: '',
     description: '',
-    logo_url: ''
+    logo_url: '',
+    pms_provider: '',
+    pms_api_key: '',
+    pms_property_id: ''
   });
+  const [logoImageFile, setLogoImageFile] = useState<File | null>(null);
+  const [logoImagePreview, setLogoImagePreview] = useState<string>('');
 
   // State for vehicles
   const [vehicles, setVehicles] = useState<RentcarVehicle[]>([]);
@@ -188,8 +193,12 @@ export const RentcarManagement: React.FC = () => {
         contact_email: vendor.contact_email,
         contact_phone: vendor.contact_phone,
         description: vendor.description,
-        logo_url: vendor.logo_url
+        logo_url: vendor.logo_url,
+        pms_provider: (vendor as any).pms_provider || '',
+        pms_api_key: (vendor as any).pms_api_key || '',
+        pms_property_id: (vendor as any).pms_property_id || ''
       });
+      setLogoImagePreview(vendor.logo_url || '');
     } else {
       setSelectedVendor(null);
       setVendorFormData({
@@ -201,17 +210,53 @@ export const RentcarManagement: React.FC = () => {
         contact_email: '',
         contact_phone: '',
         description: '',
-        logo_url: ''
+        logo_url: '',
+        pms_provider: '',
+        pms_api_key: '',
+        pms_property_id: ''
       });
+      setLogoImagePreview('');
     }
+    setLogoImageFile(null);
     setIsVendorDialogOpen(true);
+  };
+
+  // Handle logo image upload
+  const handleLogoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('이미지 파일만 업로드 가능합니다.');
+        return;
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('이미지 크기는 5MB 이하여야 합니다.');
+        return;
+      }
+
+      setLogoImageFile(file);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setLogoImagePreview(base64);
+        setVendorFormData({ ...vendorFormData, logo_url: base64 });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveVendor = async () => {
     try {
+      // Use the form data with the base64 image already set
+      const dataToSave = { ...vendorFormData };
+
       if (selectedVendor) {
         // Update
-        const response = await rentcarApi.vendors.update(selectedVendor.id, vendorFormData);
+        const response = await rentcarApi.vendors.update(selectedVendor.id, dataToSave);
         if (response.success) {
           toast.success('벤더 정보가 수정되었습니다.');
           loadVendors();
@@ -221,7 +266,7 @@ export const RentcarManagement: React.FC = () => {
         }
       } else {
         // Create
-        const response = await rentcarApi.vendors.create(vendorFormData);
+        const response = await rentcarApi.vendors.create(dataToSave);
         if (response.success) {
           toast.success('벤더가 등록되었습니다.');
           loadVendors();
@@ -1458,16 +1503,83 @@ export const RentcarManagement: React.FC = () => {
               />
             </div>
             <div>
-              <Label>로고 URL</Label>
-              <Input
-                value={vendorFormData.logo_url || ''}
-                onChange={(e) => setVendorFormData({ ...vendorFormData, logo_url: e.target.value })}
-                placeholder="https://... 또는 이미지 URL 입력"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                💡 이미지 호스팅 서비스(Imgur, Cloudinary 등)를 사용하여 이미지를 업로드하고 URL을 붙여넣으세요
+              <Label>로고 이미지</Label>
+              <div className="space-y-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoImageChange}
+                  className="cursor-pointer"
+                />
+                {logoImagePreview && (
+                  <div className="mt-2 border rounded-lg p-2 bg-gray-50">
+                    <img
+                      src={logoImagePreview}
+                      alt="로고 미리보기"
+                      className="h-20 w-auto object-contain mx-auto"
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-gray-500">
+                  또는 URL 직접 입력:
+                </p>
+                <Input
+                  value={vendorFormData.logo_url || ''}
+                  onChange={(e) => {
+                    setVendorFormData({ ...vendorFormData, logo_url: e.target.value });
+                    setLogoImagePreview(e.target.value);
+                  }}
+                  placeholder="https://... (이미지 URL)"
+                />
+              </div>
+            </div>
+
+            {/* PMS 연동 설정 */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="font-semibold mb-3">PMS 연동 설정 (선택)</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>PMS 제공업체</Label>
+                  <Select
+                    value={vendorFormData.pms_provider || 'none'}
+                    onValueChange={(value) => setVendorFormData({ ...vendorFormData, pms_provider: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="선택 안 함" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">선택 안 함</SelectItem>
+                      <SelectItem value="stayntouch">StayNTouch</SelectItem>
+                      <SelectItem value="opera">Opera PMS</SelectItem>
+                      <SelectItem value="cloudbeds">Cloudbeds</SelectItem>
+                      <SelectItem value="mews">Mews</SelectItem>
+                      <SelectItem value="custom">커스텀</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>API Key</Label>
+                  <Input
+                    type="password"
+                    value={vendorFormData.pms_api_key || ''}
+                    onChange={(e) => setVendorFormData({ ...vendorFormData, pms_api_key: e.target.value })}
+                    placeholder="PMS API 키 입력"
+                  />
+                </div>
+                <div>
+                  <Label>Property ID</Label>
+                  <Input
+                    value={vendorFormData.pms_property_id || ''}
+                    onChange={(e) => setVendorFormData({ ...vendorFormData, pms_property_id: e.target.value })}
+                    placeholder="호텔/업체 ID"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                PMS(Property Management System) 연동 시 자동으로 차량 재고 및 요금 정보가 동기화됩니다.
               </p>
             </div>
+
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setIsVendorDialogOpen(false)}>
                 취소

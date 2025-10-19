@@ -54,15 +54,19 @@ module.exports = async function handler(req, res) {
         contact_email,
         contact_phone,
         description,
-        logo_url
+        logo_url,
+        pms_provider,
+        pms_api_key,
+        pms_property_id
       } = req.body;
 
       const result = await connection.execute(`
         INSERT INTO rentcar_vendors (
           vendor_code, business_name, brand_name, business_number,
           contact_name, contact_email, contact_phone, description, logo_url,
+          pms_provider, pms_api_key, pms_property_id,
           status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
       `, [
         vendor_code,
         business_name,
@@ -72,7 +76,10 @@ module.exports = async function handler(req, res) {
         contact_email,
         contact_phone,
         description || null,
-        logo_url || null
+        logo_url || null,
+        pms_provider || null,
+        pms_api_key || null,
+        pms_property_id || null
       ]);
 
       return res.status(200).json({
