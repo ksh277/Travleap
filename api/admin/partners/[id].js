@@ -26,11 +26,12 @@ module.exports = async function handler(req, res) {
   try {
     // DELETE - 파트너 삭제 (트랜잭션 처리)
     if (req.method === 'DELETE') {
-      // 1. 진행 중인 예약 확인
+      // 1. 진행 중인 예약 확인 (listings를 통해서)
       const activeBookings = await connection.execute(
         `SELECT COUNT(*) as count
-         FROM bookings
-         WHERE partner_id = ? AND status IN ('pending', 'confirmed')`,
+         FROM bookings b
+         JOIN listings l ON b.listing_id = l.id
+         WHERE l.partner_id = ? AND b.status IN ('pending', 'confirmed')`,
         [id]
       );
 
@@ -46,21 +47,23 @@ module.exports = async function handler(req, res) {
       // PlanetScale은 autocommit이므로 순차적 삭제로 처리
 
       try {
-        // 2-1. 객실 삭제 (listings 테이블)
+        // 2-1. 과거 예약 삭제 (listings를 통해서)
         await connection.execute(
-          'DELETE FROM listings WHERE partner_id = ?',
+          `DELETE b FROM bookings b
+           JOIN listings l ON b.listing_id = l.id
+           WHERE l.partner_id = ?`,
           [id]
         );
 
-        // 2-2. 과거 예약 삭제 (완료/취소된 것)
-        await connection.execute(
-          'DELETE FROM bookings WHERE partner_id = ?',
-          [id]
-        );
-
-        // 2-3. 리뷰 삭제
+        // 2-2. 리뷰 삭제
         await connection.execute(
           'DELETE FROM reviews WHERE partner_id = ?',
+          [id]
+        );
+
+        // 2-3. 객실 삭제 (listings 테이블)
+        await connection.execute(
+          'DELETE FROM listings WHERE partner_id = ?',
           [id]
         );
 

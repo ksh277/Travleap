@@ -448,18 +448,45 @@ export function PaymentPage() {
 
                 {booking && (
                   <div className="space-y-2 text-sm text-gray-600">
+                    {/* 날짜 정보 - 여러 형식 지원 */}
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      <span>{booking.start_date}</span>
+                      <span>
+                        {booking.checkIn && booking.checkOut
+                          ? `${booking.checkIn} ~ ${booking.checkOut}${booking.nights ? ` (${booking.nights}박)` : ''}`
+                          : booking.pickupDate && booking.returnDate
+                          ? `${booking.pickupDate} ~ ${booking.returnDate}`
+                          : booking.start_date || '날짜 정보 없음'}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span>{booking.num_adults}명</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      <span>예약번호: {bookingNumber || bookingId?.slice(-8)}</span>
-                    </div>
+                    {/* 객실 타입 (숙박) */}
+                    {booking.roomType && (
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>{booking.roomType}</span>
+                      </div>
+                    )}
+                    {/* 차량 정보 (렌트카) */}
+                    {booking.vehicleName && (
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>{booking.vehicleName}</span>
+                      </div>
+                    )}
+                    {/* 인원 (투어/체험) */}
+                    {booking.num_adults && (
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>{booking.num_adults}명</span>
+                      </div>
+                    )}
+                    {/* 예약번호 */}
+                    {(bookingNumber || bookingId) && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        <span>예약번호: {bookingNumber || (typeof bookingId === 'string' ? bookingId.slice(-8) : bookingId)}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -507,7 +534,7 @@ export function PaymentPage() {
                     <>
                       <div className="flex justify-between">
                         <span>상품 금액</span>
-                        <span>{parseInt(amount || totalAmount || '0').toLocaleString()}원</span>
+                        <span>{parseInt(booking?.totalPrice || amount || totalAmount || '0').toLocaleString()}원</span>
                       </div>
                       <div className="flex justify-between">
                         <span>수수료</span>
@@ -516,7 +543,7 @@ export function PaymentPage() {
                       <Separator />
                       <div className="flex justify-between font-medium text-lg">
                         <span>총 결제 금액</span>
-                        <span className="text-[#8B5FBF]">{parseInt(amount || totalAmount || '0').toLocaleString()}원</span>
+                        <span className="text-[#8B5FBF]">{parseInt(booking?.totalPrice || amount || totalAmount || '0').toLocaleString()}원</span>
                       </div>
                     </>
                   )}
@@ -562,7 +589,7 @@ export function PaymentPage() {
                           <CreditCard className="h-4 w-4" />
                           {orderData
                             ? `${orderData.total.toLocaleString()}원 결제하기`
-                            : `${parseInt(amount || totalAmount || '0').toLocaleString()}원 결제하기`
+                            : `${parseInt(booking?.totalPrice || amount || totalAmount || '0').toLocaleString()}원 결제하기`
                           }
                         </div>
                       )}

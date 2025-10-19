@@ -61,8 +61,7 @@ export const RentcarManagement: React.FC = () => {
     contact_email: '',
     contact_phone: '',
     description: '',
-    logo_url: '',
-    commission_rate: 10
+    logo_url: ''
   });
 
   // State for vehicles
@@ -189,8 +188,7 @@ export const RentcarManagement: React.FC = () => {
         contact_email: vendor.contact_email,
         contact_phone: vendor.contact_phone,
         description: vendor.description,
-        logo_url: vendor.logo_url,
-        commission_rate: vendor.commission_rate
+        logo_url: vendor.logo_url
       });
     } else {
       setSelectedVendor(null);
@@ -203,8 +201,7 @@ export const RentcarManagement: React.FC = () => {
         contact_email: '',
         contact_phone: '',
         description: '',
-        logo_url: '',
-        commission_rate: 10
+        logo_url: ''
       });
     }
     setIsVendorDialogOpen(true);
@@ -1460,24 +1457,16 @@ export const RentcarManagement: React.FC = () => {
                 rows={3}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>로고 URL</Label>
-                <Input
-                  value={vendorFormData.logo_url || ''}
-                  onChange={(e) => setVendorFormData({ ...vendorFormData, logo_url: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
-              <div>
-                <Label>수수료율 (%)</Label>
-                <Input
-                  type="number"
-                  value={vendorFormData.commission_rate || 10}
-                  onChange={(e) => setVendorFormData({ ...vendorFormData, commission_rate: parseFloat(e.target.value) })}
-                  placeholder="10"
-                />
-              </div>
+            <div>
+              <Label>로고 URL</Label>
+              <Input
+                value={vendorFormData.logo_url || ''}
+                onChange={(e) => setVendorFormData({ ...vendorFormData, logo_url: e.target.value })}
+                placeholder="https://... 또는 이미지 URL 입력"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                💡 이미지 호스팅 서비스(Imgur, Cloudinary 등)를 사용하여 이미지를 업로드하고 URL을 붙여넣으세요
+              </p>
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setIsVendorDialogOpen(false)}>
