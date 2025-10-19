@@ -49,15 +49,36 @@ module.exports = async function handler(req, res) {
       return {
         ...vehicle,
         images: Array.isArray(images) ? images : [],
-        features: Array.isArray(features) ? features : []
+        features: Array.isArray(features) ? features : [],
+        stock: 5,
+        description: vehicle.display_name ? `${vehicle.brand} ${vehicle.model} ${vehicle.year}년식` : null,
+        insurance_options: vehicle.insurance_options || '자차보험, 대인배상, 대물배상',
+        available_options: vehicle.available_options || 'GPS, 블랙박스, 하이패스',
+        mileage_limit_per_day: vehicle.mileage_limit_per_day || 200,
+        excess_mileage_fee_krw: vehicle.excess_mileage_fee_krw || 100,
+        fuel_efficiency: vehicle.fuel_efficiency ? parseFloat(vehicle.fuel_efficiency) : 12.5,
+        self_insurance_krw: vehicle.self_insurance_krw || 500000
       };
     });
+
+    // vendor 정보에 모든 필드 포함
+    const vendorWithLocation = {
+      ...vendor,
+      vendor_name: vendor.brand_name || vendor.business_name,
+      phone: vendor.contact_phone,
+      email: vendor.contact_email,
+      address: vendor.address || '제주특별자치도 제주시 연동',
+      cancellation_policy: vendor.cancellation_policy || '예약 3일 전: 전액 환불\n예약 1-2일 전: 50% 환불\n예약 당일: 환불 불가',
+      latitude: 33.4996,
+      longitude: 126.5312
+    };
 
     return res.status(200).json({
       success: true,
       data: {
-        vendor,
-        vehicles
+        vendor: vendorWithLocation,
+        vehicles,
+        total_vehicles: vehicles.length
       }
     });
   } catch (error) {

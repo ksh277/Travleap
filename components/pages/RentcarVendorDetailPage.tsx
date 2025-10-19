@@ -50,6 +50,14 @@ interface Vehicle {
   is_featured: boolean;
   average_rating: number;
   total_bookings: number;
+  stock: number;
+  description?: string;
+  insurance_options?: string;
+  available_options?: string;
+  mileage_limit_per_day?: number;
+  excess_mileage_fee_krw?: number;
+  fuel_efficiency?: number;
+  self_insurance_krw?: number;
 }
 
 interface VendorData {
@@ -61,6 +69,10 @@ interface VendorData {
     contact_name?: string;
     phone?: string;
     email?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    cancellation_policy?: string;
   };
   vehicles: Vehicle[];
   total_vehicles: number;
@@ -81,6 +93,7 @@ export function RentcarVendorDetailPage() {
   const [pickupDate, setPickupDate] = useState<Date>();
   const [returnDate, setReturnDate] = useState<Date>();
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [existingBookings, setExistingBookings] = useState<any[]>([]);
 
   // 데이터 로드
   useEffect(() => {
@@ -96,6 +109,17 @@ export function RentcarVendorDetailPage() {
 
         if (result.success && result.data) {
           setVendorData(result.data);
+
+          // 예약 데이터 로드 (중복 방지용)
+          try {
+            const bookingsRes = await fetch(`/api/rentcars/${vendorId}/bookings`);
+            const bookingsData = await bookingsRes.json();
+            if (bookingsData.success) {
+              setExistingBookings(bookingsData.data || []);
+            }
+          } catch (err) {
+            console.error('예약 데이터 로드 실패:', err);
+          }
         } else {
           setError('업체 정보를 찾을 수 없습니다');
         }
@@ -126,6 +150,27 @@ export function RentcarVendorDetailPage() {
     }
   };
 
+  // 차량 재고 확인 (선택한 날짜에 사용 가능한지)
+  const checkVehicleAvailability = (vehicle: Vehicle) => {
+    if (!pickupDate || !returnDate) return vehicle.stock;
+
+    const pickupTime = pickupDate.getTime();
+    const returnTime = returnDate.getTime();
+
+    // 해당 차량의 예약 중 겹치는 것 찾기
+    const conflictingBookings = existingBookings.filter(booking => {
+      if (booking.vehicle_id !== vehicle.id) return false;
+
+      const bookingStart = new Date(booking.pickup_date).getTime();
+      const bookingEnd = new Date(booking.return_date).getTime();
+
+      // 날짜 겹침 체크
+      return !(returnTime <= bookingStart || pickupTime >= bookingEnd);
+    });
+
+    return Math.max(0, vehicle.stock - conflictingBookings.length);
+  };
+
   // 예약 처리
   const handleBooking = () => {
     if (!pickupDate || !returnDate) {
@@ -138,8 +183,21 @@ export function RentcarVendorDetailPage() {
       return;
     }
 
+    // 재고 확인
+    const availableStock = checkVehicleAvailability(selectedVehicle);
+    if (availableStock <= 0) {
+      toast.error('선택한 날짜에 해당 차량을 이용할 수 없습니다');
+      return;
+    }
+
     // 대여 일수 계산
     const days = Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (days <= 0) {
+      toast.error('반납일은 대여일 이후여야 합니다');
+      return;
+    }
+
+    // 총 가격 계산 (수수료 없이 순수 렌트 비용만)
     const totalPrice = selectedVehicle.daily_rate_krw * days;
 
     // 예약 정보를 결제 페이지로 전달
@@ -152,7 +210,10 @@ export function RentcarVendorDetailPage() {
       returnDate: format(returnDate, 'yyyy-MM-dd'),
       days: days,
       totalPrice: totalPrice,
-      image: selectedVehicle.images?.[0]
+      image: selectedVehicle.images?.[0],
+      vendorName: vendorData?.vendor.vendor_name,
+      vendorPhone: vendorData?.vendor.phone,
+      vendorAddress: vendorData?.vendor.business_name
     };
 
     localStorage.setItem('booking_data', JSON.stringify(bookingData));
@@ -208,6 +269,19 @@ export function RentcarVendorDetailPage() {
   const minPrice = vendorData.vehicles.length > 0
     ? Math.min(...vendorData.vehicles.map(v => v.daily_rate_krw))
     : 0;
+
+  // 차량 정렬: 재고 있는 것 먼저, 그 다음 가격순
+  const sortedVehicles = [...vendorData.vehicles].sort((a, b) => {
+    const stockA = checkVehicleAvailability(a);
+    const stockB = checkVehicleAvailability(b);
+
+    // 재고 없는 것은 맨 아래로
+    if (stockA === 0 && stockB > 0) return 1;
+    if (stockA > 0 && stockB === 0) return -1;
+
+    // 둘 다 재고가 있거나 없으면 가격순
+    return a.daily_rate_krw - b.daily_rate_krw;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -324,62 +398,230 @@ export function RentcarVendorDetailPage() {
               </CardContent>
             </Card>
 
+            {/* 예약 정보 */}
+            {pickupDate && returnDate && selectedVehicle && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-blue-600" />
+                    예약 정보
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Calendar className="h-5 w-5 text-gray-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">대여 기간</p>
+                      <p className="text-sm text-gray-600">
+                        {format(pickupDate, 'yyyy년 M월 d일 (E)', { locale: ko })} ~ {format(returnDate, 'M월 d일 (E)', { locale: ko })}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        총 {Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))}일
+                      </p>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="flex items-start gap-3">
+                    <Car className="h-5 w-5 text-gray-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-700">선택 차량</p>
+                      <p className="text-sm text-gray-600">
+                        {selectedVehicle.display_name || `${selectedVehicle.brand} ${selectedVehicle.model}`}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {selectedVehicle.seating_capacity}인승 · {selectedVehicle.transmission} · {selectedVehicle.fuel_type}
+                      </p>
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-5 w-5 text-gray-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">인수/반납 위치</p>
+                      <p className="text-sm text-gray-600">{vendorData.vendor.business_name || vendorData.vendor.vendor_name}</p>
+                      {vendorData.vendor.phone && (
+                        <p className="text-xs text-gray-500 mt-1">{vendorData.vendor.phone}</p>
+                      )}
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="bg-white rounded-lg p-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm text-gray-600">차량 대여료 ({Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))}일)</span>
+                      <span className="font-medium">₩{(selectedVehicle.daily_rate_krw * Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))).toLocaleString()}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">총 결제 금액</span>
+                      <span className="text-xl font-bold text-blue-600">
+                        ₩{(selectedVehicle.daily_rate_krw * Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* 차량 선택 */}
             <Card>
               <CardHeader>
                 <CardTitle>차량 선택 ({vendorData.total_vehicles}대)</CardTitle>
+                {pickupDate && returnDate && (
+                  <p className="text-sm text-gray-600">
+                    {format(pickupDate, 'M월 d일', { locale: ko })} ~ {format(returnDate, 'M월 d일', { locale: ko })} 기준 재고
+                  </p>
+                )}
               </CardHeader>
-              <CardContent className="space-y-3">
-                {vendorData.vehicles.map((vehicle) => (
-                  <div
-                    key={vehicle.id}
-                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                      selectedVehicle?.id === vehicle.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => setSelectedVehicle(vehicle)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold">
-                            {vehicle.display_name || `${vehicle.brand} ${vehicle.model}`}
-                          </h3>
-                          {vehicle.is_featured && (
-                            <Badge variant="outline" className="text-xs">인기</Badge>
+              <CardContent className="space-y-4">
+                {sortedVehicles.map((vehicle) => {
+                  const availableStock = checkVehicleAvailability(vehicle);
+                  const isAvailable = availableStock > 0;
+
+                  return (
+                    <div
+                      key={vehicle.id}
+                      className={`rounded-lg border overflow-hidden transition-all ${
+                        !isAvailable
+                          ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                          : selectedVehicle?.id === vehicle.id
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300 cursor-pointer hover:shadow-sm'
+                      }`}
+                      onClick={() => isAvailable && setSelectedVehicle(vehicle)}
+                    >
+                      <div className="flex flex-col sm:flex-row gap-4 p-4">
+                        {/* 차량 이미지 */}
+                        <div className="w-full sm:w-48 h-32 flex-shrink-0">
+                          {vehicle.images && vehicle.images.length > 0 ? (
+                            <ImageWithFallback
+                              src={vehicle.images[0]}
+                              alt={vehicle.display_name || vehicle.model}
+                              className="w-full h-full object-cover rounded"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center">
+                              <Car className="h-12 w-12 text-gray-400" />
+                            </div>
                           )}
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <Users className="h-4 w-4" />
-                            <span>{vehicle.seating_capacity}인승</span>
+
+                        {/* 차량 정보 */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <h3 className="font-semibold text-lg">
+                                  {vehicle.display_name || `${vehicle.brand} ${vehicle.model}`}
+                                </h3>
+                                {vehicle.is_featured && (
+                                  <Badge variant="default" className="text-xs bg-blue-500">인기</Badge>
+                                )}
+                                {!isAvailable && (
+                                  <Badge variant="destructive" className="text-xs">예약 불가</Badge>
+                                )}
+                                {isAvailable && pickupDate && returnDate && (
+                                  <Badge variant="outline" className="text-xs text-green-600 border-green-600">
+                                    {availableStock}대 가능
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-2">
+                                {vehicle.year}년식 · {vehicle.vehicle_class}
+                              </p>
+                            </div>
+                            <div className="text-right ml-4">
+                              <div className={`text-2xl font-bold ${isAvailable ? 'text-blue-600' : 'text-gray-400'}`}>
+                                ₩{vehicle.daily_rate_krw.toLocaleString()}
+                              </div>
+                              <div className="text-xs text-gray-500">1일 기준</div>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Settings className="h-4 w-4" />
-                            <span>{vehicle.transmission}</span>
+
+                          {/* 차량 스펙 */}
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <Users className="h-4 w-4 flex-shrink-0" />
+                              <span>{vehicle.seating_capacity}인승</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <Settings className="h-4 w-4 flex-shrink-0" />
+                              <span>{vehicle.transmission}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <Fuel className="h-4 w-4 flex-shrink-0" />
+                              <span>{vehicle.fuel_type}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <Car className="h-4 w-4 flex-shrink-0" />
+                              <span>짐 {vehicle.large_bags}대/{vehicle.small_bags}소</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Fuel className="h-4 w-4" />
-                            <span>{vehicle.fuel_type}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Car className="h-4 w-4" />
-                            <span>짐 {vehicle.large_bags}개</span>
-                          </div>
+
+                          {/* 차량 설명 */}
+                          {vehicle.description && (
+                            <p className="text-sm text-gray-600 line-clamp-2">{vehicle.description}</p>
+                          )}
+
+                          {/* 차량 특징 */}
+                          {vehicle.features && vehicle.features.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {vehicle.features.slice(0, 4).map((feature, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  {feature}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div className="text-right ml-4">
-                        <div className="text-2xl font-bold text-blue-600">
-                          ₩{vehicle.daily_rate_krw.toLocaleString()}
-                        </div>
-                        <div className="text-xs text-gray-500">1일 기준</div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
+
+            {/* 위치 정보 */}
+            {vendorData.vendor.address && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    위치
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-1">주소</p>
+                    <p className="text-gray-600">{vendorData.vendor.address}</p>
+                  </div>
+                  {vendorData.vendor.latitude && vendorData.vendor.longitude && (
+                    <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                          style={{ border: 0 }}
+                        src={`https://www.google.com/maps?q=${vendorData.vendor.latitude},${vendorData.vendor.longitude}&hl=ko&z=15&output=embed`}
+                        allowFullScreen
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 취소/환불 정책 */}
+            {vendorData.vendor.cancellation_policy && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>취소/환불 정책</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1 text-sm text-gray-700 whitespace-pre-line">
+                    {vendorData.vendor.cancellation_policy}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 안내사항 */}
             <Card>
@@ -392,6 +634,7 @@ export function RentcarVendorDetailPage() {
                   <p>• 만 21세 이상 대여 가능</p>
                   <p>• 대여 시 신분증, 운전면허증, 신용카드 필요</p>
                   <p>• 보험 가입 필수 (기본 보험 포함)</p>
+                  <p>• 주행거리 제한: 1일 200km (초과 시 km당 ₩100)</p>
                 </div>
               </CardContent>
             </Card>
@@ -411,14 +654,28 @@ export function RentcarVendorDetailPage() {
 
           {/* 예약 사이드바 */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-6">
+            <Card className="sticky top-20">
               <CardContent className="p-6">
                 <div className="mb-6">
-                  <div className="text-sm text-gray-600 mb-1">1일 기준</div>
-                  <div className="text-3xl font-bold text-blue-600">
-                    ₩{minPrice.toLocaleString()}
-                    <span className="text-sm text-gray-500 ml-2">~</span>
+                  <div className="text-sm text-gray-600 mb-1">
+                    {selectedVehicle
+                      ? `${selectedVehicle.display_name || selectedVehicle.model} - 1일 기준`
+                      : '1일 기준'}
                   </div>
+                  <div className="text-3xl font-bold text-blue-600">
+                    ₩{selectedVehicle
+                      ? selectedVehicle.daily_rate_krw.toLocaleString()
+                      : minPrice.toLocaleString()}
+                    {!selectedVehicle && <span className="text-sm text-gray-500 ml-2">~</span>}
+                  </div>
+                  {pickupDate && returnDate && selectedVehicle && (
+                    <div className="mt-2 text-sm text-gray-600">
+                      총 {Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))}일 = {' '}
+                      <span className="font-semibold text-blue-600">
+                        ₩{(selectedVehicle.daily_rate_krw * Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <Separator className="my-4" />

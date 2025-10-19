@@ -132,6 +132,9 @@ export const RentcarManagement: React.FC = () => {
   const [vendorFilter, setVendorFilter] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Active tab state
+  const [activeTab, setActiveTab] = useState('vendors');
+
   // Load initial data
   useEffect(() => {
     loadVendors();
@@ -235,14 +238,36 @@ export const RentcarManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteVendor = async (id: number) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return;
-    const response = await rentcarApi.vendors.delete(id);
-    if (response.success) {
-      toast.success('벤더가 삭제되었습니다.');
-      loadVendors();
-    } else {
-      toast.error(response.error || '벤더 삭제에 실패했습니다.');
+  const handleDeleteVendor = async (id: number, vendorName: string) => {
+    // 2단계 확인 다이얼로그
+    const confirmMessage = `업체 "${vendorName}"를 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.\n- 해당 업체의 모든 차량이 삭제됩니다.\n- 완료되지 않은 예약이 있으면 삭제가 차단됩니다.\n\n계속하시려면 확인을 눌러주세요.`;
+
+    if (!confirm(confirmMessage)) return;
+
+    // 2차 확인
+    const finalConfirm = confirm(`정말로 "${vendorName}" 업체를 삭제하시겠습니까?`);
+    if (!finalConfirm) return;
+
+    try {
+      // 관리자 전용 API 사용
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const response = await fetch(`/api/admin/vendors/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-admin-id': user.id
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('벤더가 삭제되었습니다.');
+        loadVendors();
+      } else {
+        toast.error(data.message || '벤더 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      toast.error('벤더 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -639,11 +664,12 @@ export const RentcarManagement: React.FC = () => {
     }
   };
 
-  // Reload vehicles when vendor filter changes
+  // Reload vehicles when vendor filter changes and auto-switch to vehicles tab
   useEffect(() => {
     loadVehicles();
     if (vendorFilter) {
       loadLocations(vendorFilter);
+      setActiveTab('vehicles'); // Auto-switch to vehicles tab when vendor is selected
     }
   }, [vendorFilter]);
 
@@ -697,7 +723,7 @@ export const RentcarManagement: React.FC = () => {
   };
 
   return (
-    <Tabs defaultValue="vendors" className="space-y-6">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
       <TabsList className="grid grid-cols-5 w-full max-w-3xl">
         <TabsTrigger value="vendors">벤더 관리</TabsTrigger>
         <TabsTrigger value="vehicles">차량 관리</TabsTrigger>
@@ -798,6 +824,17 @@ export const RentcarManagement: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => {
+                              setVendorFilter(vendor.id);
+                              setActiveTab('vehicles');
+                            }}
+                            title="차량 관리로 이동"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleOpenVendorDialog(vendor)}
                           >
                             <Edit className="h-4 w-4" />
@@ -805,7 +842,7 @@ export const RentcarManagement: React.FC = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeleteVendor(vendor.id)}
+                            onClick={() => handleDeleteVendor(vendor.id, vendor.business_name)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

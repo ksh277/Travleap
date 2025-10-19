@@ -397,6 +397,20 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
               </CardContent>
             </Card>
 
+            {/* 취소/환불 정책 */}
+            {listing.cancellation_policy && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>취소/환불 정책</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1 text-sm text-gray-700 whitespace-pre-line">
+                    {listing.cancellation_policy}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* 리뷰 섹션 */}
             {listing.rating_count > 0 && (
               <Card>
@@ -414,14 +428,30 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
 
           {/* 예약 사이드바 */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-6">
+            <Card className="sticky top-20">
               <CardContent className="p-6">
                 <div className="mb-6">
-                  <div className="text-sm text-gray-600 mb-1">1박 기준</div>
-                  <div className="text-3xl font-bold text-blue-600">
-                    {formatPrice(listing.price_from || 0, selectedCurrency)}
-                    <span className="text-sm text-gray-500 ml-2">~</span>
+                  <div className="text-sm text-gray-600 mb-1">
+                    {selectedRoom ? `${selectedRoom} - 1박 기준` : '1박 기준'}
                   </div>
+                  <div className="text-3xl font-bold text-blue-600">
+                    {selectedRoom
+                      ? formatPrice(roomTypes.find(r => r.name === selectedRoom)?.price || listing.price_from || 0, selectedCurrency)
+                      : formatPrice(listing.price_from || 0, selectedCurrency)}
+                    {!selectedRoom && <span className="text-sm text-gray-500 ml-2">~</span>}
+                  </div>
+                  {checkIn && checkOut && selectedRoom && (
+                    <div className="mt-2 text-sm text-gray-600">
+                      총 {Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))}박 = {' '}
+                      <span className="font-semibold text-blue-600">
+                        {formatPrice(
+                          (roomTypes.find(r => r.name === selectedRoom)?.price || 0) *
+                          Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)),
+                          selectedCurrency
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <Separator className="my-4" />
@@ -468,27 +498,6 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
                         />
                       </PopoverContent>
                     </Popover>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">인원</label>
-                    <div className="flex items-center gap-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setGuests(Math.max(1, guests - 1))}
-                      >
-                        -
-                      </Button>
-                      <span className="flex-1 text-center">{guests}명</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setGuests(Math.min(10, guests + 1))}
-                      >
-                        +
-                      </Button>
-                    </div>
                   </div>
                 </div>
 

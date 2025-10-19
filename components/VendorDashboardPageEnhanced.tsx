@@ -90,8 +90,14 @@ interface VendorInfo {
   contact_phone: string;
   contact_person: string;
   address: string;
+  description?: string;
+  logo_url?: string;
+  images?: string[];
   is_verified: boolean;
   vehicle_count: number;
+  cancellation_policy?: string;
+  check_in_time?: string;
+  check_out_time?: string;
 }
 
 interface VehicleFormData {
@@ -163,7 +169,12 @@ export function VendorDashboardPageEnhanced() {
     image_urls: [],
     insurance_included: true,
     insurance_options: '자차보험, 대인배상, 대물배상',
-    available_options: 'GPS, 블랙박스, 하이패스, 휴대폰 거치대'
+    available_options: 'GPS, 블랙박스, 하이패스, 휴대폰 거치대',
+    pickup_location: '신안군 렌트카 본점',
+    dropoff_location: '신안군 렌트카 본점',
+    min_rental_days: 1,
+    max_rental_days: 30,
+    instant_booking: true
   });
 
   // 이미지 URL 입력용
@@ -486,7 +497,6 @@ export function VendorDashboardPageEnhanced() {
         return;
       }
 
-      const headers = lines[0].split(',');
       const dataLines = lines.slice(1);
 
       let successCount = 0;
@@ -640,7 +650,10 @@ export function VendorDashboardPageEnhanced() {
       contact_person: vendorInfo?.contact_person,
       contact_email: vendorInfo?.contact_email,
       contact_phone: vendorInfo?.contact_phone,
-      address: vendorInfo?.address
+      address: vendorInfo?.address,
+      description: vendorInfo?.description,
+      logo_url: vendorInfo?.logo_url,
+      cancellation_policy: vendorInfo?.cancellation_policy
     });
   };
 
@@ -666,7 +679,10 @@ export function VendorDashboardPageEnhanced() {
           contact_person: editedInfo.contact_person,
           contact_email: editedInfo.contact_email,
           contact_phone: editedInfo.contact_phone,
-          address: editedInfo.address
+          address: editedInfo.address,
+          description: editedInfo.description,
+          logo_url: editedInfo.logo_url,
+          cancellation_policy: editedInfo.cancellation_policy
         })
       });
 
@@ -678,7 +694,10 @@ export function VendorDashboardPageEnhanced() {
           contact_person: editedInfo.contact_person!,
           contact_email: editedInfo.contact_email!,
           contact_phone: editedInfo.contact_phone!,
-          address: editedInfo.address!
+          address: editedInfo.address!,
+          description: editedInfo.description,
+          logo_url: editedInfo.logo_url,
+          cancellation_policy: editedInfo.cancellation_policy
         });
 
         setIsEditingInfo(false);
@@ -1118,7 +1137,7 @@ export function VendorDashboardPageEnhanced() {
                           placeholder="이미지 URL을 입력하세요"
                           value={currentImageUrl}
                           onChange={(e) => setCurrentImageUrl(e.target.value)}
-                          onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
                               addImageUrl();
@@ -1478,6 +1497,35 @@ export function VendorDashboardPageEnhanced() {
                     onChange={(e) => setEditedInfo({ ...editedInfo, address: e.target.value })}
                     disabled={!isEditingInfo}
                     rows={2}
+                  />
+                </div>
+                <div>
+                  <Label>업체 소개</Label>
+                  <Textarea
+                    value={isEditingInfo ? (editedInfo.description || '') : (vendorInfo.description || '미등록')}
+                    onChange={(e) => setEditedInfo({ ...editedInfo, description: e.target.value })}
+                    disabled={!isEditingInfo}
+                    rows={3}
+                    placeholder="업체에 대한 간단한 소개를 작성하세요"
+                  />
+                </div>
+                <div>
+                  <Label>로고 URL</Label>
+                  <Input
+                    value={isEditingInfo ? (editedInfo.logo_url || '') : (vendorInfo.logo_url || '미등록')}
+                    onChange={(e) => setEditedInfo({ ...editedInfo, logo_url: e.target.value })}
+                    disabled={!isEditingInfo}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div>
+                  <Label>취소/환불 정책</Label>
+                  <Textarea
+                    value={isEditingInfo ? (editedInfo.cancellation_policy || '') : (vendorInfo.cancellation_policy || '미등록')}
+                    onChange={(e) => setEditedInfo({ ...editedInfo, cancellation_policy: e.target.value })}
+                    disabled={!isEditingInfo}
+                    rows={4}
+                    placeholder="예: 예약 3일 전: 전액 환불&#10;예약 1-2일 전: 50% 환불&#10;예약 당일: 환불 불가"
                   />
                 </div>
                 <div className="flex gap-2 pt-4">
