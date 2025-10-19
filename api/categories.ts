@@ -19,17 +19,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const connection = connect({ url: process.env.DATABASE_URL! });
 
     const result = await connection.execute(`
-      SELECT * FROM home_banners
+      SELECT * FROM categories
       WHERE is_active = 1
-      ORDER BY display_order ASC
+      ORDER BY sort_order ASC
     `);
 
     return res.status(200).json({
       success: true,
-      data: result.rows || []
+      categories: result.rows || []
     });
   } catch (error: any) {
-    console.error('Error fetching banners:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    console.error('Error fetching categories:', error);
+    return res.status(500).json({ success: false, message: '카테고리 조회 실패', categories: [] });
   }
 }

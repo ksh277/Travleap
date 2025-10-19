@@ -16,20 +16,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const { limit = '4' } = req.query;
+    const limitNum = parseInt(limit as string);
+
     const connection = connect({ url: process.env.DATABASE_URL! });
 
     const result = await connection.execute(`
-      SELECT * FROM home_banners
-      WHERE is_active = 1
-      ORDER BY display_order ASC
-    `);
+      SELECT r.*, l.title as listing_title, u.email as user_email
+      FROM reviews r
+      LEFT JOIN listings l ON r.listing_id = l.id
+      LEFT JOIN users u ON r.user_id = u.id
+      ORDER BY r.created_at DESC
+      LIMIT ?
+    `, [limitNum]);
 
     return res.status(200).json({
       success: true,
       data: result.rows || []
     });
   } catch (error: any) {
-    console.error('Error fetching banners:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    console.error('Error fetching recent reviews:', error);
+    return res.status(500).json({ success: false, message: '리뷰 조회 실패', data: [] });
   }
 }
