@@ -3519,7 +3519,7 @@ export function AdminPage({}: AdminPageProps) {
                           <div className="flex items-center text-sm">
                             <Star className="h-4 w-4 mr-2 text-yellow-500" />
                             <span>
-                              {partner.rating_avg ? `${partner.rating_avg.toFixed(1)} (${partner.rating_count}건)` : '평점 없음'}
+                              {partner.rating_avg ? `${Number(partner.rating_avg).toFixed(1)} (${partner.rating_count}건)` : '평점 없음'}
                             </span>
                           </div>
                           <div className="text-xs text-gray-500 line-clamp-2">

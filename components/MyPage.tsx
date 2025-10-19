@@ -346,7 +346,7 @@ export function MyPage() {
 
     try {
       // API를 통해 저장
-      const response = await fetch('http://localhost:3004/api/user/profile', {
+      const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -929,13 +929,13 @@ export function MyPage() {
                             <span className="truncate">{item.location || '위치 정보 없음'}</span>
                           </div>
                           <div className="flex items-center mt-2">
-                            {item.rating_avg > 0 && item.rating_count > 0 ? (
+                            {Number(item.rating_avg || 0) > 0 && Number(item.rating_count || 0) > 0 ? (
                               <>
                                 <div className="flex items-center">
                                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 mr-1" />
-                                  <span className="text-sm">{item.rating_avg.toFixed(1)}</span>
+                                  <span className="text-sm">{Number(item.rating_avg || 0).toFixed(1)}</span>
                                 </div>
-                                <span className="text-sm text-gray-500 ml-2">({item.rating_count})</span>
+                                <span className="text-sm text-gray-500 ml-2">({item.rating_count || 0})</span>
                               </>
                             ) : (
                               <div className="text-xs text-gray-500">리뷰 없음</div>

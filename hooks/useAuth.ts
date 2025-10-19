@@ -213,10 +213,8 @@ export const useAuth = () => {
     console.log('🔑 로그인 시도:', email);
 
     try {
-      // API URL 결정: Vercel에서는 /api/login, 로컬에서는 localhost:3004
-      const loginUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-        ? 'http://localhost:3004/api/auth/login'
-        : '/api/login';
+      // API URL: Vercel 및 로컬 모두 상대 경로 사용
+      const loginUrl = '/api/login';
 
       console.log('🌐 API URL:', loginUrl);
 
@@ -301,10 +299,8 @@ export const useAuth = () => {
     if (!globalState.token) return false;
 
     try {
-      // 동적 URL 결정: 로컬에서는 localhost:3004, Vercel에서는 상대 경로
-      const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
-        ? 'http://localhost:3004/api/auth/refresh'
-        : '/api/auth?action=refresh';
+      // API URL: Vercel 및 로컬 모두 상대 경로 사용
+      const apiUrl = '/api/auth?action=refresh';
 
       console.log('🔄 토큰 갱신 시도:', apiUrl);
 

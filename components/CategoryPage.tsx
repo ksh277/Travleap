@@ -682,11 +682,11 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                       </div>
 
                       <div className="flex items-center justify-between mt-auto pt-2">
-                        {item.rating_avg > 0 && (
+                        {Number(item.rating_avg || 0) > 0 && (
                           <div className="flex items-center gap-1">
                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span className="text-xs">{item.rating_avg.toFixed(1)}</span>
-                            <span className="text-xs text-gray-500">({item.rating_count})</span>
+                            <span className="text-xs">{Number(item.rating_avg || 0).toFixed(1)}</span>
+                            <span className="text-xs text-gray-500">({item.rating_count || 0})</span>
                           </div>
                         )}
                         <div className="text-base font-bold text-[#ff6a3d]">

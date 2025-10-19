@@ -72,8 +72,7 @@ export const rentcarVendorApi = {
     try {
       // Vercel 환경: API 엔드포인트 호출
       if (typeof window !== 'undefined') {
-        const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
-        const response = await fetch(`${apiUrl}/api/vendors`);
+        const response = await fetch(`/api/vendors`);
         const data = await response.json();
         return data;
       }

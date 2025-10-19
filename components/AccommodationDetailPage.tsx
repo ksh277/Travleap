@@ -291,11 +291,11 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
                         <MapPin className="h-4 w-4" />
                         <span>{listing.location}</span>
                       </div>
-                      {listing.rating_avg > 0 && (
+                      {Number(listing.rating_avg || 0) > 0 && (
                         <div className="flex items-center gap-1">
                           <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="font-medium">{listing.rating_avg.toFixed(1)}</span>
-                          <span className="text-sm">({listing.rating_count})</span>
+                          <span className="font-medium">{Number(listing.rating_avg || 0).toFixed(1)}</span>
+                          <span className="text-sm">({listing.rating_count || 0})</span>
                         </div>
                       )}
                     </div>

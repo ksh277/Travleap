@@ -112,11 +112,11 @@ export function AccommodationCard({
           </div>
 
           <div className="flex items-center justify-between mt-auto pt-2">
-            {listing.rating_avg > 0 && (
+            {Number(listing.rating_avg || 0) > 0 && (
               <div className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                <span className="text-xs">{listing.rating_avg.toFixed(1)}</span>
-                <span className="text-xs text-gray-500">({listing.rating_count})</span>
+                <span className="text-xs">{Number(listing.rating_avg || 0).toFixed(1)}</span>
+                <span className="text-xs text-gray-500">({listing.rating_count || 0})</span>
               </div>
             )}
             <div className="text-base font-bold text-[#ff6a3d]">

@@ -2729,8 +2729,7 @@ export const api = {
       try {
         // Vercel 환경: API 엔드포인트 호출
         if (typeof window !== 'undefined') {
-          const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
-          const response = await fetch(`${apiUrl}/api/admin/reviews`);
+          const response = await fetch(`${API_BASE_URL}/api/admin/reviews`);
           const result = await response.json();
           return result;
         }
@@ -3509,8 +3508,7 @@ export const api = {
       try {
         // Vercel 환경: API 엔드포인트 호출
         if (typeof window !== 'undefined') {
-          const apiUrl = window.location.hostname === 'localhost' ? 'http://localhost:3004' : '';
-          const response = await fetch(`${apiUrl}/api/admin/orders`);
+          const response = await fetch(`${API_BASE_URL}/api/admin/orders`);
           const result = await response.json();
           return result;
         }
