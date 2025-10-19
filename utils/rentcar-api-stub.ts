@@ -79,8 +79,8 @@ export const rentcarVendorApi = {
 
   update: async (id: number, data: Partial<RentcarVendorFormData>): Promise<RentcarApiResponse<RentcarVendor>> => {
     try {
-      const response = await fetch(`/api/rentcar/vendors/${id}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/admin/vendors/${id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
@@ -97,7 +97,7 @@ export const rentcarVendorApi = {
 
   delete: async (id: number): Promise<RentcarApiResponse<null>> => {
     try {
-      const response = await fetch(`/api/rentcar/vendors/${id}`, {
+      const response = await fetch(`/api/admin/vendors/${id}`, {
         method: 'DELETE'
       });
       const result = await response.json();

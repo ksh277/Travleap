@@ -16,6 +16,9 @@ export interface RentcarVendor {
   contact_phone: string;
   description?: string;
   logo_url?: string;
+  pms_provider?: string;
+  pms_api_key?: string;
+  pms_property_id?: string;
   status: 'pending' | 'active' | 'suspended';
   is_verified: boolean;
   commission_rate: number;
