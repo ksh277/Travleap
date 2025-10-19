@@ -1,0 +1,67 @@
+const { connect } = require('@planetscale/database');
+
+module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+
+  try {
+    const { vendorId } = req.query;
+    const connection = connect({ url: process.env.DATABASE_URL });
+
+    // 벤더 정보 조회
+    const vendorResult = await connection.execute(`
+      SELECT * FROM rentcar_vendors
+      WHERE id = ? AND status = 'active'
+      LIMIT 1
+    `, [vendorId]);
+
+    if (!vendorResult.rows || vendorResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: '렌트카 업체를 찾을 수 없습니다.' });
+    }
+
+    const vendor = vendorResult.rows[0];
+
+    // 차량 목록 조회
+    const vehiclesResult = await connection.execute(`
+      SELECT * FROM rentcar_vehicles
+      WHERE vendor_id = ? AND is_active = 1
+      ORDER BY daily_rate_krw ASC
+    `, [vendorId]);
+
+    const vehicles = (vehiclesResult.rows || []).map(vehicle => {
+      let images = [];
+      let features = [];
+
+      try {
+        if (vehicle.images) images = JSON.parse(vehicle.images);
+        if (vehicle.features) features = JSON.parse(vehicle.features);
+      } catch (e) {}
+
+      return {
+        ...vehicle,
+        images: Array.isArray(images) ? images : [],
+        features: Array.isArray(features) ? features : []
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        vendor,
+        vehicles
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching rentcar details:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
