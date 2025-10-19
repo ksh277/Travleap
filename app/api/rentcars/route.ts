@@ -20,16 +20,20 @@ export async function GET(request: NextRequest) {
       SELECT
         v.id as vendor_id,
         v.vendor_code,
+        v.business_name,
+        v.brand_name,
+        v.average_rating,
+        v.is_verified,
         COUNT(rv.id) as vehicle_count,
         MIN(rv.daily_rate_krw) as min_price,
         MAX(rv.daily_rate_krw) as max_price,
         MIN(rv.images) as sample_images,
         GROUP_CONCAT(DISTINCT rv.vehicle_class SEPARATOR ', ') as vehicle_classes
       FROM rentcar_vendors v
-      LEFT JOIN rentcar_vehicles rv ON v.id = rv.vendor_id
-      WHERE rv.is_active = 1
-      GROUP BY v.id, v.vendor_code
-      ORDER BY v.vendor_code
+      LEFT JOIN rentcar_vehicles rv ON v.id = rv.vendor_id AND rv.is_active = 1
+      WHERE v.status = 'active'
+      GROUP BY v.id, v.vendor_code, v.business_name, v.brand_name, v.average_rating, v.is_verified
+      ORDER BY v.is_verified DESC, v.business_name ASC
     `);
 
     // 이미지 JSON 파싱
@@ -47,7 +51,11 @@ export async function GET(request: NextRequest) {
       return {
         vendor_id: vendor.vendor_id,
         vendor_code: vendor.vendor_code,
-        vendor_name: vendor.vendor_code, // vendor_name 컬럼이 없으므로 code 사용
+        vendor_name: vendor.business_name || vendor.brand_name || vendor.vendor_code,
+        business_name: vendor.business_name,
+        brand_name: vendor.brand_name,
+        average_rating: vendor.average_rating ? parseFloat(vendor.average_rating).toFixed(1) : '0.0',
+        is_verified: vendor.is_verified,
         vehicle_count: vendor.vehicle_count,
         min_price: vendor.min_price,
         max_price: vendor.max_price,

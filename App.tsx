@@ -39,6 +39,7 @@ import { HotelDetailPage } from './components/pages/HotelDetailPage';
 import { RentcarVendorDetailPage } from './components/pages/RentcarVendorDetailPage';
 import { VendorRegistrationPage } from './components/VendorRegistrationPage';
 import VendorDashboardPageEnhanced from './components/VendorDashboardPageEnhanced';
+import { PartnerDashboardPageEnhanced } from './components/PartnerDashboardPageEnhanced';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentFailPage from './components/PaymentFailPage';
@@ -125,6 +126,15 @@ function AppContent() {
           <Route path="/vendor/dashboard" element={
             isLoggedIn && user?.role === 'vendor' ? (
               <VendorDashboardPageEnhanced />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 숙박 파트너 대시보드 */}
+          <Route path="/partner/dashboard" element={
+            isLoggedIn && user?.role === 'partner' ? (
+              <PartnerDashboardPageEnhanced />
             ) : (
               <Navigate to="/login" replace />
             )

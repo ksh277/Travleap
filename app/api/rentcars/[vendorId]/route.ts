@@ -109,7 +109,8 @@ export async function GET(
         vendor: {
           id: vendor.id,
           vendor_code: vendor.vendor_code,
-          vendor_name: vendor.vendor_code, // vendor_name 컬럼이 없으므로 code 사용
+          vendor_name: vendor.business_name || vendor.brand_name || vendor.vendor_code,
+          business_name: vendor.business_name,
         },
         vehicles: parsedVehicles,
         total_vehicles: parsedVehicles.length,

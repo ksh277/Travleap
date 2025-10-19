@@ -1,12 +1,12 @@
 /**
- * 렌트카 업체 전용 대시보드 (강화 버전)
+ * 숙박 파트너 전용 대시보드 (실제 DB 스키마 기준)
  *
- * 새 기능:
+ * 기능:
  * - 이미지 URL 입력 (최대 5개)
  * - CSV 대량 업로드
- * - 차량 수정 기능
- * - 차량 이용가능 여부 토글
- * - 보험/옵션 정보
+ * - 객실 수정 기능
+ * - 객실 이용가능 여부 토글
+ * - 편의시설/하이라이트 정보
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Switch } from './ui/switch';
 import {
-  Car,
+  Hotel,
   Plus,
   Edit,
   Trash2,
@@ -42,91 +42,75 @@ import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-interface Vehicle {
+interface Listing {
   id: number;
-  vendor_id: number;
-  display_name: string;
-  vehicle_class: string;
-  seating_capacity: number;
-  transmission_type: string;
-  fuel_type: string;
-  daily_rate_krw: number;
-  weekly_rate_krw: number;
-  monthly_rate_krw: number;
-  mileage_limit_km: number;
-  excess_mileage_fee_krw: number;
+  partner_id: number;
+  title: string;
+  short_description: string;
+  description_md: string;
+  price_from: number;
+  price_to: number;
   images: string[];
-  is_available: boolean;
+  amenities: string[];
+  highlights: string[];
+  available_spots: number;
+  rating_avg: number;
+  rating_count: number;
+  is_featured: boolean;
+  is_published: boolean;
+  is_active: boolean;
+  location: string;
   created_at: string;
-  // 추가 정보
-  insurance_included?: boolean;
-  insurance_options?: string;
-  available_options?: string;
-  // 새로운 필드
-  pickup_location?: string;
-  dropoff_location?: string;
-  min_rental_days?: number;
-  max_rental_days?: number;
-  instant_booking?: boolean;
 }
 
 interface Booking {
   id: number;
-  vehicle_id: number;
-  vehicle_name: string;
+  listing_id: number;
+  room_name: string;
   customer_name: string;
   customer_phone: string;
-  pickup_date: string;
-  dropoff_date: string;
+  check_in_date: string;
+  check_out_date: string;
   total_amount: number;
   status: string;
   created_at: string;
 }
 
-interface VendorInfo {
+interface PartnerInfo {
   id: number;
-  name: string;
+  business_name: string;
   contact_email: string;
   contact_phone: string;
-  contact_person: string;
+  contact_name: string;
   address: string;
   is_verified: boolean;
-  vehicle_count: number;
+  room_count: number;
 }
 
-interface VehicleFormData {
-  display_name: string;
-  vehicle_class: string;
-  seating_capacity: number;
-  transmission_type: string;
-  fuel_type: string;
-  daily_rate_krw: number;
-  weekly_rate_krw: number;
-  monthly_rate_krw: number;
-  mileage_limit_km: number;
-  excess_mileage_fee_krw: number;
-  is_available: boolean;
+interface ListingFormData {
+  title: string;
+  short_description: string;
+  description_md: string;
+  price_from: number;
+  price_to: number;
+  is_published: boolean;
+  is_active: boolean;
   image_urls: string[];
-  insurance_included: boolean;
-  insurance_options: string;
-  available_options: string;
-  // 새로운 필드
-  pickup_location: string;
-  dropoff_location: string;
-  min_rental_days: number;
-  max_rental_days: number;
-  instant_booking: boolean;
+  amenities_text: string;
+  highlights_text: string;
+  available_spots: number;
+  location: string;
 }
 
-export function VendorDashboardPageEnhanced() {
+export function PartnerDashboardPageEnhanced() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [vendorInfo, setVendorInfo] = useState<VendorInfo | null>(null);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
-  const [activeTab, setActiveTab] = useState('vehicles');
+  const [activeTab, setActiveTab] = useState('listings');
   const [revenueData, setRevenueData] = useState<Array<{ date: string; revenue: number }>>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -135,81 +119,80 @@ export function VendorDashboardPageEnhanced() {
   const [bookingFilters, setBookingFilters] = useState({
     startDate: '',
     endDate: '',
-    vehicleId: '',
+    listingId: '',
     status: '',
     searchQuery: ''
   });
 
   // 업체 정보 수정
   const [isEditingInfo, setIsEditingInfo] = useState(false);
-  const [editedInfo, setEditedInfo] = useState<Partial<VendorInfo>>({});
+  const [editedInfo, setEditedInfo] = useState<Partial<PartnerInfo>>({});
 
-  // 차량 추가/수정
-  const [isAddingVehicle, setIsAddingVehicle] = useState(false);
-  const [isEditingVehicle, setIsEditingVehicle] = useState(false);
-  const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
-  const [vehicleForm, setVehicleForm] = useState<VehicleFormData>({
-    display_name: '',
-    vehicle_class: '중형',
-    seating_capacity: 5,
-    transmission_type: '자동',
-    fuel_type: '가솔린',
-    daily_rate_krw: 50000,
-    weekly_rate_krw: 300000,
-    monthly_rate_krw: 1000000,
-    mileage_limit_km: 200,
-    excess_mileage_fee_krw: 100,
-    is_available: true,
+  // 객실 추가/수정
+  const [isAddingListing, setIsAddingListing] = useState(false);
+  const [isEditingListing, setIsEditingListing] = useState(false);
+  const [editingListingId, setEditingListingId] = useState<number | null>(null);
+  const [listingForm, setListingForm] = useState<ListingFormData>({
+    title: '',
+    short_description: '',
+    description_md: '',
+    price_from: 80000,
+    price_to: 150000,
+    is_published: true,
+    is_active: true,
     image_urls: [],
-    insurance_included: true,
-    insurance_options: '자차보험, 대인배상, 대물배상',
-    available_options: 'GPS, 블랙박스, 하이패스, 휴대폰 거치대'
+    amenities_text: 'WiFi, TV, 에어컨, 냉장고',
+    highlights_text: '오션뷰, 조식 포함',
+    available_spots: 2,
+    location: ''
   });
 
   // 이미지 URL 입력용
   const [currentImageUrl, setCurrentImageUrl] = useState('');
 
-  // 업체 정보 로드
+  // 파트너 정보 로드
   useEffect(() => {
-    loadVendorData();
+    loadPartnerData();
   }, [user?.id]);
 
-  const loadVendorData = async () => {
+  const loadPartnerData = async () => {
     if (!user?.id) return;
 
     try {
       setLoading(true);
 
-      // 1. 업체 정보 조회 API
-      const vendorResponse = await fetch(`/api/vendor/info?userId=${user.id}`);
-      const vendorData = await vendorResponse.json();
+      // 1. 파트너 정보 조회 API
+      const partnerResponse = await fetch(`/api/partner/info?userId=${user.id}`);
+      const partnerData = await partnerResponse.json();
 
-      if (!vendorData.success || !vendorData.data) {
-        toast.error('업체 정보를 찾을 수 없습니다.');
+      if (!partnerData.success || !partnerData.data) {
+        toast.error('파트너 정보를 찾을 수 없습니다.');
         navigate('/login');
         return;
       }
 
-      const vendor = vendorData.data;
-      setVendorInfo(vendor);
+      const partner = partnerData.data;
+      setPartnerInfo(partner);
 
-      // 2. 차량 목록 조회 API
-      const vehiclesResponse = await fetch(`/api/vendor/vehicles?userId=${user.id}`);
-      const vehiclesData = await vehiclesResponse.json();
+      // 2. 객실 목록 조회 API
+      const listingsResponse = await fetch(`/api/partner/listings?userId=${user.id}`);
+      const listingsData = await listingsResponse.json();
 
-      if (vehiclesData.success && vehiclesData.data) {
-        // Parse images from JSON string to array
-        const parsedVehicles = vehiclesData.data.map((v: any) => ({
-          ...v,
-          images: typeof v.images === 'string' ? JSON.parse(v.images) : v.images
+      if (listingsData.success && listingsData.data) {
+        // Parse JSON fields
+        const parsedListings = listingsData.data.map((l: any) => ({
+          ...l,
+          images: typeof l.images === 'string' ? JSON.parse(l.images) : l.images,
+          amenities: typeof l.amenities === 'string' ? JSON.parse(l.amenities) : l.amenities,
+          highlights: typeof l.highlights === 'string' ? JSON.parse(l.highlights) : l.highlights
         }));
-        setVehicles(parsedVehicles);
+        setListings(parsedListings);
       } else {
-        setVehicles([]);
+        setListings([]);
       }
 
       // 3. 예약 목록 조회 API
-      const bookingsResponse = await fetch(`/api/vendor/bookings?userId=${user.id}`);
+      const bookingsResponse = await fetch(`/api/partner/bookings?userId=${user.id}`);
       const bookingsData = await bookingsResponse.json();
 
       if (bookingsData.success && bookingsData.data) {
@@ -221,7 +204,7 @@ export function VendorDashboardPageEnhanced() {
       }
 
       // 4. 매출 통계 조회 API
-      const revenueResponse = await fetch(`/api/vendor/revenue?userId=${user.id}`);
+      const revenueResponse = await fetch(`/api/partner/revenue?userId=${user.id}`);
       const revenueData = await revenueResponse.json();
 
       if (revenueData.success && revenueData.data) {
@@ -233,9 +216,9 @@ export function VendorDashboardPageEnhanced() {
         setRevenueData([]);
       }
 
-      console.log(`✅ 업체 데이터 로드 완료: ${vendor.name}`);
+      console.log(`✅ 파트너 데이터 로드 완료: ${partner.business_name}`);
     } catch (error) {
-      console.error('업체 데이터 로드 실패:', error);
+      console.error('파트너 데이터 로드 실패:', error);
       toast.error('데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
@@ -248,72 +231,56 @@ export function VendorDashboardPageEnhanced() {
     toast.success('로그아웃되었습니다.');
   };
 
-  const resetVehicleForm = () => {
-    setVehicleForm({
-      display_name: '',
-      vehicle_class: '중형',
-      seating_capacity: 5,
-      transmission_type: '자동',
-      fuel_type: '가솔린',
-      daily_rate_krw: 50000,
-      weekly_rate_krw: 300000,
-      monthly_rate_krw: 1000000,
-      mileage_limit_km: 200,
-      excess_mileage_fee_krw: 100,
-      is_available: true,
+  const resetListingForm = () => {
+    setListingForm({
+      title: '',
+      short_description: '',
+      description_md: '',
+      price_from: 80000,
+      price_to: 150000,
+      is_published: true,
+      is_active: true,
       image_urls: [],
-      insurance_included: true,
-      insurance_options: '자차보험, 대인배상, 대물배상',
-      available_options: 'GPS, 블랙박스, 하이패스, 휴대폰 거치대',
-      pickup_location: '신안군 렌트카 본점',
-      dropoff_location: '신안군 렌트카 본점',
-      min_rental_days: 1,
-      max_rental_days: 30,
-      instant_booking: true
+      amenities_text: 'WiFi, TV, 에어컨, 냉장고',
+      highlights_text: '오션뷰, 조식 포함',
+      available_spots: 2,
+      location: partnerInfo?.address || ''
     });
     setCurrentImageUrl('');
   };
 
-  const handleAddVehicle = () => {
-    resetVehicleForm();
-    setIsAddingVehicle(true);
-    setIsEditingVehicle(false);
-    setEditingVehicleId(null);
+  const handleAddListing = () => {
+    resetListingForm();
+    setIsAddingListing(true);
+    setIsEditingListing(false);
+    setEditingListingId(null);
   };
 
-  const handleEditVehicle = (vehicle: Vehicle) => {
-    setVehicleForm({
-      display_name: vehicle.display_name,
-      vehicle_class: vehicle.vehicle_class,
-      seating_capacity: vehicle.seating_capacity,
-      transmission_type: vehicle.transmission_type,
-      fuel_type: vehicle.fuel_type,
-      daily_rate_krw: vehicle.daily_rate_krw,
-      weekly_rate_krw: vehicle.weekly_rate_krw,
-      monthly_rate_krw: vehicle.monthly_rate_krw,
-      mileage_limit_km: vehicle.mileage_limit_km,
-      excess_mileage_fee_krw: vehicle.excess_mileage_fee_krw,
-      is_available: vehicle.is_available,
-      image_urls: Array.isArray(vehicle.images) ? vehicle.images : [],
-      insurance_included: vehicle.insurance_included || true,
-      insurance_options: vehicle.insurance_options || '자차보험, 대인배상, 대물배상',
-      available_options: vehicle.available_options || 'GPS, 블랙박스',
-      pickup_location: vehicle.pickup_location || '신안군 렌트카 본점',
-      dropoff_location: vehicle.dropoff_location || '신안군 렌트카 본점',
-      min_rental_days: vehicle.min_rental_days || 1,
-      max_rental_days: vehicle.max_rental_days || 30,
-      instant_booking: vehicle.instant_booking !== undefined ? vehicle.instant_booking : true
+  const handleEditListing = (listing: Listing) => {
+    setListingForm({
+      title: listing.title,
+      short_description: listing.short_description || '',
+      description_md: listing.description_md || '',
+      price_from: listing.price_from,
+      price_to: listing.price_to,
+      is_published: listing.is_published,
+      is_active: listing.is_active,
+      image_urls: Array.isArray(listing.images) ? listing.images : [],
+      amenities_text: Array.isArray(listing.amenities) ? listing.amenities.join(', ') : '',
+      highlights_text: Array.isArray(listing.highlights) ? listing.highlights.join(', ') : '',
+      available_spots: listing.available_spots,
+      location: listing.location || partnerInfo?.address || ''
     });
-    setEditingVehicleId(vehicle.id);
-    setIsEditingVehicle(true);
-    setIsAddingVehicle(true);
+    setEditingListingId(listing.id);
+    setIsEditingListing(true);
+    setIsAddingListing(true);
   };
 
   const handleCancelForm = () => {
-    setIsAddingVehicle(false);
-    setIsEditingVehicle(false);
-    setEditingVehicleId(null);
-    resetVehicleForm();
+    setIsAddingListing(false);
+    setIsEditingListing(false);
+    setEditingListingId(null);
+    resetListingForm();
   };
 
   const addImageUrl = () => {
@@ -322,102 +289,113 @@ export function VendorDashboardPageEnhanced() {
       return;
     }
 
-    if (vehicleForm.image_urls.length >= 5) {
+    if (listingForm.image_urls.length >= 5) {
       toast.error('최대 5개까지 이미지를 추가할 수 있습니다.');
       return;
     }
 
-    setVehicleForm({
-      ...vehicleForm,
-      image_urls: [...vehicleForm.image_urls, currentImageUrl.trim()]
+    setListingForm({
+      ...listingForm,
+      image_urls: [...listingForm.image_urls, currentImageUrl.trim()]
     });
     setCurrentImageUrl('');
   };
 
   const removeImageUrl = (index: number) => {
-    setVehicleForm({
-      ...vehicleForm,
-      image_urls: vehicleForm.image_urls.filter((_, i) => i !== index)
+    setListingForm({
+      ...listingForm,
+      image_urls: listingForm.image_urls.filter((_, i) => i !== index)
     });
   };
 
-  const handleSaveVehicle = async () => {
-    if (!vendorInfo?.id || !user?.id) return;
+  const handleSaveListing = async () => {
+    if (!partnerInfo?.id || !user?.id) return;
 
-    if (!vehicleForm.display_name.trim()) {
-      toast.error('차량명을 입력해주세요.');
+    if (!listingForm.title.trim()) {
+      toast.error('객실명을 입력해주세요.');
       return;
     }
 
     try {
-      const image_urls = vehicleForm.image_urls.length > 0
-        ? vehicleForm.image_urls
+      const image_urls = listingForm.image_urls.length > 0
+        ? listingForm.image_urls
         : [
-            'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
-            'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop'
+            'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&h=600&fit=crop',
+            'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&h=600&fit=crop'
           ];
 
-      if (isEditingVehicle && editingVehicleId) {
+      // Convert comma-separated strings to arrays
+      const amenities = listingForm.amenities_text.split(',').map(s => s.trim()).filter(s => s);
+      const highlights = listingForm.highlights_text.split(',').map(s => s.trim()).filter(s => s);
+
+      const payload = {
+        userId: user.id,
+        title: listingForm.title,
+        short_description: listingForm.short_description,
+        description_md: listingForm.description_md,
+        price_from: listingForm.price_from,
+        price_to: listingForm.price_to,
+        is_published: listingForm.is_published,
+        is_active: listingForm.is_active,
+        image_urls,
+        amenities,
+        highlights,
+        available_spots: listingForm.available_spots,
+        location: listingForm.location
+      };
+
+      if (isEditingListing && editingListingId) {
         // 수정 - PUT API
-        const response = await fetch(`/api/vendor/vehicles/${editingVehicleId}`, {
+        const response = await fetch(`/api/partner/listings/${editingListingId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'x-user-id': user.id.toString()
           },
-          body: JSON.stringify({
-            userId: user.id,
-            ...vehicleForm,
-            image_urls
-          })
+          body: JSON.stringify(payload)
         });
 
         const result = await response.json();
         if (result.success) {
-          toast.success('차량이 수정되었습니다!');
+          toast.success('객실이 수정되었습니다!');
         } else {
-          toast.error(result.message || '차량 수정에 실패했습니다.');
+          toast.error(result.message || '객실 수정에 실패했습니다.');
           return;
         }
       } else {
         // 신규 등록 - POST API
-        const response = await fetch('/api/vendor/vehicles', {
+        const response = await fetch('/api/partner/listings', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-user-id': user.id.toString()
           },
-          body: JSON.stringify({
-            userId: user.id,
-            ...vehicleForm,
-            image_urls
-          })
+          body: JSON.stringify(payload)
         });
 
         const result = await response.json();
         if (result.success) {
-          toast.success('차량이 등록되었습니다!');
+          toast.success('객실이 등록되었습니다!');
         } else {
-          toast.error(result.message || '차량 등록에 실패했습니다.');
+          toast.error(result.message || '객실 등록에 실패했습니다.');
           return;
         }
       }
 
       handleCancelForm();
-      loadVendorData();
+      loadPartnerData();
     } catch (error) {
-      console.error('차량 저장 실패:', error);
-      toast.error('차량 저장에 실패했습니다.');
+      console.error('객실 저장 실패:', error);
+      toast.error('객실 저장에 실패했습니다.');
     }
   };
 
-  const handleDeleteVehicle = async (vehicleId: number) => {
-    if (!confirm('정말 이 차량을 삭제하시겠습니까?')) return;
+  const handleDeleteListing = async (listingId: number) => {
+    if (!confirm('정말 이 객실을 삭제하시겠습니까?')) return;
     if (!user?.id) return;
 
     try {
-      // DELETE API
-      const response = await fetch(`/api/vendor/vehicles/${vehicleId}`, {
+      const response = await fetch(`/api/partner/listings/${listingId}`, {
         method: 'DELETE',
         headers: {
           'x-user-id': user.id.toString()
@@ -426,23 +404,22 @@ export function VendorDashboardPageEnhanced() {
 
       const result = await response.json();
       if (result.success) {
-        toast.success('차량이 삭제되었습니다.');
-        loadVendorData();
+        toast.success('객실이 삭제되었습니다.');
+        loadPartnerData();
       } else {
-        toast.error(result.message || '차량 삭제에 실패했습니다.');
+        toast.error(result.message || '객실 삭제에 실패했습니다.');
       }
     } catch (error) {
-      console.error('차량 삭제 실패:', error);
-      toast.error('차량 삭제에 실패했습니다.');
+      console.error('객실 삭제 실패:', error);
+      toast.error('객실 삭제에 실패했습니다.');
     }
   };
 
-  const toggleVehicleAvailability = async (vehicleId: number, currentStatus: boolean) => {
+  const toggleListingAvailability = async (listingId: number, currentStatus: boolean) => {
     if (!user?.id) return;
 
     try {
-      // PATCH API - Toggle availability
-      const response = await fetch(`/api/vendor/vehicles/${vehicleId}/availability`, {
+      const response = await fetch(`/api/partner/listings/${listingId}/availability`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -450,14 +427,14 @@ export function VendorDashboardPageEnhanced() {
         },
         body: JSON.stringify({
           userId: user.id,
-          is_available: !currentStatus
+          is_active: !currentStatus
         })
       });
 
       const result = await response.json();
       if (result.success) {
-        toast.success(currentStatus ? '차량이 예약 불가로 변경되었습니다.' : '차량이 예약 가능으로 변경되었습니다.');
-        loadVendorData();
+        toast.success(currentStatus ? '객실이 예약 불가로 변경되었습니다.' : '객실이 예약 가능으로 변경되었습니다.');
+        loadPartnerData();
       } else {
         toast.error(result.message || '상태 변경에 실패했습니다.');
       }
@@ -486,9 +463,7 @@ export function VendorDashboardPageEnhanced() {
         return;
       }
 
-      const headers = lines[0].split(',');
       const dataLines = lines.slice(1);
-
       let successCount = 0;
       let errorCount = 0;
 
@@ -496,39 +471,33 @@ export function VendorDashboardPageEnhanced() {
         const values = line.split(',');
 
         try {
-          const vehicleData = {
-            display_name: values[0] || '',
-            vehicle_class: values[4] || '중형',
-            seating_capacity: parseInt(values[5]) || 5,
-            transmission_type: values[6] || '자동',
-            fuel_type: values[7] || '가솔린',
-            daily_rate_krw: parseInt(values[8]) || 50000,
-            weekly_rate_krw: parseInt(values[9]) || 300000,
-            monthly_rate_krw: parseInt(values[10]) || 1000000,
-            mileage_limit_km: parseInt(values[11]) || 200,
-            excess_mileage_fee_krw: parseInt(values[12]) || 100,
-            is_available: true,
+          const amenities = ['WiFi', 'TV', '에어컨', '냉장고'];
+          const highlights = ['오션뷰', '조식 포함'];
+
+          const listingData = {
+            title: values[0] || '',
+            short_description: values[1] || '',
+            description_md: values[7] || '',
+            price_from: parseInt(values[5]) || 80000,
+            price_to: parseInt(values[6]) || 150000,
+            available_spots: parseInt(values[2]) || 2,
+            is_published: true,
+            is_active: true,
             image_urls: [
-              'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
-              'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop'
+              'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&h=600&fit=crop',
+              'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800&h=600&fit=crop'
             ],
-            insurance_included: true,
-            insurance_options: '자차보험, 대인배상, 대물배상',
-            available_options: 'GPS, 블랙박스',
-            pickup_location: '신안군 렌트카 본점',
-            dropoff_location: '신안군 렌트카 본점',
-            min_rental_days: 1,
-            max_rental_days: 30,
-            instant_booking: true
+            amenities,
+            highlights,
+            location: partnerInfo?.address || ''
           };
 
-          if (!vehicleData.display_name.trim()) {
+          if (!listingData.title.trim()) {
             errorCount++;
             continue;
           }
 
-          // POST API로 차량 등록
-          const response = await fetch('/api/vendor/vehicles', {
+          const response = await fetch('/api/partner/listings', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -536,7 +505,7 @@ export function VendorDashboardPageEnhanced() {
             },
             body: JSON.stringify({
               userId: user.id,
-              ...vehicleData
+              ...listingData
             })
           });
 
@@ -547,36 +516,35 @@ export function VendorDashboardPageEnhanced() {
             errorCount++;
           }
         } catch (err) {
-          console.error('차량 등록 실패:', err);
+          console.error('객실 등록 실패:', err);
           errorCount++;
         }
       }
 
       toast.success(`CSV 업로드 완료! 성공: ${successCount}건, 실패: ${errorCount}건`);
-      loadVendorData();
+      loadPartnerData();
     } catch (error) {
       console.error('CSV 파일 읽기 실패:', error);
       toast.error('CSV 파일을 읽는데 실패했습니다.');
     }
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   const downloadCSVTemplate = () => {
-    const csv = `차량명,제조사,모델,연식,차량등급,승차인원,변속기,연료,일일요금,주간요금,월간요금,주행제한(km),초과요금
-아반떼 2024,현대,아반떼,2024,중형,5,자동,가솔린,50000,300000,1000000,200,100
-쏘나타 2024,현대,쏘나타,2024,중형,5,자동,가솔린,70000,420000,1400000,200,100
-그랜저 2024,현대,그랜저,2024,대형,5,자동,가솔린,100000,600000,2000000,200,150
-싼타페 2024,현대,싼타페,2024,SUV,7,자동,디젤,90000,540000,1800000,200,150`;
+    const csv = `객실명,간단설명,인원,침대수,욕실수,최저가,최고가,상세설명
+스탠다드 더블,편안한 더블룸,2,1,1,80000,120000,바다 전망을 즐길 수 있는 편안한 객실입니다.
+디럭스 트윈,넓은 트윈룸,2,2,1,100000,150000,2개의 싱글 침대가 있는 넓은 객실입니다.
+프리미엄 스위트,고급 스위트룸,4,2,2,150000,200000,거실과 침실이 분리된 프리미엄 객실입니다.
+패밀리룸,가족 단위 객실,4,2,2,120000,180000,가족 여행에 적합한 넓은 객실입니다.`;
 
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'vehicles_template.csv';
+    link.download = 'rooms_template.csv';
     link.click();
     toast.success('CSV 템플릿이 다운로드되었습니다!');
   };
@@ -587,18 +555,18 @@ export function VendorDashboardPageEnhanced() {
 
     if (bookingFilters.startDate) {
       filtered = filtered.filter(
-        (b) => new Date(b.pickup_date) >= new Date(bookingFilters.startDate)
+        (b) => new Date(b.check_in_date) >= new Date(bookingFilters.startDate)
       );
     }
     if (bookingFilters.endDate) {
       filtered = filtered.filter(
-        (b) => new Date(b.pickup_date) <= new Date(bookingFilters.endDate)
+        (b) => new Date(b.check_in_date) <= new Date(bookingFilters.endDate)
       );
     }
 
-    if (bookingFilters.vehicleId) {
+    if (bookingFilters.listingId) {
       filtered = filtered.filter(
-        (b) => b.vehicle_id === parseInt(bookingFilters.vehicleId)
+        (b) => b.listing_id === parseInt(bookingFilters.listingId)
       );
     }
 
@@ -622,7 +590,7 @@ export function VendorDashboardPageEnhanced() {
     setBookingFilters({
       startDate: '',
       endDate: '',
-      vehicleId: '',
+      listingId: '',
       status: '',
       searchQuery: ''
     });
@@ -636,11 +604,11 @@ export function VendorDashboardPageEnhanced() {
   const handleEditInfo = () => {
     setIsEditingInfo(true);
     setEditedInfo({
-      name: vendorInfo?.name,
-      contact_person: vendorInfo?.contact_person,
-      contact_email: vendorInfo?.contact_email,
-      contact_phone: vendorInfo?.contact_phone,
-      address: vendorInfo?.address
+      business_name: partnerInfo?.business_name,
+      contact_name: partnerInfo?.contact_name,
+      contact_email: partnerInfo?.contact_email,
+      contact_phone: partnerInfo?.contact_phone,
+      address: partnerInfo?.address
     });
   };
 
@@ -650,11 +618,10 @@ export function VendorDashboardPageEnhanced() {
   };
 
   const handleSaveInfo = async () => {
-    if (!vendorInfo?.id || !user?.id) return;
+    if (!partnerInfo?.id || !user?.id) return;
 
     try {
-      // PUT API로 업체 정보 수정
-      const response = await fetch('/api/vendor/info', {
+      const response = await fetch('/api/partner/info', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -662,8 +629,8 @@ export function VendorDashboardPageEnhanced() {
         },
         body: JSON.stringify({
           userId: user.id,
-          name: editedInfo.name,
-          contact_person: editedInfo.contact_person,
+          business_name: editedInfo.business_name,
+          contact_name: editedInfo.contact_name,
           contact_email: editedInfo.contact_email,
           contact_phone: editedInfo.contact_phone,
           address: editedInfo.address
@@ -672,10 +639,10 @@ export function VendorDashboardPageEnhanced() {
 
       const result = await response.json();
       if (result.success) {
-        setVendorInfo({
-          ...vendorInfo,
-          name: editedInfo.name!,
-          contact_person: editedInfo.contact_person!,
+        setPartnerInfo({
+          ...partnerInfo,
+          business_name: editedInfo.business_name!,
+          contact_name: editedInfo.contact_name!,
           contact_email: editedInfo.contact_email!,
           contact_phone: editedInfo.contact_phone!,
           address: editedInfo.address!
@@ -683,7 +650,7 @@ export function VendorDashboardPageEnhanced() {
 
         setIsEditingInfo(false);
         setEditedInfo({});
-        toast.success('업체 정보가 수정되었습니다!');
+        toast.success('파트너 정보가 수정되었습니다!');
       } else {
         toast.error(result.message || '정보 수정에 실패했습니다.');
       }
@@ -704,13 +671,13 @@ export function VendorDashboardPageEnhanced() {
     );
   }
 
-  if (!vendorInfo) {
+  if (!partnerInfo) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>업체 정보 없음</CardTitle>
-            <CardDescription>업체 정보를 찾을 수 없습니다.</CardDescription>
+            <CardTitle>파트너 정보 없음</CardTitle>
+            <CardDescription>파트너 정보를 찾을 수 없습니다.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button onClick={() => navigate('/login')}>로그인 페이지로</Button>
@@ -727,14 +694,14 @@ export function VendorDashboardPageEnhanced() {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-              <Car className="w-8 h-8 text-white" />
+              <Hotel className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{vendorInfo.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-900">{partnerInfo.business_name}</h1>
               <p className="text-gray-600 flex items-center gap-2">
                 <Building2 className="w-4 h-4" />
-                렌트카 업체 대시보드 (강화 버전)
-                {vendorInfo.is_verified && (
+                숙박 파트너 대시보드
+                {partnerInfo.is_verified && (
                   <Badge variant="default" className="ml-2">인증됨</Badge>
                 )}
               </p>
@@ -751,12 +718,12 @@ export function VendorDashboardPageEnhanced() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
-                등록 차량
+                등록 객실
               </CardTitle>
-              <Car className="w-4 h-4 text-gray-600" />
+              <Hotel className="w-4 h-4 text-gray-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{vehicles.length}대</div>
+              <div className="text-3xl font-bold">{listings.length}개</div>
             </CardContent>
           </Card>
 
@@ -829,15 +796,15 @@ export function VendorDashboardPageEnhanced() {
           <Button
             variant="outline"
             className="h-20 flex flex-col items-center justify-center gap-2"
-            onClick={() => setActiveTab('vehicles')}
+            onClick={() => setActiveTab('listings')}
           >
-            <Car className="w-6 h-6" />
-            <span>차량 관리</span>
+            <Hotel className="w-6 h-6" />
+            <span>객실 관리</span>
           </Button>
           <Button
             variant="outline"
             className="h-20 flex flex-col items-center justify-center gap-2"
-            onClick={() => navigate('/vendor/pms')}
+            onClick={() => navigate('/partner/pms')}
           >
             <Zap className="w-6 h-6 text-purple-600" />
             <span className="text-purple-600 font-semibold">PMS 연동</span>
@@ -845,7 +812,7 @@ export function VendorDashboardPageEnhanced() {
           <Button
             variant="outline"
             className="h-20 flex flex-col items-center justify-center gap-2"
-            onClick={() => navigate('/vendor/pricing')}
+            onClick={() => navigate('/partner/pricing')}
           >
             <Tag className="w-6 h-6" />
             <span>요금 설정</span>
@@ -871,239 +838,124 @@ export function VendorDashboardPageEnhanced() {
         {/* 탭 메뉴 */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
-            <TabsTrigger value="vehicles">차량 관리</TabsTrigger>
+            <TabsTrigger value="listings">객실 관리</TabsTrigger>
             <TabsTrigger value="bookings">예약 관리</TabsTrigger>
             <TabsTrigger value="settings">업체 정보</TabsTrigger>
           </TabsList>
 
-          {/* 차량 관리 */}
-          <TabsContent value="vehicles">
-            {/* 차량 추가/수정 폼 */}
-            {isAddingVehicle && (
+          {/* 객실 관리 */}
+          <TabsContent value="listings">
+            {/* 객실 추가/수정 폼 */}
+            {isAddingListing && (
               <Card className="mb-6 border-blue-200 bg-blue-50">
                 <CardHeader>
-                  <CardTitle>{isEditingVehicle ? '차량 수정' : '새 차량 등록'}</CardTitle>
-                  <CardDescription>차량 정보를 입력해주세요</CardDescription>
+                  <CardTitle>{isEditingListing ? '객실 수정' : '새 객실 등록'}</CardTitle>
+                  <CardDescription>객실 정보를 입력해주세요</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <Label>차량명 *</Label>
+                      <Label>객실명 *</Label>
                       <Input
-                        placeholder="예: 현대 그랜저 2024"
-                        value={vehicleForm.display_name}
-                        onChange={(e) => setVehicleForm({...vehicleForm, display_name: e.target.value})}
+                        placeholder="예: 스탠다드 더블룸"
+                        value={listingForm.title}
+                        onChange={(e) => setListingForm({...listingForm, title: e.target.value})}
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <Label>간단 설명</Label>
+                      <Input
+                        placeholder="예: 편안한 더블 침대가 있는 스탠다드룸"
+                        value={listingForm.short_description}
+                        onChange={(e) => setListingForm({...listingForm, short_description: e.target.value})}
                       />
                     </div>
 
                     <div>
-                      <Label>차량 등급</Label>
-                      <select
-                        className="w-full p-2 border rounded"
-                        value={vehicleForm.vehicle_class}
-                        onChange={(e) => setVehicleForm({...vehicleForm, vehicle_class: e.target.value})}
-                      >
-                        <option value="경형">경형</option>
-                        <option value="소형">소형</option>
-                        <option value="준중형">준중형</option>
-                        <option value="중형">중형</option>
-                        <option value="대형">대형</option>
-                        <option value="SUV">SUV</option>
-                        <option value="승합">승합</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label>인승</Label>
+                      <Label>최저가 (원)</Label>
                       <Input
                         type="number"
-                        min="2"
-                        max="15"
-                        value={vehicleForm.seating_capacity}
-                        onChange={(e) => setVehicleForm({...vehicleForm, seating_capacity: parseInt(e.target.value)})}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>변속기</Label>
-                      <select
-                        className="w-full p-2 border rounded"
-                        value={vehicleForm.transmission_type}
-                        onChange={(e) => setVehicleForm({...vehicleForm, transmission_type: e.target.value})}
-                      >
-                        <option value="자동">자동</option>
-                        <option value="수동">수동</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label>연료</Label>
-                      <select
-                        className="w-full p-2 border rounded"
-                        value={vehicleForm.fuel_type}
-                        onChange={(e) => setVehicleForm({...vehicleForm, fuel_type: e.target.value})}
-                      >
-                        <option value="가솔린">가솔린</option>
-                        <option value="디젤">디젤</option>
-                        <option value="LPG">LPG</option>
-                        <option value="하이브리드">하이브리드</option>
-                        <option value="전기">전기</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label>일일 요금 (원)</Label>
-                      <Input
-                        type="number"
-                        min="10000"
+                        min="30000"
                         step="5000"
-                        value={vehicleForm.daily_rate_krw}
-                        onChange={(e) => setVehicleForm({...vehicleForm, daily_rate_krw: parseInt(e.target.value)})}
+                        value={listingForm.price_from}
+                        onChange={(e) => setListingForm({...listingForm, price_from: parseInt(e.target.value)})}
                       />
                     </div>
 
                     <div>
-                      <Label>주간 요금 (원)</Label>
+                      <Label>최고가 (원)</Label>
                       <Input
                         type="number"
                         min="50000"
-                        step="10000"
-                        value={vehicleForm.weekly_rate_krw}
-                        onChange={(e) => setVehicleForm({...vehicleForm, weekly_rate_krw: parseInt(e.target.value)})}
+                        step="5000"
+                        value={listingForm.price_to}
+                        onChange={(e) => setListingForm({...listingForm, price_to: parseInt(e.target.value)})}
                       />
                     </div>
 
                     <div>
-                      <Label>월간 요금 (원)</Label>
+                      <Label>최대 인원</Label>
                       <Input
                         type="number"
-                        min="100000"
-                        step="50000"
-                        value={vehicleForm.monthly_rate_krw}
-                        onChange={(e) => setVehicleForm({...vehicleForm, monthly_rate_krw: parseInt(e.target.value)})}
+                        min="1"
+                        max="10"
+                        value={listingForm.available_spots}
+                        onChange={(e) => setListingForm({...listingForm, available_spots: parseInt(e.target.value)})}
                       />
                     </div>
 
                     <div>
-                      <Label>주행거리 제한 (km/일)</Label>
+                      <Label>위치</Label>
                       <Input
-                        type="number"
-                        min="50"
-                        step="10"
-                        value={vehicleForm.mileage_limit_km}
-                        onChange={(e) => setVehicleForm({...vehicleForm, mileage_limit_km: parseInt(e.target.value)})}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>초과 주행료 (원/km)</Label>
-                      <Input
-                        type="number"
-                        min="10"
-                        step="10"
-                        value={vehicleForm.excess_mileage_fee_krw}
-                        onChange={(e) => setVehicleForm({...vehicleForm, excess_mileage_fee_krw: parseInt(e.target.value)})}
-                      />
-                    </div>
-
-                    <div className="md:col-span-2 flex items-center gap-2">
-                      <Switch
-                        checked={vehicleForm.insurance_included}
-                        onCheckedChange={(checked) => setVehicleForm({...vehicleForm, insurance_included: checked})}
-                      />
-                      <Label>보험 포함</Label>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <Label>보험 옵션</Label>
-                      <Input
-                        placeholder="예: 자차보험, 대인배상, 대물배상"
-                        value={vehicleForm.insurance_options}
-                        onChange={(e) => setVehicleForm({...vehicleForm, insurance_options: e.target.value})}
+                        placeholder="예: 서울시 강남구"
+                        value={listingForm.location}
+                        onChange={(e) => setListingForm({...listingForm, location: e.target.value})}
                       />
                     </div>
 
                     <div className="md:col-span-2">
-                      <Label>차량 옵션</Label>
+                      <Label>편의시설 (쉼표로 구분)</Label>
+                      <Input
+                        placeholder="예: WiFi, TV, 에어컨, 냉장고"
+                        value={listingForm.amenities_text}
+                        onChange={(e) => setListingForm({...listingForm, amenities_text: e.target.value})}
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <Label>하이라이트 (쉼표로 구분)</Label>
+                      <Input
+                        placeholder="예: 오션뷰, 조식 포함, 무료 주차"
+                        value={listingForm.highlights_text}
+                        onChange={(e) => setListingForm({...listingForm, highlights_text: e.target.value})}
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <Label>상세 설명 (Markdown)</Label>
                       <Textarea
-                        placeholder="예: GPS, 블랙박스, 하이패스, 휴대폰 거치대"
-                        value={vehicleForm.available_options}
-                        onChange={(e) => setVehicleForm({...vehicleForm, available_options: e.target.value})}
-                        rows={2}
+                        placeholder="객실에 대한 상세 설명을 입력하세요 (Markdown 형식)"
+                        value={listingForm.description_md}
+                        onChange={(e) => setListingForm({...listingForm, description_md: e.target.value})}
+                        rows={4}
                       />
                     </div>
 
-                    <div className="md:col-span-2 flex items-center gap-2">
-                      <Switch
-                        checked={vehicleForm.is_available}
-                        onCheckedChange={(checked) => setVehicleForm({...vehicleForm, is_available: checked})}
-                      />
-                      <Label>예약 가능</Label>
-                    </div>
-
-                    {/* 픽업/반납 위치 */}
-                    <div className="md:col-span-2 border-t pt-4">
-                      <Label className="mb-2 font-semibold">픽업/반납 위치</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>픽업 위치</Label>
-                          <Input
-                            placeholder="예: 신안군 렌트카 본점"
-                            value={vehicleForm.pickup_location}
-                            onChange={(e) => setVehicleForm({...vehicleForm, pickup_location: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <Label>반납 위치</Label>
-                          <Input
-                            placeholder="예: 신안군 렌트카 본점"
-                            value={vehicleForm.dropoff_location}
-                            onChange={(e) => setVehicleForm({...vehicleForm, dropoff_location: e.target.value})}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 렌탈 기간 제한 */}
-                    <div className="md:col-span-2 border-t pt-4">
-                      <Label className="mb-2 font-semibold">렌탈 기간 제한</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>최소 렌탈 기간 (일)</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={vehicleForm.min_rental_days}
-                            onChange={(e) => setVehicleForm({...vehicleForm, min_rental_days: parseInt(e.target.value)})}
-                          />
-                        </div>
-                        <div>
-                          <Label>최대 렌탈 기간 (일)</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={vehicleForm.max_rental_days}
-                            onChange={(e) => setVehicleForm({...vehicleForm, max_rental_days: parseInt(e.target.value)})}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 즉시 예약 설정 */}
-                    <div className="md:col-span-2 border-t pt-4">
+                    <div className="md:col-span-2 flex items-center gap-4">
                       <div className="flex items-center gap-2">
                         <Switch
-                          checked={vehicleForm.instant_booking}
-                          onCheckedChange={(checked) => setVehicleForm({...vehicleForm, instant_booking: checked})}
+                          checked={listingForm.is_published}
+                          onCheckedChange={(checked) => setListingForm({...listingForm, is_published: checked})}
                         />
-                        <div>
-                          <Label>즉시 예약 가능</Label>
-                          <p className="text-sm text-gray-500">
-                            {vehicleForm.instant_booking
-                              ? '예약 즉시 자동 확정됩니다'
-                              : '예약 후 수동 승인이 필요합니다'}
-                          </p>
-                        </div>
+                        <Label>공개</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={listingForm.is_active}
+                          onCheckedChange={(checked) => setListingForm({...listingForm, is_active: checked})}
+                        />
+                        <Label>예약 가능</Label>
                       </div>
                     </div>
 
@@ -1111,7 +963,7 @@ export function VendorDashboardPageEnhanced() {
                     <div className="md:col-span-2 border-t pt-4">
                       <Label className="mb-2 flex items-center gap-2">
                         <ImageIcon className="w-4 h-4" />
-                        차량 이미지 URL (최대 5개)
+                        객실 이미지 URL (최대 5개)
                       </Label>
                       <div className="flex gap-2 mb-2">
                         <Input
@@ -1129,14 +981,14 @@ export function VendorDashboardPageEnhanced() {
                           type="button"
                           variant="outline"
                           onClick={addImageUrl}
-                          disabled={vehicleForm.image_urls.length >= 5}
+                          disabled={listingForm.image_urls.length >= 5}
                         >
                           <Plus className="w-4 h-4" />
                         </Button>
                       </div>
-                      {vehicleForm.image_urls.length > 0 && (
+                      {listingForm.image_urls.length > 0 && (
                         <div className="space-y-2">
-                          {vehicleForm.image_urls.map((url, index) => (
+                          {listingForm.image_urls.map((url, index) => (
                             <div key={index} className="flex items-center gap-2 p-2 bg-white rounded border">
                               <ImageIcon className="w-4 h-4 text-gray-400" />
                               <span className="flex-1 text-sm truncate">{url}</span>
@@ -1152,7 +1004,7 @@ export function VendorDashboardPageEnhanced() {
                           ))}
                         </div>
                       )}
-                      {vehicleForm.image_urls.length === 0 && (
+                      {listingForm.image_urls.length === 0 && (
                         <p className="text-sm text-gray-500">
                           이미지를 추가하지 않으면 기본 이미지가 사용됩니다.
                         </p>
@@ -1161,8 +1013,8 @@ export function VendorDashboardPageEnhanced() {
                   </div>
 
                   <div className="flex gap-2 mt-6">
-                    <Button onClick={handleSaveVehicle}>
-                      {isEditingVehicle ? '수정' : '등록'}
+                    <Button onClick={handleSaveListing}>
+                      {isEditingListing ? '수정' : '등록'}
                     </Button>
                     <Button variant="outline" onClick={handleCancelForm}>
                       취소
@@ -1175,8 +1027,8 @@ export function VendorDashboardPageEnhanced() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>차량 목록</CardTitle>
-                  <CardDescription>등록된 차량 {vehicles.length}대</CardDescription>
+                  <CardTitle>객실 목록</CardTitle>
+                  <CardDescription>등록된 객실 {listings.length}개</CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -1197,55 +1049,55 @@ export function VendorDashboardPageEnhanced() {
                     <FileUp className="w-4 h-4 mr-2" />
                     CSV 템플릿
                   </Button>
-                  <Button onClick={handleAddVehicle} disabled={isAddingVehicle}>
+                  <Button onClick={handleAddListing} disabled={isAddingListing}>
                     <Plus className="w-4 h-4 mr-2" />
-                    차량 추가
+                    객실 추가
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
-                {vehicles.length === 0 ? (
+                {listings.length === 0 ? (
                   <div className="text-center py-12">
-                    <Car className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-600 mb-4">등록된 차량이 없습니다.</p>
-                    <Button onClick={handleAddVehicle}>
+                    <Hotel className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">등록된 객실이 없습니다.</p>
+                    <Button onClick={handleAddListing}>
                       <Plus className="w-4 h-4 mr-2" />
-                      첫 차량 등록하기
+                      첫 객실 등록하기
                     </Button>
                   </div>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>차량명</TableHead>
-                        <TableHead>등급</TableHead>
-                        <TableHead>인승</TableHead>
-                        <TableHead>변속기</TableHead>
-                        <TableHead>연료</TableHead>
-                        <TableHead>일일 요금</TableHead>
+                        <TableHead>객실명</TableHead>
+                        <TableHead>설명</TableHead>
+                        <TableHead>인원</TableHead>
+                        <TableHead>가격대</TableHead>
                         <TableHead>상태</TableHead>
                         <TableHead>관리</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {vehicles.map((vehicle) => (
-                        <TableRow key={vehicle.id}>
+                      {listings.map((listing) => (
+                        <TableRow key={listing.id}>
                           <TableCell className="font-medium">
-                            {vehicle.display_name}
+                            {listing.title}
                           </TableCell>
-                          <TableCell>{vehicle.vehicle_class}</TableCell>
-                          <TableCell>{vehicle.seating_capacity}인승</TableCell>
-                          <TableCell>{vehicle.transmission_type}</TableCell>
-                          <TableCell>{vehicle.fuel_type}</TableCell>
-                          <TableCell>{vehicle.daily_rate_krw.toLocaleString()}원</TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {listing.short_description}
+                          </TableCell>
+                          <TableCell>{listing.available_spots}명</TableCell>
+                          <TableCell>
+                            ₩{listing.price_from.toLocaleString()}~{listing.price_to.toLocaleString()}
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Switch
-                                checked={vehicle.is_available}
-                                onCheckedChange={() => toggleVehicleAvailability(vehicle.id, vehicle.is_available)}
+                                checked={listing.is_active}
+                                onCheckedChange={() => toggleListingAvailability(listing.id, listing.is_active)}
                               />
-                              <Badge variant={vehicle.is_available ? 'default' : 'secondary'}>
-                                {vehicle.is_available ? '예약 가능' : '예약 불가'}
+                              <Badge variant={listing.is_active ? 'default' : 'secondary'}>
+                                {listing.is_active ? '예약 가능' : '예약 불가'}
                               </Badge>
                             </div>
                           </TableCell>
@@ -1254,14 +1106,14 @@ export function VendorDashboardPageEnhanced() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleEditVehicle(vehicle)}
+                                onClick={() => handleEditListing(listing)}
                               >
                                 <Edit className="w-4 h-4" />
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleDeleteVehicle(vehicle.id)}
+                                onClick={() => handleDeleteListing(listing.id)}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -1288,7 +1140,7 @@ export function VendorDashboardPageEnhanced() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <Label>픽업일 시작</Label>
+                    <Label>체크인 시작</Label>
                     <Input
                       type="date"
                       value={bookingFilters.startDate}
@@ -1298,7 +1150,7 @@ export function VendorDashboardPageEnhanced() {
                     />
                   </div>
                   <div>
-                    <Label>픽업일 종료</Label>
+                    <Label>체크인 종료</Label>
                     <Input
                       type="date"
                       value={bookingFilters.endDate}
@@ -1308,18 +1160,18 @@ export function VendorDashboardPageEnhanced() {
                     />
                   </div>
                   <div>
-                    <Label>차량 선택</Label>
+                    <Label>객실 선택</Label>
                     <select
                       className="w-full p-2 border rounded"
-                      value={bookingFilters.vehicleId}
+                      value={bookingFilters.listingId}
                       onChange={(e) =>
-                        setBookingFilters({ ...bookingFilters, vehicleId: e.target.value })
+                        setBookingFilters({ ...bookingFilters, listingId: e.target.value })
                       }
                     >
-                      <option value="">전체 차량</option>
-                      {vehicles.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.display_name}
+                      <option value="">전체 객실</option>
+                      {listings.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.title}
                         </option>
                       ))}
                     </select>
@@ -1380,11 +1232,11 @@ export function VendorDashboardPageEnhanced() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>예약번호</TableHead>
-                        <TableHead>차량</TableHead>
+                        <TableHead>객실</TableHead>
                         <TableHead>고객명</TableHead>
                         <TableHead>연락처</TableHead>
-                        <TableHead>픽업일</TableHead>
-                        <TableHead>반납일</TableHead>
+                        <TableHead>체크인</TableHead>
+                        <TableHead>체크아웃</TableHead>
                         <TableHead>금액</TableHead>
                         <TableHead>상태</TableHead>
                       </TableRow>
@@ -1394,17 +1246,17 @@ export function VendorDashboardPageEnhanced() {
                         <TableRow key={booking.id}>
                           <TableCell>#{booking.id}</TableCell>
                           <TableCell className="font-medium">
-                            {booking.vehicle_name}
+                            {booking.room_name}
                           </TableCell>
                           <TableCell>{booking.customer_name}</TableCell>
                           <TableCell>{booking.customer_phone}</TableCell>
                           <TableCell>
-                            {new Date(booking.pickup_date).toLocaleDateString('ko-KR')}
+                            {new Date(booking.check_in_date).toLocaleDateString('ko-KR')}
                           </TableCell>
                           <TableCell>
-                            {new Date(booking.dropoff_date).toLocaleDateString('ko-KR')}
+                            {new Date(booking.check_out_date).toLocaleDateString('ko-KR')}
                           </TableCell>
-                          <TableCell>{booking.total_amount.toLocaleString()}원</TableCell>
+                          <TableCell>₩{booking.total_amount.toLocaleString()}</TableCell>
                           <TableCell>
                             <Badge
                               variant={
@@ -1435,30 +1287,30 @@ export function VendorDashboardPageEnhanced() {
           <TabsContent value="settings">
             <Card>
               <CardHeader>
-                <CardTitle>업체 정보</CardTitle>
+                <CardTitle>파트너 정보</CardTitle>
                 <CardDescription>업체 기본 정보 및 연락처</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <Label>업체명</Label>
                   <Input
-                    value={isEditingInfo ? (editedInfo.name || '') : vendorInfo.name}
-                    onChange={(e) => setEditedInfo({ ...editedInfo, name: e.target.value })}
+                    value={isEditingInfo ? (editedInfo.business_name || '') : partnerInfo.business_name}
+                    onChange={(e) => setEditedInfo({ ...editedInfo, business_name: e.target.value })}
                     disabled={!isEditingInfo}
                   />
                 </div>
                 <div>
                   <Label>담당자</Label>
                   <Input
-                    value={isEditingInfo ? (editedInfo.contact_person || '') : vendorInfo.contact_person}
-                    onChange={(e) => setEditedInfo({ ...editedInfo, contact_person: e.target.value })}
+                    value={isEditingInfo ? (editedInfo.contact_name || '') : partnerInfo.contact_name}
+                    onChange={(e) => setEditedInfo({ ...editedInfo, contact_name: e.target.value })}
                     disabled={!isEditingInfo}
                   />
                 </div>
                 <div>
                   <Label>이메일</Label>
                   <Input
-                    value={isEditingInfo ? (editedInfo.contact_email || '') : vendorInfo.contact_email}
+                    value={isEditingInfo ? (editedInfo.contact_email || '') : partnerInfo.contact_email}
                     onChange={(e) => setEditedInfo({ ...editedInfo, contact_email: e.target.value })}
                     disabled={!isEditingInfo}
                   />
@@ -1466,7 +1318,7 @@ export function VendorDashboardPageEnhanced() {
                 <div>
                   <Label>전화번호</Label>
                   <Input
-                    value={isEditingInfo ? (editedInfo.contact_phone || '') : vendorInfo.contact_phone}
+                    value={isEditingInfo ? (editedInfo.contact_phone || '') : partnerInfo.contact_phone}
                     onChange={(e) => setEditedInfo({ ...editedInfo, contact_phone: e.target.value })}
                     disabled={!isEditingInfo}
                   />
@@ -1474,7 +1326,7 @@ export function VendorDashboardPageEnhanced() {
                 <div>
                   <Label>주소</Label>
                   <Textarea
-                    value={isEditingInfo ? (editedInfo.address || '') : (vendorInfo.address || '미등록')}
+                    value={isEditingInfo ? (editedInfo.address || '') : (partnerInfo.address || '미등록')}
                     onChange={(e) => setEditedInfo({ ...editedInfo, address: e.target.value })}
                     disabled={!isEditingInfo}
                     rows={2}
@@ -1507,4 +1359,4 @@ export function VendorDashboardPageEnhanced() {
   );
 }
 
-export default VendorDashboardPageEnhanced;
+export default PartnerDashboardPageEnhanced;

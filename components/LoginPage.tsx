@@ -10,7 +10,7 @@ import { initGoogleAuth, initKakaoAuth, initNaverAuth } from '../utils/socialAut
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login, isAdmin } = useAuth();
+  const { login, isAdmin, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -35,6 +35,12 @@ export function LoginPage() {
           if (isAdmin) {
             console.log('🔑 관리자로 이동');
             navigate('/admin', { replace: true });
+          } else if (user?.role === 'partner') {
+            console.log('🏨 파트너 대시보드로 이동');
+            navigate('/partner/dashboard', { replace: true });
+          } else if (user?.role === 'vendor') {
+            console.log('🚗 벤더 대시보드로 이동');
+            navigate('/vendor/dashboard', { replace: true });
           } else {
             console.log('🏠 홈으로 이동');
             navigate('/', { replace: true });

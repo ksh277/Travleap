@@ -1,8 +1,10 @@
-import { neon } from '@neondatabase/serverless';
+import { connect } from '@planetscale/database';
 
 export interface DatabaseConfig {
   url: string;
 }
+
+// Force reload - PlanetScale MySQL connection
 
 export interface QueryResult {
   rows: any[];
@@ -11,7 +13,7 @@ export interface QueryResult {
 }
 
 class Database {
-  private sql: any;
+  private connection: any;
 
   constructor() {
     // 브라우저 환경에서는 DB 직접 접속 불가
@@ -19,38 +21,30 @@ class Database {
       throw new Error('❌ Database cannot be accessed from browser! Use API routes instead.');
     }
 
-    // Neon PostgreSQL 연결
-    const databaseUrl = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+    // PlanetScale MySQL 연결
+    const config = {
+      host: process.env.DATABASE_HOST,
+      username: process.env.DATABASE_USERNAME,
+      password: process.env.DATABASE_PASSWORD,
+    };
 
-    if (!databaseUrl) {
-      throw new Error('DATABASE_URL not configured');
+    if (!config.host || !config.username || !config.password) {
+      throw new Error('DATABASE_HOST, DATABASE_USERNAME, DATABASE_PASSWORD not configured');
     }
 
-    this.sql = neon(databaseUrl);
-    console.log('✅ [Database] Connected to Neon PostgreSQL');
+    this.connection = connect(config);
+    console.log('✅ [Database] Connected to PlanetScale MySQL');
   }
 
   async execute(sqlString: string, params: any[] = []): Promise<QueryResult> {
     try {
-      // Neon은 템플릿 리터럴을 사용하지만, 파라미터 바인딩을 위해 변환
-      let result;
-      if (params.length === 0) {
-        result = await this.sql([sqlString]);
-      } else {
-        // ? 플레이스홀더를 $1, $2로 변환
-        let paramIndex = 1;
-        const pgSql = sqlString.replace(/\?/g, () => `$${paramIndex++}`);
-
-        // 템플릿 리터럴 형식으로 실행
-        const strings = [pgSql];
-        (strings as any).raw = [pgSql];
-        result = await this.sql(strings, ...params);
-      }
+      // PlanetScale execute 사용
+      const result = await this.connection.execute(sqlString, params);
 
       return {
-        rows: result || [],
-        insertId: result && result.length > 0 && result[0].id ? Number(result[0].id) : 0,
-        affectedRows: result ? result.length : 0
+        rows: result.rows || [],
+        insertId: result.insertId ? Number(result.insertId) : 0,
+        affectedRows: result.rowsAffected || 0
       };
     } catch (error: any) {
       console.error('Database execution error:', error);

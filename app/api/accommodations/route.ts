@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
         p.email,
         p.tier,
         p.is_verified,
+        p.is_featured,
         COUNT(l.id) as room_count,
         MIN(l.price_from) as min_price,
         MAX(l.price_from) as max_price,
@@ -32,13 +33,12 @@ export async function GET(request: NextRequest) {
         GROUP_CONCAT(DISTINCT l.location SEPARATOR ', ') as locations,
         AVG(l.rating_avg) as avg_rating,
         SUM(l.rating_count) as total_reviews
-      FROM listings l
-      LEFT JOIN partners p ON l.partner_id = p.id
-      WHERE l.category_id = 1857
-        AND l.is_published = 1
-        AND l.is_active = 1
-      GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.tier, p.is_verified
-      ORDER BY p.business_name
+      FROM partners p
+      LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = 1857 AND l.is_published = 1 AND l.is_active = 1
+      WHERE p.is_active = 1
+      GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.tier, p.is_verified, p.is_featured
+      HAVING room_count > 0
+      ORDER BY p.is_verified DESC, p.is_featured DESC, avg_rating DESC
     `);
 
     // 이미지 JSON 파싱
@@ -61,12 +61,13 @@ export async function GET(request: NextRequest) {
         email: hotel.email,
         tier: hotel.tier,
         is_verified: hotel.is_verified,
+        is_featured: hotel.is_featured,
         room_count: hotel.room_count,
         min_price: hotel.min_price,
         max_price: hotel.max_price,
         images: images,
         locations: hotel.locations,
-        avg_rating: hotel.avg_rating ? parseFloat(hotel.avg_rating).toFixed(1) : null,
+        avg_rating: hotel.avg_rating ? parseFloat(hotel.avg_rating).toFixed(1) : '0.0',
         total_reviews: hotel.total_reviews || 0,
       };
     });
