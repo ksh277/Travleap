@@ -96,11 +96,16 @@ export const DialogContent: React.FC<{
 
   useEffect(() => {
     if (isOpen) {
+      // 원래 overflow 값을 저장
+      const originalOverflow = document.body.style.overflow;
+
       document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
+
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
-        document.body.style.overflow = 'unset';
+        // 원래 값으로 복원 (빈 문자열이면 CSS 기본값으로 돌아감)
+        document.body.style.overflow = originalOverflow;
       };
     }
   }, [isOpen]);
