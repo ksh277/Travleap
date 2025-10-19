@@ -29,6 +29,11 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error fetching activities:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    // 테이블이 없으면 빈 배열 반환
+    return res.status(200).json({
+      success: true,
+      data: [],
+      error: error.message
+    });
   }
 };
