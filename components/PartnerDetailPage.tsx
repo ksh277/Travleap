@@ -60,6 +60,73 @@ export function PartnerDetailPage() {
     loadPartnerDetail();
   }, [id]);
 
+  // Kakao Map 초기화
+  useEffect(() => {
+    if (!partner || !partner.address) return;
+
+    const initMap = () => {
+      const kakao = (window as any).kakao;
+      if (!kakao || !kakao.maps) {
+        console.error('Kakao Maps API not loaded');
+        return;
+      }
+
+      const container = document.getElementById('map');
+      if (!container) return;
+
+      const geocoder = new kakao.maps.services.Geocoder();
+
+      // 주소로 좌표 검색
+      geocoder.addressSearch(partner.address, (result: any, status: any) => {
+        if (status === kakao.maps.services.Status.OK) {
+          const coords = new kakao.maps.LatLng(result[0].y, result[0].x);
+
+          const options = {
+            center: coords,
+            level: 3
+          };
+
+          const map = new kakao.maps.Map(container, options);
+
+          // 마커 표시
+          const marker = new kakao.maps.Marker({
+            map: map,
+            position: coords
+          });
+
+          // 인포윈도우 표시
+          const infowindow = new kakao.maps.InfoWindow({
+            content: `<div style="padding:5px;font-size:12px;width:200px;text-align:center;">${partner.name}</div>`
+          });
+          infowindow.open(map, marker);
+        } else {
+          console.error('Geocoder failed:', status);
+          // 기본 위치 (신안군청)
+          const defaultCoords = new kakao.maps.LatLng(34.8251, 126.1042);
+          const options = {
+            center: defaultCoords,
+            level: 5
+          };
+          const map = new kakao.maps.Map(container, options);
+          const marker = new kakao.maps.Marker({
+            map: map,
+            position: defaultCoords
+          });
+        }
+      });
+    };
+
+    // Kakao Maps API 로드 확인
+    if ((window as any).kakao && (window as any).kakao.maps) {
+      initMap();
+    } else {
+      const script = document.querySelector('script[src*="dapi.kakao.com"]');
+      if (script) {
+        script.addEventListener('load', initMap);
+      }
+    }
+  }, [partner]);
+
   const loadPartnerDetail = async () => {
     if (!id) return;
 
@@ -274,12 +341,7 @@ export function PartnerDetailPage() {
                   <MapPin className="h-5 w-5" />
                   <span className="text-sm">{partner.location}</span>
                 </div>
-                <div className="w-full h-[400px] bg-gray-200 rounded-lg flex items-center justify-center">
-                  <div className="text-center text-gray-500">
-                    <p className="mb-2">Google 지도를 제대로 로드할 수 없습니다.</p>
-                    <p className="text-sm">이 웹사이트의 소유자이신가요? 확인</p>
-                  </div>
-                </div>
+                <div id="map" className="w-full h-[400px] bg-gray-100 rounded-lg"></div>
               </div>
             </div>
 
