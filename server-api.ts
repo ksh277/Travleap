@@ -907,6 +907,152 @@ function setupRoutes() {
     }
   });
 
+  // 상품 생성 (관리자용)
+  app.post('/api/admin/listings', async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const listingData = req.body;
+
+      console.log('📦 상품 생성 요청:', listingData.title);
+
+      // 카테고리 slug 매핑
+      const slugMapping: { [key: string]: string } = {
+        '투어': 'tour', '여행': 'tour', 'tour': 'tour',
+        '렌트카': 'rentcar', 'rentcar': 'rentcar',
+        '숙박': 'stay', 'stay': 'stay',
+        '음식': 'food', 'food': 'food',
+        '관광지': 'tourist', 'tourist': 'tourist',
+        '체험': 'experience', 'experience': 'experience',
+        '팝업': 'popup', 'popup': 'popup',
+        '행사': 'event', 'event': 'event'
+      };
+
+      const categoryKey = (listingData.category || '').trim();
+      const slug = slugMapping[categoryKey] || 'tour';
+
+      // INSERT 쿼리
+      const result = await db.execute(`
+        INSERT INTO listings
+        (title, category, category_id, price_from, price_to, child_price, infant_price,
+         location, address, meeting_point, images, short_description, description_md,
+         highlights, included, excluded, max_capacity, is_featured, is_active, is_published,
+         created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `, [
+        listingData.title,
+        slug,
+        listingData.category_id,
+        listingData.price || 0,
+        listingData.price || 0,
+        listingData.childPrice || null,
+        listingData.infantPrice || null,
+        listingData.location || '신안군',
+        listingData.detailedAddress || '',
+        listingData.meetingPoint || '',
+        JSON.stringify(listingData.images || []),
+        listingData.description || '',
+        listingData.longDescription || listingData.description || '',
+        JSON.stringify(listingData.highlights || []),
+        JSON.stringify(listingData.included || []),
+        JSON.stringify(listingData.excluded || []),
+        listingData.maxCapacity || 20,
+        listingData.featured ? 1 : 0,
+        listingData.is_active !== false ? 1 : 0,
+        1
+      ]);
+
+      console.log('✅ 상품 생성 완료:', result.insertId);
+
+      res.json({
+        success: true,
+        data: {
+          id: result.insertId,
+          ...listingData
+        },
+        message: '상품이 생성되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Create listing error:', error);
+      res.status(500).json({
+        success: false,
+        message: '상품 생성 실패: ' + (error instanceof Error ? error.message : String(error))
+      });
+    }
+  });
+
+  // 상품 수정 (관리자용)
+  app.put('/api/admin/listings/:id', async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const listingId = parseInt(req.params.id);
+      const listingData = req.body;
+
+      console.log('📝 상품 수정 요청:', listingId, listingData.title);
+
+      // 카테고리 slug 매핑
+      const slugMapping: { [key: string]: string } = {
+        '투어': 'tour', '여행': 'tour', 'tour': 'tour',
+        '렌트카': 'rentcar', 'rentcar': 'rentcar',
+        '숙박': 'stay', 'stay': 'stay',
+        '음식': 'food', 'food': 'food',
+        '관광지': 'tourist', 'tourist': 'tourist',
+        '체험': 'experience', 'experience': 'experience',
+        '팝업': 'popup', 'popup': 'popup',
+        '행사': 'event', 'event': 'event'
+      };
+
+      const categoryKey = (listingData.category || '').trim();
+      const slug = slugMapping[categoryKey] || 'tour';
+
+      await db.execute(`
+        UPDATE listings SET
+          title = ?, category = ?, category_id = ?, price_from = ?, price_to = ?,
+          child_price = ?, infant_price = ?,
+          location = ?, address = ?, meeting_point = ?,
+          images = ?, short_description = ?, description_md = ?,
+          highlights = ?, included = ?, excluded = ?,
+          max_capacity = ?, is_featured = ?, is_active = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [
+        listingData.title,
+        slug,
+        listingData.category_id,
+        listingData.price || 0,
+        listingData.price || 0,
+        listingData.childPrice || null,
+        listingData.infantPrice || null,
+        listingData.location || '신안군',
+        listingData.detailedAddress || '',
+        listingData.meetingPoint || '',
+        JSON.stringify(listingData.images || []),
+        listingData.description || '',
+        listingData.longDescription || listingData.description || '',
+        JSON.stringify(listingData.highlights || []),
+        JSON.stringify(listingData.included || []),
+        JSON.stringify(listingData.excluded || []),
+        listingData.maxCapacity || 20,
+        listingData.featured ? 1 : 0,
+        listingData.is_active !== false ? 1 : 0,
+        listingId
+      ]);
+
+      console.log('✅ 상품 수정 완료:', listingId);
+
+      res.json({
+        success: true,
+        data: { id: listingId, ...listingData },
+        message: '상품이 수정되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update listing error:', error);
+      res.status(500).json({
+        success: false,
+        message: '상품 수정 실패: ' + (error instanceof Error ? error.message : String(error))
+      });
+    }
+  });
+
   // ===== 리뷰 API =====
 
   // 최근 리뷰 조회
