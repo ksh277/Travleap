@@ -280,30 +280,6 @@ export function PartnerDetailPage() {
                 </div>
               </div>
 
-              {/* Info Icons */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200">
-                  <Clock className="h-6 w-6 text-purple-600 mb-2" />
-                  <span className="text-sm text-gray-600">기간</span>
-                  <span className="text-sm font-medium">{partner.duration ? `회대 ${partner.duration}일` : '___'}</span>
-                </div>
-                <div className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200">
-                  <Users className="h-6 w-6 text-purple-600 mb-2" />
-                  <span className="text-sm text-gray-600">최소 연령</span>
-                  <span className="text-sm font-medium">{partner.min_age ? `${partner.min_age}세` : '___'}</span>
-                </div>
-                <div className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200">
-                  <Users className="h-6 w-6 text-purple-600 mb-2" />
-                  <span className="text-sm text-gray-600">그룹 크기</span>
-                  <span className="text-sm font-medium">{partner.max_capacity ? `${partner.max_capacity}명` : '___'}</span>
-                </div>
-                <div className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200">
-                  <Globe className="h-6 w-6 text-purple-600 mb-2" />
-                  <span className="text-sm text-gray-600">언어</span>
-                  <span className="text-sm font-medium">{partner.language || '___'}</span>
-                </div>
-              </div>
-
               {/* Overview Section */}
               <div className="bg-white rounded-lg border border-gray-200 p-6">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">개요</h2>
@@ -339,25 +315,6 @@ export function PartnerDetailPage() {
             {/* Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-20 space-y-6">
-                {/* Price Card */}
-                <Card className="overflow-hidden">
-                  <div className="bg-purple-600 text-white p-4">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-sm">from</span>
-                      <span className="text-3xl font-bold">
-                        {partner.base_price && partner.base_price > 0
-                          ? `${partner.base_price.toLocaleString()}원`
-                          : '가격 문의'}
-                      </span>
-                    </div>
-                    {partner.discount_rate && (
-                      <Badge className="absolute top-4 right-4 bg-red-500">
-                        {partner.discount_rate}%
-                      </Badge>
-                    )}
-                  </div>
-                </Card>
-
                 {/* Host Info Card */}
                 <Card>
                   <CardContent className="p-6">
