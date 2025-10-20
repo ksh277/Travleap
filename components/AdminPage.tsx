@@ -1169,49 +1169,17 @@ export function AdminPage({}: AdminPageProps) {
         '여행': 1, '렌트카': 4, '숙박': 2, '음식': 3, '관광지': 5, '팝업': 6, '행사': 7, '체험': 8
       };
 
+      // API가 받는 필드만 보내기 (간단하게)
       const listingData = {
         title: newProduct.title,
-        category: newProduct.category, // 한글 카테고리 그대로 사용
-        category_id: categoryMap[newProduct.category] || 1,
-        short_description: newProduct.description,
-        description_md: newProduct.longDescription || newProduct.description,
-        price_from: parseInt(newProduct.price),
-        price_to: parseInt(newProduct.price),
-        child_price: newProduct.childPrice ? parseInt(newProduct.childPrice) : null,
-        infant_price: newProduct.infantPrice ? parseInt(newProduct.infantPrice) : null,
-        available_start_times: newProduct.availableStartTimes.filter(t => t.trim() !== ''),
-        itinerary: newProduct.itinerary.filter(item => item.time || item.activity),
-        packages: newProduct.packages.filter(pkg => pkg.name && pkg.price),
+        description: newProduct.description || newProduct.longDescription || '',
+        price: parseInt(newProduct.price),
         location: newProduct.location || '',
-        address: newProduct.address || '',
-        coordinates: newProduct.coordinates || '',
+        category_id: categoryMap[newProduct.category] || 1,
+        partner_id: null, // 나중에 파트너 선택 기능 추가 가능
         images: newProduct.images.filter(img => img.trim() !== ''),
-        highlights: newProduct.highlights.filter(h => h.trim() !== ''),
-        included: newProduct.included.filter(i => i.trim() !== ''),
-        excluded: newProduct.excluded.filter(e => e.trim() !== ''),
-        tags: newProduct.tags.filter(t => t.trim() !== ''),
-        amenities: newProduct.amenities.filter(a => a.trim() !== ''),
-        max_capacity: parseInt(newProduct.maxCapacity) || 10,
-        min_capacity: 1,
-        min_age: parseInt(newProduct.minAge) || null,
-        duration: newProduct.duration,
-        difficulty: newProduct.difficulty,
-        meeting_point: newProduct.meetingPoint || '',
-        cancellation_policy: newProduct.cancellationPolicy,
-        available_from: newProduct.startDate || null,
-        available_to: newProduct.endDate || null,
-        currency: 'KRW',
-        rating_avg: 0,
-        rating_count: 0,
-        view_count: 0,
-        booking_count: 0,
-        featured_score: newProduct.featured ? 100 : 0,
-        partner_boost: 0,
         is_active: true,
-        is_published: true,
-        is_featured: newProduct.featured,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        is_featured: newProduct.featured || false
       };
 
       const response = await api.admin.createListing(listingData);
