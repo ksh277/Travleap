@@ -16,7 +16,7 @@
  */
 
 import { Request, Response } from 'express';
-import * as crypto from 'crypto';
+import * from 'crypto';
 import { db } from '../../utils/database';
 
 const TOSS_WEBHOOK_SECRET = process.env.TOSS_WEBHOOK_SECRET || '';
@@ -25,26 +25,15 @@ const RATE_LIMIT_PER_SECOND = 10;
 // 이벤트 처리 이력 (메모리 캐시, Redis 권장)
 const processedEvents = new Map<string, number>();
 
-interface TossWebhookEvent {
-  eventType: string; // Payment.Approved, Payment.Canceled 등
-  data: {
-    paymentKey: string;
-    orderId: string;
-    status: string;
-    method: string;
-    totalAmount: number;
-    approvedAt?: string;
-    canceledAt?: string;
-    failReason?: string;
-  };
-  createdAt: string;
+;
+  createdAt;
 }
 
 /**
  * 서명 검증 (Toss Webhook Secret)
  */
-function verifyWebhookSignature(req: Request): boolean {
-  const signature = req.headers['toss-signature'] as string;
+function verifyWebhookSignature(req: Request) {
+  const signature = req.headers['toss-signature'];
 
   if (!signature || !TOSS_WEBHOOK_SECRET) {
     console.warn('⚠️ [Webhook] Missing signature or secret');
@@ -77,7 +66,7 @@ function verifyWebhookSignature(req: Request): boolean {
 /**
  * Idempotency 체크 (이벤트 중복 처리 방지)
  */
-function isEventProcessed(eventId: string): boolean {
+function isEventProcessed(eventId: string) {
   const lastProcessed = processedEvents.get(eventId);
 
   if (lastProcessed) {
@@ -96,7 +85,7 @@ function isEventProcessed(eventId: string): boolean {
 /**
  * 이벤트 처리 기록
  */
-function markEventProcessed(eventId: string): void {
+function markEventProcessed(eventId: string) {
   processedEvents.set(eventId, Date.now());
 
   // 메모리 캐시 크기 제한 (1000개)
@@ -112,7 +101,7 @@ function markEventProcessed(eventId: string): void {
  * → bookings.status: hold → confirmed
  * → bookings.payment_status: pending → paid
  */
-async function handlePaymentApproved(event: TossWebhookEvent): Promise<void> {
+async function handlePaymentApproved(event) {
   const { paymentKey, orderId, totalAmount, approvedAt } = event.data;
 
   console.log(`💳 [Webhook] Payment Approved: ${orderId} (${totalAmount.toLocaleString()}원)`);
@@ -192,7 +181,7 @@ async function handlePaymentApproved(event: TossWebhookEvent): Promise<void> {
 /**
  * Payment.Canceled 이벤트 처리
  */
-async function handlePaymentCanceled(event: TossWebhookEvent): Promise<void> {
+async function handlePaymentCanceled(event) {
   const { paymentKey, orderId, canceledAt } = event.data;
 
   console.log(`❌ [Webhook] Payment Canceled: ${orderId}`);
@@ -235,7 +224,7 @@ async function handlePaymentCanceled(event: TossWebhookEvent): Promise<void> {
 /**
  * 웹훅 메인 핸들러
  */
-export async function handleTossWebhook(req: Request, res: Response): Promise<void> {
+export async function handleTossWebhook(req, res) {
   console.log(`📨 [Webhook] Received event`);
 
   // 1. 서명 검증
@@ -248,7 +237,7 @@ export async function handleTossWebhook(req: Request, res: Response): Promise<vo
     return;
   }
 
-  const event: TossWebhookEvent = req.body;
+  const event = req.body;
   const eventId = `${event.eventType}-${event.data.paymentKey}-${event.createdAt}`;
 
   // 2. Idempotency 체크
@@ -300,9 +289,9 @@ export async function handleTossWebhook(req: Request, res: Response): Promise<vo
 /**
  * Rate Limiting 체크 (간단 구현)
  */
-const requestCounts = new Map<string, { count: number; resetAt: number }>();
+const requestCounts = new Map<string, { count; resetAt: number }>();
 
-export function checkRateLimit(ip: string): boolean {
+export function checkRateLimit(ip: string) {
   const now = Date.now();
   const record = requestCounts.get(ip);
 
@@ -323,7 +312,7 @@ export function checkRateLimit(ip: string): boolean {
 // IP 화이트리스트 (선택 사항)
 const ALLOWED_IPS = (process.env.TOSS_WEBHOOK_IPS || '').split(',').filter(Boolean);
 
-export function checkIPWhitelist(ip: string): boolean {
+export function checkIPWhitelist(ip: string) {
   if (ALLOWED_IPS.length === 0) return true; // 화이트리스트 비활성화
   return ALLOWED_IPS.includes(ip);
 }

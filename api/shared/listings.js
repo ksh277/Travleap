@@ -24,25 +24,25 @@ module.exports = async function handler(req, res) {
 
   try {
     // 필터 파라미터
-    const category = req.query.category as string;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const sortBy = req.query.sortBy as string || 'popular';
-    const search = req.query.search as string;
-    const minPrice = req.query.minPrice ? parseInt(req.query.minPrice as string) : undefined;
-    const maxPrice = req.query.maxPrice ? parseInt(req.query.maxPrice as string) : undefined;
-    const rating = req.query.rating ? parseFloat(req.query.rating as string) : undefined;
+    const category = req.query.category;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const sortBy = req.query.sortBy || 'popular';
+    const search = req.query.search;
+    const minPrice = req.query.minPrice ? parseInt(req.query.minPrice) ;
+    const maxPrice = req.query.maxPrice ? parseInt(req.query.maxPrice) ;
+    const rating = req.query.rating ? parseFloat(req.query.rating) ;
 
     const offset = (page - 1) * limit;
 
     // 기본 쿼리
     let sql = `
-      SELECT l.*, c.slug as category_slug, c.name_ko as category_name
+      SELECT l.*, c.slug, c.name_ko
       FROM listings l
       LEFT JOIN categories c ON l.category_id = c.id
       WHERE l.is_published = 1 AND l.is_active = 1
     `;
-    const params: any[] = [];
+    const params = [];
 
     // 카테고리 필터
     if (category && category !== 'all') {
@@ -97,8 +97,8 @@ module.exports = async function handler(req, res) {
 
     // 1. 전체 개수 조회 (pagination용)
     const countSql = sql.replace(
-      /SELECT l\.\*, c\.slug as category_slug, c\.name_ko as category_name/,
-      'SELECT COUNT(*) as total'
+      /SELECT l\.\*, c\.slug, c\.name_ko/,
+      'SELECT COUNT(*)'
     );
     const countResult = await conn.execute(countSql, params);
     const totalCount = countResult.rows[0]?.total || 0;
@@ -111,7 +111,7 @@ module.exports = async function handler(req, res) {
     const listings = result.rows || [];
 
     // 이미지 JSON 파싱 (안전하게)
-    const parseJsonField = (field: any): any => {
+    const parseJsonField = (field: any) => {
       if (!field) return [];
       if (typeof field === 'string') {
         try {

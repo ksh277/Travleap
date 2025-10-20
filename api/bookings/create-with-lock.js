@@ -12,40 +12,16 @@
 import { db } from '../../utils/database';
 import { lockManager } from '../../utils/lock-manager';
 
-export interface BookingRequest {
-  listing_id: number;
-  user_id: number;
-  num_adults: number;
-  num_children: number;
-  start_date: string;
-  end_date?: string;
-  check_in_time?: string;
-  guest_name: string;
-  guest_phone: string;
-  guest_email: string;
-  total_amount: number;
-  special_requests?: string;
-}
 
-export interface BookingResponse {
-  success: boolean;
-  message: string;
-  code?: string;
-  data?: {
-    booking_id: number;
-    booking_number: string;
-    hold_expires_at: string;
-    total_amount: number;
-    guest_name: string;
-    guest_email: string;
-  };
+
+;
 }
 
 /**
  * 예약 번호 생성 (Toss orderId용)
  * 형식: BK-YYYYMMDD-XXXXXX
  */
-function generateBookingNumber(): string {
+function generateBookingNumber() {
   const date = new Date();
   const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -55,9 +31,7 @@ function generateBookingNumber(): string {
 /**
  * Lock으로 보호된 예약 생성
  */
-export async function createBookingWithLock(
-  request: BookingRequest
-): Promise<BookingResponse> {
+export async function createBookingWithLock(request) {
   const { listing_id, start_date, user_id, guest_name } = request;
 
   // Lock 키: listing + date 조합
@@ -114,7 +88,7 @@ export async function createBookingWithLock(
 
     // 해당 날짜 기존 예약 수 확인
     const existingBookings = await db.query(`
-      SELECT COUNT(*) as count
+      SELECT COUNT(*)
       FROM bookings
       WHERE listing_id = ?
         AND start_date = ?
@@ -247,7 +221,7 @@ export async function getBookingForPayment(bookingId: number) {
     const bookings = await db.query(`
       SELECT
         b.*,
-        l.title as listing_title,
+        l.title,
         l.category
       FROM bookings b
       JOIN listings l ON b.listing_id = l.id

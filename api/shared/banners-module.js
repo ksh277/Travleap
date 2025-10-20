@@ -9,28 +9,14 @@
 
 import { db } from '../utils/database';
 
-export interface Banner {
-  id?: number;
-  image_url: string;
-  title?: string;
-  link_url?: string;
-  display_order: number;
-  is_active: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
 
-export interface BannerResponse {
-  success: boolean;
-  banners?: Banner[];
-  banner?: Banner;
-  message?: string;
-}
+
+
 
 /**
  * 활성화된 배너 목록 조회 (공개용)
  */
-export async function getActiveBanners(): Promise<BannerResponse> {
+export async function getActiveBanners() {
   try {
     const banners = await db.query(`
       SELECT id, image_url, title, link_url, display_order
@@ -49,7 +35,7 @@ export async function getActiveBanners(): Promise<BannerResponse> {
 /**
  * 전체 배너 목록 조회 (관리자용)
  */
-export async function getAllBanners(): Promise<BannerResponse> {
+export async function getAllBanners() {
   try {
     const banners = await db.query(`
       SELECT *
@@ -67,7 +53,7 @@ export async function getAllBanners(): Promise<BannerResponse> {
 /**
  * 배너 단일 조회
  */
-export async function getBannerById(id: number): Promise<BannerResponse> {
+export async function getBannerById(id) {
   try {
     const banners = await db.query(`
       SELECT * FROM home_banners WHERE id = ?
@@ -87,7 +73,7 @@ export async function getBannerById(id: number): Promise<BannerResponse> {
 /**
  * 배너 생성
  */
-export async function createBanner(banner: Banner): Promise<BannerResponse> {
+export async function createBanner(banner) {
   try {
     const result = await db.execute(`
       INSERT INTO home_banners
@@ -116,10 +102,10 @@ export async function createBanner(banner: Banner): Promise<BannerResponse> {
 /**
  * 배너 수정
  */
-export async function updateBanner(id: number, banner: Partial<Banner>): Promise<BannerResponse> {
+export async function updateBanner(id, banner) {
   try {
-    const updates: string[] = [];
-    const values: any[] = [];
+    const updates = [];
+    const values = [];
 
     if (banner.image_url !== undefined) {
       updates.push('image_url = ?');
@@ -164,7 +150,7 @@ export async function updateBanner(id: number, banner: Partial<Banner>): Promise
 /**
  * 배너 삭제
  */
-export async function deleteBanner(id: number): Promise<BannerResponse> {
+export async function deleteBanner(id) {
   try {
     await db.execute(`
       DELETE FROM home_banners WHERE id = ?
@@ -181,7 +167,7 @@ export async function deleteBanner(id: number): Promise<BannerResponse> {
 /**
  * 배너 순서 변경
  */
-export async function reorderBanners(bannerOrders: { id: number; display_order: number }[]): Promise<BannerResponse> {
+export async function reorderBanners(bannerOrders) {
   try {
     for (const item of bannerOrders) {
       await db.execute(`

@@ -67,50 +67,17 @@ export async function POST(request: NextRequest) {
 // PMS 동기화 로직 (서버 사이드)
 // ============================================================================
 
-interface PMSConfig {
-  provider: 'turo' | 'getaround' | 'rentcars' | 'custom';
-  apiKey: string;
-  apiSecret?: string;
-  endpoint?: string;
-}
 
-interface PMSVehicle {
-  pms_id: string;
-  display_name: string;
-  vehicle_class: string;
-  seating_capacity: number;
-  transmission_type: string;
-  fuel_type: string;
-  daily_rate_krw: number;
-  weekly_rate_krw?: number;
-  monthly_rate_krw?: number;
-  mileage_limit_km: number;
-  excess_mileage_fee_krw: number;
-  images: string[];
-  is_available: boolean;
-  insurance_included?: boolean;
-  insurance_options?: string;
-  available_options?: string;
-  pickup_location?: string;
-  dropoff_location?: string;
-  min_rental_days?: number;
-  max_rental_days?: number;
-  instant_booking?: boolean;
-}
 
-interface PMSSyncResult {
-  success: boolean;
-  vehiclesAdded: number;
-  vehiclesUpdated: number;
-  vehiclesDeleted: number;
-  errors: string[];
-}
+
+
+
 
 /**
  * 메인 동기화 함수
  */
-async function syncPMSVehicles(vendorId: number): Promise<PMSSyncResult> {
-  const result: PMSSyncResult = {
+async function syncPMSVehicles(vendorId) {
+  const result = {
     success: false,
     vehiclesAdded: 0,
     vehiclesUpdated: 0,
@@ -134,8 +101,8 @@ async function syncPMSVehicles(vendorId: number): Promise<PMSSyncResult> {
       throw new Error('PMS 동기화가 비활성화되어 있거나 설정이 없습니다.');
     }
 
-    const vendor = vendorResult.rows[0] as any;
-    const config: PMSConfig = {
+    const vendor = vendorResult.rows[0];
+    const config = {
       provider: vendor.pms_provider,
       apiKey: vendor.pms_api_key,
       apiSecret: vendor.pms_api_secret,
@@ -145,20 +112,16 @@ async function syncPMSVehicles(vendorId: number): Promise<PMSSyncResult> {
     console.log(`✅ PMS 설정 확인: ${config.provider}`);
 
     // 2. PMS에서 차량 목록 가져오기
-    let pmsVehicles: PMSVehicle[] = [];
+    let pmsVehicles = [];
 
     switch (config.provider) {
-      case 'turo':
-        pmsVehicles = await fetchTuroVehicles(config);
+      case 'turo' = await fetchTuroVehicles(config);
         break;
-      case 'getaround':
-        pmsVehicles = await fetchGetaroundVehicles(config);
+      case 'getaround' = await fetchGetaroundVehicles(config);
         break;
-      case 'rentcars':
-        pmsVehicles = await fetchRentCarsVehicles(config);
+      case 'rentcars' = await fetchRentCarsVehicles(config);
         break;
-      case 'custom':
-        pmsVehicles = await fetchCustomPMSVehicles(config);
+      case 'custom' = await fetchCustomPMSVehicles(config);
         break;
       default:
         throw new Error(`지원하지 않는 PMS: ${config.provider}`);
@@ -175,7 +138,7 @@ async function syncPMSVehicles(vendorId: number): Promise<PMSSyncResult> {
     );
 
     const mappingMap = new Map(
-      (existingMappingsResult.rows as any[]).map((m) => [m.pms_vehicle_id, m.local_vehicle_id])
+      (existingMappingsResult.rows[]).map((m) => [m.pms_vehicle_id, m.local_vehicle_id])
     );
 
     // 4. 차량별로 동기화
@@ -271,7 +234,7 @@ async function syncPMSVehicles(vendorId: number): Promise<PMSSyncResult> {
 /**
  * Turo API 호출
  */
-async function fetchTuroVehicles(config: PMSConfig): Promise<PMSVehicle[]> {
+async function fetchTuroVehicles(config: PMSConfig) {
   const response = await fetch('https://api.turo.com/api/v3/vehicles', {
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
@@ -313,7 +276,7 @@ async function fetchTuroVehicles(config: PMSConfig): Promise<PMSVehicle[]> {
 /**
  * Getaround API 호출
  */
-async function fetchGetaroundVehicles(config: PMSConfig): Promise<PMSVehicle[]> {
+async function fetchGetaroundVehicles(config: PMSConfig) {
   const response = await fetch('https://api.getaround.com/owner/v1/cars', {
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
@@ -355,7 +318,7 @@ async function fetchGetaroundVehicles(config: PMSConfig): Promise<PMSVehicle[]> 
 /**
  * RentCars.com API 호출
  */
-async function fetchRentCarsVehicles(config: PMSConfig): Promise<PMSVehicle[]> {
+async function fetchRentCarsVehicles(config: PMSConfig) {
   const response = await fetch('https://api.rentcars.com/partner/v1/fleet', {
     headers: {
       'X-API-Key': config.apiKey,
@@ -397,7 +360,7 @@ async function fetchRentCarsVehicles(config: PMSConfig): Promise<PMSVehicle[]> {
 /**
  * Custom PMS API 호출
  */
-async function fetchCustomPMSVehicles(config: PMSConfig): Promise<PMSVehicle[]> {
+async function fetchCustomPMSVehicles(config: PMSConfig) {
   if (!config.endpoint) {
     throw new Error('Custom PMS endpoint가 필요합니다.');
   }
@@ -469,11 +432,7 @@ async function updateLocalVehicle(
 /**
  * 로컬 차량 생성
  */
-async function createLocalVehicle(
-  conn: any,
-  vendorId: number,
-  pmsVehicle: PMSVehicle
-): Promise<number> {
+async function createLocalVehicle(conn, vendorId, pmsVehicle) {
   const imagesJson = JSON.stringify(pmsVehicle.images);
 
   const result = await conn.execute(
@@ -510,11 +469,11 @@ async function createLocalVehicle(
     ]
   );
 
-  return result.insertId as number;
+  return result.insertId;
 }
 
 // 헬퍼 함수들
-function mapTuroClass(turoType: string): string {
+function mapTuroClass(turoType: string) {
   const mapping: Record<string, string> = {
     economy: '소형',
     compact: '준중형',
@@ -528,7 +487,7 @@ function mapTuroClass(turoType: string): string {
   return mapping[turoType?.toLowerCase()] || '중형';
 }
 
-function mapGetaroundClass(category: string): string {
+function mapGetaroundClass(category: string) {
   const mapping: Record<string, string> = {
     mini: '경형',
     economy: '소형',
@@ -541,7 +500,7 @@ function mapGetaroundClass(category: string): string {
   return mapping[category?.toLowerCase()] || '중형';
 }
 
-function mapFuelType(fuel: string): string {
+function mapFuelType(fuel: string) {
   const mapping: Record<string, string> = {
     gasoline: '가솔린',
     petrol: '가솔린',

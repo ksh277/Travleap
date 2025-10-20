@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
 
     // Query single listing with category information
     const sql = `
-      SELECT l.*, c.slug as category_slug, c.name_ko as category_name
+      SELECT l.*, c.slug, c.name_ko
       FROM listings l
       LEFT JOIN categories c ON l.category_id = c.id
       WHERE l.id = ? AND l.is_published = 1 AND l.is_active = 1

@@ -1,24 +1,11 @@
 import { db } from '../utils/database.js';
 
-export interface ActivityImage {
-  id: number;
-  image_url: string;
-  title: string;
-  link_url?: string;
-  size: 'large' | 'small';
-  display_order: number;
-  is_active: boolean;
-}
 
-export interface ActivityResponse {
-  success: boolean;
-  activities?: ActivityImage[];
-  activity?: ActivityImage;
-  error?: string;
-}
+
+
 
 // 활성화된 액티비티 이미지 가져오기 (공개용)
-export async function getActiveActivities(): Promise<ActivityResponse> {
+export async function getActiveActivities() {
   try {
     const activities = await db.query(`
       SELECT id, image_url, title, link_url, size, display_order
@@ -42,7 +29,7 @@ export async function getActiveActivities(): Promise<ActivityResponse> {
 }
 
 // 모든 액티비티 이미지 가져오기 (관리자용)
-export async function getAllActivities(): Promise<ActivityResponse> {
+export async function getAllActivities() {
   try {
     const activities = await db.query(`
       SELECT id, image_url, title, link_url, size, display_order, is_active, created_at
@@ -65,7 +52,7 @@ export async function getAllActivities(): Promise<ActivityResponse> {
 }
 
 // 특정 액티비티 이미지 가져오기
-export async function getActivityById(id: number): Promise<ActivityResponse> {
+export async function getActivityById(id) {
   try {
     const activities = await db.query(
       `SELECT * FROM activity_images WHERE id = ?`,
@@ -93,14 +80,7 @@ export async function getActivityById(id: number): Promise<ActivityResponse> {
 }
 
 // 액티비티 이미지 생성
-export async function createActivity(data: {
-  image_url: string;
-  title: string;
-  link_url?: string;
-  size: 'large' | 'small';
-  display_order?: number;
-  is_active?: boolean;
-}): Promise<ActivityResponse> {
+export async function createActivity(data) {
   try {
     const result = await db.query(
       `INSERT INTO activity_images (image_url, title, link_url, size, display_order, is_active)
@@ -134,10 +114,10 @@ export async function createActivity(data: {
 }
 
 // 액티비티 이미지 수정
-export async function updateActivity(id: number, data: Partial<ActivityImage>): Promise<ActivityResponse> {
+export async function updateActivity(id, data) {
   try {
-    const fields: string[] = [];
-    const values: any[] = [];
+    const fields = [];
+    const values = [];
 
     if (data.image_url !== undefined) {
       fields.push('image_url = ?');
@@ -180,7 +160,7 @@ export async function updateActivity(id: number, data: Partial<ActivityImage>): 
 
     return {
       success: true,
-      activity: { id, ...data } as ActivityImage
+      activity: { id, ...data }
     };
   } catch (error) {
     console.error('Update activity error:', error);
@@ -192,7 +172,7 @@ export async function updateActivity(id: number, data: Partial<ActivityImage>): 
 }
 
 // 액티비티 이미지 삭제
-export async function deleteActivity(id: number): Promise<ActivityResponse> {
+export async function deleteActivity(id) {
   try {
     await db.query(`DELETE FROM activity_images WHERE id = ?`, [id]);
 
@@ -209,7 +189,7 @@ export async function deleteActivity(id: number): Promise<ActivityResponse> {
 }
 
 // 액티비티 이미지 순서 변경
-export async function reorderActivities(orders: { id: number; display_order: number }[]): Promise<ActivityResponse> {
+export async function reorderActivities(orders) {
   try {
     for (const order of orders) {
       await db.query(

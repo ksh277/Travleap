@@ -21,7 +21,7 @@ const corsHeaders = {
 };
 
 // PlanetScale 연결 설정
-function getConnection(): Connection {
+function getConnection() {
   const config = {
     host: process.env.DATABASE_HOST,
     username: process.env.DATABASE_USERNAME,
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Raw SQL 쿼리 실행
-async function handleQuery(body: { sql: string; params?: any[] }) {
+async function handleQuery(body: { sql; params?: any[] }) {
   const { sql, params = [] } = body;
 
   if (!sql) {
@@ -119,7 +119,7 @@ async function handleQuery(body: { sql: string; params?: any[] }) {
 }
 
 // SELECT 쿼리
-async function handleSelect(body: { table: string; where?: Record<string, any> }) {
+async function handleSelect(body: { table; where?: Record<string, any> }) {
   const { table, where } = body;
 
   if (!table) {
@@ -133,7 +133,7 @@ async function handleSelect(body: { table: string; where?: Record<string, any> }
 
   try {
     let sql = `SELECT * FROM ${table}`;
-    const params: any[] = [];
+    const params = [];
 
     if (where && Object.keys(where).length > 0) {
       const conditions = Object.keys(where).map((key) => `${key} = ?`);
@@ -157,7 +157,7 @@ async function handleSelect(body: { table: string; where?: Record<string, any> }
 }
 
 // INSERT 쿼리
-async function handleInsert(body: { table: string; data: Record<string, any> }) {
+async function handleInsert(body: { table; data: Record<string, any> }) {
   const { table, data } = body;
 
   if (!table || !data) {
@@ -194,7 +194,7 @@ async function handleInsert(body: { table: string; data: Record<string, any> }) 
 }
 
 // UPDATE 쿼리
-async function handleUpdate(body: { table: string; id: number; data: Record<string, any> }) {
+async function handleUpdate(body: { table; id; data: Record<string, any> }) {
   const { table, id, data } = body;
 
   if (!table || !id || !data) {
@@ -232,7 +232,7 @@ async function handleUpdate(body: { table: string; id: number; data: Record<stri
 }
 
 // DELETE 쿼리
-async function handleDelete(body: { table: string; id: number }) {
+async function handleDelete(body: { table; id: number }) {
   const { table, id } = body;
 
   if (!table || !id) {

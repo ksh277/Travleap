@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const conn = connect({ url: process.env.DATABASE_URL! });
     const result = await conn.execute(`
       SELECT r.id, r.rating, r.comment, r.created_at,
-             u.name as user_name, l.title as listing_title, l.id as listing_id
+             u.name, l.title, l.id
       FROM reviews r
       LEFT JOIN users u ON r.user_id = u.id
       LEFT JOIN listings l ON r.listing_id = l.id

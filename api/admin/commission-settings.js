@@ -1,18 +1,7 @@
 // 관리자 정산 비율 관리 API
 import { db } from '../../utils/database';
 
-export interface CommissionRate {
-  id?: number;
-  category?: string; // null이면 전체 기본값
-  vendor_id?: number; // null이면 카테고리 기본값
-  rate: number; // 플랫폼 수수료 (예: 10 = 10%)
-  effective_from?: Date;
-  effective_to?: Date;
-  is_active: boolean;
-  notes?: string;
-  created_by?: number;
-  updated_by?: number;
-}
+
 
 /**
  * 관리자: 모든 수수료 정책 조회
@@ -22,10 +11,10 @@ export async function getAllCommissionRates() {
     const rates = await db.query(`
       SELECT
         cr.*,
-        c.name_ko as category_name,
-        rv.business_name as vendor_name,
-        u1.name as created_by_name,
-        u2.name as updated_by_name
+        c.name_ko,
+        rv.business_name,
+        u1.name,
+        u2.name
       FROM commission_rates cr
       LEFT JOIN categories c ON cr.category = c.slug
       LEFT JOIN rentcar_vendors rv ON cr.vendor_id = rv.id
@@ -59,10 +48,10 @@ export async function getAllCommissionRates() {
 /**
  * 관리자: 특정 벤더/카테고리의 수수료율 조회
  */
-export async function getCommissionRate(params: { category?: string; vendor_id?: number }) {
+export async function getCommissionRate(params: { category?; vendor_id?: number }) {
   try {
     // 우선순위: 벤더별 > 카테고리별 > 전체 기본값
-    let rate: any = null;
+    let rate = null;
 
     // 1. 벤더별 수수료율
     if (params.vendor_id) {
@@ -158,7 +147,7 @@ export async function createCommissionRate(data: CommissionRate, adminUserId: nu
       SELECT id FROM commission_rates
       WHERE is_active = TRUE
     `;
-    const params: any[] = [];
+    const params = [];
 
     if (data.vendor_id) {
       duplicateQuery += ' AND vendor_id = ?';
@@ -229,8 +218,8 @@ export async function updateCommissionRate(rateId: number, data: Partial<Commiss
     }
 
     // 업데이트할 필드 동적 생성
-    const fields: string[] = [];
-    const values: any[] = [];
+    const fields = [];
+    const values = [];
 
     if (data.rate !== undefined) {
       fields.push('rate = ?');
@@ -344,28 +333,28 @@ export async function deleteCommissionRate(rateId: number) {
  * 벤더별 수수료 통계 조회
  */
 export async function getCommissionStatistics(filters: {
-  vendor_id?: number;
-  category?: string;
-  start_date?: string;
-  end_date?: string;
+  vendor_id?;
+  category?;
+  start_date?;
+  end_date?;
 }) {
   try {
     let query = `
       SELECT
-        DATE(rb.paid_at) as date,
+        DATE(rb.paid_at),
         rb.vendor_id,
         rv.business_name,
-        COUNT(*) as booking_count,
-        SUM(rb.total_krw) as total_revenue,
-        SUM(rb.platform_fee_krw) as total_commission,
-        SUM(rb.vendor_amount_krw) as total_vendor_amount,
-        AVG(rb.commission_rate * 100) as avg_commission_rate
+        COUNT(*),
+        SUM(rb.total_krw),
+        SUM(rb.platform_fee_krw),
+        SUM(rb.vendor_amount_krw),
+        AVG(rb.commission_rate * 100)
       FROM rentcar_bookings rb
       LEFT JOIN rentcar_vendors rv ON rb.vendor_id = rv.id
       WHERE rb.payment_status = 'completed'
     `;
 
-    const params: any[] = [];
+    const params = [];
 
     if (filters.vendor_id) {
       query += ' AND rb.vendor_id = ?';

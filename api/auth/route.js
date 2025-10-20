@@ -14,7 +14,7 @@ import jwt from 'jsonwebtoken';
 
 // JWT Utils (inline)
 class JWTUtils {
-  static get SECRET_KEY(): string {
+  static get SECRET_KEY() {
     const secret = process.env.JWT_SECRET;
     if (!secret) {
       throw new Error('JWT_SECRET must be set');
@@ -22,7 +22,7 @@ class JWTUtils {
     return secret;
   }
 
-  static generateToken(payload: { userId: number; email: string; name: string; role: string }): string {
+  static generateToken(payload: { userId; email; name; role: string }) {
     return jwt.sign(
       {
         userId: payload.userId,
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     }
 
     // 4. Body 파싱
-    const body = await request.json() as any;
+    const body = await request.json();
     const { email, password, name, phone } = body;
 
     console.log('📧 Request:', { email, action });
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const user: any = result[0];
+      const user = result[0];
       console.log('✅ User found:', user.email);
 
       // 비밀번호 검증
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
           algorithms: ['HS256'],
           issuer: 'travleap',
           audience: 'travleap-users'
-        }) as any;
+        });
 
         // 새 토큰 발급
         const newToken = JWTUtils.generateToken({
@@ -243,7 +243,7 @@ export async function POST(request: Request) {
 
       const savedResult = await sql`SELECT id, email, name, phone, role FROM users WHERE email = ${email}`;
 
-      const savedUser: any = savedResult[0];
+      const savedUser = savedResult[0];
 
       // JWT 토큰 생성
       const token = JWTUtils.generateToken({

@@ -1,27 +1,10 @@
 // 렌트카 벤더 차량 관리 API
 import { db } from '../../utils/database';
 
-interface VehicleCreateRequest {
-  vendor_id: number;
-  display_name: string;
-  vehicle_type: string; // sedan, suv, van, truck
-  manufacturer: string;
-  model: string;
-  year: number;
-  passenger_capacity: number;
-  fuel_type: string; // gasoline, diesel, electric, hybrid
-  transmission: string; // automatic, manual
-  daily_rate_krw: number;
-  features?: string[]; // ["navigation", "bluetooth", "backup_camera"]
-  description?: string;
-  thumbnail_url?: string;
-  images?: string[]; // 추가 이미지 URL들
-  license_plate?: string;
-  is_active?: boolean;
-}
+
 
 interface VehicleUpdateRequest extends Partial<VehicleCreateRequest> {
-  id: number;
+  id;
 }
 
 /**
@@ -56,13 +39,13 @@ export async function getVendorVehicles(vendorId: number, userId?: number) {
           FROM rentcar_bookings rb
           WHERE rb.vehicle_id = v.id
           AND rb.status = 'completed'
-        ) as completed_bookings,
+        ),
         (
           SELECT COUNT(*)
           FROM rentcar_bookings rb
           WHERE rb.vehicle_id = v.id
           AND rb.status IN ('pending', 'confirmed')
-        ) as active_bookings
+        )
       FROM rentcar_vehicles v
       WHERE v.vendor_id = ?
       ORDER BY v.created_at DESC
@@ -197,8 +180,8 @@ export async function updateVehicle(request: VehicleUpdateRequest, userId: numbe
     }
 
     // 2. 업데이트할 필드 동적 생성
-    const fields: string[] = [];
-    const values: any[] = [];
+    const fields = [];
+    const values = [];
 
     if (request.display_name !== undefined) {
       fields.push('display_name = ?');
@@ -316,7 +299,7 @@ export async function deleteVehicle(vehicleId: number, userId: number) {
 
     // 2. 활성 예약이 있는지 확인
     const activeBookings = await db.query(`
-      SELECT COUNT(*) as count
+      SELECT COUNT(*)
       FROM rentcar_bookings
       WHERE vehicle_id = ?
       AND status IN ('pending', 'confirmed', 'in_progress')
@@ -377,9 +360,9 @@ export async function getVehicleBookings(vehicleId: number, userId: number) {
     const bookings = await db.query(`
       SELECT
         rb.*,
-        v.display_name as vehicle_name,
-        u.name as customer_name,
-        u.email as customer_email
+        v.display_name,
+        u.name,
+        u.email
       FROM rentcar_bookings rb
       LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
       LEFT JOIN users u ON rb.user_id = u.id
@@ -426,11 +409,11 @@ export async function getVendorBookings(vendorId: number, userId: number) {
     const bookings = await db.query(`
       SELECT
         rb.*,
-        v.display_name as vehicle_name,
+        v.display_name,
         v.license_plate,
-        u.name as customer_name,
-        u.email as customer_email,
-        u.phone as customer_phone
+        u.name,
+        u.email,
+        u.phone
       FROM rentcar_bookings rb
       LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
       LEFT JOIN users u ON rb.user_id = u.id
@@ -475,8 +458,8 @@ export async function getVendorDashboard(vendorId: number, userId: number) {
     // 2. 차량 통계
     const vehicleStats = await db.query(`
       SELECT
-        COUNT(*) as total_vehicles,
-        SUM(CASE WHEN is_active = TRUE THEN 1 ELSE 0 END) as active_vehicles
+        COUNT(*),
+        SUM(CASE WHEN is_active = TRUE THEN 1 ELSE 0 END)
       FROM rentcar_vehicles
       WHERE vendor_id = ?
     `, [vendorId]);
@@ -484,11 +467,11 @@ export async function getVendorDashboard(vendorId: number, userId: number) {
     // 3. 예약 통계
     const bookingStats = await db.query(`
       SELECT
-        COUNT(*) as total_bookings,
-        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_bookings,
-        SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed_bookings,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_bookings,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_bookings
+        COUNT(*),
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END),
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END)
       FROM rentcar_bookings
       WHERE vendor_id = ?
     `, [vendorId]);
@@ -496,8 +479,8 @@ export async function getVendorDashboard(vendorId: number, userId: number) {
     // 4. 수익 통계
     const revenueStats = await db.query(`
       SELECT
-        SUM(CASE WHEN payment_status = 'completed' THEN vendor_amount_krw ELSE 0 END) as total_revenue,
-        SUM(CASE WHEN payment_status = 'completed' AND MONTH(paid_at) = MONTH(NOW()) THEN vendor_amount_krw ELSE 0 END) as this_month_revenue
+        SUM(CASE WHEN payment_status = 'completed' THEN vendor_amount_krw ELSE 0 END),
+        SUM(CASE WHEN payment_status = 'completed' AND MONTH(paid_at) = MONTH(NOW()) THEN vendor_amount_krw ELSE 0 END)
       FROM rentcar_bookings
       WHERE vendor_id = ?
     `, [vendorId]);
@@ -511,8 +494,8 @@ export async function getVendorDashboard(vendorId: number, userId: number) {
         rb.dropoff_date,
         rb.status,
         rb.total_krw,
-        v.display_name as vehicle_name,
-        u.name as customer_name
+        v.display_name,
+        u.name
       FROM rentcar_bookings rb
       LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
       LEFT JOIN users u ON rb.user_id = u.id

@@ -17,47 +17,27 @@
 import { db } from '../../utils/database';
 import { tossPaymentsServer } from '../../utils/toss-payments-server';
 
-interface ReturnInspection {
-  booking_id: number;
-  inspector_id?: number;
-  vehicle_condition: 'excellent' | 'good' | 'fair' | 'poor';
-  fuel_level: number; // 0-100 (%)
-  mileage: number;
-  damages?: Array<{
-    type: string;
-    description: string;
-    severity: 'minor' | 'moderate' | 'severe';
-    estimatedCost: number;
-  }>;
+>;
   additional_fees?: Array<{
-    type: string;
-    description: string;
-    amount: number;
+    type;
+    description;
+    amount;
   }>;
-  notes?: string;
+  notes?;
 }
 
-interface ReturnInspectionResponse {
-  success: boolean;
-  message: string;
-  data?: {
-    booking_id: number;
-    inspection_id: number;
-    penalty_total: number;
-    refund_amount: number;
-    payment_result: any;
-  };
-  error?: string;
+;
+  error?;
 }
 
 /**
  * 패널티 계산
  */
 function calculatePenalty(inspection: ReturnInspection): {
-  total: number;
-  breakdown: Array<{ type: string; amount: number; description: string }>;
+  total;
+  breakdown: Array<{ type; amount; description: string }>;
 } {
-  const penalties: Array<{ type: string; amount: number; description: string }> = [];
+  const penalties: Array<{ type; amount; description: string }> = [];
 
   // 1. 손상 비용
   if (inspection.damages && inspection.damages.length > 0) {
@@ -99,9 +79,7 @@ function calculatePenalty(inspection: ReturnInspection): {
 /**
  * 반납 검수 실행
  */
-export async function handleReturnInspection(
-  inspection: ReturnInspection
-): Promise<ReturnInspectionResponse> {
+export async function handleReturnInspection(inspection) {
   const { booking_id } = inspection;
 
   console.log(`🔍 [Return Inspect] Starting inspection for booking ${booking_id}`);
@@ -172,11 +150,11 @@ export async function handleReturnInspection(
       inspection.notes || null
     ]);
 
-    const inspectionId = inspectionResult.insertId as number;
+    const inspectionId = inspectionResult.insertId;
     console.log(`✅ [Return Inspect] Inspection ID ${inspectionId} created`);
 
     // 4. 보증금 정산
-    let paymentResult: any;
+    let paymentResult;
 
     if (penalty.total > 0) {
       // 패널티가 있으면 부분 결제

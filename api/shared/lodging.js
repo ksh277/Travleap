@@ -18,118 +18,30 @@ import { lockManager } from '../utils/lock-manager';
 // TYPES & INTERFACES
 // ============================================================
 
-export interface Lodging {
-  id?: number;
-  vendor_id: number;
-  listing_id?: number;
-  name: string;
-  type: 'hotel' | 'motel' | 'pension' | 'guesthouse' | 'camping' | 'resort' | 'hostel';
-  description?: string;
-  address: string;
-  city: string;
-  district?: string;
-  postal_code?: string;
-  latitude?: number;
-  longitude?: number;
-  timezone?: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  star_rating?: number;
-  checkin_time?: string;
-  checkout_time?: string;
-  thumbnail_url?: string;
-  images?: string[];
-  amenities?: Record<string, boolean>;
-  is_active?: boolean;
-  is_verified?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
 
-export interface Room {
-  id?: number;
-  lodging_id: number;
-  name: string;
-  type: 'single' | 'double' | 'twin' | 'suite' | 'family' | 'dormitory' | 'camping_site';
-  description?: string;
-  capacity: number;
-  max_capacity: number;
-  bed_type?: string;
-  bed_count?: number;
-  size_sqm?: number;
-  floor?: number;
-  thumbnail_url?: string;
-  images?: string[];
-  amenities?: Record<string, boolean>;
-  total_rooms: number;
-  is_active?: boolean;
-  display_order?: number;
-}
 
-export interface RatePlan {
-  id?: number;
-  room_id: number;
-  name: string;
-  description?: string;
-  currency?: string;
-  base_price_per_night: number;
-  weekend_markup_pct?: number;
-  peak_season_markup_pct?: number;
-  long_stay_discount_pct?: number;
-  extra_person_fee?: number;
-  breakfast_included?: boolean;
-  breakfast_price?: number;
-  tax_rules?: Record<string, number>;
-  min_stay_nights?: number;
-  max_stay_nights?: number;
-  cancel_policy_code?: string;
-  is_active?: boolean;
-  valid_from?: string;
-  valid_until?: string;
-}
 
-export interface LodgingBooking {
-  id?: number;
-  room_id: number;
-  lodging_id: number;
-  user_id?: number;
-  guest_name: string;
-  guest_phone: string;
-  guest_email?: string;
-  guest_count: number;
-  checkin_date: string;
-  checkout_date: string;
-  nights: number;
-  room_price: number;
-  extra_person_fee?: number;
-  breakfast_fee?: number;
-  tax_amount?: number;
-  service_charge?: number;
-  total_price: number;
-  status?: 'HOLD' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED' | 'NO_SHOW';
-  payment_status?: 'pending' | 'authorized' | 'captured' | 'refunded';
-  payment_method?: string;
-  payment_key?: string;
-  special_requests?: string;
-}
+
+
+
+
 
 // ============================================================
 // 1. LODGINGS (숙박업체 관리)
 // ============================================================
 
 export async function getLodgings(filters: {
-  vendor_id?: number;
-  type?: string;
-  city?: string;
-  is_active?: boolean;
-  is_verified?: boolean;
-  limit?: number;
-  offset?: number;
+  vendor_id?;
+  type?;
+  city?;
+  is_active?;
+  is_verified?;
+  limit?;
+  offset?;
 }) {
   try {
-    const conditions: string[] = ['1=1'];
-    const values: any[] = [];
+    const conditions = ['1=1'];
+    const values = [];
 
     if (filters.vendor_id) {
       conditions.push('vendor_id = ?');
@@ -387,16 +299,16 @@ export async function updateAvailability(
 // ============================================================
 
 export async function getBookings(filters: {
-  lodging_id?: number;
-  vendor_id?: number;
-  user_id?: number;
-  status?: string;
-  limit?: number;
-  offset?: number;
+  lodging_id?;
+  vendor_id?;
+  user_id?;
+  status?;
+  limit?;
+  offset?;
 }) {
   try {
-    const conditions: string[] = ['1=1'];
-    const values: any[] = [];
+    const conditions = ['1=1'];
+    const values = [];
 
     if (filters.lodging_id) {
       conditions.push('lb.lodging_id = ?');
@@ -420,7 +332,7 @@ export async function getBookings(filters: {
     values.push(limit, offset);
 
     const bookings = await db.query(`
-      SELECT lb.*, l.name as lodging_name, r.name as room_name
+      SELECT lb.*, l.name, r.name
       FROM lodging_bookings lb
       JOIN lodgings l ON lb.lodging_id = l.id
       JOIN rooms r ON lb.room_id = r.id
@@ -469,7 +381,7 @@ export async function createBooking(booking: LodgingBooking) {
       return { success: false, message: '해당 날짜에 재고 정보가 없습니다.', code: 'NO_AVAILABILITY_DATA' };
     }
 
-    const unavailableDates: string[] = [];
+    const unavailableDates = [];
     for (const day of availability) {
       const availableCount = day.available_rooms - day.sold_rooms - day.blocked_rooms;
       if (availableCount <= 0) {

@@ -6,22 +6,11 @@
  */
 
 import { db } from '../../utils/database';
-import { tossPayments, type PaymentApproval } from '../../utils/toss-payments';
+import { tossPayments} from '../../utils/toss-payments';
 
-export interface PaymentConfirmRequest {
-  paymentKey: string;       // Toss에서 발급한 결제 키
-  orderId: string;          // 주문 ID
-  amount: number;           // 결제 금액
-}
 
-export interface PaymentConfirmResponse {
-  success: boolean;
-  message: string;
-  bookingId?: number;
-  paymentKey?: string;
-  receiptUrl?: string;
-  code?: string;
-}
+
+
 
 /**
  * 결제 승인 처리
@@ -32,7 +21,7 @@ export interface PaymentConfirmResponse {
  * 4. 결제 정보 기록 (payment_history)
  * 5. 로그 기록 (booking_logs)
  */
-export async function confirmPayment(request: PaymentConfirmRequest): Promise<PaymentConfirmResponse> {
+export async function confirmPayment(request) {
   const { paymentKey, orderId, amount } = request;
 
   console.log('💳 결제 승인 처리 시작:', { paymentKey, orderId, amount });
@@ -178,7 +167,7 @@ export async function confirmPayment(request: PaymentConfirmRequest): Promise<Pa
  *
  * 사용자가 결제를 취소하거나 실패했을 때 호출
  */
-export async function handlePaymentFailure(orderId: string, reason?: string): Promise<PaymentConfirmResponse> {
+export async function handlePaymentFailure(orderId, reason?) {
   console.log(`🚫 결제 실패 처리: ${orderId} (사유: ${reason || '알 수 없음'})`);
 
   try {

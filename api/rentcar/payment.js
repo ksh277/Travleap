@@ -1,13 +1,7 @@
 // 렌트카 결제 처리 API
 import { db } from '../../utils/database';
 
-interface RentcarPaymentRequest {
-  booking_id: number;
-  payment_key: string;
-  order_id: string;
-  amount: number;
-  payment_method?: string;
-}
+
 
 /**
  * 렌트카 결제 확정
@@ -28,8 +22,8 @@ export async function confirmRentcarPayment(request: RentcarPaymentRequest) {
     const bookings = await db.query(`
       SELECT
         rb.*,
-        v.display_name as vehicle_name,
-        vendor.business_name as vendor_name,
+        v.display_name,
+        vendor.business_name,
         vendor.commission_rate
       FROM rentcar_bookings rb
       LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id

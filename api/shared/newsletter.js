@@ -1,35 +1,13 @@
 import { db } from '../utils/database.js';
 
-export interface NewsletterSubscriber {
-  id: number;
-  email: string;
-  is_active: boolean;
-  subscribed_at: string;
-  unsubscribed_at?: string;
-}
 
-export interface NewsletterCampaign {
-  id?: number;
-  subject: string;
-  content: string;
-  sent_count?: number;
-  created_at?: string;
-  sent_at?: string;
-  status: 'draft' | 'sent';
-}
 
-export interface NewsletterResponse {
-  success: boolean;
-  message?: string;
-  error?: string;
-  subscribers?: NewsletterSubscriber[];
-  subscriber?: NewsletterSubscriber;
-  campaigns?: NewsletterCampaign[];
-  campaign?: NewsletterCampaign;
-}
+
+
+
 
 // 이메일 구독 (공개 API)
-export async function subscribeEmail(email: string): Promise<NewsletterResponse> {
+export async function subscribeEmail(email) {
   try {
     // 이메일 형식 검증
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -86,7 +64,7 @@ export async function subscribeEmail(email: string): Promise<NewsletterResponse>
 }
 
 // 이메일 구독 취소
-export async function unsubscribeEmail(email: string): Promise<NewsletterResponse> {
+export async function unsubscribeEmail(email) {
   try {
     await db.query(
       `UPDATE newsletter_subscribers SET is_active = FALSE, unsubscribed_at = NOW() WHERE email = ?`,
@@ -107,7 +85,7 @@ export async function unsubscribeEmail(email: string): Promise<NewsletterRespons
 }
 
 // 모든 구독자 조회 (관리자용)
-export async function getAllSubscribers(): Promise<NewsletterResponse> {
+export async function getAllSubscribers() {
   try {
     const subscribers = await db.query(
       `SELECT * FROM newsletter_subscribers ORDER BY subscribed_at DESC`
@@ -128,7 +106,7 @@ export async function getAllSubscribers(): Promise<NewsletterResponse> {
 }
 
 // 활성 구독자 조회 (관리자용)
-export async function getActiveSubscribers(): Promise<NewsletterResponse> {
+export async function getActiveSubscribers() {
   try {
     const subscribers = await db.query(
       `SELECT * FROM newsletter_subscribers WHERE is_active = TRUE ORDER BY subscribed_at DESC`
@@ -149,7 +127,7 @@ export async function getActiveSubscribers(): Promise<NewsletterResponse> {
 }
 
 // 구독자 삭제 (관리자용)
-export async function deleteSubscriber(id: number): Promise<NewsletterResponse> {
+export async function deleteSubscriber(id) {
   try {
     await db.query(`DELETE FROM newsletter_subscribers WHERE id = ?`, [id]);
 
@@ -167,7 +145,7 @@ export async function deleteSubscriber(id: number): Promise<NewsletterResponse> 
 }
 
 // 캠페인 생성 (관리자용)
-export async function createCampaign(campaign: NewsletterCampaign): Promise<NewsletterResponse> {
+export async function createCampaign(campaign) {
   try {
     const result = await db.query(
       `INSERT INTO newsletter_campaigns (subject, content, status) VALUES (?, ?, ?)`,
@@ -192,7 +170,7 @@ export async function createCampaign(campaign: NewsletterCampaign): Promise<News
 }
 
 // 모든 캠페인 조회 (관리자용)
-export async function getAllCampaigns(): Promise<NewsletterResponse> {
+export async function getAllCampaigns() {
   try {
     const campaigns = await db.query(
       `SELECT * FROM newsletter_campaigns ORDER BY created_at DESC`
@@ -213,7 +191,7 @@ export async function getAllCampaigns(): Promise<NewsletterResponse> {
 }
 
 // 캠페인 발송 (관리자용)
-export async function sendCampaign(campaignId: number): Promise<NewsletterResponse> {
+export async function sendCampaign(campaignId) {
   try {
     // 활성 구독자 조회
     const subscribersResult = await getActiveSubscribers();
@@ -272,7 +250,7 @@ export async function sendCampaign(campaignId: number): Promise<NewsletterRespon
 }
 
 // 캠페인 삭제 (관리자용)
-export async function deleteCampaign(id: number): Promise<NewsletterResponse> {
+export async function deleteCampaign(id) {
   try {
     await db.query(`DELETE FROM newsletter_campaigns WHERE id = ?`, [id]);
 
