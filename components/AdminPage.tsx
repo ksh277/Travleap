@@ -5448,7 +5448,7 @@ export function AdminPage({}: AdminPageProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                사업장 주소 *
+                주소 *
               </label>
               <div className="flex gap-2">
                 <Input
@@ -5469,7 +5469,8 @@ export function AdminPage({}: AdminPageProps) {
                         setNewPartner({
                           ...newPartner,
                           business_address: fullAddress,
-                          location: data.sido + ' ' + data.sigungu
+                          location: data.sido + ' ' + data.sigungu,
+                          detailed_address: fullAddress // 지도 표시용
                         });
                       }
                     }).open();
@@ -5479,6 +5480,7 @@ export function AdminPage({}: AdminPageProps) {
                   주소 검색
                 </Button>
               </div>
+              <p className="text-xs text-gray-500 mt-1">지도에 자동으로 표시됩니다</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -5520,19 +5522,6 @@ export function AdminPage({}: AdminPageProps) {
                 id="base_price"
               />
               <p className="text-xs text-gray-500 mt-1">가맹점 페이지에 표시될 기본 가격</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                상세 주소
-              </label>
-              <Input
-                value={newPartner.detailed_address || ''}
-                onChange={(e) => setNewPartner({ ...newPartner, detailed_address: e.target.value })}
-                placeholder="예: 전라남도 신안군 증도면 증도리 123"
-                id="detailed_address"
-              />
-              <p className="text-xs text-gray-500 mt-1">지도에 표시될 상세 주소</p>
             </div>
 
             <div>

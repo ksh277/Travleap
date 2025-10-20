@@ -2930,17 +2930,30 @@ export const api = {
     // 파트너 생성
     createPartner: async (partnerData: any): Promise<ApiResponse<Partner>> => {
       try {
-        const response = await db.insert('partners', partnerData);
+        const response = await fetch(`${API_BASE_URL}/api/admin/partners`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(partnerData)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '파트너 생성 실패');
+        }
+
         return {
           success: true,
-          data: response as Partner,
-          message: '파트너가 생성되었습니다.'
+          data: result.data,
+          message: result.message || '파트너가 생성되었습니다.'
         };
       } catch (error) {
         console.error('Failed to create partner:', error);
         return {
           success: false,
-          error: '파트너 생성에 실패했습니다.'
+          error: error instanceof Error ? error.message : '파트너 생성에 실패했습니다.'
         };
       }
     },
@@ -2948,18 +2961,30 @@ export const api = {
     // 파트너 수정
     updatePartner: async (partnerId: number, partnerData: any): Promise<ApiResponse<Partner>> => {
       try {
-        await db.update('partners', partnerId, partnerData);
-        const updated = await db.select('partners', { id: partnerId });
+        const response = await fetch(`${API_BASE_URL}/api/admin/partners/${partnerId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(partnerData)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '파트너 수정 실패');
+        }
+
         return {
           success: true,
-          data: updated[0],
-          message: '파트너 정보가 수정되었습니다.'
+          data: result.data,
+          message: result.message || '파트너 정보가 수정되었습니다.'
         };
       } catch (error) {
         console.error('Failed to update partner:', error);
         return {
           success: false,
-          error: '파트너 수정에 실패했습니다.'
+          error: error instanceof Error ? error.message : '파트너 수정에 실패했습니다.'
         };
       }
     },
