@@ -238,6 +238,11 @@ export function PartnerApplyPage() {
         businessNumber: formData.businessNumber || '',
         address: formData.address,
         location: formData.location,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
+        coordinates: formData.latitude && formData.longitude
+          ? `${formData.latitude},${formData.longitude}`
+          : null,
         website: formData.website || '',
         instagram: formData.instagram || '',
         services: formData.categories.join(','), // 쉼표로 구분된 문자열
