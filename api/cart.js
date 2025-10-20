@@ -33,24 +33,123 @@ module.exports = async function handler(req, res) {
         ORDER BY c.created_at DESC
       `, [userId]);
 
+      const items = (result.rows || []).map(item => {
+        let images = [];
+        let selectedOptions = {};
+
+        try {
+          if (item.images) images = JSON.parse(item.images);
+          if (item.selected_options) selectedOptions = JSON.parse(item.selected_options);
+        } catch (e) {}
+
+        return {
+          ...item,
+          images: Array.isArray(images) ? images : [],
+          selected_options: selectedOptions
+        };
+      });
+
       return res.status(200).json({
         success: true,
-        data: result.rows || []
+        data: items
       });
     }
 
     if (req.method === 'POST') {
       // 장바구니 추가
-      const { listing_id, quantity = 1, options } = req.body;
+      const {
+        listing_id,
+        quantity = 1,
+        selected_date,
+        selected_options,
+        num_adults = 1,
+        num_children = 0,
+        num_seniors = 0,
+        price_snapshot
+      } = req.body;
+
+      if (!listing_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'listing_id is required'
+        });
+      }
+
+      console.log('장바구니 추가:', {
+        userId,
+        listing_id,
+        quantity,
+        selected_date,
+        num_adults,
+        num_children,
+        num_seniors
+      });
 
       const result = await connection.execute(`
-        INSERT INTO cart_items (user_id, listing_id, quantity, options, created_at)
-        VALUES (?, ?, ?, ?, NOW())
-      `, [userId, listing_id, quantity, JSON.stringify(options || {})]);
+        INSERT INTO cart_items (
+          user_id, listing_id, quantity, selected_date, selected_options,
+          num_adults, num_children, num_seniors, price_snapshot, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      `, [
+        userId,
+        listing_id,
+        quantity,
+        selected_date || null,
+        JSON.stringify(selected_options || {}),
+        num_adults,
+        num_children,
+        num_seniors,
+        price_snapshot || null
+      ]);
+
+      console.log('장바구니 추가 성공:', result.insertId);
 
       return res.status(200).json({
         success: true,
         data: { id: result.insertId }
+      });
+    }
+
+    if (req.method === 'PUT') {
+      // 장바구니 수정
+      const { itemId } = req.query;
+      const {
+        quantity,
+        selected_date,
+        selected_options,
+        num_adults,
+        num_children,
+        num_seniors,
+        price_snapshot
+      } = req.body;
+
+      await connection.execute(`
+        UPDATE cart_items
+        SET
+          quantity = COALESCE(?, quantity),
+          selected_date = COALESCE(?, selected_date),
+          selected_options = COALESCE(?, selected_options),
+          num_adults = COALESCE(?, num_adults),
+          num_children = COALESCE(?, num_children),
+          num_seniors = COALESCE(?, num_seniors),
+          price_snapshot = COALESCE(?, price_snapshot),
+          updated_at = NOW()
+        WHERE id = ? AND user_id = ?
+      `, [
+        quantity,
+        selected_date,
+        selected_options ? JSON.stringify(selected_options) : null,
+        num_adults,
+        num_children,
+        num_seniors,
+        price_snapshot,
+        itemId,
+        userId
+      ]);
+
+      return res.status(200).json({
+        success: true
       });
     }
 
@@ -70,11 +169,10 @@ module.exports = async function handler(req, res) {
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (error) {
-    console.error('Error handling cart:', error);
-    // 테이블이 없으면 빈 배열 반환
-    return res.status(200).json({
-      success: true,
-      data: []
+    console.error('장바구니 API 오류:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || '장바구니 처리 중 오류가 발생했습니다'
     });
   }
 };
