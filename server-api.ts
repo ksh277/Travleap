@@ -3503,6 +3503,116 @@ function setupRoutes() {
     }
   });
 
+  // Admin - 렌트카 업체 생성
+  app.post('/api/admin/rentcar/vendors', async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const vendorData = req.body;
+
+      // 기존 컬럼만 사용 (API 필드는 나중에 추가)
+      const result = await db.execute(`
+        INSERT INTO rentcar_vendors (
+          vendor_code, business_name, brand_name, business_number,
+          contact_name, contact_email, contact_phone,
+          description, status, is_verified, commission_rate,
+          total_vehicles, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `, [
+        vendorData.vendor_code,
+        vendorData.business_name,
+        vendorData.brand_name || '',
+        vendorData.business_number || '',
+        vendorData.contact_name,
+        vendorData.contact_email,
+        vendorData.contact_phone,
+        vendorData.description || '',
+        vendorData.status || 'active',
+        vendorData.is_verified ? 1 : 0,
+        vendorData.commission_rate || 10.00,
+        0
+      ]);
+
+      res.json({
+        success: true,
+        data: { id: result.insertId, ...vendorData },
+        message: '렌트카 업체가 생성되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Create rentcar vendor error:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : '업체 생성 실패'
+      });
+    }
+  });
+
+  // Admin - 렌트카 업체에 차량 추가
+  app.post('/api/admin/rentcar/vendors/:vendorId/vehicles', async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const vendorId = parseInt(req.params.vendorId);
+      const vehicleData = req.body;
+
+      const result = await db.execute(`
+        INSERT INTO rentcar_vehicles (
+          vendor_id, vehicle_code, brand, model, year, display_name,
+          vehicle_class, vehicle_type, fuel_type, transmission,
+          seating_capacity, door_count, large_bags, small_bags,
+          daily_rate_krw, deposit_amount_krw,
+          thumbnail_url, images, features,
+          age_requirement, license_requirement, mileage_limit_per_day,
+          unlimited_mileage, smoking_allowed, is_active,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `, [
+        vendorId,
+        vehicleData.vehicle_code,
+        vehicleData.brand,
+        vehicleData.model,
+        vehicleData.year,
+        vehicleData.display_name,
+        vehicleData.vehicle_class,
+        vehicleData.vehicle_type || '',
+        vehicleData.fuel_type,
+        vehicleData.transmission,
+        vehicleData.seating_capacity,
+        vehicleData.door_count,
+        vehicleData.large_bags || 2,
+        vehicleData.small_bags || 2,
+        vehicleData.daily_rate_krw,
+        vehicleData.deposit_amount_krw,
+        vehicleData.thumbnail_url || '',
+        JSON.stringify(vehicleData.images || []),
+        JSON.stringify(vehicleData.features || []),
+        vehicleData.age_requirement || 21,
+        vehicleData.license_requirement || '1년 이상',
+        vehicleData.mileage_limit_per_day || 200,
+        vehicleData.unlimited_mileage ? 1 : 0,
+        vehicleData.smoking_allowed ? 1 : 0,
+        1
+      ]);
+
+      // 업체의 total_vehicles 업데이트
+      await db.execute(`
+        UPDATE rentcar_vendors
+        SET total_vehicles = total_vehicles + 1
+        WHERE id = ?
+      `, [vendorId]);
+
+      res.json({
+        success: true,
+        data: { id: result.insertId, ...vehicleData },
+        message: '차량이 추가되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Create rentcar vehicle error:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : '차량 추가 실패'
+      });
+    }
+  });
+
   // Admin - 모든 렌트카 차량 조회
   app.get('/api/admin/rentcar/vehicles', authenticate, requireRole('admin'), async (_req, res) => {
     try {
