@@ -185,6 +185,39 @@ export async function runMissingTablesMigration() {
     }
     console.log('✅ commission_rates seed data inserted');
 
+    // Add partner_type column to partners table
+    try {
+      // Check if column exists first
+      const columns = await db.query(`SHOW COLUMNS FROM partners LIKE 'partner_type'`);
+
+      if (!columns || columns.length === 0) {
+        await db.execute(`
+          ALTER TABLE partners
+          ADD COLUMN partner_type ENUM('general', 'lodging', 'rentcar') DEFAULT 'general'
+          AFTER tier
+        `);
+        console.log('✅ partner_type column added to partners table');
+      } else {
+        console.log('✅ partner_type column already exists');
+      }
+    } catch (error: any) {
+      console.warn('⚠️  partner_type column addition warning:', error.message);
+    }
+
+    // Update existing lodging partners
+    try {
+      await db.execute(`
+        UPDATE partners p
+        INNER JOIN listings l ON l.partner_id = p.id
+        SET p.partner_type = 'lodging'
+        WHERE p.partner_type = 'general'
+        AND l.category_id = 1857
+      `);
+      console.log('✅ Existing lodging partners tagged');
+    } catch (error) {
+      console.warn('⚠️  Lodging partners update warning:', error);
+    }
+
     console.log('🎉 [Migration] All missing tables added successfully!');
     return true;
 

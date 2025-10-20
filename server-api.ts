@@ -2028,14 +2028,15 @@ function setupRoutes() {
       let sql = `
         SELECT id, business_name, contact_name, email, phone, business_number,
                address, location, description, services, website, instagram,
-               status, tier, is_verified, is_featured, created_at, updated_at
+               status, tier, is_verified, is_featured, partner_type, created_at, updated_at
         FROM partners
+        WHERE (partner_type = 'general' OR partner_type IS NULL)
       `;
 
       const params: any[] = [];
 
       if (status) {
-        sql += ` WHERE status = ?`;
+        sql += ` AND status = ?`;
         params.push(status);
       }
 
@@ -3937,9 +3938,9 @@ function setupRoutes() {
       const result = await db.execute(`
         INSERT INTO partners (
           business_name, contact_name, phone, email,
-          is_active, is_verified, is_featured, tier,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          is_active, is_verified, is_featured, tier, partner_type,
+          user_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         vendorData.business_name,
         vendorData.contact_name,
@@ -3948,7 +3949,9 @@ function setupRoutes() {
         1, // is_active
         vendorData.is_verified ? 1 : 0,
         vendorData.is_featured ? 1 : 0,
-        vendorData.tier || 'basic'
+        vendorData.tier || 'bronze',
+        'lodging', // partner_type
+        1 // default user_id (admin)
       ]);
 
       res.json({
