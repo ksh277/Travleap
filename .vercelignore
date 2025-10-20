@@ -9,3 +9,6 @@ api/shared/
 # Test/dev files
 api/test.js
 api/populate-data.js
+
+# TEMPORARY: Exclude all API to test frontend-only deployment
+api/
