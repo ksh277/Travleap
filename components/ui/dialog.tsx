@@ -98,14 +98,29 @@ export const DialogContent: React.FC<{
     if (isOpen) {
       // 원래 overflow 값을 저장
       const originalOverflow = document.body.style.overflow;
+      const originalOverflowX = document.body.style.overflowX;
+      const originalOverflowY = document.body.style.overflowY;
 
       document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
 
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
-        // 원래 값으로 복원 (빈 문자열이면 CSS 기본값으로 돌아감)
-        document.body.style.overflow = originalOverflow;
+        // 원래 값으로 복원 - 빈 문자열이면 'auto'로 설정하여 스크롤바 복원
+        document.body.style.overflow = originalOverflow || '';
+        document.body.style.overflowX = originalOverflowX || '';
+        document.body.style.overflowY = originalOverflowY || '';
+
+        // 강제로 스크롤 복원
+        if (!originalOverflow) {
+          document.body.style.removeProperty('overflow');
+        }
+        if (!originalOverflowX) {
+          document.body.style.removeProperty('overflow-x');
+        }
+        if (!originalOverflowY) {
+          document.body.style.removeProperty('overflow-y');
+        }
       };
     }
   }, [isOpen]);
