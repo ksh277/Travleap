@@ -279,7 +279,7 @@ export function AdminPage({}: AdminPageProps) {
         for (const product of testProducts) {
           try {
             const categoryMap: { [key: string]: number } = {
-              '여행': 1, '렌트카': 4, '숙박': 2, '음식': 3, '관광지': 5, '팝업': 6, '행사': 7, '체험': 8
+              '여행': 1855, '렌트카': 1856, '숙박': 1857, '음식': 1858, '관광지': 1859, '팝업': 1860, '행사': 1861, '체험': 1862
             };
 
             const categorySlug = product.category === '여행' ? 'tour' :
@@ -432,7 +432,7 @@ export function AdminPage({}: AdminPageProps) {
       const createSingleProduct = async (product: any) => {
         try {
           const categoryMap: { [key: string]: number } = {
-            '여행': 1, '렌트카': 4, '숙박': 2, '음식': 3, '관광지': 5, '팝업': 6, '행사': 7, '체험': 8
+            '여행': 1855, '렌트카': 1856, '숙박': 1857, '음식': 1858, '관광지': 1859, '팝업': 1860, '행사': 1861, '체험': 1862
           };
 
           const categorySlug = product.category === '여행' ? 'tour' :
@@ -1187,20 +1187,30 @@ export function AdminPage({}: AdminPageProps) {
       // === 일반 상품 저장 로직 (기존과 동일) ===
       // 카테고리 ID 찾기
       const categoryMap: { [key: string]: number } = {
-        '여행': 1, '렌트카': 4, '숙박': 2, '음식': 3, '관광지': 5, '팝업': 6, '행사': 7, '체험': 8
+        '여행': 1855, '렌트카': 1856, '숙박': 1857, '음식': 1858, '관광지': 1859, '팝업': 1860, '행사': 1861, '체험': 1862
       };
 
-      // API가 받는 필드만 보내기 (간단하게)
+      // API가 받는 필드 모두 보내기
       const listingData = {
         title: newProduct.title,
-        description: newProduct.description || newProduct.longDescription || '',
-        price: parseInt(newProduct.price),
-        location: newProduct.location || '',
-        category_id: categoryMap[newProduct.category] || 1,
+        description: newProduct.description || '',
+        longDescription: newProduct.longDescription || newProduct.description || '',
+        price: parseInt(newProduct.price) || 0,
+        childPrice: newProduct.childPrice ? parseInt(newProduct.childPrice) : null,
+        infantPrice: newProduct.infantPrice ? parseInt(newProduct.infantPrice) : null,
+        location: newProduct.location || '신안군',
+        detailedAddress: newProduct.address || '',
+        meetingPoint: newProduct.meetingPoint || '',
+        category_id: categoryMap[newProduct.category] || 1855,
+        category: newProduct.category || '여행',
         partner_id: null, // 나중에 파트너 선택 기능 추가 가능
         images: newProduct.images.filter(img => img.trim() !== ''),
+        maxCapacity: newProduct.maxCapacity ? parseInt(newProduct.maxCapacity) : 20,
+        highlights: newProduct.highlights.filter(h => h.trim() !== ''),
+        included: newProduct.included.filter(i => i.trim() !== ''),
+        excluded: newProduct.excluded.filter(e => e.trim() !== ''),
         is_active: true,
-        is_featured: newProduct.featured || false
+        featured: newProduct.featured || false
       };
 
       const response = await api.admin.createListing(listingData);
