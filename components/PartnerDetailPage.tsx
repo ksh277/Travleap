@@ -37,6 +37,7 @@ interface Partner {
   review_count: number;
   discount_rate?: number;
   member_since: string;
+  base_price?: number;
 }
 
 export function PartnerDetailPage() {
@@ -64,8 +65,9 @@ export function PartnerDetailPage() {
 
     setLoading(true);
     try {
-      // API 호출
-      const response = await fetch(`http://localhost:3004/api/partners/${id}`);
+      // API 호출 - 환경에 따라 자동으로 URL 설정
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${API_URL}/api/partners/${id}`);
       const result = await response.json();
 
       if (result.success && result.data) {
@@ -82,10 +84,11 @@ export function PartnerDetailPage() {
           email: partnerData.email || partnerData.contact_email,
           images: partnerData.images ? (typeof partnerData.images === 'string' ? JSON.parse(partnerData.images) : partnerData.images) : ['/images/placeholder.jpg'],
           location: partnerData.location || '신안, 대한민국',
-          rating: partnerData.rating || 0,
+          rating: partnerData.avg_rating || partnerData.rating || 0,
           review_count: partnerData.review_count || 0,
           discount_rate: partnerData.discount_rate,
           member_since: partnerData.created_at ? new Date(partnerData.created_at).getFullYear().toString() : new Date().getFullYear().toString(),
+          base_price: partnerData.base_price || 0,
         });
       } else {
         throw new Error(result.message || '파트너 정보를 찾을 수 없습니다');
@@ -288,7 +291,11 @@ export function PartnerDetailPage() {
                   <div className="bg-purple-600 text-white p-4">
                     <div className="flex items-baseline gap-2">
                       <span className="text-sm">from</span>
-                      <span className="text-3xl font-bold">0원</span>
+                      <span className="text-3xl font-bold">
+                        {partner.base_price && partner.base_price > 0
+                          ? `${partner.base_price.toLocaleString()}원`
+                          : '가격 문의'}
+                      </span>
                     </div>
                     {partner.discount_rate && (
                       <Badge className="absolute top-4 right-4 bg-red-500">
