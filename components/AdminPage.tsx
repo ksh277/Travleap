@@ -570,7 +570,9 @@ export function AdminPage({}: AdminPageProps) {
     phone: '',
     business_address: '',
     location: '',
-    services: ''
+    services: '',
+    base_price: '',
+    commission_rate: '10'
   });
   const [reviews, setReviews] = useState<any[]>([]);
   const [editingReview, setEditingReview] = useState<any | null>(null);
@@ -1437,7 +1439,9 @@ export function AdminPage({}: AdminPageProps) {
         phone: partner.phone || '',
         business_address: partner.business_address || partner.location || '',
         location: partner.location || '',
-        services: partner.services || ''
+        services: partner.services || '',
+        base_price: partner.base_price || '',
+        commission_rate: partner.commission_rate || '10'
       });
     } else {
       setNewPartner({
@@ -1447,7 +1451,9 @@ export function AdminPage({}: AdminPageProps) {
         phone: '',
         business_address: '',
         location: '',
-        services: ''
+        services: '',
+        base_price: '',
+        commission_rate: '10'
       });
     }
     setIsPartnerDialogOpen(true);
@@ -5439,6 +5445,39 @@ export function AdminPage({}: AdminPageProps) {
                 id="services"
                 rows={3}
               />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  기본 가격 (원)
+                </label>
+                <Input
+                  type="number"
+                  value={newPartner.base_price || ''}
+                  onChange={(e) => setNewPartner({ ...newPartner, base_price: e.target.value })}
+                  placeholder="예: 50000"
+                  id="base_price"
+                />
+                <p className="text-xs text-gray-500 mt-1">가맹점 페이지에 표시될 기본 가격</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  수수료율 (%)
+                </label>
+                <Input
+                  type="number"
+                  value={newPartner.commission_rate || '10'}
+                  onChange={(e) => setNewPartner({ ...newPartner, commission_rate: e.target.value })}
+                  placeholder="예: 10"
+                  id="commission_rate"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                />
+                <p className="text-xs text-gray-500 mt-1">플랫폼 수수료율 (기본 10%)</p>
+              </div>
             </div>
           </div>
 
