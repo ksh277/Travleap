@@ -1,0 +1,7 @@
+# Backend files not needed for deployment
+server-api.ts
+workers/
+scripts/
+
+# API shared modules (imported by serverless functions, not functions themselves)
+api/shared/
