@@ -1,18 +1,5 @@
 import { getApiBaseUrl } from './env';
-// DB는 서버에서만 사용 - 브라우저에서는 null
-let db: any;
-try {
-  if (typeof window === 'undefined') {
-    // 서버 환경
-    const dbModule = require('./database.js');
-    db = dbModule.db;
-  } else {
-    // 브라우저 환경 - DB 사용 안함
-    db = null;
-  }
-} catch (e) {
-  db = null;
-}
+import { db } from './database';
 import { notifyDataChange } from '../hooks/useRealTimeData';
 import { notifyPartnerNewBooking, notifyCustomerBookingConfirmed } from './notification';
 
@@ -2350,7 +2337,7 @@ export const api = {
       try {
         console.log('📡 Fetching partner applications from DB...');
 
-        // 직접 DB에서 파트너 신청 조회 (모든 상태)
+        // partners 테이블에서 status='pending'인 신청 조회
         const applications = await db.query(`
           SELECT
             id,
@@ -2359,22 +2346,23 @@ export const api = {
             email,
             phone,
             business_number,
-            business_address,
-            categories,
+            address as business_address,
+            location,
             description,
             services,
             website,
             instagram,
-            facebook,
-            expected_revenue,
-            years_in_business,
+            '' as facebook,
+            '' as expected_revenue,
+            0 as years_in_business,
             status,
-            admin_notes,
-            reviewed_by,
-            reviewed_at,
+            '' as admin_notes,
+            NULL as reviewed_by,
+            NULL as reviewed_at,
             created_at,
             updated_at
-          FROM partner_applications
+          FROM partners
+          WHERE status = 'pending'
           ORDER BY created_at DESC
         `);
 
@@ -2766,10 +2754,10 @@ export const api = {
       try {
         console.log(`🔄 파트너 신청 승인 시작 (ID: ${applicationId})`);
 
-        // 1. 파트너 신청 정보 가져오기
+        // 1. partners 테이블에서 status='pending'인 파트너 찾기
         const applicationResult = await db.query(
-          'SELECT * FROM partner_applications WHERE id = ?',
-          [applicationId]
+          'SELECT * FROM partners WHERE id = ? AND status = ?',
+          [applicationId, 'pending']
         );
 
         if (!applicationResult || applicationResult.length === 0) {
@@ -2783,62 +2771,18 @@ export const api = {
         const application = applicationResult[0];
         console.log(`✅ 신청 정보 조회 완료: ${application.business_name}`);
 
-        // 2. partners 테이블에 파트너 생성
-        const newPartner = {
-          user_id: application.user_id || 1,
-          business_name: application.business_name,
-          contact_name: application.contact_name,
-          email: application.email,
-          phone: application.phone || '',
-          address: application.business_address || application.address || '',
-          location: application.location || '신안, 대한민국',
-          business_number: application.business_number || '',
-          description: application.description || '',
-          services: application.services || '',
-          promotion: application.promotion || null,
-          business_hours: application.business_hours || '매일 09:00-18:00',
-          discount_rate: application.discount_rate || null,
-          category: application.categories ? (typeof application.categories === 'string' ? JSON.parse(application.categories)[0] : application.categories[0]) : 'tour',
-          images: application.images || '[]',
-          tier: 'bronze',
-          is_verified: 1,
-          is_featured: 0,
-          status: 'approved',
-          rating: 0,
-          review_count: 0
-        };
+        // 2. status를 'approved'로 업데이트하고 tier 설정
+        await db.execute(`
+          UPDATE partners
+          SET status = 'approved',
+              tier = 'bronze',
+              is_verified = 1,
+              updated_at = NOW()
+          WHERE id = ?
+        `, [applicationId]);
+        console.log(`✅ 파트너 승인 완료 (ID: ${applicationId})`);
 
-        const partnerResult = await db.insert('partners', newPartner);
-        const partnerId = partnerResult.id;
-        console.log(`✅ 파트너 생성 완료 (ID: ${partnerId})`);
-
-        // 3. history 테이블로 이동
-        try {
-          await db.execute(`
-            INSERT INTO partner_applications_history (
-              id, user_id, business_name, contact_name, email, phone,
-              business_number, business_address, categories, description,
-              services, website, instagram, status, reviewed_by, review_notes,
-              reviewed_at, created_at, updated_at
-            )
-            SELECT
-              id, user_id, business_name, contact_name, email, phone,
-              business_number, business_address, categories, description,
-              services, website, instagram, 'approved', ?, ?,
-              NOW(), created_at, NOW()
-            FROM partner_applications
-            WHERE id = ?
-          `, [1, '파트너 신청 승인', applicationId]);
-          console.log(`✅ history 테이블로 이동 완료`);
-        } catch (historyError) {
-          console.error('⚠️  history 이동 실패:', historyError);
-        }
-
-        // 4. 원본 신청 삭제
-        await db.delete('partner_applications', applicationId);
-        console.log(`✅ 원본 신청 삭제 완료`);
-
-        // 5. 실시간 데이터 갱신
+        // 3. 실시간 데이터 갱신
         notifyDataChange.partnerCreated();
         console.log(`✅ 실시간 데이터 갱신 완료`);
 
@@ -2846,7 +2790,7 @@ export const api = {
           success: true,
           data: {
             applicationId,
-            partnerId,
+            partnerId: applicationId,
             status: 'approved'
           },
           message: '파트너 신청이 승인되었습니다.'
@@ -2887,31 +2831,14 @@ export const api = {
       try {
         console.log(`🔄 파트너 신청 거절 시작 (ID: ${applicationId})`);
 
-        // 1. history 테이블로 이동
-        try {
-          await db.execute(`
-            INSERT INTO partner_applications_history (
-              id, user_id, business_name, contact_name, email, phone,
-              business_number, business_address, categories, description,
-              services, website, instagram, status, reviewed_by, review_notes,
-              reviewed_at, created_at, updated_at
-            )
-            SELECT
-              id, user_id, business_name, contact_name, email, phone,
-              business_number, business_address, categories, description,
-              services, website, instagram, 'rejected', ?, ?,
-              NOW(), created_at, NOW()
-            FROM partner_applications
-            WHERE id = ?
-          `, [1, reviewNotes || '파트너 신청 거절', applicationId]);
-          console.log(`✅ history 테이블로 이동 완료`);
-        } catch (historyError) {
-          console.error('⚠️  history 이동 실패:', historyError);
-        }
-
-        // 2. 원본 신청 삭제
-        await db.delete('partner_applications', applicationId);
-        console.log(`✅ 원본 신청 삭제 완료`);
+        // partners 테이블에서 status='pending'인 파트너를 'rejected'로 변경
+        await db.execute(`
+          UPDATE partners
+          SET status = 'rejected',
+              updated_at = NOW()
+          WHERE id = ? AND status = 'pending'
+        `, [applicationId]);
+        console.log(`✅ 파트너 신청 거절 완료 (ID: ${applicationId})`);
 
         return {
           success: true,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -23,7 +23,8 @@ import {
   MessageCircle,
   ArrowRight,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  MapPin
 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { api } from '../utils/api';
@@ -33,6 +34,8 @@ export function PartnerApplyPage() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [addressSearchOpen, setAddressSearchOpen] = useState(false);
+  const addressInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     // 기본 정보
     businessName: '',
@@ -43,6 +46,8 @@ export function PartnerApplyPage() {
     categories: [] as string[],
     address: '',
     location: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
 
     // 소개/설명
     description: '',
@@ -129,6 +134,46 @@ export function PartnerApplyPage() {
         ? prev.categories.filter(id => id !== categoryId)
         : [...prev.categories, categoryId]
     }));
+  };
+
+  // Kakao 주소 검색
+  const openAddressSearch = () => {
+    const kakao = (window as any).kakao;
+    if (!kakao || !kakao.maps) {
+      toast.error('주소 검색 기능을 불러올 수 없습니다.');
+      return;
+    }
+
+    new (window as any).daum.Postcode({
+      oncomplete: function(data: any) {
+        // 도로명 주소 또는 지번 주소
+        const fullAddress = data.roadAddress || data.jibunAddress;
+
+        // Geocoder로 좌표 얻기
+        const geocoder = new kakao.maps.services.Geocoder();
+        geocoder.addressSearch(fullAddress, (result: any, status: any) => {
+          if (status === kakao.maps.services.Status.OK) {
+            setFormData(prev => ({
+              ...prev,
+              address: fullAddress,
+              location: `${data.sido} ${data.sigungu}`,
+              latitude: parseFloat(result[0].y),
+              longitude: parseFloat(result[0].x)
+            }));
+            toast.success('주소가 설정되었습니다.');
+          } else {
+            setFormData(prev => ({
+              ...prev,
+              address: fullAddress,
+              location: `${data.sido} ${data.sigungu}`,
+              latitude: null,
+              longitude: null
+            }));
+            toast.warning('좌표를 가져올 수 없어 주소만 저장되었습니다.');
+          }
+        });
+      }
+    }).open();
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -400,25 +445,30 @@ export function PartnerApplyPage() {
                         </div>
 
                         <div className="md:col-span-2">
-                          <Label htmlFor="address">주소 *</Label>
-                          <Input
-                            id="address"
-                            value={formData.address}
-                            onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                            placeholder="전남 신안군 압해읍 ..."
-                            required
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <Label htmlFor="location">위치/지역 *</Label>
-                          <Input
-                            id="location"
-                            value={formData.location}
-                            onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                            placeholder="신안, 대한민국"
-                            required
-                          />
+                          <Label>주소 *</Label>
+                          <div className="space-y-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={openAddressSearch}
+                              className="w-full justify-start text-left"
+                            >
+                              <MapPin className="h-4 w-4 mr-2" />
+                              {formData.address || '주소 검색하기'}
+                            </Button>
+                            {formData.address && (
+                              <div className="text-sm text-gray-600 pl-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">주소:</span>
+                                  <span>{formData.address}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">지역:</span>
+                                  <span>{formData.location}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 

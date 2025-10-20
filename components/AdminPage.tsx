@@ -671,21 +671,13 @@ export function AdminPage({}: AdminPageProps) {
     excluded: [''],
     policies: [''],
     featured: false,
-    startDate: '',
-    endDate: '',
-    duration: '1일',
     maxCapacity: '10',
     minCapacity: '1',
-    minAge: '',
     meetingPoint: '',
     cancellationPolicy: 'standard',
-    difficulty: 'easy',
     language: 'korean',
     tags: [''],
     amenities: [''],
-    availableStartTimes: [''],
-    itinerary: [{ time: '', activity: '', description: '' }],
-    packages: [{ id: '', name: '', price: '', description: '' }],
     isPMSProduct: false, // PMS 연동 상품 여부
     pmsFormData: null as any // PMS 원본 데이터 저장
   });
@@ -1158,21 +1150,13 @@ export function AdminPage({}: AdminPageProps) {
             excluded: [''],
             policies: [''],
             featured: false,
-            startDate: '',
-            endDate: '',
-            duration: '1일',
             maxCapacity: '10',
             minCapacity: '1',
-            minAge: '',
             meetingPoint: '',
             cancellationPolicy: 'standard',
-            difficulty: 'easy',
             language: 'korean',
             tags: [''],
             amenities: [''],
-            availableStartTimes: [''],
-            itinerary: [{ time: '', activity: '', description: '' }],
-            packages: [{ id: '', name: '', price: '', description: '' }],
             isPMSProduct: false,
             pmsFormData: null
           });
@@ -1234,7 +1218,7 @@ export function AdminPage({}: AdminPageProps) {
         setProducts(prev => [...prev, newProductForUI]);
         setNewProduct({
           title: '',
-          category: '',
+          category: '여행',
           price: '',
           childPrice: '',
           infantPrice: '',
@@ -1250,21 +1234,13 @@ export function AdminPage({}: AdminPageProps) {
           excluded: [''],
           policies: [''],
           featured: false,
-          startDate: '',
-          endDate: '',
-          duration: '1일',
           maxCapacity: '10',
           minCapacity: '1',
-          minAge: '',
           meetingPoint: '',
           cancellationPolicy: 'standard',
-          difficulty: 'easy',
           language: 'korean',
           tags: [''],
           amenities: [''],
-          availableStartTimes: [''],
-          itinerary: [{ time: '', activity: '', description: '' }],
-          packages: [{ id: '', name: '', price: '', description: '' }],
           isPMSProduct: false,
           pmsFormData: null
         });
@@ -1291,26 +1267,32 @@ export function AdminPage({}: AdminPageProps) {
 
     setIsLoading(true);
     try {
+      // 간소화된 양식과 동일한 형식으로 업데이트 데이터 구성
+      const categoryMap: { [key: string]: number } = {
+        '여행': 1855, '렌트카': 1856, '숙박': 1857, '음식': 1858,
+        '관광지': 1859, '팝업': 1860, '행사': 1861, '체험': 1862
+      };
+
       const updateData = {
         title: editingProduct.title,
-        category: editingProduct.category === '여행' ? 'tour' :
-                 editingProduct.category === '숙박' ? 'stay' :
-                 editingProduct.category === '음식' ? 'food' :
-                 editingProduct.category === '렌트카' ? 'rentcar' :
-                 editingProduct.category === '관광지' ? 'tourist' :
-                 editingProduct.category === '팝업' ? 'popup' :
-                 editingProduct.category === '행사' ? 'event' :
-                 editingProduct.category === '체험' ? 'experience' : 'tour',
-        price_from: editingProduct.price,
-        price_to: editingProduct.price,
-        location: editingProduct.location,
-        short_description: editingProduct.description,
-        description_md: editingProduct.description,
-        is_active: editingProduct.status === 'active',
-        is_published: editingProduct.status === 'active',
-        is_featured: editingProduct.featured || false,
+        description: editingProduct.description || '',
+        longDescription: editingProduct.description || '',
+        price: editingProduct.price,
+        childPrice: null,
+        infantPrice: null,
+        location: editingProduct.location || '신안군',
+        detailedAddress: '',
+        meetingPoint: '',
+        category_id: categoryMap[editingProduct.category] || 1855,
+        category: editingProduct.category,
+        partner_id: null,
         images: [editingProduct.image].filter(img => img && img.trim() !== ''),
-        updated_at: new Date().toISOString()
+        maxCapacity: 20,
+        highlights: [],
+        included: [],
+        excluded: [],
+        is_active: editingProduct.status === 'active',
+        featured: editingProduct.featured || false
       };
 
       const result = await api.admin.updateListing(parseInt(editingProduct.id), updateData);
@@ -1325,6 +1307,9 @@ export function AdminPage({}: AdminPageProps) {
         setEditingProduct(null);
         setIsEditModalOpen(false);
         toast.success('상품이 수정되었습니다.');
+
+        // 실시간 데이터 갱신
+        notifyDataChange.listingUpdated();
       } else {
         toast.error(result.error || '상품 수정에 실패했습니다.');
       }
@@ -2783,292 +2768,18 @@ export function AdminPage({}: AdminPageProps) {
 
                         {/* 일정 및 기타 정보 */}
                         <div>
-                          <h3 className="text-lg font-medium mb-3">일정 및 옵션</h3>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">시작일</label>
-                              <Input
-                                type="date"
-                                value={newProduct.startDate}
-                                onChange={(e) => setNewProduct(prev => ({ ...prev, startDate: e.target.value }))}
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">종료일</label>
-                              <Input
-                                type="date"
-                                value={newProduct.endDate}
-                                onChange={(e) => setNewProduct(prev => ({ ...prev, endDate: e.target.value }))}
-                              />
-                            </div>
-                            {/* 소요시간 - 렌트카/음식 제외 */}
-                            {!['렌트카', '음식'].includes(newProduct.category) && (
-                              <div>
-                                <label className="text-sm font-medium mb-1 block">소요시간</label>
-                                <Select
-                                  value={newProduct.duration}
-                                  onValueChange={(value) => setNewProduct(prev => ({ ...prev, duration: value }))}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="1시간">1시간</SelectItem>
-                                    <SelectItem value="2시간">2시간</SelectItem>
-                                    <SelectItem value="반나절">반나절</SelectItem>
-                                    <SelectItem value="1일">1일</SelectItem>
-                                    <SelectItem value="2일">2일</SelectItem>
-                                    <SelectItem value="3일">3일</SelectItem>
-                                    <SelectItem value="1주일">1주일</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            )}
-                            {/* 난이도 - 여행/체험/관광지 카테고리에만 표시 */}
-                            {['여행', '체험', '관광지'].includes(newProduct.category) && (
-                              <div>
-                                <label className="text-sm font-medium mb-1 block">난이도</label>
-                                <Select
-                                  value={newProduct.difficulty}
-                                  onValueChange={(value) => setNewProduct(prev => ({ ...prev, difficulty: value }))}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="easy">쉬움</SelectItem>
-                                    <SelectItem value="moderate">보통</SelectItem>
-                                    <SelectItem value="hard">어려움</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            )}
-
-                            {/* 최소 연령 - 여행/체험/관광지/행사 카테고리에만 표시 */}
-                            {['여행', '체험', '관광지', '행사'].includes(newProduct.category) && (
-                              <div>
-                                <label className="text-sm font-medium mb-1 block">최소 연령</label>
-                                <Input
-                                  type="number"
-                                  value={newProduct.minAge}
-                                  onChange={(e) => setNewProduct(prev => ({ ...prev, minAge: e.target.value }))}
-                                  placeholder="최소 연령"
-                                />
-                              </div>
-                            )}
-                            <div className="flex items-center">
-                              <label className="text-sm font-medium">
-                                <input
-                                  type="checkbox"
-                                  checked={newProduct.featured}
-                                  onChange={(e) => setNewProduct(prev => ({ ...prev, featured: e.target.checked }))}
-                                  className="mr-2"
-                                />
-                                추천 상품
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 출발 시간 - 여행/체험 카테고리에만 표시 */}
-                        {['여행', '체험'].includes(newProduct.category) && (
-                          <div>
-                            <h3 className="text-lg font-medium mb-3">출발 시간</h3>
-                            <div className="space-y-2">
-                              {newProduct.availableStartTimes.map((time: string, index: number) => (
-                                <div key={index} className="flex gap-2">
-                                  <Input
-                                    type="time"
-                                    value={time}
-                                    onChange={(e) => {
-                                      const newTimes = [...newProduct.availableStartTimes];
-                                      newTimes[index] = e.target.value;
-                                      setNewProduct(prev => ({ ...prev, availableStartTimes: newTimes }));
-                                    }}
-                                    placeholder="출발 시간"
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      const newTimes = newProduct.availableStartTimes.filter((_: any, i: number) => i !== index);
-                                      setNewProduct(prev => ({ ...prev, availableStartTimes: newTimes }));
-                                    }}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ))}
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setNewProduct(prev => ({
-                                    ...prev,
-                                    availableStartTimes: [...prev.availableStartTimes, '']
-                                  }));
-                                }}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                출발 시간 추가
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 여행 일정 - 여행 카테고리에만 표시 */}
-                        {newProduct.category === '여행' && (
-                          <div>
-                            <h3 className="text-lg font-medium mb-3">여행 일정</h3>
-                            <div className="space-y-4">
-                              {newProduct.itinerary.map((item: any, index: number) => (
-                                <div key={index} className="border rounded-lg p-4 space-y-3">
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-medium">일정 {index + 1}</span>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => {
-                                        const newItinerary = newProduct.itinerary.filter((_: any, i: number) => i !== index);
-                                        setNewProduct(prev => ({ ...prev, itinerary: newItinerary }));
-                                      }}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  <div className="grid grid-cols-3 gap-3">
-                                    <Input
-                                      value={item.time}
-                                      onChange={(e) => {
-                                        const newItinerary = [...newProduct.itinerary];
-                                        newItinerary[index] = { ...newItinerary[index], time: e.target.value };
-                                        setNewProduct(prev => ({ ...prev, itinerary: newItinerary }));
-                                      }}
-                                      placeholder="시간 (예: 09:00)"
-                                    />
-                                    <Input
-                                      value={item.activity}
-                                      onChange={(e) => {
-                                        const newItinerary = [...newProduct.itinerary];
-                                        newItinerary[index] = { ...newItinerary[index], activity: e.target.value };
-                                        setNewProduct(prev => ({ ...prev, itinerary: newItinerary }));
-                                      }}
-                                      placeholder="활동"
-                                      className="col-span-2"
-                                    />
-                                  </div>
-                                  <Textarea
-                                    value={item.description}
-                                    onChange={(e) => {
-                                      const newItinerary = [...newProduct.itinerary];
-                                      newItinerary[index] = { ...newItinerary[index], description: e.target.value };
-                                      setNewProduct(prev => ({ ...prev, itinerary: newItinerary }));
-                                    }}
-                                    placeholder="상세 설명"
-                                    rows={2}
-                                  />
-                                </div>
-                              ))}
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setNewProduct(prev => ({
-                                    ...prev,
-                                    itinerary: [...prev.itinerary, { time: '', activity: '', description: '' }]
-                                  }));
-                                }}
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                일정 추가
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 추가 패키지/옵션 */}
+                        {/* 추천 상품 체크박스 */}
                         <div>
-                          <h3 className="text-lg font-medium mb-3">추가 패키지/옵션</h3>
-                          <div className="space-y-4">
-                            {newProduct.packages.map((pkg: any, index: number) => (
-                              <div key={index} className="border rounded-lg p-4 space-y-3">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-medium">패키지 {index + 1}</span>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      const newPackages = newProduct.packages.filter((_: any, i: number) => i !== index);
-                                      setNewProduct(prev => ({ ...prev, packages: newPackages }));
-                                    }}
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                                <div className="grid grid-cols-3 gap-3">
-                                  <Input
-                                    value={pkg.id}
-                                    onChange={(e) => {
-                                      const newPackages = [...newProduct.packages];
-                                      newPackages[index] = { ...newPackages[index], id: e.target.value };
-                                      setNewProduct(prev => ({ ...prev, packages: newPackages }));
-                                    }}
-                                    placeholder="패키지 ID"
-                                  />
-                                  <Input
-                                    value={pkg.name}
-                                    onChange={(e) => {
-                                      const newPackages = [...newProduct.packages];
-                                      newPackages[index] = { ...newPackages[index], name: e.target.value };
-                                      setNewProduct(prev => ({ ...prev, packages: newPackages }));
-                                    }}
-                                    placeholder="패키지명"
-                                  />
-                                  <Input
-                                    type="number"
-                                    value={pkg.price}
-                                    onChange={(e) => {
-                                      const newPackages = [...newProduct.packages];
-                                      newPackages[index] = { ...newPackages[index], price: e.target.value };
-                                      setNewProduct(prev => ({ ...prev, packages: newPackages }));
-                                    }}
-                                    placeholder="가격"
-                                  />
-                                </div>
-                                <Textarea
-                                  value={pkg.description}
-                                  onChange={(e) => {
-                                    const newPackages = [...newProduct.packages];
-                                    newPackages[index] = { ...newPackages[index], description: e.target.value };
-                                    setNewProduct(prev => ({ ...prev, packages: newPackages }));
-                                  }}
-                                  placeholder="패키지 설명"
-                                  rows={2}
-                                />
-                              </div>
-                            ))}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setNewProduct(prev => ({
-                                  ...prev,
-                                  packages: [...prev.packages, { id: '', name: '', price: '', description: '' }]
-                                }));
-                              }}
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              패키지 추가
-                            </Button>
-                          </div>
+                          <label className="flex items-center text-sm font-medium">
+                            <input
+                              type="checkbox"
+                              checked={newProduct.featured}
+                              onChange={(e) => setNewProduct(prev => ({ ...prev, featured: e.target.checked }))}
+                              className="mr-2"
+                            />
+                            추천 상품으로 등록
+                          </label>
                         </div>
-                      </div>
 
                       <div className="flex justify-end space-x-2 mt-6 pt-4 border-t">
                         <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
