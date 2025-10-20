@@ -3,13 +3,9 @@ server-api.ts
 workers/
 scripts/
 
-# API shared modules (not serverless functions)
-api/shared/
+# Exclude ALL api folder except essential login/signup
+api/
 
-# Test/dev files
-api/test.js
-api/populate-data.js
-
-# ALL TypeScript API files (cause deployment timeout in Vercel serverless)
-# Use .js equivalents or server-api.ts for these endpoints
-api/**/*.ts
+# Re-include only essential authentication APIs
+!api/login.js
+!api/signup.js
