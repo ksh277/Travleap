@@ -315,6 +315,23 @@ export function PartnerDetailPage() {
             {/* Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-20 space-y-6">
+                {/* Price Card */}
+                <Card className="overflow-hidden">
+                  <div className="bg-purple-600 text-white p-6">
+                    <div className="text-sm mb-2">from</div>
+                    <div className="text-4xl font-bold">
+                      {partner.base_price && partner.base_price > 0
+                        ? `₩${partner.base_price.toLocaleString()}`
+                        : '무료'}
+                    </div>
+                    {partner.discount_rate && partner.base_price && partner.base_price > 0 && (
+                      <Badge className="mt-2 bg-red-500">
+                        {partner.discount_rate}% 할인
+                      </Badge>
+                    )}
+                  </div>
+                </Card>
+
                 {/* Host Info Card */}
                 <Card>
                   <CardContent className="p-6">
