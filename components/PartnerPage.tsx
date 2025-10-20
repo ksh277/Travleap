@@ -757,7 +757,7 @@ export function PartnerPage() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/detail/${partner.id}`);
+                            navigate(`/partners/${partner.id}`);
                           }}
                           className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4"
                         >

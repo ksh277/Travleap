@@ -572,7 +572,10 @@ export function AdminPage({}: AdminPageProps) {
     location: '',
     services: '',
     base_price: '',
-    commission_rate: '10'
+    detailed_address: '',
+    description: '',
+    images: [] as string[],
+    business_hours: ''
   });
   const [reviews, setReviews] = useState<any[]>([]);
   const [editingReview, setEditingReview] = useState<any | null>(null);
@@ -1017,8 +1020,19 @@ export function AdminPage({}: AdminPageProps) {
   const handleMediaSelect = (selected: any | any[]) => {
     const selectedItems = Array.isArray(selected) ? selected : [selected];
     const urls = selectedItems.map(item => item.url);
-    setNewProduct(prev => ({ ...prev, images: [...prev.images, ...urls] }));
-    toast.success(`${urls.length}개의 이미지가 추가되었습니다.`);
+
+    // 파트너 다이얼로그가 열려있으면 파트너 이미지에 추가
+    if (isPartnerDialogOpen) {
+      setNewPartner(prev => ({
+        ...prev,
+        images: [...(Array.isArray(prev.images) ? prev.images : []), ...urls]
+      }));
+      toast.success(`${urls.length}개의 이미지가 추가되었습니다.`);
+    } else {
+      // 아니면 상품 이미지에 추가
+      setNewProduct(prev => ({ ...prev, images: [...prev.images, ...urls] }));
+      toast.success(`${urls.length}개의 이미지가 추가되었습니다.`);
+    }
     setIsMediaLibraryOpen(false);
   };
 
@@ -1432,6 +1446,18 @@ export function AdminPage({}: AdminPageProps) {
     setIsCreatePartnerMode(!partner);
     // 파트너 수정 모드일 때는 해당 데이터로 초기화, 생성 모드일 때는 빈 값으로 초기화
     if (partner) {
+      // 이미지 배열 처리
+      let imagesArray: string[] = [];
+      if (Array.isArray(partner.images)) {
+        imagesArray = partner.images;
+      } else if (typeof partner.images === 'string' && partner.images) {
+        try {
+          imagesArray = JSON.parse(partner.images);
+        } catch {
+          imagesArray = [];
+        }
+      }
+
       setNewPartner({
         business_name: partner.business_name || '',
         contact_name: partner.contact_name || '',
@@ -1441,7 +1467,10 @@ export function AdminPage({}: AdminPageProps) {
         location: partner.location || '',
         services: partner.services || '',
         base_price: partner.base_price || '',
-        commission_rate: partner.commission_rate || '10'
+        detailed_address: partner.detailed_address || '',
+        description: partner.description || '',
+        images: imagesArray,
+        business_hours: partner.business_hours || ''
       });
     } else {
       setNewPartner({
@@ -1453,7 +1482,10 @@ export function AdminPage({}: AdminPageProps) {
         location: '',
         services: '',
         base_price: '',
-        commission_rate: '10'
+        detailed_address: '',
+        description: '',
+        images: [],
+        business_hours: ''
       });
     }
     setIsPartnerDialogOpen(true);
@@ -1462,15 +1494,21 @@ export function AdminPage({}: AdminPageProps) {
   // 파트너 생성/수정
   const handleSavePartner = async (partnerData: any) => {
     try {
+      // 이미지가 이미 배열이므로 그대로 전송
+      const processedData = {
+        ...partnerData,
+        images: Array.isArray(partnerData.images) ? partnerData.images : []
+      };
+
       let result;
       if (isCreatePartnerMode) {
-        result = await api.admin.createPartner(partnerData);
+        result = await api.admin.createPartner(processedData);
         if (result.success) {
           setPartners(prev => [...prev, result.data]);
           toast.success('파트너가 성공적으로 생성되었습니다.');
         }
       } else {
-        result = await api.admin.updatePartner(editingPartner.id, partnerData);
+        result = await api.admin.updatePartner(editingPartner.id, processedData);
         if (result.success) {
           setPartners(prev =>
             prev.map(p =>
@@ -5412,12 +5450,35 @@ export function AdminPage({}: AdminPageProps) {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 사업장 주소 *
               </label>
-              <Input
-                value={newPartner.business_address}
-                onChange={(e) => setNewPartner({ ...newPartner, business_address: e.target.value })}
-                placeholder="사업장 주소를 입력하세요"
-                id="business_address"
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={newPartner.business_address}
+                  onChange={(e) => setNewPartner({ ...newPartner, business_address: e.target.value })}
+                  placeholder="주소 검색 버튼을 클릭하세요"
+                  id="business_address"
+                  readOnly
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    // Daum 주소 검색 팝업
+                    new (window as any).daum.Postcode({
+                      oncomplete: function(data: any) {
+                        // 도로명 주소 또는 지번 주소 선택
+                        const fullAddress = data.roadAddress || data.jibunAddress;
+                        setNewPartner({
+                          ...newPartner,
+                          business_address: fullAddress,
+                          location: data.sido + ' ' + data.sigungu
+                        });
+                      }
+                    }).open();
+                  }}
+                  className="bg-[#8B5FBF] hover:bg-[#7A4FB5] whitespace-nowrap"
+                >
+                  주소 검색
+                </Button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -5447,37 +5508,147 @@ export function AdminPage({}: AdminPageProps) {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  기본 가격 (원)
-                </label>
-                <Input
-                  type="number"
-                  value={newPartner.base_price || ''}
-                  onChange={(e) => setNewPartner({ ...newPartner, base_price: e.target.value })}
-                  placeholder="예: 50000"
-                  id="base_price"
-                />
-                <p className="text-xs text-gray-500 mt-1">가맹점 페이지에 표시될 기본 가격</p>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                기본 가격 (원)
+              </label>
+              <Input
+                type="number"
+                value={newPartner.base_price || ''}
+                onChange={(e) => setNewPartner({ ...newPartner, base_price: e.target.value })}
+                placeholder="예: 50000"
+                id="base_price"
+              />
+              <p className="text-xs text-gray-500 mt-1">가맹점 페이지에 표시될 기본 가격</p>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  수수료율 (%)
-                </label>
-                <Input
-                  type="number"
-                  value={newPartner.commission_rate || '10'}
-                  onChange={(e) => setNewPartner({ ...newPartner, commission_rate: e.target.value })}
-                  placeholder="예: 10"
-                  id="commission_rate"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                />
-                <p className="text-xs text-gray-500 mt-1">플랫폼 수수료율 (기본 10%)</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                상세 주소
+              </label>
+              <Input
+                value={newPartner.detailed_address || ''}
+                onChange={(e) => setNewPartner({ ...newPartner, detailed_address: e.target.value })}
+                placeholder="예: 전라남도 신안군 증도면 증도리 123"
+                id="detailed_address"
+              />
+              <p className="text-xs text-gray-500 mt-1">지도에 표시될 상세 주소</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                업체 설명
+              </label>
+              <Textarea
+                value={newPartner.description || ''}
+                onChange={(e) => setNewPartner({ ...newPartner, description: e.target.value })}
+                placeholder="업체에 대한 상세 설명을 입력하세요"
+                id="description"
+                rows={4}
+              />
+              <p className="text-xs text-gray-500 mt-1">상세페이지에 표시될 업체 소개</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">이미지</label>
+              <div className="space-y-4">
+                {/* 미디어 라이브러리 선택 버튼 */}
+                <div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setIsMediaLibraryOpen(true)}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      미디어 라이브러리에서 선택
+                    </Button>
+                    <label className="flex-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => document.getElementById('partner-image-upload')?.click()}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        파일 직접 업로드
+                      </Button>
+                      <input
+                        id="partner-image-upload"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={async (e) => {
+                          const files = e.target.files;
+                          if (files && files.length > 0) {
+                            const newImages: string[] = [];
+                            for (let i = 0; i < files.length; i++) {
+                              const file = files[i];
+                              const reader = new FileReader();
+                              const base64 = await new Promise<string>((resolve) => {
+                                reader.onloadend = () => resolve(reader.result as string);
+                                reader.readAsDataURL(file);
+                              });
+                              newImages.push(base64);
+                            }
+                            setNewPartner(prev => ({
+                              ...prev,
+                              images: [...(Array.isArray(prev.images) ? prev.images : []), ...newImages]
+                            }));
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    미디어 라이브러리를 사용하면 기존 이미지를 재사용하거나 새 이미지를 업로드할 수 있습니다.
+                  </p>
+                </div>
+
+                {/* 선택된 이미지 미리보기 */}
+                {Array.isArray(newPartner.images) && newPartner.images.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {newPartner.images.map((img, idx) => (
+                      <div key={idx} className="relative group">
+                        <img
+                          src={img}
+                          alt={`Preview ${idx + 1}`}
+                          className="w-full h-24 object-cover rounded border"
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="destructive"
+                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => {
+                            setNewPartner(prev => ({
+                              ...prev,
+                              images: (Array.isArray(prev.images) ? prev.images : []).filter((_, i) => i !== idx)
+                            }));
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                영업시간
+              </label>
+              <Input
+                value={newPartner.business_hours || ''}
+                onChange={(e) => setNewPartner({ ...newPartner, business_hours: e.target.value })}
+                placeholder="예: 평일 09:00-18:00, 주말 10:00-17:00"
+                id="business_hours"
+              />
+              <p className="text-xs text-gray-500 mt-1">영업시간 정보</p>
             </div>
           </div>
 

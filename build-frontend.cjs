@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const backendFolders = ['api', 'workers', 'scripts', 'server'];
+const backendFolders = ['workers', 'scripts', 'server'];
 
 // Backend-only files to hide (NOT used by frontend)
 const backendFiles = [
