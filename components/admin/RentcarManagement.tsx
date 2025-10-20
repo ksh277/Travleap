@@ -62,9 +62,10 @@ export const RentcarManagement: React.FC = () => {
     contact_phone: '',
     description: '',
     logo_url: '',
-    pms_provider: '',
-    pms_api_key: '',
-    pms_property_id: ''
+    api_url: '',
+    api_key: '',
+    api_auth_type: 'bearer',
+    api_enabled: false
   });
   const [logoImageFile, setLogoImageFile] = useState<File | null>(null);
   const [logoImagePreview, setLogoImagePreview] = useState<string>('');
@@ -194,9 +195,10 @@ export const RentcarManagement: React.FC = () => {
         contact_phone: vendor.contact_phone,
         description: vendor.description,
         logo_url: vendor.logo_url,
-        pms_provider: (vendor as any).pms_provider || '',
-        pms_api_key: (vendor as any).pms_api_key || '',
-        pms_property_id: (vendor as any).pms_property_id || ''
+        api_url: vendor.api_url || '',
+        api_key: vendor.api_key || '',
+        api_auth_type: vendor.api_auth_type || 'bearer',
+        api_enabled: vendor.api_enabled || false
       });
       setLogoImagePreview(vendor.logo_url || '');
     } else {
@@ -211,9 +213,10 @@ export const RentcarManagement: React.FC = () => {
         contact_phone: '',
         description: '',
         logo_url: '',
-        pms_provider: '',
-        pms_api_key: '',
-        pms_property_id: ''
+        api_url: '',
+        api_key: '',
+        api_auth_type: 'bearer',
+        api_enabled: false
       });
       setLogoImagePreview('');
     }
@@ -310,6 +313,41 @@ export const RentcarManagement: React.FC = () => {
       }
     } catch (error) {
       toast.error('벤더 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleApiSync = async (vendorId: number, vendorName: string) => {
+    const confirmMessage = `"${vendorName}" 업체 API에서 차량 데이터를 동기화하시겠습니까?\n\n이 작업은 업체의 API 서버에서 차량 목록을 가져와 자동으로 등록/업데이트합니다.`;
+
+    if (!confirm(confirmMessage)) return;
+
+    const loadingToast = toast.loading('API에서 차량 데이터를 가져오는 중...');
+
+    try {
+      const response = await fetch(`/api/admin/rentcar/sync/${vendorId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      toast.dismiss(loadingToast);
+
+      if (data.success) {
+        toast.success(data.message || 'API 동기화가 완료되었습니다.');
+        if (data.data?.errors && data.data.errors.length > 0) {
+          console.warn('일부 차량 동기화 실패:', data.data.errors);
+        }
+        loadVehicles();
+        loadVendors();
+      } else {
+        toast.error(data.message || 'API 동기화에 실패했습니다.');
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error('API 동기화 중 오류가 발생했습니다.');
+      console.error('API sync error:', error);
     }
   };
 
@@ -863,6 +901,17 @@ export const RentcarManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
+                          {vendor.api_enabled && vendor.api_url && vendor.api_key && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleApiSync(vendor.id, vendor.business_name)}
+                              title="업체 API에서 차량 데이터 동기화"
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -1536,47 +1585,62 @@ export const RentcarManagement: React.FC = () => {
 
             {/* PMS 연동 설정 */}
             <div className="border-t pt-4 mt-4">
-              <h3 className="font-semibold mb-3">PMS 연동 설정 (선택)</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>PMS 제공업체</Label>
-                  <Select
-                    value={vendorFormData.pms_provider || 'none'}
-                    onValueChange={(value) => setVendorFormData({ ...vendorFormData, pms_provider: value === 'none' ? '' : value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="선택 안 함" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">선택 안 함</SelectItem>
-                      <SelectItem value="stayntouch">StayNTouch</SelectItem>
-                      <SelectItem value="opera">Opera PMS</SelectItem>
-                      <SelectItem value="cloudbeds">Cloudbeds</SelectItem>
-                      <SelectItem value="mews">Mews</SelectItem>
-                      <SelectItem value="custom">커스텀</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>API Key</Label>
-                  <Input
-                    type="password"
-                    value={vendorFormData.pms_api_key || ''}
-                    onChange={(e) => setVendorFormData({ ...vendorFormData, pms_api_key: e.target.value })}
-                    placeholder="PMS API 키 입력"
+              <h3 className="font-semibold mb-3">API 연동 설정 (선택)</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="api_enabled"
+                    checked={vendorFormData.api_enabled || false}
+                    onChange={(e) => setVendorFormData({ ...vendorFormData, api_enabled: e.target.checked })}
+                    className="w-4 h-4"
                   />
+                  <Label htmlFor="api_enabled" className="cursor-pointer">
+                    API 자동 동기화 활성화
+                  </Label>
                 </div>
-                <div>
-                  <Label>Property ID</Label>
-                  <Input
-                    value={vendorFormData.pms_property_id || ''}
-                    onChange={(e) => setVendorFormData({ ...vendorFormData, pms_property_id: e.target.value })}
-                    placeholder="호텔/업체 ID"
-                  />
-                </div>
+                {vendorFormData.api_enabled && (
+                  <>
+                    <div>
+                      <Label>API URL*</Label>
+                      <Input
+                        value={vendorFormData.api_url || ''}
+                        onChange={(e) => setVendorFormData({ ...vendorFormData, api_url: e.target.value })}
+                        placeholder="https://api.업체.com/vehicles"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>API Key*</Label>
+                        <Input
+                          type="password"
+                          value={vendorFormData.api_key || ''}
+                          onChange={(e) => setVendorFormData({ ...vendorFormData, api_key: e.target.value })}
+                          placeholder="API 인증 키 입력"
+                        />
+                      </div>
+                      <div>
+                        <Label>인증 방식</Label>
+                        <Select
+                          value={vendorFormData.api_auth_type || 'bearer'}
+                          onValueChange={(value: any) => setVendorFormData({ ...vendorFormData, api_auth_type: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="bearer">Bearer Token</SelectItem>
+                            <SelectItem value="apikey">API Key Header</SelectItem>
+                            <SelectItem value="basic">Basic Auth</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                PMS(Property Management System) 연동 시 자동으로 차량 재고 및 요금 정보가 동기화됩니다.
+                API 연동 시 업체 시스템에서 차량 목록을 자동으로 가져와 동기화합니다.
               </p>
             </div>
 

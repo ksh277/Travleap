@@ -3608,6 +3608,181 @@ function setupRoutes() {
     }
   });
 
+  // Admin - 렌트카 업체 API 동기화 (업체 API에서 차량 데이터 가져오기)
+  app.post('/api/admin/rentcar/sync/:vendorId', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const vendorId = parseInt(req.params.vendorId);
+
+      // 1. 업체 정보 조회 (API 설정 포함)
+      const vendors = await db.query(`
+        SELECT * FROM rentcar_vendors WHERE id = ?
+      `, [vendorId]);
+
+      if (!vendors || vendors.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '업체를 찾을 수 없습니다.'
+        });
+      }
+
+      const vendor = vendors[0];
+
+      // 2. API 설정 확인
+      if (!vendor.api_enabled || !vendor.api_url || !vendor.api_key) {
+        return res.status(400).json({
+          success: false,
+          message: 'API 연동 정보가 설정되지 않았습니다. 업체 설정에서 API URL, API Key를 입력해주세요.'
+        });
+      }
+
+      // 3. API 커넥터로 차량 데이터 가져오기
+      const { syncVehiclesFromApi } = await import('./utils/rentcar/api-connector.js');
+
+      const result = await syncVehiclesFromApi({
+        provider: 'standard', // 기본 표준 포맷
+        apiUrl: vendor.api_url,
+        apiKey: vendor.api_key,
+        authType: vendor.api_auth_type || 'bearer'
+      });
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: result.error || 'API 연동 실패'
+        });
+      }
+
+      // 4. 가져온 차량을 DB에 저장
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      for (const vehicleData of result.vehicles) {
+        try {
+          // 중복 확인 (vehicle_code로)
+          const existing = await db.query(`
+            SELECT id FROM rentcar_vehicles
+            WHERE vendor_id = ? AND vehicle_code = ?
+          `, [vendorId, vehicleData.vehicle_code]);
+
+          if (existing && existing.length > 0) {
+            // 업데이트
+            await db.execute(`
+              UPDATE rentcar_vehicles SET
+                brand = ?,
+                model = ?,
+                year = ?,
+                display_name = ?,
+                vehicle_class = ?,
+                fuel_type = ?,
+                transmission = ?,
+                seating_capacity = ?,
+                door_count = ?,
+                daily_rate_krw = ?,
+                deposit_amount_krw = ?,
+                thumbnail_url = ?,
+                images = ?,
+                features = ?,
+                updated_at = NOW()
+              WHERE vendor_id = ? AND vehicle_code = ?
+            `, [
+              vehicleData.brand,
+              vehicleData.model,
+              vehicleData.year,
+              vehicleData.display_name,
+              vehicleData.vehicle_class,
+              vehicleData.fuel_type,
+              vehicleData.transmission,
+              vehicleData.seating_capacity,
+              vehicleData.door_count,
+              vehicleData.daily_rate_krw,
+              vehicleData.deposit_amount_krw,
+              vehicleData.thumbnail_url || '',
+              JSON.stringify(vehicleData.images || []),
+              JSON.stringify(vehicleData.features || []),
+              vendorId,
+              vehicleData.vehicle_code
+            ]);
+          } else {
+            // 새로 추가
+            await db.execute(`
+              INSERT INTO rentcar_vehicles (
+                vendor_id, vehicle_code, brand, model, year, display_name,
+                vehicle_class, vehicle_type, fuel_type, transmission,
+                seating_capacity, door_count, large_bags, small_bags,
+                daily_rate_krw, deposit_amount_krw, thumbnail_url, images, features,
+                age_requirement, license_requirement, mileage_limit_per_day,
+                unlimited_mileage, smoking_allowed, is_active, created_at, updated_at
+              ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW()
+              )
+            `, [
+              vendorId,
+              vehicleData.vehicle_code,
+              vehicleData.brand,
+              vehicleData.model,
+              vehicleData.year,
+              vehicleData.display_name,
+              vehicleData.vehicle_class,
+              vehicleData.vehicle_type || '',
+              vehicleData.fuel_type,
+              vehicleData.transmission,
+              vehicleData.seating_capacity,
+              vehicleData.door_count,
+              vehicleData.large_bags || 2,
+              vehicleData.small_bags || 2,
+              vehicleData.daily_rate_krw,
+              vehicleData.deposit_amount_krw,
+              vehicleData.thumbnail_url || '',
+              JSON.stringify(vehicleData.images || []),
+              JSON.stringify(vehicleData.features || []),
+              vehicleData.age_requirement || 21,
+              vehicleData.license_requirement || '1년 이상',
+              vehicleData.mileage_limit_per_day || 200,
+              vehicleData.unlimited_mileage ? 1 : 0,
+              vehicleData.smoking_allowed ? 1 : 0
+            ]);
+          }
+
+          successCount++;
+        } catch (error) {
+          errorCount++;
+          errors.push(`${vehicleData.vehicle_code}: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+        }
+      }
+
+      // 5. 업체의 total_vehicles 업데이트
+      const totalVehicles = await db.query(`
+        SELECT COUNT(*) as count FROM rentcar_vehicles WHERE vendor_id = ?
+      `, [vendorId]);
+
+      await db.execute(`
+        UPDATE rentcar_vendors SET
+          total_vehicles = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [totalVehicles[0]?.count || 0, vendorId]);
+
+      res.json({
+        success: true,
+        message: `API 동기화 완료: 성공 ${successCount}개, 실패 ${errorCount}개`,
+        data: {
+          total: result.vehicles.length,
+          success: successCount,
+          failed: errorCount,
+          errors: errors.length > 0 ? errors : undefined
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Rentcar sync error:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'API 동기화 실패'
+      });
+    }
+  });
+
   // ===== 뉴스레터 API =====
 
   // 이메일 구독 (공개 API)

@@ -16,9 +16,10 @@ export interface RentcarVendor {
   contact_phone: string;
   description?: string;
   logo_url?: string;
-  pms_provider?: string;
-  pms_api_key?: string;
-  pms_property_id?: string;
+  api_url?: string;              // 업체 API URL
+  api_key?: string;              // API 인증 키
+  api_auth_type?: 'bearer' | 'apikey' | 'basic';  // API 인증 방식
+  api_enabled?: boolean;         // API 연동 활성화 여부
   status: 'pending' | 'active' | 'suspended';
   is_verified: boolean;
   commission_rate: number;
@@ -40,9 +41,10 @@ export interface RentcarVendorFormData {
   description?: string;
   logo_url?: string;
   commission_rate?: number;
-  pms_provider?: string;
-  pms_api_key?: string;
-  pms_property_id?: string;
+  api_url?: string;              // 업체 API URL
+  api_key?: string;              // API 인증 키
+  api_auth_type?: 'bearer' | 'apikey' | 'basic';  // API 인증 방식
+  api_enabled?: boolean;         // API 연동 활성화 여부
 }
 
 // ============================================
