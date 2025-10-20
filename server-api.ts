@@ -1984,14 +1984,14 @@ function setupRoutes() {
         });
       }
 
-      // 파트너 신청 저장 (status: pending)
+      // 파트너 신청 저장 (status: pending, partner_type: general)
       await db.execute(`
         INSERT INTO partners (
           business_name, contact_name, email, phone, business_number,
           address, location, description, services, website, instagram,
-          status, tier, is_verified, is_featured,
+          status, tier, partner_type, is_verified, is_featured, user_id,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'free', 0, 0, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'bronze', 'general', 0, 0, 1, NOW(), NOW())
       `, [
         applicationData.businessName,
         applicationData.contactName,
