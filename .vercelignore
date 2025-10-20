@@ -3,5 +3,8 @@ server-api.ts
 workers/
 scripts/
 
-# API shared modules (imported by serverless functions, not functions themselves)
+# API shared modules (not serverless functions)
 api/shared/
+
+# Old .js API files (replaced by .ts versions)
+api/**/*.js
