@@ -2,10 +2,3 @@
 server-api.ts
 workers/
 scripts/
-
-# Exclude ALL api folder except essential login/signup
-api/
-
-# Re-include only essential authentication APIs
-!api/login.js
-!api/signup.js

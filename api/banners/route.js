@@ -1,15 +1,16 @@
-import { connect } from '@planetscale/database';
+const { connect } = require('@planetscale/database');
 
-export async function GET(request: Request) {
-  const origin = request.headers.get('origin') || '*';
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
+
+module.exports = async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'GET') {
 
   try {
-    const conn = connect({ url: process.env.DATABASE_URL! });
+    const conn = connect({ url: process.env.DATABASE_URL });
     const result = await conn.execute(`
       SELECT id, image_url, title, link_url, display_order
       FROM home_banners
@@ -27,15 +28,15 @@ export async function GET(request: Request) {
       JSON.stringify({ success: false, error: 'Failed to fetch banners', banners: [] }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  }
-}
+  }  } else if (req.method === 'OPTIONS') {
 
-export async function OPTIONS() {
   return new Response(null, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     }
-  });
-}
+  });  } else {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+};

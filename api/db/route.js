@@ -10,8 +10,8 @@
  */
 
 // @ts-ignore - Next.js types not installed in Vite project
-import { NextRequest, NextResponse } from 'next/server';
-import { connect, Connection } from '@planetscale/database';
+const { NextRequest, NextResponse } = require('next/server');
+const { connect, Connection } = require('@planetscale/database');
 
 // CORS 헤더
 const corsHeaders = {
@@ -42,50 +42,13 @@ function getConnection() {
 }
 
 // OPTIONS 요청 처리 (CORS preflight)
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders });
-}
+
 
 // POST 요청 처리
-export async function POST(request: NextRequest) {
-  try {
-    const url = new URL(request.url);
-    const action = url.searchParams.get('action');
-    const body = await request.json();
 
-    console.log(`📊 DB API 요청: ${action}`);
-
-    switch (action) {
-      case 'query':
-        return await handleQuery(body);
-      case 'select':
-        return await handleSelect(body);
-      case 'insert':
-        return await handleInsert(body);
-      case 'update':
-        return await handleUpdate(body);
-      case 'delete':
-        return await handleDelete(body);
-      default:
-        return NextResponse.json(
-          { success: false, error: '잘못된 action 파라미터입니다.' },
-          { status: 400, headers: corsHeaders }
-        );
-    }
-  } catch (error) {
-    console.error('❌ DB API 오류:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : '데이터베이스 오류가 발생했습니다.',
-      },
-      { status: 500, headers: corsHeaders }
-    );
-  }
-}
 
 // Raw SQL 쿼리 실행
-async function handleQuery(body: { sql; params?: any[] }) {
+async function handleQuery(body: { sql; params?[] }) {
   const { sql, params = [] } = body;
 
   if (!sql) {
@@ -109,7 +72,7 @@ async function handleQuery(body: { sql; params?: any[] }) {
       },
       { headers: corsHeaders }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Query 실행 오류:', error);
     return NextResponse.json(
       { success: false, error: error.message },
@@ -147,7 +110,7 @@ async function handleSelect(body: { table; where?: Record<string, any> }) {
       { success: true, data: result.rows },
       { headers: corsHeaders }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ SELECT 오류:', error);
     return NextResponse.json(
       { success: false, error: error.message },
@@ -184,7 +147,7 @@ async function handleInsert(body: { table; data: Record<string, any> }) {
       },
       { headers: corsHeaders }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ INSERT 오류:', error);
     return NextResponse.json(
       { success: false, error: error.message },
@@ -222,7 +185,7 @@ async function handleUpdate(body: { table; id; data: Record<string, any> }) {
       },
       { headers: corsHeaders }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ UPDATE 오류:', error);
     return NextResponse.json(
       { success: false, error: error.message },
@@ -232,7 +195,7 @@ async function handleUpdate(body: { table; id; data: Record<string, any> }) {
 }
 
 // DELETE 쿼리
-async function handleDelete(body: { table; id: number }) {
+async function handleDelete(body: { table; id }) {
   const { table, id } = body;
 
   if (!table || !id) {
@@ -255,7 +218,7 @@ async function handleDelete(body: { table; id: number }) {
       },
       { headers: corsHeaders }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ DELETE 오류:', error);
     return NextResponse.json(
       { success: false, error: error.message },
@@ -263,3 +226,46 @@ async function handleDelete(body: { table; id: number }) {
     );
   }
 }
+
+module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') {
+
+  return NextResponse.json({}, { headers: corsHeaders });  } else if (req.method === 'POST') {
+
+  try {
+    const url = new URL(req.url);
+    const action = url.searchParams.get('action');
+    const body = await req.json();
+
+    console.log(`📊 DB API 요청: ${action}`);
+
+    switch (action) {
+      case 'query':
+        return await handleQuery(body);
+      case 'select':
+        return await handleSelect(body);
+      case 'insert':
+        return await handleInsert(body);
+      case 'update':
+        return await handleUpdate(body);
+      case 'delete':
+        return await handleDelete(body);
+      default:
+        return NextResponse.json(
+          { success: false, error: '잘못된 action 파라미터입니다.' },
+          { status: 400, headers: corsHeaders }
+        );
+    }
+  } catch (error) {
+    console.error('❌ DB API 오류:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : '데이터베이스 오류가 발생했습니다.',
+      },
+      { status: 500, headers: corsHeaders }
+    );
+  }  } else {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+};

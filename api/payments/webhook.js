@@ -15,9 +15,9 @@
  * 라우트: POST /api/payments/webhook
  */
 
-import { Request, Response } from 'express';
+const { Request, Response } = require('express');
 import * from 'crypto';
-import { db } from '../../utils/database';
+const { db } = require('../../utils/database');
 
 const TOSS_WEBHOOK_SECRET = process.env.TOSS_WEBHOOK_SECRET || '';
 const RATE_LIMIT_PER_SECOND = 10;
@@ -32,7 +32,7 @@ const processedEvents = new Map<string, number>();
 /**
  * 서명 검증 (Toss Webhook Secret)
  */
-function verifyWebhookSignature(req: Request) {
+function verifyWebhookSignature(req) {
   const signature = req.headers['toss-signature'];
 
   if (!signature || !TOSS_WEBHOOK_SECRET) {
@@ -66,7 +66,7 @@ function verifyWebhookSignature(req: Request) {
 /**
  * Idempotency 체크 (이벤트 중복 처리 방지)
  */
-function isEventProcessed(eventId: string) {
+function isEventProcessed(eventId) {
   const lastProcessed = processedEvents.get(eventId);
 
   if (lastProcessed) {
@@ -85,7 +85,7 @@ function isEventProcessed(eventId: string) {
 /**
  * 이벤트 처리 기록
  */
-function markEventProcessed(eventId: string) {
+function markEventProcessed(eventId) {
   processedEvents.set(eventId, Date.now());
 
   // 메모리 캐시 크기 제한 (1000개)
@@ -224,102 +224,26 @@ async function handlePaymentCanceled(event) {
 /**
  * 웹훅 메인 핸들러
  */
-export async function handleTossWebhook(req, res) {
-  console.log(`📨 [Webhook] Received event`);
 
-  // 1. 서명 검증
-  if (!verifyWebhookSignature(req)) {
-    res.status(401).json({
-      error: 'UNAUTHORIZED',
-      code: 'SIGNATURE_INVALID',
-      message: 'Webhook signature verification failed'
-    });
-    return;
-  }
-
-  const event = req.body;
-  const eventId = `${event.eventType}-${event.data.paymentKey}-${event.createdAt}`;
-
-  // 2. Idempotency 체크
-  if (isEventProcessed(eventId)) {
-    res.status(200).json({ success: true, message: 'Event already processed' });
-    return;
-  }
-
-  try {
-    // 3. 이벤트 타입별 처리
-    switch (event.eventType) {
-      case 'Payment.Approved':
-        await handlePaymentApproved(event);
-        break;
-
-      case 'Payment.Canceled':
-        await handlePaymentCanceled(event);
-        break;
-
-      case 'Payment.Failed':
-        console.log(`⚠️ [Webhook] Payment Failed: ${event.data.orderId}`);
-        // 실패 처리 (알림 등)
-        break;
-
-      default:
-        console.log(`ℹ️ [Webhook] Unhandled event type: ${event.eventType}`);
-    }
-
-    // 4. 이벤트 처리 기록
-    markEventProcessed(eventId);
-
-    // 5. 200 응답 (필수 - PG사 재전송 방지)
-    res.status(200).json({ success: true, message: 'Event processed' });
-
-  } catch (error) {
-    console.error(`❌ [Webhook] Processing error:`, error);
-
-    // 일시적 오류 (DB 연결 등) → 503 (재시도 유도)
-    // 영구적 오류 (데이터 불일치) → 400 (재시도 중단)
-    const isTemporary = error instanceof Error && error.message.includes('ECONNREFUSED');
-
-    res.status(isTemporary ? 503 : 400).json({
-      error: 'PROCESSING_ERROR',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
-  }
-}
 
 /**
  * Rate Limiting 체크 (간단 구현)
  */
-const requestCounts = new Map<string, { count; resetAt: number }>();
+const requestCounts = new Map<string, { count; resetAt }>();
 
-export function checkRateLimit(ip: string) {
-  const now = Date.now();
-  const record = requestCounts.get(ip);
 
-  if (!record || record.resetAt < now) {
-    requestCounts.set(ip, { count: 1, resetAt: now + 1000 });
-    return true;
-  }
-
-  if (record.count >= RATE_LIMIT_PER_SECOND) {
-    console.warn(`⚠️ [Webhook] Rate limit exceeded: ${ip}`);
-    return false;
-  }
-
-  record.count++;
-  return true;
-}
 
 // IP 화이트리스트 (선택 사항)
 const ALLOWED_IPS = (process.env.TOSS_WEBHOOK_IPS || '').split(',').filter(Boolean);
 
-export function checkIPWhitelist(ip: string) {
-  if (ALLOWED_IPS.length === 0) return true; // 화이트리스트 비활성화
-  return ALLOWED_IPS.includes(ip);
-}
+
 
 // Default export
 export default {
   handleTossWebhook,
   checkRateLimit,
   checkIPWhitelist
+};
+
+module.exports = async function handler(req, res) {
 };

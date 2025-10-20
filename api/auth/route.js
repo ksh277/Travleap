@@ -5,12 +5,12 @@
  */
 
 // Vercel에 Node.js runtime 사용하도록 명시
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
-import { neon } from '@neondatabase/serverless';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+
+
+const { neon } = require('@neondatabase/serverless');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 // JWT Utils (inline)
 class JWTUtils {
@@ -22,7 +22,7 @@ class JWTUtils {
     return secret;
   }
 
-  static generateToken(payload: { userId; email; name; role: string }) {
+  static generateToken(payload: { userId; email; name; role }) {
     return jwt.sign(
       {
         userId: payload.userId,
@@ -41,19 +41,22 @@ class JWTUtils {
   }
 }
 
-export async function POST(request: Request) {
+
+
+
+
+module.exports = async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'POST') {
+
   try {
     // 1. CORS 헤더
-    const origin = request.headers.get('origin') || '*';
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': origin,
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Credentials': 'true',
-    };
-
     // 2. URL 파싱
-    const url = new URL(request.url);
+    const url = new URL(req.url);
     const action = url.searchParams.get('action');
 
     console.log('🔑 Auth API called:', {
@@ -87,7 +90,7 @@ export async function POST(request: Request) {
     }
 
     // 4. Body 파싱
-    const body = await request.json();
+    const body = await req.json();
     const { email, password, name, phone } = body;
 
     console.log('📧 Request:', { email, action });
@@ -164,7 +167,7 @@ export async function POST(request: Request) {
 
     // 7. 토큰 갱신
     if (action === 'refresh') {
-      const authHeader = request.headers.get('Authorization');
+      const authHeader = req.headers['Authorization'];
 
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return new Response(
@@ -286,11 +289,8 @@ export async function POST(request: Request) {
         }
       }
     );
-  }
-}
+  }  } else if (req.method === 'OPTIONS') {
 
-export async function OPTIONS(request: Request) {
-  const origin = request.headers.get('origin') || '*';
   return new Response(null, {
     status: 204,
     headers: {
@@ -299,5 +299,7 @@ export async function OPTIONS(request: Request) {
       'Access-Control-Allow-Headers': 'Content-Type',
       'Access-Control-Max-Age': '86400',
     }
-  });
-}
+  });  } else {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+};

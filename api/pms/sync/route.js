@@ -9,8 +9,8 @@
  */
 
 // @ts-ignore
-import { NextRequest, NextResponse } from 'next/server';
-import { connect } from '@planetscale/database';
+const { NextRequest, NextResponse } = require('next/server');
+const { connect } = require('@planetscale/database');
 
 // CORS 헤더
 const corsHeaders = {
@@ -29,39 +29,10 @@ function getConnection() {
 }
 
 // OPTIONS 요청 처리
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders });
-}
+
 
 // POST 요청 처리
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { vendorId } = body;
 
-    if (!vendorId) {
-      return NextResponse.json(
-        { success: false, error: 'vendorId가 필요합니다.' },
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    console.log(`🔄 PMS 동기화 시작 - Vendor ID: ${vendorId}`);
-
-    const result = await syncPMSVehicles(vendorId);
-
-    return NextResponse.json(
-      { success: result.success, data: result },
-      { status: result.success ? 200 : 500, headers: corsHeaders }
-    );
-  } catch (error: any) {
-    console.error('❌ PMS 동기화 API 오류:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500, headers: corsHeaders }
-    );
-  }
-}
 
 // ============================================================================
 // PMS 동기화 로직 (서버 사이드)
@@ -166,7 +137,7 @@ async function syncPMSVehicles(vendorId) {
 
         // 매핑 정보에서 제거 (남은 건 삭제 대상)
         mappingMap.delete(pmsVehicle.pms_id);
-      } catch (error: any) {
+      } catch (error) {
         console.error(`차량 동기화 실패 (PMS ID: ${pmsVehicle.pms_id}):`, error);
         result.errors.push(`${pmsVehicle.display_name}: ${error.message}`);
       }
@@ -183,7 +154,7 @@ async function syncPMSVehicles(vendorId) {
           localVehicleId,
         ]);
         result.vehiclesDeleted++;
-      } catch (error: any) {
+      } catch (error) {
         result.errors.push(`차량 삭제 실패 (ID: ${localVehicleId}): ${error.message}`);
       }
     }
@@ -215,7 +186,7 @@ async function syncPMSVehicles(vendorId) {
     console.log(
       `✅ PMS 동기화 완료: +${result.vehiclesAdded} ~${result.vehiclesUpdated} -${result.vehiclesDeleted}`
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ PMS 동기화 실패:', error);
     result.errors.push(error.message);
 
@@ -248,7 +219,7 @@ async function fetchTuroVehicles(config: PMSConfig) {
 
   const data = await response.json();
 
-  return (data.vehicles || []).map((v: any) => ({
+  return (data.vehicles || []).map((v) => ({
     pms_id: v.id,
     display_name: `${v.make} ${v.model} ${v.year}`,
     vehicle_class: mapTuroClass(v.type),
@@ -260,7 +231,7 @@ async function fetchTuroVehicles(config: PMSConfig) {
     monthly_rate_krw: Math.round((v.price_per_day || 50) * 1300 * 25),
     mileage_limit_km: Math.round((v.mileage_limit || 125) * 1.6),
     excess_mileage_fee_krw: Math.round((v.overage_fee || 0.5) * 1300 * 1.6),
-    images: v.photos?.map((p: any) => p.url) || [],
+    images: v.photos?.map((p) => p.url) || [],
     is_available: v.is_available,
     insurance_included: true,
     insurance_options: '자차보험, 대인배상, 대물배상',
@@ -290,7 +261,7 @@ async function fetchGetaroundVehicles(config: PMSConfig) {
 
   const data = await response.json();
 
-  return (data.cars || []).map((v: any) => ({
+  return (data.cars || []).map((v) => ({
     pms_id: v.id,
     display_name: `${v.brand} ${v.model} ${v.year}`,
     vehicle_class: mapGetaroundClass(v.category),
@@ -332,7 +303,7 @@ async function fetchRentCarsVehicles(config: PMSConfig) {
 
   const data = await response.json();
 
-  return (data.vehicles || []).map((v: any) => ({
+  return (data.vehicles || []).map((v) => ({
     pms_id: v.vehicle_id,
     display_name: v.vehicle_name,
     vehicle_class: v.category || '중형',
@@ -385,9 +356,9 @@ async function fetchCustomPMSVehicles(config: PMSConfig) {
  * 로컬 차량 업데이트
  */
 async function updateLocalVehicle(
-  conn: any,
-  vendorId: number,
-  localVehicleId: number,
+  conn,
+  vendorId,
+  localVehicleId,
   pmsVehicle: PMSVehicle
 ) {
   const imagesJson = JSON.stringify(pmsVehicle.images);
@@ -473,7 +444,7 @@ async function createLocalVehicle(conn, vendorId, pmsVehicle) {
 }
 
 // 헬퍼 함수들
-function mapTuroClass(turoType: string) {
+function mapTuroClass(turoType) {
   const mapping: Record<string, string> = {
     economy: '소형',
     compact: '준중형',
@@ -487,7 +458,7 @@ function mapTuroClass(turoType: string) {
   return mapping[turoType?.toLowerCase()] || '중형';
 }
 
-function mapGetaroundClass(category: string) {
+function mapGetaroundClass(category) {
   const mapping: Record<string, string> = {
     mini: '경형',
     economy: '소형',
@@ -500,7 +471,7 @@ function mapGetaroundClass(category: string) {
   return mapping[category?.toLowerCase()] || '중형';
 }
 
-function mapFuelType(fuel: string) {
+function mapFuelType(fuel) {
   const mapping: Record<string, string> = {
     gasoline: '가솔린',
     petrol: '가솔린',
@@ -511,3 +482,38 @@ function mapFuelType(fuel: string) {
   };
   return mapping[fuel?.toLowerCase()] || '가솔린';
 }
+
+module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') {
+
+  return NextResponse.json({}, { headers: corsHeaders });  } else if (req.method === 'POST') {
+
+  try {
+    const body = await req.json();
+    const { vendorId } = body;
+
+    if (!vendorId) {
+      return NextResponse.json(
+        { success: false, error: 'vendorId가 필요합니다.' },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    console.log(`🔄 PMS 동기화 시작 - Vendor ID: ${vendorId}`);
+
+    const result = await syncPMSVehicles(vendorId);
+
+    return NextResponse.json(
+      { success: result.success, data: result },
+      { status: result.success ? 200 : 500, headers: corsHeaders }
+    );
+  } catch (error) {
+    console.error('❌ PMS 동기화 API 오류:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500, headers: corsHeaders }
+    );
+  }  } else {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+};
