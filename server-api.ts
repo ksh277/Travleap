@@ -4108,6 +4108,208 @@ function setupRoutes() {
     }
   });
 
+  // ===== Admin Review Management APIs =====
+
+  // Admin - 모든 리뷰 조회
+  app.get('/api/admin/reviews', authenticate, requireRole('admin'), async (_req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      const reviews = await db.query(`
+        SELECT
+          r.*,
+          l.listing_name,
+          u.name as user_name
+        FROM reviews r
+        LEFT JOIN listings l ON r.listing_id = l.id
+        LEFT JOIN users u ON r.user_id = u.id
+        ORDER BY r.created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        data: reviews || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get admin reviews error:', error);
+      res.status(500).json({ success: false, message: '리뷰 목록 조회 실패', data: [] });
+    }
+  });
+
+  // Admin - 리뷰 생성
+  app.post('/api/admin/reviews', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const { listing_id, user_id, rating, title, comment_md, visit_date } = req.body;
+
+      const result = await db.execute(`
+        INSERT INTO reviews (
+          listing_id, user_id, rating, title, comment_md, visit_date,
+          is_verified, is_published, is_visible,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `, [
+        listing_id,
+        user_id || 1, // Default user if not provided
+        rating,
+        title || '',
+        comment_md || '',
+        visit_date || null,
+        true, // Admin-created reviews are verified
+        true, // Published by default
+        true  // Visible by default
+      ]);
+
+      // Update listing rating
+      await updateListingRating(db, listing_id);
+
+      res.json({
+        success: true,
+        data: { id: result.insertId },
+        message: '리뷰가 생성되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Create review error:', error);
+      res.status(500).json({ success: false, message: '리뷰 생성 실패' });
+    }
+  });
+
+  // Admin - 리뷰 수정
+  app.put('/api/admin/reviews/:id', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const reviewId = parseInt(req.params.id);
+      const { rating, title, comment_md, visit_date, is_published, is_visible } = req.body;
+
+      // Get listing_id before update
+      const review = await db.query(`SELECT listing_id FROM reviews WHERE id = ?`, [reviewId]);
+
+      await db.execute(`
+        UPDATE reviews SET
+          rating = ?,
+          title = ?,
+          comment_md = ?,
+          visit_date = ?,
+          is_published = ?,
+          is_visible = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [
+        rating,
+        title || '',
+        comment_md || '',
+        visit_date || null,
+        is_published !== undefined ? is_published : true,
+        is_visible !== undefined ? is_visible : true,
+        reviewId
+      ]);
+
+      // Update listing rating
+      if (review && review[0]) {
+        await updateListingRating(db, review[0].listing_id);
+      }
+
+      res.json({
+        success: true,
+        message: '리뷰가 수정되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update review error:', error);
+      res.status(500).json({ success: false, message: '리뷰 수정 실패' });
+    }
+  });
+
+  // Admin - 리뷰 삭제
+  app.delete('/api/admin/reviews/:id', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const reviewId = parseInt(req.params.id);
+
+      // Get listing_id before deletion
+      const review = await db.query(`SELECT listing_id FROM reviews WHERE id = ?`, [reviewId]);
+
+      await db.execute(`DELETE FROM reviews WHERE id = ?`, [reviewId]);
+
+      // Update listing rating
+      if (review && review[0]) {
+        await updateListingRating(db, review[0].listing_id);
+      }
+
+      res.json({
+        success: true,
+        message: '리뷰가 삭제되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Delete review error:', error);
+      res.status(500).json({ success: false, message: '리뷰 삭제 실패' });
+    }
+  });
+
+  // Admin - 리뷰 상태 변경 (승인/거부/대기)
+  app.patch('/api/admin/reviews/:id/status', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const reviewId = parseInt(req.params.id);
+      const { status } = req.body; // 'published', 'pending', 'rejected'
+
+      const isPublished = status === 'published';
+      const isVisible = status !== 'rejected';
+
+      await db.execute(`
+        UPDATE reviews SET
+          is_published = ?,
+          is_visible = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [isPublished, isVisible, reviewId]);
+
+      // Get listing_id and update rating
+      const review = await db.query(`SELECT listing_id FROM reviews WHERE id = ?`, [reviewId]);
+      if (review && review[0]) {
+        await updateListingRating(db, review[0].listing_id);
+      }
+
+      res.json({
+        success: true,
+        message: '리뷰 상태가 변경되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update review status error:', error);
+      res.status(500).json({ success: false, message: '리뷰 상태 변경 실패' });
+    }
+  });
+
+  // Helper function to update listing rating based on reviews
+  async function updateListingRating(db: any, listingId: number) {
+    try {
+      const stats = await db.query(`
+        SELECT
+          AVG(rating) as avg_rating,
+          COUNT(*) as total_reviews
+        FROM reviews
+        WHERE listing_id = ?
+          AND is_published = true
+          AND is_visible = true
+      `, [listingId]);
+
+      if (stats && stats[0]) {
+        await db.execute(`
+          UPDATE listings SET
+            rating_avg = ?,
+            rating_count = ?,
+            updated_at = NOW()
+          WHERE id = ?
+        `, [
+          stats[0].avg_rating || 0,
+          stats[0].total_reviews || 0,
+          listingId
+        ]);
+      }
+    } catch (error) {
+      console.error('❌ [Helper] Update listing rating error:', error);
+    }
+  }
+
   // ===== 뉴스레터 API =====
 
   // 이메일 구독 (공개 API)
