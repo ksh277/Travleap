@@ -4,14 +4,11 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
 import {
   MapPin,
   Clock,
   Users,
   Globe,
-  Calendar,
   Share2,
   Heart,
   Star,
@@ -51,14 +48,6 @@ export function PartnerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorited, setIsFavorited] = useState(false);
-
-  // 예약 폼 상태
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    note: '',
-  });
 
   useEffect(() => {
     loadPartnerDetail();
@@ -192,12 +181,6 @@ export function PartnerDetailPage() {
   const handleFavorite = () => {
     setIsFavorited(!isFavorited);
     toast.success(isFavorited ? '찜 목록에서 제거되었습니다' : '찜 목록에 추가되었습니다');
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.success('문의가 접수되었습니다. 곧 연락드리겠습니다.');
-    setFormData({ name: '', email: '', phone: '', note: '' });
   };
 
   if (loading) {
@@ -373,53 +356,6 @@ export function PartnerDetailPage() {
                       </Badge>
                     )}
                   </div>
-                  <CardContent className="p-6">
-                    <h3 className="text-lg font-bold mb-4">조회</h3>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">이름*</label>
-                        <Input
-                          required
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          placeholder="이름을 입력하세요"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">이메일*</label>
-                        <Input
-                          type="email"
-                          required
-                          value={formData.email}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          placeholder="이메일을 입력하세요"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">전화*</label>
-                        <Input
-                          type="tel"
-                          required
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          placeholder="전화번호를 입력하세요"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Note*</label>
-                        <Textarea
-                          required
-                          value={formData.note}
-                          onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-                          placeholder="문의 내용을 입력하세요"
-                          rows={4}
-                        />
-                      </div>
-                      <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700">
-                        보내기
-                      </Button>
-                    </form>
-                  </CardContent>
                 </Card>
 
                 {/* Host Info Card */}
