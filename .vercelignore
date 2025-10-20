@@ -6,5 +6,6 @@ scripts/
 # API shared modules (not serverless functions)
 api/shared/
 
-# Old .js API files (replaced by .ts versions)
-api/**/*.js
+# Test/dev files
+api/test.js
+api/populate-data.js
