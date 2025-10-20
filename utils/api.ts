@@ -1,5 +1,16 @@
 import { getApiBaseUrl } from './env';
-import { db } from './database';
+// DB는 서버에서만 사용 - 브라우저에서는 null
+let db: any;
+try {
+  if (typeof window === 'undefined') {
+    const dbModule = require('./database.js');
+    db = dbModule.db;
+  } else {
+    db = null;
+  }
+} catch (e) {
+  db = null;
+}
 import { notifyDataChange } from '../hooks/useRealTimeData';
 import { notifyPartnerNewBooking, notifyCustomerBookingConfirmed } from './notification';
 
