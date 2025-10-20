@@ -525,9 +525,15 @@ class Database {
         instagram VARCHAR(100),
         description TEXT,
         services TEXT,
+        location VARCHAR(200),
+        base_price DECIMAL(10, 2) DEFAULT 0,
+        detailed_address TEXT,
+        images JSON,
+        business_hours VARCHAR(200),
         tier ENUM('bronze', 'silver', 'gold', 'vip') DEFAULT 'bronze',
         is_verified BOOLEAN DEFAULT FALSE,
         is_featured BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
         status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
         lat DECIMAL(10, 8),
         lng DECIMAL(11, 8),
@@ -535,7 +541,9 @@ class Database {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_status (status),
-        INDEX idx_user (user_id)
+        INDEX idx_user (user_id),
+        INDEX idx_active (is_active),
+        INDEX idx_location (location)
       )
     `);
 
