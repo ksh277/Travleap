@@ -387,9 +387,7 @@ export const api = {
         cancellation_policy: listing.cancellation_policy,
         refund_policy: listing.refund_policy,
         weather_policy: listing.weather_policy,
-        meeting_point: listing.meeting_point,
         is_active: listing.is_active,
-        is_published: listing.is_published,
         is_featured: listing.is_featured,
         created_at: listing.created_at,
         updated_at: listing.updated_at
