@@ -2,21 +2,48 @@ const { connect } = require('@planetscale/database');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
-  }
+  const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    const connection = connect({ url: process.env.DATABASE_URL });
+    // POST - 새 상품 생성
+    if (req.method === 'POST') {
+      const listingData = req.body;
 
-    const result = await connection.execute(`
+      const result = await connection.execute(
+        `INSERT INTO listings (
+          title, description, price, location, category_id, partner_id,
+          images, is_active, is_featured, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          listingData.title,
+          listingData.description,
+          listingData.price,
+          listingData.location,
+          listingData.category_id,
+          listingData.partner_id,
+          listingData.images ? JSON.stringify(listingData.images) : '[]',
+          listingData.is_active !== false ? 1 : 0,
+          listingData.is_featured ? 1 : 0
+        ]
+      );
+
+      return res.status(201).json({
+        success: true,
+        data: { id: result.insertId },
+        message: '상품이 성공적으로 생성되었습니다.'
+      });
+    }
+
+    // GET - 상품 목록 조회
+    if (req.method === 'GET') {
+      const result = await connection.execute(`
       SELECT
         l.*,
         c.name_ko as category_name,
@@ -28,14 +55,18 @@ module.exports = async function handler(req, res) {
       LEFT JOIN partners p ON l.partner_id = p.id
       WHERE c.slug != 'stay' AND c.slug != 'rentcar'
       ORDER BY l.created_at DESC
-    `);
+      `);
 
-    return res.status(200).json({
-      success: true,
-      data: result.rows || []
-    });
+      return res.status(200).json({
+        success: true,
+        data: result.rows || []
+      });
+    }
+
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+
   } catch (error) {
-    console.error('Error fetching admin listings:', error);
-    return res.status(200).json({ success: true, data: [] });
+    console.error('Listing API error:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 };

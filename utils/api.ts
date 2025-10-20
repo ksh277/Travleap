@@ -2399,6 +2399,38 @@ export const api = {
     // 상품 생성
     createListing: async (listingData: any): Promise<ApiResponse<any>> => {
       try {
+        // 브라우저에서는 API 호출
+        const response = await fetch(`${API_BASE_URL}/api/admin/listings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(listingData)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '상품 생성 실패');
+        }
+
+        return {
+          success: true,
+          data: result.data,
+          message: result.message || '상품이 생성되었습니다.'
+        };
+      } catch (error) {
+        console.error('createListing error:', error);
+        return {
+          success: false,
+          error: '상품 생성에 실패했습니다: ' + (error instanceof Error ? error.message : String(error))
+        };
+      }
+    },
+
+    // OLD CODE - KEEP FOR SERVER SIDE IF NEEDED
+    createListingOld: async (listingData: any): Promise<ApiResponse<any>> => {
+      try {
         // category_id가 없으면 category에서 변환
         let categoryId = listingData.category_id;
 
@@ -2594,26 +2626,30 @@ export const api = {
     // 상품 수정
     updateListing: async (listingId: number, listingData: Partial<Listing>): Promise<ApiResponse<Listing>> => {
       try {
-        const updateData = {
-          ...listingData,
-          images: listingData.images ? JSON.stringify(listingData.images) : undefined,
-          // amenities: listingData.amenities ? JSON.stringify(listingData.amenities) : undefined,
-          updated_at: new Date().toISOString()
-        };
+        const response = await fetch(`${API_BASE_URL}/api/admin/listings/${listingId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(listingData)
+        });
 
-        await db.update('listings', listingId, updateData);
-        const updated = await db.select('listings', { id: listingId });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '상품 수정 실패');
+        }
 
         return {
           success: true,
-          data: updated[0],
-          message: '상품이 성공적으로 수정되었습니다.'
+          data: result.data || null,
+          message: result.message || '상품이 성공적으로 수정되었습니다.'
         };
       } catch (error) {
         console.error('Failed to update listing:', error);
         return {
           success: false,
-          error: '상품 수정에 실패했습니다.'
+          error: error instanceof Error ? error.message : '상품 수정에 실패했습니다.'
         };
       }
     },
