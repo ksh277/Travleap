@@ -575,7 +575,11 @@ export function AdminPage({}: AdminPageProps) {
     detailed_address: '',
     description: '',
     images: [] as string[],
-    business_hours: ''
+    business_hours: '',
+    duration: '',
+    min_age: '',
+    max_capacity: '',
+    language: ''
   });
   const [reviews, setReviews] = useState<any[]>([]);
   const [editingReview, setEditingReview] = useState<any | null>(null);
@@ -686,7 +690,8 @@ export function AdminPage({}: AdminPageProps) {
     pmsFormData: null as any // PMS 원본 데이터 저장
   });
 
-  const categories = ['여행', '렌트카', '숙박', '음식', '관광지', '팝업', '행사', '체험'];
+  // 렌트카, 숙박은 별도 관리 탭에서 추가하므로 제외
+  const categories = ['여행', '음식', '관광지', '팝업', '행사', '체험'];
 
   // 🤖 스마트 카테고리 자동 분류 시스템
   const autoSuggestCategory = useCallback((title: string, description: string = ''): string => {
