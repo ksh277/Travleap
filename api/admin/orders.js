@@ -18,14 +18,14 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(`
       SELECT
-        o.*,
+        b.*,
         u.name as user_name,
         u.email as user_email,
         l.title as listing_title
-      FROM orders o
-      LEFT JOIN users u ON o.user_id = u.id
-      LEFT JOIN listings l ON o.listing_id = l.id
-      ORDER BY o.created_at DESC
+      FROM bookings b
+      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN listings l ON b.listing_id = l.id
+      ORDER BY b.created_at DESC
     `);
 
     return res.status(200).json({
