@@ -1,8 +1,21 @@
-const { connect } = require('@planetscale/database');
+const { Pool } = require('@neondatabase/serverless');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Neon PostgreSQL connection
+let pool;
+function getPool() {
+  if (!pool) {
+    const connectionString = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL not configured');
+    }
+    pool = new Pool({ connectionString });
+  }
+  return pool;
+}
 
 module.exports = async function handler(req, res) {
   // CORS
@@ -21,25 +34,29 @@ module.exports = async function handler(req, res) {
   try {
     const { email, password } = req.body;
 
-    console.log('🔑 Vercel 로그인 요청:', email);
+    console.log('🔑 로그인 요청:', email);
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        error: '이메일과 비밀번호를 입력해주세요.'
+        error: '아이디와 비밀번호를 입력해주세요.'
       });
     }
 
-    const conn = connect({ url: process.env.DATABASE_URL });
-    const result = await conn.execute(
-      'SELECT id, email, name, role, password_hash FROM users WHERE email = ?',
-      [email]
-    );
+    const db = getPool();
+
+    // email을 username으로도 받을 수 있도록 처리 (이메일 형식이면 email로, 아니면 username으로 검색)
+    const isEmail = email.includes('@');
+    const query = isEmail
+      ? 'SELECT id, email, username, name, role, password_hash FROM users WHERE email = $1'
+      : 'SELECT id, email, username, name, role, password_hash FROM users WHERE username = $1';
+
+    const result = await db.query(query, [email]);
 
     if (!result.rows || result.rows.length === 0) {
       return res.status(401).json({
         success: false,
-        error: '이메일 또는 비밀번호가 올바르지 않습니다.'
+        error: '아이디 또는 비밀번호가 올바르지 않습니다.'
       });
     }
 
@@ -49,7 +66,7 @@ module.exports = async function handler(req, res) {
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        error: '이메일 또는 비밀번호가 올바르지 않습니다.'
+        error: '아이디 또는 비밀번호가 올바르지 않습니다.'
       });
     }
 
@@ -57,6 +74,7 @@ module.exports = async function handler(req, res) {
       {
         userId: user.id,
         email: user.email,
+        username: user.username,
         name: user.name,
         role: user.role
       },
@@ -64,7 +82,7 @@ module.exports = async function handler(req, res) {
       { expiresIn: '7d' }
     );
 
-    console.log('✅ Vercel 로그인 성공:', email, 'role:', user.role);
+    console.log('✅ 로그인 성공:', user.username || user.email, 'role:', user.role);
 
     return res.status(200).json({
       success: true,
@@ -73,13 +91,14 @@ module.exports = async function handler(req, res) {
         user: {
           id: user.id,
           email: user.email,
+          username: user.username,
           name: user.name,
           role: user.role
         }
       }
     });
   } catch (error) {
-    console.error('❌ Vercel 로그인 오류:', error);
+    console.error('❌ 로그인 오류:', error);
     return res.status(500).json({
       success: false,
       error: '서버 오류가 발생했습니다.'
