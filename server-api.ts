@@ -5121,6 +5121,109 @@ function setupRoutes() {
     });
   });
 
+  // ===== Database Cloud API (PMS 연동용) =====
+  app.post('/api/db', async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const { action, table, where, data, sql, params } = req.body;
+
+      switch (action) {
+        case 'query': {
+          // Raw SQL query
+          const result = await db.query(sql, params || []);
+          return res.json({
+            success: true,
+            data: result,
+            insertId: result?.insertId || 0,
+            affectedRows: result?.affectedRows || 0
+          });
+        }
+
+        case 'select': {
+          // SELECT with WHERE
+          let query = `SELECT * FROM ${table}`;
+          const values: any[] = [];
+
+          if (where && Object.keys(where).length > 0) {
+            const conditions = Object.keys(where).map(key => {
+              values.push(where[key]);
+              return `${key} = ?`;
+            });
+            query += ` WHERE ${conditions.join(' AND ')}`;
+          }
+
+          const result = await db.query(query, values);
+          return res.json({
+            success: true,
+            data: result || []
+          });
+        }
+
+        case 'insert': {
+          // INSERT
+          const keys = Object.keys(data);
+          const values = Object.values(data);
+          const placeholders = keys.map(() => '?').join(', ');
+
+          const query = `INSERT INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`;
+          const result = await db.execute(query, values);
+
+          return res.json({
+            success: true,
+            id: result.insertId,
+            insertId: result.insertId
+          });
+        }
+
+        case 'update': {
+          // UPDATE
+          const keys = Object.keys(data);
+          const values = Object.values(data);
+          const setClause = keys.map(key => `${key} = ?`).join(', ');
+
+          const whereKeys = Object.keys(where || {});
+          const whereValues = Object.values(where || {});
+          const whereClause = whereKeys.map(key => `${key} = ?`).join(' AND ');
+
+          const query = `UPDATE ${table} SET ${setClause} WHERE ${whereClause}`;
+          const result = await db.execute(query, [...values, ...whereValues]);
+
+          return res.json({
+            success: true,
+            affectedRows: result.affectedRows || 0
+          });
+        }
+
+        case 'delete': {
+          // DELETE
+          const whereKeys = Object.keys(where || {});
+          const whereValues = Object.values(where || {});
+          const whereClause = whereKeys.map(key => `${key} = ?`).join(' AND ');
+
+          const query = `DELETE FROM ${table} WHERE ${whereClause}`;
+          const result = await db.execute(query, whereValues);
+
+          return res.json({
+            success: true,
+            affectedRows: result.affectedRows || 0
+          });
+        }
+
+        default:
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid action'
+          });
+      }
+    } catch (error) {
+      console.error('❌ [API] Database cloud error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Database operation failed'
+      });
+    }
+  });
+
   // 에러 핸들러
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error('❌ [API] Unhandled error:', err);
