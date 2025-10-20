@@ -1,0 +1,26 @@
+# Exclude backend and scripts from Vercel builds
+server-api.ts
+workers/
+scripts/
+utils/database.ts
+utils/notifications.ts
+utils/booking-state-machine.ts
+utils/payment.ts
+utils/pms-integration.ts
+utils/rentcar-price-calculator.ts
+utils/test-lock-db-integration.ts
+utils/jwt.ts
+
+# Test files
+*.test.ts
+*.test.js
+**/__tests__/
+
+# Development files
+.env.local
+.env.development
+
+# Build artifacts
+node_modules/
+dist/
+.next/
