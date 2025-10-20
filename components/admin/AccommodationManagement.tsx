@@ -45,9 +45,7 @@ export const AccommodationManagement: React.FC = () => {
     location: '',
     address: '',
     price_from: '',
-    images: '',
-    rating_avg: '0',
-    rating_count: '0'
+    images: ''
   });
 
   // Load data
@@ -176,8 +174,6 @@ export const AccommodationManagement: React.FC = () => {
       const roomData = {
         ...newRoomForm,
         price_from: parseFloat(newRoomForm.price_from),
-        rating_avg: parseFloat(newRoomForm.rating_avg),
-        rating_count: parseInt(newRoomForm.rating_count),
         images: newRoomForm.images ? JSON.parse(newRoomForm.images) : []
       };
 
@@ -197,9 +193,7 @@ export const AccommodationManagement: React.FC = () => {
           location: '',
           address: '',
           price_from: '',
-          images: '',
-          rating_avg: '0',
-          rating_count: '0'
+          images: ''
         });
         loadRooms(selectedPartnerId);
       } else {
@@ -576,34 +570,12 @@ export const AccommodationManagement: React.FC = () => {
                   placeholder="예: 150000"
                 />
               </div>
-              <div>
+              <div className="col-span-2">
                 <Label>이미지 URL (JSON 배열)</Label>
                 <Input
                   value={newRoomForm.images}
                   onChange={(e) => setNewRoomForm({...newRoomForm, images: e.target.value})}
                   placeholder='예: ["https://example.com/image.jpg"]'
-                />
-              </div>
-              <div>
-                <Label>평점 (0-5)</Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="5"
-                  value={newRoomForm.rating_avg}
-                  onChange={(e) => setNewRoomForm({...newRoomForm, rating_avg: e.target.value})}
-                  placeholder="예: 4.8"
-                />
-              </div>
-              <div>
-                <Label>리뷰 수</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={newRoomForm.rating_count}
-                  onChange={(e) => setNewRoomForm({...newRoomForm, rating_count: e.target.value})}
-                  placeholder="예: 25"
                 />
               </div>
             </div>
