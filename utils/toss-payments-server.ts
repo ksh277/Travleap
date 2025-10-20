@@ -216,4 +216,5 @@ class TossPaymentsServer {
   }
 }
 
+export { TossPaymentsServer };
 export const tossPaymentsServer = new TossPaymentsServer();
