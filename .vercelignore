@@ -10,12 +10,6 @@ api/shared/
 api/test.js
 api/populate-data.js
 
-# Problematic TypeScript API files that cause deployment timeout
-# These files import from utils/ which causes bundling issues in serverless functions
-api/rentcar/payment.ts
-api/rentcar/vendor-register.ts
-api/rentcar/vendor-vehicles.ts
-api/payments/confirm.ts
-api/payments/webhook.ts
-api/bookings/create-with-lock.ts
-api/bookings/return-inspect.ts
+# ALL TypeScript API files (cause deployment timeout in Vercel serverless)
+# Use .js equivalents or server-api.ts for these endpoints
+api/**/*.ts
