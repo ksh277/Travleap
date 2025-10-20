@@ -30,6 +30,25 @@ export const AccommodationManagement: React.FC = () => {
   const [partnerSearchQuery, setPartnerSearchQuery] = useState('');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('partners');
+  const [showAddPartnerDialog, setShowAddPartnerDialog] = useState(false);
+  const [showAddRoomDialog, setShowAddRoomDialog] = useState(false);
+  const [newPartnerForm, setNewPartnerForm] = useState({
+    business_name: '',
+    contact_name: '',
+    phone: '',
+    email: '',
+    tier: 'basic'
+  });
+  const [newRoomForm, setNewRoomForm] = useState({
+    listing_name: '',
+    description: '',
+    location: '',
+    address: '',
+    price_from: '',
+    images: '',
+    rating_avg: '0',
+    rating_count: '0'
+  });
 
   // Load data
   useEffect(() => {
@@ -118,6 +137,80 @@ export const AccommodationManagement: React.FC = () => {
     }
   };
 
+  const addPartner = async () => {
+    try {
+      const response = await fetch('/api/admin/lodging/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPartnerForm)
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('업체가 추가되었습니다.');
+        setShowAddPartnerDialog(false);
+        setNewPartnerForm({
+          business_name: '',
+          contact_name: '',
+          phone: '',
+          email: '',
+          tier: 'basic'
+        });
+        loadPartners();
+      } else {
+        toast.error(result.message || '업체 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to add partner:', error);
+      toast.error('업체 추가 중 오류가 발생했습니다.');
+    }
+  };
+
+  const addRoom = async () => {
+    if (!selectedPartnerId) {
+      toast.error('업체를 먼저 선택해주세요.');
+      return;
+    }
+
+    try {
+      const roomData = {
+        ...newRoomForm,
+        price_from: parseFloat(newRoomForm.price_from),
+        rating_avg: parseFloat(newRoomForm.rating_avg),
+        rating_count: parseInt(newRoomForm.rating_count),
+        images: newRoomForm.images ? JSON.parse(newRoomForm.images) : []
+      };
+
+      const response = await fetch(`/api/admin/lodging/vendors/${selectedPartnerId}/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(roomData)
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('객실이 추가되었습니다.');
+        setShowAddRoomDialog(false);
+        setNewRoomForm({
+          listing_name: '',
+          description: '',
+          location: '',
+          address: '',
+          price_from: '',
+          images: '',
+          rating_avg: '0',
+          rating_count: '0'
+        });
+        loadRooms(selectedPartnerId);
+      } else {
+        toast.error(result.message || '객실 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to add room:', error);
+      toast.error('객실 추가 중 오류가 발생했습니다.');
+    }
+  };
+
   useEffect(() => {
     if (selectedPartnerId) {
       loadRooms(selectedPartnerId);
@@ -139,7 +232,10 @@ export const AccommodationManagement: React.FC = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>숙박 업체 관리</CardTitle>
-              <Button className="bg-[#8B5FBF] hover:bg-[#7A4FB5]">
+              <Button
+                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                onClick={() => setShowAddPartnerDialog(true)}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 업체 추가
               </Button>
@@ -251,6 +347,7 @@ export const AccommodationManagement: React.FC = () => {
                 <Button
                   className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
                   disabled={!selectedPartnerId}
+                  onClick={() => setShowAddRoomDialog(true)}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   객실 추가
@@ -357,6 +454,174 @@ export const AccommodationManagement: React.FC = () => {
           </CardContent>
         </Card>
       </TabsContent>
+
+      {/* 업체 추가 다이얼로그 */}
+      <Dialog open={showAddPartnerDialog} onOpenChange={setShowAddPartnerDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>새 숙박 업체 추가</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>업체명 *</Label>
+                <Input
+                  value={newPartnerForm.business_name}
+                  onChange={(e) => setNewPartnerForm({...newPartnerForm, business_name: e.target.value})}
+                  placeholder="예: 신안 바다뷰 펜션"
+                />
+              </div>
+              <div>
+                <Label>담당자명 *</Label>
+                <Input
+                  value={newPartnerForm.contact_name}
+                  onChange={(e) => setNewPartnerForm({...newPartnerForm, contact_name: e.target.value})}
+                  placeholder="예: 홍길동"
+                />
+              </div>
+              <div>
+                <Label>전화번호 *</Label>
+                <Input
+                  value={newPartnerForm.phone}
+                  onChange={(e) => setNewPartnerForm({...newPartnerForm, phone: e.target.value})}
+                  placeholder="예: 010-1234-5678"
+                />
+              </div>
+              <div>
+                <Label>이메일 *</Label>
+                <Input
+                  type="email"
+                  value={newPartnerForm.email}
+                  onChange={(e) => setNewPartnerForm({...newPartnerForm, email: e.target.value})}
+                  placeholder="예: partner@example.com"
+                />
+              </div>
+              <div>
+                <Label>등급</Label>
+                <Select value={newPartnerForm.tier} onValueChange={(value) => setNewPartnerForm({...newPartnerForm, tier: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="basic">Basic</SelectItem>
+                    <SelectItem value="premium">Premium</SelectItem>
+                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setShowAddPartnerDialog(false)}>
+                취소
+              </Button>
+              <Button
+                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                onClick={addPartner}
+                disabled={!newPartnerForm.business_name || !newPartnerForm.contact_name || !newPartnerForm.phone || !newPartnerForm.email}
+              >
+                추가
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 객실 추가 다이얼로그 */}
+      <Dialog open={showAddRoomDialog} onOpenChange={setShowAddRoomDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>새 객실 추가</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>객실명 *</Label>
+                <Input
+                  value={newRoomForm.listing_name}
+                  onChange={(e) => setNewRoomForm({...newRoomForm, listing_name: e.target.value})}
+                  placeholder="예: 오션뷰 스위트"
+                />
+              </div>
+              <div>
+                <Label>지역 *</Label>
+                <Input
+                  value={newRoomForm.location}
+                  onChange={(e) => setNewRoomForm({...newRoomForm, location: e.target.value})}
+                  placeholder="예: 신안군"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>주소 *</Label>
+                <Input
+                  value={newRoomForm.address}
+                  onChange={(e) => setNewRoomForm({...newRoomForm, address: e.target.value})}
+                  placeholder="예: 전라남도 신안군 증도면 해안로 123"
+                />
+              </div>
+              <div className="col-span-2">
+                <Label>설명</Label>
+                <Textarea
+                  value={newRoomForm.description}
+                  onChange={(e) => setNewRoomForm({...newRoomForm, description: e.target.value})}
+                  placeholder="객실 설명을 입력하세요"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label>가격 (원) *</Label>
+                <Input
+                  type="number"
+                  value={newRoomForm.price_from}
+                  onChange={(e) => setNewRoomForm({...newRoomForm, price_from: e.target.value})}
+                  placeholder="예: 150000"
+                />
+              </div>
+              <div>
+                <Label>이미지 URL (JSON 배열)</Label>
+                <Input
+                  value={newRoomForm.images}
+                  onChange={(e) => setNewRoomForm({...newRoomForm, images: e.target.value})}
+                  placeholder='예: ["https://example.com/image.jpg"]'
+                />
+              </div>
+              <div>
+                <Label>평점 (0-5)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="5"
+                  value={newRoomForm.rating_avg}
+                  onChange={(e) => setNewRoomForm({...newRoomForm, rating_avg: e.target.value})}
+                  placeholder="예: 4.8"
+                />
+              </div>
+              <div>
+                <Label>리뷰 수</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={newRoomForm.rating_count}
+                  onChange={(e) => setNewRoomForm({...newRoomForm, rating_count: e.target.value})}
+                  placeholder="예: 25"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setShowAddRoomDialog(false)}>
+                취소
+              </Button>
+              <Button
+                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                onClick={addRoom}
+                disabled={!newRoomForm.listing_name || !newRoomForm.location || !newRoomForm.address || !newRoomForm.price_from}
+              >
+                추가
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Tabs>
   );
 };
