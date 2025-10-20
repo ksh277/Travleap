@@ -1,15 +1,11 @@
 # Exclude backend and scripts from Vercel builds
+# Note: Keep utils/ files that api/ functions need!
 server-api.ts
 workers/
 scripts/
-utils/database.ts
-utils/notifications.ts
-utils/booking-state-machine.ts
-utils/payment.ts
-utils/pms-integration.ts
-utils/rentcar-price-calculator.ts
+
+# Only exclude utils files NOT used by api/ functions
 utils/test-lock-db-integration.ts
-utils/jwt.ts
 
 # Test files
 *.test.ts
