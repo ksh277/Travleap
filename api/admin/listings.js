@@ -18,19 +18,32 @@ module.exports = async function handler(req, res) {
 
       const result = await connection.execute(
         `INSERT INTO listings (
-          title, description, price, location, category_id, partner_id,
-          images, is_active, is_featured, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          title, description_md, short_description, price_from, child_price, infant_price,
+          location, address, meeting_point, category_id, category, partner_id,
+          images, max_capacity, highlights, included, excluded,
+          is_active, is_featured, is_published, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           listingData.title,
-          listingData.description,
-          listingData.price,
-          listingData.location,
+          listingData.longDescription || listingData.description || '',
+          listingData.description || '',
+          listingData.price || 0,
+          listingData.childPrice || null,
+          listingData.infantPrice || null,
+          listingData.location || '',
+          listingData.detailedAddress || '',
+          listingData.meetingPoint || '',
           listingData.category_id,
-          listingData.partner_id,
+          listingData.category || 'travel',
+          listingData.partner_id || null,
           listingData.images ? JSON.stringify(listingData.images) : '[]',
+          listingData.maxCapacity || 10,
+          listingData.highlights ? JSON.stringify(listingData.highlights.filter(h => h.trim())) : '[]',
+          listingData.included ? JSON.stringify(listingData.included.filter(i => i.trim())) : '[]',
+          listingData.excluded ? JSON.stringify(listingData.excluded.filter(e => e.trim())) : '[]',
           listingData.is_active !== false ? 1 : 0,
-          listingData.is_featured ? 1 : 0
+          listingData.featured ? 1 : 0,
+          1 // is_published
         ]
       );
 
