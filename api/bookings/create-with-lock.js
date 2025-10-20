@@ -38,11 +38,5 @@ function generateBookingNumber() {
  */
 
 
-// Default export for tsx compatibility
-export default {
-  createBookingWithLock,
-  getBookingForPayment
-};
-
 module.exports = async function handler(req, res) {
 };

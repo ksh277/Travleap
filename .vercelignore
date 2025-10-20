@@ -2,3 +2,6 @@
 server-api.ts
 workers/
 scripts/
+
+# Exclude incomplete/ESM API files
+api/shared/lodging.js

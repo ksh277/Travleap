@@ -86,11 +86,5 @@ function calculatePenalty(inspection: ReturnInspection): {
  */
 
 
-// Default export for compatibility
-export default {
-  handleReturnInspection,
-  getInspectionHistory
-};
-
 module.exports = async function handler(req, res) {
 };

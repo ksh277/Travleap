@@ -77,20 +77,7 @@ const { lockManager } = require('../utils/lock-manager');
 // DEFAULT EXPORT
 // ============================================================
 
-export default {
-  getLodgings,
-  getLodgingById,
-  createLodging,
-  getRooms,
-  createRoom,
-  getRatePlans,
-  createRatePlan,
-  getAvailability,
-  updateAvailability,
-  getBookings,
-  createBooking,
-  cancelBooking
-};
-
 module.exports = async function handler(req, res) {
+  // TODO: Implement lodging API routes
+  res.status(501).json({ success: false, error: 'Not implemented yet' });
 };

@@ -238,12 +238,5 @@ const ALLOWED_IPS = (process.env.TOSS_WEBHOOK_IPS || '').split(',').filter(Boole
 
 
 
-// Default export
-export default {
-  handleTossWebhook,
-  checkRateLimit,
-  checkIPWhitelist
-};
-
 module.exports = async function handler(req, res) {
 };
