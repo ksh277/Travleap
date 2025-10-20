@@ -169,12 +169,12 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 배너 섹션 */}
-      <div 
-        className="relative w-full h-[300px] bg-cover bg-center flex items-center justify-center overflow-hidden"
+      <div
+        className="relative w-full h-[200px] md:h-[300px] bg-cover bg-center flex items-center justify-center overflow-hidden"
         style={{ backgroundImage: 'url("https://placehold.co/1366x300")' }}
       >
         <div className="relative z-10 max-w-[1200px] mx-auto px-4 text-center">
-          <h1 className="text-2xl md:text-3xl font-semibold text-white m-0">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-white m-0">
             로그인
           </h1>
         </div>
@@ -183,7 +183,7 @@ export function LoginPage() {
       </div>
 
       {/* 로그인 카드 */}
-      <div className="max-w-[400px] mx-auto mt-10 mb-10 p-6 bg-white rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.15)]">
+      <div className="max-w-[90%] sm:max-w-[480px] md:max-w-[500px] mx-auto mt-6 md:mt-10 mb-10 p-4 sm:p-6 md:p-8 bg-white rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.15)]">
         {/* 헤더 */}
         <div className="text-center mb-5">
           <ul className="list-none p-0 m-0 flex justify-center gap-4">
@@ -203,26 +203,26 @@ export function LoginPage() {
         <div>
           <form onSubmit={handleSubmit}>
             {/* 이메일 */}
-            <div className="mb-3.5">
+            <div className="mb-4">
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="이메일*"
                 required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
+                className="w-full px-4 py-3 md:py-3.5 border border-gray-300 rounded-md text-base md:text-sm touch-manipulation"
               />
             </div>
 
             {/* 비밀번호 */}
-            <div className="mb-3.5">
+            <div className="mb-4">
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호*"
                 required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-md text-sm"
+                className="w-full px-4 py-3 md:py-3.5 border border-gray-300 rounded-md text-base md:text-sm touch-manipulation"
               />
             </div>
 
@@ -242,7 +242,7 @@ export function LoginPage() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-[#5c2d91] hover:bg-[#4b2375] text-white border-none rounded-md text-sm cursor-pointer mb-3"
+              className="w-full py-3.5 md:py-3 bg-[#5c2d91] hover:bg-[#4b2375] text-white border-none rounded-md text-base md:text-sm cursor-pointer mb-4 touch-manipulation active:scale-[0.98] transition-transform"
             >
               {isLoading ? '로그인 중...' : '로그인'}
             </Button>
@@ -251,7 +251,8 @@ export function LoginPage() {
             <button
               type="button"
               onClick={handleGoogleLogin}
-              className="w-full h-11 px-3 rounded-lg mb-2.5 flex items-center gap-2.5 text-sm font-medium cursor-pointer transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.12)] hover:-translate-y-px bg-white border border-[#dadce0] text-[#3c4043]"
+              disabled={isLoading}
+              className="w-full min-h-[48px] h-12 md:h-11 px-4 md:px-3 rounded-lg mb-3 flex items-center gap-3 text-base md:text-sm font-medium cursor-pointer transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.12)] active:scale-[0.98] bg-white border border-[#dadce0] text-[#3c4043] touch-manipulation disabled:opacity-50"
             >
               <span className="flex-none w-[22px] h-[22px] inline-flex items-center justify-center">
                 <img 
@@ -269,7 +270,8 @@ export function LoginPage() {
             <button
               type="button"
               onClick={handleKakaoLogin}
-              className="w-full h-11 px-3 rounded-lg mb-2.5 flex items-center gap-2.5 text-sm font-medium cursor-pointer transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.12)] hover:-translate-y-px bg-[#FEE500] border border-[#e5cf00] text-[#191919]"
+              disabled={isLoading}
+              className="w-full min-h-[48px] h-12 md:h-11 px-4 md:px-3 rounded-lg mb-3 flex items-center gap-3 text-base md:text-sm font-medium cursor-pointer transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.12)] active:scale-[0.98] bg-[#FEE500] border border-[#e5cf00] text-[#191919] touch-manipulation disabled:opacity-50"
             >
               <span className="flex-none w-[22px] h-[22px] inline-flex items-center justify-center">
                 <img
@@ -287,7 +289,8 @@ export function LoginPage() {
             <button
               type="button"
               onClick={handleNaverLogin}
-              className="w-full h-11 px-3 rounded-lg mb-2.5 flex items-center gap-2.5 text-sm font-medium cursor-pointer transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.12)] hover:-translate-y-px bg-[#03C75A] border border-[#02b351] text-white"
+              disabled={isLoading}
+              className="w-full min-h-[48px] h-12 md:h-11 px-4 md:px-3 rounded-lg mb-3 flex items-center gap-3 text-base md:text-sm font-medium cursor-pointer transition-all duration-200 shadow-[0_1px_2px_rgba(0,0,0,0.08)] hover:shadow-[0_2px_4px_rgba(0,0,0,0.12)] active:scale-[0.98] bg-[#03C75A] border border-[#02b351] text-white touch-manipulation disabled:opacity-50"
             >
               <span className="flex-none w-[22px] h-[22px] inline-flex items-center justify-center bg-white rounded-sm">
                 <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5">

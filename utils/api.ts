@@ -2015,22 +2015,24 @@ export const api = {
     // 파트너 승인/거부
     updatePartnerStatus: async (partnerId: number, status: 'approved' | 'rejected', adminId: number): Promise<ApiResponse<Partner>> => {
       try {
-        await db.update('partners', partnerId, { status });
-
-        // 로그 기록
-        await db.insert('admin_logs', {
-          admin_id: adminId,
-          action: status === 'approved' ? 'partner_approved' : 'partner_rejected',
-          entity_type: 'partner',
-          entity_id: partnerId,
-          description: `파트너 상태를 ${status}로 변경`
+        const response = await fetch(`${API_BASE_URL}/api/admin/partners/${partnerId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status })
         });
 
-        const updatedPartner = await db.select('partners', { id: partnerId });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '파트너 상태 변경 실패');
+        }
+
         return {
           success: true,
-          data: updatedPartner[0],
-          message: `파트너가 ${status === 'approved' ? '승인' : '거부'}되었습니다.`
+          data: result.data || null,
+          message: result.message || `파트너가 ${status === 'approved' ? '승인' : '거부'}되었습니다.`
         };
       } catch (error) {
         console.error('Failed to update partner status:', error);
@@ -2621,90 +2623,18 @@ export const api = {
       try {
         console.log(`🗑️ 상품 삭제 시작: listing_id = ${listingId}`);
 
-        // 1. 리뷰 삭제
-        try {
-          const reviews = await db.findAll('reviews', { listing_id: listingId });
-          console.log(`  - 리뷰 ${reviews.length}개 발견`);
-          for (const review of reviews) {
-            await db.delete('reviews', review.id);
+        // API 엔드포인트 호출
+        const response = await fetch(`${API_BASE_URL}/api/admin/listings/${listingId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
           }
-        } catch (error) {
-          console.warn('리뷰 삭제 중 오류 (무시):', error);
-        }
+        });
 
-        // 2. 즐겨찾기 삭제 (테이블이 없을 수 있음)
-        try {
-          const favorites = await db.findAll('favorites', { listing_id: listingId });
-          console.log(`  - 즐겨찾기 ${favorites.length}개 발견`);
-          for (const favorite of favorites) {
-            await db.delete('favorites', favorite.id);
-          }
-        } catch (error) {
-          console.warn('즐겨찾기 삭제 중 오류 (무시):', error);
-        }
+        const result = await response.json();
 
-        // 3. 장바구니 아이템 삭제 (테이블이 없을 수 있음)
-        try {
-          const cartItems = await db.findAll('cart_items', { listing_id: listingId });
-          console.log(`  - 장바구니 아이템 ${cartItems.length}개 발견`);
-          for (const item of cartItems) {
-            await db.delete('cart_items', item.id);
-          }
-        } catch (error) {
-          console.warn('장바구니 삭제 중 오류 (무시):', error);
-        }
-
-        // 4. PMS 관련 데이터 삭제 (숙박 상품인 경우)
-        try {
-          // 4-1. PMS 설정 삭제
-          const pmsConfigs = await db.findAll('pms_configs', { listing_id: listingId });
-          console.log(`  - PMS 설정 ${pmsConfigs.length}개 발견`);
-          for (const config of pmsConfigs) {
-            await db.delete('pms_configs', config.id);
-          }
-
-          // 4-2. 객실 타입 및 관련 데이터 삭제
-          const roomTypes = await db.findAll('room_types', { listing_id: listingId });
-          console.log(`  - 객실 타입 ${roomTypes.length}개 발견`);
-
-          for (const roomType of roomTypes) {
-            // 객실 미디어 삭제
-            const roomMedia = await db.findAll('room_media', { room_type_id: roomType.id });
-            console.log(`    - 객실 미디어 ${roomMedia.length}개 발견`);
-            for (const media of roomMedia) {
-              await db.delete('room_media', media.id);
-            }
-
-            // 요금 플랜 삭제
-            const ratePlans = await db.findAll('rate_plans', { room_type_id: roomType.id });
-            console.log(`    - 요금 플랜 ${ratePlans.length}개 발견`);
-            for (const plan of ratePlans) {
-              await db.delete('rate_plans', plan.id);
-            }
-
-            // 객실 재고 삭제
-            const inventory = await db.findAll('room_inventory', { room_type_id: roomType.id });
-            console.log(`    - 객실 재고 ${inventory.length}개 발견`);
-            for (const inv of inventory) {
-              await db.delete('room_inventory', inv.id);
-            }
-
-            // 객실 타입 삭제
-            await db.delete('room_types', roomType.id);
-          }
-        } catch (error) {
-          console.warn('PMS 데이터 삭제 중 오류 (무시):', error);
-        }
-
-        // 5. 예약 데이터는 보존 (이력 유지를 위해)
-        // 예약 데이터는 삭제하지 않고 상태만 변경하거나 그대로 유지
-
-        // 6. 마지막으로 상품(listing) 삭제
-        console.log(`  - 상품(listing) 삭제 중...`);
-        const deleted = await db.delete('listings', listingId);
-
-        if (!deleted) {
-          throw new Error('상품 삭제 실패: 상품을 찾을 수 없습니다.');
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || result.message || '상품 삭제 실패');
         }
 
         console.log(`✅ 상품 삭제 완료: listing_id = ${listingId}`);
@@ -2712,7 +2642,7 @@ export const api = {
         return {
           success: true,
           data: null,
-          message: '상품 및 관련 데이터가 성공적으로 삭제되었습니다.'
+          message: result.message || '상품 및 관련 데이터가 성공적으로 삭제되었습니다.'
         };
       } catch (error) {
         console.error('❌ Failed to delete listing:', error);
@@ -3003,17 +2933,29 @@ export const api = {
     // 파트너 삭제
     deletePartner: async (partnerId: number): Promise<ApiResponse<null>> => {
       try {
-        await db.delete('partners', partnerId);
+        const response = await fetch(`${API_BASE_URL}/api/admin/partners/${partnerId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '파트너 삭제 실패');
+        }
+
         return {
           success: true,
           data: null,
-          message: '파트너가 삭제되었습니다.'
+          message: result.message || '파트너가 삭제되었습니다.'
         };
       } catch (error) {
         console.error('Failed to delete partner:', error);
         return {
           success: false,
-          error: '파트너 삭제에 실패했습니다.'
+          error: error instanceof Error ? error.message : '파트너 삭제에 실패했습니다.'
         };
       }
     },
@@ -3075,27 +3017,29 @@ export const api = {
     // 리뷰 삭제
     deleteReview: async (reviewId: number): Promise<ApiResponse<null>> => {
       try {
-        // 삭제 전 listing_id 가져오기
-        const existing = await db.select('reviews', { id: reviewId });
-        const listingId = existing[0]?.listing_id;
+        const response = await fetch(`${API_BASE_URL}/api/admin/reviews/${reviewId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
 
-        await db.delete('reviews', reviewId);
+        const result = await response.json();
 
-        // listing 평점 업데이트
-        if (listingId) {
-          await api.updateListingRating(listingId);
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '리뷰 삭제 실패');
         }
 
         return {
           success: true,
           data: null,
-          message: '리뷰가 삭제되었습니다.'
+          message: result.message || '리뷰가 삭제되었습니다.'
         };
       } catch (error) {
         console.error('Failed to delete review:', error);
         return {
           success: false,
-          error: '리뷰 삭제에 실패했습니다.'
+          error: error instanceof Error ? error.message : '리뷰 삭제에 실패했습니다.'
         };
       }
     },

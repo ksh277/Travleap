@@ -272,15 +272,15 @@ export function SignupPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 배너 섹션 */}
-      <div 
-        className="relative w-full h-[300px] bg-cover bg-center flex items-center justify-center overflow-hidden"
+      <div
+        className="relative w-full h-[200px] md:h-[300px] bg-cover bg-center flex items-center justify-center overflow-hidden"
         style={{ backgroundImage: 'url("https://placehold.co/1366x300")' }}
       >
         <div className="relative z-10 max-w-[1200px] mx-auto px-4 text-center">
-          <h1 className="text-2xl md:text-3xl font-semibold text-white m-0">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-white m-0">
             {t('signupTitle', 'ko')}
           </h1>
-          <p className="text-white/90 mt-2">
+          <p className="text-sm sm:text-base text-white/90 mt-2">
             {t('signupSubtitle', 'ko')}
           </p>
         </div>
@@ -289,7 +289,7 @@ export function SignupPage() {
       </div>
 
       {/* 회원가입 카드 */}
-      <div className="max-w-[450px] mx-auto mt-10 mb-10 p-6 bg-white rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.15)]">
+      <div className="max-w-[90%] sm:max-w-[500px] md:max-w-[550px] mx-auto mt-6 md:mt-10 mb-10 p-4 sm:p-6 md:p-8 bg-white rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.15)]">
         {/* 헤더 */}
         <div className="text-center mb-5">
           <ul className="list-none p-0 m-0 flex justify-center gap-4">
@@ -306,13 +306,13 @@ export function SignupPage() {
         <div>
           <form onSubmit={handleSubmit}>
             {/* 이름 */}
-            <div className="mb-3.5">
+            <div className="mb-4">
               <Input
                 type="text"
                 value={formData.name}
                 onChange={handleInputChange('name')}
                 placeholder={`${t('name', 'ko')}*`}
-                className={`w-full px-3 py-2.5 border rounded-md text-sm ${
+                className={`w-full px-4 py-3 md:py-3.5 border rounded-md text-base md:text-sm touch-manipulation ${
                   errors.name ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
@@ -322,13 +322,13 @@ export function SignupPage() {
             </div>
 
             {/* 이메일 */}
-            <div className="mb-3.5">
+            <div className="mb-4">
               <Input
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange('email')}
                 placeholder={`${t('email', 'ko')}*`}
-                className={`w-full px-3 py-2.5 border rounded-md text-sm ${
+                className={`w-full px-4 py-3 md:py-3.5 border rounded-md text-base md:text-sm touch-manipulation ${
                   errors.email ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
@@ -338,14 +338,14 @@ export function SignupPage() {
             </div>
 
             {/* 전화번호 */}
-            <div className="mb-3.5">
+            <div className="mb-4">
               <Input
                 type="tel"
                 value={formData.phone}
                 onChange={handleInputChange('phone')}
                 placeholder="전화번호* (예: 010-1234-5678)"
                 maxLength={13}
-                className={`w-full px-3 py-2.5 border rounded-md text-sm ${
+                className={`w-full px-4 py-3 md:py-3.5 border rounded-md text-base md:text-sm touch-manipulation ${
                   errors.phone ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
@@ -360,13 +360,13 @@ export function SignupPage() {
             </div>
 
             {/* 비밀번호 */}
-            <div className="mb-3.5">
+            <div className="mb-4">
               <Input
                 type="password"
                 value={formData.password}
                 onChange={handleInputChange('password')}
                 placeholder="비밀번호* (8자 이상, 영문 대소문자, 숫자 포함)"
-                className={`w-full px-3 py-2.5 border rounded-md text-sm ${
+                className={`w-full px-4 py-3 md:py-3.5 border rounded-md text-base md:text-sm touch-manipulation ${
                   errors.password ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
