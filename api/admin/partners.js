@@ -44,8 +44,9 @@ module.exports = async function handler(req, res) {
           user_id, business_name, contact_name, email, phone,
           business_address, location, services, base_price,
           detailed_address, description, images, business_hours,
+          duration, min_age, max_capacity, language,
           status, is_active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW(), NOW())`,
         [
           1, // user_id (관리자가 생성하므로 1)
           partnerData.business_name,
@@ -59,7 +60,11 @@ module.exports = async function handler(req, res) {
           partnerData.detailed_address || '',
           partnerData.description || '',
           imagesJson,
-          partnerData.business_hours || ''
+          partnerData.business_hours || '',
+          partnerData.duration || null,
+          partnerData.min_age || null,
+          partnerData.max_capacity || null,
+          partnerData.language || null
         ]
       );
 

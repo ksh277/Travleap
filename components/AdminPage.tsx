@@ -5639,6 +5639,63 @@ export function AdminPage({}: AdminPageProps) {
               />
               <p className="text-xs text-gray-500 mt-1">영업시간 정보</p>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  기간 (일)
+                </label>
+                <Input
+                  type="number"
+                  value={newPartner.duration || ''}
+                  onChange={(e) => setNewPartner({ ...newPartner, duration: e.target.value })}
+                  placeholder="예: 7"
+                  id="duration"
+                />
+                <p className="text-xs text-gray-500 mt-1">투어/체험 기간 (일수)</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  최소 연령
+                </label>
+                <Input
+                  type="number"
+                  value={newPartner.min_age || ''}
+                  onChange={(e) => setNewPartner({ ...newPartner, min_age: e.target.value })}
+                  placeholder="예: 18"
+                  id="min_age"
+                />
+                <p className="text-xs text-gray-500 mt-1">참가 가능 최소 연령</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  최대 인원
+                </label>
+                <Input
+                  type="number"
+                  value={newPartner.max_capacity || ''}
+                  onChange={(e) => setNewPartner({ ...newPartner, max_capacity: e.target.value })}
+                  placeholder="예: 10"
+                  id="max_capacity"
+                />
+                <p className="text-xs text-gray-500 mt-1">그룹 최대 인원</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  언어
+                </label>
+                <Input
+                  value={newPartner.language || ''}
+                  onChange={(e) => setNewPartner({ ...newPartner, language: e.target.value })}
+                  placeholder="예: 한국어, 영어"
+                  id="language"
+                />
+                <p className="text-xs text-gray-500 mt-1">제공 언어</p>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end space-x-2 mt-6 pt-4 border-t">

@@ -47,8 +47,24 @@ async function migratePartnersTable() {
         sql: 'ALTER TABLE partners ADD COLUMN business_hours VARCHAR(200) AFTER images'
       },
       {
+        name: 'duration',
+        sql: 'ALTER TABLE partners ADD COLUMN duration INT DEFAULT NULL AFTER business_hours'
+      },
+      {
+        name: 'min_age',
+        sql: 'ALTER TABLE partners ADD COLUMN min_age INT DEFAULT NULL AFTER duration'
+      },
+      {
+        name: 'max_capacity',
+        sql: 'ALTER TABLE partners ADD COLUMN max_capacity INT DEFAULT NULL AFTER min_age'
+      },
+      {
+        name: 'language',
+        sql: 'ALTER TABLE partners ADD COLUMN language VARCHAR(200) DEFAULT NULL AFTER max_capacity'
+      },
+      {
         name: 'is_active',
-        sql: 'ALTER TABLE partners ADD COLUMN is_active BOOLEAN DEFAULT TRUE AFTER business_hours'
+        sql: 'ALTER TABLE partners ADD COLUMN is_active BOOLEAN DEFAULT TRUE AFTER language'
       }
     ];
 

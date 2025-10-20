@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
         : '[]';
 
       await connection.execute(
-        \`UPDATE partners SET
+        `UPDATE partners SET
           business_name = ?,
           contact_name = ?,
           email = ?,
@@ -41,8 +41,12 @@ module.exports = async function handler(req, res) {
           description = ?,
           images = ?,
           business_hours = ?,
+          duration = ?,
+          min_age = ?,
+          max_capacity = ?,
+          language = ?,
           updated_at = NOW()
-        WHERE id = ?\`,
+        WHERE id = ?`,
         [
           partnerData.business_name,
           partnerData.contact_name,
@@ -56,6 +60,10 @@ module.exports = async function handler(req, res) {
           partnerData.description || '',
           imagesJson,
           partnerData.business_hours || '',
+          partnerData.duration || null,
+          partnerData.min_age || null,
+          partnerData.max_capacity || null,
+          partnerData.language || null,
           id
         ]
       );

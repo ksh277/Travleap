@@ -38,6 +38,10 @@ interface Partner {
   discount_rate?: number;
   member_since: string;
   base_price?: number;
+  duration?: number;
+  min_age?: number;
+  max_capacity?: number;
+  language?: string;
 }
 
 export function PartnerDetailPage() {
@@ -156,6 +160,10 @@ export function PartnerDetailPage() {
           discount_rate: partnerData.discount_rate,
           member_since: partnerData.created_at ? new Date(partnerData.created_at).getFullYear().toString() : new Date().getFullYear().toString(),
           base_price: partnerData.base_price || 0,
+          duration: partnerData.duration,
+          min_age: partnerData.min_age,
+          max_capacity: partnerData.max_capacity,
+          language: partnerData.language,
         });
       } else {
         throw new Error(result.message || '파트너 정보를 찾을 수 없습니다');
@@ -294,22 +302,22 @@ export function PartnerDetailPage() {
                 <div className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200">
                   <Clock className="h-6 w-6 text-purple-600 mb-2" />
                   <span className="text-sm text-gray-600">기간</span>
-                  <span className="text-sm font-medium">___</span>
+                  <span className="text-sm font-medium">{partner.duration ? `회대 ${partner.duration}일` : '___'}</span>
                 </div>
                 <div className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200">
                   <Users className="h-6 w-6 text-purple-600 mb-2" />
                   <span className="text-sm text-gray-600">최소 연령</span>
-                  <span className="text-sm font-medium">회대 7일</span>
+                  <span className="text-sm font-medium">{partner.min_age ? `${partner.min_age}세` : '___'}</span>
                 </div>
                 <div className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200">
                   <Users className="h-6 w-6 text-purple-600 mb-2" />
                   <span className="text-sm text-gray-600">그룹 크기</span>
-                  <span className="text-sm font-medium">1명</span>
+                  <span className="text-sm font-medium">{partner.max_capacity ? `${partner.max_capacity}명` : '___'}</span>
                 </div>
                 <div className="flex flex-col items-center p-4 bg-white rounded-lg border border-gray-200">
                   <Globe className="h-6 w-6 text-purple-600 mb-2" />
                   <span className="text-sm text-gray-600">언어</span>
-                  <span className="text-sm font-medium">___</span>
+                  <span className="text-sm font-medium">{partner.language || '___'}</span>
                 </div>
               </div>
 
