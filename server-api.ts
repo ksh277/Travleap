@@ -5190,8 +5190,9 @@ function setupRoutes() {
   app.get('/api/vendor/rentcar/vehicles', authenticate, async (req, res) => {
     try {
       const { getVendorVehicles } = await import('./api/rentcar/vendor-vehicles.js');
-      const vendorId = parseInt(req.query.vendor_id as string);
-      const result = await getVendorVehicles(vendorId);
+      const vendorId = req.query.vendor_id ? parseInt(req.query.vendor_id as string) : undefined;
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : req.user?.userId;
+      const result = await getVendorVehicles(vendorId, userId);
       res.json(result);
     } catch (error) {
       console.error('❌ [API] Get vendor vehicles error:', error);

@@ -205,7 +205,7 @@ export function VendorDashboardPageEnhanced() {
       setVendorInfo(vendor);
 
       // 2. 차량 목록 조회 API
-      const vehiclesResponse = await fetch(`/api/vendor/vehicles?userId=${user.id}`);
+      const vehiclesResponse = await fetch(`/api/vendor/rentcar/vehicles?userId=${user.id}`);
       const vehiclesData = await vehiclesResponse.json();
 
       if (vehiclesData.success && vehiclesData.data) {
@@ -370,7 +370,7 @@ export function VendorDashboardPageEnhanced() {
 
       if (isEditingVehicle && editingVehicleId) {
         // 수정 - PUT API
-        const response = await fetch(`/api/vendor/vehicles/${editingVehicleId}`, {
+        const response = await fetch(`/api/vendor/rentcar/vehicles/${editingVehicleId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -392,7 +392,7 @@ export function VendorDashboardPageEnhanced() {
         }
       } else {
         // 신규 등록 - POST API
-        const response = await fetch('/api/vendor/vehicles', {
+        const response = await fetch('/api/vendor/rentcar/vehicles', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -428,7 +428,7 @@ export function VendorDashboardPageEnhanced() {
 
     try {
       // DELETE API
-      const response = await fetch(`/api/vendor/vehicles/${vehicleId}`, {
+      const response = await fetch(`/api/vendor/rentcar/vehicles/${vehicleId}`, {
         method: 'DELETE',
         headers: {
           'x-user-id': user.id.toString()
@@ -453,7 +453,7 @@ export function VendorDashboardPageEnhanced() {
 
     try {
       // PATCH API - Toggle availability
-      const response = await fetch(`/api/vendor/vehicles/${vehicleId}/availability`, {
+      const response = await fetch(`/api/vendor/rentcar/vehicles/${vehicleId}/availability`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -538,7 +538,7 @@ export function VendorDashboardPageEnhanced() {
           }
 
           // POST API로 차량 등록
-          const response = await fetch('/api/vendor/vehicles', {
+          const response = await fetch('/api/vendor/rentcar/vehicles', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -27,8 +27,27 @@ interface VehicleUpdateRequest extends Partial<VehicleCreateRequest> {
 /**
  * 벤더: 자기 차량 목록 조회
  */
-export async function getVendorVehicles(vendorId: number) {
+export async function getVendorVehicles(vendorId: number, userId?: number) {
   try {
+    // userId가 제공된 경우, user_id로부터 vendor_id 찾기
+    let actualVendorId = vendorId;
+
+    if (userId && !vendorId) {
+      const vendors = await db.query(`
+        SELECT id FROM rentcar_vendors WHERE user_id = ?
+      `, [userId]);
+
+      if (vendors.length === 0) {
+        return {
+          success: false,
+          message: '벤더 정보를 찾을 수 없습니다',
+          vehicles: []
+        };
+      }
+
+      actualVendorId = vendors[0].id;
+    }
+
     const vehicles = await db.query(`
       SELECT
         v.*,
@@ -47,11 +66,11 @@ export async function getVendorVehicles(vendorId: number) {
       FROM rentcar_vehicles v
       WHERE v.vendor_id = ?
       ORDER BY v.created_at DESC
-    `, [vendorId]);
+    `, [actualVendorId]);
 
     return {
       success: true,
-      vehicles
+      data: vehicles
     };
 
   } catch (error) {
