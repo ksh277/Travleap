@@ -2766,8 +2766,6 @@ export function AdminPage({}: AdminPageProps) {
                           </div>
                         </div>
 
-                        {/* 일정 및 기타 정보 */}
-                        <div>
                         {/* 추천 상품 체크박스 */}
                         <div>
                           <label className="flex items-center text-sm font-medium">
@@ -2780,6 +2778,7 @@ export function AdminPage({}: AdminPageProps) {
                             추천 상품으로 등록
                           </label>
                         </div>
+                      </div>
 
                       <div className="flex justify-end space-x-2 mt-6 pt-4 border-t">
                         <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
