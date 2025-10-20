@@ -15,20 +15,32 @@ async function migratePartnersTable() {
     // 필드 추가 (이미 존재하면 에러 무시)
     const migrations = [
       {
+        name: 'business_address',
+        sql: 'ALTER TABLE partners ADD COLUMN business_address TEXT AFTER phone'
+      },
+      {
         name: 'location',
-        sql: 'ALTER TABLE partners ADD COLUMN location VARCHAR(200) AFTER services'
+        sql: 'ALTER TABLE partners ADD COLUMN location VARCHAR(200) AFTER business_address'
+      },
+      {
+        name: 'services',
+        sql: 'ALTER TABLE partners ADD COLUMN services TEXT AFTER location'
       },
       {
         name: 'base_price',
-        sql: 'ALTER TABLE partners ADD COLUMN base_price DECIMAL(10, 2) DEFAULT 0 AFTER location'
+        sql: 'ALTER TABLE partners ADD COLUMN base_price DECIMAL(10, 2) DEFAULT 0 AFTER services'
       },
       {
         name: 'detailed_address',
         sql: 'ALTER TABLE partners ADD COLUMN detailed_address TEXT AFTER base_price'
       },
       {
+        name: 'description',
+        sql: 'ALTER TABLE partners ADD COLUMN description TEXT AFTER detailed_address'
+      },
+      {
         name: 'images',
-        sql: 'ALTER TABLE partners ADD COLUMN images JSON AFTER detailed_address'
+        sql: 'ALTER TABLE partners ADD COLUMN images JSON AFTER description'
       },
       {
         name: 'business_hours',
@@ -36,7 +48,7 @@ async function migratePartnersTable() {
       },
       {
         name: 'is_active',
-        sql: 'ALTER TABLE partners ADD COLUMN is_active BOOLEAN DEFAULT TRUE AFTER is_featured'
+        sql: 'ALTER TABLE partners ADD COLUMN is_active BOOLEAN DEFAULT TRUE AFTER business_hours'
       }
     ];
 
