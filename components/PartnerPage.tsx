@@ -75,15 +75,34 @@ const loadPartners = async (): Promise<Partner[]> => {
         const addressMatch = partner.description?.match(/전라남도 신안군[^\n]+/) || null;
         const displayAddress = addressMatch ? addressMatch[0] : (partner.phone || '신안군');
 
+        // 가격 표시 처리
+        let priceDisplay = '가격 문의';
+        if (partner.base_price && partner.base_price > 0) {
+          priceDisplay = `${Number(partner.base_price).toLocaleString()}원`;
+        }
+
+        // 이미지 처리
+        let imageUrl = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop';
+        if (partner.images) {
+          try {
+            const images = typeof partner.images === 'string' ? JSON.parse(partner.images) : partner.images;
+            if (Array.isArray(images) && images.length > 0) {
+              imageUrl = images[0];
+            }
+          } catch (e) {
+            console.warn('Failed to parse partner images:', e);
+          }
+        }
+
         const partnerCard: Partner = {
           id: partner.id.toString(),
           name: partner.business_name || '업체명 없음',
           category: category,
-          location: displayAddress,
+          location: partner.location || displayAddress,
           rating: 0,
           reviewCount: 0,
-          price: '가격 문의',
-          image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop',
+          price: priceDisplay,
+          image: imageUrl,
           description: partner.description || '신안의 아름다운 자연과 함께하는 특별한 체험',
           position: position,
           featured: partner.is_featured === 1
