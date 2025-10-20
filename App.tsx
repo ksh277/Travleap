@@ -55,6 +55,7 @@ import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
 import { useCartStore } from './hooks/useCartStore';
 import { HelmetProvider } from 'react-helmet-async';
+import { Analytics } from '@vercel/analytics/react';
 
 // 스크롤 위치 리셋 컴포넌트
 function ScrollToTop() {
@@ -268,6 +269,7 @@ export default function App() {
     <HelmetProvider>
       <Router>
         <AppContent />
+        <Analytics />
       </Router>
     </HelmetProvider>
   );
