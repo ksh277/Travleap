@@ -55,7 +55,7 @@ export function PartnerDetailPage() {
 
   // Kakao Map 초기화
   useEffect(() => {
-    if (!partner || !partner.address) return;
+    if (!partner) return;
 
     const initMap = () => {
       const kakao = (window as any).kakao;
@@ -67,46 +67,78 @@ export function PartnerDetailPage() {
       const container = document.getElementById('map');
       if (!container) return;
 
-      const geocoder = new kakao.maps.services.Geocoder();
+      // coordinates가 있으면 바로 사용, 없으면 주소로 검색
+      if (partner.coordinates) {
+        const [lat, lng] = partner.coordinates.split(',').map(Number);
+        const coords = new kakao.maps.LatLng(lat, lng);
 
-      // 주소로 좌표 검색
-      geocoder.addressSearch(partner.address, (result: any, status: any) => {
-        if (status === kakao.maps.services.Status.OK) {
-          const coords = new kakao.maps.LatLng(result[0].y, result[0].x);
+        const options = {
+          center: coords,
+          level: 3
+        };
 
-          const options = {
-            center: coords,
-            level: 3
-          };
+        const map = new kakao.maps.Map(container, options);
 
-          const map = new kakao.maps.Map(container, options);
+        // 마커 표시
+        const marker = new kakao.maps.Marker({
+          map: map,
+          position: coords
+        });
 
-          // 마커 표시
-          const marker = new kakao.maps.Marker({
-            map: map,
-            position: coords
-          });
+        // 인포윈도우 표시
+        const infowindow = new kakao.maps.InfoWindow({
+          content: `<div style="padding:5px;font-size:12px;width:200px;text-align:center;">${partner.name}</div>`
+        });
+        infowindow.open(map, marker);
+      } else if (partner.address) {
+        // coordinates가 없으면 주소로 검색
+        const geocoder = new kakao.maps.services.Geocoder();
+        geocoder.addressSearch(partner.address, (result: any, status: any) => {
+          if (status === kakao.maps.services.Status.OK) {
+            const coords = new kakao.maps.LatLng(result[0].y, result[0].x);
 
-          // 인포윈도우 표시
-          const infowindow = new kakao.maps.InfoWindow({
-            content: `<div style="padding:5px;font-size:12px;width:200px;text-align:center;">${partner.name}</div>`
-          });
-          infowindow.open(map, marker);
-        } else {
-          console.error('Geocoder failed:', status);
-          // 기본 위치 (신안군청)
-          const defaultCoords = new kakao.maps.LatLng(34.8251, 126.1042);
-          const options = {
-            center: defaultCoords,
-            level: 5
-          };
-          const map = new kakao.maps.Map(container, options);
-          const marker = new kakao.maps.Marker({
-            map: map,
-            position: defaultCoords
-          });
-        }
-      });
+            const options = {
+              center: coords,
+              level: 3
+            };
+
+            const map = new kakao.maps.Map(container, options);
+
+            // 마커 표시
+            const marker = new kakao.maps.Marker({
+              map: map,
+              position: coords
+            });
+
+            // 인포윈도우 표시
+            const infowindow = new kakao.maps.InfoWindow({
+              content: `<div style="padding:5px;font-size:12px;width:200px;text-align:center;">${partner.name}</div>`
+            });
+            infowindow.open(map, marker);
+          } else {
+            console.error('Geocoder failed:', status);
+            // 기본 위치 (신안군청)
+            const defaultCoords = new kakao.maps.LatLng(34.8251, 126.1042);
+            const options = {
+              center: defaultCoords,
+              level: 5
+            };
+            const map = new kakao.maps.Map(container, options);
+            const marker = new kakao.maps.Marker({
+              map: map,
+              position: defaultCoords
+            });
+          }
+        });
+      } else {
+        // 주소도 좌표도 없으면 기본 위치
+        const defaultCoords = new kakao.maps.LatLng(34.8251, 126.1042);
+        const options = {
+          center: defaultCoords,
+          level: 5
+        };
+        const map = new kakao.maps.Map(container, options);
+      }
     };
 
     // Kakao Maps API 로드 확인
