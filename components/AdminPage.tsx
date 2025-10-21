@@ -2510,32 +2510,71 @@ export function AdminPage({}: AdminPageProps) {
                         {/* 위치 정보 */}
                         <div>
                           <h3 className="text-lg font-medium mb-3">위치 정보</h3>
-                          <div className="grid grid-cols-1 gap-4">
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">간단 위치</label>
-                              <Input
-                                value={newProduct.location}
-                                onChange={(e) => setNewProduct(prev => ({ ...prev, location: e.target.value }))}
-                                placeholder="예: 신안군 증도면"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">상세 주소</label>
-                              <Input
-                                value={newProduct.address}
-                                onChange={(e) => setNewProduct(prev => ({ ...prev, address: e.target.value }))}
-                                placeholder="상세 주소를 입력하세요"
-                              />
-                            </div>
-                            {/* 집합 장소 - 여행/체험/행사 카테고리에만 표시 */}
-                            {['여행', '체험', '행사'].includes(newProduct.category) && (
-                              <div>
-                                <label className="text-sm font-medium mb-1 block">집합 장소</label>
-                                <Input
-                                  value={newProduct.meetingPoint}
-                                  onChange={(e) => setNewProduct(prev => ({ ...prev, meetingPoint: e.target.value }))}
-                                  placeholder="만날 장소를 입력하세요"
-                                />
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">주소 *</label>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                new (window as any).daum.Postcode({
+                                  oncomplete: function(data: any) {
+                                    const fullAddress = data.roadAddress || data.jibunAddress;
+                                    const kakao = (window as any).kakao;
+
+                                    if (kakao && kakao.maps) {
+                                      const geocoder = new kakao.maps.services.Geocoder();
+                                      geocoder.addressSearch(fullAddress, (result: any, status: any) => {
+                                        if (status === kakao.maps.services.Status.OK) {
+                                          setNewProduct(prev => ({
+                                            ...prev,
+                                            address: fullAddress,
+                                            location: `${data.sido} ${data.sigungu}`,
+                                            coordinates: `${result[0].y},${result[0].x}`
+                                          }));
+                                          toast.success('주소가 설정되었습니다.');
+                                        } else {
+                                          setNewProduct(prev => ({
+                                            ...prev,
+                                            address: fullAddress,
+                                            location: `${data.sido} ${data.sigungu}`,
+                                            coordinates: ''
+                                          }));
+                                          toast.warning('좌표를 가져올 수 없어 주소만 저장되었습니다.');
+                                        }
+                                      });
+                                    } else {
+                                      setNewProduct(prev => ({
+                                        ...prev,
+                                        address: fullAddress,
+                                        location: `${data.sido} ${data.sigungu}`,
+                                        coordinates: ''
+                                      }));
+                                      toast.warning('카카오맵 API를 불러올 수 없습니다.');
+                                    }
+                                  }
+                                }).open();
+                              }}
+                              className="w-full justify-start text-left"
+                            >
+                              <MapPin className="h-4 w-4 mr-2" />
+                              {newProduct.address || '주소 검색하기'}
+                            </Button>
+                            {newProduct.address && (
+                              <div className="text-sm text-gray-600 pl-2 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">주소:</span>
+                                  <span>{newProduct.address}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">지역:</span>
+                                  <span>{newProduct.location}</span>
+                                </div>
+                                {newProduct.coordinates && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">좌표:</span>
+                                    <span className="text-xs">{newProduct.coordinates}</span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
