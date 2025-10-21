@@ -2346,42 +2346,23 @@ export const api = {
     // 파트너 신청 관리 (HTTP API)
     getPartnerApplications: async (filters?: any): Promise<ApiResponse<PartnerApplication[]>> => {
       try {
-        console.log('📡 Fetching partner applications from DB...');
+        console.log('📡 Fetching partner applications via HTTP API...');
 
-        // partners 테이블에서 status='pending'인 신청 조회
-        const applications = await db.query(`
-          SELECT
-            id,
-            business_name,
-            contact_name,
-            email,
-            phone,
-            business_number,
-            address as business_address,
-            location,
-            description,
-            services,
-            website,
-            instagram,
-            '' as facebook,
-            '' as expected_revenue,
-            0 as years_in_business,
-            status,
-            '' as admin_notes,
-            NULL as reviewed_by,
-            NULL as reviewed_at,
-            created_at,
-            updated_at
-          FROM partners
-          WHERE status = 'pending'
-          ORDER BY created_at DESC
-        `);
+        const response = await fetch(`${API_BASE_URL}/api/admin/partners/applications`, {
+          headers: getAuthHeaders()
+        });
 
-        console.log(`✅ 파트너 신청 ${applications.length}개 로드 완료`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        console.log(`✅ 파트너 신청 ${result.data?.length || 0}개 로드 완료`);
 
         return {
           success: true,
-          data: applications || []
+          data: result.data || []
         };
       } catch (error) {
         console.error('❌ Failed to fetch partner applications:', error);
