@@ -1056,6 +1056,103 @@ function setupRoutes() {
   // ===== 리뷰 API =====
 
   // 최근 리뷰 조회
+  // 특정 상품의 리뷰 조회
+  app.get('/api/reviews', async (req, res) => {
+    try {
+      const listingId = req.query.listing_id as string;
+      const { db } = await import('./utils/database.js');
+
+      let query = `
+        SELECT r.*, u.name as user_name, u.email as user_email
+        FROM reviews r
+        LEFT JOIN users u ON r.user_id = u.id
+      `;
+
+      const params: any[] = [];
+
+      if (listingId) {
+        query += ' WHERE r.listing_id = ?';
+        params.push(parseInt(listingId));
+      }
+
+      query += ' ORDER BY r.created_at DESC';
+
+      const reviews = await db.query(query, params);
+
+      res.json({
+        success: true,
+        data: reviews || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get reviews error:', error);
+      res.status(500).json({ success: false, message: '리뷰 조회 실패', data: [] });
+    }
+  });
+
+  // 리뷰 작성
+  app.post('/api/reviews', async (req, res) => {
+    try {
+      const { listing_id, user_id, rating, title, content, review_type = 'listing' } = req.body;
+      const { db } = await import('./utils/database.js');
+
+      // 필수 필드 검증
+      if (!listing_id || !user_id || !rating || !content) {
+        return res.status(400).json({
+          success: false,
+          error: '필수 정보가 누락되었습니다'
+        });
+      }
+
+      // 평점 범위 검증
+      if (rating < 1 || rating > 5) {
+        return res.status(400).json({
+          success: false,
+          error: '평점은 1-5 사이여야 합니다'
+        });
+      }
+
+      // 리뷰 생성
+      const result = await db.insert('reviews', {
+        listing_id,
+        user_id,
+        rating,
+        title: title || '',
+        comment_md: content,
+        review_type,
+        is_verified: true,
+        created_at: new Date()
+      });
+
+      // 상품의 평균 평점과 리뷰 개수 업데이트
+      const stats = await db.query(`
+        SELECT
+          COUNT(*) as review_count,
+          COALESCE(AVG(rating), 0) as avg_rating
+        FROM reviews
+        WHERE listing_id = ?
+      `, [listing_id]);
+
+      if (stats && stats.length > 0) {
+        await db.update('listings', listing_id, {
+          rating_avg: stats[0].avg_rating,
+          rating_count: stats[0].review_count
+        });
+      }
+
+      res.json({
+        success: true,
+        data: result,
+        message: '리뷰가 성공적으로 등록되었습니다'
+      });
+    } catch (error) {
+      console.error('❌ [API] Create review error:', error);
+      res.status(500).json({
+        success: false,
+        error: '리뷰 생성에 실패했습니다'
+      });
+    }
+  });
+
   app.get('/api/reviews/recent', async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 4;
