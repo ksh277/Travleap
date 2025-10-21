@@ -1,15 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { MapPin, Phone, Mail, Users, Target, Award } from 'lucide-react';
 
 export function AboutPage() {
+  const [bannerImage, setBannerImage] = useState<string>('https://images.unsplash.com/photo-1590523278191-995cbcda646b?w=1920&h=600&fit=crop&q=80');
+
+  useEffect(() => {
+    // 배너 이미지 로드
+    const loadBannerImage = async () => {
+      try {
+        const response = await fetch('/api/banners?page=about');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data?.image_url) {
+            setBannerImage(data.data.image_url);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load banner:', error);
+      }
+    };
+    loadBannerImage();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 히어로 섹션 */}
-      <div className="relative bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-        <div className="container mx-auto px-4 py-20">
-          <div className="max-w-4xl">
+      <div className="relative h-[500px] overflow-hidden">
+        {/* 배경 이미지 */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${bannerImage})` }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-900/80 to-blue-900/60"></div>
+        </div>
+
+        {/* 컨텐츠 */}
+        <div className="relative container mx-auto px-4 h-full flex items-center">
+          <div className="max-w-4xl text-white">
             <h1 className="text-5xl font-bold mb-6">트래블립 (TRAVLEAP)</h1>
             <p className="text-xl mb-8 leading-relaxed">
               신안의 아름다운 자연과 문화를 전 세계에 알리는 여행 플랫폼 기업입니다.

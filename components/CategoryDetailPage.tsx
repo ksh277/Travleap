@@ -310,8 +310,8 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
         ) : filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map((item) => (
-              <Card key={item.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/detail/${item.id}`)}>
-                <div className="relative">
+              <Card key={item.id} className="hover:shadow-lg transition-shadow cursor-pointer h-[420px] flex flex-col" onClick={() => navigate(`/detail/${item.id}`)}>
+                <div className="relative flex-shrink-0">
                   <img
                     src={item.images?.[0] || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop'}
                     alt={item.title}
@@ -330,32 +330,34 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
                     <Heart className="h-4 w-4" />
                   </Button>
                 </div>
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-lg mb-2 line-clamp-1">{item.title}</h3>
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-                    {item.short_description || '상세 정보를 확인해보세요.'}
-                  </p>
+                <CardContent className="p-4 flex flex-col flex-1 justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2 line-clamp-1">{item.title}</h3>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                      {item.short_description || '상세 정보를 확인해보세요.'}
+                    </p>
 
-                  <div className="flex items-center text-sm text-gray-500 mb-2">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {item.location || '위치 정보 없음'}
-                    {item.location && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="ml-2 h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location + ' 신안군')}`;
-                          window.open(mapUrl, '_blank');
-                        }}
-                      >
-                        지도보기
-                      </Button>
-                    )}
+                    <div className="flex items-center text-sm text-gray-500 mb-2">
+                      <MapPin className="h-4 w-4 mr-1" />
+                      <span className="line-clamp-1">{item.location || '위치 정보 없음'}</span>
+                      {item.location && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="ml-2 h-6 px-2 text-xs text-blue-600 hover:text-blue-800 flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location + ' 신안군')}`;
+                            window.open(mapUrl, '_blank');
+                          }}
+                        >
+                          지도보기
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mt-auto pt-2">
                     <div className="flex items-center">
                       <Star className="h-4 w-4 text-yellow-400 mr-1" />
                       <span className="text-sm font-medium">{item.rating_avg || 0}</span>

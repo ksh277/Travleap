@@ -726,25 +726,25 @@ export function PartnerPage() {
             {/* 업체 리스트 - 그리드 형태 (3행 2열) */}
             <div className="grid grid-cols-2 gap-4">
               {currentPartners.map((partner) => (
-                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handlePartnerClick(partner)}>
-                  <div className="flex flex-col">
-                    {/* 이미지 */}
-                    <div className="relative w-full h-48">
-                      <img
-                        src={partner.image}
-                        alt={partner.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Heart className="h-4 w-4 text-gray-600" />
-                      </button>
-                    </div>
+                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[420px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
+                  {/* 이미지 */}
+                  <div className="relative w-full h-48 flex-shrink-0">
+                    <img
+                      src={partner.image}
+                      alt={partner.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Heart className="h-4 w-4 text-gray-600" />
+                    </button>
+                  </div>
 
-                    {/* 정보 */}
-                    <CardContent className="p-4">
+                  {/* 정보 */}
+                  <CardContent className="p-4 flex flex-col flex-1 justify-between">
+                    <div>
                       <div className="flex items-start gap-2 mb-2">
                         <h3 className="font-semibold text-base flex-1 line-clamp-1">{partner.name}</h3>
                         <Badge variant="outline" className="text-xs flex-shrink-0">
@@ -767,24 +767,24 @@ export function PartnerPage() {
                       )}
 
                       <p className="text-xs text-gray-600 mb-3 line-clamp-2">{partner.description}</p>
+                    </div>
 
-                      <div className="flex items-center justify-between">
-                        <div className="text-base font-bold text-[#ff6a3d]">
-                          {partner.price}
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/partners/${partner.id}`);
-                          }}
-                          className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4"
-                        >
-                          상세보기
-                        </Button>
+                    <div className="flex items-center justify-between mt-auto pt-2">
+                      <div className="text-base font-bold text-[#ff6a3d]">
+                        {partner.price}
                       </div>
-                    </CardContent>
-                  </div>
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/partners/${partner.id}`);
+                        }}
+                        className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4"
+                      >
+                        상세보기
+                      </Button>
+                    </div>
+                  </CardContent>
                 </Card>
               ))}
             </div>

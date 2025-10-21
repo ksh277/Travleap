@@ -10,6 +10,7 @@ import { ImageUploadComponent } from './ImageUploadComponent';
 
 interface Banner {
   id?: number;
+  page?: string;
   image_url: string;
   title?: string;
   link_url?: string;
@@ -20,7 +21,10 @@ interface Banner {
 }
 
 export function BannerManagement() {
+  const [activeTab, setActiveTab] = useState<'home' | 'page'>('home');
+  const [selectedPage, setSelectedPage] = useState<string>('about');
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [pageBanner, setPageBanner] = useState<Banner | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -36,13 +40,23 @@ export function BannerManagement() {
   const loadBanners = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/banners');
-      const data = await response.json();
+      if (activeTab === 'home') {
+        const response = await fetch('/api/admin/banners');
+        const data = await response.json();
 
-      if (data.success && data.banners) {
-        setBanners(data.banners);
+        if (data.success && data.banners) {
+          setBanners(data.banners);
+        } else {
+          toast.error('배너 목록을 불러오지 못했습니다.');
+        }
       } else {
-        toast.error('배너 목록을 불러오지 못했습니다.');
+        // 페이지별 배너 로드
+        const response = await fetch(`/api/banners?page=${selectedPage}`);
+        const data = await response.json();
+
+        if (data.success) {
+          setPageBanner(data.data);
+        }
       }
     } catch (error) {
       console.error('배너 로드 실패:', error);
@@ -54,7 +68,7 @@ export function BannerManagement() {
 
   useEffect(() => {
     loadBanners();
-  }, []);
+  }, [activeTab, selectedPage]);
 
   // 폼 초기화
   const resetForm = () => {
@@ -190,15 +204,87 @@ export function BannerManagement() {
     setFormData({ ...formData, image_url: url });
   };
 
+  // 페이지 배너 저장
+  const handleSavePageBanner = async () => {
+    if (!formData.image_url.trim()) {
+      toast.error('배너 이미지를 선택해주세요.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/banners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          page: selectedPage,
+          image_url: formData.image_url,
+          title: formData.title,
+          link_url: formData.link_url
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message || '배너가 저장되었습니다.');
+        await loadBanners();
+        resetForm();
+      } else {
+        toast.error(data.message || '배너 저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('배너 저장 실패:', error);
+      toast.error('배너 저장 중 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* 탭 선택 */}
+      <div className="flex gap-2">
+        <Button
+          variant={activeTab === 'home' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('home')}
+        >
+          홈페이지 배너
+        </Button>
+        <Button
+          variant={activeTab === 'page' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('page')}
+        >
+          페이지별 배너
+        </Button>
+      </div>
+
+      {activeTab === 'page' && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>페이지 선택</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Button
+                variant={selectedPage === 'about' ? 'default' : 'outline'}
+                onClick={() => setSelectedPage('about')}
+              >
+                회사소개 (About)
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>홈페이지 배너 관리</CardTitle>
+            <CardTitle>
+              {activeTab === 'home' ? '홈페이지 배너 관리' : `${selectedPage} 페이지 배너`}
+            </CardTitle>
             <Button onClick={handleAddNew} className="gap-2">
               <Plus className="h-4 w-4" />
-              새 배너 추가
+              {activeTab === 'page' && pageBanner ? '배너 수정' : '새 배너 추가'}
             </Button>
           </div>
         </CardHeader>
@@ -208,6 +294,46 @@ export function BannerManagement() {
             <div className="text-center py-8 text-gray-500">
               배너 목록을 불러오는 중...
             </div>
+          ) : activeTab === 'page' ? (
+            // 페이지별 배너 표시
+            pageBanner ? (
+              <Card className="overflow-hidden">
+                <div className="flex items-center gap-4 p-4">
+                  <div className="w-48 h-32 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                    <img
+                      src={pageBanner.image_url}
+                      alt={pageBanner.title || '배너'}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg mb-1">
+                      {pageBanner.title || '(제목 없음)'}
+                    </h3>
+                    <p className="text-sm text-gray-600 truncate">
+                      {pageBanner.image_url}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setFormData({
+                        ...pageBanner,
+                        page: selectedPage
+                      });
+                      setShowForm(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    수정
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                등록된 배너가 없습니다. 새 배너를 추가해보세요.
+              </div>
+            )
           ) : banners.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               등록된 배너가 없습니다. 새 배너를 추가해보세요.
@@ -367,8 +493,11 @@ export function BannerManagement() {
 
             {/* 버튼들 */}
             <div className="flex gap-2">
-              <Button onClick={handleSave} className="flex-1">
-                {editingBanner ? '수정 완료' : '배너 추가'}
+              <Button
+                onClick={activeTab === 'page' ? handleSavePageBanner : handleSave}
+                className="flex-1"
+              >
+                {editingBanner || (activeTab === 'page' && pageBanner) ? '수정 완료' : '배너 추가'}
               </Button>
               <Button onClick={resetForm} variant="outline" className="flex-1">
                 취소

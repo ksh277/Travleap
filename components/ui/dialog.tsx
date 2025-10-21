@@ -96,35 +96,10 @@ export const DialogContent: React.FC<{
 
   useEffect(() => {
     if (isOpen) {
-      // 원래 overflow 값을 저장
-      const originalOverflow = document.body.style.overflow;
-      const originalPaddingRight = document.body.style.paddingRight;
-
-      // 스크롤바 너비 계산
-      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-
       document.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
-
-      // 스크롤바가 사라지면서 레이아웃이 밀리는 것 방지
-      if (scrollbarWidth > 0) {
-        document.body.style.paddingRight = `${scrollbarWidth}px`;
-      }
 
       return () => {
         document.removeEventListener('keydown', handleKeyDown);
-
-        // 원래 값으로 복원
-        document.body.style.overflow = originalOverflow;
-        document.body.style.paddingRight = originalPaddingRight;
-
-        // 스타일 속성이 비어있으면 제거
-        if (!originalOverflow) {
-          document.body.style.removeProperty('overflow');
-        }
-        if (!originalPaddingRight) {
-          document.body.style.removeProperty('padding-right');
-        }
       };
     }
   }, [isOpen]);
@@ -137,11 +112,13 @@ export const DialogContent: React.FC<{
         zIndex: '9999999',
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
         animation: 'fadeIn 0.2s ease-out',
-        overflow: 'auto',
-        padding: '20px',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        padding: '40px 20px',
+        pointerEvents: 'auto',
       }}
       onClick={handleOverlayClick}
     >
@@ -154,10 +131,12 @@ export const DialogContent: React.FC<{
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           outline: 'none',
           maxWidth: '90vw',
-          maxHeight: '90vh',
-          overflow: 'auto',
+          maxHeight: 'none',
+          overflow: 'visible',
           animation: 'scaleIn 0.2s ease-out',
-          margin: 'auto',
+          width: '100%',
+          marginBottom: '40px',
+          pointerEvents: 'auto',
         }}
         className={className}
         onClick={(e) => e.stopPropagation()}
