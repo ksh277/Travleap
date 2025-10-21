@@ -2149,11 +2149,8 @@ export function AdminPage({}: AdminPageProps) {
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
             </TabsList>
-            <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full">
+            <TabsList className="grid grid-cols-4 md:grid-cols-4 w-full">
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
-              <TabsTrigger value="blog-comments" className="text-xs md:text-sm">댓글 관리</TabsTrigger>
-              <TabsTrigger value="media" className="text-xs md:text-sm">미디어 라이브러리</TabsTrigger>
-              <TabsTrigger value="pagemedia" className="text-xs md:text-sm">페이지 미디어</TabsTrigger>
               <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
               <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
               <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
@@ -2963,8 +2960,8 @@ export function AdminPage({}: AdminPageProps) {
           </TabsContent>
 
 
-          {/* 미디어 라이브러리 탭 */}
-          <TabsContent value="media" className="space-y-6">
+          {/* 미디어 라이브러리 탭 - 배너 관리로 통합되어 제거됨 */}
+          {false && <TabsContent value="media" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>미디어 라이브러리</CardTitle>
@@ -3028,7 +3025,7 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent>}
 
           {/* 기존 images 탭 내용 주석처리 */}
           {false && (
@@ -4046,10 +4043,10 @@ export function AdminPage({}: AdminPageProps) {
           </TabsContent>
 
           {/* 문의 관리 탭 */}
-          {/* 페이지 미디어 관리 탭 */}
-          <TabsContent value="pagemedia" className="space-y-6">
+          {/* 페이지 미디어 관리 탭 - 배너 관리로 통합되어 제거됨 */}
+          {false && <TabsContent value="pagemedia" className="space-y-6">
             <MediaManagement />
-          </TabsContent>
+          </TabsContent>}
 
           <TabsContent value="contacts" className="space-y-6">
             <Card>
@@ -4392,8 +4389,8 @@ export function AdminPage({}: AdminPageProps) {
             </Card>
           </TabsContent>
 
-          {/* 댓글 관리 탭 */}
-          <TabsContent value="blog-comments" className="space-y-6">
+          {/* 댓글 관리 탭 - 리뷰 관리로 통합되어 제거됨 */}
+          {false && <TabsContent value="blog-comments" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>댓글 관리</CardTitle>
@@ -4474,7 +4471,7 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent>}
         </Tabs>
       </div>
 
