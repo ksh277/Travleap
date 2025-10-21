@@ -1958,8 +1958,8 @@ function setupRoutes() {
         });
       }
 
-      // 필수 필드 검증
-      const requiredFields = ['businessName', 'contactName', 'email', 'phone', 'businessNumber'];
+      // 필수 필드 검증 (사업자번호는 선택사항)
+      const requiredFields = ['businessName', 'contactName', 'email', 'phone'];
       for (const field of requiredFields) {
         if (!applicationData[field]) {
           return res.status(400).json({
@@ -1988,18 +1988,19 @@ function setupRoutes() {
       await db.execute(`
         INSERT INTO partners (
           business_name, contact_name, email, phone, business_number,
-          address, location, description, services, website, instagram,
+          address, location, coordinates, description, services, website, instagram,
           status, tier, partner_type, is_verified, is_featured, user_id,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'bronze', 'general', 0, 0, 1, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'bronze', 'general', 0, 0, 1, NOW(), NOW())
       `, [
         applicationData.businessName,
         applicationData.contactName,
         applicationData.email,
         applicationData.phone,
-        applicationData.businessNumber,
+        applicationData.businessNumber || null,
         applicationData.address || null,
         applicationData.location || null,
+        applicationData.coordinates || null,
         applicationData.description || null,
         applicationData.services ? JSON.stringify(applicationData.services.split(',').map((s: string) => s.trim())) : null,
         applicationData.website || null,
