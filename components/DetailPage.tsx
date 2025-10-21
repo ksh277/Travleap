@@ -1449,7 +1449,11 @@ export function DetailPage() {
                           {getGoogleMapsApiKey() ? (
                             <>
                               <iframe
-                                src={`https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent((item.address || item.location) + ' 신안군')}&zoom=14&maptype=roadmap&language=ko`}
+                                src={
+                                  item.coordinates
+                                    ? `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${item.coordinates}&zoom=15&maptype=roadmap&language=ko`
+                                    : `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent((item.address || item.location) + ' 신안군')}&zoom=14&maptype=roadmap&language=ko`
+                                }
                                 className="w-full h-full border-0"
                                 allowFullScreen
                                 loading="lazy"
@@ -1465,7 +1469,8 @@ export function DetailPage() {
                                   size="sm"
                                   className="bg-white/90 text-gray-700 hover:bg-white shadow-lg"
                                   onClick={() => {
-                                    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location + ' 신안군')}`;
+                                    const query = item.coordinates || encodeURIComponent(item.location + ' 신안군');
+                                    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
                                     window.open(mapUrl, '_blank');
                                   }}
                                 >
@@ -1477,7 +1482,8 @@ export function DetailPage() {
                                   variant="outline"
                                   className="bg-white/90 hover:bg-white shadow-lg"
                                   onClick={() => {
-                                    const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(item.location + ' 신안군')}`;
+                                    const destination = item.coordinates || encodeURIComponent(item.location + ' 신안군');
+                                    const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
                                     window.open(directionsUrl, '_blank');
                                   }}
                                 >
