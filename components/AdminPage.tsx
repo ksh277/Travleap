@@ -2207,15 +2207,15 @@ export function AdminPage({}: AdminPageProps) {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">신규 가입</CardTitle>
+                  <CardTitle className="text-sm font-medium">회원 수</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    +{dashboardStats?.new_users_today || 0}
+                    {dashboardStats?.total_users || 0}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    오늘 가입
+                    전체 회원
                   </p>
                 </CardContent>
               </Card>
