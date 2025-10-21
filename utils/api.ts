@@ -745,28 +745,24 @@ export const api = {
     offset?: number;
   }): Promise<ApiResponse<any[]>> => {
     try {
-      let sql = 'SELECT * FROM contacts WHERE 1=1';
-      const params: any[] = [];
+      let url = `${API_BASE_URL}/api/contacts`;
+      const params = new URLSearchParams();
 
       if (filters?.status) {
-        sql += ' AND status = ?';
-        params.push(filters.status);
+        params.append('status', filters.status);
       }
 
-      sql += ' ORDER BY created_at DESC';
-
-      if (filters?.limit) {
-        sql += ` LIMIT ${filters.limit}`;
-        if (filters?.offset) {
-          sql += ` OFFSET ${filters.offset}`;
-        }
+      if (params.toString()) {
+        url += `?${params.toString()}`;
       }
 
-      const contacts = await db.query(sql, params);
-      return {
-        success: true,
-        data: contacts
-      };
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result;
     } catch (error) {
       console.error('Failed to fetch contacts:', error);
       return {
@@ -2044,41 +2040,22 @@ export const api = {
     // 예약 관리
     getBookings: async (filters?: AdminBookingFilters): Promise<PaginatedResponse<Booking>> => {
       try {
-        let sql = `
-          SELECT b.*, l.title as listing_title, u.name as user_name, u.email as user_email
-          FROM bookings b
-          LEFT JOIN listings l ON b.listing_id = l.id
-          LEFT JOIN users u ON b.user_id = u.id
-          WHERE 1=1
-        `;
-        const params: any[] = [];
-
-        if (filters?.status && filters.status.length > 0) {
-          sql += ` AND b.status IN (${filters.status.map(() => '?').join(',')})`;
-          params.push(...filters.status);
+        const response = await fetch(`${API_BASE_URL}/api/orders`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        if (filters?.payment_status && filters.payment_status.length > 0) {
-          sql += ` AND b.payment_status IN (${filters.payment_status.map(() => '?').join(',')})`;
-          params.push(...filters.payment_status);
-        }
+        const result = await response.json();
+        const data = result.success ? result.orders || [] : [];
 
-        if (filters?.booking_number) {
-          sql += ' AND b.booking_number LIKE ?';
-          params.push(`%${filters.booking_number}%`);
-        }
-
-        sql += ' ORDER BY b.created_at DESC';
-
-        const response = await db.query(sql, params);
         return {
           success: true,
-          data: response || [],
+          data: data,
           pagination: {
             page: filters?.page || 1,
             limit: filters?.limit || 20,
-            total: (response || []).length,
-            total_pages: Math.ceil((response || []).length / (filters?.limit || 20))
+            total: data.length,
+            total_pages: Math.ceil(data.length / (filters?.limit || 20))
           }
         };
       } catch (error) {
@@ -3321,26 +3298,13 @@ export const api = {
     // 이미지 관리
     getImages: async (filters?: any): Promise<ApiResponse<any[]>> => {
       try {
-        let sql = 'SELECT * FROM images WHERE 1=1';
-        const params: any[] = [];
-
-        if (filters?.entity_type) {
-          sql += ' AND entity_type = ?';
-          params.push(filters.entity_type);
+        const response = await fetch(`${API_BASE_URL}/api/images`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        if (filters?.entity_id) {
-          sql += ' AND entity_id = ?';
-          params.push(filters.entity_id);
-        }
-
-        sql += ' ORDER BY created_at DESC';
-
-        const images = await db.query(sql, params);
-        return {
-          success: true,
-          data: images || []
-        };
+        const result = await response.json();
+        return result;
       } catch (error) {
         console.error('Failed to fetch images:', error);
         return {
