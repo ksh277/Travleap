@@ -1606,44 +1606,6 @@ export function DetailPage() {
                   </CardContent>
                 </Card>
 
-                {/* Review List */}
-                <div className="space-y-4">
-                  {reviews.map(review => (
-                    <Card key={review.id}>
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <div className="flex items-center space-x-2 mb-1">
-                              <span>{review.author}</span>
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star 
-                                    key={i} 
-                                    className={`h-3 w-3 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} 
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {formatDate(new Date(review.date))}
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-gray-500 hover:text-blue-600"
-                            onClick={() => handleMarkHelpful(review.id)}
-                          >
-                            <ThumbsUp className="h-4 w-4 mr-1" />
-                            도움됨 {review.helpful}
-                          </Button>
-                        </div>
-                        <p className="text-gray-700">{review.comment}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
                 {/* Write Review */}
                 <Card>
                   <CardHeader>
@@ -1662,8 +1624,8 @@ export function DetailPage() {
                             onClick={() => setNewReview(prev => ({ ...prev, rating }))}
                             className="p-1"
                           >
-                            <Star 
-                              className={`h-6 w-6 ${rating <= newReview.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} 
+                            <Star
+                              className={`h-6 w-6 ${rating <= newReview.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
                             />
                           </button>
                         ))}
@@ -1683,6 +1645,59 @@ export function DetailPage() {
                     </Button>
                   </CardContent>
                 </Card>
+
+                {/* Review List */}
+                <div className="space-y-4">
+                  {reviewsLoading ? (
+                    <div className="text-center py-8 text-gray-500">
+                      리뷰를 불러오는 중...
+                    </div>
+                  ) : reviews.length > 0 ? (
+                    reviews.map(review => (
+                      <Card key={review.id}>
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <span className="font-medium">{review.author}</span>
+                                <div className="flex items-center">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-3 w-3 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                                    />
+                                  ))}
+                                </div>
+                                {review.verified && (
+                                  <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded">인증됨</span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {formatDate(new Date(review.date))}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-500 hover:text-blue-600"
+                                onClick={() => handleMarkHelpful(review.id)}
+                              >
+                                <ThumbsUp className="h-4 w-4 mr-1" />
+                                도움됨 {review.helpful}
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-wrap">{review.comment}</p>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      아직 작성된 리뷰가 없습니다. 첫 번째 리뷰를 작성해보세요!
+                    </div>
+                  )}
+                </div>
               </TabsContent>
             </Tabs>
           </div>
