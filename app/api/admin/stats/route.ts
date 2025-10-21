@@ -78,20 +78,33 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
-        totalUsers: Number(totalUsers),
-        newSignups: Number(newSignups),
-        totalPartners: Number(totalPartners),
-        pendingPartners: Number(pendingPartners),
-        totalProducts: Number(totalProducts),
-        activeProducts: Number(activeProducts),
-        totalOrders: Number(totalOrders),
-        todayOrders: Number(todayOrders),
-        revenue: Number(revenue),
-        commission: Number(commission),
-        avgRating: Number(avgRating),
-        totalReviews: Number(totalReviews),
-        refunds: Number(refunds),
-        inquiries: Number(inquiries)
+        // 사용자 통계
+        total_users: Number(totalUsers),
+        new_users_today: Number(newSignups),
+
+        // 파트너 통계
+        total_partners: Number(totalPartners),
+        pending_partners: Number(pendingPartners),
+
+        // 상품 통계
+        total_listings: Number(totalProducts),
+        active_listings: Number(activeProducts),
+
+        // 주문 통계
+        total_bookings: Number(totalOrders),
+        bookings_today: Number(todayOrders),
+
+        // 매출 통계
+        total_revenue: Number(revenue),
+        commission_earned: Number(commission),
+
+        // 리뷰 통계
+        avg_rating: Number(avgRating),
+        total_reviews: Number(totalReviews),
+
+        // 시스템 상태
+        pending_refunds: Number(refunds),
+        support_tickets_open: Number(inquiries)
       }
     });
 
@@ -102,20 +115,20 @@ export async function GET() {
         success: false,
         error: 'Failed to fetch admin stats',
         data: {
-          totalUsers: 0,
-          newSignups: 0,
-          totalPartners: 0,
-          pendingPartners: 0,
-          totalProducts: 0,
-          activeProducts: 0,
-          totalOrders: 0,
-          todayOrders: 0,
-          revenue: 0,
-          commission: 0,
-          avgRating: 0,
-          totalReviews: 0,
-          refunds: 0,
-          inquiries: 0
+          total_users: 0,
+          new_users_today: 0,
+          total_partners: 0,
+          pending_partners: 0,
+          total_listings: 0,
+          active_listings: 0,
+          total_bookings: 0,
+          bookings_today: 0,
+          total_revenue: 0,
+          commission_earned: 0,
+          avg_rating: 0,
+          total_reviews: 0,
+          pending_refunds: 0,
+          support_tickets_open: 0
         }
       },
       { status: 500 }

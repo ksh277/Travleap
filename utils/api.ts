@@ -1169,34 +1169,36 @@ export const api = {
     images?: string[];
   }): Promise<ApiResponse<Review>> => {
     try {
-      const review = {
-        listing_id: reviewData.listing_id,
-        user_id: reviewData.user_id,
-        rating: reviewData.rating,
-        title: reviewData.title || '',
-        comment_md: reviewData.content, // comment 대신 comment_md 사용
-        is_verified: true, // 자동 승인
-        helpful_count: 0
-      };
-      const response = await db.insert('reviews', review);
+      const response = await fetch(`${API_BASE_URL}/api/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          listing_id: reviewData.listing_id,
+          user_id: reviewData.user_id,
+          rating: reviewData.rating,
+          title: reviewData.title || '',
+          content: reviewData.content,
+          review_type: 'listing'
+        }),
+      });
 
-      // 평점 자동 업데이트
-      await api.updateListingRating(reviewData.listing_id);
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
 
-      // 생성된 리뷰에 필요한 필드들 추가
-      const createdReview: Review = (response && typeof response === 'object' && 'listing_id' in response)
-        ? response as Review
-        : {
-            ...review,
-            id: Date.now(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          } as Review;
-      return {
-        success: true,
-        data: createdReview,
-        message: '리뷰가 작성되었습니다.'
-      };
+      const result = await response.json();
+
+      if (result.success) {
+        return {
+          success: true,
+          data: result.data as Review,
+          message: result.message || '리뷰가 작성되었습니다.'
+        };
+      } else {
+        throw new Error(result.error || '리뷰 작성에 실패했습니다');
+      }
     } catch (error) {
       console.error('Failed to create review:', error);
       return {
