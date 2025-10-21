@@ -140,6 +140,8 @@ export const DialogContent: React.FC<{
         alignItems: 'center',
         justifyContent: 'center',
         animation: 'fadeIn 0.2s ease-out',
+        overflow: 'auto',
+        padding: '20px',
       }}
       onClick={handleOverlayClick}
     >
@@ -155,8 +157,10 @@ export const DialogContent: React.FC<{
           maxHeight: '90vh',
           overflow: 'auto',
           animation: 'scaleIn 0.2s ease-out',
+          margin: 'auto',
         }}
         className={className}
+        onClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
