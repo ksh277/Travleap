@@ -1429,8 +1429,13 @@ export const api = {
   // 리뷰
   getReviews: async (listingId: number): Promise<Review[]> => {
     try {
-      const response = await db.select('reviews', { listing_id: listingId });
-      return response || [];
+      const response = await fetch(`${API_BASE_URL}/api/reviews?listing_id=${listingId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return result.success ? result.data || [] : [];
     } catch (error) {
       console.error('Failed to fetch reviews:', error);
       return [];

@@ -95,6 +95,24 @@ export async function POST(request: NextRequest) {
       [insertId]
     );
 
+    // 상품의 평균 평점과 리뷰 개수 업데이트
+    const statsResult = await conn.execute(
+      `SELECT
+        COUNT(*) as review_count,
+        COALESCE(AVG(rating), 0) as avg_rating
+       FROM reviews
+       WHERE listing_id = ?`,
+      [listing_id]
+    );
+
+    const stats = statsResult.rows[0];
+    await conn.execute(
+      `UPDATE listings
+       SET rating_avg = ?, rating_count = ?
+       WHERE id = ?`,
+      [stats.avg_rating, stats.review_count, listing_id]
+    );
+
     return NextResponse.json({
       success: true,
       data: reviewResult.rows[0],
