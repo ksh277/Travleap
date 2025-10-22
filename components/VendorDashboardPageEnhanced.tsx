@@ -191,17 +191,36 @@ export function VendorDashboardPageEnhanced() {
     try {
       setLoading(true);
 
-      // 1. 업체 정보 조회 API
-      const vendorResponse = await fetch(`/api/vendor/info?userId=${user.id}`);
+      // 1. 업체 정보 조회 API - 관리자 페이지와 동일한 /api/vendors 사용
+      const vendorResponse = await fetch(`/api/vendors`);
       const vendorData = await vendorResponse.json();
 
+      console.log('🔍 [DEBUG] API Response:', vendorData);
+      console.log('🔍 [DEBUG] User Email:', user.email);
+
       if (!vendorData.success || !vendorData.data) {
+        console.error('❌ API 응답 실패:', vendorData);
         toast.error('업체 정보를 찾을 수 없습니다.');
         navigate('/login');
         return;
       }
 
-      const vendor = vendorData.data;
+      console.log('🔍 [DEBUG] 전체 벤더 목록:', vendorData.data);
+      console.log('🔍 [DEBUG] 벤더 이메일들:', vendorData.data.map((v: any) => v.contact_email));
+
+      // 현재 로그인한 사용자의 이메일로 벤더 찾기
+      const vendor = vendorData.data.find((v: any) => v.contact_email === user.email);
+
+      console.log('🔍 [DEBUG] 매칭된 벤더:', vendor);
+
+      if (!vendor) {
+        console.error('❌ 벤더를 찾을 수 없습니다. User email:', user.email);
+        toast.error(`해당 이메일(${user.email})의 업체 정보를 찾을 수 없습니다.`);
+        navigate('/login');
+        return;
+      }
+
+      console.log('✅ 벤더 정보 설정:', vendor);
       setVendorInfo(vendor);
 
       // 2. 차량 목록 조회 API
