@@ -2923,7 +2923,7 @@ export const api = {
     // 리뷰 수정
     updateReview: async (reviewId: number, userId: number, reviewData: { rating?: number, title?: string, comment_md?: string }): Promise<ApiResponse<Review>> => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/reviews/${reviewId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/reviews/edit/${reviewId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -2957,7 +2957,7 @@ export const api = {
     // 리뷰 삭제
     deleteReview: async (reviewId: number, userId: number): Promise<ApiResponse<null>> => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/reviews/${reviewId}?user_id=${userId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/reviews/edit/${reviewId}?user_id=${userId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
