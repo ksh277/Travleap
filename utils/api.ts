@@ -2954,10 +2954,10 @@ export const api = {
       }
     },
 
-    // 리뷰 삭제
-    deleteReview: async (reviewId: number, userId: number): Promise<ApiResponse<null>> => {
+    // 리뷰 삭제 (관리자 - 권한 체크 없이 삭제)
+    deleteReview: async (reviewId: number): Promise<ApiResponse<null>> => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/reviews/edit/${reviewId}?user_id=${userId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/admin/reviews/${reviewId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
