@@ -149,6 +149,7 @@ export function VendorDashboardPageEnhanced() {
   // 업체 정보 수정
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [editedInfo, setEditedInfo] = useState<Partial<VendorInfo>>({});
+  const [newPassword, setNewPassword] = useState('');
 
   // 차량 추가/수정
   const [isAddingVehicle, setIsAddingVehicle] = useState(false);
@@ -227,7 +228,7 @@ export function VendorDashboardPageEnhanced() {
       console.log('🔍 [DEBUG] Vendor ID:', vendorId);
 
       // 2. 차량 목록 조회 API - vendorId 사용
-      const vehiclesResponse = await fetch(`/api/vendor/rentcar/vehicles?vendorId=${vendorId}`);
+      const vehiclesResponse = await fetch(`/api/vendor/vehicles?vendorId=${vendorId}`);
       const vehiclesData = await vehiclesResponse.json();
 
       console.log('🔍 [DEBUG] 차량 API 응답:', vehiclesData);
@@ -694,51 +695,57 @@ export function VendorDashboardPageEnhanced() {
   const handleCancelEdit = () => {
     setIsEditingInfo(false);
     setEditedInfo({});
+    setNewPassword('');
   };
 
   const handleSaveInfo = async () => {
-    if (!vendorInfo?.id || !user?.id) return;
+    if (!vendorInfo?.id) return;
 
     try {
-      // PUT API로 업체 정보 수정
-      const response = await fetch('/api/vendor/info', {
+      // PUT API로 업체 정보 수정 (/api/vendors 사용)
+      const response = await fetch('/api/vendors', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user.id.toString()
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          userId: user.id,
+          id: vendorInfo.id,
           name: editedInfo.name,
-          contact_person: editedInfo.contact_person,
           contact_email: editedInfo.contact_email,
           contact_phone: editedInfo.contact_phone,
           address: editedInfo.address,
           description: editedInfo.description,
-          logo_url: editedInfo.logo_url,
-          cancellation_policy: editedInfo.cancellation_policy
+          old_email: vendorInfo.contact_email, // 이전 이메일 (Neon DB 업데이트용)
+          new_password: newPassword || undefined // 비밀번호가 입력되었을 때만
         })
       });
 
       const result = await response.json();
       if (result.success) {
+        // 업체 정보 업데이트
         setVendorInfo({
           ...vendorInfo,
           name: editedInfo.name!,
-          contact_person: editedInfo.contact_person!,
           contact_email: editedInfo.contact_email!,
           contact_phone: editedInfo.contact_phone!,
           address: editedInfo.address!,
-          description: editedInfo.description,
-          logo_url: editedInfo.logo_url,
-          cancellation_policy: editedInfo.cancellation_policy
+          description: editedInfo.description
         });
 
         setIsEditingInfo(false);
         setEditedInfo({});
-        toast.success('업체 정보가 수정되었습니다!');
+        setNewPassword('');
+        toast.success('업체 정보가 수정되었습니다!' + (newPassword ? ' 비밀번호도 변경되었습니다.' : ''));
+
+        // 이메일이 변경되었으면 다시 로그인 필요
+        if (vendorInfo.contact_email !== editedInfo.contact_email) {
+          toast.info('이메일이 변경되었습니다. 다시 로그인해주세요.');
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        }
       } else {
-        toast.error(result.message || '정보 수정에 실패했습니다.');
+        toast.error(result.error || '정보 수정에 실패했습니다.');
       }
     } catch (error) {
       console.error('정보 수정 실패:', error);
@@ -1509,12 +1516,33 @@ export function VendorDashboardPageEnhanced() {
                   />
                 </div>
                 <div>
-                  <Label>이메일</Label>
+                  <Label>이메일 (로그인 계정)</Label>
                   <Input
+                    type="email"
                     value={isEditingInfo ? (editedInfo.contact_email || '') : vendorInfo.contact_email}
                     onChange={(e) => setEditedInfo({ ...editedInfo, contact_email: e.target.value })}
                     disabled={!isEditingInfo}
                   />
+                  {isEditingInfo && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      * 이메일 변경 시 다시 로그인해야 합니다
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label>새 비밀번호 (변경 시에만 입력)</Label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={!isEditingInfo}
+                    placeholder={isEditingInfo ? "변경할 비밀번호 입력" : ""}
+                  />
+                  {isEditingInfo && newPassword && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ 저장 시 비밀번호가 변경됩니다
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label>전화번호</Label>
