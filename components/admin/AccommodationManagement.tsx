@@ -154,6 +154,87 @@ export const AccommodationManagement: React.FC = () => {
     }
   };
 
+  const handleUpdateVendorStatus = async (vendorId: number, newStatus: string) => {
+    try {
+      const response = await fetch(`/api/admin/accommodation-vendors/${vendorId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('업체 상태가 변경되었습니다.');
+        loadPartners();
+      } else {
+        toast.error(result.error || '상태 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to update vendor status:', error);
+      toast.error('상태 변경 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleToggleRoomActive = async (roomId: number, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/rooms/${roomId}/toggle-active`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(currentStatus ? '객실이 비활성화되었습니다.' : '객실이 활성화되었습니다.');
+        if (selectedPartnerId) {
+          loadRooms(selectedPartnerId);
+        }
+      } else {
+        toast.error(result.error || '상태 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to toggle room status:', error);
+      toast.error('상태 변경 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handlePmsSync = async (vendorId: number, vendorName: string) => {
+    const confirmMessage = `"${vendorName}" 업체의 PMS에서 객실 데이터를 동기화하시겠습니까?\n\n이 작업은 업체의 PMS 서버에서 객실 목록과 예약 정보를 가져와 자동으로 등록/업데이트합니다.`;
+
+    if (!confirm(confirmMessage)) return;
+
+    const loadingToast = toast.loading('PMS에서 데이터를 가져오는 중...');
+
+    try {
+      const response = await fetch(`/api/admin/accommodation/sync/${vendorId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      toast.dismiss(loadingToast);
+
+      if (data.success) {
+        toast.success(data.message || 'PMS 동기화가 완료되었습니다.');
+        if (data.data?.errors && data.data.errors.length > 0) {
+          console.warn('일부 객실 동기화 실패:', data.data.errors);
+        }
+        loadPartners();
+        if (selectedPartnerId) {
+          loadRooms(selectedPartnerId);
+        }
+      } else {
+        toast.error(data.message || 'PMS 동기화에 실패했습니다.');
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error('PMS 동기화 중 오류가 발생했습니다.');
+      console.error('PMS sync error:', error);
+    }
+  };
+
   const deletePartner = async (partnerId: number, businessName: string) => {
     if (!confirm(`정말로 "${businessName}" 업체를 삭제하시겠습니까?\n\n관련된 모든 객실 데이터도 함께 삭제됩니다.`)) {
       return;
@@ -643,12 +724,33 @@ export const AccommodationManagement: React.FC = () => {
                         </TableCell>
                         <TableCell>{partner.total_reviews || 0}</TableCell>
                         <TableCell>
-                          <Badge className={partner.is_verified ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                            {partner.is_verified ? '승인' : '대기'}
-                          </Badge>
+                          <Select
+                            value={partner.status || 'pending'}
+                            onValueChange={(value) => handleUpdateVendorStatus(partner.id || partner.partner_id, value)}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">대기</SelectItem>
+                              <SelectItem value="active">활성</SelectItem>
+                              <SelectItem value="suspended">정지</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
+                            {partner.pms_provider && partner.pms_api_key && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePmsSync(partner.id || partner.partner_id, partner.business_name)}
+                                title="PMS 동기화"
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -806,9 +908,14 @@ export const AccommodationManagement: React.FC = () => {
                               )}
                             </TableCell>
                             <TableCell>
-                              <Badge className={room.is_available ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                                {room.is_available ? '사용 가능' : '사용 불가'}
-                              </Badge>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleRoomActive(room.id, room.is_available || room.is_active)}
+                                className={room.is_available || room.is_active ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'}
+                              >
+                                {room.is_available || room.is_active ? '활성' : '비활성'}
+                              </Button>
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-2">
