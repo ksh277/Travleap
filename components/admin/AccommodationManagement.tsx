@@ -61,6 +61,7 @@ export const AccommodationManagement: React.FC = () => {
   const [bookingCurrentPage, setBookingCurrentPage] = useState(1);
   const [bookingItemsPerPage] = useState(10);
 
+  const [selectedVendor, setSelectedVendor] = useState<any | null>(null);
   const [newPartnerForm, setNewPartnerForm] = useState({
     business_name: '',
     contact_name: '',

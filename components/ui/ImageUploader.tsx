@@ -1,6 +1,6 @@
 /**
  * 이미지 업로드 컴포넌트
- * Cloudinary를 사용한 이미지 업로드
+ * Vercel Blob을 사용한 이미지 업로드
  */
 
 import React, { useState, useRef } from 'react';
@@ -13,13 +13,15 @@ interface ImageUploaderProps {
   onImagesChange: (images: string[]) => void;
   maxImages?: number;
   label?: string;
+  category?: string;
 }
 
 export function ImageUploader({
   images,
   onImagesChange,
   maxImages = 5,
-  label = "이미지 업로드"
+  label = "이미지 업로드",
+  category = "rentcar"
 }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -43,32 +45,32 @@ export function ImageUploader({
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-        // 파일 크기 체크 (5MB)
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error(`${file.name}은(는) 5MB를 초과합니다`);
+        // 파일 크기 체크 (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name}은(는) 10MB를 초과합니다`);
           continue;
         }
 
-        // Cloudinary unsigned upload
+        // FormData로 파일 전송
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('upload_preset', process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'travleap_preset');
+        formData.append('category', category);
 
-        const response = await fetch(
-          `https://api.cloudinary.com/v1_1/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'your_cloud_name'}/image/upload`,
-          {
-            method: 'POST',
-            body: formData
-          }
-        );
+        const response = await fetch('/api/upload-image', {
+          method: 'POST',
+          body: formData
+        });
 
         if (response.ok) {
           const data = await response.json();
-          uploadedUrls.push(data.secure_url);
-          setUploadProgress(((i + 1) / files.length) * 100);
+          if (data.success && data.url) {
+            uploadedUrls.push(data.url);
+          }
         } else {
           toast.error(`${file.name} 업로드 실패`);
         }
+
+        setUploadProgress(((i + 1) / files.length) * 100);
       }
 
       if (uploadedUrls.length > 0) {
@@ -155,7 +157,7 @@ export function ImageUploader({
                 클릭하거나 이미지를 드래그하여 업로드
               </p>
               <p className="text-xs text-gray-500">
-                최대 {maxImages}개, 각 5MB 이하 (JPG, PNG, GIF)
+                최대 {maxImages}개, 각 10MB 이하 (JPG, PNG, WebP, GIF)
               </p>
             </div>
           )}
