@@ -1249,13 +1249,22 @@ export const api = {
     }
   },
 
-  // 사용자 관리
+  // 사용자 관리 (Neon DB)
   getUsers: async (): Promise<User[]> => {
     try {
-      const response = await db.select('users');
-      return response || [];
+      console.log('👥 [Neon] 사용자 목록 조회 API 호출');
+      const response = await fetch('/api/users');
+      const data = await response.json();
+
+      if (!data.success) {
+        console.error('❌ 사용자 목록 조회 실패:', data.error);
+        return [];
+      }
+
+      console.log('✅ [Neon] 사용자 목록 조회 완료:', data.data.length, '명');
+      return data.data || [];
     } catch (error) {
-      console.error('Failed to fetch users:', error);
+      console.error('❌ Failed to fetch users:', error);
       return [];
     }
   },

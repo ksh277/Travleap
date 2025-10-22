@@ -1,4 +1,18 @@
 const { connect } = require('@planetscale/database');
+const { Pool } = require('@neondatabase/serverless');
+
+// Neon PostgreSQL connection for users
+let pool;
+function getPool() {
+  if (!pool) {
+    const connectionString = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL not configured');
+    }
+    pool = new Pool({ connectionString });
+  }
+  return pool;
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -30,10 +44,16 @@ module.exports = async function handler(req, res) {
       stats.totalListings = listings.rows[0]?.count || 0;
     } catch (e) {}
 
+    // Users from Neon DB
     try {
-      const users = await connection.execute('SELECT COUNT(*) as count FROM users');
-      stats.totalUsers = users.rows[0]?.count || 0;
-    } catch (e) {}
+      console.log('📊 [Neon] 회원수 조회');
+      const neonDb = getPool();
+      const users = await neonDb.query('SELECT COUNT(*) as count FROM users');
+      stats.totalUsers = parseInt(users.rows[0]?.count) || 0;
+      console.log('✅ [Neon] 회원수:', stats.totalUsers);
+    } catch (e) {
+      console.error('❌ [Neon] 회원수 조회 실패:', e);
+    }
 
     try {
       const partners = await connection.execute('SELECT COUNT(*) as count FROM partners WHERE partner_type IS NULL OR partner_type != \'lodging\'');
