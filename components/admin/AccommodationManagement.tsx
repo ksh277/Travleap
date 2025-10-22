@@ -310,13 +310,29 @@ export const AccommodationManagement: React.FC = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>숙박 업체 관리</CardTitle>
-              <Button
-                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                onClick={() => setShowAddPartnerDialog(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                업체 추가
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={downloadVendorCsvTemplate}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV 템플릿
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsVendorCsvUploadOpen(true)}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  CSV 업로드
+                </Button>
+                <Button
+                  className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                  onClick={() => setShowAddPartnerDialog(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  업체 추가
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -673,6 +689,76 @@ export const AccommodationManagement: React.FC = () => {
                 disabled={!newRoomForm.listing_name || !newRoomForm.location || !newRoomForm.address || !newRoomForm.price_from}
               >
                 추가
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV 업로드 다이얼로그 */}
+      <Dialog open={isVendorCsvUploadOpen} onOpenChange={setIsVendorCsvUploadOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>벤더 CSV 일괄 업로드</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>CSV 파일 선택</Label>
+              <Input
+                type="file"
+                accept=".csv"
+                onChange={handleCsvFileChange}
+                className="mt-2"
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                CSV 템플릿을 다운로드하여 양식에 맞게 작성 후 업로드하세요.
+              </p>
+            </div>
+
+            {csvPreview.length > 0 && (
+              <div>
+                <Label>미리보기 (최대 5개)</Label>
+                <div className="mt-2 border rounded-lg overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {Object.keys(csvPreview[0]).map((key) => (
+                          <TableHead key={key}>{key}</TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {csvPreview.map((row, index) => (
+                        <TableRow key={index}>
+                          {Object.values(row).map((value: any, i) => (
+                            <TableCell key={i}>{value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsVendorCsvUploadOpen(false);
+                  setCsvFile(null);
+                  setCsvPreview([]);
+                }}
+              >
+                취소
+              </Button>
+              <Button
+                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                onClick={handleVendorCsvUpload}
+                disabled={!csvFile}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                업로드
               </Button>
             </div>
           </div>
