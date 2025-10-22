@@ -290,6 +290,8 @@ export const AccommodationManagement: React.FC = () => {
           price_from: '',
           images: ''
         });
+        setRoomImageFiles([]);
+        setRoomImagePreviews([]);
         loadRooms(selectedPartnerId);
       } else {
         toast.error(result.message || '객실 추가에 실패했습니다.');
@@ -745,6 +747,25 @@ export const AccommodationManagement: React.FC = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="col-span-2">
+                <Label>로고 이미지</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoImageChange}
+                  className="mt-2"
+                />
+                <p className="text-sm text-gray-500 mt-1">최대 5MB, JPG/PNG 형식</p>
+                {logoImagePreview && (
+                  <div className="mt-2">
+                    <img
+                      src={logoImagePreview}
+                      alt="로고 미리보기"
+                      className="w-32 h-32 object-cover rounded border"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setShowAddPartnerDialog(false)}>
@@ -813,12 +834,27 @@ export const AccommodationManagement: React.FC = () => {
                 />
               </div>
               <div className="col-span-2">
-                <Label>이미지 URL (JSON 배열)</Label>
+                <Label>객실 이미지 (다중 선택 가능)</Label>
                 <Input
-                  value={newRoomForm.images}
-                  onChange={(e) => setNewRoomForm({...newRoomForm, images: e.target.value})}
-                  placeholder='예: ["https://example.com/image.jpg"]'
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleRoomImagesChange}
+                  className="mt-2"
                 />
+                <p className="text-sm text-gray-500 mt-1">최대 5MB, 여러 이미지 선택 가능</p>
+                {roomImagePreviews.length > 0 && (
+                  <div className="mt-2 grid grid-cols-4 gap-2">
+                    {roomImagePreviews.map((preview, index) => (
+                      <img
+                        key={index}
+                        src={preview}
+                        alt={`객실 이미지 ${index + 1}`}
+                        className="w-full h-24 object-cover rounded border"
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-4">
