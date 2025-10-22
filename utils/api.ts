@@ -2702,6 +2702,7 @@ export const api = {
             r.*,
             u.name as user_name,
             l.title as listing_title,
+            l.category as listing_category,
             rv.vendor_name as rentcar_vendor_name,
             rve.make as rentcar_vehicle_make,
             rve.model as rentcar_vehicle_model

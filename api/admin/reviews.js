@@ -21,7 +21,8 @@ module.exports = async function handler(req, res) {
         r.*,
         u.name as user_name,
         u.email as user_email,
-        l.title as listing_title
+        l.title as listing_title,
+        l.category as listing_category
       FROM reviews r
       LEFT JOIN users u ON r.user_id = u.id
       LEFT JOIN listings l ON r.listing_id = l.id

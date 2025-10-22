@@ -3741,7 +3741,16 @@ export function AdminPage({}: AdminPageProps) {
                       <TableRow key={review.id}>
                         <TableCell>
                           <Badge variant={review.review_type === 'rentcar' ? 'default' : 'secondary'}>
-                            {review.review_type === 'rentcar' ? '렌트카' : '일반'}
+                            {review.review_type === 'rentcar'
+                              ? '렌트카'
+                              : review.listing_category === 'tour' ? '투어'
+                              : review.listing_category === 'food' ? '맛집'
+                              : review.listing_category === 'accommodation' ? '숙박'
+                              : review.listing_category === 'experience' ? '체험'
+                              : review.listing_category === 'event' ? '이벤트'
+                              : review.listing_category === 'package' ? '패키지'
+                              : '일반'
+                            }
                           </Badge>
                         </TableCell>
                         <TableCell>
