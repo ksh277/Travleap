@@ -26,10 +26,17 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AccommodationAdvancedFeatures } from './AccommodationAdvancedFeatures';
+import type {
+  AccommodationVendor,
+  AccommodationRoom,
+  AccommodationBooking,
+  AccommodationVendorFormData,
+  AccommodationRoomFormData
+} from '../../types/accommodation';
 
 export const AccommodationManagement: React.FC = () => {
-  const [partners, setPartners] = useState<any[]>([]);
-  const [rooms, setRooms] = useState<any[]>([]);
+  const [partners, setPartners] = useState<AccommodationVendor[]>([]);
+  const [rooms, setRooms] = useState<AccommodationRoom[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState<number | null>(null);
   const [partnerSearchQuery, setPartnerSearchQuery] = useState('');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
@@ -56,14 +63,14 @@ export const AccommodationManagement: React.FC = () => {
   const [roomImagePreviews, setRoomImagePreviews] = useState<string[]>([]);
 
   // 예약 관리 state
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<AccommodationBooking[]>([]);
   const [bookingSearchQuery, setBookingSearchQuery] = useState('');
   const [bookingStatusFilter, setBookingStatusFilter] = useState('all');
   const [bookingCurrentPage, setBookingCurrentPage] = useState(1);
   const [bookingItemsPerPage] = useState(10);
 
-  const [selectedVendor, setSelectedVendor] = useState<any | null>(null);
-  const [newPartnerForm, setNewPartnerForm] = useState({
+  const [selectedVendor, setSelectedVendor] = useState<AccommodationVendor | null>(null);
+  const [newPartnerForm, setNewPartnerForm] = useState<Omit<AccommodationVendorFormData, 'tier'> & { tier: 'basic' | 'premium' | 'enterprise' }>({
     business_name: '',
     contact_name: '',
     phone: '',
@@ -74,8 +81,8 @@ export const AccommodationManagement: React.FC = () => {
     pms_api_key: '',
     pms_property_id: ''
   });
-  const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
-  const [newRoomForm, setNewRoomForm] = useState({
+  const [selectedRoom, setSelectedRoom] = useState<AccommodationRoom | null>(null);
+  const [newRoomForm, setNewRoomForm] = useState<AccommodationRoomFormData>({
     listing_name: '',
     description: '',
     location: '',

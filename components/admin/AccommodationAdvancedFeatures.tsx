@@ -25,9 +25,19 @@ import {
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import type {
+  AccommodationVendor,
+  AccommodationRatePlan,
+  AccommodationRatePlanFormData,
+  AccommodationExtra,
+  AccommodationExtraFormData,
+  AccommodationSyncLog,
+  AccommodationServiceType,
+  AccommodationPricingType
+} from '../../types/accommodation';
 
 interface AccommodationAdvancedFeaturesProps {
-  vendors: any[];
+  vendors: AccommodationVendor[];
   selectedVendorId: number | null;
 }
 
@@ -36,10 +46,10 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
   selectedVendorId
 }) => {
   // State for rate plans
-  const [ratePlans, setRatePlans] = useState<any[]>([]);
-  const [selectedRatePlan, setSelectedRatePlan] = useState<any | null>(null);
+  const [ratePlans, setRatePlans] = useState<AccommodationRatePlan[]>([]);
+  const [selectedRatePlan, setSelectedRatePlan] = useState<AccommodationRatePlan | null>(null);
   const [isRatePlanDialogOpen, setIsRatePlanDialogOpen] = useState(false);
-  const [ratePlanFormData, setRatePlanFormData] = useState({
+  const [ratePlanFormData, setRatePlanFormData] = useState<AccommodationRatePlanFormData>({
     plan_name: '',
     plan_code: '',
     start_date: '',
@@ -51,10 +61,10 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
   });
 
   // State for extra services
-  const [extras, setExtras] = useState<any[]>([]);
-  const [selectedExtra, setSelectedExtra] = useState<any | null>(null);
+  const [extras, setExtras] = useState<AccommodationExtra[]>([]);
+  const [selectedExtra, setSelectedExtra] = useState<AccommodationExtra | null>(null);
   const [isExtraDialogOpen, setIsExtraDialogOpen] = useState(false);
-  const [extraFormData, setExtraFormData] = useState({
+  const [extraFormData, setExtraFormData] = useState<AccommodationExtraFormData>({
     service_code: '',
     service_name: '',
     service_type: 'breakfast',
@@ -71,7 +81,7 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
   const [pmsSyncInterval, setPmsSyncInterval] = useState(60); // minutes
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
-  const [syncLogs, setSyncLogs] = useState<any[]>([]);
+  const [syncLogs, setSyncLogs] = useState<AccommodationSyncLog[]>([]);
 
   const [activeTab, setActiveTab] = useState('rateplans');
 
