@@ -19,7 +19,10 @@ import {
   Bed,
   Star,
   Check,
-  X
+  X,
+  Upload,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -32,6 +35,12 @@ export const AccommodationManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('partners');
   const [showAddPartnerDialog, setShowAddPartnerDialog] = useState(false);
   const [showAddRoomDialog, setShowAddRoomDialog] = useState(false);
+
+  // CSV 관련 state
+  const [isVendorCsvUploadOpen, setIsVendorCsvUploadOpen] = useState(false);
+  const [isRoomCsvUploadOpen, setIsRoomCsvUploadOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvPreview, setCsvPreview] = useState<any[]>([]);
   const [newPartnerForm, setNewPartnerForm] = useState({
     business_name: '',
     contact_name: '',
@@ -203,6 +212,81 @@ export const AccommodationManagement: React.FC = () => {
       console.error('Failed to add room:', error);
       toast.error('객실 추가 중 오류가 발생했습니다.');
     }
+  };
+
+  // CSV 파일 처리
+  const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast.error('CSV 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    setCsvFile(file);
+
+    // CSV 미리보기
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n').filter(line => line.trim());
+      const headers = lines[0].split(',').map(h => h.trim());
+      const preview = lines.slice(1, 6).map(line => {
+        const values = line.split(',').map(v => v.trim());
+        return headers.reduce((obj: any, header, index) => {
+          obj[header] = values[index] || '';
+          return obj;
+        }, {});
+      });
+      setCsvPreview(preview);
+    };
+    reader.readAsText(file);
+  };
+
+  // 벤더 CSV 업로드
+  const handleVendorCsvUpload = async () => {
+    if (!csvFile) {
+      toast.error('CSV 파일을 선택해주세요.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', csvFile);
+
+    try {
+      const response = await fetch('/api/admin/accommodation-vendors/csv-upload', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`${result.count || 0}개 벤더가 추가되었습니다.`);
+        setIsVendorCsvUploadOpen(false);
+        setCsvFile(null);
+        setCsvPreview([]);
+        loadPartners();
+      } else {
+        toast.error(result.error || 'CSV 업로드에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('CSV upload failed:', error);
+      toast.error('CSV 업로드 중 오류가 발생했습니다.');
+    }
+  };
+
+  // CSV 템플릿 다운로드
+  const downloadVendorCsvTemplate = () => {
+    const csvContent = `business_name,brand_name,business_number,contact_name,contact_email,contact_phone,description,status
+신안호텔,신안호텔,123-45-67890,홍길동,hotel@example.com,010-1234-5678,편안한 숙박 시설,active
+섬펜션,섬펜션,234-56-78901,김철수,pension@example.com,010-2345-6789,바다 전망 펜션,active`;
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'accommodation_vendors_template.csv';
+    link.click();
   };
 
   useEffect(() => {

@@ -43,6 +43,7 @@ export default async function handler(req, res) {
           deposit_amount_krw,
           smoking_allowed,
           daily_rate_krw,
+          hourly_rate_krw,
           daily_rate_krw * 6 as weekly_rate_krw,
           daily_rate_krw * 25 as monthly_rate_krw,
           excess_mileage_fee_krw,
@@ -97,6 +98,7 @@ export default async function handler(req, res) {
         transmission_type,
         fuel_type,
         daily_rate_krw,
+        hourly_rate_krw,
         weekly_rate_krw,
         monthly_rate_krw,
         mileage_limit_km,
@@ -122,6 +124,9 @@ export default async function handler(req, res) {
 
       // 이미지 배열을 JSON 문자열로 변환
       const imagesJson = JSON.stringify(image_urls || []);
+
+      // 시간당 요금 자동 계산 (입력값 없으면)
+      const calculatedHourlyRate = hourly_rate_krw || Math.round(((daily_rate_krw / 24) * 1.2) / 1000) * 1000;
 
       const result = await connection.execute(
         `INSERT INTO rentcar_vehicles (
@@ -149,10 +154,11 @@ export default async function handler(req, res) {
           deposit_amount_krw,
           smoking_allowed,
           daily_rate_krw,
+          hourly_rate_krw,
           is_active,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           vendorId,
           vehicle_code,
@@ -178,6 +184,7 @@ export default async function handler(req, res) {
           500000,
           0,
           daily_rate_krw,
+          calculatedHourlyRate,
           is_available ? 1 : 0
         ]
       );

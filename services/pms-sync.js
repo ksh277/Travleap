@@ -310,33 +310,75 @@ class PMSSync {
   }
 
   /**
-   * Mock 데이터 (테스트용)
+   * Mock 데이터 (테스트용) - 165대
    */
   getMockVehicles() {
-    return [
-      {
-        external_id: 'PMS_001',
-        name: '현대 아반떼',
-        type: '준중형',
-        year: 2023,
-        seats: 5,
-        transmission: '자동',
-        fuel_type: '가솔린',
-        daily_rate: 50000,
-        image_url: 'https://via.placeholder.com/400x300/0066cc/ffffff?text=Avante'
-      },
-      {
-        external_id: 'PMS_002',
-        name: 'K5',
-        type: '중형',
-        year: 2024,
-        seats: 5,
-        transmission: '자동',
-        fuel_type: '가솔린',
-        daily_rate: 70000,
-        image_url: 'https://via.placeholder.com/400x300/cc0000/ffffff?text=K5'
-      }
+    const brands = [
+      { name: '현대', models: ['아반떼', '소나타', '그랜저', '투싼', '팰리세이드', '코나', '베뉴', '산타페'] },
+      { name: '기아', models: ['K3', 'K5', 'K8', '스포티지', '쏘렌토', '카니발', '니로', '셀토스'] },
+      { name: '제네시스', models: ['G70', 'G80', 'G90', 'GV70', 'GV80'] },
+      { name: '쉐보레', models: ['말리부', '트랙스', '이쿼녹스', '트레일블레이저'] },
+      { name: 'BMW', models: ['3시리즈', '5시리즈', '7시리즈', 'X3', 'X5', 'X7'] },
+      { name: '벤츠', models: ['C클래스', 'E클래스', 'S클래스', 'GLC', 'GLE', 'GLS'] },
+      { name: '아우디', models: ['A4', 'A6', 'A8', 'Q5', 'Q7', 'Q8'] },
+      { name: '볼보', models: ['S60', 'S90', 'XC60', 'XC90'] },
+      { name: '렉서스', models: ['ES', 'LS', 'RX', 'NX'] },
+      { name: '테슬라', models: ['Model 3', 'Model S', 'Model X', 'Model Y'] }
     ];
+
+    const types = ['경차', '준중형', '중형', '준대형', '대형', 'SUV', 'RV', '승합', '전기차', '하이브리드'];
+    const transmissions = ['자동', '수동'];
+    const fuelTypes = ['가솔린', '디젤', '하이브리드', '전기', 'LPG'];
+
+    const vehicles = [];
+    let id = 1;
+
+    // 165대 생성
+    for (let i = 0; i < 165; i++) {
+      const brand = brands[Math.floor(Math.random() * brands.length)];
+      const model = brand.models[Math.floor(Math.random() * brand.models.length)];
+      const type = types[Math.floor(Math.random() * types.length)];
+      const year = 2020 + Math.floor(Math.random() * 5); // 2020-2024
+      const seats = [4, 5, 7, 9, 11][Math.floor(Math.random() * 5)];
+      const transmission = transmissions[Math.floor(Math.random() * transmissions.length)];
+      const fuelType = fuelTypes[Math.floor(Math.random() * fuelTypes.length)];
+
+      // 차량 등급에 따른 가격
+      let baseRate = 40000;
+      if (type.includes('대형') || type.includes('SUV') || brand.name === '제네시스' || brand.name === 'BMW' || brand.name === '벤츠') {
+        baseRate = 100000 + Math.random() * 100000;
+      } else if (type.includes('중형')) {
+        baseRate = 60000 + Math.random() * 40000;
+      } else if (type.includes('준중형')) {
+        baseRate = 45000 + Math.random() * 25000;
+      } else if (type === '전기차' || fuelType === '전기') {
+        baseRate = 80000 + Math.random() * 70000;
+      }
+
+      const daily_rate = Math.round(baseRate / 1000) * 1000; // 1000원 단위로 반올림
+
+      vehicles.push({
+        external_id: `PMS_${String(id).padStart(3, '0')}`,
+        name: `${brand.name} ${model}`,
+        type: type,
+        year: year,
+        seats: seats,
+        transmission: transmission,
+        fuel_type: fuelType,
+        daily_rate: daily_rate,
+        image_url: `https://via.placeholder.com/400x300/${this.getRandomColor()}/ffffff?text=${encodeURIComponent(brand.name + ' ' + model)}`
+      });
+
+      id++;
+    }
+
+    console.log(`📦 [PMS Mock] ${vehicles.length}대 차량 데이터 생성 완료`);
+    return vehicles;
+  }
+
+  getRandomColor() {
+    const colors = ['0066cc', 'cc0000', '00cc66', 'cc6600', '6600cc', 'cccc00', 'cc0066', '00cccc'];
+    return colors[Math.floor(Math.random() * colors.length)];
   }
 }
 

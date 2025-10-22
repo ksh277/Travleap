@@ -44,6 +44,7 @@ interface Vehicle {
   large_bags: number;
   small_bags: number;
   daily_rate_krw: number;
+  hourly_rate_krw?: number;
   images: string[];
   features: string[];
   is_active: boolean;
@@ -592,6 +593,11 @@ export function RentcarVendorDetailPage() {
                           {/* 가격 및 재고 */}
                           <div className="flex items-center justify-between pt-3 border-t">
                             <div>
+                              {vehicle.hourly_rate_krw && (
+                                <div className="text-sm text-gray-600 mb-1">
+                                  시간: ₩{vehicle.hourly_rate_krw.toLocaleString()}
+                                </div>
+                              )}
                               <div className={`text-xl font-bold ${isAvailable ? 'text-blue-600' : 'text-gray-400'}`}>
                                 ₩{vehicle.daily_rate_krw.toLocaleString()}
                               </div>

@@ -51,6 +51,7 @@ interface Vehicle {
   transmission_type: string;
   fuel_type: string;
   daily_rate_krw: number;
+  hourly_rate_krw?: number;
   weekly_rate_krw: number;
   monthly_rate_krw: number;
   mileage_limit_km: number;
@@ -107,6 +108,7 @@ interface VehicleFormData {
   transmission_type: string;
   fuel_type: string;
   daily_rate_krw: number;
+  hourly_rate_krw: number;
   weekly_rate_krw: number;
   monthly_rate_krw: number;
   mileage_limit_km: number;
@@ -162,6 +164,7 @@ export function VendorDashboardPageEnhanced() {
     transmission_type: '자동',
     fuel_type: '가솔린',
     daily_rate_krw: 50000,
+    hourly_rate_krw: 3000,
     weekly_rate_krw: 300000,
     monthly_rate_krw: 1000000,
     mileage_limit_km: 200,
@@ -316,6 +319,7 @@ export function VendorDashboardPageEnhanced() {
       transmission_type: '자동',
       fuel_type: '가솔린',
       daily_rate_krw: 50000,
+      hourly_rate_krw: 3000,
       weekly_rate_krw: 300000,
       monthly_rate_krw: 1000000,
       mileage_limit_km: 200,
@@ -349,6 +353,7 @@ export function VendorDashboardPageEnhanced() {
       transmission_type: vehicle.transmission_type,
       fuel_type: vehicle.fuel_type,
       daily_rate_krw: vehicle.daily_rate_krw,
+      hourly_rate_krw: vehicle.hourly_rate_krw || Math.round(((vehicle.daily_rate_krw / 24) * 1.2) / 1000) * 1000,
       weekly_rate_krw: vehicle.weekly_rate_krw,
       monthly_rate_krw: vehicle.monthly_rate_krw,
       mileage_limit_km: vehicle.mileage_limit_km,
@@ -410,6 +415,15 @@ export function VendorDashboardPageEnhanced() {
     }
 
     try {
+      // JWT 토큰 가져오기
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+        navigate('/login');
+        return;
+      }
+
       const image_urls = vehicleForm.image_urls.length > 0
         ? vehicleForm.image_urls
         : [
@@ -423,10 +437,9 @@ export function VendorDashboardPageEnhanced() {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-id': user.id.toString()
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            userId: user.id,
             ...vehicleForm,
             image_urls
           })
@@ -441,14 +454,13 @@ export function VendorDashboardPageEnhanced() {
         }
       } else {
         // 신규 등록 - POST API
-        const response = await fetch('/api/vendor/rentcar/vehicles', {
+        const response = await fetch('/api/vendor/vehicles', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-id': user.id.toString()
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            userId: user.id,
             ...vehicleForm,
             image_urls
           })
@@ -476,11 +488,20 @@ export function VendorDashboardPageEnhanced() {
     if (!user?.id) return;
 
     try {
+      // JWT 토큰 가져오기
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+        navigate('/login');
+        return;
+      }
+
       // DELETE API
       const response = await fetch(`/api/vendor/rentcar/vehicles/${vehicleId}`, {
         method: 'DELETE',
         headers: {
-          'x-user-id': user.id.toString()
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -1026,13 +1047,34 @@ export function VendorDashboardPageEnhanced() {
                     </div>
 
                     <div>
+                      <Label>시간당 요금 (원)</Label>
+                      <Input
+                        type="number"
+                        min="1000"
+                        step="1000"
+                        value={vehicleForm.hourly_rate_krw}
+                        onChange={(e) => setVehicleForm({...vehicleForm, hourly_rate_krw: parseInt(e.target.value)})}
+                        placeholder="자동 계산됨"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">권장: 일일 요금 기준 자동 계산 (일일 / 24 * 1.2)</p>
+                    </div>
+
+                    <div>
                       <Label>일일 요금 (원)</Label>
                       <Input
                         type="number"
                         min="10000"
                         step="5000"
                         value={vehicleForm.daily_rate_krw}
-                        onChange={(e) => setVehicleForm({...vehicleForm, daily_rate_krw: parseInt(e.target.value)})}
+                        onChange={(e) => {
+                          const dailyRate = parseInt(e.target.value);
+                          const calculatedHourly = Math.round(((dailyRate / 24) * 1.2) / 1000) * 1000;
+                          setVehicleForm({
+                            ...vehicleForm,
+                            daily_rate_krw: dailyRate,
+                            hourly_rate_krw: calculatedHourly
+                          });
+                        }}
                       />
                     </div>
 
@@ -1296,7 +1338,7 @@ export function VendorDashboardPageEnhanced() {
                         <TableHead>인승</TableHead>
                         <TableHead>변속기</TableHead>
                         <TableHead>연료</TableHead>
-                        <TableHead>일일 요금</TableHead>
+                        <TableHead>시간/일일 요금</TableHead>
                         <TableHead>상태</TableHead>
                         <TableHead>관리</TableHead>
                       </TableRow>
@@ -1311,7 +1353,12 @@ export function VendorDashboardPageEnhanced() {
                           <TableCell>{vehicle.seating_capacity}인승</TableCell>
                           <TableCell>{vehicle.transmission_type}</TableCell>
                           <TableCell>{vehicle.fuel_type}</TableCell>
-                          <TableCell>{vehicle.daily_rate_krw.toLocaleString()}원</TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <div className="text-gray-600">시간: ₩{vehicle.hourly_rate_krw?.toLocaleString() || 'N/A'}</div>
+                              <div className="font-medium">일일: ₩{vehicle.daily_rate_krw.toLocaleString()}</div>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Switch
