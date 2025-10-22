@@ -223,9 +223,14 @@ export function VendorDashboardPageEnhanced() {
       console.log('✅ 벤더 정보 설정:', vendor);
       setVendorInfo(vendor);
 
-      // 2. 차량 목록 조회 API
-      const vehiclesResponse = await fetch(`/api/vendor/rentcar/vehicles?userId=${user.id}`);
+      const vendorId = vendor.id; // 벤더 ID 가져오기
+      console.log('🔍 [DEBUG] Vendor ID:', vendorId);
+
+      // 2. 차량 목록 조회 API - vendorId 사용
+      const vehiclesResponse = await fetch(`/api/vendor/rentcar/vehicles?vendorId=${vendorId}`);
       const vehiclesData = await vehiclesResponse.json();
+
+      console.log('🔍 [DEBUG] 차량 API 응답:', vehiclesData);
 
       if (vehiclesData.success && vehiclesData.data) {
         // Parse images from JSON string to array
@@ -234,32 +239,42 @@ export function VendorDashboardPageEnhanced() {
           images: typeof v.images === 'string' ? JSON.parse(v.images) : v.images
         }));
         setVehicles(parsedVehicles);
+        console.log('✅ 차량 데이터 로드 완료:', parsedVehicles.length, '대');
       } else {
+        console.warn('⚠️ 차량 데이터 없음');
         setVehicles([]);
       }
 
-      // 3. 예약 목록 조회 API
-      const bookingsResponse = await fetch(`/api/vendor/bookings?userId=${user.id}`);
+      // 3. 예약 목록 조회 API - vendorId 사용
+      const bookingsResponse = await fetch(`/api/vendor/bookings?vendorId=${vendorId}`);
       const bookingsData = await bookingsResponse.json();
+
+      console.log('🔍 [DEBUG] 예약 API 응답:', bookingsData);
 
       if (bookingsData.success && bookingsData.data) {
         setBookings(bookingsData.data);
         setFilteredBookings(bookingsData.data);
+        console.log('✅ 예약 데이터 로드 완료:', bookingsData.data.length, '건');
       } else {
+        console.warn('⚠️ 예약 데이터 없음');
         setBookings([]);
         setFilteredBookings([]);
       }
 
-      // 4. 매출 통계 조회 API
-      const revenueResponse = await fetch(`/api/vendor/revenue?userId=${user.id}`);
+      // 4. 매출 통계 조회 API - vendorId 사용
+      const revenueResponse = await fetch(`/api/vendor/revenue?vendorId=${vendorId}`);
       const revenueData = await revenueResponse.json();
+
+      console.log('🔍 [DEBUG] 매출 API 응답:', revenueData);
 
       if (revenueData.success && revenueData.data) {
         setRevenueData(revenueData.data.map((r: any) => ({
           date: new Date(r.date).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }),
           revenue: r.revenue
         })));
+        console.log('✅ 매출 데이터 로드 완료');
       } else {
+        console.warn('⚠️ 매출 데이터 없음');
         setRevenueData([]);
       }
 

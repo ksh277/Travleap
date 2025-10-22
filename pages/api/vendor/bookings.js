@@ -4,10 +4,13 @@ const connection = connect({ url: process.env.DATABASE_URL });
 
 export default async function handler(req, res) {
   const { method } = req;
-  const userId = req.headers['x-user-id'] || req.query.userId || req.body?.userId;
+  // userId 또는 vendorId 둘 다 받을 수 있도록 수정
+  const vendorId = req.headers['x-vendor-id'] || req.query.vendorId || req.query.userId || req.headers['x-user-id'] || req.body?.userId;
 
-  if (!userId) {
-    return res.status(401).json({ success: false, message: '사용자 인증이 필요합니다.' });
+  console.log('📋 [Bookings API] 요청:', { method, vendorId });
+
+  if (!vendorId) {
+    return res.status(401).json({ success: false, message: '벤더 인증이 필요합니다.' });
   }
 
   try {
@@ -30,8 +33,10 @@ export default async function handler(req, res) {
         JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
         WHERE rv.vendor_id = ?
         ORDER BY rb.created_at DESC`,
-        [userId]
+        [vendorId]
       );
+
+      console.log('✅ [Bookings API] 예약 조회 완료:', result.rows?.length, '건');
 
       const bookings = (result.rows || []).map(booking => ({
         ...booking,

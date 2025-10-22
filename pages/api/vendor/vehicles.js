@@ -4,10 +4,13 @@ const connection = connect({ url: process.env.DATABASE_URL });
 
 export default async function handler(req, res) {
   const { method } = req;
-  const userId = req.headers['x-user-id'] || req.query.userId || req.body?.userId;
+  // userId 또는 vendorId 둘 다 받을 수 있도록 수정
+  const vendorId = req.headers['x-vendor-id'] || req.query.vendorId || req.query.userId || req.headers['x-user-id'] || req.body?.userId;
 
-  if (!userId) {
-    return res.status(401).json({ success: false, message: '사용자 인증이 필요합니다.' });
+  console.log('🚗 [Vehicles API] 요청:', { method, vendorId });
+
+  if (!vendorId) {
+    return res.status(401).json({ success: false, message: '벤더 인증이 필요합니다.' });
   }
 
   try {
@@ -56,8 +59,10 @@ export default async function handler(req, res) {
         FROM rentcar_vehicles
         WHERE vendor_id = ?
         ORDER BY created_at DESC`,
-        [userId]
+        [vendorId]
       );
+
+      console.log('✅ [Vehicles API] 차량 조회 완료:', result.rows?.length, '대');
 
       const vehicles = (result.rows || []).map(vehicle => ({
         ...vehicle,
@@ -113,7 +118,7 @@ export default async function handler(req, res) {
       }
 
       // 차량 코드 자동 생성
-      const vehicle_code = `VEH_${userId}_${Date.now()}`;
+      const vehicle_code = `VEH_${vendorId}_${Date.now()}`;
 
       // 이미지 배열을 JSON 문자열로 변환
       const imagesJson = JSON.stringify(image_urls || []);
@@ -149,7 +154,7 @@ export default async function handler(req, res) {
           updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
-          userId,
+          vendorId,
           vehicle_code,
           display_name.split(' ')[0] || '기타',
           display_name.split(' ')[1] || display_name,

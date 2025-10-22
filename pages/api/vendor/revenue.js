@@ -4,10 +4,13 @@ const connection = connect({ url: process.env.DATABASE_URL });
 
 export default async function handler(req, res) {
   const { method } = req;
-  const userId = req.headers['x-user-id'] || req.query.userId || req.body?.userId;
+  // userId 또는 vendorId 둘 다 받을 수 있도록 수정
+  const vendorId = req.headers['x-vendor-id'] || req.query.vendorId || req.query.userId || req.headers['x-user-id'] || req.body?.userId;
 
-  if (!userId) {
-    return res.status(401).json({ success: false, message: '사용자 인증이 필요합니다.' });
+  console.log('💰 [Revenue API] 요청:', { method, vendorId });
+
+  if (!vendorId) {
+    return res.status(401).json({ success: false, message: '벤더 인증이 필요합니다.' });
   }
 
   try {
@@ -24,8 +27,10 @@ export default async function handler(req, res) {
           AND rb.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
         GROUP BY DATE(rb.created_at)
         ORDER BY date ASC`,
-        [userId]
+        [vendorId]
       );
+
+      console.log('✅ [Revenue API] 매출 조회 완료:', result.rows?.length, '일');
 
       const revenueData = (result.rows || []).map(row => ({
         date: row.date,
