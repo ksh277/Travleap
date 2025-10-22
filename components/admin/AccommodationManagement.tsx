@@ -41,6 +41,12 @@ export const AccommodationManagement: React.FC = () => {
   const [isRoomCsvUploadOpen, setIsRoomCsvUploadOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<any[]>([]);
+
+  // 페이지네이션 state
+  const [vendorCurrentPage, setVendorCurrentPage] = useState(1);
+  const [vendorItemsPerPage] = useState(10);
+  const [roomCurrentPage, setRoomCurrentPage] = useState(1);
+  const [roomItemsPerPage] = useState(10);
   const [newPartnerForm, setNewPartnerForm] = useState({
     business_name: '',
     contact_name: '',
@@ -362,9 +368,11 @@ export const AccommodationManagement: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {partners
-                    .filter(p => p.business_name?.toLowerCase().includes(partnerSearchQuery.toLowerCase()))
-                    .map((partner) => (
+                  {(() => {
+                    const filtered = partners.filter(p => p.business_name?.toLowerCase().includes(partnerSearchQuery.toLowerCase()));
+                    const startIndex = (vendorCurrentPage - 1) * vendorItemsPerPage;
+                    const paginatedPartners = filtered.slice(startIndex, startIndex + vendorItemsPerPage);
+                    return paginatedPartners.map((partner) => (
                       <TableRow key={partner.partner_id}>
                         <TableCell className="font-medium">{partner.partner_id}</TableCell>
                         <TableCell>{partner.business_name}</TableCell>
@@ -407,10 +415,36 @@ export const AccommodationManagement: React.FC = () => {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ));
+                  })()}
                 </TableBody>
               </Table>
             </div>
+
+            {/* 페이지네이션 */}
+            {(() => {
+              const filtered = partners.filter(p => p.business_name?.toLowerCase().includes(partnerSearchQuery.toLowerCase()));
+              const totalPages = Math.ceil(filtered.length / vendorItemsPerPage);
+
+              if (totalPages > 1) {
+                return (
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-gray-500">
+                      총 {filtered.length}개 벤더 (페이지 {vendorCurrentPage} / {totalPages})
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setVendorCurrentPage(prev => Math.max(1, prev - 1))} disabled={vendorCurrentPage === 1}>이전</Button>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum = totalPages <= 5 ? i + 1 : vendorCurrentPage <= 3 ? i + 1 : vendorCurrentPage >= totalPages - 2 ? totalPages - 4 + i : vendorCurrentPage - 2 + i;
+                        return <Button key={pageNum} variant={vendorCurrentPage === pageNum ? "default" : "outline"} size="sm" onClick={() => setVendorCurrentPage(pageNum)} className={vendorCurrentPage === pageNum ? "bg-[#8B5FBF] hover:bg-[#7A4FB5]" : ""}>{pageNum}</Button>;
+                      })}
+                      <Button variant="outline" size="sm" onClick={() => setVendorCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={vendorCurrentPage === totalPages}>다음</Button>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </CardContent>
         </Card>
       </TabsContent>
@@ -483,9 +517,11 @@ export const AccommodationManagement: React.FC = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rooms
-                        .filter(r => r.name?.toLowerCase().includes(roomSearchQuery.toLowerCase()))
-                        .map((room) => (
+                      {(() => {
+                        const filtered = rooms.filter(r => r.name?.toLowerCase().includes(roomSearchQuery.toLowerCase()));
+                        const startIndex = (roomCurrentPage - 1) * roomItemsPerPage;
+                        const paginatedRooms = filtered.slice(startIndex, startIndex + roomItemsPerPage);
+                        return paginatedRooms.map((room) => (
                           <TableRow key={room.id}>
                             <TableCell className="font-medium">{room.id}</TableCell>
                             <TableCell>{room.name}</TableCell>
@@ -525,10 +561,36 @@ export const AccommodationManagement: React.FC = () => {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))}
+                        ));
+                      })()}
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* 페이지네이션 */}
+                {(() => {
+                  const filtered = rooms.filter(r => r.name?.toLowerCase().includes(roomSearchQuery.toLowerCase()));
+                  const totalPages = Math.ceil(filtered.length / roomItemsPerPage);
+
+                  if (totalPages > 1) {
+                    return (
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="text-sm text-gray-500">
+                          총 {filtered.length}개 객실 (페이지 {roomCurrentPage} / {totalPages})
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setRoomCurrentPage(prev => Math.max(1, prev - 1))} disabled={roomCurrentPage === 1}>이전</Button>
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pageNum = totalPages <= 5 ? i + 1 : roomCurrentPage <= 3 ? i + 1 : roomCurrentPage >= totalPages - 2 ? totalPages - 4 + i : roomCurrentPage - 2 + i;
+                            return <Button key={pageNum} variant={roomCurrentPage === pageNum ? "default" : "outline"} size="sm" onClick={() => setRoomCurrentPage(pageNum)} className={roomCurrentPage === pageNum ? "bg-[#8B5FBF] hover:bg-[#7A4FB5]" : ""}>{pageNum}</Button>;
+                          })}
+                          <Button variant="outline" size="sm" onClick={() => setRoomCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={roomCurrentPage === totalPages}>다음</Button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </>
             )}
           </CardContent>
