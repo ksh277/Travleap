@@ -377,6 +377,52 @@ export const AccommodationManagement: React.FC = () => {
     link.click();
   };
 
+  // 객실 CSV 템플릿 다운로드
+  const downloadRoomCsvTemplate = () => {
+    const csvContent = `room_name,room_type,capacity,base_price,breakfast_included,description
+디럭스 더블룸,deluxe,2,150000,true,편안한 더블 침대와 바다 전망
+스탠다드 트윈룸,standard,2,120000,false,두 개의 싱글 침대`;
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'accommodation_rooms_template.csv';
+    link.click();
+  };
+
+  // 객실 CSV 업로드
+  const handleRoomCsvUpload = async () => {
+    if (!csvFile || !selectedPartnerId) {
+      toast.error('CSV 파일과 업체를 선택해주세요.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', csvFile);
+    formData.append('vendor_id', selectedPartnerId.toString());
+
+    try {
+      const response = await fetch('/api/admin/accommodation-rooms/csv-upload', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`${result.count || 0}개 객실이 추가되었습니다.`);
+        setIsRoomCsvUploadOpen(false);
+        setCsvFile(null);
+        setCsvPreview([]);
+        loadRooms(selectedPartnerId);
+      } else {
+        toast.error(result.error || 'CSV 업로드에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('CSV upload failed:', error);
+      toast.error('CSV 업로드 중 오류가 발생했습니다.');
+    }
+  };
+
   useEffect(() => {
     if (selectedPartnerId) {
       loadRooms(selectedPartnerId);
@@ -554,6 +600,14 @@ export const AccommodationManagement: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                <Button
+                  variant="outline"
+                  disabled={!selectedPartnerId}
+                  onClick={() => setIsRoomCsvUploadOpen(true)}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  CSV 업로드
+                </Button>
                 <Button
                   className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
                   disabled={!selectedPartnerId}
