@@ -1,8 +1,21 @@
-const { connect } = require('@planetscale/database');
+const { Pool } = require('@neondatabase/serverless');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Neon PostgreSQL connection
+let pool;
+function getPool() {
+  if (!pool) {
+    const connectionString = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL not configured');
+    }
+    pool = new Pool({ connectionString });
+  }
+  return pool;
+}
 
 module.exports = async function handler(req, res) {
   // CORS
@@ -21,7 +34,7 @@ module.exports = async function handler(req, res) {
   try {
     const { email, password } = req.body;
 
-    console.log('🔑 로그인 요청:', email);
+    console.log('🔑 [Neon] 로그인 요청:', email);
 
     // 1. 필수 필드 검증
     if (!email || !password) {
@@ -31,10 +44,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 2. DB에서 사용자 조회
-    const conn = connect({ url: process.env.DATABASE_URL });
-    const result = await conn.execute(
-      'SELECT id, email, name, role, password_hash FROM users WHERE email = ?',
+    // 2. Neon PostgreSQL에서 사용자 조회
+    const db = getPool();
+    const result = await db.query(
+      'SELECT id, email, name, role, password_hash FROM users WHERE email = $1',
       [email]
     );
 
@@ -71,7 +84,7 @@ module.exports = async function handler(req, res) {
       { expiresIn: '7d' }
     );
 
-    console.log('✅ 로그인 성공:', email, 'role:', user.role);
+    console.log('✅ [Neon] 로그인 성공:', email, 'role:', user.role);
 
     // 5. 응답
     return res.status(200).json({
