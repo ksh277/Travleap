@@ -71,10 +71,10 @@ module.exports = async function handler(req, res) {
         v.average_rating,
         v.created_at,
         v.updated_at,
-        vendor.vendor_name,
-        vendor.phone as vendor_phone,
+        vendor.business_name as vendor_name,
+        vendor.contact_phone as vendor_phone,
         vendor.address as vendor_address,
-        vendor.business_name,
+        vendor.brand_name,
         vendor.cancellation_policy
       FROM rentcar_vehicles v
       LEFT JOIN rentcar_vendors vendor ON v.vendor_id = vendor.id

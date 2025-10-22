@@ -5570,6 +5570,97 @@ function setupRoutes() {
     }
   });
 
+  // Get individual vehicle detail (with vendor info)
+  app.get('/api/rentcar/vehicle/:id', async (req, res) => {
+    try {
+      const { connect } = await import('@planetscale/database');
+      const connection = connect({ url: process.env.DATABASE_URL! });
+
+      const vehicleId = parseInt(req.params.id);
+
+      const result = await connection.execute(
+        `SELECT
+          v.id,
+          v.vendor_id,
+          v.vehicle_code,
+          v.brand,
+          v.model,
+          v.year,
+          v.display_name,
+          v.vehicle_class,
+          v.vehicle_type,
+          v.fuel_type,
+          v.transmission,
+          v.seating_capacity,
+          v.door_count,
+          v.large_bags,
+          v.small_bags,
+          v.thumbnail_url,
+          v.images,
+          v.features,
+          v.age_requirement,
+          v.license_requirement,
+          v.mileage_limit_per_day,
+          v.unlimited_mileage,
+          v.deposit_amount_krw,
+          v.smoking_allowed,
+          v.daily_rate_krw,
+          v.hourly_rate_krw,
+          v.excess_mileage_fee_krw,
+          v.fuel_efficiency,
+          v.self_insurance_krw,
+          v.insurance_options,
+          v.available_options,
+          v.is_active,
+          v.is_featured,
+          v.total_bookings,
+          v.average_rating,
+          v.created_at,
+          v.updated_at,
+          vendor.business_name as vendor_name,
+          vendor.contact_phone as vendor_phone,
+          vendor.address as vendor_address,
+          vendor.brand_name,
+          vendor.cancellation_policy
+        FROM rentcar_vehicles v
+        LEFT JOIN rentcar_vendors vendor ON v.vendor_id = vendor.id
+        WHERE v.id = ?`,
+        [vehicleId]
+      );
+
+      if (!result.rows || result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '차량을 찾을 수 없습니다'
+        });
+      }
+
+      const vehicle = result.rows[0];
+
+      // JSON 파싱
+      const vehicleData = {
+        ...vehicle,
+        images: vehicle.images ? (typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images) : [],
+        features: vehicle.features ? (typeof vehicle.features === 'string' ? JSON.parse(vehicle.features) : vehicle.features) : [],
+        is_active: vehicle.is_active === 1,
+        is_featured: vehicle.is_featured === 1,
+        unlimited_mileage: vehicle.unlimited_mileage === 1,
+        smoking_allowed: vehicle.smoking_allowed === 1
+      };
+
+      res.json({
+        success: true,
+        data: vehicleData
+      });
+    } catch (error) {
+      console.error('❌ [API] Get vehicle detail error:', error);
+      res.status(500).json({
+        success: false,
+        error: '서버 오류가 발생했습니다'
+      });
+    }
+  });
+
   // Get vehicle filter options
   app.get('/api/rentcar/vehicles/filters', async (req, res) => {
     try {
