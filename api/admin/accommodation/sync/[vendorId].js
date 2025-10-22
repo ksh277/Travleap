@@ -7,6 +7,7 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { syncPMS } = require('../../../../utils/pms-integrations');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -52,60 +53,11 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 2. PMS API 호출 (실제 구현 시 각 PMS별로 다른 로직 필요)
-    let rooms = [];
-    let bookings = [];
-    const errors = [];
+    // 2. PMS API 호출 - 실제 통합 모듈 사용
+    console.log(`[PMS Sync] Starting sync for vendor ${vendorId} with ${vendor.pms_provider}`);
 
-    // PMS별 동기화 로직
-    switch (vendor.pms_provider) {
-      case 'cloudbeds':
-        // CloudBeds API 호출 로직
-        // rooms = await syncCloudBedsRooms(vendor);
-        // bookings = await syncCloudBedsBookings(vendor);
-        break;
-
-      case 'opera':
-        // Oracle Opera API 호출 로직
-        break;
-
-      case 'mews':
-        // Mews API 호출 로직
-        break;
-
-      case 'ezee':
-        // eZee API 호출 로직
-        break;
-
-      case 'custom':
-        // 커스텀 API 호출 로직
-        if (vendor.api_url && vendor.pms_api_key) {
-          try {
-            const response = await fetch(`${vendor.api_url}/rooms`, {
-              headers: {
-                'Authorization': `Bearer ${vendor.pms_api_key}`,
-                'Content-Type': 'application/json'
-              }
-            });
-
-            if (response.ok) {
-              const data = await response.json();
-              rooms = data.rooms || [];
-            } else {
-              errors.push(`API 호출 실패: ${response.status} ${response.statusText}`);
-            }
-          } catch (fetchError) {
-            errors.push(`API 호출 오류: ${fetchError.message}`);
-          }
-        }
-        break;
-
-      default:
-        return res.status(400).json({
-          success: false,
-          error: `지원하지 않는 PMS: ${vendor.pms_provider}`
-        });
-    }
+    const syncResult = await syncPMS(vendor);
+    const { rooms, bookings, errors } = syncResult;
 
     // 3. 동기화된 객실 정보를 DB에 저장
     let roomsAdded = 0;
@@ -168,14 +120,33 @@ module.exports = async function handler(req, res) {
       [vendorId]
     );
 
+    // 5. 동기화 로그 저장
+    const syncStatus = errors.length > 0 ? (rooms.length > 0 || bookings.length > 0 ? 'partial' : 'failed') : 'success';
+    const errorMessage = errors.length > 0 ? errors.join('; ') : null;
+
+    try {
+      await connection.execute(
+        `INSERT INTO accommodation_sync_logs
+        (vendor_id, sync_type, status, rooms_added, rooms_updated, rooms_deleted, bookings_added, bookings_updated, error_message, created_at)
+        VALUES (?, 'manual', ?, ?, ?, 0, ?, 0, ?, NOW())`,
+        [vendorId, syncStatus, roomsAdded, roomsUpdated, bookings.length, errorMessage]
+      );
+    } catch (logError) {
+      console.error('Failed to save sync log:', logError);
+      // 로그 저장 실패해도 동기화 결과는 반환
+    }
+
+    console.log(`[PMS Sync] Completed for vendor ${vendorId}: ${roomsAdded} added, ${roomsUpdated} updated, ${errors.length} errors`);
+
     return res.status(200).json({
       success: true,
-      message: `PMS 동기화 완료 (${roomsAdded}개 추가, ${roomsUpdated}개 업데이트)`,
+      message: `PMS 동기화 완료 (객실 ${roomsAdded}개 추가, ${roomsUpdated}개 업데이트${bookings.length > 0 ? `, 예약 ${bookings.length}개 동기화` : ''})`,
       data: {
         roomsAdded,
         roomsUpdated,
         bookingsAdded: bookings.length,
-        errors: errors.length > 0 ? errors : undefined
+        errors: errors.length > 0 ? errors : undefined,
+        syncStatus
       }
     });
 
