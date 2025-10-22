@@ -112,12 +112,9 @@ export const DialogContent: React.FC<{
         zIndex: '9999999',
         backgroundColor: 'rgba(0, 0, 0, 0.8)',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'center',
         animation: 'fadeIn 0.2s ease-out',
-        overflowY: 'auto',
-        overflowX: 'hidden',
-        padding: '40px 20px',
         pointerEvents: 'auto',
       }}
       onClick={handleOverlayClick}
@@ -131,11 +128,10 @@ export const DialogContent: React.FC<{
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           outline: 'none',
           maxWidth: '90vw',
-          maxHeight: 'none',
-          overflow: 'visible',
+          maxHeight: '90vh',
+          overflow: 'auto',
           animation: 'scaleIn 0.2s ease-out',
           width: '100%',
-          marginBottom: '40px',
           pointerEvents: 'auto',
         }}
         className={className}

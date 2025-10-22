@@ -3898,7 +3898,7 @@ export function AdminPage({}: AdminPageProps) {
 
             {/* 사용자 초대/수정 다이얼로그 */}
             <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>{isCreateUserMode ? '사용자 초대' : '사용자 정보 수정'}</DialogTitle>
                 </DialogHeader>
@@ -4150,7 +4150,7 @@ export function AdminPage({}: AdminPageProps) {
 
             {/* 문의 상세/답변 다이얼로그 */}
             <Dialog open={isContactDetailOpen} onOpenChange={setIsContactDetailOpen}>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>문의 상세</DialogTitle>
                 </DialogHeader>
@@ -4477,7 +4477,7 @@ export function AdminPage({}: AdminPageProps) {
 
       {/* 수정 모달 */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>상품 수정</DialogTitle>
           </DialogHeader>
@@ -5148,7 +5148,7 @@ export function AdminPage({}: AdminPageProps) {
 
       {/* 파트너 생성/수정 대화상자 */}
       <Dialog open={isPartnerDialogOpen} onOpenChange={setIsPartnerDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               {isCreatePartnerMode ? '파트너 추가' : '파트너 정보 수정'}
@@ -5615,7 +5615,7 @@ export function AdminPage({}: AdminPageProps) {
 
       {/* 파트너 신청 내역 Dialog */}
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl">
           <DialogHeader>
             <DialogTitle>파트너 신청 내역</DialogTitle>
           </DialogHeader>
@@ -5684,7 +5684,7 @@ export function AdminPage({}: AdminPageProps) {
 
       {/* 파트너 신청 수정 모달 */}
       <Dialog open={isApplicationEditOpen} onOpenChange={setIsApplicationEditOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>파트너 신청 상세 정보</DialogTitle>
           </DialogHeader>
