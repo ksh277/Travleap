@@ -160,9 +160,15 @@ export function Header({
               <>
                 <button
                   className="text-white hover:text-blue-100 transition-colors"
-                  onClick={() => navigate(isAdmin ? "/admin" : "/mypage")}
+                  onClick={() => navigate(
+                    isAdmin ? "/admin" :
+                    user?.role === 'vendor' ? "/vendor/dashboard" :
+                    "/mypage"
+                  )}
                 >
-                  {isAdmin ? "관리자페이지" : "마이페이지"}
+                  {isAdmin ? "관리자페이지" :
+                   user?.role === 'vendor' ? "벤더 대시보드" :
+                   "마이페이지"}
                 </button>
                 <span className="h-[14px] w-[1px] bg-white/35"></span>
                 <button
