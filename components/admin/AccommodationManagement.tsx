@@ -996,6 +996,94 @@ export const AccommodationManagement: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 객실 CSV 업로드 다이얼로그 */}
+      <Dialog open={isRoomCsvUploadOpen} onOpenChange={setIsRoomCsvUploadOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>객실 CSV 일괄 업로드</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded p-3">
+              <p className="text-sm text-blue-800">
+                선택된 업체: <strong>{partners.find(p => p.partner_id === selectedPartnerId)?.business_name || '없음'}</strong>
+              </p>
+            </div>
+
+            <div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadRoomCsvTemplate}
+                className="mb-2"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                CSV 템플릿 다운로드
+              </Button>
+            </div>
+
+            <div>
+              <Label>CSV 파일 선택</Label>
+              <Input
+                type="file"
+                accept=".csv"
+                onChange={handleCsvFileChange}
+                className="mt-2"
+              />
+              <p className="text-sm text-gray-500 mt-2">
+                CSV 템플릿을 다운로드하여 양식에 맞게 작성 후 업로드하세요.
+              </p>
+            </div>
+
+            {csvPreview.length > 0 && (
+              <div>
+                <Label>미리보기 (최대 5개)</Label>
+                <div className="mt-2 border rounded-lg overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {Object.keys(csvPreview[0]).map((key) => (
+                          <TableHead key={key}>{key}</TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {csvPreview.map((row, index) => (
+                        <TableRow key={index}>
+                          {Object.values(row).map((value: any, i) => (
+                            <TableCell key={i}>{value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsRoomCsvUploadOpen(false);
+                  setCsvFile(null);
+                  setCsvPreview([]);
+                }}
+              >
+                취소
+              </Button>
+              <Button
+                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                onClick={handleRoomCsvUpload}
+                disabled={!csvFile || !selectedPartnerId}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                업로드
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Tabs>
   );
 };
