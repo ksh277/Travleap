@@ -1810,12 +1810,18 @@ export const api = {
     try {
       console.log('📝 회원가입 API 호출:', userData.email);
 
-      const response = await fetch('/api/auth?action=register', {
+      // username을 이메일의 @ 앞부분으로 생성
+      const username = userData.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+
+      const response = await fetch('/api/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(userData)
+        body: JSON.stringify({
+          ...userData,
+          username
+        })
       });
 
       const data = await response.json();
