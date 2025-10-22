@@ -27,8 +27,6 @@ import {
 import { toast } from 'sonner';
 import type {
   AccommodationVendor,
-  AccommodationRatePlan,
-  AccommodationRatePlanFormData,
   AccommodationSyncLog
 } from '../../types/accommodation';
 
@@ -41,22 +39,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
   vendors,
   selectedVendorId
 }) => {
-  // State for rate plans
-  const [ratePlans, setRatePlans] = useState<AccommodationRatePlan[]>([]);
-  const [selectedRatePlan, setSelectedRatePlan] = useState<AccommodationRatePlan | null>(null);
-  const [isRatePlanDialogOpen, setIsRatePlanDialogOpen] = useState(false);
-  const [ratePlanFormData, setRatePlanFormData] = useState<AccommodationRatePlanFormData>({
-    plan_name: '',
-    plan_code: '',
-    start_date: '',
-    end_date: '',
-    base_price: 0,
-    weekend_surcharge: 0,
-    weekday_discount: 0,
-    long_stay_discount: 0
-  });
-
-
   // State for PMS Integration
   const [pmsProvider, setPmsProvider] = useState<string>('cloudbeds');
   const [pmsApiKey, setPmsApiKey] = useState('');
@@ -67,29 +49,13 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [syncLogs, setSyncLogs] = useState<AccommodationSyncLog[]>([]);
 
-  const [activeTab, setActiveTab] = useState('rateplans');
-
   // Load data when vendor is selected
   useEffect(() => {
     if (selectedVendorId) {
-      loadRatePlans();
       loadPmsSettings();
       loadSyncLogs();
     }
   }, [selectedVendorId]);
-
-  const loadRatePlans = async () => {
-    if (!selectedVendorId) return;
-    try {
-      const response = await fetch(`/api/admin/accommodation-vendors/${selectedVendorId}/rate-plans`);
-      const result = await response.json();
-      if (result.success && result.data) {
-        setRatePlans(result.data);
-      }
-    } catch (error) {
-      console.error('Failed to load rate plans:', error);
-    }
-  };
 
 
   const loadPmsSettings = async () => {
@@ -124,40 +90,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
     }
   };
 
-  const handleSaveRatePlan = async () => {
-    if (!selectedVendorId) {
-      toast.error('업체를 먼저 선택해주세요.');
-      return;
-    }
-
-    try {
-      const url = selectedRatePlan
-        ? `/api/admin/accommodation-vendors/${selectedVendorId}/rate-plans/${selectedRatePlan.id}`
-        : `/api/admin/accommodation-vendors/${selectedVendorId}/rate-plans`;
-
-      const method = selectedRatePlan ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ratePlanFormData)
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success(selectedRatePlan ? '요금제가 수정되었습니다.' : '요금제가 추가되었습니다.');
-        setIsRatePlanDialogOpen(false);
-        loadRatePlans();
-        resetRatePlanForm();
-      } else {
-        toast.error(result.error || '요금제 저장에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to save rate plan:', error);
-      toast.error('요금제 저장 중 오류가 발생했습니다.');
-    }
-  };
 
 
   const handleManualSync = async () => {
@@ -225,69 +157,8 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
     }
   };
 
-  const resetRatePlanForm = () => {
-    setSelectedRatePlan(null);
-    setRatePlanFormData({
-      plan_name: '',
-      plan_code: '',
-      start_date: '',
-      end_date: '',
-      base_price: 0,
-      weekend_surcharge: 0,
-      weekday_discount: 0,
-      long_stay_discount: 0
-    });
-  };
 
 
-  const handleDeleteRatePlan = async (planId: number, planName: string) => {
-    if (!selectedVendorId) {
-      toast.error('업체를 먼저 선택해주세요.');
-      return;
-    }
-
-    if (!confirm(`정말로 "${planName}" 요금제를 삭제하시겠습니까?`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/admin/accommodation-vendors/${selectedVendorId}/rate-plans/${planId}`, {
-        method: 'DELETE'
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success('요금제가 삭제되었습니다.');
-        loadRatePlans();
-      } else {
-        toast.error(result.error || '요금제 삭제에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to delete rate plan:', error);
-      toast.error('요금제 삭제 중 오류가 발생했습니다.');
-    }
-  };
-
-
-  const openRatePlanDialog = (ratePlan?: any) => {
-    if (ratePlan) {
-      setSelectedRatePlan(ratePlan);
-      setRatePlanFormData({
-        plan_name: ratePlan.plan_name,
-        plan_code: ratePlan.plan_code,
-        start_date: ratePlan.start_date,
-        end_date: ratePlan.end_date,
-        base_price: ratePlan.base_price,
-        weekend_surcharge: ratePlan.weekend_surcharge || 0,
-        weekday_discount: ratePlan.weekday_discount || 0,
-        long_stay_discount: ratePlan.long_stay_discount || 0
-      });
-    } else {
-      resetRatePlanForm();
-    }
-    setIsRatePlanDialogOpen(true);
-  };
 
 
   if (!selectedVendorId) {
@@ -302,87 +173,8 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-      <TabsList className="grid grid-cols-2 w-full max-w-xl">
-        <TabsTrigger value="rateplans">요금제 관리</TabsTrigger>
-        <TabsTrigger value="pms">PMS 연동</TabsTrigger>
-      </TabsList>
-
-      {/* 요금제 관리 */}
-      <TabsContent value="rateplans">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>계절별/기간별 요금제</CardTitle>
-              <Button
-                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                onClick={() => openRatePlanDialog()}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                요금제 추가
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>요금제명</TableHead>
-                  <TableHead>요금제 코드</TableHead>
-                  <TableHead>시작일</TableHead>
-                  <TableHead>종료일</TableHead>
-                  <TableHead>기본 요금</TableHead>
-                  <TableHead>주말 할증</TableHead>
-                  <TableHead>작업</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ratePlans.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                      등록된 요금제가 없습니다.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  ratePlans.map((plan) => (
-                    <TableRow key={plan.id}>
-                      <TableCell>{plan.plan_name}</TableCell>
-                      <TableCell>{plan.plan_code}</TableCell>
-                      <TableCell>{plan.start_date}</TableCell>
-                      <TableCell>{plan.end_date}</TableCell>
-                      <TableCell>₩{plan.base_price?.toLocaleString()}</TableCell>
-                      <TableCell>{plan.weekend_surcharge || 0}%</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openRatePlanDialog(plan)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteRatePlan(plan.id, plan.plan_name)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-
+    <div className="space-y-6">
       {/* PMS 연동 */}
-      <TabsContent value="pms">
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -538,97 +330,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
             </CardContent>
           </Card>
         </div>
-      </TabsContent>
-
-      {/* 요금제 추가/수정 Dialog */}
-      <Dialog open={isRatePlanDialogOpen} onOpenChange={setIsRatePlanDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{selectedRatePlan ? '요금제 수정' : '요금제 추가'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>요금제명 *</Label>
-                <Input
-                  value={ratePlanFormData.plan_name}
-                  onChange={(e) => setRatePlanFormData({ ...ratePlanFormData, plan_name: e.target.value })}
-                  placeholder="예: 성수기 요금"
-                />
-              </div>
-              <div>
-                <Label>요금제 코드 *</Label>
-                <Input
-                  value={ratePlanFormData.plan_code}
-                  onChange={(e) => setRatePlanFormData({ ...ratePlanFormData, plan_code: e.target.value })}
-                  placeholder="예: SUMMER2024"
-                />
-              </div>
-              <div>
-                <Label>시작일 *</Label>
-                <Input
-                  type="date"
-                  value={ratePlanFormData.start_date}
-                  onChange={(e) => setRatePlanFormData({ ...ratePlanFormData, start_date: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>종료일 *</Label>
-                <Input
-                  type="date"
-                  value={ratePlanFormData.end_date}
-                  onChange={(e) => setRatePlanFormData({ ...ratePlanFormData, end_date: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>기본 요금 (원) *</Label>
-                <Input
-                  type="number"
-                  value={ratePlanFormData.base_price}
-                  onChange={(e) => setRatePlanFormData({ ...ratePlanFormData, base_price: parseFloat(e.target.value) })}
-                />
-              </div>
-              <div>
-                <Label>주말 할증 (%)</Label>
-                <Input
-                  type="number"
-                  value={ratePlanFormData.weekend_surcharge}
-                  onChange={(e) => setRatePlanFormData({ ...ratePlanFormData, weekend_surcharge: parseFloat(e.target.value) })}
-                />
-              </div>
-              <div>
-                <Label>평일 할인 (%)</Label>
-                <Input
-                  type="number"
-                  value={ratePlanFormData.weekday_discount}
-                  onChange={(e) => setRatePlanFormData({ ...ratePlanFormData, weekday_discount: parseFloat(e.target.value) })}
-                />
-              </div>
-              <div>
-                <Label>장기 투숙 할인 (%)</Label>
-                <Input
-                  type="number"
-                  value={ratePlanFormData.long_stay_discount}
-                  onChange={(e) => setRatePlanFormData({ ...ratePlanFormData, long_stay_discount: parseFloat(e.target.value) })}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setIsRatePlanDialogOpen(false)}>
-                취소
-              </Button>
-              <Button
-                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                onClick={handleSaveRatePlan}
-                disabled={!ratePlanFormData.plan_name || !ratePlanFormData.plan_code}
-              >
-                {selectedRatePlan ? '수정' : '추가'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-    </Tabs>
+    </div>
   );
 };

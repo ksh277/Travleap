@@ -131,41 +131,7 @@ export interface AccommodationBooking {
 }
 
 // ============================================
-// 4. RATE PLAN (요금제)
-// ============================================
-export interface AccommodationRatePlan {
-  id: number;
-  vendor_id: number;
-  plan_name: string;
-  plan_code: string;
-  start_date: string;
-  end_date: string;
-  base_price: number;
-  weekend_surcharge: number; // Percentage
-  weekday_discount: number; // Percentage
-  long_stay_discount: number; // Percentage (e.g., 7+ nights)
-  min_nights?: number;
-  max_nights?: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AccommodationRatePlanFormData {
-  plan_name: string;
-  plan_code: string;
-  start_date: string;
-  end_date: string;
-  base_price: number;
-  weekend_surcharge: number;
-  weekday_discount: number;
-  long_stay_discount: number;
-  min_nights?: number;
-  max_nights?: number;
-}
-
-// ============================================
-// 5. SYNC LOG (동기화 로그)
+// 4. SYNC LOG (동기화 로그)
 // ============================================
 export interface AccommodationSyncLog {
   id: number;
