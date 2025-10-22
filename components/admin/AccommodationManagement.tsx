@@ -54,6 +54,13 @@ export const AccommodationManagement: React.FC = () => {
   const [roomImageFiles, setRoomImageFiles] = useState<File[]>([]);
   const [roomImagePreviews, setRoomImagePreviews] = useState<string[]>([]);
 
+  // 예약 관리 state
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookingSearchQuery, setBookingSearchQuery] = useState('');
+  const [bookingStatusFilter, setBookingStatusFilter] = useState('all');
+  const [bookingCurrentPage, setBookingCurrentPage] = useState(1);
+  const [bookingItemsPerPage] = useState(10);
+
   const [newPartnerForm, setNewPartnerForm] = useState({
     business_name: '',
     contact_name: '',
@@ -74,6 +81,7 @@ export const AccommodationManagement: React.FC = () => {
   // Load data
   useEffect(() => {
     loadPartners();
+    loadBookings();
   }, []);
 
   const loadPartners = async () => {
@@ -103,6 +111,20 @@ export const AccommodationManagement: React.FC = () => {
     } catch (error) {
       console.error('Failed to load rooms:', error);
       toast.error('객실 목록을 불러올 수 없습니다.');
+    }
+  };
+
+  const loadBookings = async () => {
+    try {
+      const response = await fetch('/api/admin/accommodation-bookings');
+      const result = await response.json();
+      if (result.success && result.data) {
+        console.log(`✅ 예약 ${result.data.length}개 로드됨`);
+        setBookings(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to load bookings:', error);
+      // 에러는 조용히 처리 (예약 기능이 아직 없을 수 있음)
     }
   };
 
@@ -740,9 +762,143 @@ export const AccommodationManagement: React.FC = () => {
             <CardTitle>숙박 예약 관리</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12 text-gray-500">
-              <p>숙박 예약 관리 기능이 곧 추가됩니다.</p>
+            <div className="mb-4 flex gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="예약자명, 업체명, 객실명 검색..."
+                  className="pl-10"
+                  value={bookingSearchQuery}
+                  onChange={(e) => setBookingSearchQuery(e.target.value)}
+                />
+              </div>
+              <Select value={bookingStatusFilter} onValueChange={setBookingStatusFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 상태</SelectItem>
+                  <SelectItem value="pending">대기중</SelectItem>
+                  <SelectItem value="confirmed">확정</SelectItem>
+                  <SelectItem value="cancelled">취소</SelectItem>
+                  <SelectItem value="completed">완료</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>예약 ID</TableHead>
+                    <TableHead>예약자</TableHead>
+                    <TableHead>업체명</TableHead>
+                    <TableHead>객실명</TableHead>
+                    <TableHead>체크인</TableHead>
+                    <TableHead>체크아웃</TableHead>
+                    <TableHead>금액</TableHead>
+                    <TableHead>상태</TableHead>
+                    <TableHead>작업</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(() => {
+                    const filtered = bookings.filter(booking => {
+                      const matchesSearch = !bookingSearchQuery ||
+                        booking.customer_name?.toLowerCase().includes(bookingSearchQuery.toLowerCase()) ||
+                        booking.vendor_name?.toLowerCase().includes(bookingSearchQuery.toLowerCase()) ||
+                        booking.room_name?.toLowerCase().includes(bookingSearchQuery.toLowerCase());
+                      const matchesStatus = bookingStatusFilter === 'all' || booking.status === bookingStatusFilter;
+                      return matchesSearch && matchesStatus;
+                    });
+
+                    const startIndex = (bookingCurrentPage - 1) * bookingItemsPerPage;
+                    const paginatedBookings = filtered.slice(startIndex, startIndex + bookingItemsPerPage);
+
+                    if (paginatedBookings.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                            예약 내역이 없습니다.
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+
+                    return paginatedBookings.map((booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell className="font-medium">#{booking.id}</TableCell>
+                        <TableCell>{booking.customer_name || '알 수 없음'}</TableCell>
+                        <TableCell>{booking.vendor_name || '-'}</TableCell>
+                        <TableCell>{booking.room_name || '-'}</TableCell>
+                        <TableCell>{booking.check_in_date || '-'}</TableCell>
+                        <TableCell>{booking.check_out_date || '-'}</TableCell>
+                        <TableCell>₩{booking.total_price?.toLocaleString() || 0}</TableCell>
+                        <TableCell>
+                          <Badge className={
+                            booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                            booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }>
+                            {booking.status === 'confirmed' ? '확정' :
+                             booking.status === 'pending' ? '대기중' :
+                             booking.status === 'cancelled' ? '취소' :
+                             booking.status === 'completed' ? '완료' : booking.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                toast.info('예약 상세 보기 기능은 준비중입니다.');
+                              }}
+                              title="상세 보기"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ));
+                  })()}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* 페이지네이션 */}
+            {(() => {
+              const filtered = bookings.filter(booking => {
+                const matchesSearch = !bookingSearchQuery ||
+                  booking.customer_name?.toLowerCase().includes(bookingSearchQuery.toLowerCase()) ||
+                  booking.vendor_name?.toLowerCase().includes(bookingSearchQuery.toLowerCase()) ||
+                  booking.room_name?.toLowerCase().includes(bookingSearchQuery.toLowerCase());
+                const matchesStatus = bookingStatusFilter === 'all' || booking.status === bookingStatusFilter;
+                return matchesSearch && matchesStatus;
+              });
+              const totalPages = Math.ceil(filtered.length / bookingItemsPerPage);
+
+              if (totalPages > 1) {
+                return (
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-gray-500">
+                      총 {filtered.length}개 예약 (페이지 {bookingCurrentPage} / {totalPages})
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setBookingCurrentPage(prev => Math.max(1, prev - 1))} disabled={bookingCurrentPage === 1}>이전</Button>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum = totalPages <= 5 ? i + 1 : bookingCurrentPage <= 3 ? i + 1 : bookingCurrentPage >= totalPages - 2 ? totalPages - 4 + i : bookingCurrentPage - 2 + i;
+                        return <Button key={pageNum} variant={bookingCurrentPage === pageNum ? "default" : "outline"} size="sm" onClick={() => setBookingCurrentPage(pageNum)} className={bookingCurrentPage === pageNum ? "bg-[#8B5FBF] hover:bg-[#7A4FB5]" : ""}>{pageNum}</Button>;
+                      })}
+                      <Button variant="outline" size="sm" onClick={() => setBookingCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={bookingCurrentPage === totalPages}>다음</Button>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </CardContent>
         </Card>
       </TabsContent>
