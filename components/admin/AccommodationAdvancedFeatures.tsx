@@ -29,11 +29,7 @@ import type {
   AccommodationVendor,
   AccommodationRatePlan,
   AccommodationRatePlanFormData,
-  AccommodationExtra,
-  AccommodationExtraFormData,
-  AccommodationSyncLog,
-  AccommodationServiceType,
-  AccommodationPricingType
+  AccommodationSyncLog
 } from '../../types/accommodation';
 
 interface AccommodationAdvancedFeaturesProps {
@@ -60,18 +56,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
     long_stay_discount: 0
   });
 
-  // State for extra services
-  const [extras, setExtras] = useState<AccommodationExtra[]>([]);
-  const [selectedExtra, setSelectedExtra] = useState<AccommodationExtra | null>(null);
-  const [isExtraDialogOpen, setIsExtraDialogOpen] = useState(false);
-  const [extraFormData, setExtraFormData] = useState<AccommodationExtraFormData>({
-    service_code: '',
-    service_name: '',
-    service_type: 'breakfast',
-    pricing_type: 'per_person',
-    price_krw: 0,
-    description: ''
-  });
 
   // State for PMS Integration
   const [pmsProvider, setPmsProvider] = useState<string>('cloudbeds');
@@ -89,7 +73,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
   useEffect(() => {
     if (selectedVendorId) {
       loadRatePlans();
-      loadExtras();
       loadPmsSettings();
       loadSyncLogs();
     }
@@ -108,18 +91,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
     }
   };
 
-  const loadExtras = async () => {
-    if (!selectedVendorId) return;
-    try {
-      const response = await fetch(`/api/admin/accommodation-vendors/${selectedVendorId}/extras`);
-      const result = await response.json();
-      if (result.success && result.data) {
-        setExtras(result.data);
-      }
-    } catch (error) {
-      console.error('Failed to load extras:', error);
-    }
-  };
 
   const loadPmsSettings = async () => {
     if (!selectedVendorId) return;
@@ -188,40 +159,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
     }
   };
 
-  const handleSaveExtra = async () => {
-    if (!selectedVendorId) {
-      toast.error('업체를 먼저 선택해주세요.');
-      return;
-    }
-
-    try {
-      const url = selectedExtra
-        ? `/api/admin/accommodation-vendors/${selectedVendorId}/extras/${selectedExtra.id}`
-        : `/api/admin/accommodation-vendors/${selectedVendorId}/extras`;
-
-      const method = selectedExtra ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(extraFormData)
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success(selectedExtra ? '부가서비스가 수정되었습니다.' : '부가서비스가 추가되었습니다.');
-        setIsExtraDialogOpen(false);
-        loadExtras();
-        resetExtraForm();
-      } else {
-        toast.error(result.error || '부가서비스 저장에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to save extra:', error);
-      toast.error('부가서비스 저장 중 오류가 발생했습니다.');
-    }
-  };
 
   const handleManualSync = async () => {
     if (!selectedVendorId) {
@@ -302,17 +239,36 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
     });
   };
 
-  const resetExtraForm = () => {
-    setSelectedExtra(null);
-    setExtraFormData({
-      service_code: '',
-      service_name: '',
-      service_type: 'breakfast',
-      pricing_type: 'per_person',
-      price_krw: 0,
-      description: ''
-    });
+
+  const handleDeleteRatePlan = async (planId: number, planName: string) => {
+    if (!selectedVendorId) {
+      toast.error('업체를 먼저 선택해주세요.');
+      return;
+    }
+
+    if (!confirm(`정말로 "${planName}" 요금제를 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/accommodation-vendors/${selectedVendorId}/rate-plans/${planId}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('요금제가 삭제되었습니다.');
+        loadRatePlans();
+      } else {
+        toast.error(result.error || '요금제 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete rate plan:', error);
+      toast.error('요금제 삭제 중 오류가 발생했습니다.');
+    }
   };
+
 
   const openRatePlanDialog = (ratePlan?: any) => {
     if (ratePlan) {
@@ -333,22 +289,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
     setIsRatePlanDialogOpen(true);
   };
 
-  const openExtraDialog = (extra?: any) => {
-    if (extra) {
-      setSelectedExtra(extra);
-      setExtraFormData({
-        service_code: extra.service_code,
-        service_name: extra.service_name,
-        service_type: extra.service_type,
-        pricing_type: extra.pricing_type,
-        price_krw: extra.price_krw,
-        description: extra.description || ''
-      });
-    } else {
-      resetExtraForm();
-    }
-    setIsExtraDialogOpen(true);
-  };
 
   if (!selectedVendorId) {
     return (
@@ -363,9 +303,8 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-      <TabsList className="grid grid-cols-3 w-full max-w-2xl">
+      <TabsList className="grid grid-cols-2 w-full max-w-xl">
         <TabsTrigger value="rateplans">요금제 관리</TabsTrigger>
-        <TabsTrigger value="extras">부가서비스</TabsTrigger>
         <TabsTrigger value="pms">PMS 연동</TabsTrigger>
       </TabsList>
 
@@ -425,6 +364,7 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
                           <Button
                             variant="outline"
                             size="sm"
+                            onClick={() => handleDeleteRatePlan(plan.id, plan.plan_name)}
                             className="text-red-600 hover:text-red-700"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -440,85 +380,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
         </Card>
       </TabsContent>
 
-      {/* 부가서비스 */}
-      <TabsContent value="extras">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>부가 서비스 관리</CardTitle>
-              <Button
-                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                onClick={() => openExtraDialog()}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                서비스 추가
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>서비스명</TableHead>
-                  <TableHead>서비스 코드</TableHead>
-                  <TableHead>타입</TableHead>
-                  <TableHead>가격 유형</TableHead>
-                  <TableHead>가격</TableHead>
-                  <TableHead>작업</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {extras.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                      등록된 부가서비스가 없습니다.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  extras.map((extra) => (
-                    <TableRow key={extra.id}>
-                      <TableCell>{extra.service_name}</TableCell>
-                      <TableCell>{extra.service_code}</TableCell>
-                      <TableCell>
-                        <Badge>
-                          {extra.service_type === 'breakfast' ? '조식' :
-                           extra.service_type === 'pickup' ? '픽업' :
-                           extra.service_type === 'laundry' ? '세탁' :
-                           extra.service_type === 'spa' ? '스파' : extra.service_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {extra.pricing_type === 'per_person' ? '1인당' :
-                         extra.pricing_type === 'per_night' ? '1박당' :
-                         extra.pricing_type === 'one_time' ? '1회' : extra.pricing_type}
-                      </TableCell>
-                      <TableCell>₩{extra.price_krw?.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openExtraDialog(extra)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </TabsContent>
 
       {/* PMS 연동 */}
       <TabsContent value="pms">
@@ -768,99 +629,6 @@ export const AccommodationAdvancedFeatures: React.FC<AccommodationAdvancedFeatur
         </DialogContent>
       </Dialog>
 
-      {/* 부가서비스 추가/수정 Dialog */}
-      <Dialog open={isExtraDialogOpen} onOpenChange={setIsExtraDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{selectedExtra ? '부가서비스 수정' : '부가서비스 추가'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>서비스명 *</Label>
-                <Input
-                  value={extraFormData.service_name}
-                  onChange={(e) => setExtraFormData({ ...extraFormData, service_name: e.target.value })}
-                  placeholder="예: 조식 뷔페"
-                />
-              </div>
-              <div>
-                <Label>서비스 코드 *</Label>
-                <Input
-                  value={extraFormData.service_code}
-                  onChange={(e) => setExtraFormData({ ...extraFormData, service_code: e.target.value })}
-                  placeholder="예: BREAKFAST"
-                />
-              </div>
-              <div>
-                <Label>서비스 타입 *</Label>
-                <Select
-                  value={extraFormData.service_type}
-                  onValueChange={(value) => setExtraFormData({ ...extraFormData, service_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="breakfast">조식</SelectItem>
-                    <SelectItem value="pickup">픽업 서비스</SelectItem>
-                    <SelectItem value="laundry">세탁 서비스</SelectItem>
-                    <SelectItem value="spa">스파</SelectItem>
-                    <SelectItem value="parking">주차</SelectItem>
-                    <SelectItem value="wifi">WiFi</SelectItem>
-                    <SelectItem value="other">기타</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>가격 유형 *</Label>
-                <Select
-                  value={extraFormData.pricing_type}
-                  onValueChange={(value) => setExtraFormData({ ...extraFormData, pricing_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="per_person">1인당</SelectItem>
-                    <SelectItem value="per_night">1박당</SelectItem>
-                    <SelectItem value="one_time">1회</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-2">
-                <Label>가격 (원) *</Label>
-                <Input
-                  type="number"
-                  value={extraFormData.price_krw}
-                  onChange={(e) => setExtraFormData({ ...extraFormData, price_krw: parseFloat(e.target.value) })}
-                />
-              </div>
-              <div className="col-span-2">
-                <Label>설명</Label>
-                <Textarea
-                  value={extraFormData.description}
-                  onChange={(e) => setExtraFormData({ ...extraFormData, description: e.target.value })}
-                  placeholder="서비스 설명"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setIsExtraDialogOpen(false)}>
-                취소
-              </Button>
-              <Button
-                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                onClick={handleSaveExtra}
-                disabled={!extraFormData.service_name || !extraFormData.service_code}
-              >
-                {selectedExtra ? '수정' : '추가'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </Tabs>
   );
 };

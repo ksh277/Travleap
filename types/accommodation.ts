@@ -165,50 +165,7 @@ export interface AccommodationRatePlanFormData {
 }
 
 // ============================================
-// 5. EXTRA SERVICE (부가 서비스)
-// ============================================
-export type AccommodationServiceType =
-  | 'breakfast'
-  | 'pickup'
-  | 'laundry'
-  | 'spa'
-  | 'parking'
-  | 'wifi'
-  | 'minibar'
-  | 'room_service'
-  | 'other';
-
-export type AccommodationPricingType =
-  | 'per_person'
-  | 'per_night'
-  | 'per_room'
-  | 'one_time';
-
-export interface AccommodationExtra {
-  id: number;
-  vendor_id: number;
-  service_code: string;
-  service_name: string;
-  service_type: AccommodationServiceType;
-  pricing_type: AccommodationPricingType;
-  price_krw: number;
-  description?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AccommodationExtraFormData {
-  service_code: string;
-  service_name: string;
-  service_type: AccommodationServiceType;
-  pricing_type: AccommodationPricingType;
-  price_krw: number;
-  description?: string;
-}
-
-// ============================================
-// 6. SYNC LOG (동기화 로그)
+// 5. SYNC LOG (동기화 로그)
 // ============================================
 export interface AccommodationSyncLog {
   id: number;
