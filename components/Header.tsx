@@ -396,6 +396,13 @@ export function Header({
                           >
                             {t('admin', selectedLanguage)} 페이지
                           </button>
+                        ) : user?.role === 'vendor' ? (
+                          <button
+                            onClick={() => navigate("/vendor/dashboard")}
+                            className="block w-full text-left px-6 py-4 hover:bg-blue-50 text-blue-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
+                          >
+                            벤더 대시보드
+                          </button>
                         ) : (
                           <button
                             onClick={() => navigate("/mypage")}
