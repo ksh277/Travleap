@@ -39,6 +39,9 @@ interface Partner {
   min_age?: number;
   max_capacity?: number;
   language?: string;
+  coordinates?: string;
+  lat?: number;
+  lng?: number;
 }
 
 export function PartnerDetailPage() {
@@ -53,102 +56,93 @@ export function PartnerDetailPage() {
     loadPartnerDetail();
   }, [id]);
 
-  // Kakao Map 초기화
+  // Google Map 초기화
   useEffect(() => {
     if (!partner) return;
 
     const initMap = () => {
-      const kakao = (window as any).kakao;
-      if (!kakao || !kakao.maps) {
-        console.error('Kakao Maps API not loaded');
+      if (!(window as any).google || !(window as any).google.maps) {
+        console.error('Google Maps API not loaded');
         return;
       }
 
       const container = document.getElementById('map');
       if (!container) return;
 
-      // coordinates가 있으면 바로 사용, 없으면 주소로 검색
-      if (partner.coordinates) {
-        const [lat, lng] = partner.coordinates.split(',').map(Number);
-        const coords = new kakao.maps.LatLng(lat, lng);
+      // lat/lng가 있으면 바로 사용
+      if (partner.lat && partner.lng) {
+        const position = { lat: partner.lat, lng: partner.lng };
 
-        const options = {
-          center: coords,
-          level: 3
-        };
-
-        const map = new kakao.maps.Map(container, options);
+        const map = new google.maps.Map(container, {
+          center: position,
+          zoom: 15,
+        });
 
         // 마커 표시
-        const marker = new kakao.maps.Marker({
+        const marker = new google.maps.Marker({
           map: map,
-          position: coords
+          position: position,
+          title: partner.name,
         });
 
         // 인포윈도우 표시
-        const infowindow = new kakao.maps.InfoWindow({
-          content: `<div style="padding:5px;font-size:12px;width:200px;text-align:center;">${partner.name}</div>`
+        const infowindow = new google.maps.InfoWindow({
+          content: `<div style="padding:10px;"><strong>${partner.name}</strong><br/>${partner.address}</div>`
         });
         infowindow.open(map, marker);
-      } else if (partner.address) {
-        // coordinates가 없으면 주소로 검색
-        const geocoder = new kakao.maps.services.Geocoder();
-        geocoder.addressSearch(partner.address, (result: any, status: any) => {
-          if (status === kakao.maps.services.Status.OK) {
-            const coords = new kakao.maps.LatLng(result[0].y, result[0].x);
 
-            const options = {
-              center: coords,
-              level: 3
-            };
+        marker.addListener('click', () => {
+          infowindow.open(map, marker);
+        });
+      } else if (partner.coordinates) {
+        const [lat, lng] = partner.coordinates.split(',').map(Number);
+        const position = { lat, lng };
 
-            const map = new kakao.maps.Map(container, options);
+        const map = new google.maps.Map(container, {
+          center: position,
+          zoom: 15,
+        });
 
-            // 마커 표시
-            const marker = new kakao.maps.Marker({
-              map: map,
-              position: coords
-            });
+        const marker = new google.maps.Marker({
+          map: map,
+          position: position,
+          title: partner.name,
+        });
 
-            // 인포윈도우 표시
-            const infowindow = new kakao.maps.InfoWindow({
-              content: `<div style="padding:5px;font-size:12px;width:200px;text-align:center;">${partner.name}</div>`
-            });
-            infowindow.open(map, marker);
-          } else {
-            console.error('Geocoder failed:', status);
-            // 기본 위치 (신안군청)
-            const defaultCoords = new kakao.maps.LatLng(34.8251, 126.1042);
-            const options = {
-              center: defaultCoords,
-              level: 5
-            };
-            const map = new kakao.maps.Map(container, options);
-            const marker = new kakao.maps.Marker({
-              map: map,
-              position: defaultCoords
-            });
-          }
+        const infowindow = new google.maps.InfoWindow({
+          content: `<div style="padding:10px;"><strong>${partner.name}</strong><br/>${partner.address}</div>`
+        });
+        infowindow.open(map, marker);
+
+        marker.addListener('click', () => {
+          infowindow.open(map, marker);
         });
       } else {
-        // 주소도 좌표도 없으면 기본 위치
-        const defaultCoords = new kakao.maps.LatLng(34.8251, 126.1042);
-        const options = {
-          center: defaultCoords,
-          level: 5
-        };
-        const map = new kakao.maps.Map(container, options);
+        // 주소도 좌표도 없으면 기본 위치 (신안군청)
+        const defaultPosition = { lat: 34.8251, lng: 126.1042 };
+        const map = new google.maps.Map(container, {
+          center: defaultPosition,
+          zoom: 11,
+        });
       }
     };
 
-    // Kakao Maps API 로드 확인
-    if ((window as any).kakao && (window as any).kakao.maps) {
+    // Google Maps API 로드 확인
+    if ((window as any).google && (window as any).google.maps) {
       initMap();
     } else {
-      const script = document.querySelector('script[src*="dapi.kakao.com"]');
-      if (script) {
-        script.addEventListener('load', initMap);
-      }
+      // Google Maps API 스크립트가 이미 PartnerPage에서 로드되었을 것으로 예상
+      const checkGoogleMaps = setInterval(() => {
+        if ((window as any).google && (window as any).google.maps) {
+          clearInterval(checkGoogleMaps);
+          initMap();
+        }
+      }, 100);
+
+      // 10초 후 타임아웃
+      setTimeout(() => {
+        clearInterval(checkGoogleMaps);
+      }, 10000);
     }
   }, [partner]);
 
@@ -185,6 +179,9 @@ export function PartnerDetailPage() {
           min_age: partnerData.min_age,
           max_capacity: partnerData.max_capacity,
           language: partnerData.language,
+          coordinates: partnerData.coordinates,
+          lat: partnerData.lat ? Number(partnerData.lat) : undefined,
+          lng: partnerData.lng ? Number(partnerData.lng) : undefined,
         });
       } else {
         throw new Error(result.message || '파트너 정보를 찾을 수 없습니다');

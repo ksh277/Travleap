@@ -140,6 +140,15 @@ export function AdminPage({}: AdminPageProps) {
   const [blogSearchQuery, setBlogSearchQuery] = useState('');
   const [blogCategoryFilter, setBlogCategoryFilter] = useState('all');
 
+  // 파트너 페이지네이션 state
+  const [partnerCurrentPage, setPartnerCurrentPage] = useState(1);
+  const partnersPerPage = 6;
+
+  // 파트너 검색 시 페이지 리셋
+  useEffect(() => {
+    setPartnerCurrentPage(1);
+  }, [partnerSearchQuery]);
+
   // 블로그 카테고리 매핑
   const blogCategoryNames: Record<string, string> = {
     'travel': '여행기',
@@ -3261,13 +3270,17 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {partners
-                    .filter(partner =>
+                  {(() => {
+                    const filteredPartners = partners.filter(partner =>
                       partner.business_name?.toLowerCase().includes(partnerSearchQuery.toLowerCase()) ||
                       partner.contact_name?.toLowerCase().includes(partnerSearchQuery.toLowerCase()) ||
                       partner.email?.toLowerCase().includes(partnerSearchQuery.toLowerCase())
-                    )
-                    .map((partner) => (
+                    );
+                    const startIndex = (partnerCurrentPage - 1) * partnersPerPage;
+                    const endIndex = startIndex + partnersPerPage;
+                    const paginatedPartners = filteredPartners.slice(startIndex, endIndex);
+
+                    return paginatedPartners.map((partner) => (
                     <Card key={partner.id}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-3">
@@ -3325,8 +3338,54 @@ export function AdminPage({}: AdminPageProps) {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                  ));
+                  })()}
                 </div>
+
+                {/* 페이지네이션 */}
+                {(() => {
+                  const filteredPartners = partners.filter(partner =>
+                    partner.business_name?.toLowerCase().includes(partnerSearchQuery.toLowerCase()) ||
+                    partner.contact_name?.toLowerCase().includes(partnerSearchQuery.toLowerCase()) ||
+                    partner.email?.toLowerCase().includes(partnerSearchQuery.toLowerCase())
+                  );
+                  const totalPages = Math.ceil(filteredPartners.length / partnersPerPage);
+
+                  if (totalPages > 1) {
+                    return (
+                      <div className="flex justify-center items-center gap-2 mt-6">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPartnerCurrentPage(Math.max(1, partnerCurrentPage - 1))}
+                          disabled={partnerCurrentPage === 1}
+                        >
+                          이전
+                        </Button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                          <Button
+                            key={page}
+                            variant={partnerCurrentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPartnerCurrentPage(page)}
+                            className={partnerCurrentPage === page ? "bg-blue-600 text-white" : ""}
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPartnerCurrentPage(Math.min(totalPages, partnerCurrentPage + 1))}
+                          disabled={partnerCurrentPage === totalPages}
+                        >
+                          다음
+                        </Button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {partners.length === 0 && (
                   <div className="text-center py-8">
