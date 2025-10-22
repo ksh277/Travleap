@@ -102,7 +102,7 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST') {
       // 리뷰 작성
-      const { user_id, rating, title, content, images } = req.body;
+      const { user_id, rating, title, content } = req.body;
 
       if (!user_id || !rating || !content) {
         return res.status(400).json({
@@ -119,9 +119,9 @@ module.exports = async function handler(req, res) {
       }
 
       const result = await connection.execute(`
-        INSERT INTO reviews (listing_id, user_id, rating, title, content, images)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `, [listingId, user_id, rating, title || '', content, JSON.stringify(images || [])]);
+        INSERT INTO reviews (listing_id, user_id, rating, title, comment_md, review_type, is_verified, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, 'listing', TRUE, NOW(), NOW())
+      `, [listingId, user_id, rating, title || '', content]);
 
       // 리스팅의 평균 평점 업데이트
       await connection.execute(`
@@ -134,7 +134,8 @@ module.exports = async function handler(req, res) {
 
       return res.status(201).json({
         success: true,
-        data: { id: result.insertId }
+        data: { id: result.insertId },
+        message: '리뷰가 성공적으로 등록되었습니다'
       });
     }
 
