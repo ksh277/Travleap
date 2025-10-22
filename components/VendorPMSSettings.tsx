@@ -77,7 +77,7 @@ export function VendorPMSSettings() {
       setLoading(true);
 
       // 1. PMS 설정 가져오기 - API 호출
-      const configResponse = await fetch(`http://localhost:3004/api/vendor/pms-config?userId=${user.id}`);
+      const configResponse = await fetch(`/api/vendor/pms-config?userId=${user.id}`);
       const configResult = await configResponse.json();
 
       if (!configResult.success || !configResult.data) {
@@ -99,7 +99,7 @@ export function VendorPMSSettings() {
       setSyncInterval(vendor.pms_sync_interval || 3600);
 
       // 2. 동기화 로그 가져오기 - API 호출
-      const logsResponse = await fetch(`http://localhost:3004/api/vendor/pms/logs?userId=${user.id}`);
+      const logsResponse = await fetch(`/api/vendor/pms/logs?userId=${user.id}`);
       const logsResult = await logsResponse.json();
 
       if (logsResult.success) {
@@ -134,7 +134,7 @@ export function VendorPMSSettings() {
 
     try {
       // API 호출
-      const response = await fetch('http://localhost:3004/api/vendor/pms-config', {
+      const response = await fetch('/api/vendor/pms-config', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

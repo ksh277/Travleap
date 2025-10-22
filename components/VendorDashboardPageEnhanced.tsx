@@ -793,7 +793,7 @@ export function VendorDashboardPageEnhanced() {
               <h1 className="text-3xl font-bold text-gray-900">{vendorInfo.name}</h1>
               <p className="text-gray-600 flex items-center gap-2">
                 <Building2 className="w-4 h-4" />
-                렌트카 업체 대시보드 (강화 버전)
+                렌트카 업체 관리 대시보드
                 {vendorInfo.is_verified && (
                   <Badge variant="default" className="ml-2">인증됨</Badge>
                 )}
