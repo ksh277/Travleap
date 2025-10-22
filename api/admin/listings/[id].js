@@ -55,14 +55,7 @@ module.exports = async function handler(req, res) {
       // 4. 상품 자체 삭제
       const result = await connection.execute('DELETE FROM listings WHERE id = ?', [id]);
 
-      if (result.rowsAffected === 0) {
-        return res.status(404).json({
-          success: false,
-          error: '상품을 찾을 수 없습니다.'
-        });
-      }
-
-      console.log(`  ✅ Listing ${id} deleted successfully`);
+      console.log(`  ✅ Listing ${id} deleted successfully. Result:`, result);
 
       return res.status(200).json({
         success: true,
@@ -150,16 +143,12 @@ module.exports = async function handler(req, res) {
         ]
       );
 
-      if (result.rowsAffected === 0) {
-        return res.status(404).json({
-          success: false,
-          error: '상품을 찾을 수 없습니다.'
-        });
-      }
+      console.log('Update result:', result);
 
       return res.status(200).json({
         success: true,
-        message: '상품이 성공적으로 수정되었습니다.'
+        message: '상품이 성공적으로 수정되었습니다.',
+        data: { id }
       });
     }
 

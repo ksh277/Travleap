@@ -77,12 +77,8 @@ module.exports = async function handler(req, res) {
           [id]
         );
 
-        if (result.rowsAffected === 0) {
-          return res.status(404).json({
-            success: false,
-            error: '벤더를 찾을 수 없습니다.'
-          });
-        }
+        // PlanetScale의 결과 확인
+        console.log('Delete result:', result);
 
         return res.status(200).json({
           success: true,
@@ -149,12 +145,7 @@ module.exports = async function handler(req, res) {
         ]
       );
 
-      if (result.rowsAffected === 0) {
-        return res.status(404).json({
-          success: false,
-          error: '벤더를 찾을 수 없습니다.'
-        });
-      }
+      console.log('Update result:', result);
 
       return res.status(200).json({
         success: true,
