@@ -67,7 +67,10 @@ export const AccommodationManagement: React.FC = () => {
     phone: '',
     email: '',
     tier: 'basic',
-    logo_url: ''
+    logo_url: '',
+    pms_provider: '',
+    pms_api_key: '',
+    pms_property_id: ''
   });
   const [newRoomForm, setNewRoomForm] = useState({
     listing_name: '',
@@ -267,7 +270,10 @@ export const AccommodationManagement: React.FC = () => {
           phone: '',
           email: '',
           tier: 'basic',
-          logo_url: ''
+          logo_url: '',
+          pms_provider: '',
+          pms_api_key: '',
+          pms_property_id: ''
         });
         setLogoImageFile(null);
         setLogoImagePreview('');
@@ -977,6 +983,58 @@ export const AccommodationManagement: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* PMS 연동 설정 */}
+            <div className="border-t pt-4">
+              <h3 className="font-semibold mb-3">PMS API 연동 설정 (선택)</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label>PMS 제공업체</Label>
+                  <Select
+                    value={newPartnerForm.pms_provider || 'none'}
+                    onValueChange={(value) => setNewPartnerForm({ ...newPartnerForm, pms_provider: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">없음</SelectItem>
+                      <SelectItem value="cloudbeds">CloudBeds</SelectItem>
+                      <SelectItem value="opera">Oracle Opera</SelectItem>
+                      <SelectItem value="mews">Mews</SelectItem>
+                      <SelectItem value="ezee">eZee</SelectItem>
+                      <SelectItem value="custom">기타 (Custom API)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {newPartnerForm.pms_provider && newPartnerForm.pms_provider !== 'none' && (
+                  <>
+                    <div>
+                      <Label>API Key</Label>
+                      <Input
+                        type="password"
+                        value={newPartnerForm.pms_api_key || ''}
+                        onChange={(e) => setNewPartnerForm({ ...newPartnerForm, pms_api_key: e.target.value })}
+                        placeholder="PMS API 인증 키"
+                      />
+                    </div>
+                    <div>
+                      <Label>Property ID</Label>
+                      <Input
+                        value={newPartnerForm.pms_property_id || ''}
+                        onChange={(e) => setNewPartnerForm({ ...newPartnerForm, pms_property_id: e.target.value })}
+                        placeholder="숙소 고유 ID"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                PMS 연동 시 객실 목록과 예약 정보를 자동으로 동기화합니다.
+              </p>
+            </div>
+
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setShowAddPartnerDialog(false)}>
                 취소
