@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // GET - 파트너 목록 조회 (가맹점 파트너만)
+    // GET - 파트너 목록 조회 (가맹점 파트너만, 숙박 제외)
     if (req.method === 'GET') {
       const result = await connection.execute(`
         SELECT
@@ -20,6 +20,7 @@ module.exports = async function handler(req, res) {
           COUNT(DISTINCT l.id) as listing_count
         FROM partners p
         INNER JOIN listings l ON p.id = l.partner_id
+        WHERE p.partner_type != 'lodging' OR p.partner_type IS NULL
         GROUP BY p.id
         ORDER BY p.created_at DESC
       `);
