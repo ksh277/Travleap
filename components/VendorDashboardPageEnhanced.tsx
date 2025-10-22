@@ -41,6 +41,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ImageUploader } from './ui/ImageUploader';
 
 interface Vehicle {
   id: number;
@@ -1223,56 +1224,40 @@ export function VendorDashboardPageEnhanced() {
                       </div>
                     </div>
 
-                    {/* 이미지 URL 입력 */}
+                    {/* 이미지 업로드 */}
                     <div className="md:col-span-2 border-t pt-4">
-                      <Label className="mb-2 flex items-center gap-2">
-                        <ImageIcon className="w-4 h-4" />
-                        차량 이미지 URL (최대 5개)
-                      </Label>
-                      <div className="flex gap-2 mb-2">
-                        <Input
-                          placeholder="이미지 URL을 입력하세요"
-                          value={currentImageUrl}
-                          onChange={(e) => setCurrentImageUrl(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              addImageUrl();
-                            }
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={addImageUrl}
-                          disabled={vehicleForm.image_urls.length >= 5}
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      {vehicleForm.image_urls.length > 0 && (
-                        <div className="space-y-2">
-                          {vehicleForm.image_urls.map((url, index) => (
-                            <div key={index} className="flex items-center gap-2 p-2 bg-white rounded border">
-                              <ImageIcon className="w-4 h-4 text-gray-400" />
-                              <span className="flex-1 text-sm truncate">{url}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeImageUrl(index)}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
+                      <ImageUploader
+                        images={vehicleForm.image_urls}
+                        onImagesChange={(urls) => setVehicleForm({ ...vehicleForm, image_urls: urls })}
+                        maxImages={5}
+                        label="차량 이미지 (최대 5개)"
+                      />
+
+                      {/* URL 직접 입력 옵션 */}
+                      <div className="mt-4 p-4 border border-dashed rounded-lg">
+                        <Label className="mb-2 text-sm text-gray-600">또는 이미지 URL 직접 입력</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="https://example.com/image.jpg"
+                            value={currentImageUrl}
+                            onChange={(e) => setCurrentImageUrl(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addImageUrl();
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={addImageUrl}
+                            disabled={vehicleForm.image_urls.length >= 5}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
                         </div>
-                      )}
-                      {vehicleForm.image_urls.length === 0 && (
-                        <p className="text-sm text-gray-500">
-                          이미지를 추가하지 않으면 기본 이미지가 사용됩니다.
-                        </p>
-                      )}
+                      </div>
                     </div>
                   </div>
 
