@@ -56,17 +56,7 @@ module.exports = async function handler(req, res) {
         WHERE listing_id = ?
       `, [listingId]);
 
-      const reviews = (result.rows || []).map(review => {
-        let images = [];
-        try {
-          if (review.images) images = JSON.parse(review.images);
-        } catch (e) {}
-
-        return {
-          ...review,
-          images: Array.isArray(images) ? images : []
-        };
-      });
+      const reviews = result.rows || [];
 
       const stats = statsResult.rows?.[0] || {
         total_count: 0,

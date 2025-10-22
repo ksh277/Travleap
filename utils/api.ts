@@ -1165,18 +1165,16 @@ export const api = {
     images?: string[];
   }): Promise<ApiResponse<Review>> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/reviews`, {
+      const response = await fetch(`${API_BASE_URL}/api/reviews/${reviewData.listing_id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          listing_id: reviewData.listing_id,
           user_id: reviewData.user_id,
           rating: reviewData.rating,
           title: reviewData.title || '',
-          content: reviewData.content,
-          review_type: 'listing'
+          content: reviewData.content
         }),
       });
 
@@ -2922,64 +2920,44 @@ export const api = {
       }
     },
 
-    // 리뷰 생성
-    createReview: async (reviewData: any): Promise<ApiResponse<Review>> => {
-      try {
-        // 렌트카 리뷰인 경우 review_type 자동 설정
-        if (reviewData.rentcar_booking_id) {
-          reviewData.review_type = 'rentcar';
-        } else {
-          reviewData.review_type = 'listing';
-        }
-
-        const response = await db.insert('reviews', reviewData);
-        return {
-          success: true,
-          data: response as Review,
-          message: '리뷰가 생성되었습니다.'
-        };
-      } catch (error) {
-        console.error('Failed to create review:', error);
-        return {
-          success: false,
-          error: '리뷰 생성에 실패했습니다.'
-        };
-      }
-    },
-
     // 리뷰 수정
-    updateReview: async (reviewId: number, reviewData: any): Promise<ApiResponse<Review>> => {
+    updateReview: async (reviewId: number, userId: number, reviewData: { rating?: number, title?: string, comment_md?: string }): Promise<ApiResponse<Review>> => {
       try {
-        // 기존 리뷰 정보 조회 (listing_id 가져오기)
-        const existing = await db.select('reviews', { id: reviewId });
-        const listingId = existing[0]?.listing_id;
+        const response = await fetch(`${API_BASE_URL}/api/reviews/${reviewId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            ...reviewData
+          })
+        });
 
-        await db.update('reviews', reviewId, reviewData);
-        const updated = await db.select('reviews', { id: reviewId });
+        const result = await response.json();
 
-        // 평점이 변경된 경우 listing 평점 업데이트
-        if (listingId && reviewData.rating !== undefined) {
-          await api.updateListingRating(listingId);
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '리뷰 수정 실패');
         }
 
         return {
           success: true,
-          data: updated[0],
-          message: '리뷰가 수정되었습니다.'
+          data: null,
+          message: result.message || '리뷰가 수정되었습니다.'
         };
       } catch (error) {
         console.error('Failed to update review:', error);
         return {
           success: false,
-          error: '리뷰 수정에 실패했습니다.'
+          error: error instanceof Error ? error.message : '리뷰 수정에 실패했습니다.'
         };
       }
     },
 
     // 리뷰 삭제
-    deleteReview: async (reviewId: number): Promise<ApiResponse<null>> => {
+    deleteReview: async (reviewId: number, userId: number): Promise<ApiResponse<null>> => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/reviews/${reviewId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/reviews/${reviewId}?user_id=${userId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
