@@ -73,6 +73,7 @@ export const AccommodationManagement: React.FC = () => {
     pms_api_key: '',
     pms_property_id: ''
   });
+  const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
   const [newRoomForm, setNewRoomForm] = useState({
     listing_name: '',
     description: '',
@@ -129,6 +130,27 @@ export const AccommodationManagement: React.FC = () => {
     } catch (error) {
       console.error('Failed to load bookings:', error);
       // 에러는 조용히 처리 (예약 기능이 아직 없을 수 있음)
+    }
+  };
+
+  const handleUpdateBookingStatus = async (bookingId: number, newStatus: string) => {
+    try {
+      const response = await fetch(`/api/admin/accommodation-bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('예약 상태가 변경되었습니다.');
+        loadBookings();
+      } else {
+        toast.error(result.error || '상태 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to update booking status:', error);
+      toast.error('상태 변경 중 오류가 발생했습니다.');
     }
   };
 
@@ -253,18 +275,59 @@ export const AccommodationManagement: React.FC = () => {
     });
   };
 
+  const handleOpenVendorDialog = (vendor?: any) => {
+    if (vendor) {
+      setSelectedVendor(vendor);
+      setNewPartnerForm({
+        business_name: vendor.business_name || '',
+        contact_name: vendor.contact_name || '',
+        phone: vendor.contact_phone || vendor.phone || '',
+        email: vendor.contact_email || vendor.email || '',
+        tier: vendor.tier || 'basic',
+        logo_url: vendor.logo_url || '',
+        pms_provider: vendor.pms_provider || '',
+        pms_api_key: vendor.pms_api_key || '',
+        pms_property_id: vendor.pms_property_id || ''
+      });
+      setLogoImagePreview(vendor.logo_url || '');
+    } else {
+      setSelectedVendor(null);
+      setNewPartnerForm({
+        business_name: '',
+        contact_name: '',
+        phone: '',
+        email: '',
+        tier: 'basic',
+        logo_url: '',
+        pms_provider: '',
+        pms_api_key: '',
+        pms_property_id: ''
+      });
+      setLogoImagePreview('');
+    }
+    setLogoImageFile(null);
+    setShowAddPartnerDialog(true);
+  };
+
   const addPartner = async () => {
     try {
-      const response = await fetch('/api/admin/accommodation-vendors', {
-        method: 'POST',
+      const url = selectedVendor
+        ? `/api/admin/accommodation-vendors/${selectedVendor.id || selectedVendor.partner_id}`
+        : '/api/admin/accommodation-vendors';
+
+      const method = selectedVendor ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newPartnerForm)
       });
       const result = await response.json();
 
       if (result.success) {
-        toast.success('업체가 추가되었습니다.');
+        toast.success(selectedVendor ? '업체가 수정되었습니다.' : '업체가 추가되었습니다.');
         setShowAddPartnerDialog(false);
+        setSelectedVendor(null);
         setNewPartnerForm({
           business_name: '',
           contact_name: '',
@@ -280,12 +343,42 @@ export const AccommodationManagement: React.FC = () => {
         setLogoImagePreview('');
         loadPartners();
       } else {
-        toast.error(result.message || '업체 추가에 실패했습니다.');
+        toast.error(result.message || (selectedVendor ? '업체 수정에 실패했습니다.' : '업체 추가에 실패했습니다.'));
       }
     } catch (error) {
-      console.error('Failed to add partner:', error);
-      toast.error('업체 추가 중 오류가 발생했습니다.');
+      console.error('Failed to save partner:', error);
+      toast.error('업체 저장 중 오류가 발생했습니다.');
     }
+  };
+
+  const handleOpenRoomDialog = (room?: any) => {
+    if (room) {
+      setSelectedRoom(room);
+      setNewRoomForm({
+        listing_name: room.name || room.listing_name || '',
+        description: room.description || '',
+        location: room.location || '',
+        address: room.address || '',
+        price_from: room.base_price_per_night?.toString() || room.price_from || '',
+        images: room.images ? JSON.stringify(room.images) : ''
+      });
+      if (room.images && Array.isArray(room.images)) {
+        setRoomImagePreviews(room.images);
+      }
+    } else {
+      setSelectedRoom(null);
+      setNewRoomForm({
+        listing_name: '',
+        description: '',
+        location: '',
+        address: '',
+        price_from: '',
+        images: ''
+      });
+      setRoomImagePreviews([]);
+    }
+    setRoomImageFiles([]);
+    setShowAddRoomDialog(true);
   };
 
   const addRoom = async () => {
@@ -301,16 +394,23 @@ export const AccommodationManagement: React.FC = () => {
         images: newRoomForm.images ? JSON.parse(newRoomForm.images) : []
       };
 
-      const response = await fetch(`/api/admin/lodging/vendors/${selectedPartnerId}/rooms`, {
-        method: 'POST',
+      const url = selectedRoom
+        ? `/api/admin/rooms/${selectedRoom.id}`
+        : `/api/admin/lodging/vendors/${selectedPartnerId}/rooms`;
+
+      const method = selectedRoom ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(roomData)
       });
       const result = await response.json();
 
       if (result.success) {
-        toast.success('객실이 추가되었습니다.');
+        toast.success(selectedRoom ? '객실이 수정되었습니다.' : '객실이 추가되었습니다.');
         setShowAddRoomDialog(false);
+        setSelectedRoom(null);
         setNewRoomForm({
           listing_name: '',
           description: '',
@@ -323,11 +423,11 @@ export const AccommodationManagement: React.FC = () => {
         setRoomImagePreviews([]);
         loadRooms(selectedPartnerId);
       } else {
-        toast.error(result.message || '객실 추가에 실패했습니다.');
+        toast.error(result.message || (selectedRoom ? '객실 수정에 실패했습니다.' : '객실 추가에 실패했습니다.'));
       }
     } catch (error) {
-      console.error('Failed to add room:', error);
-      toast.error('객실 추가 중 오류가 발생했습니다.');
+      console.error('Failed to save room:', error);
+      toast.error('객실 저장 중 오류가 발생했습니다.');
     }
   };
 
@@ -490,7 +590,7 @@ export const AccommodationManagement: React.FC = () => {
                 </Button>
                 <Button
                   className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                  onClick={() => setShowAddPartnerDialog(true)}
+                  onClick={() => handleOpenVendorDialog()}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   업체 추가
@@ -557,7 +657,12 @@ export const AccommodationManagement: React.FC = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm" title="업체 수정">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenVendorDialog(partner)}
+                              title="업체 수정"
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
@@ -640,7 +745,7 @@ export const AccommodationManagement: React.FC = () => {
                 <Button
                   className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
                   disabled={!selectedPartnerId}
-                  onClick={() => setShowAddRoomDialog(true)}
+                  onClick={() => handleOpenRoomDialog()}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   객실 추가
@@ -710,6 +815,7 @@ export const AccommodationManagement: React.FC = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
+                                  onClick={() => handleOpenRoomDialog(room)}
                                   title="객실 수정"
                                 >
                                   <Edit className="h-4 w-4" />
@@ -842,17 +948,20 @@ export const AccommodationManagement: React.FC = () => {
                         <TableCell>{booking.check_out_date || '-'}</TableCell>
                         <TableCell>₩{booking.total_price?.toLocaleString() || 0}</TableCell>
                         <TableCell>
-                          <Badge className={
-                            booking.status === 'confirmed' ? 'bg-green-100 text-green-800' :
-                            booking.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            booking.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }>
-                            {booking.status === 'confirmed' ? '확정' :
-                             booking.status === 'pending' ? '대기중' :
-                             booking.status === 'cancelled' ? '취소' :
-                             booking.status === 'completed' ? '완료' : booking.status}
-                          </Badge>
+                          <Select
+                            value={booking.status || 'pending'}
+                            onValueChange={(value) => handleUpdateBookingStatus(booking.id, value)}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">대기중</SelectItem>
+                              <SelectItem value="confirmed">확정</SelectItem>
+                              <SelectItem value="cancelled">취소</SelectItem>
+                              <SelectItem value="completed">완료</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
@@ -914,7 +1023,7 @@ export const AccommodationManagement: React.FC = () => {
       <Dialog open={showAddPartnerDialog} onOpenChange={setShowAddPartnerDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>새 숙박 업체 추가</DialogTitle>
+            <DialogTitle>{selectedVendor ? '숙박 업체 수정' : '새 숙박 업체 추가'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1045,7 +1154,7 @@ export const AccommodationManagement: React.FC = () => {
                 onClick={addPartner}
                 disabled={!newPartnerForm.business_name || !newPartnerForm.contact_name || !newPartnerForm.phone || !newPartnerForm.email}
               >
-                추가
+                {selectedVendor ? '수정' : '추가'}
               </Button>
             </div>
           </div>
@@ -1056,7 +1165,7 @@ export const AccommodationManagement: React.FC = () => {
       <Dialog open={showAddRoomDialog} onOpenChange={setShowAddRoomDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>새 객실 추가</DialogTitle>
+            <DialogTitle>{selectedRoom ? '객실 수정' : '새 객실 추가'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1135,7 +1244,7 @@ export const AccommodationManagement: React.FC = () => {
                 onClick={addRoom}
                 disabled={!newRoomForm.listing_name || !newRoomForm.location || !newRoomForm.address || !newRoomForm.price_from}
               >
-                추가
+                {selectedRoom ? '수정' : '추가'}
               </Button>
             </div>
           </div>

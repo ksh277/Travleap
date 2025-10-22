@@ -87,10 +87,14 @@ module.exports = async function handler(req, res) {
     if (req.method === 'PUT' || req.method === 'PATCH') {
       const {
         title,
+        listing_name,
         short_description,
+        description,
         description_md,
         price_from,
         price_to,
+        location,
+        address,
         images,
         amenities,
         is_active,
@@ -107,13 +111,29 @@ module.exports = async function handler(req, res) {
         updates.push('title = ?');
         values.push(title);
       }
+      if (listing_name !== undefined) {
+        updates.push('title = ?');
+        values.push(listing_name);
+      }
       if (short_description !== undefined) {
         updates.push('short_description = ?');
         values.push(short_description);
       }
+      if (description !== undefined) {
+        updates.push('description_md = ?');
+        values.push(description);
+      }
       if (description_md !== undefined) {
         updates.push('description_md = ?');
         values.push(description_md);
+      }
+      if (location !== undefined) {
+        updates.push('location = ?');
+        values.push(location);
+      }
+      if (address !== undefined) {
+        updates.push('address = ?');
+        values.push(address);
       }
       if (price_from !== undefined) {
         updates.push('price_from = ?');
@@ -163,12 +183,7 @@ module.exports = async function handler(req, res) {
         values
       );
 
-      if (result.rowsAffected === 0) {
-        return res.status(404).json({
-          success: false,
-          error: '객실을 찾을 수 없습니다.'
-        });
-      }
+      console.log('Update result:', result);
 
       return res.status(200).json({
         success: true,
