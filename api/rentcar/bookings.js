@@ -75,13 +75,20 @@ module.exports = async function handler(req, res) {
       } = req.body;
 
       const vehicle = await connection.execute(`
-        SELECT daily_rate_krw FROM rentcar_vehicles WHERE id = ?
+        SELECT daily_rate_krw, is_active FROM rentcar_vehicles WHERE id = ?
       `, [vehicle_id]);
 
       if (!vehicle.rows || vehicle.rows.length === 0) {
         return res.status(404).json({
           success: false,
           error: '차량을 찾을 수 없습니다.'
+        });
+      }
+
+      if (!vehicle.rows[0].is_active) {
+        return res.status(400).json({
+          success: false,
+          error: '차량이 현재 예약 불가 상태입니다.'
         });
       }
 
@@ -95,6 +102,25 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({
           success: false,
           error: '반납일은 픽업일보다 이후여야 합니다.'
+        });
+      }
+
+      // 날짜 겹침 확인 (이중 예약 방지)
+      const conflictCheck = await connection.execute(
+        `SELECT COUNT(*) as count
+         FROM rentcar_bookings
+         WHERE vehicle_id = ?
+           AND pickup_date < ?
+           AND dropoff_date > ?
+           AND status NOT IN ('cancelled', 'failed')`,
+        [vehicle_id, dropoff_date, pickup_date]
+      );
+
+      const conflictCount = conflictCheck.rows?.[0]?.count || 0;
+      if (conflictCount > 0) {
+        return res.status(409).json({
+          success: false,
+          error: '선택하신 날짜에 이미 예약이 있습니다. 다른 날짜를 선택해주세요.'
         });
       }
 

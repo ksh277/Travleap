@@ -1,17 +1,17 @@
 import { connect } from '@planetscale/database';
+const { requireVendorAuth } = require('../../../middleware/vendor-auth');
 
 const connection = connect({ url: process.env.DATABASE_URL });
 
 export default async function handler(req, res) {
+  // 벤더 인증 및 권한 확인
+  const auth = await requireVendorAuth(req, res);
+  if (!auth.success) return; // 이미 응답 전송됨
+
   const { method } = req;
-  // userId 또는 vendorId 둘 다 받을 수 있도록 수정
-  const vendorId = req.headers['x-vendor-id'] || req.query.vendorId || req.query.userId || req.headers['x-user-id'] || req.body?.userId;
+  const vendorId = auth.vendorId;
 
-  console.log('💰 [Revenue API] 요청:', { method, vendorId });
-
-  if (!vendorId) {
-    return res.status(401).json({ success: false, message: '벤더 인증이 필요합니다.' });
-  }
+  console.log('💰 [Revenue API] 요청:', { method, vendorId, user: auth.email });
 
   try {
     if (method === 'GET') {

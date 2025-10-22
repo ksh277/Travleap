@@ -1,14 +1,17 @@
 import { connect } from '@planetscale/database';
+const { requireVendorAuth } = require('../../../middleware/vendor-auth');
 
 const connection = connect({ url: process.env.DATABASE_URL });
 
 export default async function handler(req, res) {
-  const { method } = req;
-  const userId = req.headers['x-user-id'] || req.query.userId || req.body?.userId;
+  // 벤더 인증 및 권한 확인
+  const auth = await requireVendorAuth(req, res);
+  if (!auth.success) return; // 이미 응답 전송됨
 
-  if (!userId) {
-    return res.status(401).json({ success: false, message: '사용자 인증이 필요합니다.' });
-  }
+  const { method } = req;
+  const vendorId = auth.vendorId;
+
+  console.log('ℹ️ [Vendor Info API] 요청:', { method, vendorId, user: auth.email });
 
   try {
     if (method === 'GET') {
@@ -32,7 +35,7 @@ export default async function handler(req, res) {
         FROM rentcar_vendors
         WHERE id = ?
         LIMIT 1`,
-        [userId]
+        [vendorId]
       );
 
       if (!result.rows || result.rows.length === 0) {
@@ -88,7 +91,7 @@ export default async function handler(req, res) {
           description || null,
           logo_url || null,
           images ? JSON.stringify(images) : null,
-          userId
+          vendorId
         ]
       );
 

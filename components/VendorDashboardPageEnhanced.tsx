@@ -192,8 +192,22 @@ export function VendorDashboardPageEnhanced() {
     try {
       setLoading(true);
 
+      // JWT 토큰 가져오기
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+        navigate('/login');
+        return;
+      }
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+
       // 1. 업체 정보 조회 API - 관리자 페이지와 동일한 /api/vendors 사용
-      const vendorResponse = await fetch(`/api/vendors`);
+      const vendorResponse = await fetch(`/api/vendors`, { headers });
       const vendorData = await vendorResponse.json();
 
       console.log('🔍 [DEBUG] API Response:', vendorData);
@@ -227,8 +241,8 @@ export function VendorDashboardPageEnhanced() {
       const vendorId = vendor.id; // 벤더 ID 가져오기
       console.log('🔍 [DEBUG] Vendor ID:', vendorId);
 
-      // 2. 차량 목록 조회 API - vendorId 사용
-      const vehiclesResponse = await fetch(`/api/vendor/vehicles?vendorId=${vendorId}`);
+      // 2. 차량 목록 조회 API - JWT 토큰으로 인증
+      const vehiclesResponse = await fetch(`/api/vendor/vehicles`, { headers });
       const vehiclesData = await vehiclesResponse.json();
 
       console.log('🔍 [DEBUG] 차량 API 응답:', vehiclesData);
@@ -246,8 +260,8 @@ export function VendorDashboardPageEnhanced() {
         setVehicles([]);
       }
 
-      // 3. 예약 목록 조회 API - vendorId 사용
-      const bookingsResponse = await fetch(`/api/vendor/bookings?vendorId=${vendorId}`);
+      // 3. 예약 목록 조회 API - JWT 토큰으로 인증
+      const bookingsResponse = await fetch(`/api/vendor/bookings`, { headers });
       const bookingsData = await bookingsResponse.json();
 
       console.log('🔍 [DEBUG] 예약 API 응답:', bookingsData);
@@ -262,8 +276,8 @@ export function VendorDashboardPageEnhanced() {
         setFilteredBookings([]);
       }
 
-      // 4. 매출 통계 조회 API - vendorId 사용
-      const revenueResponse = await fetch(`/api/vendor/revenue?vendorId=${vendorId}`);
+      // 4. 매출 통계 조회 API - JWT 토큰으로 인증
+      const revenueResponse = await fetch(`/api/vendor/revenue`, { headers });
       const revenueData = await revenueResponse.json();
 
       console.log('🔍 [DEBUG] 매출 API 응답:', revenueData);

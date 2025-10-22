@@ -1,9 +1,10 @@
 const { connect } = require('@planetscale/database');
+const { requireVendorAuth } = require('../../../middleware/vendor-auth');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -13,29 +14,14 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
+  // 벤더 인증 및 권한 확인
+  const auth = await requireVendorAuth(req, res);
+  if (!auth.success) return;
+
+  const finalVendorId = auth.vendorId;
+
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
-    const { vendorId, userId } = req.query;
-
-    if (!vendorId && !userId) {
-      return res.status(400).json({ success: false, error: 'vendorId or userId required' });
-    }
-
-    // userId로 vendorId 찾기
-    let finalVendorId = vendorId;
-    if (!finalVendorId && userId) {
-      const vendorResult = await connection.execute(
-        'SELECT id FROM rentcar_vendors WHERE contact_email = (SELECT email FROM users WHERE id = ?)',
-        [userId]
-      );
-      if (vendorResult.rows && vendorResult.rows.length > 0) {
-        finalVendorId = vendorResult.rows[0].id;
-      }
-    }
-
-    if (!finalVendorId) {
-      return res.status(404).json({ success: false, error: 'Vendor not found' });
-    }
 
     console.log('📜 [PMS Logs] 동기화 로그 조회:', finalVendorId);
 
