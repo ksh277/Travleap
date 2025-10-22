@@ -5148,7 +5148,7 @@ export function AdminPage({}: AdminPageProps) {
 
       {/* 파트너 생성/수정 대화상자 */}
       <Dialog open={isPartnerDialogOpen} onOpenChange={setIsPartnerDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isCreatePartnerMode ? '파트너 추가' : '파트너 정보 수정'}
