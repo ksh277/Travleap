@@ -25,6 +25,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AccommodationAdvancedFeatures } from './AccommodationAdvancedFeatures';
 
 export const AccommodationManagement: React.FC = () => {
   const [partners, setPartners] = useState<any[]>([]);
@@ -642,10 +643,11 @@ export const AccommodationManagement: React.FC = () => {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-      <TabsList className="grid grid-cols-3 w-full max-w-2xl">
+      <TabsList className="grid grid-cols-4 w-full max-w-3xl">
         <TabsTrigger value="partners">업체 관리</TabsTrigger>
         <TabsTrigger value="rooms">객실 관리</TabsTrigger>
         <TabsTrigger value="bookings">예약 관리</TabsTrigger>
+        <TabsTrigger value="advanced">고급 기능</TabsTrigger>
       </TabsList>
 
       {/* 업체 관리 */}
@@ -1515,6 +1517,14 @@ export const AccommodationManagement: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 고급 기능 */}
+      <TabsContent value="advanced">
+        <AccommodationAdvancedFeatures
+          vendors={partners}
+          selectedVendorId={selectedPartnerId}
+        />
+      </TabsContent>
     </Tabs>
   );
 };
