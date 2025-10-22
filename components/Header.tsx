@@ -303,6 +303,14 @@ export function Header({
                     >
                       {t('admin', selectedLanguage)}
                     </Button>
+                  ) : user?.role === 'vendor' ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/vendor/dashboard")}
+                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                    >
+                      벤더 대시보드
+                    </Button>
                   ) : (
                     <Button
                       variant="outline"
