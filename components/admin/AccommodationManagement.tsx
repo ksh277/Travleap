@@ -55,8 +55,8 @@ export const AccommodationManagement: React.FC = () => {
 
   const loadPartners = async () => {
     try {
-      // 카테고리 페이지와 동일한 API 사용
-      const response = await fetch('/api/accommodations');
+      // 숙박 벤더 전용 API 사용
+      const response = await fetch('/api/admin/accommodation-vendors');
       const result = await response.json();
       if (result.success && result.data) {
         console.log(`✅ 숙박 업체 ${result.data.length}개 로드됨`);
@@ -89,7 +89,7 @@ export const AccommodationManagement: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`/api/admin/partners/${partnerId}`, {
+      const response = await fetch(`/api/admin/accommodation-vendors/${partnerId}`, {
         method: 'DELETE',
       });
       const result = await response.json();
@@ -137,7 +137,7 @@ export const AccommodationManagement: React.FC = () => {
 
   const addPartner = async () => {
     try {
-      const response = await fetch('/api/admin/lodging/vendors', {
+      const response = await fetch('/api/admin/accommodation-vendors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newPartnerForm)
