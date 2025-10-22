@@ -509,27 +509,15 @@ export function RentcarVendorDetailPage() {
                     const isAvailable = availableStock > 0;
 
                     return (
-                      <button
+                      <div
                         key={vehicle.id}
-                        type="button"
-                        disabled={!isAvailable}
                         className={`w-full text-left rounded-lg border overflow-hidden transition-all ${
                           !isAvailable
-                            ? 'opacity-50 cursor-not-allowed bg-gray-50'
+                            ? 'opacity-50 bg-gray-50'
                             : selectedVehicle?.id === vehicle.id
                             ? 'border-blue-500 bg-blue-50 shadow-md'
-                            : 'border-gray-200 hover:border-gray-300 cursor-pointer hover:shadow-sm'
+                            : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                         }`}
-                        onClick={() => setSelectedVehicle(vehicle)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setSelectedVehicle(vehicle);
-                          }
-                        }}
-                        aria-label={`${vehicle.display_name || vehicle.model} ${isAvailable ? `선택하기, 1일 ${vehicle.daily_rate_krw.toLocaleString()}원` : '예약 불가'}`}
-                        aria-pressed={selectedVehicle?.id === vehicle.id}
-                        aria-disabled={!isAvailable}
                       >
                         {/* 차량 이미지 */}
                         <div className="relative w-full aspect-video">
@@ -609,8 +597,28 @@ export function RentcarVendorDetailPage() {
                               </Badge>
                             )}
                           </div>
+
+                          {/* 액션 버튼 */}
+                          <div className="flex gap-2 mt-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1"
+                              onClick={() => navigate(`/rentcar/vehicle/${vehicle.id}`)}
+                            >
+                              상세보기
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="flex-1"
+                              disabled={!isAvailable}
+                              onClick={() => setSelectedVehicle(vehicle)}
+                            >
+                              {selectedVehicle?.id === vehicle.id ? '선택됨' : '선택'}
+                            </Button>
+                          </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

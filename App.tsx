@@ -37,6 +37,7 @@ import { RentcarSearchPage } from './components/RentcarSearchPage';
 import { AccommodationDetailPage } from './components/AccommodationDetailPage';
 import { HotelDetailPage } from './components/pages/HotelDetailPage';
 import { RentcarVendorDetailPage } from './components/pages/RentcarVendorDetailPage';
+import { RentcarVehicleDetailPage } from './components/pages/RentcarVehicleDetailPage';
 import { VendorRegistrationPage } from './components/VendorRegistrationPage';
 import VendorDashboardPageEnhanced from './components/VendorDashboardPageEnhanced';
 import { PartnerDashboardPageEnhanced } from './components/PartnerDashboardPageEnhanced';
@@ -102,6 +103,9 @@ function AppContent() {
 
           {/* 렌트카 업체 상세 페이지 (업체별 차량 목록) */}
           <Route path="/rentcar/:vendorId" element={<RentcarVendorDetailPage />} />
+
+          {/* 렌트카 차량 상세 페이지 */}
+          <Route path="/rentcar/vehicle/:vehicleId" element={<RentcarVehicleDetailPage />} />
 
           {/* 일반 상세페이지 */}
           <Route path="/detail/:id" element={<DetailPage />} />

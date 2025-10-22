@@ -47,12 +47,20 @@ export const AccommodationManagement: React.FC = () => {
   const [vendorItemsPerPage] = useState(10);
   const [roomCurrentPage, setRoomCurrentPage] = useState(1);
   const [roomItemsPerPage] = useState(10);
+
+  // 이미지 업로드 state
+  const [logoImageFile, setLogoImageFile] = useState<File | null>(null);
+  const [logoImagePreview, setLogoImagePreview] = useState<string>('');
+  const [roomImageFiles, setRoomImageFiles] = useState<File[]>([]);
+  const [roomImagePreviews, setRoomImagePreviews] = useState<string[]>([]);
+
   const [newPartnerForm, setNewPartnerForm] = useState({
     business_name: '',
     contact_name: '',
     phone: '',
     email: '',
-    tier: 'basic'
+    tier: 'basic',
+    logo_url: ''
   });
   const [newRoomForm, setNewRoomForm] = useState({
     listing_name: '',
@@ -150,6 +158,75 @@ export const AccommodationManagement: React.FC = () => {
     }
   };
 
+  // 벤더 로고 이미지 업로드
+  const handleLogoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 파일 타입 검증
+    if (!file.type.startsWith('image/')) {
+      toast.error('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    // 파일 크기 검증 (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('이미지 크기는 5MB 이하여야 합니다.');
+      return;
+    }
+
+    setLogoImageFile(file);
+
+    // 미리보기 생성
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setLogoImagePreview(base64);
+      setNewPartnerForm({ ...newPartnerForm, logo_url: base64 });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // 객실 이미지 업로드 (다중)
+  const handleRoomImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // 파일 타입 검증
+    const invalidFiles = files.filter(file => !file.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
+      toast.error('이미지 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    // 파일 크기 검증
+    const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      toast.error('각 이미지 크기는 5MB 이하여야 합니다.');
+      return;
+    }
+
+    setRoomImageFiles(files);
+
+    // 미리보기 생성
+    const previews: string[] = [];
+    let loadedCount = 0;
+
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        previews.push(reader.result as string);
+        loadedCount++;
+
+        if (loadedCount === files.length) {
+          setRoomImagePreviews(previews);
+          setNewRoomForm({ ...newRoomForm, images: JSON.stringify(previews) });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const addPartner = async () => {
     try {
       const response = await fetch('/api/admin/accommodation-vendors', {
@@ -167,8 +244,11 @@ export const AccommodationManagement: React.FC = () => {
           contact_name: '',
           phone: '',
           email: '',
-          tier: 'basic'
+          tier: 'basic',
+          logo_url: ''
         });
+        setLogoImageFile(null);
+        setLogoImagePreview('');
         loadPartners();
       } else {
         toast.error(result.message || '업체 추가에 실패했습니다.');
