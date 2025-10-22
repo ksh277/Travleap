@@ -122,17 +122,12 @@ export const DialogContent: React.FC<{
       <div
         style={{
           backgroundColor: 'white',
-          border: '1px solid #e5e7eb',
-          borderRadius: '12px',
+          borderRadius: '8px',
           padding: '24px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          outline: 'none',
           maxWidth: '90vw',
           maxHeight: '90vh',
           overflow: 'auto',
-          animation: 'scaleIn 0.2s ease-out',
-          width: '100%',
-          pointerEvents: 'auto',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         }}
         className={className}
         onClick={(e) => e.stopPropagation()}
