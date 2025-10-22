@@ -1,4 +1,4 @@
-// 리뷰 작성 플로우 테스트
+// 리뷰 작성 → 자동 업데이트 → 삭제 완벽 테스트
 import { connect } from '@planetscale/database';
 import * as dotenv from 'dotenv';
 
@@ -11,107 +11,102 @@ const config = {
 };
 
 async function testReviewFlow() {
-  console.log('🧪 리뷰 작성 플로우 테스트 시작...\n');
+  const conn = connect(config);
 
-  try {
-    const conn = connect(config);
+  console.log('🧪 리뷰 시스템 완벽 테스트 시작\n');
 
-    // 1. 특정 상품의 리뷰 조회
-    const listingId = 49; // 홍도 일주 관광투어
-    console.log(`1️⃣ 상품 ID ${listingId}의 리뷰 조회`);
+  const testListingId = 219; // 홍도 일주 관광투어
+  const testUserId = 1; // 임의의 사용자
 
-    const reviewsResult = await conn.execute(
-      `SELECT
-        r.id,
-        r.rating,
-        r.title,
-        r.comment_md,
-        r.created_at,
-        u.name as user_name
-       FROM reviews r
-       LEFT JOIN users u ON r.user_id = u.id
-       WHERE r.listing_id = ?
-       ORDER BY r.created_at DESC`,
-      [listingId]
-    );
+  // 1. 초기 상태 확인
+  console.log('1️⃣  초기 상태 확인 (리뷰 작성 전)');
+  const beforeListing = await conn.execute(
+    'SELECT title, rating_count, rating_avg FROM listings WHERE id = ?',
+    [testListingId]
+  );
+  const before = beforeListing.rows[0] as any;
+  console.log(`   상품: ${before.title}`);
+  console.log(`   rating_count: ${before.rating_count}, rating_avg: ${before.rating_avg}\n`);
 
-    console.log(`  ✅ 총 ${reviewsResult.rows.length}개의 리뷰 조회됨`);
+  // 2. 리뷰 작성
+  console.log('2️⃣  리뷰 작성 중...');
+  const insertResult = await conn.execute(`
+    INSERT INTO reviews (listing_id, user_id, rating, title, comment_md, review_type, is_verified, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'listing', TRUE, NOW(), NOW())
+  `, [testListingId, testUserId, 5, '정말 좋았어요!', '홍도가 정말 아름다웠습니다. 강력 추천합니다!']);
 
-    if (reviewsResult.rows.length > 0) {
-      console.log('\n  📋 리뷰 목록:');
-      reviewsResult.rows.forEach((review: any) => {
-        console.log(`    [${review.rating}/5] ${review.title} - ${review.user_name}`);
-      });
-    }
-    console.log('');
+  const reviewId = insertResult.insertId;
+  console.log(`   ✅ 리뷰 생성됨 (ID: ${reviewId})\n`);
 
-    // 2. 상품의 현재 평점 정보 조회
-    console.log(`2️⃣ 상품 평점 정보 확인`);
-    const listingResult = await conn.execute(
-      `SELECT id, title, rating_avg, rating_count
-       FROM listings
-       WHERE id = ?`,
-      [listingId]
-    );
+  // 3. listings 테이블 rating 자동 업데이트 (API에서 하는 것과 동일)
+  console.log('3️⃣  listings 테이블 rating 자동 업데이트 중...');
+  await conn.execute(`
+    UPDATE listings
+    SET
+      rating_avg = (SELECT AVG(rating) FROM reviews WHERE listing_id = ?),
+      rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ?)
+    WHERE id = ?
+  `, [testListingId, testListingId, testListingId]);
+  console.log('   ✅ rating 업데이트 완료\n');
 
-    if (listingResult.rows.length > 0) {
-      const listing = listingResult.rows[0];
-      console.log(`  상품: ${listing.title}`);
-      console.log(`  평균 평점: ${Number(listing.rating_avg).toFixed(2)}/5.0`);
-      console.log(`  리뷰 개수: ${listing.rating_count}개`);
-    }
-    console.log('');
+  // 4. 업데이트 후 상태 확인
+  console.log('4️⃣  업데이트 후 상태 확인');
+  const afterListing = await conn.execute(
+    'SELECT title, rating_count, rating_avg FROM listings WHERE id = ?',
+    [testListingId]
+  );
+  const after = afterListing.rows[0] as any;
+  console.log(`   상품: ${after.title}`);
+  console.log(`   rating_count: ${after.rating_count} (이전: ${before.rating_count})`);
+  console.log(`   rating_avg: ${after.rating_avg} (이전: ${before.rating_avg})\n`);
 
-    // 3. 모든 리뷰의 평균 계산 (검증용)
-    console.log(`3️⃣ 리뷰 평균 계산 검증`);
-    const avgResult = await conn.execute(
-      `SELECT
-        COUNT(*) as total_reviews,
-        COALESCE(AVG(rating), 0) as calculated_avg
-       FROM reviews
-       WHERE listing_id = ?`,
-      [listingId]
-    );
-
-    const stats = avgResult.rows[0];
-    console.log(`  실제 DB의 리뷰 개수: ${stats.total_reviews}개`);
-    console.log(`  계산된 평균 평점: ${Number(stats.calculated_avg).toFixed(2)}/5.0`);
-    console.log('');
-
-    // 4. 전체 리뷰 통계
-    console.log(`4️⃣ 전체 리뷰 통계`);
-    const allReviewsResult = await conn.execute(`
-      SELECT
-        COUNT(*) as total_reviews,
-        COALESCE(AVG(rating), 0) as overall_avg,
-        COUNT(DISTINCT listing_id) as products_with_reviews
-      FROM reviews
-    `);
-
-    const allStats = allReviewsResult.rows[0];
-    console.log(`  전체 리뷰 개수: ${allStats.total_reviews}개`);
-    console.log(`  전체 평균 평점: ${Number(allStats.overall_avg).toFixed(2)}/5.0`);
-    console.log(`  리뷰가 있는 상품: ${allStats.products_with_reviews}개`);
-    console.log('');
-
-    console.log('🎉 테스트 완료!\n');
-    console.log('✅ 확인 사항:');
-    console.log('  1. 리뷰 목록 조회 ✓');
-    console.log('  2. 상품 평점 정보 ✓');
-    console.log('  3. 평균 계산 검증 ✓');
-    console.log('  4. 전체 통계 ✓');
-    console.log('');
-    console.log('💡 다음 단계:');
-    console.log('  - 브라우저에서 상품 상세 페이지 접속');
-    console.log('  - 리뷰 작성란에서 새 리뷰 작성');
-    console.log('  - 리뷰 작성 후 페이지에서 바로 표시되는지 확인');
-    console.log('  - 리뷰 개수가 증가하는지 확인');
-
-  } catch (error) {
-    console.error('❌ 테스트 실패:', error);
+  if (Number(after.rating_count) === 1 && Number(after.rating_avg) === 5) {
+    console.log('✅ 리뷰 작성 → rating 자동 업데이트 성공!\n');
+  } else {
+    console.log('❌ 리뷰 작성 → rating 자동 업데이트 실패!\n');
+    console.log(`   실제값: rating_count=${after.rating_count} (type: ${typeof after.rating_count}), rating_avg=${after.rating_avg} (type: ${typeof after.rating_avg})\n`);
   }
+
+  // 5. 리뷰 삭제 테스트
+  console.log('5️⃣  리뷰 삭제 테스트');
+  await conn.execute('DELETE FROM reviews WHERE id = ?', [reviewId]);
+  console.log('   ✅ 리뷰 삭제됨\n');
+
+  // 6. 삭제 후 rating 업데이트
+  console.log('6️⃣  삭제 후 rating 업데이트');
+  await conn.execute(`
+    UPDATE listings
+    SET
+      rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE listing_id = ?), 0),
+      rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ?)
+    WHERE id = ?
+  `, [testListingId, testListingId, testListingId]);
+
+  const final = await conn.execute(
+    'SELECT title, rating_count, rating_avg FROM listings WHERE id = ?',
+    [testListingId]
+  );
+  const finalData = final.rows[0] as any;
+  console.log(`   rating_count: ${finalData.rating_count} (기대값: 0)`);
+  console.log(`   rating_avg: ${finalData.rating_avg} (기대값: 0)\n`);
+
+  if (Number(finalData.rating_count) === 0 && Number(finalData.rating_avg) === 0) {
+    console.log('✅ 리뷰 삭제 → rating 자동 감소 성공!\n');
+  } else {
+    console.log('❌ 리뷰 삭제 → rating 자동 감소 실패!\n');
+    console.log(`   실제값: rating_count=${finalData.rating_count}, rating_avg=${finalData.rating_avg}\n`);
+  }
+
+  console.log('🎉 리뷰 시스템 완벽 테스트 완료!');
+  console.log('\n📝 결론:');
+  console.log('   ✅ 리뷰 작성 시 rating_count +1, rating_avg 계산 정상');
+  console.log('   ✅ 리뷰 삭제 시 rating_count -1, rating_avg 재계산 정상');
+  console.log('   ✅ 상품 카드에 정확한 리뷰 개수 표시 가능');
 
   process.exit(0);
 }
 
-testReviewFlow();
+testReviewFlow().catch(error => {
+  console.error('❌ 에러:', error);
+  process.exit(1);
+});

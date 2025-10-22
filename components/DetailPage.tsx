@@ -70,6 +70,7 @@ const formatDate = (date: Date) => {
 
 interface Review {
   id: string;
+  user_id: number;
   rating: number;
   comment: string;
   author: string;
@@ -482,6 +483,7 @@ export function DetailPage() {
           const extendedReview = review as ExtendedReview;
           return {
             id: extendedReview.id.toString(),
+            user_id: extendedReview.user_id,
             rating: extendedReview.rating,
             comment: extendedReview.comment_md || extendedReview.title || '좋은 경험이었습니다.',
             author: extendedReview.user_name || '익명',
@@ -675,9 +677,50 @@ export function DetailPage() {
   }, [newReview, isLoggedIn, item, user?.id, navigate, fetchReviews]);
 
   const handleMarkHelpful = useCallback(async (reviewId: string) => {
-    // markReviewHelpful API가 구현되지 않음
-    toast.info('도움됨 기능은 곧 제공될 예정입니다.');
-  }, []);
+    if (!user?.id) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const response = await api.admin.markReviewHelpful(Number(reviewId), user.id);
+      if (response.success) {
+        toast.success(response.message || '도움이 되었습니다.');
+        fetchReviews(); // 리뷰 목록 갱신
+      } else {
+        throw new Error(response.error || '도움됨 처리 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('Error marking review helpful:', error);
+      const errorMessage = error instanceof Error ? error.message : '도움됨 처리 중 오류가 발생했습니다.';
+      toast.error(errorMessage);
+    }
+  }, [user?.id, fetchReviews]);
+
+  const handleDeleteReview = useCallback(async (reviewId: string) => {
+    if (!user?.id) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (!confirm('정말 이 리뷰를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const response = await api.deleteReview(Number(reviewId), user.id);
+      if (response.success) {
+        toast.success('리뷰가 삭제되었습니다.');
+        fetchReviews();
+      } else {
+        throw new Error(response.error || '리뷰 삭제 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      const errorMessage = error instanceof Error ? error.message : '리뷰 삭제 중 오류가 발생했습니다.';
+      toast.error(errorMessage);
+    }
+  }, [user?.id, fetchReviews]);
 
   const addToCartHandler = useCallback(() => {
     if (!item) {
@@ -1686,6 +1729,16 @@ export function DetailPage() {
                                 <ThumbsUp className="h-4 w-4 mr-1" />
                                 도움됨 {review.helpful}
                               </Button>
+                              {user?.id === review.user_id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-700"
+                                  onClick={() => handleDeleteReview(review.id)}
+                                >
+                                  삭제
+                                </Button>
+                              )}
                             </div>
                           </div>
                           <p className="text-gray-700 whitespace-pre-wrap">{review.comment}</p>

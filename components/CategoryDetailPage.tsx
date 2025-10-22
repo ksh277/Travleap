@@ -360,7 +360,7 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
                   <div className="flex items-center justify-between mt-auto pt-2">
                     <div className="flex items-center">
                       <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                      <span className="text-sm font-medium">{item.rating_avg || 0}</span>
+                      <span className="text-sm font-medium">{(item.rating_avg || 0).toFixed(1)}</span>
                       <span className="text-sm text-gray-500 ml-1">({item.rating_count || 0})</span>
                     </div>
                     <div className="text-right">

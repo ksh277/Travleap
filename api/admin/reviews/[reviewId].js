@@ -47,12 +47,12 @@ module.exports = async function handler(req, res) {
       await connection.execute('DELETE FROM reviews WHERE id = ?', [reviewId]);
       console.log(`  ✅ Review ${reviewId} deleted`);
 
-      // 리스팅의 평균 평점 업데이트
+      // 리스팅의 평균 평점 업데이트 (숨겨진 리뷰 제외)
       await connection.execute(`
         UPDATE listings
         SET
-          rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE listing_id = ?), 0),
-          rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ?)
+          rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE)), 0),
+          rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE))
         WHERE id = ?
       `, [listingId, listingId, listingId]);
       console.log(`  ✅ Updated listing ${listingId} rating`);

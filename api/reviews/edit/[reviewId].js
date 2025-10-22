@@ -35,9 +35,9 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 리뷰 소유자 확인
+      // 리뷰 소유자 및 생성 시간 확인
       const reviewResult = await connection.execute(
-        'SELECT user_id, listing_id FROM reviews WHERE id = ?',
+        'SELECT user_id, listing_id, created_at FROM reviews WHERE id = ?',
         [reviewId]
       );
 
@@ -49,10 +49,24 @@ module.exports = async function handler(req, res) {
       }
 
       const review = reviewResult.rows[0];
+
+      // 1. 소유자 확인
       if (review.user_id != user_id) {
         return res.status(403).json({
           success: false,
           error: '본인의 리뷰만 수정할 수 있습니다'
+        });
+      }
+
+      // 2. 수정 시간 제한 (1일)
+      const createdAt = new Date(review.created_at);
+      const now = new Date();
+      const daysDiff = (now - createdAt) / (1000 * 60 * 60 * 24);
+
+      if (daysDiff > 1) {
+        return res.status(403).json({
+          success: false,
+          error: '리뷰 작성 후 1일이 지나면 수정할 수 없습니다'
         });
       }
 
@@ -67,12 +81,12 @@ module.exports = async function handler(req, res) {
         [rating, title, comment_md, reviewId]
       );
 
-      // 리스팅의 평균 평점 업데이트
+      // 리스팅의 평균 평점 업데이트 (숨겨진 리뷰 제외)
       await connection.execute(`
         UPDATE listings
         SET
-          rating_avg = (SELECT AVG(rating) FROM reviews WHERE listing_id = ?),
-          rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ?)
+          rating_avg = (SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE)),
+          rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE))
         WHERE id = ?
       `, [review.listing_id, review.listing_id, review.listing_id]);
 
@@ -117,12 +131,12 @@ module.exports = async function handler(req, res) {
       // 리뷰 삭제
       await connection.execute('DELETE FROM reviews WHERE id = ?', [reviewId]);
 
-      // 리스팅의 평균 평점 업데이트
+      // 리스팅의 평균 평점 업데이트 (숨겨진 리뷰 제외)
       await connection.execute(`
         UPDATE listings
         SET
-          rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE listing_id = ?), 0),
-          rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ?)
+          rating_avg = COALESCE((SELECT AVG(rating) FROM reviews WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE)), 0),
+          rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE))
         WHERE id = ?
       `, [review.listing_id, review.listing_id, review.listing_id]);
 

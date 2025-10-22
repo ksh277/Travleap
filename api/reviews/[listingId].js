@@ -30,19 +30,20 @@ module.exports = async function handler(req, res) {
       if (sortBy === 'rating_low') orderBy = 'r.rating ASC, r.created_at DESC';
       if (sortBy === 'helpful') orderBy = 'r.helpful_count DESC, r.created_at DESC';
 
-      const result = await connection.execute(`
-        SELECT
+      const result = await connection.execute(
+        `SELECT
           r.*,
           u.name as user_name,
           u.email as user_email
         FROM reviews r
         LEFT JOIN users u ON r.user_id = u.id
-        WHERE r.listing_id = ?
+        WHERE r.listing_id = ? AND (r.is_hidden IS NULL OR r.is_hidden = FALSE)
         ORDER BY ${orderBy}
-        LIMIT ${limitNum} OFFSET ${offset}
-      `, [listingId]);
+        LIMIT ? OFFSET ?`,
+        [listingId, limitNum, offset]
+      );
 
-      // 총 리뷰 수 및 평균 평점
+      // 총 리뷰 수 및 평균 평점 (숨겨진 리뷰 제외)
       const statsResult = await connection.execute(`
         SELECT
           COUNT(*) as total_count,
@@ -53,7 +54,7 @@ module.exports = async function handler(req, res) {
           SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as rating_2_count,
           SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as rating_1_count
         FROM reviews
-        WHERE listing_id = ?
+        WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE)
       `, [listingId]);
 
       const reviews = result.rows || [];
@@ -92,7 +93,7 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST') {
       // 리뷰 작성
-      const { user_id, rating, title, content } = req.body;
+      const { user_id, rating, title, content, images, booking_id } = req.body;
 
       if (!user_id || !rating || !content) {
         return res.status(400).json({
@@ -108,17 +109,55 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      const result = await connection.execute(`
-        INSERT INTO reviews (listing_id, user_id, rating, title, comment_md, review_type, is_verified, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, 'listing', TRUE, NOW(), NOW())
-      `, [listingId, user_id, rating, title || '', content]);
+      // ✅ 1. 중복 리뷰 방지 (같은 사용자가 같은 상품에 이미 리뷰를 작성했는지)
+      const existingReview = await connection.execute(
+        'SELECT id FROM reviews WHERE listing_id = ? AND user_id = ?',
+        [listingId, user_id]
+      );
 
-      // 리스팅의 평균 평점 업데이트
+      if (existingReview.rows && existingReview.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: '이미 이 상품에 대한 리뷰를 작성하셨습니다. 기존 리뷰를 수정해주세요.'
+        });
+      }
+
+      // ✅ 2. 예약 검증 (booking_id가 있으면 실제 예약했는지 확인)
+      if (booking_id) {
+        const bookingCheck = await connection.execute(
+          'SELECT id, user_id FROM bookings WHERE id = ? AND listing_id = ?',
+          [booking_id, listingId]
+        );
+
+        if (!bookingCheck.rows || bookingCheck.rows.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: '유효하지 않은 예약입니다.'
+          });
+        }
+
+        if (bookingCheck.rows[0].user_id != user_id) {
+          return res.status(403).json({
+            success: false,
+            error: '본인의 예약에만 리뷰를 작성할 수 있습니다.'
+          });
+        }
+      }
+
+      // ✅ 3. 이미지 JSON 변환
+      const imagesJson = images && images.length > 0 ? JSON.stringify(images) : null;
+
+      const result = await connection.execute(`
+        INSERT INTO reviews (listing_id, user_id, rating, title, comment_md, review_images, booking_id, review_type, is_verified, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'listing', TRUE, NOW(), NOW())
+      `, [listingId, user_id, rating, title || '', content, imagesJson, booking_id || null]);
+
+      // 리스팅의 평균 평점 업데이트 (숨겨진 리뷰 제외)
       await connection.execute(`
         UPDATE listings
         SET
-          rating_avg = (SELECT AVG(rating) FROM reviews WHERE listing_id = ?),
-          rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ?)
+          rating_avg = (SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE)),
+          rating_count = (SELECT COUNT(*) FROM reviews WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE))
         WHERE id = ?
       `, [listingId, listingId, listingId]);
 
@@ -132,6 +171,12 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (error) {
     console.error('Error handling reviews:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    console.error('Error stack:', error.stack);
+    console.error('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.stack?.substring(0, 200)
+    });
   }
 };

@@ -1174,7 +1174,8 @@ export const api = {
           user_id: reviewData.user_id,
           rating: reviewData.rating,
           title: reviewData.title || '',
-          content: reviewData.content
+          content: reviewData.content,
+          images: reviewData.images || []
         }),
       });
 
@@ -1198,6 +1199,41 @@ export const api = {
       return {
         success: false,
         error: '리뷰 작성에 실패했습니다.'
+      };
+    }
+  },
+
+  // 리뷰 삭제 (사용자 - 본인 리뷰만)
+  deleteReview: async (reviewId: number, userId: number): Promise<ApiResponse<null>> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/reviews/edit/${reviewId}?user_id=${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API returned ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        return {
+          success: true,
+          data: null,
+          message: result.message || '리뷰가 삭제되었습니다.'
+        };
+      } else {
+        throw new Error(result.error || '리뷰 삭제에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('Failed to delete review:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '리뷰 삭제에 실패했습니다.'
       };
     }
   },
@@ -1427,7 +1463,7 @@ export const api = {
   // 리뷰
   getReviews: async (listingId: number): Promise<Review[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/reviews?listing_id=${listingId}`);
+      const response = await fetch(`${API_BASE_URL}/api/reviews/${listingId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -2920,9 +2956,12 @@ export const api = {
       }
     },
 
-    // 리뷰 수정
-    updateReview: async (reviewId: number, userId: number, reviewData: { rating?: number, title?: string, comment_md?: string }): Promise<ApiResponse<Review>> => {
+    // 리뷰 수정 (관리자 - userId는 선택적)
+    updateReview: async (reviewId: number, reviewData: { rating?: number, title?: string, comment_md?: string, user_id?: number }): Promise<ApiResponse<Review>> => {
       try {
+        // 관리자는 user_id를 1로 설정 (또는 reviewData에서 받은 값 사용)
+        const userId = reviewData.user_id || 1;
+
         const response = await fetch(`${API_BASE_URL}/api/reviews/edit/${reviewId}`, {
           method: 'PUT',
           headers: {
@@ -2930,7 +2969,9 @@ export const api = {
           },
           body: JSON.stringify({
             user_id: userId,
-            ...reviewData
+            rating: reviewData.rating,
+            title: reviewData.title,
+            comment_md: reviewData.comment_md
           })
         });
 
@@ -2985,28 +3026,85 @@ export const api = {
     },
 
     // 리뷰 도움됨 버튼
-    markReviewHelpful: async (reviewId: number): Promise<ApiResponse<{ helpful_count: number }>> => {
+    markReviewHelpful: async (reviewId: number, userId: number): Promise<ApiResponse<{ helpful_count: number }>> => {
       try {
-        // 현재 helpful_count 가져오기
-        const current = await db.query('SELECT helpful_count FROM reviews WHERE id = ?', [reviewId]);
-        const currentCount = current[0]?.helpful_count || 0;
-        const newCount = currentCount + 1;
+        const response = await fetch(`${API_BASE_URL}/api/reviews/helpful/${reviewId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ user_id: userId })
+        });
 
-        // helpful_count 증가
-        await db.update('reviews', reviewId, { helpful_count: newCount });
+        const result = await response.json();
 
-        console.log(`✅ 리뷰 ${reviewId} 도움됨 +1 (${newCount})`);
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '도움됨 처리 실패');
+        }
 
         return {
           success: true,
-          data: { helpful_count: newCount },
-          message: '도움이 되었습니다.'
+          data: { helpful_count: 0 }, // API에서 카운트를 반환하지 않으므로 리프레시 필요
+          message: result.message || '도움이 되었습니다.'
         };
       } catch (error) {
         console.error('Failed to mark review helpful:', error);
         return {
           success: false,
-          error: '도움됨 처리에 실패했습니다.'
+          error: error instanceof Error ? error.message : '도움됨 처리에 실패했습니다.'
+        };
+      }
+    },
+
+    // 리뷰 생성 (관리자)
+    createReview: async (reviewData: {
+      listing_id: number;
+      user_name: string;
+      rating: number;
+      visit_date?: string;
+      title?: string;
+      comment_md: string;
+      review_type?: string;
+      rentcar_booking_id?: string;
+    }): Promise<ApiResponse<any>> => {
+      try {
+        // 관리자가 생성하는 리뷰는 user_id를 1 (관리자)로 설정하거나,
+        // 실제 사용자를 찾아서 연결해야 하지만, 임시로 1로 설정
+        const response = await fetch(`${API_BASE_URL}/api/reviews/${reviewData.listing_id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: 1, // 관리자 ID
+            rating: reviewData.rating,
+            title: reviewData.title || `${reviewData.user_name}님의 리뷰`,
+            content: reviewData.comment_md,
+            images: []
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `API returned ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+          return {
+            success: true,
+            data: result.data,
+            message: result.message || '리뷰가 생성되었습니다.'
+          };
+        } else {
+          throw new Error(result.error || '리뷰 생성에 실패했습니다');
+        }
+      } catch (error) {
+        console.error('Failed to create review:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : '리뷰 생성에 실패했습니다.'
         };
       }
     },
