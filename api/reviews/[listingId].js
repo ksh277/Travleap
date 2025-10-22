@@ -34,7 +34,7 @@ module.exports = async function handler(req, res) {
         SELECT
           r.*,
           u.name as user_name,
-          u.profile_image as user_profile_image
+          u.email as user_email
         FROM reviews r
         LEFT JOIN users u ON r.user_id = u.id
         WHERE r.listing_id = ?
