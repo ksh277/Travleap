@@ -2373,7 +2373,7 @@ export function AdminPage({}: AdminPageProps) {
                           overflow: 'auto',
                           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
                         }}
-                        className="max-w-2xl"
+                        className="max-w-4xl"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex justify-between items-center mb-6">
@@ -4477,7 +4477,7 @@ export function AdminPage({}: AdminPageProps) {
 
       {/* 수정 모달 */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>상품 수정</DialogTitle>
           </DialogHeader>
