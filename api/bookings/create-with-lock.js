@@ -12,11 +12,6 @@
 const { db } = require('../../utils/database');
 const { lockManager } = require('../../utils/lock-manager');
 
-
-
-;
-}
-
 /**
  * 예약 번호 생성 (Toss orderId용)
  * 형식: BK-YYYYMMDD-XXXXXX

@@ -15,19 +15,14 @@
  * 라우트: POST /api/payments/webhook
  */
 
-const { Request, Response } = require('express');
-import * from 'crypto';
+const crypto = require('crypto');
 const { db } = require('../../utils/database');
 
 const TOSS_WEBHOOK_SECRET = process.env.TOSS_WEBHOOK_SECRET || '';
 const RATE_LIMIT_PER_SECOND = 10;
 
 // 이벤트 처리 이력 (메모리 캐시, Redis 권장)
-const processedEvents = new Map<string, number>();
-
-;
-  createdAt;
-}
+const processedEvents = new Map();
 
 /**
  * 서명 검증 (Toss Webhook Secret)
@@ -229,7 +224,7 @@ async function handlePaymentCanceled(event) {
 /**
  * Rate Limiting 체크 (간단 구현)
  */
-const requestCounts = new Map<string, { count; resetAt }>();
+const requestCounts = new Map();
 
 
 

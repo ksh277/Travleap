@@ -17,27 +17,11 @@
 const { db } = require('../../utils/database');
 const { tossPaymentsServer } = require('../../utils/toss-payments-server');
 
->;
-  additional_fees?: Array<{
-    type;
-    description;
-    amount;
-  }>;
-  notes?;
-}
-
-;
-  error?;
-}
-
 /**
  * 패널티 계산
  */
-function calculatePenalty(inspection: ReturnInspection): {
-  total;
-  breakdown: Array<{ type; amount; description }>;
-} {
-  const penalties: Array<{ type; amount; description }> = [];
+function calculatePenalty(inspection) {
+  const penalties = [];
 
   // 1. 손상 비용
   if (inspection.damages && inspection.damages.length > 0) {
