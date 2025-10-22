@@ -179,7 +179,7 @@ export function VendorPMSSettings() {
       toast.info('PMS 동기화를 시작합니다...');
 
       // 서버 API 호출
-      const response = await fetch('/api/pms/sync', {
+      const response = await fetch('/api/vendor/pms/sync-now', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,16 +189,16 @@ export function VendorPMSSettings() {
 
       const result = await response.json();
 
-      if (result.success && result.data) {
-        const data = result.data;
-        if (data.errors && data.errors.length > 0) {
+      if (result.success && result.stats) {
+        const stats = result.stats;
+        if (stats.errors && stats.errors.length > 0) {
           toast.warning(
-            `동기화 완료 (일부 오류 발생)\n추가: ${data.vehiclesAdded}대, 수정: ${data.vehiclesUpdated}대, 삭제: ${data.vehiclesDeleted}대`,
+            `동기화 완료 (일부 오류 발생)\n추가: ${stats.added}대, 수정: ${stats.updated}대, 삭제: ${stats.deleted}대`,
             { duration: 5000 }
           );
         } else {
           toast.success(
-            `PMS 동기화 완료!\n추가: ${data.vehiclesAdded}대, 수정: ${data.vehiclesUpdated}대, 삭제: ${data.vehiclesDeleted}대`,
+            `PMS 동기화 완료!\n추가: ${stats.added}대, 수정: ${stats.updated}대, 삭제: ${stats.deleted}대`,
             { duration: 5000 }
           );
         }
