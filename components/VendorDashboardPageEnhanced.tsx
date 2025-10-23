@@ -577,20 +577,73 @@ export function VendorDashboardPageEnhanced() {
 
       let successCount = 0;
       let errorCount = 0;
+      const errors: string[] = [];
+      const validVehicleClasses = ['소형', '중형', '대형', '럭셔리', 'SUV', '밴'];
+      const validTransmissions = ['자동', '수동'];
+      const validFuelTypes = ['가솔린', '디젤', '하이브리드', '전기'];
 
-      for (const line of dataLines) {
+      for (let i = 0; i < dataLines.length; i++) {
+        const line = dataLines[i];
         const values = line.split(',');
+        const rowNumber = i + 2; // CSV row number (header is row 1)
 
         try {
+          // 컬럼 수 검증
+          if (values.length < 13) {
+            errors.push(`${rowNumber}행: 컬럼이 부족합니다 (${values.length}/13)`);
+            errorCount++;
+            continue;
+          }
+
+          // 차량명 검증
+          const displayName = values[0]?.trim();
+          if (!displayName) {
+            errors.push(`${rowNumber}행: 차량명이 비어있습니다`);
+            errorCount++;
+            continue;
+          }
+
+          // 차량등급 검증
+          const vehicleClass = values[4]?.trim() || '중형';
+          if (!validVehicleClasses.includes(vehicleClass)) {
+            errors.push(`${rowNumber}행: 잘못된 차량등급 "${vehicleClass}" (허용: ${validVehicleClasses.join(', ')})`);
+            errorCount++;
+            continue;
+          }
+
+          // 변속기 검증
+          const transmission = values[6]?.trim() || '자동';
+          if (!validTransmissions.includes(transmission)) {
+            errors.push(`${rowNumber}행: 잘못된 변속기 "${transmission}" (허용: ${validTransmissions.join(', ')})`);
+            errorCount++;
+            continue;
+          }
+
+          // 연료 검증
+          const fuelType = values[7]?.trim() || '가솔린';
+          if (!validFuelTypes.includes(fuelType)) {
+            errors.push(`${rowNumber}행: 잘못된 연료 "${fuelType}" (허용: ${validFuelTypes.join(', ')})`);
+            errorCount++;
+            continue;
+          }
+
+          // 일일요금 검증
+          const dailyRate = parseInt(values[8]);
+          if (isNaN(dailyRate) || dailyRate < 10000) {
+            errors.push(`${rowNumber}행: 일일요금이 잘못되었습니다 (최소 10,000원)`);
+            errorCount++;
+            continue;
+          }
+
           const vehicleData = {
-            display_name: values[0] || '',
-            vehicle_class: values[4] || '중형',
+            display_name: displayName,
+            vehicle_class: vehicleClass,
             seating_capacity: parseInt(values[5]) || 5,
-            transmission_type: values[6] || '자동',
-            fuel_type: values[7] || '가솔린',
-            daily_rate_krw: parseInt(values[8]) || 50000,
-            weekly_rate_krw: parseInt(values[9]) || 300000,
-            monthly_rate_krw: parseInt(values[10]) || 1000000,
+            transmission_type: transmission,
+            fuel_type: fuelType,
+            daily_rate_krw: dailyRate,
+            weekly_rate_krw: parseInt(values[9]) || dailyRate * 6,
+            monthly_rate_krw: parseInt(values[10]) || dailyRate * 25,
             mileage_limit_km: parseInt(values[11]) || 200,
             excess_mileage_fee_krw: parseInt(values[12]) || 100,
             is_available: true,
@@ -607,11 +660,6 @@ export function VendorDashboardPageEnhanced() {
             max_rental_days: 30,
             instant_booking: true
           };
-
-          if (!vehicleData.display_name.trim()) {
-            errorCount++;
-            continue;
-          }
 
           // POST API로 차량 등록
           const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
@@ -633,15 +681,38 @@ export function VendorDashboardPageEnhanced() {
           if (result.success) {
             successCount++;
           } else {
+            errors.push(`${rowNumber}행 (${displayName}): ${result.message || 'API 오류'}`);
             errorCount++;
           }
         } catch (err) {
           console.error('차량 등록 실패:', err);
+          errors.push(`${rowNumber}행: 네트워크 오류`);
           errorCount++;
         }
       }
 
-      toast.success(`CSV 업로드 완료! 성공: ${successCount}건, 실패: ${errorCount}건`);
+      // 결과 메시지 표시
+      if (errorCount === 0) {
+        toast.success(`✅ CSV 업로드 완료! 총 ${successCount}건 성공`);
+      } else {
+        toast.error(`⚠️ CSV 업로드 완료: 성공 ${successCount}건, 실패 ${errorCount}건`);
+
+        // 에러 상세 정보 콘솔 출력
+        if (errors.length > 0) {
+          console.error('=== CSV 업로드 에러 상세 ===');
+          errors.slice(0, 10).forEach(err => console.error(err));
+          if (errors.length > 10) {
+            console.error(`... 외 ${errors.length - 10}건의 에러`);
+          }
+
+          // 첫 5개 에러만 toast로 표시
+          const errorSummary = errors.slice(0, 5).join('\n');
+          setTimeout(() => {
+            toast.error(errorSummary, { duration: 10000 });
+          }, 500);
+        }
+      }
+
       loadVendorData();
     } catch (error) {
       console.error('CSV 파일 읽기 실패:', error);
