@@ -614,16 +614,19 @@ export function VendorDashboardPageEnhanced() {
           }
 
           // POST API로 차량 등록
-          const response = await fetch('/api/vendor/rentcar/vehicles', {
+          const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+          if (!token) {
+            errorCount++;
+            continue;
+          }
+
+          const response = await fetch('/api/vendor/vehicles', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-user-id': user.id.toString()
+              'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({
-              userId: user.id,
-              ...vehicleData
-            })
+            body: JSON.stringify(vehicleData)
           });
 
           const result = await response.json();
