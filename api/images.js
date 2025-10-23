@@ -15,15 +15,6 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // DATABASE_URL 환경 변수 체크
-  if (!process.env.DATABASE_URL) {
-    console.error('❌ DATABASE_URL environment variable is not set');
-    return res.status(500).json({
-      success: false,
-      error: 'Database configuration error. Please contact administrator.'
-    });
-  }
-
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {

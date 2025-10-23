@@ -56,7 +56,7 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      const partners = await connection.execute('SELECT COUNT(*) as count FROM partners WHERE partner_type IS NULL OR partner_type != \'lodging\'');
+      const partners = await connection.execute('SELECT COUNT(*) as count FROM partners');
       stats.totalPartners = partners.rows[0]?.count || 0;
     } catch (e) {}
 

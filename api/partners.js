@@ -18,27 +18,17 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  // DATABASE_URL 환경 변수 체크
-  if (!process.env.DATABASE_URL) {
-    console.error('❌ DATABASE_URL environment variable is not set');
-    return res.status(500).json({
-      success: false,
-      error: 'Database configuration error. Please contact administrator.'
-    });
-  }
+  const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    const connection = connect({ url: process.env.DATABASE_URL });
 
     // 활성화된 파트너만 조회 (is_active = 1, status = 'approved')
     const result = await connection.execute(`
       SELECT
         p.*,
-        COUNT(DISTINCT l.id) as listing_count
+        (SELECT COUNT(DISTINCT l.id) FROM listings l WHERE l.partner_id = p.id) as listing_count
       FROM partners p
-      LEFT JOIN listings l ON p.id = l.partner_id
       WHERE p.is_active = 1 AND p.status = 'approved'
-      GROUP BY p.id
       ORDER BY
         p.is_featured DESC,
         p.created_at DESC
