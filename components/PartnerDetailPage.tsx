@@ -188,6 +188,20 @@ export function PartnerDetailPage() {
               parseFloat(p.lng)
             );
 
+            // 이미지 처리: 빈 배열은 그대로 두고 렌더링 시 placeholder 사용
+            let processedImages: string[] = [];
+            if (p.images) {
+              try {
+                const images = typeof p.images === 'string' ? JSON.parse(p.images) : p.images;
+                if (Array.isArray(images) && images.length > 0) {
+                  // base64 이미지 제외
+                  processedImages = images.filter((img: string) => img && !img.startsWith('data:image'));
+                }
+              } catch (e) {
+                console.warn('Failed to parse nearby partner images:', e);
+              }
+            }
+
             return {
               id: p.id,
               name: p.business_name,
@@ -198,7 +212,7 @@ export function PartnerDetailPage() {
               business_hours: p.business_hours || '',
               phone: p.phone || '',
               email: p.email || '',
-              images: p.images ? (typeof p.images === 'string' ? JSON.parse(p.images) : p.images) : [],
+              images: processedImages,
               location: p.location || '',
               rating: 0,
               review_count: 0,
@@ -211,6 +225,7 @@ export function PartnerDetailPage() {
           .sort((a: any, b: any) => a.distance - b.distance) // 거리순 정렬
           .slice(0, 4); // 가장 가까운 4개만
 
+        console.log(`✅ Nearby partners loaded: ${partnersWithDistance.length}개`, partnersWithDistance);
         setNearbyPartners(partnersWithDistance);
       }
     } catch (error) {
@@ -232,6 +247,27 @@ export function PartnerDetailPage() {
 
       if (result.success && result.data) {
         const partnerData = result.data;
+        // 이미지 처리: 빈 배열은 placeholder 사용
+        let processedImages = ['/images/placeholder.jpg'];
+        if (partnerData.images) {
+          try {
+            const images = typeof partnerData.images === 'string'
+              ? JSON.parse(partnerData.images)
+              : partnerData.images;
+
+            // 배열이고 길이가 있으면 사용, 아니면 placeholder
+            if (Array.isArray(images) && images.length > 0) {
+              // base64 이미지 제외 (너무 큼)
+              const validImages = images.filter(img => img && !img.startsWith('data:image'));
+              if (validImages.length > 0) {
+                processedImages = validImages;
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to parse partner images:', e);
+          }
+        }
+
         setPartner({
           id: partnerData.id,
           name: partnerData.business_name || partnerData.name,
@@ -242,7 +278,7 @@ export function PartnerDetailPage() {
           business_hours: partnerData.business_hours || '매일 09:00-18:00',
           phone: partnerData.phone || partnerData.contact_phone,
           email: partnerData.email || partnerData.contact_email,
-          images: partnerData.images ? (typeof partnerData.images === 'string' ? JSON.parse(partnerData.images) : partnerData.images) : ['/images/placeholder.jpg'],
+          images: processedImages,
           location: partnerData.location || '신안, 대한민국',
           rating: partnerData.avg_rating || partnerData.rating || 0,
           review_count: partnerData.review_count || 0,
