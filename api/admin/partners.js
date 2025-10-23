@@ -15,7 +15,14 @@ module.exports = async function handler(req, res) {
     // GET - 파트너 목록 조회
     if (req.method === 'GET') {
       const result = await connection.execute(`
-        SELECT p.* FROM partners p
+        SELECT
+          p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone,
+          p.business_address, p.location, p.services, p.base_price,
+          p.detailed_address, p.description, p.business_hours,
+          p.duration, p.min_age, p.max_capacity, p.language,
+          p.tier, p.partner_type, p.is_verified, p.is_featured,
+          p.is_active, p.status, p.lat, p.lng, p.created_at, p.updated_at
+        FROM partners p
         ORDER BY p.created_at DESC
       `);
 

@@ -24,7 +24,14 @@ module.exports = async function handler(req, res) {
 
     // 활성화된 파트너만 조회 (is_active = 1, status = 'approved')
     const result = await connection.execute(`
-      SELECT p.*
+      SELECT
+        p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone,
+        p.business_address, p.location, p.services, p.base_price,
+        p.detailed_address, p.description, p.business_hours,
+        p.duration, p.min_age, p.max_capacity, p.language,
+        p.tier, p.partner_type, p.is_verified, p.is_featured,
+        p.is_active, p.status, p.lat, p.lng, p.created_at, p.updated_at,
+        p.images
       FROM partners p
       WHERE p.is_active = 1 AND p.status = 'approved'
       ORDER BY
