@@ -67,22 +67,26 @@ module.exports = async function handler(req, res) {
       const {
         id,
         name,
+        contact_person,
         contact_email,
         contact_phone,
         address,
         description,
+        logo_url,
+        cancellation_policy,
         old_email,
         new_password
       } = req.body;
 
-      console.log('✏️ [Vendor Update] 업체 정보 수정:', id);
+      console.log('✏️ [Vendor Update] 업체 정보 수정:', id, req.body);
 
       // 1. PlanetScale rentcar_vendors 테이블 업데이트
       await connection.execute(
         `UPDATE rentcar_vendors
-         SET name = ?, contact_email = ?, contact_phone = ?, address = ?, description = ?, updated_at = NOW()
+         SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,
+             address = ?, description = ?, logo_url = ?, cancellation_policy = ?, updated_at = NOW()
          WHERE id = ?`,
-        [name, contact_email, contact_phone, address, description, id]
+        [name, contact_person, contact_email, contact_phone, address, description, logo_url, cancellation_policy, id]
       );
 
       // 2. 이메일이 변경되었거나 비밀번호가 제공된 경우 Neon users 테이블 업데이트

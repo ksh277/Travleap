@@ -752,10 +752,13 @@ export function VendorDashboardPageEnhanced() {
         body: JSON.stringify({
           id: vendorInfo.id,
           name: editedInfo.name,
+          contact_person: editedInfo.contact_person,
           contact_email: editedInfo.contact_email,
           contact_phone: editedInfo.contact_phone,
           address: editedInfo.address,
           description: editedInfo.description,
+          logo_url: editedInfo.logo_url,
+          cancellation_policy: editedInfo.cancellation_policy,
           old_email: vendorInfo.contact_email, // 이전 이메일 (Neon DB 업데이트용)
           new_password: newPassword || undefined // 비밀번호가 입력되었을 때만
         })
@@ -767,10 +770,13 @@ export function VendorDashboardPageEnhanced() {
         setVendorInfo({
           ...vendorInfo,
           name: editedInfo.name!,
+          contact_person: editedInfo.contact_person!,
           contact_email: editedInfo.contact_email!,
           contact_phone: editedInfo.contact_phone!,
           address: editedInfo.address!,
-          description: editedInfo.description
+          description: editedInfo.description,
+          logo_url: editedInfo.logo_url,
+          cancellation_policy: editedInfo.cancellation_policy
         });
 
         setIsEditingInfo(false);
