@@ -3,17 +3,17 @@
  * Vercel Blob Storage 사용
  */
 
-import { put } from '@vercel/blob';
-import { IncomingForm } from 'formidable';
-import fs from 'fs';
+const { put } = require('@vercel/blob');
+const { IncomingForm } = require('formidable');
+const fs = require('fs');
 
-export const config = {
+module.exports.config = {
   api: {
     bodyParser: false, // formidable 사용을 위해 비활성화
   },
 };
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }

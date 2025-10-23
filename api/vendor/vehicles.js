@@ -1,9 +1,9 @@
-import { connect } from '@planetscale/database';
+const { connect } = require('@planetscale/database');
 const { requireVendorAuth } = require('../../middleware/vendor-auth');
 
 const connection = connect({ url: process.env.DATABASE_URL });
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // 벤더 인증 및 권한 확인
   const auth = await requireVendorAuth(req, res);
   if (!auth.success) return; // 이미 응답 전송됨
