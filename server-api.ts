@@ -4729,17 +4729,14 @@ function setupRoutes() {
   // ===== Vendor 요금/보험/옵션 관리 API =====
 
   // 요금 정책 목록 조회
-  app.get('/api/vendor/pricing/policies', async (req, res) => {
+  app.get('/api/vendor/pricing/policies', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
-      if (!userId) {
-        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
-      }
+      const userId = req.user!.userId;
 
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -4762,17 +4759,14 @@ function setupRoutes() {
   });
 
   // 요금 정책 추가
-  app.post('/api/vendor/pricing/policies', async (req, res) => {
+  app.post('/api/vendor/pricing/policies', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
-      if (!userId) {
-        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
-      }
+      const userId = req.user!.userId;
 
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -4809,7 +4803,7 @@ function setupRoutes() {
   });
 
   // 요금 정책 활성화 토글
-  app.patch('/api/vendor/pricing/policies/:id/toggle', async (req, res) => {
+  app.patch('/api/vendor/pricing/policies/:id/toggle', authenticate, requireRole('vendor'), async (req, res) => {
     try {
       const policyId = parseInt(req.params.id);
       const { is_active } = req.body;
@@ -4831,7 +4825,7 @@ function setupRoutes() {
   });
 
   // 요금 정책 삭제
-  app.delete('/api/vendor/pricing/policies/:id', async (req, res) => {
+  app.delete('/api/vendor/pricing/policies/:id', authenticate, requireRole('vendor'), async (req, res) => {
     try {
       const policyId = parseInt(req.params.id);
       const { db } = await import('./utils/database.js');
@@ -4851,12 +4845,9 @@ function setupRoutes() {
   });
 
   // 보험 상품 목록 조회
-  app.get('/api/vendor/insurance', async (req, res) => {
+  app.get('/api/vendor/insurance', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
-      if (!userId) {
-        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
-      }
+      const userId = req.user!.userId;
 
       const { db } = await import('./utils/database.js');
 
@@ -4884,17 +4875,14 @@ function setupRoutes() {
   });
 
   // 보험 상품 추가
-  app.post('/api/vendor/insurance', async (req, res) => {
+  app.post('/api/vendor/insurance', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
-      if (!userId) {
-        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
-      }
+      const userId = req.user!.userId;
 
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -4928,7 +4916,7 @@ function setupRoutes() {
   });
 
   // 보험 상품 활성화 토글
-  app.patch('/api/vendor/insurance/:id/toggle', async (req, res) => {
+  app.patch('/api/vendor/insurance/:id/toggle', authenticate, requireRole('vendor'), async (req, res) => {
     try {
       const insuranceId = parseInt(req.params.id);
       const { is_active } = req.body;
@@ -4950,7 +4938,7 @@ function setupRoutes() {
   });
 
   // 보험 상품 삭제
-  app.delete('/api/vendor/insurance/:id', async (req, res) => {
+  app.delete('/api/vendor/insurance/:id', authenticate, requireRole('vendor'), async (req, res) => {
     try {
       const insuranceId = parseInt(req.params.id);
       const { db } = await import('./utils/database.js');
@@ -4970,17 +4958,14 @@ function setupRoutes() {
   });
 
   // 추가 옵션 목록 조회
-  app.get('/api/vendor/options', async (req, res) => {
+  app.get('/api/vendor/options', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
-      if (!userId) {
-        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
-      }
+      const userId = req.user!.userId;
 
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -5003,17 +4988,14 @@ function setupRoutes() {
   });
 
   // 추가 옵션 추가
-  app.post('/api/vendor/options', async (req, res) => {
+  app.post('/api/vendor/options', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
-      if (!userId) {
-        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
-      }
+      const userId = req.user!.userId;
 
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -5047,7 +5029,7 @@ function setupRoutes() {
   });
 
   // 추가 옵션 활성화 토글
-  app.patch('/api/vendor/options/:id/toggle', async (req, res) => {
+  app.patch('/api/vendor/options/:id/toggle', authenticate, requireRole('vendor'), async (req, res) => {
     try {
       const optionId = parseInt(req.params.id);
       const { is_active } = req.body;
@@ -5069,7 +5051,7 @@ function setupRoutes() {
   });
 
   // 추가 옵션 삭제
-  app.delete('/api/vendor/options/:id', async (req, res) => {
+  app.delete('/api/vendor/options/:id', authenticate, requireRole('vendor'), async (req, res) => {
     try {
       const optionId = parseInt(req.params.id);
       const { db } = await import('./utils/database.js');
