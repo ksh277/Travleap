@@ -56,7 +56,7 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(
         `SELECT
           DATE(rb.created_at) as date,
-          SUM(rb.total_price_krw) as revenue
+          SUM(rb.total_krw) as revenue
         FROM rentcar_bookings rb
         JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
         WHERE rv.vendor_id = ?

@@ -395,10 +395,10 @@ export const rentcarBookingApi = {
 
   checkAvailability: async (
     pickupDate: string,
-    returnDate: string
+    dropoffDate: string
   ): Promise<RentcarApiResponse<{ unavailableVehicleIds: number[] }>> => {
     try {
-      const response = await fetch(`/api/rentcar/bookings/availability?pickup_date=${pickupDate}&return_date=${returnDate}`);
+      const response = await fetch(`/api/rentcar/bookings/availability?pickup_date=${pickupDate}&dropoff_date=${dropoffDate}`);
       const data = await response.json();
       return data;
     } catch (error) {

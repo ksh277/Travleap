@@ -30,6 +30,7 @@ import {
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Vehicle {
   id: number;
@@ -82,6 +83,7 @@ interface VendorData {
 export function RentcarVendorDetailPage() {
   const { vendorId } = useParams<{ vendorId: string }>();
   const navigate = useNavigate();
+  const { user, isLoggedIn } = useAuth();
 
   // 상태 관리
   const [vendorData, setVendorData] = useState<VendorData | null>(null);
@@ -89,10 +91,13 @@ export function RentcarVendorDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
 
   // 예약 폼 상태
   const [pickupDate, setPickupDate] = useState<Date>();
   const [returnDate, setReturnDate] = useState<Date>();
+  const [pickupTime, setPickupTime] = useState('10:00');
+  const [returnTime, setReturnTime] = useState('10:00');
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [existingBookings, setExistingBookings] = useState<any[]>([]);
 
@@ -155,29 +160,70 @@ export function RentcarVendorDetailPage() {
     }
   };
 
-  // 차량 재고 확인 (선택한 날짜에 사용 가능한지)
+  // 총 대여 시간 계산 (시간 단위)
+  const calculateRentalHours = () => {
+    if (!pickupDate || !returnDate) return 0;
+
+    // 날짜 + 시간 조합
+    const [pickupHour, pickupMinute] = pickupTime.split(':').map(Number);
+    const [returnHour, returnMinute] = returnTime.split(':').map(Number);
+
+    const pickup = new Date(pickupDate);
+    pickup.setHours(pickupHour, pickupMinute, 0, 0);
+
+    const returnD = new Date(returnDate);
+    returnD.setHours(returnHour, returnMinute, 0, 0);
+
+    const diffMs = returnD.getTime() - pickup.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    return Math.max(0, diffHours);
+  };
+
+  // 차량 재고 확인 (선택한 날짜/시간에 사용 가능한지)
   const checkVehicleAvailability = (vehicle: Vehicle) => {
     if (!pickupDate || !returnDate) return vehicle.stock;
 
-    const pickupTime = pickupDate.getTime();
-    const returnTime = returnDate.getTime();
+    const [pickupHour, pickupMinute] = pickupTime.split(':').map(Number);
+    const [returnHour, returnMinute] = returnTime.split(':').map(Number);
+
+    const pickup = new Date(pickupDate);
+    pickup.setHours(pickupHour, pickupMinute, 0, 0);
+
+    const returnD = new Date(returnDate);
+    returnD.setHours(returnHour, returnMinute, 0, 0);
+
+    // 버퍼 타임 설정 (차량 청소/점검용 1시간)
+    const BUFFER_TIME_MS = 60 * 60 * 1000; // 1시간
 
     // 해당 차량의 예약 중 겹치는 것 찾기
     const conflictingBookings = existingBookings.filter(booking => {
       if (booking.vehicle_id !== vehicle.id) return false;
 
-      const bookingStart = new Date(booking.pickup_date).getTime();
-      const bookingEnd = new Date(booking.return_date).getTime();
+      // 예약 시작/종료 시간 조합
+      const bookingStart = new Date(booking.pickup_date + ' ' + (booking.pickup_time || '00:00'));
+      let bookingEnd = new Date(booking.dropoff_date + ' ' + (booking.dropoff_time || '23:59'));
 
-      // 날짜 겹침 체크
-      return !(returnTime <= bookingStart || pickupTime >= bookingEnd);
+      // ⚠️ 중요: 기존 예약 종료 시간에 버퍼 타임 추가
+      // 예) 14:00 반납 → 버퍼 타임 포함 15:00까지 사용 불가
+      bookingEnd = new Date(bookingEnd.getTime() + BUFFER_TIME_MS);
+
+      // 시간 겹침 체크 (버퍼 타임 포함)
+      return !(returnD.getTime() <= bookingStart.getTime() || pickup.getTime() >= bookingEnd.getTime());
     });
 
     return Math.max(0, vehicle.stock - conflictingBookings.length);
   };
 
   // 예약 처리
-  const handleBooking = () => {
+  const handleBooking = async () => {
+    // 로그인 체크
+    if (!isLoggedIn || !user) {
+      toast.error('로그인이 필요한 서비스입니다');
+      navigate('/login', { state: { returnUrl: `/rentcar/${vendorId}` } });
+      return;
+    }
+
     if (!pickupDate || !returnDate) {
       toast.error('대여/반납 날짜를 선택해주세요');
       return;
@@ -188,41 +234,86 @@ export function RentcarVendorDetailPage() {
       return;
     }
 
+    const totalHours = calculateRentalHours();
+
+    if (totalHours < 4) {
+      toast.error('최소 4시간 이상 대여 가능합니다');
+      return;
+    }
+
+    if (totalHours <= 0) {
+      toast.error('반납 시간은 대여 시간 이후여야 합니다');
+      return;
+    }
+
     // 재고 확인
     const availableStock = checkVehicleAvailability(selectedVehicle);
     if (availableStock <= 0) {
-      toast.error('선택한 날짜에 해당 차량을 이용할 수 없습니다');
+      toast.error('선택한 날짜/시간에 해당 차량을 이용할 수 없습니다');
       return;
     }
 
-    // 대여 일수 계산
-    const days = Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (days <= 0) {
-      toast.error('반납일은 대여일 이후여야 합니다');
-      return;
+    try {
+      setIsBooking(true);
+
+      // 1. 가용성 확인
+      const availabilityResponse = await fetch(
+        `/api/rentcar/check-availability?vehicle_id=${selectedVehicle.id}&pickup_date=${format(pickupDate, 'yyyy-MM-dd')}&pickup_time=${pickupTime}&dropoff_date=${format(returnDate, 'yyyy-MM-dd')}&dropoff_time=${returnTime}`
+      );
+      const availabilityResult = await availabilityResponse.json();
+
+      if (!availabilityResult.success || !availabilityResult.available) {
+        toast.error(availabilityResult.reason || '선택한 날짜/시간에 예약할 수 없습니다');
+        return;
+      }
+
+      // 2. 예약 생성 (실제 사용자 정보 사용)
+      const bookingPayload = {
+        vendor_id: vendorData?.vendor.id,
+        vehicle_id: selectedVehicle.id,
+        user_id: user.id,
+        customer_name: user.name,
+        customer_email: user.email,
+        customer_phone: user.phone || '',
+        pickup_location_id: 1,
+        dropoff_location_id: 1,
+        pickup_date: format(pickupDate, 'yyyy-MM-dd'),
+        pickup_time: pickupTime,
+        dropoff_date: format(returnDate, 'yyyy-MM-dd'),
+        dropoff_time: returnTime,
+        special_requests: ''
+      };
+
+      const bookingResponse = await fetch('/api/rentcar/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(bookingPayload)
+      });
+
+      const bookingResult = await bookingResponse.json();
+
+      if (!bookingResult.success) {
+        toast.error(bookingResult.error || '예약 생성에 실패했습니다');
+        return;
+      }
+
+      // 3. 결제 페이지로 이동 (bookingId와 함께)
+      const bookingData = bookingResult.data;
+      const hourlyRate = selectedVehicle.hourly_rate_krw || Math.ceil(selectedVehicle.daily_rate_krw / 24);
+      const totalPrice = Math.ceil(hourlyRate * totalHours);
+
+      navigate(
+        `/payment?bookingId=${bookingData.id}&bookingNumber=${bookingData.booking_number}&amount=${totalPrice}&title=${encodeURIComponent(selectedVehicle.display_name || selectedVehicle.model)}&customerName=${encodeURIComponent(user.name)}&customerEmail=${encodeURIComponent(user.email)}`
+      );
+
+    } catch (error) {
+      console.error('예약 처리 오류:', error);
+      toast.error('예약 처리 중 오류가 발생했습니다');
+    } finally {
+      setIsBooking(false);
     }
-
-    // 총 가격 계산 (수수료 없이 순수 렌트 비용만)
-    const totalPrice = selectedVehicle.daily_rate_krw * days;
-
-    // 예약 정보를 결제 페이지로 전달
-    const bookingData = {
-      listingId: selectedVehicle.id,
-      listingTitle: `${vendorData?.vendor.vendor_name} - ${selectedVehicle.display_name || selectedVehicle.model}`,
-      vehicleType: selectedVehicle.display_name || `${selectedVehicle.brand} ${selectedVehicle.model}`,
-      vehiclePrice: selectedVehicle.daily_rate_krw,
-      pickupDate: format(pickupDate, 'yyyy-MM-dd'),
-      returnDate: format(returnDate, 'yyyy-MM-dd'),
-      days: days,
-      totalPrice: totalPrice,
-      image: selectedVehicle.images?.[0],
-      vendorName: vendorData?.vendor.vendor_name,
-      vendorPhone: vendorData?.vendor.phone,
-      vendorAddress: vendorData?.vendor.business_name
-    };
-
-    localStorage.setItem('booking_data', JSON.stringify(bookingData));
-    navigate('/payment');
   };
 
   // 즐겨찾기 토글
@@ -424,10 +515,11 @@ export function RentcarVendorDetailPage() {
                     <div>
                       <p className="text-sm font-medium text-gray-700">대여 기간</p>
                       <p className="text-sm text-gray-600">
-                        {format(pickupDate, 'yyyy년 M월 d일 (E)', { locale: ko })} ~ {format(returnDate, 'M월 d일 (E)', { locale: ko })}
+                        {format(pickupDate, 'yyyy년 M월 d일 (E) ' + pickupTime, { locale: ko })} ~ {format(returnDate, 'M월 d일 (E) ' + returnTime, { locale: ko })}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        총 {Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))}일
+                        총 {Math.floor(calculateRentalHours())}시간
+                        {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`}
                       </p>
                     </div>
                   </div>
@@ -458,14 +550,19 @@ export function RentcarVendorDetailPage() {
                   <Separator />
                   <div className="bg-white rounded-lg p-3">
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm text-gray-600">차량 대여료 ({Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))}일)</span>
-                      <span className="font-medium">₩{(selectedVehicle.daily_rate_krw * Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))).toLocaleString()}</span>
+                      <span className="text-sm text-gray-600">
+                        차량 대여료 ({Math.floor(calculateRentalHours())}시간
+                        {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`})
+                      </span>
+                      <span className="font-medium">
+                        ₩{Math.ceil((selectedVehicle.hourly_rate_krw || Math.ceil(selectedVehicle.daily_rate_krw / 24)) * calculateRentalHours()).toLocaleString()}
+                      </span>
                     </div>
                     <Separator className="my-2" />
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">총 결제 금액</span>
                       <span className="text-xl font-bold text-blue-600">
-                        ₩{(selectedVehicle.daily_rate_krw * Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))).toLocaleString()}
+                        ₩{Math.ceil((selectedVehicle.hourly_rate_krw || Math.ceil(selectedVehicle.daily_rate_krw / 24)) * calculateRentalHours()).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -751,11 +848,12 @@ export function RentcarVendorDetailPage() {
                       : minPrice.toLocaleString()}
                     {!selectedVehicle && <span className="text-sm text-gray-500 ml-2">~</span>}
                   </div>
-                  {pickupDate && returnDate && selectedVehicle && (
+                  {pickupDate && returnDate && selectedVehicle && calculateRentalHours() >= 4 && (
                     <div className="mt-2 text-sm text-gray-600">
-                      총 {Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))}일 = {' '}
+                      총 {Math.floor(calculateRentalHours())}시간
+                      {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`} = {' '}
                       <span className="font-semibold text-blue-600">
-                        ₩{(selectedVehicle.daily_rate_krw * Math.ceil((returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60 * 24))).toLocaleString()}
+                        ₩{Math.ceil((selectedVehicle.hourly_rate_krw || Math.ceil(selectedVehicle.daily_rate_krw / 24)) * calculateRentalHours()).toLocaleString()}
                       </span>
                     </div>
                   )}
@@ -763,10 +861,10 @@ export function RentcarVendorDetailPage() {
 
                 <Separator className="my-4" />
 
-                {/* 날짜 선택 */}
+                {/* 날짜 및 시간 선택 */}
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label className="text-sm font-medium mb-2 block">대여일</label>
+                    <label className="text-sm font-medium mb-2 block">대여 시작</label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start">
@@ -784,10 +882,22 @@ export function RentcarVendorDetailPage() {
                         />
                       </PopoverContent>
                     </Popover>
+                    <select
+                      value={pickupTime}
+                      onChange={(e) => setPickupTime(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md mt-2"
+                    >
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const hour = i.toString().padStart(2, '0');
+                        return (
+                          <option key={`${hour}-00`} value={`${hour}:00`}>{hour}:00</option>
+                        );
+                      })}
+                    </select>
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium mb-2 block">반납일</label>
+                    <label className="text-sm font-medium mb-2 block">반납 시간</label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start">
@@ -805,11 +915,52 @@ export function RentcarVendorDetailPage() {
                         />
                       </PopoverContent>
                     </Popover>
+                    <select
+                      value={returnTime}
+                      onChange={(e) => setReturnTime(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md mt-2"
+                    >
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const hour = i.toString().padStart(2, '0');
+                        return (
+                          <option key={`${hour}-00`} value={`${hour}:00`}>{hour}:00</option>
+                        );
+                      })}
+                    </select>
                   </div>
+
+                  {pickupDate && returnDate && calculateRentalHours() >= 4 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-sm text-blue-900">
+                        <strong>총 대여 시간:</strong> {Math.floor(calculateRentalHours())}시간
+                        {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`}
+                      </p>
+                    </div>
+                  )}
+
+                  {pickupDate && returnDate && calculateRentalHours() < 4 && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <p className="text-sm text-orange-900">
+                        최소 4시간 이상 대여 가능합니다
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                <Button onClick={handleBooking} className="w-full" size="lg">
-                  바로 예약하기
+                <Button
+                  onClick={handleBooking}
+                  className="w-full"
+                  size="lg"
+                  disabled={isBooking || !pickupDate || !returnDate || !selectedVehicle || calculateRentalHours() < 4}
+                >
+                  {isBooking ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      예약 처리 중...
+                    </div>
+                  ) : (
+                    '바로 예약하기'
+                  )}
                 </Button>
 
                 <p className="text-xs text-center text-gray-500 mt-3">

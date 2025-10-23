@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    const { vehicle_id, pickup_date, dropoff_date } = req.query;
+    const { vehicle_id, pickup_date, pickup_time, dropoff_date, dropoff_time } = req.query;
 
     // 파라미터 검증
     if (!vehicle_id || !pickup_date || !dropoff_date) {
@@ -38,14 +38,20 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 날짜 유효성 검증
+    // 시간 정보 포함한 날짜 객체 생성
+    const [pickupHour, pickupMinute] = (pickup_time || '00:00').split(':').map(Number);
+    const [dropoffHour, dropoffMinute] = (dropoff_time || '23:59').split(':').map(Number);
+
     const pickupDateObj = new Date(pickup_date);
+    pickupDateObj.setHours(pickupHour, pickupMinute, 0, 0);
+
     const dropoffDateObj = new Date(dropoff_date);
+    dropoffDateObj.setHours(dropoffHour, dropoffMinute, 0, 0);
 
     if (dropoffDateObj <= pickupDateObj) {
       return res.status(400).json({
         success: false,
-        error: '반납일은 픽업일보다 이후여야 합니다.'
+        error: '반납 시간은 픽업 시간보다 이후여야 합니다.'
       });
     }
 
@@ -70,29 +76,42 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 2. 날짜 겹침 확인
-    // 겹치는 조건:
-    // - 기존 예약의 pickup_date가 새로운 dropoff_date보다 이전이고
-    // - 기존 예약의 dropoff_date가 새로운 pickup_date보다 이후인 경우
-    // - 상태가 'cancelled'가 아닌 예약만 체크
+    // 2. 시간 기반 겹침 확인 (버퍼 타임 포함)
+    const BUFFER_TIME_MINUTES = 60; // 차량 청소/점검을 위한 1시간 버퍼
+
     const conflictCheck = await connection.execute(
-      `SELECT COUNT(*) as count
+      `SELECT id, pickup_date, pickup_time, dropoff_date, dropoff_time
        FROM rentcar_bookings
        WHERE vehicle_id = ?
-         AND pickup_date < ?
-         AND dropoff_date > ?
          AND status NOT IN ('cancelled', 'failed')`,
-      [vehicle_id, dropoff_date, pickup_date]
+      [vehicle_id]
     );
 
-    const conflictCount = conflictCheck.rows?.[0]?.count || 0;
+    // 시간 범위 겹침 체크 (버퍼 타임 포함)
+    const hasConflict = (conflictCheck.rows || []).some(booking => {
+      const [existingPickupHour, existingPickupMinute] = (booking.pickup_time || '00:00').split(':').map(Number);
+      const [existingDropoffHour, existingDropoffMinute] = (booking.dropoff_time || '23:59').split(':').map(Number);
 
-    if (conflictCount > 0) {
+      const existingPickup = new Date(booking.pickup_date);
+      existingPickup.setHours(existingPickupHour, existingPickupMinute, 0, 0);
+
+      let existingDropoff = new Date(booking.dropoff_date);
+      existingDropoff.setHours(existingDropoffHour, existingDropoffMinute, 0, 0);
+
+      // 버퍼 타임 추가: 기존 예약 종료 시간에 1시간 더함
+      existingDropoff = new Date(existingDropoff.getTime() + BUFFER_TIME_MINUTES * 60 * 1000);
+
+      // 시간 범위 겹침 체크 (버퍼 타임 포함)
+      return !(dropoffDateObj.getTime() <= existingPickup.getTime() ||
+               pickupDateObj.getTime() >= existingDropoff.getTime());
+    });
+
+    if (hasConflict) {
       return res.status(200).json({
         success: true,
         available: false,
-        reason: '선택하신 날짜에 이미 예약이 있습니다.',
-        conflicting_bookings: conflictCount
+        reason: `선택하신 날짜/시간에 이미 예약이 있습니다.\n\n차량 청소 및 점검을 위해 반납 후 ${BUFFER_TIME_MINUTES}분의 버퍼 타임이 필요합니다.\n\n다른 시간을 선택해주세요.`,
+        conflicting_bookings: (conflictCheck.rows || []).length
       });
     }
 

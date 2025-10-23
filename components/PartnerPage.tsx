@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { getGoogleMapsApiKey } from '../utils/env';
 import { api } from '../utils/api';
+import { formatPartnerPrice } from '../utils/price-formatter';
 
 interface Partner {
   id: string;
@@ -75,11 +76,11 @@ const loadPartners = async (): Promise<Partner[]> => {
         const addressMatch = partner.description?.match(/전라남도 신안군[^\n]+/) || null;
         const displayAddress = addressMatch ? addressMatch[0] : (partner.phone || '신안군');
 
-        // 가격 표시 처리
-        let priceDisplay = '가격 문의';
-        if (partner.base_price && partner.base_price > 0) {
-          priceDisplay = `${Number(partner.base_price).toLocaleString()}원`;
-        }
+        // 가격 표시 처리 - 새로운 스마트 로직
+        const priceDisplay = formatPartnerPrice(
+          partner.base_price_text,
+          partner.base_price
+        );
 
         // 이미지 처리
         let imageUrl = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop';
@@ -774,16 +775,18 @@ export function PartnerPage() {
                     </div>
 
                     <div className="flex items-center justify-between mt-auto pt-2">
-                      <div className="text-base font-bold text-[#ff6a3d]">
-                        {partner.price}
-                      </div>
+                      {partner.price && (
+                        <div className="text-base font-bold text-[#ff6a3d]">
+                          {partner.price}
+                        </div>
+                      )}
                       <Button
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/partners/${partner.id}`);
                         }}
-                        className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4"
+                        className={`bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4 ${!partner.price ? 'ml-auto' : ''}`}
                       >
                         상세보기
                       </Button>

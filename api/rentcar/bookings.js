@@ -75,7 +75,7 @@ module.exports = async function handler(req, res) {
       } = req.body;
 
       const vehicle = await connection.execute(`
-        SELECT daily_rate_krw, is_active FROM rentcar_vehicles WHERE id = ?
+        SELECT daily_rate_krw, hourly_rate_krw, is_active FROM rentcar_vehicles WHERE id = ?
       `, [vehicle_id]);
 
       if (!vehicle.rows || vehicle.rows.length === 0) {
@@ -93,38 +93,84 @@ module.exports = async function handler(req, res) {
       }
 
       const dailyRate = vehicle.rows[0].daily_rate_krw;
+      const hourlyRate = vehicle.rows[0].hourly_rate_krw || Math.ceil(dailyRate / 24);
+
+      // 픽업/반납 날짜와 시간을 조합하여 정확한 시간 계산
+      const [pickupHour, pickupMinute] = (pickup_time || '00:00').split(':').map(Number);
+      const [dropoffHour, dropoffMinute] = (dropoff_time || '23:59').split(':').map(Number);
 
       const pickupDateObj = new Date(pickup_date);
-      const dropoffDateObj = new Date(dropoff_date);
-      const rentalDays = Math.ceil((dropoffDateObj.getTime() - pickupDateObj.getTime()) / (1000 * 60 * 60 * 24));
+      pickupDateObj.setHours(pickupHour, pickupMinute, 0, 0);
 
-      if (rentalDays <= 0) {
+      const dropoffDateObj = new Date(dropoff_date);
+      dropoffDateObj.setHours(dropoffHour, dropoffMinute, 0, 0);
+
+      const diffMs = dropoffDateObj.getTime() - pickupDateObj.getTime();
+      const rentalHours = diffMs / (1000 * 60 * 60);
+
+      if (rentalHours < 4) {
         return res.status(400).json({
           success: false,
-          error: '반납일은 픽업일보다 이후여야 합니다.'
+          error: '최소 4시간 이상 대여 가능합니다.'
         });
       }
 
-      // 날짜 겹침 확인 (이중 예약 방지)
+      // 시간 기반 충돌 감지 (이중 예약 방지) + 버퍼 타임
+      const BUFFER_TIME_MINUTES = 60; // 차량 청소/점검을 위한 1시간 버퍼
+
       const conflictCheck = await connection.execute(
-        `SELECT COUNT(*) as count
+        `SELECT
+           id, booking_number, pickup_date, pickup_time, dropoff_date, dropoff_time, status
          FROM rentcar_bookings
          WHERE vehicle_id = ?
-           AND pickup_date < ?
-           AND dropoff_date > ?
            AND status NOT IN ('cancelled', 'failed')`,
-        [vehicle_id, dropoff_date, pickup_date]
+        [vehicle_id]
       );
 
-      const conflictCount = conflictCheck.rows?.[0]?.count || 0;
-      if (conflictCount > 0) {
+      // 시간 범위 겹침 확인 (버퍼 타임 포함)
+      const conflicts = [];
+      const hasConflict = (conflictCheck.rows || []).some(booking => {
+        const [existingPickupHour, existingPickupMinute] = (booking.pickup_time || '00:00').split(':').map(Number);
+        const [existingDropoffHour, existingDropoffMinute] = (booking.dropoff_time || '23:59').split(':').map(Number);
+
+        const existingPickup = new Date(booking.pickup_date);
+        existingPickup.setHours(existingPickupHour, existingPickupMinute, 0, 0);
+
+        let existingDropoff = new Date(booking.dropoff_date);
+        existingDropoff.setHours(existingDropoffHour, existingDropoffMinute, 0, 0);
+
+        // 버퍼 타임 추가: 기존 예약 종료 시간에 1시간 더함
+        existingDropoff = new Date(existingDropoff.getTime() + BUFFER_TIME_MINUTES * 60 * 1000);
+
+        // 시간 범위 겹침 체크 (버퍼 타임 포함)
+        const isConflict = !(dropoffDateObj.getTime() <= existingPickup.getTime() ||
+                             pickupDateObj.getTime() >= existingDropoff.getTime());
+
+        if (isConflict) {
+          conflicts.push({
+            booking_number: booking.booking_number,
+            end_time: new Date(existingDropoff.getTime() - BUFFER_TIME_MINUTES * 60 * 1000).toISOString(),
+            buffer_end: existingDropoff.toISOString()
+          });
+        }
+
+        return isConflict;
+      });
+
+      if (hasConflict) {
+        const conflictDetails = conflicts.length > 0
+          ? `\n\n충돌 예약: ${conflicts[0].booking_number}\n반납 시간: ${new Date(conflicts[0].end_time).toLocaleString('ko-KR')}\n버퍼 타임 종료: ${new Date(conflicts[0].buffer_end).toLocaleString('ko-KR')}`
+          : '';
+
         return res.status(409).json({
           success: false,
-          error: '선택하신 날짜에 이미 예약이 있습니다. 다른 날짜를 선택해주세요.'
+          error: `선택하신 날짜/시간에 이미 예약이 있습니다.\n\n차량 청소 및 점검을 위해 반납 후 ${BUFFER_TIME_MINUTES}분의 버퍼 타임이 필요합니다.${conflictDetails}\n\n다른 시간을 선택해주세요.`,
+          conflicts: conflicts
         });
       }
 
-      const subtotal = dailyRate * rentalDays;
+      // 시간 단위 가격 계산
+      const subtotal = Math.ceil(hourlyRate * rentalHours);
       const tax = Math.round(subtotal * 0.1);
       const total = subtotal + tax;
 
@@ -144,7 +190,7 @@ module.exports = async function handler(req, res) {
         customer_name, customer_email, customer_phone,
         pickup_location_id, dropoff_location_id,
         pickup_date, pickup_time, dropoff_date, dropoff_time,
-        dailyRate, rentalDays, subtotal, tax, total,
+        hourlyRate, Math.ceil(rentalHours), subtotal, tax, total,
         special_requests || null
       ]);
 

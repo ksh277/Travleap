@@ -44,6 +44,7 @@ import { AccommodationManagement } from './admin/AccommodationManagement';
 import { BannerManagement } from './admin/BannerManagement';
 import type { Listing, User } from '../types/database';
 import type { AdminProductFormData } from '../utils/pms/admin-integration';
+import { previewPrice, sanitizePriceInput } from '../utils/price-formatter';
 
 interface AdminPageProps {}
 
@@ -1479,6 +1480,7 @@ export function AdminPage({}: AdminPageProps) {
         location: partner.location || '',
         services: partner.services || '',
         base_price: partner.base_price || '',
+        base_price_text: partner.base_price_text || '',
         detailed_address: partner.detailed_address || '',
         description: partner.description || '',
         images: imagesArray,
@@ -1500,6 +1502,7 @@ export function AdminPage({}: AdminPageProps) {
         location: '',
         services: '',
         base_price: '',
+        base_price_text: '',
         detailed_address: '',
         description: '',
         images: [],
@@ -5435,16 +5438,26 @@ export function AdminPage({}: AdminPageProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                기본 가격 (원)
+                가격 정보
               </label>
               <Input
-                type="number"
-                value={newPartner.base_price || ''}
-                onChange={(e) => setNewPartner({ ...newPartner, base_price: e.target.value })}
-                placeholder="예: 50000"
-                id="base_price"
+                type="text"
+                value={newPartner.base_price_text || ''}
+                onChange={(e) => setNewPartner({ ...newPartner, base_price_text: e.target.value })}
+                placeholder="예: 50000 또는 방4개 전체 예약시 20,000원 할인"
+                id="base_price_text"
               />
-              <p className="text-xs text-gray-500 mt-1">가맹점 페이지에 표시될 기본 가격</p>
+              <div className="text-xs text-gray-600 mt-1 space-y-1">
+                <div className="font-medium text-blue-600">
+                  {newPartner.base_price_text ? previewPrice(newPartner.base_price_text) : '가격 미표시'}
+                </div>
+                <div className="text-gray-500">
+                  • 숫자만 입력: "50000" → "50,000원"<br />
+                  • 0 입력: "0" → "무료"<br />
+                  • 텍스트: "방4개 전체 예약시 20,000원 할인" → 그대로 표시<br />
+                  • 빈값: 가격 미표시
+                </div>
+              </div>
             </div>
 
             <div>

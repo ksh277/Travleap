@@ -62,8 +62,10 @@ module.exports = async function handler(req, res) {
           rb.customer_phone,
           rb.customer_email,
           rb.pickup_date,
-          rb.return_date as dropoff_date,
-          rb.total_price_krw as total_amount,
+          rb.pickup_time,
+          rb.dropoff_date,
+          rb.dropoff_time,
+          rb.total_krw as total_amount,
           rb.status,
           rb.created_at
         FROM rentcar_bookings rb

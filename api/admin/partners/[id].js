@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
         ? JSON.stringify(partnerData.images)
         : partnerData.images || '[]';
 
-      const result = await connection.execute(
+      await connection.execute(
         `UPDATE partners SET
           business_name = ?,
           contact_name = ?,
@@ -43,6 +43,7 @@ module.exports = async function handler(req, res) {
           location = ?,
           services = ?,
           base_price = ?,
+          base_price_text = ?,
           detailed_address = ?,
           description = ?,
           images = ?,
@@ -64,6 +65,7 @@ module.exports = async function handler(req, res) {
           partnerData.location,
           partnerData.services,
           partnerData.base_price || 0,
+          partnerData.base_price_text || null,
           partnerData.detailed_address || '',
           partnerData.description || '',
           imagesJson,
@@ -78,9 +80,16 @@ module.exports = async function handler(req, res) {
         ]
       );
 
+      // 업데이트된 파트너 정보 다시 조회
+      const updatedPartner = await connection.execute(
+        `SELECT * FROM partners WHERE id = ?`,
+        [id]
+      );
+
       return res.status(200).json({
         success: true,
-        message: '파트너 정보가 성공적으로 수정되었습니다.'
+        message: '파트너 정보가 성공적으로 수정되었습니다.',
+        data: updatedPartner.rows[0]
       });
     }
 

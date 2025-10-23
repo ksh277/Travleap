@@ -27,13 +27,13 @@ module.exports = async function handler(req, res) {
           rb.id,
           rb.vehicle_id,
           rb.pickup_date,
-          rb.return_date,
+          rb.dropoff_date,
           rb.status
         FROM rentcar_bookings rb
         JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
         WHERE rv.vendor_id = ?
           AND rb.status IN ('confirmed', 'pending', 'in_progress')
-          AND rb.return_date >= CURDATE()
+          AND rb.dropoff_date >= CURDATE()
         ORDER BY rb.pickup_date ASC
       `, [vendorId]);
 

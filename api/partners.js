@@ -23,15 +23,15 @@ module.exports = async function handler(req, res) {
   try {
 
     // 활성화된 파트너만 조회 (is_active = 1, status = 'approved')
-    // images 필드 제외 - base64 이미지 때문에 DB sort 메모리 부족 에러 발생
+    // 이제 images 필드를 포함 (base64 정리완료, URL만 저장)
     const result = await connection.execute(`
       SELECT
         p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone,
-        p.business_address, p.location, p.services, p.base_price,
+        p.business_address, p.location, p.services, p.base_price, p.base_price_text,
         p.detailed_address, p.description, p.business_hours,
         p.duration, p.min_age, p.max_capacity, p.language,
         p.tier, p.partner_type, p.is_verified, p.is_featured,
-        p.is_active, p.status, p.lat, p.lng, p.created_at, p.updated_at
+        p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at
       FROM partners p
       WHERE p.is_active = 1 AND p.status = 'approved'
       ORDER BY

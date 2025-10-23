@@ -30,8 +30,11 @@ export default async function handler(req, res) {
           b.customer_phone,
           b.customer_email,
           b.pickup_date,
-          b.return_date as dropoff_date,
-          b.total_price_krw as total_amount,
+          b.pickup_time,
+          b.dropoff_date,
+          b.dropoff_time,
+          b.rental_days,
+          b.total_krw as total_amount,
           b.status,
           b.payment_status,
           b.created_at

@@ -455,10 +455,20 @@ export function PaymentPage() {
                         {booking.checkIn && booking.checkOut
                           ? `${booking.checkIn} ~ ${booking.checkOut}${booking.nights ? ` (${booking.nights}박)` : ''}`
                           : booking.pickupDate && booking.returnDate
-                          ? `${booking.pickupDate} ~ ${booking.returnDate}`
+                          ? `${booking.pickupDate} ${booking.pickupTime || ''} ~ ${booking.returnDate} ${booking.returnTime || ''}`
                           : booking.start_date || '날짜 정보 없음'}
                       </span>
                     </div>
+                    {/* 렌트카 대여 시간 표시 */}
+                    {booking.rentalHours && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        <span>
+                          총 {Math.floor(booking.rentalHours)}시간
+                          {booking.rentalHours % 1 !== 0 && ` ${Math.round((booking.rentalHours % 1) * 60)}분`}
+                        </span>
+                      </div>
+                    )}
                     {/* 객실 타입 (숙박) */}
                     {booking.roomType && (
                       <div className="flex items-center gap-2">

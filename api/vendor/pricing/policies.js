@@ -1,10 +1,14 @@
 const { connect } = require('@planetscale/database');
 const jwt = require('jsonwebtoken');
 
+/**
+ * 렌트카 요금 정책 API
+ * GET /api/vendor/pricing/policies - 요금 정책 목록 조회
+ * POST /api/vendor/pricing/policies - 요금 정책 추가
+ */
 module.exports = async function handler(req, res) {
-  // CORS 헤더
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -12,7 +16,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // 벤더 인증
+    // JWT 인증
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
@@ -40,7 +44,6 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // DB 연결
     const connection = connect({ url: process.env.DATABASE_URL });
 
     // 벤더 ID 조회
@@ -63,30 +66,12 @@ module.exports = async function handler(req, res) {
       vendorId = vendorResult.rows[0].id;
     }
 
-    // GET: 예약 목록 조회
+    // GET: 요금 정책 목록 조회
     if (req.method === 'GET') {
       const result = await connection.execute(
-        `SELECT
-          b.id,
-          b.booking_number,
-          b.vendor_id,
-          b.vehicle_id,
-          b.user_id,
-          b.pickup_date,
-          b.pickup_time,
-          b.dropoff_date,
-          b.dropoff_time,
-          b.total_krw as total_amount,
-          b.customer_name,
-          b.customer_phone,
-          b.customer_email,
-          b.status,
-          b.created_at,
-          v.display_name as vehicle_name
-        FROM rentcar_bookings b
-        LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
-        WHERE b.vendor_id = ?
-        ORDER BY b.created_at DESC`,
+        `SELECT * FROM rentcar_pricing_policies
+         WHERE vendor_id = ?
+         ORDER BY created_at DESC`,
         [vendorId]
       );
 
@@ -96,13 +81,58 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // POST: 요금 정책 추가
+    if (req.method === 'POST') {
+      const {
+        policy_type,
+        min_days,
+        max_days,
+        discount_percentage,
+        day_of_week,
+        price_multiplier,
+        season_name,
+        start_date,
+        end_date,
+        season_multiplier,
+        days_before_pickup,
+        early_bird_discount,
+        is_active
+      } = req.body;
+
+      if (!policy_type) {
+        return res.status(400).json({
+          success: false,
+          message: '정책 유형이 필요합니다.'
+        });
+      }
+
+      await connection.execute(
+        `INSERT INTO rentcar_pricing_policies (
+          vendor_id, policy_type, min_days, max_days, discount_percentage,
+          day_of_week, price_multiplier, season_name, start_date, end_date,
+          season_multiplier, days_before_pickup, early_bird_discount, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          vendorId, policy_type, min_days, max_days, discount_percentage,
+          day_of_week, price_multiplier, season_name, start_date, end_date,
+          season_multiplier, days_before_pickup, early_bird_discount,
+          is_active !== undefined ? is_active : 1
+        ]
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: '요금 정책이 추가되었습니다.'
+      });
+    }
+
     return res.status(405).json({
       success: false,
       message: '지원하지 않는 메서드입니다.'
     });
 
   } catch (error) {
-    console.error('❌ [Bookings API] 오류:', error);
+    console.error('❌ [Pricing Policies API] 오류:', error);
     return res.status(500).json({
       success: false,
       message: '서버 오류가 발생했습니다.',

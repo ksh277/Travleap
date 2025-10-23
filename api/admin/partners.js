@@ -17,11 +17,11 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(`
         SELECT
           p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone,
-          p.business_address, p.location, p.services, p.base_price,
+          p.business_address, p.location, p.services, p.base_price, p.base_price_text,
           p.detailed_address, p.description, p.business_hours,
           p.duration, p.min_age, p.max_capacity, p.language,
           p.tier, p.partner_type, p.is_verified, p.is_featured,
-          p.is_active, p.status, p.lat, p.lng, p.created_at, p.updated_at
+          p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at
         FROM partners p
         ORDER BY p.created_at DESC
       `);
@@ -44,12 +44,12 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(
         `INSERT INTO partners (
           user_id, business_name, contact_name, email, phone,
-          business_address, location, services, base_price,
+          business_address, location, services, base_price, base_price_text,
           detailed_address, description, images, business_hours,
           duration, min_age, max_capacity, language,
           lat, lng,
           status, is_active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW(), NOW())`,
         [
           1, // user_id (관리자가 생성하므로 1)
           partnerData.business_name,
@@ -60,6 +60,7 @@ module.exports = async function handler(req, res) {
           partnerData.location,
           partnerData.services,
           partnerData.base_price || 0,
+          partnerData.base_price_text || null,
           partnerData.detailed_address || '',
           partnerData.description || '',
           imagesJson,

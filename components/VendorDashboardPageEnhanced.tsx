@@ -79,7 +79,9 @@ interface Booking {
   customer_name: string;
   customer_phone: string;
   pickup_date: string;
+  pickup_time?: string;
   dropoff_date: string;
+  dropoff_time?: string;
   total_amount: number;
   status: string;
   created_at: string;
@@ -184,6 +186,95 @@ export function VendorDashboardPageEnhanced() {
 
   // 이미지 URL 입력용
   const [currentImageUrl, setCurrentImageUrl] = useState('');
+
+  // 반납 처리 상태
+  const [isProcessingReturn, setIsProcessingReturn] = useState(false);
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [actualReturnDateTime, setActualReturnDateTime] = useState('');
+  const [vendorNote, setVendorNote] = useState('');
+
+  // 반납 처리 모달 열기
+  const handleProcessReturn = (booking: Booking) => {
+    setSelectedBooking(booking);
+    // 현재 시간을 기본값으로 설정 (ISO 8601 형식: YYYY-MM-DDTHH:mm)
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    setActualReturnDateTime(localDateTime);
+    setVendorNote('');
+    setReturnModalOpen(true);
+  };
+
+  // 반납 처리 제출
+  const handleSubmitReturn = async () => {
+    if (!selectedBooking || !actualReturnDateTime) {
+      toast.error('반납 시간을 입력해주세요.');
+      return;
+    }
+
+    setIsProcessingReturn(true);
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      if (!token) {
+        toast.error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch('/api/rentcar/process-return', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          booking_id: selectedBooking.id,
+          actual_dropoff_time: actualReturnDateTime,
+          vendor_note: vendorNote || undefined
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        const data = result.data;
+
+        // 지연 수수료가 있으면 특별히 표시
+        if (data.is_late && data.late_fee > 0) {
+          toast.success(
+            `반납 처리 완료!\n지연 시간: ${data.late_minutes}분\n지연 수수료: ₩${data.late_fee.toLocaleString()}\n최종 금액: ₩${data.new_total.toLocaleString()}`,
+            { duration: 8000 }
+          );
+        } else {
+          toast.success('반납 처리가 완료되었습니다.');
+        }
+
+        // 다음 예약 알림이 있으면 경고 표시
+        if (data.next_booking_alert) {
+          const alert = data.next_booking_alert;
+          toast.warning(
+            `⚠️ 다음 예약자 알림 필요\n예약번호: ${alert.booking_number}\n고객: ${alert.customer_name}\n지연: ${alert.delay_minutes}분`,
+            { duration: 10000 }
+          );
+        }
+
+        // 모달 닫고 데이터 새로고침
+        setReturnModalOpen(false);
+        setSelectedBooking(null);
+        loadVendorData();
+      } else {
+        toast.error(result.error || '반납 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('반납 처리 오류:', error);
+      toast.error('반납 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsProcessingReturn(false);
+    }
+  };
 
   // 업체 정보 로드
   useEffect(() => {
@@ -1625,10 +1716,11 @@ export function VendorDashboardPageEnhanced() {
                         <TableHead>차량</TableHead>
                         <TableHead>고객명</TableHead>
                         <TableHead>연락처</TableHead>
-                        <TableHead>픽업일</TableHead>
-                        <TableHead>반납일</TableHead>
+                        <TableHead>픽업일시</TableHead>
+                        <TableHead>반납일시</TableHead>
                         <TableHead>금액</TableHead>
                         <TableHead>상태</TableHead>
+                        <TableHead>관리</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1641,10 +1733,20 @@ export function VendorDashboardPageEnhanced() {
                           <TableCell>{booking.customer_name}</TableCell>
                           <TableCell>{booking.customer_phone}</TableCell>
                           <TableCell>
-                            {new Date(booking.pickup_date).toLocaleDateString('ko-KR')}
+                            <div className="text-sm">
+                              <div>{new Date(booking.pickup_date).toLocaleDateString('ko-KR')}</div>
+                              {booking.pickup_time && (
+                                <div className="text-gray-500 text-xs">{booking.pickup_time}</div>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
-                            {new Date(booking.dropoff_date).toLocaleDateString('ko-KR')}
+                            <div className="text-sm">
+                              <div>{new Date(booking.dropoff_date).toLocaleDateString('ko-KR')}</div>
+                              {booking.dropoff_time && (
+                                <div className="text-gray-500 text-xs">{booking.dropoff_time}</div>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>{booking.total_amount.toLocaleString()}원</TableCell>
                           <TableCell>
@@ -1663,6 +1765,17 @@ export function VendorDashboardPageEnhanced() {
                                 ? '확정'
                                 : '대기'}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {['confirmed', 'in_progress'].includes(booking.status) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleProcessReturn(booking)}
+                              >
+                                반납 처리
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1795,6 +1908,129 @@ export function VendorDashboardPageEnhanced() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* 반납 처리 모달 */}
+      {returnModalOpen && selectedBooking && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>차량 반납 처리</CardTitle>
+              <CardDescription>
+                예약번호: #{selectedBooking.id} | {selectedBooking.vehicle_name}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* 예약 정보 */}
+              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">고객명:</span>
+                  <span className="font-medium">{selectedBooking.customer_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">예정 반납일시:</span>
+                  <span className="font-medium">
+                    {new Date(selectedBooking.dropoff_date).toLocaleDateString('ko-KR')} {selectedBooking.dropoff_time || ''}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">예약 금액:</span>
+                  <span className="font-medium">₩{selectedBooking.total_amount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* 실제 반납 시간 입력 */}
+              <div>
+                <Label>실제 반납 일시 *</Label>
+                <Input
+                  type="datetime-local"
+                  value={actualReturnDateTime}
+                  onChange={(e) => setActualReturnDateTime(e.target.value)}
+                  className="text-base"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  * 현재 시간이 기본값으로 설정됩니다
+                </p>
+              </div>
+
+              {/* 지연 시간 미리보기 */}
+              {actualReturnDateTime && selectedBooking.dropoff_date && selectedBooking.dropoff_time && (() => {
+                const scheduledDropoff = new Date(`${selectedBooking.dropoff_date}T${selectedBooking.dropoff_time}`);
+                const actualDropoff = new Date(actualReturnDateTime);
+                const diffMs = actualDropoff.getTime() - scheduledDropoff.getTime();
+                const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+                if (diffMinutes > 0) {
+                  return (
+                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-yellow-800">
+                        <span className="text-sm font-medium">⚠️ 반납 지연 감지</span>
+                      </div>
+                      <div className="text-sm text-yellow-700 mt-1">
+                        지연 시간: {Math.floor(diffMinutes / 60)}시간 {diffMinutes % 60}분
+                      </div>
+                      <div className="text-xs text-yellow-600 mt-1">
+                        {diffMinutes <= 15 ? '15분 이내 - 수수료 없음 (관용)' :
+                         diffMinutes <= 60 ? '지연 수수료: ₩10,000' :
+                         diffMinutes <= 120 ? '지연 수수료: ₩20,000' :
+                         '지연 수수료: 시간당 요금 × 1.5배'}
+                      </div>
+                    </div>
+                  );
+                } else if (diffMinutes < -30) {
+                  return (
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="text-sm text-blue-700">
+                        ✓ 조기 반납 ({Math.abs(diffMinutes)}분 일찍)
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* 벤더 메모 */}
+              <div>
+                <Label>메모 (선택사항)</Label>
+                <Textarea
+                  value={vendorNote}
+                  onChange={(e) => setVendorNote(e.target.value)}
+                  placeholder="지연 사유, 차량 상태 등을 기록하세요..."
+                  rows={3}
+                />
+              </div>
+
+              {/* 버튼 */}
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={handleSubmitReturn}
+                  disabled={isProcessingReturn}
+                  className="flex-1"
+                >
+                  {isProcessingReturn ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      처리 중...
+                    </>
+                  ) : (
+                    '반납 완료'
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setReturnModalOpen(false);
+                    setSelectedBooking(null);
+                  }}
+                  disabled={isProcessingReturn}
+                  className="flex-1"
+                >
+                  취소
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

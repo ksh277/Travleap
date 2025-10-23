@@ -1,10 +1,14 @@
 const { connect } = require('@planetscale/database');
 const jwt = require('jsonwebtoken');
 
+/**
+ * 렌트카 보험 상품 API
+ * GET /api/vendor/insurance - 보험 상품 목록 조회
+ * POST /api/vendor/insurance - 보험 상품 추가
+ */
 module.exports = async function handler(req, res) {
-  // CORS 헤더
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -12,7 +16,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // 벤더 인증
+    // JWT 인증
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
@@ -40,7 +44,6 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // DB 연결
     const connection = connect({ url: process.env.DATABASE_URL });
 
     // 벤더 ID 조회
@@ -63,30 +66,12 @@ module.exports = async function handler(req, res) {
       vendorId = vendorResult.rows[0].id;
     }
 
-    // GET: 예약 목록 조회
+    // GET: 보험 상품 목록 조회
     if (req.method === 'GET') {
       const result = await connection.execute(
-        `SELECT
-          b.id,
-          b.booking_number,
-          b.vendor_id,
-          b.vehicle_id,
-          b.user_id,
-          b.pickup_date,
-          b.pickup_time,
-          b.dropoff_date,
-          b.dropoff_time,
-          b.total_krw as total_amount,
-          b.customer_name,
-          b.customer_phone,
-          b.customer_email,
-          b.status,
-          b.created_at,
-          v.display_name as vehicle_name
-        FROM rentcar_bookings b
-        LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
-        WHERE b.vendor_id = ?
-        ORDER BY b.created_at DESC`,
+        `SELECT * FROM rentcar_insurance_products
+         WHERE vendor_id = ?
+         ORDER BY display_order ASC, created_at DESC`,
         [vendorId]
       );
 
@@ -96,13 +81,55 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // POST: 보험 상품 추가
+    if (req.method === 'POST') {
+      const {
+        insurance_name,
+        insurance_type,
+        description,
+        coverage_limit,
+        deductible,
+        daily_price,
+        is_included,
+        is_active,
+        display_order
+      } = req.body;
+
+      if (!insurance_name || !insurance_type || !daily_price) {
+        return res.status(400).json({
+          success: false,
+          message: '필수 항목이 누락되었습니다.'
+        });
+      }
+
+      await connection.execute(
+        `INSERT INTO rentcar_insurance_products (
+          vendor_id, insurance_name, insurance_type, description,
+          coverage_limit, deductible, daily_price, is_included,
+          is_active, display_order
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          vendorId, insurance_name, insurance_type, description || null,
+          coverage_limit || 0, deductible || 0, daily_price,
+          is_included !== undefined ? is_included : false,
+          is_active !== undefined ? is_active : true,
+          display_order || 0
+        ]
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: '보험 상품이 추가되었습니다.'
+      });
+    }
+
     return res.status(405).json({
       success: false,
       message: '지원하지 않는 메서드입니다.'
     });
 
   } catch (error) {
-    console.error('❌ [Bookings API] 오류:', error);
+    console.error('❌ [Insurance API] 오류:', error);
     return res.status(500).json({
       success: false,
       message: '서버 오류가 발생했습니다.',
