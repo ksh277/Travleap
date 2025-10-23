@@ -15,6 +15,8 @@ import {
   Phone,
   Mail,
   Camera,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPartnerPrice } from '../utils/price-formatter';
@@ -389,14 +391,72 @@ export function PartnerDetailPage() {
             </Button>
           </div>
 
+          {/* Image Navigation Arrows */}
+          {partner.images.length > 1 && (
+            <>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 hover:bg-white"
+                onClick={() => {
+                  setCurrentImageIndex((prev) =>
+                    prev === 0 ? partner.images.length - 1 : prev - 1
+                  );
+                }}
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Button>
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/90 hover:bg-white"
+                onClick={() => {
+                  setCurrentImageIndex((prev) =>
+                    prev === partner.images.length - 1 ? 0 : prev + 1
+                  );
+                }}
+              >
+                <ChevronRight className="h-6 w-6" />
+              </Button>
+            </>
+          )}
+
           {/* Image Counter */}
           {partner.images.length > 1 && (
             <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
               <Camera className="h-4 w-4" />
-              더 사진
+              {currentImageIndex + 1} / {partner.images.length}
             </div>
           )}
         </div>
+
+        {/* Thumbnail Gallery */}
+        {partner.images.length > 1 && (
+          <div className="max-w-7xl mx-auto px-4 py-4">
+            <div className="flex gap-2 overflow-x-auto">
+              {partner.images.map((image, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentImageIndex(index)}
+                  className={`flex-shrink-0 w-24 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                    currentImageIndex === index
+                      ? 'border-purple-600 scale-105'
+                      : 'border-transparent opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <img
+                    src={image}
+                    alt={`${partner.name} ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = '/images/placeholder.jpg';
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
