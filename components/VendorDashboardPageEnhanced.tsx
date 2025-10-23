@@ -566,7 +566,9 @@ export function VendorDashboardPageEnhanced() {
 
     try {
       const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
+      // BOM 제거 (UTF-8 BOM: \uFEFF)
+      const cleanedText = text.replace(/^\uFEFF/, '');
+      const lines = cleanedText.split('\n').filter(line => line.trim());
 
       if (lines.length < 2) {
         toast.error('CSV 파일에 데이터가 없습니다.');
@@ -579,13 +581,18 @@ export function VendorDashboardPageEnhanced() {
       // 컬럼 이름 매핑 (여러 가지 가능한 이름 허용)
       const columnMap = {
         display_name: ['차량명', '차량이름', '모델명', '차종명', 'name', 'vehicle_name', 'model'],
+        brand: ['제조사', '브랜드', 'brand', 'manufacturer', '메이커'],
+        model: ['모델', 'model', '차량모델'],
+        year: ['연식', '년식', 'year', '제조년도', '제조연도'],
         vehicle_class: ['차량등급', '등급', '차종', 'class', 'type', '클래스'],
         seating_capacity: ['승차인원', '인승', '좌석수', 'seats', 'capacity', '탑승인원'],
         transmission_type: ['변속기', '기어', 'transmission', '트랜스미션'],
         fuel_type: ['연료', '연료타입', 'fuel', '연료종류'],
         daily_rate_krw: ['일일요금', '1일요금', '일요금', 'daily_rate', 'price', '하루요금', '데일리요금'],
-        mileage_limit_km: ['주행제한', '주행거리제한', 'mileage_limit', 'mileage', '주행제한km'],
-        excess_mileage_fee_krw: ['초과요금', '초과비용', 'excess_fee', 'overage_fee']
+        weekly_rate_krw: ['주간요금', '주요금', 'weekly_rate', '주중요금', '7일요금'],
+        monthly_rate_krw: ['월간요금', '월요금', 'monthly_rate', '한달요금', '30일요금'],
+        mileage_limit_km: ['주행제한', '주행거리제한', '주행제한(km)', '주행제한km', 'mileage_limit', 'mileage'],
+        excess_mileage_fee_krw: ['초과요금', '초과비용', 'excess_fee', 'overage_fee', '초과주행요금']
       };
 
       // 헤더에서 각 필드의 인덱스 찾기
@@ -596,11 +603,16 @@ export function VendorDashboardPageEnhanced() {
 
       const colIndexes = {
         display_name: findColumnIndex('display_name'),
+        brand: findColumnIndex('brand'),
+        model: findColumnIndex('model'),
+        year: findColumnIndex('year'),
         vehicle_class: findColumnIndex('vehicle_class'),
         seating_capacity: findColumnIndex('seating_capacity'),
         transmission_type: findColumnIndex('transmission_type'),
         fuel_type: findColumnIndex('fuel_type'),
         daily_rate_krw: findColumnIndex('daily_rate_krw'),
+        weekly_rate_krw: findColumnIndex('weekly_rate_krw'),
+        monthly_rate_krw: findColumnIndex('monthly_rate_krw'),
         mileage_limit_km: findColumnIndex('mileage_limit_km'),
         excess_mileage_fee_krw: findColumnIndex('excess_mileage_fee_krw')
       };
@@ -670,19 +682,27 @@ export function VendorDashboardPageEnhanced() {
           }
 
           // 선택적 컬럼들
+          const brand = colIndexes.brand >= 0 ? values[colIndexes.brand]?.trim() : (displayName.split(' ')[0] || '기타');
+          const model = colIndexes.model >= 0 ? values[colIndexes.model]?.trim() : (displayName.split(' ')[1] || displayName);
+          const year = colIndexes.year >= 0 ? parseInt(values[colIndexes.year]) : new Date().getFullYear();
           const seatingCapacity = colIndexes.seating_capacity >= 0 ? parseInt(values[colIndexes.seating_capacity]) : 5;
+          const weeklyRate = colIndexes.weekly_rate_krw >= 0 ? parseInt(values[colIndexes.weekly_rate_krw]) : dailyRate * 6;
+          const monthlyRate = colIndexes.monthly_rate_krw >= 0 ? parseInt(values[colIndexes.monthly_rate_krw]) : dailyRate * 25;
           const mileageLimit = colIndexes.mileage_limit_km >= 0 ? parseInt(values[colIndexes.mileage_limit_km]) : 200;
           const excessFee = colIndexes.excess_mileage_fee_krw >= 0 ? parseInt(values[colIndexes.excess_mileage_fee_krw]) : 100;
 
           const vehicleData = {
             display_name: displayName,
+            brand: brand,
+            model: model,
+            year: year || new Date().getFullYear(),
             vehicle_class: vehicleClass,
             seating_capacity: seatingCapacity || 5,
             transmission_type: transmission,
             fuel_type: fuelType,
             daily_rate_krw: dailyRate,
-            weekly_rate_krw: dailyRate * 6,
-            monthly_rate_krw: dailyRate * 25,
+            weekly_rate_krw: weeklyRate || dailyRate * 6,
+            monthly_rate_krw: monthlyRate || dailyRate * 25,
             mileage_limit_km: mileageLimit || 200,
             excess_mileage_fee_krw: excessFee || 100,
             is_available: true,

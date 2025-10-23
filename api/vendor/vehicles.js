@@ -170,6 +170,9 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST') {
       const {
         display_name,
+        brand,
+        model,
+        year,
         vehicle_class,
         seating_capacity,
         transmission_type,
@@ -177,6 +180,7 @@ module.exports = async function handler(req, res) {
         daily_rate_krw,
         hourly_rate_krw,
         mileage_limit_km,
+        excess_mileage_fee_krw,
         is_available,
         image_urls
       } = req.body;
@@ -195,6 +199,11 @@ module.exports = async function handler(req, res) {
       const vehicle_code = `VEH_${vendorId}_${Date.now()}`;
       const imagesJson = JSON.stringify(image_urls || []);
       const calculatedHourlyRate = hourly_rate_krw || Math.round(((daily_rate_krw / 24) * 1.2) / 1000) * 1000;
+
+      // CSV에서 제공된 값 또는 기본값 사용
+      const finalBrand = brand || display_name.split(' ')[0] || '기타';
+      const finalModel = model || display_name.split(' ')[1] || display_name;
+      const finalYear = year || new Date().getFullYear();
 
       const result = await connection.execute(
         `INSERT INTO rentcar_vehicles (
@@ -223,16 +232,17 @@ module.exports = async function handler(req, res) {
           smoking_allowed,
           daily_rate_krw,
           hourly_rate_krw,
+          excess_mileage_fee_krw,
           is_active,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           vendorId,
           vehicle_code,
-          display_name.split(' ')[0] || '기타',
-          display_name.split(' ')[1] || display_name,
-          new Date().getFullYear(),
+          finalBrand,
+          finalModel,
+          finalYear,
           display_name,
           mappedClass,
           '세단',
@@ -253,6 +263,7 @@ module.exports = async function handler(req, res) {
           0,
           daily_rate_krw,
           calculatedHourlyRate,
+          excess_mileage_fee_krw || 100,
           is_available ? 1 : 0
         ]
       );
