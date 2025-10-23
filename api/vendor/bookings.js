@@ -67,19 +67,24 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       const result = await connection.execute(
         `SELECT
-          id,
-          booking_number,
-          vendor_id,
-          vehicle_id,
-          user_id,
-          pickup_date,
-          dropoff_date,
-          total_amount_krw as total_krw,
-          status,
-          created_at
-        FROM rentcar_bookings
-        WHERE vendor_id = ?
-        ORDER BY created_at DESC`,
+          b.id,
+          b.booking_number,
+          b.vendor_id,
+          b.vehicle_id,
+          b.user_id,
+          b.pickup_date,
+          b.dropoff_date,
+          b.total_amount_krw as total_amount,
+          b.customer_name,
+          b.customer_phone,
+          b.customer_email,
+          b.status,
+          b.created_at,
+          v.display_name as vehicle_name
+        FROM rentcar_bookings b
+        LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
+        WHERE b.vendor_id = ?
+        ORDER BY b.created_at DESC`,
         [vendorId]
       );
 
