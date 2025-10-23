@@ -358,11 +358,11 @@ export function PartnerDetailPage() {
 
       <div className="min-h-screen bg-gray-50">
         {/* Hero Image Section */}
-        <div className="relative h-[400px] md:h-[500px] overflow-hidden">
+        <div className="relative h-[400px] md:h-[500px] overflow-hidden bg-gray-900">
           <img
             src={partner.images[currentImageIndex]}
             alt={partner.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
             onError={(e) => {
               e.currentTarget.src = '/images/placeholder.jpg';
             }}
