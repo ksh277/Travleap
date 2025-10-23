@@ -38,13 +38,13 @@ module.exports = async function handler(req, res) {
     `, [vendorId]);
 
     const vehicles = (vehiclesResult.rows || []).map(vehicle => {
-      let images = [];
-      let features = [];
-
-      try {
-        if (vehicle.images) images = JSON.parse(vehicle.images);
-        if (vehicle.features) features = JSON.parse(vehicle.features);
-      } catch (e) {}
+      // PlanetScale는 JSON 컬럼을 자동으로 파싱하므로 타입 체크 필요
+      const images = vehicle.images
+        ? (typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images)
+        : [];
+      const features = vehicle.features
+        ? (typeof vehicle.features === 'string' ? JSON.parse(vehicle.features) : vehicle.features)
+        : [];
 
       return {
         ...vehicle,
