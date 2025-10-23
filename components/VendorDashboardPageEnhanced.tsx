@@ -952,14 +952,6 @@ export function VendorDashboardPageEnhanced() {
           <Button
             variant="outline"
             className="h-20 flex flex-col items-center justify-center gap-2"
-            onClick={() => navigate('/vendor/pricing')}
-          >
-            <Tag className="w-6 h-6" />
-            <span>요금 설정</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-20 flex flex-col items-center justify-center gap-2"
             onClick={() => setActiveTab('bookings')}
           >
             <Calendar className="w-6 h-6" />
