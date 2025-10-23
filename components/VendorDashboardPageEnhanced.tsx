@@ -434,13 +434,14 @@ export function VendorDashboardPageEnhanced() {
 
       if (isEditingVehicle && editingVehicleId) {
         // 수정 - PUT API
-        const response = await fetch(`/api/vendor/rentcar/vehicles/${editingVehicleId}`, {
+        const response = await fetch(`/api/vendor/vehicles`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
+            id: editingVehicleId,
             ...vehicleForm,
             image_urls
           })
@@ -499,7 +500,7 @@ export function VendorDashboardPageEnhanced() {
       }
 
       // DELETE API
-      const response = await fetch(`/api/vendor/rentcar/vehicles/${vehicleId}`, {
+      const response = await fetch(`/api/vendor/vehicles?id=${vehicleId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -520,18 +521,22 @@ export function VendorDashboardPageEnhanced() {
   };
 
   const toggleVehicleAvailability = async (vehicleId: number, currentStatus: boolean) => {
-    if (!user?.id) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
 
     try {
-      // PATCH API - Toggle availability
-      const response = await fetch(`/api/vendor/rentcar/vehicles/${vehicleId}/availability`, {
-        method: 'PATCH',
+      // PUT API - Toggle availability
+      const response = await fetch(`/api/vendor/vehicles`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': user.id.toString()
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          userId: user.id,
+          id: vehicleId,
           is_available: !currentStatus
         })
       });
