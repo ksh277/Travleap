@@ -5306,63 +5306,52 @@ export function AdminPage({}: AdminPageProps) {
                   onClick={() => {
                     // Daum 주소 검색 팝업
                     new (window as any).daum.Postcode({
-                      oncomplete: async function(data: any) {
+                      oncomplete: function(data: any) {
                         // 도로명 주소 또는 지번 주소 선택
                         const fullAddress = data.roadAddress || data.jibunAddress;
 
-                        // 카카오 지도 API로 좌표 검색
-                        try {
-                          const kakaoApiKey = import.meta.env.VITE_KAKAO_APP_KEY;
-                          if (!kakaoApiKey) {
-                            console.error('카카오 API 키가 설정되지 않았습니다.');
-                            setNewPartner({
-                              ...newPartner,
-                              business_address: fullAddress,
-                              location: data.sido + ' ' + data.sigungu,
-                              detailed_address: fullAddress
-                            });
-                            return;
-                          }
+                        // 카카오 Maps SDK Geocoder로 좌표 검색
+                        if ((window as any).kakao && (window as any).kakao.maps) {
+                          const geocoder = new (window as any).kakao.maps.services.Geocoder();
 
-                          const geocodeResponse = await fetch(
-                            `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(fullAddress)}`,
-                            {
-                              headers: {
-                                'Authorization': `KakaoAK ${kakaoApiKey}`
-                              }
+                          geocoder.addressSearch(fullAddress, (result: any, status: any) => {
+                            if (status === (window as any).kakao.maps.services.Status.OK) {
+                              const coords = result[0];
+                              // Kakao Maps SDK: x = 경도(longitude), y = 위도(latitude)
+                              setNewPartner({
+                                ...newPartner,
+                                business_address: fullAddress,
+                                location: data.sido + ' ' + data.sigungu,
+                                detailed_address: fullAddress,
+                                lat: parseFloat(coords.y),  // 위도
+                                lng: parseFloat(coords.x)   // 경도
+                              });
+                              console.log('✅ 좌표 저장 성공:', {
+                                address: fullAddress,
+                                lat: coords.y,
+                                lng: coords.x
+                              });
+                            } else {
+                              console.warn('❌ 좌표 검색 실패:', fullAddress, status);
+                              setNewPartner({
+                                ...newPartner,
+                                business_address: fullAddress,
+                                location: data.sido + ' ' + data.sigungu,
+                                detailed_address: fullAddress,
+                                lat: null,
+                                lng: null
+                              });
                             }
-                          );
-
-                          const geocodeData = await geocodeResponse.json();
-
-                          if (geocodeData.documents && geocodeData.documents.length > 0) {
-                            const coords = geocodeData.documents[0];
-                            // 카카오 API: x = 경도(longitude), y = 위도(latitude)
-                            setNewPartner({
-                              ...newPartner,
-                              business_address: fullAddress,
-                              location: data.sido + ' ' + data.sigungu,
-                              detailed_address: fullAddress,
-                              lat: parseFloat(coords.y),  // 위도
-                              lng: parseFloat(coords.x)   // 경도
-                            });
-                            console.log('✅ 좌표 저장:', { lat: coords.y, lng: coords.x });
-                          } else {
-                            console.warn('좌표를 찾을 수 없습니다.');
-                            setNewPartner({
-                              ...newPartner,
-                              business_address: fullAddress,
-                              location: data.sido + ' ' + data.sigungu,
-                              detailed_address: fullAddress
-                            });
-                          }
-                        } catch (error) {
-                          console.error('좌표 검색 실패:', error);
+                          });
+                        } else {
+                          console.error('카카오 Maps SDK가 로드되지 않았습니다.');
                           setNewPartner({
                             ...newPartner,
                             business_address: fullAddress,
                             location: data.sido + ' ' + data.sigungu,
-                            detailed_address: fullAddress
+                            detailed_address: fullAddress,
+                            lat: null,
+                            lng: null
                           });
                         }
                       }
