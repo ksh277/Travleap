@@ -18,6 +18,15 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
+  // DATABASE_URL 환경 변수 체크
+  if (!process.env.DATABASE_URL) {
+    console.error('❌ DATABASE_URL environment variable is not set');
+    return res.status(500).json({
+      success: false,
+      error: 'Database configuration error. Please contact administrator.'
+    });
+  }
+
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
 
