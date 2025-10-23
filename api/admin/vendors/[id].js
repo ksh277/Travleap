@@ -60,16 +60,25 @@ module.exports = async function handler(req, res) {
         );
 
         // 2-3. 위치 정보 삭제 (있다면)
-        await connection.execute(
-          'DELETE FROM rentcar_locations WHERE vendor_id = ?',
-          [id]
-        );
+        try {
+          await connection.execute(
+            'DELETE FROM rentcar_locations WHERE vendor_id = ?',
+            [id]
+          );
+        } catch (locationError) {
+          console.log('Location deletion skipped:', locationError.message);
+        }
 
-        // 2-4. 리뷰 삭제
-        await connection.execute(
-          'DELETE FROM reviews WHERE rentcar_vendor_id = ?',
-          [id]
-        );
+        // 2-4. 리뷰 삭제 (rentcar_vendor_id 컬럼이 있는 경우만)
+        try {
+          await connection.execute(
+            'DELETE FROM reviews WHERE rentcar_vendor_id = ?',
+            [id]
+          );
+        } catch (reviewError) {
+          // rentcar_vendor_id 컬럼이 없으면 무시 (마이그레이션 전)
+          console.log('Review deletion skipped (column may not exist):', reviewError.message);
+        }
 
         // 2-5. 벤더 삭제
         const result = await connection.execute(
