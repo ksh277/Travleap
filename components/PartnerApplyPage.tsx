@@ -229,6 +229,38 @@ export function PartnerApplyPage() {
     }
 
     try {
+      // 이미지가 있으면 먼저 Vercel Blob에 업로드
+      const imageUrls: string[] = [];
+      if (formData.images.length > 0) {
+        toast.info('이미지를 업로드하고 있습니다...');
+
+        for (const file of formData.images) {
+          try {
+            const formDataToSend = new FormData();
+            formDataToSend.append('file', file);
+            formDataToSend.append('category', 'partners');
+
+            const uploadResponse = await fetch('/api/upload-image', {
+              method: 'POST',
+              body: formDataToSend,
+            });
+
+            const uploadResult = await uploadResponse.json();
+
+            if (uploadResult.success && uploadResult.url) {
+              imageUrls.push(uploadResult.url);
+              console.log('✅ 이미지 업로드 성공:', uploadResult.url);
+            } else {
+              console.error('❌ 이미지 업로드 실패:', uploadResult.error);
+              toast.warning('일부 이미지 업로드에 실패했습니다.');
+            }
+          } catch (error) {
+            console.error('❌ 이미지 업로드 오류:', error);
+            toast.warning('일부 이미지 업로드에 실패했습니다.');
+          }
+        }
+      }
+
       // 파트너 신청 데이터 준비 (로그인 불필요 - 누구나 신청 가능)
       const applicationData = {
         businessName: formData.businessName,
@@ -248,7 +280,8 @@ export function PartnerApplyPage() {
         services: formData.categories.join(','), // 쉼표로 구분된 문자열
         description: formData.description,
         businessHours: formData.businessHours,
-        discountRate: formData.discountRate || ''
+        discountRate: formData.discountRate || '',
+        images: imageUrls // Blob URL 배열 추가
       };
 
       // 새 API 엔드포인트로 신청

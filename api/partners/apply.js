@@ -32,7 +32,8 @@ module.exports = async function handler(req, res) {
       services,
       description,
       businessHours,
-      discountRate
+      discountRate,
+      images
     } = req.body;
 
     console.log('파트너 신청:', {
@@ -49,6 +50,11 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // 이미지 URL들을 JSON 문자열로 변환 (admin_notes에 저장)
+    const imageData = images && Array.isArray(images) && images.length > 0
+      ? JSON.stringify({ images: images })
+      : null;
+
     // partner_applications 테이블에 저장
     const result = await connection.execute(`
       INSERT INTO partner_applications (
@@ -63,9 +69,10 @@ module.exports = async function handler(req, res) {
         website,
         category,
         description,
+        admin_notes,
         status,
         created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
     `, [
       businessName,
       contactName,
@@ -78,6 +85,7 @@ module.exports = async function handler(req, res) {
       website || null,
       services || null,      // 카테고리
       description || null,
+      imageData,             // 이미지 URL들 (JSON)
     ]);
 
     console.log('파트너 신청 완료:', result.insertId);

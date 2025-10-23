@@ -5496,19 +5496,44 @@ export function AdminPage({}: AdminPageProps) {
                           const files = e.target.files;
                           if (files && files.length > 0) {
                             const newImages: string[] = [];
+
+                            // 각 파일을 Vercel Blob에 업로드
                             for (let i = 0; i < files.length; i++) {
                               const file = files[i];
-                              const reader = new FileReader();
-                              const base64 = await new Promise<string>((resolve) => {
-                                reader.onloadend = () => resolve(reader.result as string);
-                                reader.readAsDataURL(file);
-                              });
-                              newImages.push(base64);
+
+                              try {
+                                // FormData로 파일 전송
+                                const formData = new FormData();
+                                formData.append('file', file);
+                                formData.append('category', 'partners');
+
+                                const response = await fetch('/api/upload-image', {
+                                  method: 'POST',
+                                  body: formData,
+                                });
+
+                                const result = await response.json();
+
+                                if (result.success && result.url) {
+                                  newImages.push(result.url);
+                                  console.log('✅ Blob 업로드 성공:', result.url);
+                                } else {
+                                  console.error('❌ Blob 업로드 실패:', result.error);
+                                  toast.error(`이미지 업로드 실패: ${file.name}`);
+                                }
+                              } catch (error) {
+                                console.error('❌ 업로드 오류:', error);
+                                toast.error(`이미지 업로드 오류: ${file.name}`);
+                              }
                             }
-                            setNewPartner(prev => ({
-                              ...prev,
-                              images: [...(Array.isArray(prev.images) ? prev.images : []), ...newImages]
-                            }));
+
+                            if (newImages.length > 0) {
+                              setNewPartner(prev => ({
+                                ...prev,
+                                images: [...(Array.isArray(prev.images) ? prev.images : []), ...newImages]
+                              }));
+                              toast.success(`${newImages.length}개 이미지가 업로드되었습니다.`);
+                            }
                           }
                         }}
                       />
