@@ -1,15 +1,14 @@
 /**
- * 이미지 업로드 API
- * Vercel Blob Storage 사용
+ * 이미지 업로드 API (Vercel 호환)
+ * Vercel Blob Storage 사용 + busboy로 파일 파싱
  */
 
 import { put } from '@vercel/blob';
-import { IncomingForm } from 'formidable';
-import fs from 'fs';
+import Busboy from 'busboy';
 
 export const config = {
   api: {
-    bodyParser: false, // formidable 사용을 위해 비활성화
+    bodyParser: false, // busboy 사용을 위해 비활성화
   },
 };
 
@@ -19,46 +18,65 @@ export default async function handler(req, res) {
   }
 
   try {
-    // formidable로 파일 파싱
-    const form = new IncomingForm({
-      maxFileSize: 10 * 1024 * 1024, // 10MB
-    });
+    const busboy = Busboy({ headers: req.headers });
 
-    const [fields, files] = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        resolve([fields, files]);
+    let fileBuffer;
+    let filename;
+    let mimeType;
+    let category = 'partners'; // 기본값
+
+    // 파일 데이터 수집
+    busboy.on('file', (_fieldname, file, info) => {
+      const { filename: originalFilename, mimeType: fileMimeType } = info;
+      filename = originalFilename;
+      mimeType = fileMimeType;
+
+      const chunks = [];
+      file.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+
+      file.on('end', () => {
+        fileBuffer = Buffer.concat(chunks);
       });
     });
 
-    const file = files.file?.[0] || files.file;
-    if (!file) {
+    // 필드 데이터 수집 (category 등)
+    busboy.on('field', (fieldname, value) => {
+      if (fieldname === 'category') {
+        category = value;
+      }
+    });
+
+    // 파싱 완료 대기
+    await new Promise((resolve, reject) => {
+      busboy.on('finish', resolve);
+      busboy.on('error', reject);
+      req.pipe(busboy);
+    });
+
+    // 파일이 없으면 에러
+    if (!fileBuffer) {
       return res.status(400).json({
         success: false,
         message: '파일이 없습니다'
       });
     }
 
-    // 카테고리 확인
-    const category = fields.category?.[0] || fields.category || 'rentcar';
-
-    // 파일 읽기
-    const fileBuffer = fs.readFileSync(file.filepath);
-
     // 파일명 생성
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
-    const extension = file.originalFilename?.split('.').pop()?.toLowerCase() || 'jpg';
-    const filename = `${category}/${timestamp}-${randomString}.${extension}`;
+    const extension = filename?.split('.').pop()?.toLowerCase() || 'jpg';
+    const blobFilename = `${category}/${timestamp}-${randomString}.${extension}`;
 
     // Vercel Blob에 업로드
-    const blob = await put(filename, fileBuffer, {
+    const blob = await put(blobFilename, fileBuffer, {
       access: 'public',
       addRandomSuffix: false,
+      contentType: mimeType,
     });
 
-    // 임시 파일 삭제
-    fs.unlinkSync(file.filepath);
+    console.log('✅ Blob 업로드 성공:', blob.url);
 
     return res.status(200).json({
       success: true,
@@ -66,7 +84,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Image upload error:', error);
+    console.error('❌ Image upload error:', error);
     return res.status(500).json({
       success: false,
       message: '이미지 업로드에 실패했습니다',
