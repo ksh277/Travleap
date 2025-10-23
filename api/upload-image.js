@@ -1,6 +1,8 @@
 /**
  * 이미지 업로드 API (Vercel 호환)
- * Vercel Blob Storage 사용 + busboy로 파일 파싱
+ * Vercel Blob Storage 사용
+ * - FormData (파트너 관리용, busboy)
+ * - JSON base64 (차량 관리용, ImageUploader)
  */
 
 const { put } = require('@vercel/blob');
@@ -21,69 +23,116 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const busboy = Busboy({ headers: req.headers });
+    const contentType = req.headers['content-type'] || '';
 
-    let fileBuffer;
-    let filename;
-    let mimeType;
-    let category = 'partners'; // 기본값
+    // JSON (base64) 방식 - ImageUploader용 (차량 이미지)
+    if (contentType.includes('application/json')) {
+      const { image, filename, category } = req.body;
 
-    // 파일 데이터 수집
-    busboy.on('file', (_fieldname, file, info) => {
-      const { filename: originalFilename, mimeType: fileMimeType } = info;
-      filename = originalFilename;
-      mimeType = fileMimeType;
-
-      const chunks = [];
-      file.on('data', (chunk) => {
-        chunks.push(chunk);
-      });
-
-      file.on('end', () => {
-        fileBuffer = Buffer.concat(chunks);
-      });
-    });
-
-    // 필드 데이터 수집 (category 등)
-    busboy.on('field', (fieldname, value) => {
-      if (fieldname === 'category') {
-        category = value;
+      if (!image) {
+        return res.status(400).json({
+          success: false,
+          message: '이미지 데이터가 없습니다'
+        });
       }
-    });
 
-    // 파싱 완료 대기
-    await new Promise((resolve, reject) => {
-      busboy.on('finish', resolve);
-      busboy.on('error', reject);
-      req.pipe(busboy);
-    });
+      // base64 디코딩
+      const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
 
-    // 파일이 없으면 에러
-    if (!fileBuffer) {
-      return res.status(400).json({
-        success: false,
-        message: '파일이 없습니다'
+      // 파일명 생성
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 8);
+      const ext = filename ? filename.split('.').pop() : 'jpg';
+      const categoryPath = category || 'rentcar';
+      const blobFilename = `${categoryPath}/${timestamp}-${randomString}.${ext}`;
+
+      // Vercel Blob에 업로드
+      const blob = await put(blobFilename, buffer, {
+        access: 'public',
+        addRandomSuffix: false,
+      });
+
+      console.log('✅ Blob 업로드 성공 (base64):', blob.url);
+
+      return res.status(200).json({
+        success: true,
+        url: blob.url,
       });
     }
 
-    // 파일명 생성
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 8);
-    const extension = filename?.split('.').pop()?.toLowerCase() || 'jpg';
-    const blobFilename = `${category}/${timestamp}-${randomString}.${extension}`;
+    // FormData (multipart) 방식 - 파트너 관리용
+    if (contentType.includes('multipart/form-data')) {
+      const busboy = Busboy({ headers: req.headers });
 
-    // Vercel Blob에 업로드
-    const blob = await put(blobFilename, fileBuffer, {
-      access: 'public',
-      addRandomSuffix: false,
-      contentType: mimeType,
-    });
+      let fileBuffer;
+      let filename;
+      let mimeType;
+      let category = 'partners'; // 기본값
 
-    console.log('✅ Blob 업로드 성공:', blob.url);
+      // 파일 데이터 수집
+      busboy.on('file', (_fieldname, file, info) => {
+        const { filename: originalFilename, mimeType: fileMimeType } = info;
+        filename = originalFilename;
+        mimeType = fileMimeType;
 
-    return res.status(200).json({
-      success: true,
-      url: blob.url,
+        const chunks = [];
+        file.on('data', (chunk) => {
+          chunks.push(chunk);
+        });
+
+        file.on('end', () => {
+          fileBuffer = Buffer.concat(chunks);
+        });
+      });
+
+      // 필드 데이터 수집 (category 등)
+      busboy.on('field', (fieldname, value) => {
+        if (fieldname === 'category') {
+          category = value;
+        }
+      });
+
+      // 파싱 완료 대기
+      await new Promise((resolve, reject) => {
+        busboy.on('finish', resolve);
+        busboy.on('error', reject);
+        req.pipe(busboy);
+      });
+
+      // 파일이 없으면 에러
+      if (!fileBuffer) {
+        return res.status(400).json({
+          success: false,
+          message: '파일이 없습니다'
+        });
+      }
+
+      // 파일명 생성
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 8);
+      const extension = filename?.split('.').pop()?.toLowerCase() || 'jpg';
+      const blobFilename = `${category}/${timestamp}-${randomString}.${extension}`;
+
+      // Vercel Blob에 업로드
+      const blob = await put(blobFilename, fileBuffer, {
+        access: 'public',
+        addRandomSuffix: false,
+        contentType: mimeType,
+      });
+
+      console.log('✅ Blob 업로드 성공 (FormData):', blob.url);
+
+      return res.status(200).json({
+        success: true,
+        url: blob.url,
+      });
+    }
+
+    // 지원하지 않는 Content-Type
+    return res.status(400).json({
+      success: false,
+      message: 'Unsupported content type. Use application/json or multipart/form-data'
     });
 
   } catch (error) {
