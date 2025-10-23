@@ -51,14 +51,25 @@ export function ImageUploader({
           continue;
         }
 
-        // FormData로 파일 전송
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('category', category);
+        // 파일을 base64로 변환
+        const base64Image = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
 
+        // JSON으로 base64 이미지 전송
         const response = await fetch('/api/upload-image', {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            image: base64Image,
+            filename: file.name,
+            category: category
+          })
         });
 
         if (response.ok) {
@@ -67,7 +78,8 @@ export function ImageUploader({
             uploadedUrls.push(data.url);
           }
         } else {
-          toast.error(`${file.name} 업로드 실패`);
+          const errorData = await response.json().catch(() => ({ message: '업로드 실패' }));
+          toast.error(`${file.name} 업로드 실패: ${errorData.message || '알 수 없는 오류'}`);
         }
 
         setUploadProgress(((i + 1) / files.length) * 100);
