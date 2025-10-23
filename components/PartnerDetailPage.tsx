@@ -17,6 +17,7 @@ import {
   Camera,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatPartnerPrice } from '../utils/price-formatter';
 
 interface Partner {
   id: number;
@@ -35,6 +36,7 @@ interface Partner {
   discount_rate?: number;
   member_since: string;
   base_price?: number;
+  base_price_text?: string;
   duration?: number;
   min_age?: number;
   max_capacity?: number;
@@ -285,6 +287,7 @@ export function PartnerDetailPage() {
           discount_rate: partnerData.discount_rate,
           member_since: partnerData.created_at ? new Date(partnerData.created_at).getFullYear().toString() : new Date().getFullYear().toString(),
           base_price: partnerData.base_price || 0,
+          base_price_text: partnerData.base_price_text,
           duration: partnerData.duration,
           min_age: partnerData.min_age,
           max_capacity: partnerData.max_capacity,
@@ -457,17 +460,24 @@ export function PartnerDetailPage() {
                 {/* Price Card */}
                 <Card className="overflow-hidden">
                   <div className="bg-purple-600 text-white p-6">
-                    <div className="text-sm mb-2">from</div>
-                    <div className="text-4xl font-bold">
-                      {partner.base_price && partner.base_price > 0
-                        ? `₩${partner.base_price.toLocaleString()}`
-                        : '무료'}
-                    </div>
-                    {partner.discount_rate && partner.base_price && partner.base_price > 0 && (
-                      <Badge className="mt-2 bg-red-500">
-                        {partner.discount_rate}% 할인
-                      </Badge>
-                    )}
+                    {(() => {
+                      const priceDisplay = formatPartnerPrice(partner.base_price_text, partner.base_price);
+                      return priceDisplay ? (
+                        <>
+                          <div className="text-sm mb-2">from</div>
+                          <div className="text-4xl font-bold">
+                            {priceDisplay}
+                          </div>
+                          {partner.discount_rate && partner.base_price && partner.base_price > 0 && (
+                            <Badge className="mt-2 bg-red-500">
+                              {partner.discount_rate}% 할인
+                            </Badge>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-sm text-white/80">가격 문의</div>
+                      );
+                    })()}
                   </div>
                 </Card>
 
