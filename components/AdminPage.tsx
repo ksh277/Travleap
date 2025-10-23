@@ -588,7 +588,9 @@ export function AdminPage({}: AdminPageProps) {
     duration: '',
     min_age: '',
     max_capacity: '',
-    language: ''
+    language: '',
+    lat: null as number | null,
+    lng: null as number | null
   });
   const [reviews, setReviews] = useState<any[]>([]);
   const [editingReview, setEditingReview] = useState<any | null>(null);
@@ -1479,7 +1481,13 @@ export function AdminPage({}: AdminPageProps) {
         detailed_address: partner.detailed_address || '',
         description: partner.description || '',
         images: imagesArray,
-        business_hours: partner.business_hours || ''
+        business_hours: partner.business_hours || '',
+        duration: partner.duration || '',
+        min_age: partner.min_age || '',
+        max_capacity: partner.max_capacity || '',
+        language: partner.language || '',
+        lat: partner.lat || null,
+        lng: partner.lng || null
       });
     } else {
       setNewPartner({
@@ -1494,7 +1502,13 @@ export function AdminPage({}: AdminPageProps) {
         detailed_address: '',
         description: '',
         images: [],
-        business_hours: ''
+        business_hours: '',
+        duration: '',
+        min_age: '',
+        max_capacity: '',
+        language: '',
+        lat: null,
+        lng: null
       });
     }
     setIsPartnerDialogOpen(true);
@@ -5292,15 +5306,65 @@ export function AdminPage({}: AdminPageProps) {
                   onClick={() => {
                     // Daum 주소 검색 팝업
                     new (window as any).daum.Postcode({
-                      oncomplete: function(data: any) {
+                      oncomplete: async function(data: any) {
                         // 도로명 주소 또는 지번 주소 선택
                         const fullAddress = data.roadAddress || data.jibunAddress;
-                        setNewPartner({
-                          ...newPartner,
-                          business_address: fullAddress,
-                          location: data.sido + ' ' + data.sigungu,
-                          detailed_address: fullAddress // 지도 표시용
-                        });
+
+                        // 카카오 지도 API로 좌표 검색
+                        try {
+                          const kakaoApiKey = import.meta.env.VITE_KAKAO_APP_KEY;
+                          if (!kakaoApiKey) {
+                            console.error('카카오 API 키가 설정되지 않았습니다.');
+                            setNewPartner({
+                              ...newPartner,
+                              business_address: fullAddress,
+                              location: data.sido + ' ' + data.sigungu,
+                              detailed_address: fullAddress
+                            });
+                            return;
+                          }
+
+                          const geocodeResponse = await fetch(
+                            `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(fullAddress)}`,
+                            {
+                              headers: {
+                                'Authorization': `KakaoAK ${kakaoApiKey}`
+                              }
+                            }
+                          );
+
+                          const geocodeData = await geocodeResponse.json();
+
+                          if (geocodeData.documents && geocodeData.documents.length > 0) {
+                            const coords = geocodeData.documents[0];
+                            // 카카오 API: x = 경도(longitude), y = 위도(latitude)
+                            setNewPartner({
+                              ...newPartner,
+                              business_address: fullAddress,
+                              location: data.sido + ' ' + data.sigungu,
+                              detailed_address: fullAddress,
+                              lat: parseFloat(coords.y),  // 위도
+                              lng: parseFloat(coords.x)   // 경도
+                            });
+                            console.log('✅ 좌표 저장:', { lat: coords.y, lng: coords.x });
+                          } else {
+                            console.warn('좌표를 찾을 수 없습니다.');
+                            setNewPartner({
+                              ...newPartner,
+                              business_address: fullAddress,
+                              location: data.sido + ' ' + data.sigungu,
+                              detailed_address: fullAddress
+                            });
+                          }
+                        } catch (error) {
+                          console.error('좌표 검색 실패:', error);
+                          setNewPartner({
+                            ...newPartner,
+                            business_address: fullAddress,
+                            location: data.sido + ' ' + data.sigungu,
+                            detailed_address: fullAddress
+                          });
+                        }
                       }
                     }).open();
                   }}

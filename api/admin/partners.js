@@ -46,8 +46,9 @@ module.exports = async function handler(req, res) {
           business_address, location, services, base_price,
           detailed_address, description, images, business_hours,
           duration, min_age, max_capacity, language,
+          lat, lng,
           status, is_active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW(), NOW())`,
         [
           1, // user_id (관리자가 생성하므로 1)
           partnerData.business_name,
@@ -65,7 +66,9 @@ module.exports = async function handler(req, res) {
           partnerData.duration || null,
           partnerData.min_age || null,
           partnerData.max_capacity || null,
-          partnerData.language || null
+          partnerData.language || null,
+          partnerData.lat || null,  // 위도 (카카오 API의 y 값)
+          partnerData.lng || null   // 경도 (카카오 API의 x 값)
         ]
       );
 
