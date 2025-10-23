@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
     let decoded;
 
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || 'travleap-secret-key-2024');
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
     } catch (error) {
       return res.status(401).json({
         success: false,
