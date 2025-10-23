@@ -34,6 +34,7 @@ import { api } from '../utils/api';
 import { rentcarApi } from '../utils/rentcar-api';
 import { useAuth } from '../hooks/useAuth';
 import { notifyDataChange, refreshAllData, useRealTimeData } from '../hooks/useRealTimeData';
+import { getGoogleMapsApiKey } from '../utils/env';
 import { MediaLibraryModal } from './MediaLibraryModal';
 import { PMSIntegrationModal } from './admin/PMSIntegrationModal';
 import { RentcarAPIModal, type RentcarAPISettings } from './admin/RentcarAPIModal';
@@ -5303,18 +5304,53 @@ export function AdminPage({}: AdminPageProps) {
                 />
                 <Button
                   type="button"
-                  onClick={() => {
-                    // Daum 주소 검색 팝업
-                    new (window as any).daum.Postcode({
-                      oncomplete: function(data: any) {
-                        // 도로명 주소 또는 지번 주소 선택
-                        const fullAddress = data.roadAddress || data.jibunAddress;
-
-                        console.log('🔍 주소 선택됨:', fullAddress);
-                        console.log('📍 지역 정보:', { sido: data.sido, sigungu: data.sigungu });
-
-                        // 구글 Maps Geocoding API로 좌표 검색
+                  onClick={async () => {
+                    // 구글 Maps API 로드 확인 및 로드
+                    const loadGoogleMaps = (): Promise<void> => {
+                      return new Promise((resolve, reject) => {
                         if ((window as any).google && (window as any).google.maps) {
+                          console.log('✅ 구글 Maps API 이미 로드됨');
+                          resolve();
+                          return;
+                        }
+
+                        console.log('📡 구글 Maps API 로드 중...');
+                        const apiKey = getGoogleMapsApiKey();
+
+                        if (!apiKey) {
+                          reject(new Error('구글 Maps API 키가 설정되지 않았습니다.'));
+                          return;
+                        }
+
+                        const script = document.createElement('script');
+                        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+                        script.async = true;
+                        script.defer = true;
+                        script.onload = () => {
+                          console.log('✅ 구글 Maps API 로드 완료');
+                          resolve();
+                        };
+                        script.onerror = () => {
+                          reject(new Error('구글 Maps API 로드 실패'));
+                        };
+                        document.head.appendChild(script);
+                      });
+                    };
+
+                    try {
+                      // 구글 Maps API 로드
+                      await loadGoogleMaps();
+
+                      // Daum 주소 검색 팝업
+                      new (window as any).daum.Postcode({
+                        oncomplete: function(data: any) {
+                          // 도로명 주소 또는 지번 주소 선택
+                          const fullAddress = data.roadAddress || data.jibunAddress;
+
+                          console.log('🔍 주소 선택됨:', fullAddress);
+                          console.log('📍 지역 정보:', { sido: data.sido, sigungu: data.sigungu });
+
+                          // 구글 Maps Geocoding API로 좌표 검색
                           const geocoder = new (window as any).google.maps.Geocoder();
 
                           geocoder.geocode({ address: fullAddress }, (results: any, status: any) => {
@@ -5355,24 +5391,12 @@ export function AdminPage({}: AdminPageProps) {
                               }));
                             }
                           });
-                        } else {
-                          console.error('❌ 구글 Maps API가 로드되지 않았습니다.', {
-                            google: !!(window as any).google,
-                            maps: !!(window as any).google?.maps
-                          });
-                          alert('❌ 구글 Maps API가 로드되지 않았습니다.\n페이지를 새로고침 해주세요.');
-
-                          setNewPartner(prev => ({
-                            ...prev,
-                            business_address: fullAddress,
-                            location: data.sido + ' ' + data.sigungu,
-                            detailed_address: fullAddress,
-                            lat: null,
-                            lng: null
-                          }));
                         }
-                      }
-                    }).open();
+                      }).open();
+                    } catch (error: any) {
+                      console.error('❌ 구글 Maps API 로드 오류:', error);
+                      alert(`❌ 구글 Maps API 로드 실패:\n${error.message}`);
+                    }
                   }}
                   className="bg-[#8B5FBF] hover:bg-[#7A4FB5] whitespace-nowrap"
                 >
