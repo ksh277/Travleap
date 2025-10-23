@@ -1,5 +1,5 @@
 /**
- * 숙박 벤더 관리 API
+ * 숙박 벤더 관리 API (partners 테이블 사용)
  * GET /api/admin/accommodation-vendors - 모든 숙박 벤더 조회
  * POST /api/admin/accommodation-vendors - 숙박 벤더 추가
  */
@@ -18,22 +18,55 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // GET - 모든 숙박 벤더 조회
+    // GET - 모든 숙박 벤더 조회 (partners 테이블에서 partner_type='lodging')
     if (req.method === 'GET') {
       const result = await connection.execute(
-        `SELECT * FROM accommodation_vendors ORDER BY created_at DESC`
+        `SELECT
+          id,
+          user_id,
+          business_name,
+          business_number,
+          contact_name,
+          email as contact_email,
+          phone as contact_phone,
+          description,
+          logo as logo_url,
+          pms_provider,
+          pms_api_key,
+          pms_property_id,
+          pms_sync_enabled,
+          pms_sync_interval,
+          last_sync_at,
+          check_in_time,
+          check_out_time,
+          policies,
+          status,
+          is_active,
+          tier,
+          created_at,
+          updated_at
+        FROM partners
+        WHERE partner_type = 'lodging'
+        ORDER BY created_at DESC`
       );
+
+      // brand_name 없으면 business_name 사용
+      const vendors = (result.rows || []).map(vendor => ({
+        ...vendor,
+        brand_name: vendor.brand_name || vendor.business_name,
+        vendor_code: `ACC${vendor.id}` // vendor_code 생성
+      }));
 
       return res.status(200).json({
         success: true,
-        data: result.rows || []
+        data: vendors
       });
     }
 
-    // POST - 숙박 벤더 추가
+    // POST - 숙박 벤더 추가 (partners 테이블에 삽입)
     if (req.method === 'POST') {
       const {
-        vendor_code,
+        user_id,
         business_name,
         brand_name,
         business_number,
@@ -45,6 +78,11 @@ module.exports = async function handler(req, res) {
         pms_provider,
         pms_api_key,
         pms_property_id,
+        pms_sync_enabled = 0,
+        pms_sync_interval = 60,
+        check_in_time = '15:00',
+        check_out_time = '11:00',
+        policies,
         status = 'active'
       } = req.body;
 
@@ -56,20 +94,56 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // vendor_code 자동 생성 (제공되지 않은 경우)
-      const finalVendorCode = vendor_code || `ACC${Date.now()}`;
+      // user_id가 없으면 임시 생성 (실제로는 인증 시스템과 연동되어야 함)
+      let finalUserId = user_id;
+      if (!finalUserId) {
+        // 임시 사용자 ID 생성 또는 조회
+        const tempUserResult = await connection.execute(
+          `SELECT id FROM users WHERE email = ? LIMIT 1`,
+          [contact_email || 'temp@accommodation.com']
+        );
+
+        if (tempUserResult.rows && tempUserResult.rows.length > 0) {
+          finalUserId = tempUserResult.rows[0].id;
+        } else {
+          // 임시 사용자 생성
+          const createUserResult = await connection.execute(
+            `INSERT INTO users (email, name, user_type, created_at, updated_at)
+             VALUES (?, ?, 'vendor', NOW(), NOW())`,
+            [contact_email || 'temp@accommodation.com', contact_name || business_name]
+          );
+          finalUserId = createUserResult.insertId;
+        }
+      }
 
       const result = await connection.execute(
-        `INSERT INTO accommodation_vendors (
-          vendor_code, business_name, brand_name, business_number,
-          contact_name, contact_email, contact_phone, description,
-          logo_url, pms_provider, pms_api_key, pms_property_id,
-          status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        [
-          finalVendorCode,
+        `INSERT INTO partners (
+          user_id,
+          partner_type,
           business_name,
-          brand_name || business_name,
+          business_number,
+          contact_name,
+          email,
+          phone,
+          description,
+          logo,
+          pms_provider,
+          pms_api_key,
+          pms_property_id,
+          pms_sync_enabled,
+          pms_sync_interval,
+          check_in_time,
+          check_out_time,
+          policies,
+          status,
+          is_active,
+          tier,
+          created_at,
+          updated_at
+        ) VALUES (?, 'lodging', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'standard', NOW(), NOW())`,
+        [
+          finalUserId,
+          business_name,
           business_number,
           contact_name,
           contact_email,
@@ -79,18 +153,24 @@ module.exports = async function handler(req, res) {
           pms_provider,
           pms_api_key,
           pms_property_id,
+          pms_sync_enabled,
+          pms_sync_interval,
+          check_in_time,
+          check_out_time,
+          policies,
           status
         ]
       );
 
-      console.log('Accommodation vendor added:', result);
+      console.log('Accommodation vendor added to partners table:', result);
 
       return res.status(201).json({
         success: true,
         message: '숙박 벤더가 추가되었습니다.',
         data: {
           id: result.insertId,
-          vendor_code: finalVendorCode
+          vendor_code: `ACC${result.insertId}`,
+          user_id: finalUserId
         }
       });
     }

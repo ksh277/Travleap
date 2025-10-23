@@ -96,7 +96,7 @@ export function AdminRentcarPage() {
       setLoading(true);
 
       // 1. 모든 업체 조회 API
-      const vendorsResponse = await fetch('http://localhost:3004/api/admin/rentcar/vendors');
+      const vendorsResponse = await fetch('/api/admin/rentcar/vendors');
       const vendorsData = await vendorsResponse.json();
       if (vendorsData.success && vendorsData.data) {
         setVendors(vendorsData.data);
@@ -105,7 +105,7 @@ export function AdminRentcarPage() {
       }
 
       // 2. 모든 차량 조회 API (업체명 포함)
-      const vehiclesResponse = await fetch('http://localhost:3004/api/admin/rentcar/vehicles');
+      const vehiclesResponse = await fetch('/api/admin/rentcar/vehicles');
       const vehiclesData = await vehiclesResponse.json();
       if (vehiclesData.success && vehiclesData.data) {
         setVehicles(vehiclesData.data);
@@ -114,7 +114,7 @@ export function AdminRentcarPage() {
       }
 
       // 3. 모든 예약 조회 API (차량명, 업체명 포함)
-      const bookingsResponse = await fetch('http://localhost:3004/api/admin/rentcar/bookings');
+      const bookingsResponse = await fetch('/api/admin/rentcar/bookings');
       const bookingsData = await bookingsResponse.json();
       if (bookingsData.success && bookingsData.data) {
         setBookings(bookingsData.data);
@@ -139,7 +139,7 @@ export function AdminRentcarPage() {
     if (!confirm(`정말 "${vehicleName}" 차량을 삭제하시겠습니까?`)) return;
 
     try {
-      const response = await fetch(`http://localhost:3004/api/admin/rentcar/vehicles/${vehicleId}`, {
+      const response = await fetch(`/api/admin/rentcar/vehicles/${vehicleId}`, {
         method: 'DELETE'
       });
 

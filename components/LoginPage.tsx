@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../utils/api';
 import { initGoogleAuth, initKakaoAuth, initNaverAuth } from '../utils/socialAuth';
+import { usePageBanner } from '../hooks/usePageBanner';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const bannerImage = usePageBanner('login');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,7 +173,7 @@ export function LoginPage() {
       {/* 배너 섹션 */}
       <div
         className="relative w-full h-[200px] md:h-[300px] bg-cover bg-center flex items-center justify-center overflow-hidden"
-        style={{ backgroundImage: 'url("https://placehold.co/1366x300")' }}
+        style={{ backgroundImage: `url("${bannerImage || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1366&h=300&fit=crop'}")` }}
       >
         <div className="relative z-10 max-w-[1200px] mx-auto px-4 text-center">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-white m-0">

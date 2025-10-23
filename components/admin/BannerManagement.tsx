@@ -264,12 +264,69 @@ export function BannerManagement() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              <Button
+                variant={selectedPage === 'login' ? 'default' : 'outline'}
+                onClick={() => setSelectedPage('login')}
+                size="sm"
+              >
+                로그인 페이지
+              </Button>
+              <Button
+                variant={selectedPage === 'signup' ? 'default' : 'outline'}
+                onClick={() => setSelectedPage('signup')}
+                size="sm"
+              >
+                회원가입 페이지
+              </Button>
+              <Button
+                variant={selectedPage === 'home_background' ? 'default' : 'outline'}
+                onClick={() => setSelectedPage('home_background')}
+                size="sm"
+              >
+                메인 페이지 배경
+              </Button>
               <Button
                 variant={selectedPage === 'about' ? 'default' : 'outline'}
                 onClick={() => setSelectedPage('about')}
+                size="sm"
               >
-                회사소개 (About)
+                소개 페이지
+              </Button>
+              <Button
+                variant={selectedPage === 'partner' ? 'default' : 'outline'}
+                onClick={() => setSelectedPage('partner')}
+                size="sm"
+              >
+                가맹점 페이지
+              </Button>
+              <Button
+                variant={selectedPage === 'partner_apply' ? 'default' : 'outline'}
+                onClick={() => setSelectedPage('partner_apply')}
+                size="sm"
+              >
+                가맹점 신청
+              </Button>
+              <Button
+                variant={selectedPage === 'contact' ? 'default' : 'outline'}
+                onClick={() => setSelectedPage('contact')}
+                size="sm"
+              >
+                문의 페이지
+              </Button>
+              <Button
+                variant={selectedPage === 'category' ? 'default' : 'outline'}
+                onClick={() => setSelectedPage('category')}
+                size="sm"
+              >
+                카테고리 목록
+              </Button>
+              <Button
+                variant={selectedPage === 'category_detail' ? 'default' : 'outline'}
+                onClick={() => setSelectedPage('category_detail')}
+                size="sm"
+              >
+                카테고리 상세
               </Button>
             </div>
           </CardContent>
