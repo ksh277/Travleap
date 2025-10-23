@@ -31,23 +31,19 @@ export function formatPartnerPrice(
     return text;
   }
 
-  // 2순위: base_price 사용
+  // 2순위: base_price 사용 (단, 0은 무시 - 빈값으로 처리)
   if (base_price !== null && base_price !== undefined && base_price !== '') {
     const numericPrice = typeof base_price === 'string'
       ? parseFloat(base_price)
       : base_price;
 
-    if (!isNaN(numericPrice)) {
-      if (numericPrice === 0) {
-        return '무료';
-      }
-      if (numericPrice > 0) {
-        return `${numericPrice.toLocaleString()}원`;
-      }
+    if (!isNaN(numericPrice) && numericPrice > 0) {
+      return `${numericPrice.toLocaleString()}원`;
     }
   }
 
-  // 3순위: 아무것도 없으면 빈 문자열 (아무것도 표시 안함)
+  // 3순위: 아무것도 없거나 0이면 빈 문자열 (아무것도 표시 안함)
+  // base_price = 0은 "설정 안함"으로 간주
   return '';
 }
 
