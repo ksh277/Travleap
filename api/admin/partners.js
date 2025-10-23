@@ -15,12 +15,7 @@ module.exports = async function handler(req, res) {
     // GET - 파트너 목록 조회
     if (req.method === 'GET') {
       const result = await connection.execute(`
-        SELECT
-          p.*,
-          COUNT(DISTINCT l.id) as listing_count
-        FROM partners p
-        LEFT JOIN listings l ON p.id = l.partner_id
-        GROUP BY p.id
+        SELECT p.* FROM partners p
         ORDER BY p.created_at DESC
       `);
 

@@ -24,13 +24,9 @@ module.exports = async function handler(req, res) {
 
     // 활성화된 파트너만 조회 (is_active = 1, status = 'approved')
     const result = await connection.execute(`
-      SELECT
-        p.*,
-        COUNT(DISTINCT l.id) as listing_count
+      SELECT p.*
       FROM partners p
-      LEFT JOIN listings l ON p.id = l.partner_id
       WHERE p.is_active = 1 AND p.status = 'approved'
-      GROUP BY p.id
       ORDER BY
         p.is_featured DESC,
         p.created_at DESC
