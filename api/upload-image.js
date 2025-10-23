@@ -3,16 +3,19 @@
  * Vercel Blob Storage 사용 + busboy로 파일 파싱
  */
 
-import { put } from '@vercel/blob';
-import Busboy from 'busboy';
+const { put } = require('@vercel/blob');
+const Busboy = require('busboy');
 
-export const config = {
-  api: {
-    bodyParser: false, // busboy 사용을 위해 비활성화
-  },
-};
+module.exports = async function handler(req, res) {
+  // CORS 헤더
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-export default async function handler(req, res) {
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
@@ -91,4 +94,4 @@ export default async function handler(req, res) {
       error: error.message
     });
   }
-}
+};
