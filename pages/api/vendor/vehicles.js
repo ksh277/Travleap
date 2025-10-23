@@ -1,20 +1,57 @@
-import { connect } from '@planetscale/database';
-const { requireVendorAuth } = require('../../../middleware/vendor-auth');
+const { connect } = require('@planetscale/database');
+const jwt = require('jsonwebtoken');
 
-const connection = connect({ url: process.env.DATABASE_URL });
+module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-export default async function handler(req, res) {
-  // 벤더 인증 및 권한 확인
-  const auth = await requireVendorAuth(req, res);
-  if (!auth.success) return; // 이미 응답 전송됨
-
-  const { method } = req;
-  const vendorId = auth.vendorId;
-
-  console.log('🚗 [Vehicles API] 요청:', { method, vendorId, user: auth.email, isAdmin: auth.isAdmin });
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
   try {
-    if (method === 'GET') {
+    // JWT 토큰 검증
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: '인증 토큰이 필요합니다.' });
+    }
+
+    const token = authHeader.substring(7);
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
+    } catch (error) {
+      return res.status(401).json({ success: false, message: '유효하지 않은 토큰입니다.' });
+    }
+
+    if (decoded.role !== 'vendor' && decoded.role !== 'admin') {
+      return res.status(403).json({ success: false, message: '벤더 권한이 필요합니다.' });
+    }
+
+    const connection = connect({ url: process.env.DATABASE_URL });
+
+    // user_id로 vendor_id 조회
+    let vendorId;
+    if (decoded.role === 'admin') {
+      vendorId = req.query.vendorId || req.body?.vendorId;
+    } else {
+      const vendorResult = await connection.execute(
+        'SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1',
+        [decoded.userId]
+      );
+
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
+        return res.status(403).json({ success: false, message: '등록된 벤더 정보가 없습니다.' });
+      }
+
+      vendorId = vendorResult.rows[0].id;
+    }
+
+    console.log('🚗 [Vehicles API] 요청:', { method: req.method, vendorId, user: decoded.email });
+
+    if (req.method === 'GET') {
       // 업체의 차량 목록 조회
       const result = await connection.execute(
         `SELECT
@@ -89,7 +126,7 @@ export default async function handler(req, res) {
       });
     }
 
-    if (method === 'POST') {
+    if (req.method === 'POST') {
       // 새 차량 등록
       const {
         display_name,
@@ -197,12 +234,13 @@ export default async function handler(req, res) {
     }
 
     return res.status(405).json({ success: false, message: '지원하지 않는 메서드입니다.' });
+
   } catch (error) {
-    console.error('Vendor vehicles API error:', error);
+    console.error('❌ [Vehicles API] 오류:', error);
     return res.status(500).json({
       success: false,
       message: '서버 오류가 발생했습니다.',
       error: error.message
     });
   }
-}
+};
