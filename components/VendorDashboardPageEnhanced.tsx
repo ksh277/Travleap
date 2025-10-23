@@ -521,7 +521,7 @@ export function VendorDashboardPageEnhanced() {
   };
 
   const toggleVehicleAvailability = async (vehicleId: number, currentStatus: boolean) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
     if (!token) {
       toast.error('로그인이 필요합니다.');
       return;

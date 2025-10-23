@@ -73,6 +73,26 @@ module.exports = async function handler(req, res) {
 
     console.log('🚗 [Vehicles API] 요청:', { method: req.method, vendorId, user: decoded.email });
 
+    // 한글 → 영문 매핑 (모든 메서드에서 공통 사용)
+    const classMap = {
+      '소형': 'compact',
+      '중형': 'midsize',
+      '대형': 'fullsize',
+      '럭셔리': 'luxury',
+      'SUV': 'suv',
+      '밴': 'van'
+    };
+    const fuelMap = {
+      '가솔린': 'gasoline',
+      '디젤': 'diesel',
+      '하이브리드': 'hybrid',
+      '전기': 'electric'
+    };
+    const transMap = {
+      '자동': 'automatic',
+      '수동': 'manual'
+    };
+
     // GET: 차량 목록 조회
     if (req.method === 'GET') {
       const result = await connection.execute(
@@ -167,26 +187,6 @@ module.exports = async function handler(req, res) {
           message: '필수 항목을 입력해주세요.'
         });
       }
-
-      // 한글 → 영문 매핑
-      const classMap = {
-        '소형': 'compact',
-        '중형': 'midsize',
-        '대형': 'fullsize',
-        '럭셔리': 'luxury',
-        'SUV': 'suv',
-        '밴': 'van'
-      };
-      const fuelMap = {
-        '가솔린': 'gasoline',
-        '디젤': 'diesel',
-        '하이브리드': 'hybrid',
-        '전기': 'electric'
-      };
-      const transMap = {
-        '자동': 'automatic',
-        '수동': 'manual'
-      };
 
       const mappedClass = classMap[vehicle_class] || vehicle_class || 'midsize';
       const mappedFuel = fuelMap[fuel_type] || fuel_type || 'gasoline';
@@ -331,6 +331,14 @@ module.exports = async function handler(req, res) {
       if (updateData.hourly_rate_krw) {
         updates.push('hourly_rate_krw = ?');
         values.push(updateData.hourly_rate_krw);
+      }
+      if (updateData.mileage_limit_km) {
+        updates.push('mileage_limit_per_day = ?');
+        values.push(updateData.mileage_limit_km);
+      }
+      if (updateData.excess_mileage_fee_krw) {
+        updates.push('excess_mileage_fee_krw = ?');
+        values.push(updateData.excess_mileage_fee_krw);
       }
       if (typeof is_available !== 'undefined') {
         updates.push('is_active = ?');
