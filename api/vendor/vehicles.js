@@ -177,7 +177,20 @@ module.exports = async function handler(req, res) {
         'SUV': 'suv',
         '밴': 'van'
       };
+      const fuelMap = {
+        '가솔린': 'gasoline',
+        '디젤': 'diesel',
+        '하이브리드': 'hybrid',
+        '전기': 'electric'
+      };
+      const transMap = {
+        '자동': 'automatic',
+        '수동': 'manual'
+      };
+
       const mappedClass = classMap[vehicle_class] || vehicle_class || 'midsize';
+      const mappedFuel = fuelMap[fuel_type] || fuel_type || 'gasoline';
+      const mappedTrans = transMap[transmission_type] || transmission_type || 'automatic';
 
       const vehicle_code = `VEH_${vendorId}_${Date.now()}`;
       const imagesJson = JSON.stringify(image_urls || []);
@@ -223,8 +236,8 @@ module.exports = async function handler(req, res) {
           display_name,
           mappedClass,
           '세단',
-          fuel_type || '가솔린',
-          transmission_type || '자동',
+          mappedFuel,
+          mappedTrans,
           seating_capacity || 5,
           4,
           2,
