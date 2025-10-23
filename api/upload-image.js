@@ -4,61 +4,48 @@
  */
 
 const { put } = require('@vercel/blob');
-const { IncomingForm } = require('formidable');
-const fs = require('fs');
-
-module.exports.config = {
-  api: {
-    bodyParser: false, // formidable 사용을 위해 비활성화
-  },
-};
 
 module.exports = async function handler(req, res) {
+  // CORS 헤더
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
   try {
-    // formidable로 파일 파싱
-    const form = new IncomingForm({
-      maxFileSize: 10 * 1024 * 1024, // 10MB
-    });
+    // Body에서 base64 이미지 받기
+    const { image, filename, category } = req.body;
 
-    const [fields, files] = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        resolve([fields, files]);
-      });
-    });
-
-    const file = files.file?.[0] || files.file;
-    if (!file) {
+    if (!image) {
       return res.status(400).json({
         success: false,
-        message: '파일이 없습니다'
+        message: '이미지 데이터가 없습니다'
       });
     }
 
-    // 카테고리 확인
-    const category = fields.category?.[0] || fields.category || 'rentcar';
-
-    // 파일 읽기
-    const fileBuffer = fs.readFileSync(file.filepath);
+    // base64 디코딩
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
 
     // 파일명 생성
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
-    const extension = file.originalFilename?.split('.').pop()?.toLowerCase() || 'jpg';
-    const filename = `${category}/${timestamp}-${randomString}.${extension}`;
+    const ext = filename ? filename.split('.').pop() : 'jpg';
+    const categoryPath = category || 'rentcar';
+    const blobFilename = `${categoryPath}/${timestamp}-${randomString}.${ext}`;
 
     // Vercel Blob에 업로드
-    const blob = await put(filename, fileBuffer, {
+    const blob = await put(blobFilename, buffer, {
       access: 'public',
       addRandomSuffix: false,
     });
-
-    // 임시 파일 삭제
-    fs.unlinkSync(file.filepath);
 
     return res.status(200).json({
       success: true,
@@ -73,4 +60,4 @@ module.exports = async function handler(req, res) {
       error: error.message
     });
   }
-}
+};

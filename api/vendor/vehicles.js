@@ -1,21 +1,80 @@
 const { connect } = require('@planetscale/database');
-const { requireVendorAuth } = require('../../middleware/vendor-auth');
-
-const connection = connect({ url: process.env.DATABASE_URL });
+const jwt = require('jsonwebtoken');
 
 module.exports = async function handler(req, res) {
-  // 벤더 인증 및 권한 확인
-  const auth = await requireVendorAuth(req, res);
-  if (!auth.success) return; // 이미 응답 전송됨
+  // CORS 헤더
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  const { method } = req;
-  const vendorId = auth.vendorId;
-
-  console.log('🚗 [Vehicles API] 요청:', { method, vendorId, user: auth.email, isAdmin: auth.isAdmin });
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
   try {
-    if (method === 'GET') {
-      // 업체의 차량 목록 조회
+    // 벤더 인증
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: '인증 토큰이 필요합니다.'
+      });
+    }
+
+    const token = authHeader.substring(7);
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'travleap-secret-key-2024');
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: '유효하지 않은 토큰입니다.'
+      });
+    }
+
+    if (decoded.role !== 'vendor' && decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: '벤더 권한이 필요합니다.'
+      });
+    }
+
+    // DB 연결
+    const connection = connect({ url: process.env.DATABASE_URL });
+
+    // 벤더 ID 조회
+    let vendorId;
+    if (decoded.role === 'admin') {
+      vendorId = req.query.vendorId || req.body?.vendorId;
+    } else {
+      const vendorResult = await connection.execute(
+        'SELECT id, business_name, status FROM rentcar_vendors WHERE user_id = ? LIMIT 1',
+        [decoded.userId]
+      );
+
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: '등록된 벤더 정보가 없습니다.'
+        });
+      }
+
+      const vendor = vendorResult.rows[0];
+      if (vendor.status !== 'active') {
+        return res.status(403).json({
+          success: false,
+          message: '비활성화된 벤더 계정입니다.'
+        });
+      }
+
+      vendorId = vendor.id;
+    }
+
+    console.log('🚗 [Vehicles API] 요청:', { method: req.method, vendorId, user: decoded.email });
+
+    // GET: 차량 목록 조회
+    if (req.method === 'GET') {
       const result = await connection.execute(
         `SELECT
           id,
@@ -63,8 +122,6 @@ module.exports = async function handler(req, res) {
         [vendorId]
       );
 
-      console.log('✅ [Vehicles API] 차량 조회 완료:', result.rows?.length, '대');
-
       const vehicles = (result.rows || []).map(vehicle => ({
         ...vehicle,
         is_available: vehicle.is_available === 1,
@@ -89,8 +146,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    if (method === 'POST') {
-      // 새 차량 등록
+    // POST: 새 차량 등록
+    if (req.method === 'POST') {
       const {
         display_name,
         vehicle_class,
@@ -99,33 +156,20 @@ module.exports = async function handler(req, res) {
         fuel_type,
         daily_rate_krw,
         hourly_rate_krw,
-        weekly_rate_krw,
-        monthly_rate_krw,
         mileage_limit_km,
-        excess_mileage_fee_krw,
         is_available,
-        image_urls,
-        insurance_included,
-        insurance_options,
-        available_options,
-        pickup_location,
-        dropoff_location,
-        min_rental_days,
-        max_rental_days,
-        instant_booking
+        image_urls
       } = req.body;
 
       if (!display_name || !daily_rate_krw) {
-        return res.status(400).json({ success: false, message: '필수 항목을 입력해주세요.' });
+        return res.status(400).json({
+          success: false,
+          message: '필수 항목을 입력해주세요.'
+        });
       }
 
-      // 차량 코드 자동 생성
       const vehicle_code = `VEH_${vendorId}_${Date.now()}`;
-
-      // 이미지 배열을 JSON 문자열로 변환
       const imagesJson = JSON.stringify(image_urls || []);
-
-      // 시간당 요금 자동 계산 (입력값 없으면)
       const calculatedHourlyRate = hourly_rate_krw || Math.round(((daily_rate_krw / 24) * 1.2) / 1000) * 1000;
 
       const result = await connection.execute(
@@ -196,13 +240,17 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    return res.status(405).json({ success: false, message: '지원하지 않는 메서드입니다.' });
+    return res.status(405).json({
+      success: false,
+      message: '지원하지 않는 메서드입니다.'
+    });
+
   } catch (error) {
-    console.error('Vendor vehicles API error:', error);
+    console.error('❌ [Vehicles API] 오류:', error);
     return res.status(500).json({
       success: false,
       message: '서버 오류가 발생했습니다.',
       error: error.message
     });
   }
-}
+};
