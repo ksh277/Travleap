@@ -31,9 +31,25 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       const vendors = await connection.execute(`
         SELECT
-          v.*,
+          v.id,
+          v.user_id,
+          v.vendor_code,
+          v.business_name as name,
+          v.contact_name as contact_person,
+          v.contact_email,
+          v.contact_phone,
+          v.address,
+          v.description,
+          v.logo_url,
+          v.images,
+          v.cancellation_policy,
+          v.status,
+          v.is_verified,
+          v.created_at,
+          v.updated_at,
           COALESCE(vehicle_counts.total, 0) as total_vehicles,
           COALESCE(vehicle_counts.active, 0) as active_vehicles,
+          COALESCE(vehicle_counts.total, 0) as vehicle_count,
           COALESCE(booking_counts.total, 0) as total_bookings,
           COALESCE(booking_counts.confirmed, 0) as confirmed_bookings,
           0 as average_rating,
@@ -80,13 +96,38 @@ module.exports = async function handler(req, res) {
 
       console.log('✏️ [Vendor Update] 업체 정보 수정:', id, req.body);
 
+      // 기존 데이터 조회 (null 방지를 위해)
+      const existingVendor = await connection.execute(
+        'SELECT business_name, contact_name, contact_email, contact_phone, address, description, logo_url, cancellation_policy FROM rentcar_vendors WHERE id = ?',
+        [id]
+      );
+
+      if (!existingVendor.rows || existingVendor.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '업체를 찾을 수 없습니다.'
+        });
+      }
+
+      const existing = existingVendor.rows[0];
+
+      // NULL 값 방지 - 값이 없으면 기존 값 유지
+      const finalName = name || existing.business_name;
+      const finalContactPerson = contact_person || existing.contact_name;
+      const finalContactEmail = contact_email || existing.contact_email;
+      const finalContactPhone = contact_phone || existing.contact_phone;
+      const finalAddress = address !== undefined ? address : existing.address;
+      const finalDescription = description !== undefined ? description : existing.description;
+      const finalLogoUrl = logo_url !== undefined ? logo_url : existing.logo_url;
+      const finalCancellationPolicy = cancellation_policy !== undefined ? cancellation_policy : existing.cancellation_policy;
+
       // 1. PlanetScale rentcar_vendors 테이블 업데이트
       await connection.execute(
         `UPDATE rentcar_vendors
          SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,
              address = ?, description = ?, logo_url = ?, cancellation_policy = ?, updated_at = NOW()
          WHERE id = ?`,
-        [name, contact_person, contact_email, contact_phone, address, description, logo_url, cancellation_policy, id]
+        [finalName, finalContactPerson, finalContactEmail, finalContactPhone, finalAddress, finalDescription, finalLogoUrl, finalCancellationPolicy, id]
       );
 
       // 2. 이메일이 변경되었거나 비밀번호가 제공된 경우 Neon users 테이블 업데이트
