@@ -264,6 +264,150 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // PUT: 차량 수정
+    if (req.method === 'PUT') {
+      const { id, is_available, ...updateData } = req.body;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: '차량 ID가 필요합니다.'
+        });
+      }
+
+      // 소유권 확인
+      const ownerCheck = await connection.execute(
+        'SELECT vendor_id FROM rentcar_vehicles WHERE id = ?',
+        [id]
+      );
+
+      if (!ownerCheck.rows || ownerCheck.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '차량을 찾을 수 없습니다.'
+        });
+      }
+
+      if (ownerCheck.rows[0].vendor_id !== vendorId) {
+        return res.status(403).json({
+          success: false,
+          message: '권한이 없습니다.'
+        });
+      }
+
+      // 매핑
+      const mappedClass = updateData.vehicle_class ? (classMap[updateData.vehicle_class] || updateData.vehicle_class) : null;
+      const mappedFuel = updateData.fuel_type ? (fuelMap[updateData.fuel_type] || updateData.fuel_type) : null;
+      const mappedTrans = updateData.transmission_type ? (transMap[updateData.transmission_type] || updateData.transmission_type) : null;
+
+      // UPDATE 쿼리 생성
+      const updates = [];
+      const values = [];
+
+      if (updateData.display_name) {
+        updates.push('display_name = ?');
+        values.push(updateData.display_name);
+      }
+      if (mappedClass) {
+        updates.push('vehicle_class = ?');
+        values.push(mappedClass);
+      }
+      if (mappedFuel) {
+        updates.push('fuel_type = ?');
+        values.push(mappedFuel);
+      }
+      if (mappedTrans) {
+        updates.push('transmission = ?');
+        values.push(mappedTrans);
+      }
+      if (updateData.seating_capacity) {
+        updates.push('seating_capacity = ?');
+        values.push(updateData.seating_capacity);
+      }
+      if (updateData.daily_rate_krw) {
+        updates.push('daily_rate_krw = ?');
+        values.push(updateData.daily_rate_krw);
+      }
+      if (updateData.hourly_rate_krw) {
+        updates.push('hourly_rate_krw = ?');
+        values.push(updateData.hourly_rate_krw);
+      }
+      if (typeof is_available !== 'undefined') {
+        updates.push('is_active = ?');
+        values.push(is_available ? 1 : 0);
+      }
+      if (updateData.image_urls) {
+        updates.push('images = ?');
+        values.push(JSON.stringify(updateData.image_urls));
+        if (updateData.image_urls.length > 0) {
+          updates.push('thumbnail_url = ?');
+          values.push(updateData.image_urls[0]);
+        }
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: '수정할 데이터가 없습니다.'
+        });
+      }
+
+      updates.push('updated_at = NOW()');
+      values.push(id);
+
+      await connection.execute(
+        `UPDATE rentcar_vehicles SET ${updates.join(', ')} WHERE id = ?`,
+        values
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: '차량이 수정되었습니다.'
+      });
+    }
+
+    // DELETE: 차량 삭제
+    if (req.method === 'DELETE') {
+      const { id } = req.query;
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: '차량 ID가 필요합니다.'
+        });
+      }
+
+      // 소유권 확인
+      const ownerCheck = await connection.execute(
+        'SELECT vendor_id FROM rentcar_vehicles WHERE id = ?',
+        [id]
+      );
+
+      if (!ownerCheck.rows || ownerCheck.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '차량을 찾을 수 없습니다.'
+        });
+      }
+
+      if (ownerCheck.rows[0].vendor_id !== vendorId) {
+        return res.status(403).json({
+          success: false,
+          message: '권한이 없습니다.'
+        });
+      }
+
+      await connection.execute(
+        'DELETE FROM rentcar_vehicles WHERE id = ?',
+        [id]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: '차량이 삭제되었습니다.'
+      });
+    }
+
     return res.status(405).json({
       success: false,
       message: '지원하지 않는 메서드입니다.'
