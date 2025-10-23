@@ -168,6 +168,17 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // 한글 → 영문 매핑
+      const classMap = {
+        '소형': 'compact',
+        '중형': 'midsize',
+        '대형': 'fullsize',
+        '럭셔리': 'luxury',
+        'SUV': 'suv',
+        '밴': 'van'
+      };
+      const mappedClass = classMap[vehicle_class] || vehicle_class || 'midsize';
+
       const vehicle_code = `VEH_${vendorId}_${Date.now()}`;
       const imagesJson = JSON.stringify(image_urls || []);
       const calculatedHourlyRate = hourly_rate_krw || Math.round(((daily_rate_krw / 24) * 1.2) / 1000) * 1000;
@@ -210,7 +221,7 @@ module.exports = async function handler(req, res) {
           display_name.split(' ')[1] || display_name,
           new Date().getFullYear(),
           display_name,
-          vehicle_class || '중형',
+          mappedClass,
           '세단',
           fuel_type || '가솔린',
           transmission_type || '자동',
