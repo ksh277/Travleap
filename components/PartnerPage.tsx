@@ -87,7 +87,11 @@ const loadPartners = async (): Promise<Partner[]> => {
           try {
             const images = typeof partner.images === 'string' ? JSON.parse(partner.images) : partner.images;
             if (Array.isArray(images) && images.length > 0) {
-              imageUrl = images[0];
+              // Base64 이미지 제외 (너무 큼)
+              const validImage = images.find(img => img && !img.startsWith('data:image'));
+              if (validImage) {
+                imageUrl = validImage;
+              }
             }
           } catch (e) {
             console.warn('Failed to parse partner images:', e);
