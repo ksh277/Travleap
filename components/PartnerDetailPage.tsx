@@ -51,10 +51,19 @@ export function PartnerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [nearbyPartners, setNearbyPartners] = useState<Partner[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
 
   useEffect(() => {
     loadPartnerDetail();
   }, [id]);
+
+  // 파트너가 로드되면 근처 파트너 로드
+  useEffect(() => {
+    if (partner && partner.lat && partner.lng) {
+      loadNearbyPartners(partner.lat, partner.lng);
+    }
+  }, [partner]);
 
   // Google Map 초기화
   useEffect(() => {
@@ -145,6 +154,71 @@ export function PartnerDetailPage() {
       }, 10000);
     }
   }, [partner]);
+
+  // 거리 계산 함수 (Haversine formula)
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371; // 지구 반지름 (km)
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // km
+  };
+
+  // 근처 파트너 로드
+  const loadNearbyPartners = async (currentLat: number, currentLng: number) => {
+    setNearbyLoading(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${API_URL}/api/partners`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        // 현재 파트너를 제외하고 거리 계산
+        const partnersWithDistance = result.data
+          .filter((p: any) => p.id !== id && p.lat && p.lng) // 현재 파트너 제외 및 좌표 있는 것만
+          .map((p: any) => {
+            const distance = calculateDistance(
+              currentLat,
+              currentLng,
+              parseFloat(p.lat),
+              parseFloat(p.lng)
+            );
+
+            return {
+              id: p.id,
+              name: p.business_name,
+              category: p.services?.split(',')[0] || '여행',
+              address: p.business_address || p.location,
+              promotion: '',
+              description: p.description || '',
+              business_hours: p.business_hours || '',
+              phone: p.phone || '',
+              email: p.email || '',
+              images: p.images ? (typeof p.images === 'string' ? JSON.parse(p.images) : p.images) : [],
+              location: p.location || '',
+              rating: 0,
+              review_count: 0,
+              member_since: new Date(p.created_at).getFullYear().toString(),
+              lat: parseFloat(p.lat),
+              lng: parseFloat(p.lng),
+              distance: distance
+            };
+          })
+          .sort((a: any, b: any) => a.distance - b.distance) // 거리순 정렬
+          .slice(0, 4); // 가장 가까운 4개만
+
+        setNearbyPartners(partnersWithDistance);
+      }
+    } catch (error) {
+      console.error('Failed to load nearby partners:', error);
+    } finally {
+      setNearbyLoading(false);
+    }
+  };
 
   const loadPartnerDetail = async () => {
     if (!id) return;
@@ -411,10 +485,50 @@ export function PartnerDetailPage() {
           <div className="mt-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">근처 제휴 프로모션 추천</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Placeholder for nearby partners - will be populated dynamically */}
-              <div className="text-center text-gray-500 col-span-full py-8">
-                근처 프로모션을 불러오는 중...
-              </div>
+              {nearbyLoading ? (
+                <div className="text-center text-gray-500 col-span-full py-8">
+                  근처 프로모션을 불러오는 중...
+                </div>
+              ) : nearbyPartners.length === 0 ? (
+                <div className="text-center text-gray-500 col-span-full py-8">
+                  주변에 제휴 프로모션이 없습니다.
+                </div>
+              ) : (
+                nearbyPartners.map((nearbyPartner: any) => (
+                  <Card
+                    key={nearbyPartner.id}
+                    className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => navigate(`/partners/${nearbyPartner.id}`)}
+                  >
+                    <div className="relative h-48">
+                      <img
+                        src={nearbyPartner.images && nearbyPartner.images.length > 0
+                          ? nearbyPartner.images[0]
+                          : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
+                        alt={nearbyPartner.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {nearbyPartner.distance !== undefined && (
+                        <Badge className="absolute top-2 right-2 bg-blue-600 text-white">
+                          {nearbyPartner.distance < 1
+                            ? `${Math.round(nearbyPartner.distance * 1000)}m`
+                            : `${nearbyPartner.distance.toFixed(1)}km`}
+                        </Badge>
+                      )}
+                    </div>
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-lg mb-2 line-clamp-1">{nearbyPartner.name}</h3>
+                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                        <MapPin className="h-4 w-4" />
+                        <span className="line-clamp-1">{nearbyPartner.location}</span>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {nearbyPartner.category}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         </div>
