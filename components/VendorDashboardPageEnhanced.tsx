@@ -573,6 +573,44 @@ export function VendorDashboardPageEnhanced() {
         return;
       }
 
+      // 헤더 자동 감지 (컬럼 순서 자유롭게)
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+
+      // 컬럼 이름 매핑 (여러 가지 가능한 이름 허용)
+      const columnMap = {
+        display_name: ['차량명', '차량이름', '모델명', '차종명', 'name', 'vehicle_name', 'model'],
+        vehicle_class: ['차량등급', '등급', '차종', 'class', 'type', '클래스'],
+        seating_capacity: ['승차인원', '인승', '좌석수', 'seats', 'capacity', '탑승인원'],
+        transmission_type: ['변속기', '기어', 'transmission', '트랜스미션'],
+        fuel_type: ['연료', '연료타입', 'fuel', '연료종류'],
+        daily_rate_krw: ['일일요금', '1일요금', '일요금', 'daily_rate', 'price', '하루요금', '데일리요금'],
+        mileage_limit_km: ['주행제한', '주행거리제한', 'mileage_limit', 'mileage', '주행제한km'],
+        excess_mileage_fee_krw: ['초과요금', '초과비용', 'excess_fee', 'overage_fee']
+      };
+
+      // 헤더에서 각 필드의 인덱스 찾기
+      const findColumnIndex = (field: string): number => {
+        const possibleNames = columnMap[field].map(n => n.toLowerCase());
+        return headers.findIndex(h => possibleNames.includes(h));
+      };
+
+      const colIndexes = {
+        display_name: findColumnIndex('display_name'),
+        vehicle_class: findColumnIndex('vehicle_class'),
+        seating_capacity: findColumnIndex('seating_capacity'),
+        transmission_type: findColumnIndex('transmission_type'),
+        fuel_type: findColumnIndex('fuel_type'),
+        daily_rate_krw: findColumnIndex('daily_rate_krw'),
+        mileage_limit_km: findColumnIndex('mileage_limit_km'),
+        excess_mileage_fee_krw: findColumnIndex('excess_mileage_fee_krw')
+      };
+
+      // 필수 컬럼 체크
+      if (colIndexes.display_name === -1 || colIndexes.daily_rate_krw === -1) {
+        toast.error('필수 컬럼이 없습니다. "차량명"과 "일일요금" 컬럼은 반드시 필요합니다.');
+        return;
+      }
+
       const dataLines = lines.slice(1);
 
       let successCount = 0;
@@ -582,21 +620,17 @@ export function VendorDashboardPageEnhanced() {
       const validTransmissions = ['자동', '수동'];
       const validFuelTypes = ['가솔린', '디젤', '하이브리드', '전기'];
 
+      toast.info(`CSV 분석 중... (총 ${dataLines.length}건)`);
+
       for (let i = 0; i < dataLines.length; i++) {
         const line = dataLines[i];
-        const values = line.split(',');
+        const values = line.split(',').map(v => v.trim());
         const rowNumber = i + 2; // CSV row number (header is row 1)
 
         try {
-          // 컬럼 수 검증
-          if (values.length < 13) {
-            errors.push(`${rowNumber}행: 컬럼이 부족합니다 (${values.length}/13)`);
-            errorCount++;
-            continue;
-          }
 
-          // 차량명 검증
-          const displayName = values[0]?.trim();
+          // 헤더 인덱스를 사용해 데이터 추출
+          const displayName = values[colIndexes.display_name]?.trim();
           if (!displayName) {
             errors.push(`${rowNumber}행: 차량명이 비어있습니다`);
             errorCount++;
@@ -604,7 +638,7 @@ export function VendorDashboardPageEnhanced() {
           }
 
           // 차량등급 검증
-          const vehicleClass = values[4]?.trim() || '중형';
+          const vehicleClass = colIndexes.vehicle_class >= 0 ? (values[colIndexes.vehicle_class]?.trim() || '중형') : '중형';
           if (!validVehicleClasses.includes(vehicleClass)) {
             errors.push(`${rowNumber}행: 잘못된 차량등급 "${vehicleClass}" (허용: ${validVehicleClasses.join(', ')})`);
             errorCount++;
@@ -612,7 +646,7 @@ export function VendorDashboardPageEnhanced() {
           }
 
           // 변속기 검증
-          const transmission = values[6]?.trim() || '자동';
+          const transmission = colIndexes.transmission_type >= 0 ? (values[colIndexes.transmission_type]?.trim() || '자동') : '자동';
           if (!validTransmissions.includes(transmission)) {
             errors.push(`${rowNumber}행: 잘못된 변속기 "${transmission}" (허용: ${validTransmissions.join(', ')})`);
             errorCount++;
@@ -620,7 +654,7 @@ export function VendorDashboardPageEnhanced() {
           }
 
           // 연료 검증
-          const fuelType = values[7]?.trim() || '가솔린';
+          const fuelType = colIndexes.fuel_type >= 0 ? (values[colIndexes.fuel_type]?.trim() || '가솔린') : '가솔린';
           if (!validFuelTypes.includes(fuelType)) {
             errors.push(`${rowNumber}행: 잘못된 연료 "${fuelType}" (허용: ${validFuelTypes.join(', ')})`);
             errorCount++;
@@ -628,24 +662,29 @@ export function VendorDashboardPageEnhanced() {
           }
 
           // 일일요금 검증
-          const dailyRate = parseInt(values[8]);
+          const dailyRate = parseInt(values[colIndexes.daily_rate_krw]);
           if (isNaN(dailyRate) || dailyRate < 10000) {
             errors.push(`${rowNumber}행: 일일요금이 잘못되었습니다 (최소 10,000원)`);
             errorCount++;
             continue;
           }
 
+          // 선택적 컬럼들
+          const seatingCapacity = colIndexes.seating_capacity >= 0 ? parseInt(values[colIndexes.seating_capacity]) : 5;
+          const mileageLimit = colIndexes.mileage_limit_km >= 0 ? parseInt(values[colIndexes.mileage_limit_km]) : 200;
+          const excessFee = colIndexes.excess_mileage_fee_krw >= 0 ? parseInt(values[colIndexes.excess_mileage_fee_krw]) : 100;
+
           const vehicleData = {
             display_name: displayName,
             vehicle_class: vehicleClass,
-            seating_capacity: parseInt(values[5]) || 5,
+            seating_capacity: seatingCapacity || 5,
             transmission_type: transmission,
             fuel_type: fuelType,
             daily_rate_krw: dailyRate,
-            weekly_rate_krw: parseInt(values[9]) || dailyRate * 6,
-            monthly_rate_krw: parseInt(values[10]) || dailyRate * 25,
-            mileage_limit_km: parseInt(values[11]) || 200,
-            excess_mileage_fee_krw: parseInt(values[12]) || 100,
+            weekly_rate_krw: dailyRate * 6,
+            monthly_rate_krw: dailyRate * 25,
+            mileage_limit_km: mileageLimit || 200,
+            excess_mileage_fee_krw: excessFee || 100,
             is_available: true,
             image_urls: [
               'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
