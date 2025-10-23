@@ -5313,26 +5313,24 @@ export function AdminPage({}: AdminPageProps) {
                         console.log('🔍 주소 선택됨:', fullAddress);
                         console.log('📍 지역 정보:', { sido: data.sido, sigungu: data.sigungu });
 
-                        // 카카오 Maps SDK Geocoder로 좌표 검색
-                        if ((window as any).kakao && (window as any).kakao.maps && (window as any).kakao.maps.services) {
-                          const geocoder = new (window as any).kakao.maps.services.Geocoder();
+                        // 구글 Maps Geocoding API로 좌표 검색
+                        if ((window as any).google && (window as any).google.maps) {
+                          const geocoder = new (window as any).google.maps.Geocoder();
 
-                          geocoder.addressSearch(fullAddress, (result: any, status: any) => {
-                            console.log('📡 Kakao Geocoder 응답:', { result, status });
+                          geocoder.geocode({ address: fullAddress }, (results: any, status: any) => {
+                            console.log('📡 Google Geocoder 응답:', { results, status });
 
-                            if (status === (window as any).kakao.maps.services.Status.OK && result && result.length > 0) {
-                              const coords = result[0];
-                              const lat = parseFloat(coords.y);
-                              const lng = parseFloat(coords.x);
+                            if (status === 'OK' && results && results.length > 0) {
+                              const location = results[0].geometry.location;
+                              const lat = location.lat();
+                              const lng = location.lng();
 
                               console.log('✅ 좌표 검색 성공!', {
                                 address: fullAddress,
                                 lat: lat,
-                                lng: lng,
-                                coords: coords
+                                lng: lng
                               });
 
-                              // Kakao Maps SDK: x = 경도(longitude), y = 위도(latitude)
                               setNewPartner(prev => ({
                                 ...prev,
                                 business_address: fullAddress,
@@ -5344,7 +5342,7 @@ export function AdminPage({}: AdminPageProps) {
 
                               alert(`✅ 좌표 저장 완료!\n주소: ${fullAddress}\n위도: ${lat}\n경도: ${lng}`);
                             } else {
-                              console.error('❌ 좌표 검색 실패:', { fullAddress, status, result });
+                              console.error('❌ 좌표 검색 실패:', { fullAddress, status, results });
                               alert(`❌ 좌표를 찾을 수 없습니다.\n주소: ${fullAddress}\n상태: ${status}\n\n주소를 다시 확인해주세요.`);
 
                               setNewPartner(prev => ({
@@ -5358,12 +5356,11 @@ export function AdminPage({}: AdminPageProps) {
                             }
                           });
                         } else {
-                          console.error('❌ 카카오 Maps SDK가 로드되지 않았습니다.', {
-                            kakao: !!(window as any).kakao,
-                            maps: !!(window as any).kakao?.maps,
-                            services: !!(window as any).kakao?.maps?.services
+                          console.error('❌ 구글 Maps API가 로드되지 않았습니다.', {
+                            google: !!(window as any).google,
+                            maps: !!(window as any).google?.maps
                           });
-                          alert('❌ 카카오 지도 API가 로드되지 않았습니다.\n페이지를 새로고침 해주세요.');
+                          alert('❌ 구글 Maps API가 로드되지 않았습니다.\n페이지를 새로고침 해주세요.');
 
                           setNewPartner(prev => ({
                             ...prev,
