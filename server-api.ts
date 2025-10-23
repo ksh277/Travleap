@@ -2654,9 +2654,9 @@ function setupRoutes() {
   // ===== Vendor 차량 관리 API =====
 
   // Vendor 정보 조회 (자기 업체 정보)
-  app.get('/api/vendor/info', async (req, res) => {
+  app.get('/api/vendor/info', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -2682,9 +2682,9 @@ function setupRoutes() {
   });
 
   // Vendor 정보 수정 (자기 업체 정보)
-  app.put('/api/vendor/info', async (req, res) => {
+  app.put('/api/vendor/info', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -2719,9 +2719,9 @@ function setupRoutes() {
   });
 
   // Vendor 차량 목록 조회
-  app.get('/api/vendor/vehicles', async (req, res) => {
+  app.get('/api/vendor/vehicles', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -2755,9 +2755,9 @@ function setupRoutes() {
   });
 
   // Vendor 차량 등록
-  app.post('/api/vendor/vehicles', async (req, res) => {
+  app.post('/api/vendor/vehicles', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -2873,9 +2873,9 @@ function setupRoutes() {
   });
 
   // Vendor 차량 수정
-  app.put('/api/vendor/vehicles/:id', async (req, res) => {
+  app.put('/api/vendor/vehicles/:id', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3002,9 +3002,9 @@ function setupRoutes() {
   });
 
   // Vendor 차량 삭제
-  app.delete('/api/vendor/vehicles/:id', async (req, res) => {
+  app.delete('/api/vendor/vehicles/:id', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3051,9 +3051,9 @@ function setupRoutes() {
   });
 
   // Vendor 차량 예약 가능/불가 토글
-  app.patch('/api/vendor/vehicles/:id/availability', async (req, res) => {
+  app.patch('/api/vendor/vehicles/:id/availability', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3097,9 +3097,9 @@ function setupRoutes() {
   });
 
   // Vendor 예약 목록 조회
-  app.get('/api/vendor/bookings', async (req, res) => {
+  app.get('/api/vendor/bookings', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3147,9 +3147,9 @@ function setupRoutes() {
   });
 
   // Vendor 매출 통계 조회
-  app.get('/api/vendor/revenue', async (req, res) => {
+  app.get('/api/vendor/revenue', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3193,9 +3193,9 @@ function setupRoutes() {
   // ===== Lodging Vendor APIs =====
 
   // Lodging Vendor 정보 조회 (자기 업체 정보)
-  app.get('/api/vendor/lodging/info', async (req, res) => {
+  app.get('/api/vendor/lodging/info', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3221,9 +3221,9 @@ function setupRoutes() {
   });
 
   // Lodging 목록 조회 (Vendor 자기 숙소만)
-  app.get('/api/vendor/lodgings', async (req, res) => {
+  app.get('/api/vendor/lodgings', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3262,9 +3262,9 @@ function setupRoutes() {
   });
 
   // Lodging 생성
-  app.post('/api/vendor/lodgings', async (req, res) => {
+  app.post('/api/vendor/lodgings', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3316,9 +3316,9 @@ function setupRoutes() {
   });
 
   // Lodging 수정
-  app.put('/api/vendor/lodgings/:id', async (req, res) => {
+  app.put('/api/vendor/lodgings/:id', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3372,9 +3372,9 @@ function setupRoutes() {
   });
 
   // Lodging 삭제
-  app.delete('/api/vendor/lodgings/:id', async (req, res) => {
+  app.delete('/api/vendor/lodgings/:id', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3406,9 +3406,9 @@ function setupRoutes() {
   });
 
   // Lodging 예약 목록 조회 (Vendor 자기 숙소 예약만)
-  app.get('/api/vendor/lodging/bookings', async (req, res) => {
+  app.get('/api/vendor/lodging/bookings', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
       }
@@ -3449,9 +3449,9 @@ function setupRoutes() {
   });
 
   // CSV 업로드용 - Lodging 중복 체크
-  app.get('/api/vendor/lodgings/check', async (req, res) => {
+  app.get('/api/vendor/lodgings/check', authenticate, requireRole('vendor'), async (req, res) => {
     try {
-      const userId = req.query.userId || req.headers['x-user-id'];
+      const userId = req.user!.userId;
       const name = req.query.name as string;
 
       if (!userId || !name) {
