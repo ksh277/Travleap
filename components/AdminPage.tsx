@@ -583,6 +583,7 @@ export function AdminPage({}: AdminPageProps) {
     location: '',
     services: '',
     base_price: '',
+    base_price_text: '',
     detailed_address: '',
     description: '',
     images: [] as string[],
@@ -5477,6 +5478,34 @@ export function AdminPage({}: AdminPageProps) {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">이미지</label>
               <div className="space-y-4">
+                {/* 이미지 URL 직접 입력 */}
+                <div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="이미지 URL 입력 (https://...)"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const url = e.currentTarget.value.trim();
+                          if (url.startsWith('http://') || url.startsWith('https://')) {
+                            setNewPartner(prev => ({
+                              ...prev,
+                              images: [...(Array.isArray(prev.images) ? prev.images : []), url]
+                            }));
+                            e.currentTarget.value = '';
+                            toast.success('이미지가 추가되었습니다.');
+                          } else {
+                            toast.error('올바른 URL 형식이 아닙니다 (http:// 또는 https://로 시작해야 함)');
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    이미지 URL을 입력하고 Enter를 누르세요. 예: https://images.unsplash.com/photo-...
+                  </p>
+                </div>
+
                 {/* 미디어 라이브러리 선택 버튼 */}
                 <div>
                   <div className="flex gap-2">
@@ -5532,7 +5561,7 @@ export function AdminPage({}: AdminPageProps) {
                                   console.log('✅ Blob 업로드 성공:', result.url);
                                 } else {
                                   console.error('❌ Blob 업로드 실패:', result.error);
-                                  toast.error(`이미지 업로드 실패: ${file.name}`);
+                                  toast.error(`이미지 업로드 실패: ${file.name} - ${result.message || result.error}`);
                                 }
                               } catch (error) {
                                 console.error('❌ 업로드 오류:', error);
@@ -5548,6 +5577,8 @@ export function AdminPage({}: AdminPageProps) {
                               toast.success(`${newImages.length}개 이미지가 업로드되었습니다.`);
                             }
                           }
+                          // Reset file input
+                          e.target.value = '';
                         }}
                       />
                     </label>
