@@ -5310,49 +5310,69 @@ export function AdminPage({}: AdminPageProps) {
                         // 도로명 주소 또는 지번 주소 선택
                         const fullAddress = data.roadAddress || data.jibunAddress;
 
+                        console.log('🔍 주소 선택됨:', fullAddress);
+                        console.log('📍 지역 정보:', { sido: data.sido, sigungu: data.sigungu });
+
                         // 카카오 Maps SDK Geocoder로 좌표 검색
-                        if ((window as any).kakao && (window as any).kakao.maps) {
+                        if ((window as any).kakao && (window as any).kakao.maps && (window as any).kakao.maps.services) {
                           const geocoder = new (window as any).kakao.maps.services.Geocoder();
 
                           geocoder.addressSearch(fullAddress, (result: any, status: any) => {
-                            if (status === (window as any).kakao.maps.services.Status.OK) {
+                            console.log('📡 Kakao Geocoder 응답:', { result, status });
+
+                            if (status === (window as any).kakao.maps.services.Status.OK && result && result.length > 0) {
                               const coords = result[0];
+                              const lat = parseFloat(coords.y);
+                              const lng = parseFloat(coords.x);
+
+                              console.log('✅ 좌표 검색 성공!', {
+                                address: fullAddress,
+                                lat: lat,
+                                lng: lng,
+                                coords: coords
+                              });
+
                               // Kakao Maps SDK: x = 경도(longitude), y = 위도(latitude)
-                              setNewPartner({
-                                ...newPartner,
+                              setNewPartner(prev => ({
+                                ...prev,
                                 business_address: fullAddress,
                                 location: data.sido + ' ' + data.sigungu,
                                 detailed_address: fullAddress,
-                                lat: parseFloat(coords.y),  // 위도
-                                lng: parseFloat(coords.x)   // 경도
-                              });
-                              console.log('✅ 좌표 저장 성공:', {
-                                address: fullAddress,
-                                lat: coords.y,
-                                lng: coords.x
-                              });
+                                lat: lat,  // 위도
+                                lng: lng   // 경도
+                              }));
+
+                              alert(`✅ 좌표 저장 완료!\n주소: ${fullAddress}\n위도: ${lat}\n경도: ${lng}`);
                             } else {
-                              console.warn('❌ 좌표 검색 실패:', fullAddress, status);
-                              setNewPartner({
-                                ...newPartner,
+                              console.error('❌ 좌표 검색 실패:', { fullAddress, status, result });
+                              alert(`❌ 좌표를 찾을 수 없습니다.\n주소: ${fullAddress}\n상태: ${status}\n\n주소를 다시 확인해주세요.`);
+
+                              setNewPartner(prev => ({
+                                ...prev,
                                 business_address: fullAddress,
                                 location: data.sido + ' ' + data.sigungu,
                                 detailed_address: fullAddress,
                                 lat: null,
                                 lng: null
-                              });
+                              }));
                             }
                           });
                         } else {
-                          console.error('카카오 Maps SDK가 로드되지 않았습니다.');
-                          setNewPartner({
-                            ...newPartner,
+                          console.error('❌ 카카오 Maps SDK가 로드되지 않았습니다.', {
+                            kakao: !!(window as any).kakao,
+                            maps: !!(window as any).kakao?.maps,
+                            services: !!(window as any).kakao?.maps?.services
+                          });
+                          alert('❌ 카카오 지도 API가 로드되지 않았습니다.\n페이지를 새로고침 해주세요.');
+
+                          setNewPartner(prev => ({
+                            ...prev,
                             business_address: fullAddress,
                             location: data.sido + ' ' + data.sigungu,
                             detailed_address: fullAddress,
                             lat: null,
                             lng: null
-                          });
+                          }));
                         }
                       }
                     }).open();
