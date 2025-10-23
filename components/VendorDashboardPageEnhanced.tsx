@@ -1875,6 +1875,42 @@ export function VendorDashboardPageEnhanced() {
                     placeholder="https://..."
                   />
                 </div>
+
+                {/* 업체 이미지 업로드 */}
+                <div>
+                  <Label>업체 이미지</Label>
+                  <p className="text-sm text-gray-500 mb-2">
+                    업체 상세페이지와 카테고리 카드에 표시될 이미지를 업로드하세요. (최대 5개)
+                  </p>
+                  {isEditingInfo ? (
+                    <ImageUploader
+                      category="rentcar"
+                      maxImages={5}
+                      images={editedInfo.images || vendorInfo.images || []}
+                      onImagesChange={(urls) => {
+                        setEditedInfo({ ...editedInfo, images: urls });
+                      }}
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      {vendorInfo.images && vendorInfo.images.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {vendorInfo.images.map((img, idx) => (
+                            <img
+                              key={idx}
+                              src={img}
+                              alt={`업체 이미지 ${idx + 1}`}
+                              className="w-full h-32 object-cover rounded"
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400">등록된 이미지가 없습니다</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <Label>취소/환불 정책</Label>
                   <Textarea

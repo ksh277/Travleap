@@ -72,9 +72,25 @@ module.exports = async function handler(req, res) {
         ORDER BY v.created_at DESC
       `);
 
+      // images 필드 파싱 (text 타입이므로 JSON 파싱 필요)
+      const parsedVendors = (vendors.rows || []).map(vendor => {
+        let images = [];
+        if (vendor.images) {
+          try {
+            images = typeof vendor.images === 'string' ? JSON.parse(vendor.images) : vendor.images;
+          } catch (e) {
+            console.error('Failed to parse vendor images:', vendor.id, e);
+          }
+        }
+        return {
+          ...vendor,
+          images: Array.isArray(images) ? images : []
+        };
+      });
+
       return res.status(200).json({
         success: true,
-        data: vendors.rows || []
+        data: parsedVendors
       });
     }
 
@@ -89,6 +105,7 @@ module.exports = async function handler(req, res) {
         address,
         description,
         logo_url,
+        images,
         cancellation_policy,
         old_email,
         new_password
@@ -98,7 +115,7 @@ module.exports = async function handler(req, res) {
 
       // 기존 데이터 조회 (null 방지를 위해)
       const existingVendor = await connection.execute(
-        'SELECT business_name, contact_name, contact_email, contact_phone, address, description, logo_url, cancellation_policy FROM rentcar_vendors WHERE id = ?',
+        'SELECT business_name, contact_name, contact_email, contact_phone, address, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
         [id]
       );
 
@@ -121,13 +138,19 @@ module.exports = async function handler(req, res) {
       const finalLogoUrl = logo_url !== undefined ? logo_url : existing.logo_url;
       const finalCancellationPolicy = cancellation_policy !== undefined ? cancellation_policy : existing.cancellation_policy;
 
+      // images 처리: 배열을 JSON 문자열로 변환
+      let finalImages = existing.images;
+      if (images !== undefined) {
+        finalImages = Array.isArray(images) ? JSON.stringify(images) : images;
+      }
+
       // 1. PlanetScale rentcar_vendors 테이블 업데이트
       await connection.execute(
         `UPDATE rentcar_vendors
          SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,
-             address = ?, description = ?, logo_url = ?, cancellation_policy = ?, updated_at = NOW()
+             address = ?, description = ?, logo_url = ?, images = ?, cancellation_policy = ?, updated_at = NOW()
          WHERE id = ?`,
-        [finalName, finalContactPerson, finalContactEmail, finalContactPhone, finalAddress, finalDescription, finalLogoUrl, finalCancellationPolicy, id]
+        [finalName, finalContactPerson, finalContactEmail, finalContactPhone, finalAddress, finalDescription, finalLogoUrl, finalImages, finalCancellationPolicy, id]
       );
 
       // 2. 이메일이 변경되었거나 비밀번호가 제공된 경우 Neon users 테이블 업데이트

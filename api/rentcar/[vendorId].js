@@ -53,10 +53,18 @@ module.exports = async function handler(req, res) {
       };
     });
 
+    // vendor images 파싱 (차량과 동일한 방식)
+    const vendorImages = vendor.images
+      ? (typeof vendor.images === 'string' ? JSON.parse(vendor.images) : vendor.images)
+      : [];
+
     return res.status(200).json({
       success: true,
       data: {
-        vendor,
+        vendor: {
+          ...vendor,
+          images: Array.isArray(vendorImages) ? vendorImages : []
+        },
         vehicles
       }
     });

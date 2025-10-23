@@ -75,6 +75,7 @@ interface VendorData {
     latitude?: number;
     longitude?: number;
     cancellation_policy?: string;
+    images?: string[];
   };
   vehicles: Vehicle[];
   total_vehicles: number;
@@ -144,8 +145,13 @@ export function RentcarVendorDetailPage() {
     fetchVendorData();
   }, [vendorId]);
 
-  // 이미지 갤러리용 - 모든 차량의 이미지 수집
-  const allImages = vendorData?.vehicles.flatMap(v => v.images || []) || [];
+  // 이미지 갤러리용 - 벤더 이미지 우선, 없으면 차량 이미지 fallback
+  const allImages = (() => {
+    if (vendorData?.vendor?.images && vendorData.vendor.images.length > 0) {
+      return vendorData.vendor.images;
+    }
+    return vendorData?.vehicles.flatMap(v => v.images || []) || [];
+  })();
 
   // 이미지 네비게이션
   const nextImage = () => {

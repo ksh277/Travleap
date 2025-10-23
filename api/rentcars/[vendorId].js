@@ -61,6 +61,11 @@ module.exports = async function handler(req, res) {
       };
     });
 
+    // vendor images 파싱 (차량과 동일한 방식)
+    const vendorImages = vendor.images
+      ? (typeof vendor.images === 'string' ? JSON.parse(vendor.images) : vendor.images)
+      : [];
+
     // vendor 정보에 모든 필드 포함
     const vendorWithLocation = {
       ...vendor,
@@ -69,6 +74,7 @@ module.exports = async function handler(req, res) {
       email: vendor.contact_email,
       address: vendor.address || '제주특별자치도 제주시 연동',
       cancellation_policy: vendor.cancellation_policy || '예약 3일 전: 전액 환불\n예약 1-2일 전: 50% 환불\n예약 당일: 환불 불가',
+      images: Array.isArray(vendorImages) ? vendorImages : [],
       latitude: 33.4996,
       longitude: 126.5312
     };
