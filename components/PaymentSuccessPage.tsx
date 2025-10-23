@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { approveTossPayment } from '../utils/toss-payment';
-import { api } from '../utils/api';
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
@@ -33,20 +32,32 @@ export default function PaymentSuccessPage() {
 
         // 2. DB에 결제 정보 저장
         if (bookingId) {
-          await api.post('/api/rentcar/bookings/payment', {
-            bookingId: parseInt(bookingId),
-            paymentKey: paymentResult.paymentKey,
-            orderId: paymentResult.orderId,
-            amount: paymentResult.totalAmount,
-            method: paymentResult.method,
-            status: paymentResult.status,
-            approvedAt: paymentResult.approvedAt
+          await fetch('/api/rentcar/bookings/payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              bookingId: parseInt(bookingId),
+              paymentKey: paymentResult.paymentKey,
+              orderId: paymentResult.orderId,
+              amount: paymentResult.totalAmount,
+              method: paymentResult.method,
+              status: paymentResult.status,
+              approvedAt: paymentResult.approvedAt
+            })
           });
 
-          // 3. 예약 상태 업데이트 (confirmed)
-          await api.put(`/api/rentcar/bookings/${bookingId}`, {
-            booking_status: 'confirmed',
-            payment_status: 'completed'
+          // 3. 예약 상태 업데이트 (confirmed) + 차량 예약 불가 처리
+          await fetch(`/api/rentcar/bookings/${bookingId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              booking_status: 'confirmed',
+              payment_status: 'completed'
+            })
           });
         }
 
