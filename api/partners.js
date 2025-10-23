@@ -26,9 +26,11 @@ module.exports = async function handler(req, res) {
     const result = await connection.execute(`
       SELECT
         p.*,
-        (SELECT COUNT(DISTINCT l.id) FROM listings l WHERE l.partner_id = p.id) as listing_count
+        COUNT(DISTINCT l.id) as listing_count
       FROM partners p
+      LEFT JOIN listings l ON p.id = l.partner_id
       WHERE p.is_active = 1 AND p.status = 'approved'
+      GROUP BY p.id
       ORDER BY
         p.is_featured DESC,
         p.created_at DESC
