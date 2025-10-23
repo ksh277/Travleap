@@ -68,13 +68,13 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(
         `SELECT
           id,
-          booking_code,
+          booking_number,
           vendor_id,
           vehicle_id,
           user_id,
           pickup_date,
           dropoff_date,
-          total_krw,
+          total_amount_krw as total_krw,
           status,
           created_at
         FROM rentcar_bookings

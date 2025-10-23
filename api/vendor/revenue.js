@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       // 총 매출
       const revenueResult = await connection.execute(
-        `SELECT SUM(total_krw) as total_revenue FROM rentcar_bookings WHERE vendor_id = ? AND status IN ('confirmed', 'completed')`,
+        `SELECT SUM(total_amount_krw) as total_revenue FROM rentcar_bookings WHERE vendor_id = ? AND status IN ('confirmed', 'completed')`,
         [vendorId]
       );
 
