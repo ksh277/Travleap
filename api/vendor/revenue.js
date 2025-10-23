@@ -48,24 +48,30 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
-      // 총 매출
-      const revenueResult = await connection.execute(
-        `SELECT SUM(total_krw) as total_revenue FROM rentcar_bookings WHERE vendor_id = ? AND status IN ('confirmed', 'completed')`,
+      // 날짜별 매출 (최근 7일)
+      const dailyRevenueResult = await connection.execute(
+        `SELECT
+          DATE(pickup_datetime) as date,
+          SUM(total_krw) as revenue
+        FROM rentcar_bookings
+        WHERE vendor_id = ? AND status IN ('confirmed', 'completed')
+          AND pickup_datetime >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        GROUP BY DATE(pickup_datetime)
+        ORDER BY date DESC`,
         [vendorId]
       );
 
-      // 총 예약 수
-      const bookingsResult = await connection.execute(
-        `SELECT COUNT(*) as total_bookings FROM rentcar_bookings WHERE vendor_id = ?`,
-        [vendorId]
-      );
+      // 배열이 비어있으면 빈 배열 반환
+      const revenueArray = dailyRevenueResult.rows && dailyRevenueResult.rows.length > 0
+        ? dailyRevenueResult.rows.map(row => ({
+            date: row.date,
+            revenue: Number(row.revenue || 0)
+          }))
+        : [];
 
       return res.status(200).json({
         success: true,
-        data: {
-          total_revenue: Number(revenueResult.rows[0]?.total_revenue || 0),
-          total_bookings: Number(bookingsResult.rows[0]?.total_bookings || 0)
-        }
+        data: revenueArray
       });
     }
 
