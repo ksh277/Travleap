@@ -81,11 +81,13 @@ module.exports = async function handler(req, res) {
           b.customer_phone,
           b.customer_email,
           b.status,
+          b.payment_status,
           b.created_at,
           v.display_name as vehicle_name
         FROM rentcar_bookings b
         LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
         WHERE b.vendor_id = ?
+          AND b.payment_status IN ('completed', 'paid')
         ORDER BY b.created_at DESC`,
         [vendorId]
       );
@@ -93,6 +95,99 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         success: true,
         data: result.rows || []
+      });
+    }
+
+    // DELETE: 예약 삭제
+    if (req.method === 'DELETE') {
+      const bookingId = req.query.id || req.url.split('/').pop();
+
+      // 예약이 해당 벤더의 것인지 확인
+      const checkResult = await connection.execute(
+        'SELECT id, vendor_id, status FROM rentcar_bookings WHERE id = ?',
+        [bookingId]
+      );
+
+      if (!checkResult.rows || checkResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '예약을 찾을 수 없습니다.'
+        });
+      }
+
+      if (decoded.role !== 'admin' && checkResult.rows[0].vendor_id !== vendorId) {
+        return res.status(403).json({
+          success: false,
+          message: '해당 예약에 대한 권한이 없습니다.'
+        });
+      }
+
+      // 예약 삭제 (실제로는 status를 deleted로 변경)
+      await connection.execute(
+        'UPDATE rentcar_bookings SET status = ?, updated_at = NOW() WHERE id = ?',
+        ['deleted', bookingId]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: '예약이 삭제되었습니다.'
+      });
+    }
+
+    // POST: 환불 처리 (?action=refund)
+    if (req.method === 'POST' && req.query.action === 'refund') {
+      const bookingId = req.query.id;
+      const { refund_amount, refund_reason } = req.body;
+
+      // 예약이 해당 벤더의 것인지 확인
+      const checkResult = await connection.execute(
+        'SELECT id, vendor_id, status, payment_status, total_krw FROM rentcar_bookings WHERE id = ?',
+        [bookingId]
+      );
+
+      if (!checkResult.rows || checkResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '예약을 찾을 수 없습니다.'
+        });
+      }
+
+      const booking = checkResult.rows[0];
+
+      if (decoded.role !== 'admin' && booking.vendor_id !== vendorId) {
+        return res.status(403).json({
+          success: false,
+          message: '해당 예약에 대한 권한이 없습니다.'
+        });
+      }
+
+      if (booking.payment_status !== 'completed' && booking.payment_status !== 'paid') {
+        return res.status(400).json({
+          success: false,
+          message: '결제가 완료된 예약만 환불할 수 있습니다.'
+        });
+      }
+
+      // 환불 처리
+      await connection.execute(
+        `UPDATE rentcar_bookings
+         SET status = 'cancelled',
+             payment_status = 'refunded',
+             refund_amount_krw = ?,
+             refund_reason = ?,
+             refunded_at = NOW(),
+             updated_at = NOW()
+         WHERE id = ?`,
+        [refund_amount || booking.total_krw, refund_reason || '벤더 요청', bookingId]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: '환불 처리가 완료되었습니다.',
+        data: {
+          booking_id: bookingId,
+          refund_amount: refund_amount || booking.total_krw
+        }
       });
     }
 

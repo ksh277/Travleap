@@ -276,6 +276,79 @@ export function VendorDashboardPageEnhanced() {
     }
   };
 
+  // 예약 삭제
+  const handleDeleteBooking = async (booking: Booking) => {
+    if (!confirm(`예약번호 #${booking.id}를 삭제하시겠습니까?\n\n고객: ${booking.customer_name}\n차량: ${booking.vehicle_name}\n\n이 작업은 되돌릴 수 없습니다.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      if (!token) {
+        toast.error('인증 토큰이 없습니다.');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/bookings?id=${booking.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('예약이 삭제되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.message || '예약 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('예약 삭제 오류:', error);
+      toast.error('예약 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 예약 환불
+  const handleRefundBooking = async (booking: Booking) => {
+    if (!confirm(`예약번호 #${booking.id}를 환불 처리하시겠습니까?\n\n고객: ${booking.customer_name}\n금액: ₩${booking.total_amount.toLocaleString()}\n\n환불 후 예약 상태가 'cancelled'로 변경됩니다.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      if (!token) {
+        toast.error('인증 토큰이 없습니다.');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/bookings?id=${booking.id}&action=refund`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          refund_amount: booking.total_amount,
+          refund_reason: '벤더 요청 환불'
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('환불 처리가 완료되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.message || '환불 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('환불 처리 오류:', error);
+      toast.error('환불 처리 중 오류가 발생했습니다.');
+    }
+  };
+
   // 업체 정보 로드
   useEffect(() => {
     loadVendorData();
@@ -1767,15 +1840,33 @@ export function VendorDashboardPageEnhanced() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {['confirmed', 'in_progress'].includes(booking.status) && (
+                            <div className="flex gap-2">
+                              {['confirmed', 'in_progress'].includes(booking.status) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleProcessReturn(booking)}
+                                >
+                                  반납 처리
+                                </Button>
+                              )}
+                              {booking.status === 'completed' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRefundBooking(booking)}
+                                >
+                                  환불
+                                </Button>
+                              )}
                               <Button
-                                variant="outline"
+                                variant="destructive"
                                 size="sm"
-                                onClick={() => handleProcessReturn(booking)}
+                                onClick={() => handleDeleteBooking(booking)}
                               >
-                                반납 처리
+                                <Trash2 className="w-4 h-4" />
                               </Button>
-                            )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
