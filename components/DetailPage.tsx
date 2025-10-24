@@ -1984,7 +1984,7 @@ export function DetailPage() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setQuantity(quantity + 1)}
-                                disabled={quantity >= (item?.maxCapacity || 100)}
+                                disabled={false}
                                 className="h-8 w-8 p-0"
                               >
                                 +
