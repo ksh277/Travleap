@@ -17,9 +17,20 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const connection = connect({ url: process.env.DATABASE_URL });
+  // DATABASE_URL 체크
+  if (!process.env.DATABASE_URL) {
+    console.error('❌ DATABASE_URL 환경 변수가 설정되지 않았습니다!');
+    return res.status(500).json({
+      success: false,
+      error: 'Database configuration error',
+      message: 'DATABASE_URL is not configured'
+    });
+  }
 
+  let connection;
   try {
+    connection = connect({ url: process.env.DATABASE_URL });
+
     // GET - 객실 목록 조회 (listings 테이블에서 category='stay')
     if (req.method === 'GET') {
       const { vendor_id } = req.query;
@@ -62,9 +73,9 @@ module.exports = async function handler(req, res) {
         created_at,
         updated_at
       FROM listings
-      WHERE category = 'stay' AND category_id = ${STAY_CATEGORY_ID}`;
+      WHERE category = 'stay' AND category_id = ?`;
 
-      let params = [];
+      let params = [STAY_CATEGORY_ID];
 
       if (vendor_id) {
         query += ' AND partner_id = ?';
@@ -73,14 +84,11 @@ module.exports = async function handler(req, res) {
 
       query += ' ORDER BY created_at DESC';
 
-      console.log(`🔍 실행할 쿼리:`, { query, params });
+      console.log(`🔍 실행할 쿼리:`, { vendor_id, params_count: params.length });
 
       const result = await connection.execute(query, params);
 
-      console.log(`✅ 조회 결과:`, {
-        count: result.rows?.length || 0,
-        rooms: result.rows
-      });
+      console.log(`✅ 조회 결과: ${result.rows?.length || 0}개 객실`);
 
       return res.status(200).json({
         success: true,
@@ -121,6 +129,8 @@ module.exports = async function handler(req, res) {
         max_nights
       } = req.body;
 
+      console.log(`📥 [POST] 객실 생성 요청 (vendor_id: ${vendor_id}, room_name: ${room_name})`);
+
       // 필수 필드 검증
       if (!vendor_id || !room_code || !room_name) {
         return res.status(400).json({
@@ -131,8 +141,8 @@ module.exports = async function handler(req, res) {
 
       // 벤더 존재 확인
       const vendorCheck = await connection.execute(
-        'SELECT id FROM partners WHERE id = ? AND partner_type = "lodging"',
-        [vendor_id]
+        'SELECT id FROM partners WHERE id = ? AND partner_type = ?',
+        [vendor_id, 'lodging']
       );
 
       if (!vendorCheck.rows || vendorCheck.rows.length === 0) {
@@ -144,8 +154,8 @@ module.exports = async function handler(req, res) {
 
       // 중복 room_code 확인
       const existingRoom = await connection.execute(
-        'SELECT id FROM listings WHERE partner_id = ? AND room_code = ? AND category = "stay"',
-        [vendor_id, room_code]
+        'SELECT id FROM listings WHERE partner_id = ? AND room_code = ? AND category = ?',
+        [vendor_id, room_code, 'stay']
       );
 
       if (existingRoom.rows && existingRoom.rows.length > 0) {
@@ -239,7 +249,7 @@ module.exports = async function handler(req, res) {
         ]
       );
 
-      console.log('Accommodation room created in listings table:', result);
+      console.log('✅ 객실 생성 완료:', { id: result.insertId, room_name });
 
       return res.status(201).json({
         success: true,
@@ -258,7 +268,14 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Accommodation rooms API error:', error);
+    console.error('❌ Accommodation rooms API error:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno
+    });
+
     return res.status(500).json({
       success: false,
       error: '서버 오류가 발생했습니다.',

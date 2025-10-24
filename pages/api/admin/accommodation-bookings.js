@@ -20,10 +20,23 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  const connection = connect({ url: process.env.DATABASE_URL });
+  // DATABASE_URL 체크
+  if (!process.env.DATABASE_URL) {
+    console.error('❌ DATABASE_URL 환경 변수가 설정되지 않았습니다!');
+    return res.status(500).json({
+      success: false,
+      error: 'Database configuration error',
+      message: 'DATABASE_URL is not configured'
+    });
+  }
 
+  let connection;
   try {
+    connection = connect({ url: process.env.DATABASE_URL });
+
     const { vendor_id } = req.query;
+
+    console.log(`📥 [GET] 숙박 예약 목록 조회 (vendor_id: ${vendor_id})`);
 
     let query = `
       SELECT
@@ -41,10 +54,10 @@ module.exports = async function handler(req, res) {
       JOIN listings l ON b.listing_id = l.id
       JOIN partners p ON l.partner_id = p.id
       LEFT JOIN users u ON b.user_id = u.id
-      WHERE l.category = 'stay' AND l.category_id = ${STAY_CATEGORY_ID} AND p.partner_type = 'lodging'
+      WHERE l.category = 'stay' AND l.category_id = ? AND p.partner_type = 'lodging'
     `;
 
-    const params = [];
+    const params = [STAY_CATEGORY_ID];
 
     // 특정 벤더의 예약만 조회하는 경우
     if (vendor_id) {
@@ -56,6 +69,8 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(query, params);
 
+    console.log(`✅ ${result.rows?.length || 0}개 예약 조회 완료`);
+
     // customer_info JSON 파싱
     const bookings = (result.rows || []).map(booking => {
       let customerInfo = {};
@@ -66,7 +81,7 @@ module.exports = async function handler(req, res) {
             : booking.customer_info;
         }
       } catch (e) {
-        // JSON 파싱 실패시 빈 객체
+        console.warn('⚠️ customer_info JSON 파싱 실패:', booking.id);
       }
 
       return {
@@ -81,8 +96,16 @@ module.exports = async function handler(req, res) {
       success: true,
       data: bookings
     });
+
   } catch (error) {
-    console.error('Bookings API error:', error);
+    console.error('❌ Bookings API error:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno
+    });
+
     return res.status(500).json({
       success: false,
       error: '예약 조회 중 오류가 발생했습니다.',

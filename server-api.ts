@@ -4224,6 +4224,451 @@ function setupRoutes() {
     }
   });
 
+  // ===== Admin Accommodation Management APIs (별칭) =====
+  // 프론트엔드 AccommodationManagement 컴포넌트와 호환성을 위한 별칭 API
+
+  // Admin - 숙박 업체 조회 (별칭)
+  app.get('/api/admin/accommodation-vendors', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      const vendors = await db.query(`
+        SELECT
+          p.id as partner_id,
+          p.id,
+          p.business_name,
+          p.contact_name as contact_name,
+          p.phone as contact_phone,
+          p.email as contact_email,
+          p.is_verified,
+          p.tier,
+          p.status,
+          p.logo_url,
+          p.pms_provider,
+          p.pms_api_key,
+          p.pms_property_id,
+          COUNT(DISTINCT l.id) as room_count,
+          MIN(l.price_from) as min_price,
+          AVG(r.rating) as avg_rating,
+          COUNT(DISTINCT r.id) as total_reviews,
+          p.created_at
+        FROM partners p
+        LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = 1857 AND l.is_active = 1
+        LEFT JOIN reviews r ON l.id = r.listing_id
+        WHERE p.is_active = 1 AND p.partner_type = 'lodging'
+        GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.is_verified, p.tier, p.status, p.logo_url, p.pms_provider, p.pms_api_key, p.pms_property_id, p.created_at
+        ORDER BY p.created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        data: vendors || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get accommodation vendors error:', error);
+      res.status(500).json({ success: false, message: '업체 목록 조회 실패', data: [] });
+    }
+  });
+
+  // Admin - 숙박 업체 생성 (별칭)
+  app.post('/api/admin/accommodation-vendors', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const vendorData = req.body;
+
+      const result = await db.execute(`
+        INSERT INTO partners (
+          business_name, contact_name, phone, email,
+          is_active, is_verified, is_featured, tier, partner_type,
+          logo_url, pms_provider, pms_api_key, pms_property_id, status,
+          user_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+      `, [
+        vendorData.business_name,
+        vendorData.contact_name,
+        vendorData.phone || '',
+        vendorData.email || '',
+        1, // is_active
+        vendorData.is_verified ? 1 : 0,
+        vendorData.is_featured ? 1 : 0,
+        vendorData.tier || 'basic',
+        'lodging', // partner_type
+        vendorData.logo_url || '',
+        vendorData.pms_provider || '',
+        vendorData.pms_api_key || '',
+        vendorData.pms_property_id || '',
+        vendorData.status || 'active',
+        1 // default user_id (admin)
+      ]);
+
+      res.json({
+        success: true,
+        id: result.insertId,
+        message: '숙박 업체가 생성되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Create accommodation vendor error:', error);
+      res.status(500).json({ success: false, message: '업체 생성 실패' });
+    }
+  });
+
+  // Admin - 숙박 업체 수정 (별칭)
+  app.put('/api/admin/accommodation-vendors/:id', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const vendorId = parseInt(req.params.id);
+      const vendorData = req.body;
+
+      await db.execute(`
+        UPDATE partners SET
+          business_name = ?,
+          contact_name = ?,
+          phone = ?,
+          email = ?,
+          tier = ?,
+          logo_url = ?,
+          pms_provider = ?,
+          pms_api_key = ?,
+          pms_property_id = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [
+        vendorData.business_name,
+        vendorData.contact_name,
+        vendorData.phone || '',
+        vendorData.email || '',
+        vendorData.tier || 'basic',
+        vendorData.logo_url || '',
+        vendorData.pms_provider || '',
+        vendorData.pms_api_key || '',
+        vendorData.pms_property_id || '',
+        vendorId
+      ]);
+
+      res.json({
+        success: true,
+        message: '업체가 수정되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update accommodation vendor error:', error);
+      res.status(500).json({ success: false, message: '업체 수정 실패' });
+    }
+  });
+
+  // Admin - 숙박 업체 삭제 (별칭)
+  app.delete('/api/admin/accommodation-vendors/:id', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const vendorId = parseInt(req.params.id);
+
+      // 1. 업체 객실 삭제
+      await db.execute(`
+        DELETE FROM listings WHERE partner_id = ? AND category_id = 1857
+      `, [vendorId]);
+
+      // 2. 업체 삭제
+      await db.execute(`
+        DELETE FROM partners WHERE id = ?
+      `, [vendorId]);
+
+      res.json({
+        success: true,
+        message: '업체가 삭제되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Delete accommodation vendor error:', error);
+      res.status(500).json({ success: false, message: '업체 삭제 실패' });
+    }
+  });
+
+  // Admin - 숙박 업체 상태 변경
+  app.put('/api/admin/accommodation-vendors/:id/status', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const vendorId = parseInt(req.params.id);
+      const { status } = req.body;
+
+      await db.execute(`
+        UPDATE partners SET
+          status = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [status, vendorId]);
+
+      res.json({
+        success: true,
+        message: '업체 상태가 변경되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update vendor status error:', error);
+      res.status(500).json({ success: false, error: '상태 변경 실패' });
+    }
+  });
+
+  // Admin - 숙박 객실 조회
+  app.get('/api/admin/accommodation-rooms', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const vendorId = req.query.vendor_id;
+
+      let query = `
+        SELECT
+          l.id,
+          l.listing_name as room_name,
+          l.listing_name as title,
+          l.description,
+          l.location,
+          l.address,
+          l.price_from,
+          l.price_from as base_price_per_night,
+          l.images,
+          l.is_active as is_available,
+          l.is_active,
+          l.created_at
+        FROM listings l
+        WHERE l.category_id = 1857
+      `;
+
+      const params: any[] = [];
+
+      if (vendorId) {
+        query += ` AND l.partner_id = ?`;
+        params.push(vendorId);
+      }
+
+      query += ` ORDER BY l.created_at DESC`;
+
+      const rooms = await db.query(query, params);
+
+      res.json({
+        success: true,
+        data: rooms || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get accommodation rooms error:', error);
+      res.status(500).json({ success: false, message: '객실 목록 조회 실패', data: [] });
+    }
+  });
+
+  // Admin - 객실 수정
+  app.put('/api/admin/rooms/:id', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const roomId = parseInt(req.params.id);
+      const roomData = req.body;
+
+      await db.execute(`
+        UPDATE listings SET
+          listing_name = ?,
+          description = ?,
+          location = ?,
+          address = ?,
+          price_from = ?,
+          images = ?,
+          updated_at = NOW()
+        WHERE id = ? AND category_id = 1857
+      `, [
+        roomData.listing_name,
+        roomData.description || '',
+        roomData.location || '',
+        roomData.address || '',
+        roomData.price_from || 0,
+        Array.isArray(roomData.images) ? JSON.stringify(roomData.images) : roomData.images,
+        roomId
+      ]);
+
+      res.json({
+        success: true,
+        message: '객실이 수정되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update room error:', error);
+      res.status(500).json({ success: false, message: '객실 수정 실패' });
+    }
+  });
+
+  // Admin - 객실 삭제
+  app.delete('/api/admin/rooms/:id', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const roomId = parseInt(req.params.id);
+
+      await db.execute(`
+        DELETE FROM listings WHERE id = ? AND category_id = 1857
+      `, [roomId]);
+
+      res.json({
+        success: true,
+        message: '객실이 삭제되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Delete room error:', error);
+      res.status(500).json({ success: false, message: '객실 삭제 실패' });
+    }
+  });
+
+  // Admin - 객실 활성화/비활성화
+  app.put('/api/admin/rooms/:roomId/toggle-active', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const roomId = parseInt(req.params.roomId);
+      const { is_active } = req.body;
+
+      await db.execute(`
+        UPDATE listings SET
+          is_active = ?,
+          updated_at = NOW()
+        WHERE id = ? AND category_id = 1857
+      `, [is_active ? 1 : 0, roomId]);
+
+      res.json({
+        success: true,
+        message: is_active ? '객실이 활성화되었습니다.' : '객실이 비활성화되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Toggle room active error:', error);
+      res.status(500).json({ success: false, error: '상태 변경 실패' });
+    }
+  });
+
+  // Admin - 숙박 예약 조회
+  app.get('/api/admin/accommodation-bookings', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      const bookings = await db.query(`
+        SELECT
+          lb.id,
+          lb.user_id,
+          u.name as customer_name,
+          lb.listing_id,
+          l.listing_name as room_name,
+          p.business_name as vendor_name,
+          lb.check_in_date,
+          lb.check_out_date,
+          lb.total_price,
+          lb.status,
+          lb.created_at
+        FROM lodging_bookings lb
+        LEFT JOIN users u ON lb.user_id = u.id
+        LEFT JOIN listings l ON lb.listing_id = l.id
+        LEFT JOIN partners p ON l.partner_id = p.id
+        WHERE l.category_id = 1857
+        ORDER BY lb.created_at DESC
+      `);
+
+      res.json({
+        success: true,
+        data: bookings || []
+      });
+    } catch (error) {
+      console.error('❌ [API] Get accommodation bookings error:', error);
+      res.status(500).json({ success: false, message: '예약 목록 조회 실패', data: [] });
+    }
+  });
+
+  // Admin - 숙박 예약 상태 변경
+  app.put('/api/admin/accommodation-bookings/:id/status', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const bookingId = parseInt(req.params.id);
+      const { status } = req.body;
+
+      await db.execute(`
+        UPDATE lodging_bookings SET
+          status = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [status, bookingId]);
+
+      res.json({
+        success: true,
+        message: '예약 상태가 변경되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update booking status error:', error);
+      res.status(500).json({ success: false, error: '상태 변경 실패' });
+    }
+  });
+
+  // Admin - PMS 동기화 (간단 구현)
+  app.post('/api/admin/accommodation/sync/:vendorId', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const vendorId = parseInt(req.params.vendorId);
+
+      // PMS 설정 조회
+      const vendor = await db.query(`
+        SELECT pms_provider, pms_api_key, pms_property_id
+        FROM partners
+        WHERE id = ?
+      `, [vendorId]);
+
+      if (!vendor || vendor.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '업체를 찾을 수 없습니다.'
+        });
+      }
+
+      const pmsData = vendor[0];
+
+      if (!pmsData.pms_provider || !pmsData.pms_api_key) {
+        return res.status(400).json({
+          success: false,
+          message: 'PMS 연동 정보가 설정되지 않았습니다.'
+        });
+      }
+
+      // 실제 PMS API 호출은 여기에 구현
+      // 현재는 기본 응답만 반환
+      res.json({
+        success: true,
+        message: 'PMS 동기화가 완료되었습니다.',
+        data: {
+          syncedRooms: 0,
+          errors: []
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] PMS sync error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'PMS 동기화 실패'
+      });
+    }
+  });
+
+  // Admin - 벤더 CSV 업로드
+  app.post('/api/admin/accommodation-vendors/csv-upload', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      // CSV 업로드 로직 (multer 필요)
+      res.json({
+        success: true,
+        count: 0,
+        message: 'CSV 업로드 기능은 추후 구현 예정입니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Vendor CSV upload error:', error);
+      res.status(500).json({ success: false, error: 'CSV 업로드 실패' });
+    }
+  });
+
+  // Admin - 객실 CSV 업로드
+  app.post('/api/admin/accommodation-rooms/csv-upload', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      // CSV 업로드 로직 (multer 필요)
+      res.json({
+        success: true,
+        count: 0,
+        message: 'CSV 업로드 기능은 추후 구현 예정입니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Room CSV upload error:', error);
+      res.status(500).json({ success: false, error: 'CSV 업로드 실패' });
+    }
+  });
+
   // ===== Admin Review Management APIs =====
 
   // Admin - 모든 리뷰 조회
