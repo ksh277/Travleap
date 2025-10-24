@@ -1055,6 +1055,7 @@ export function VendorDashboardPageEnhanced() {
           address: editedInfo.address || vendorInfo.address,
           description: editedInfo.description || vendorInfo.description,
           logo_url: editedInfo.logo_url || vendorInfo.logo_url,
+          images: editedInfo.images !== undefined ? editedInfo.images : vendorInfo.images, // 이미지 배열 추가
           cancellation_policy: editedInfo.cancellation_policy || vendorInfo.cancellation_policy,
           old_email: vendorInfo.contact_email, // 이전 이메일 (Neon DB 업데이트용)
           new_password: newPassword || undefined // 비밀번호가 입력되었을 때만
@@ -1073,6 +1074,7 @@ export function VendorDashboardPageEnhanced() {
           address: editedInfo.address!,
           description: editedInfo.description,
           logo_url: editedInfo.logo_url,
+          images: editedInfo.images !== undefined ? editedInfo.images : vendorInfo.images, // 이미지 상태 업데이트
           cancellation_policy: editedInfo.cancellation_policy
         });
 

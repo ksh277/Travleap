@@ -53,10 +53,16 @@ module.exports = async function handler(req, res) {
       };
     });
 
-    // vendor images 파싱 (차량과 동일한 방식)
-    const vendorImages = vendor.images
-      ? (typeof vendor.images === 'string' ? JSON.parse(vendor.images) : vendor.images)
-      : [];
+    // vendor images 파싱 (차량과 동일한 방식) - 에러 핸들링 추가
+    let vendorImages = [];
+    try {
+      if (vendor.images) {
+        vendorImages = typeof vendor.images === 'string' ? JSON.parse(vendor.images) : vendor.images;
+      }
+    } catch (e) {
+      console.error('Failed to parse vendor images for vendor', vendor.id, ':', e);
+      vendorImages = [];
+    }
 
     return res.status(200).json({
       success: true,
