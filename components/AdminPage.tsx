@@ -5479,7 +5479,13 @@ export function AdminPage({}: AdminPageProps) {
                 제공 서비스 (카테고리) *
               </label>
               <Select
-                value={Array.isArray(newPartner.services) ? newPartner.services[0] : (typeof newPartner.services === 'string' && newPartner.services ? newPartner.services.split(',')[0].trim() : '')}
+                value={
+                  typeof newPartner.services === 'string' && newPartner.services
+                    ? newPartner.services.split(',')[0].trim()
+                    : Array.isArray(newPartner.services) && newPartner.services.length > 0
+                    ? newPartner.services[0]
+                    : ''
+                }
                 onValueChange={(value) => setNewPartner({ ...newPartner, services: value })}
               >
                 <SelectTrigger>

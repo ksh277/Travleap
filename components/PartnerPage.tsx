@@ -404,7 +404,24 @@ export function PartnerPage() {
     }
 
     if (filters.category && filters.category !== 'all') {
-      filtered = filtered.filter(partner => partner.category === filters.category);
+      filtered = filtered.filter(partner => {
+        // 카테고리 매칭 (동의어 처리 - 기존 DB 데이터 호환)
+        const categoryAliases: { [key: string]: string[] } = {
+          '여행': ['여행', '투어', 'tour'],
+          '렌트카': ['렌트카', '렌터카', 'rentcar'],
+          '숙박': ['숙박', '호텔', '펜션', 'lodging', 'accommodation'],
+          '음식': ['음식', '식당', '맛집', 'food'],
+          '관광지': ['관광지', '관광', 'attraction'],
+          '팝업': ['팝업', 'popup'],
+          '행사': ['행사', '이벤트', 'event'],
+          '체험': ['체험', '액티비티', 'activity']
+        };
+
+        const selectedAliases = categoryAliases[filters.category] || [filters.category];
+        return selectedAliases.some(alias =>
+          partner.category.toLowerCase().includes(alias.toLowerCase())
+        );
+      });
     }
 
     if (filters.rating && filters.rating !== 'all') {
