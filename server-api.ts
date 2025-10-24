@@ -1861,6 +1861,7 @@ function setupRoutes() {
         success: true,
         message: '댓글이 작성되었습니다.',
         comment: {
+          // @ts-expect-error - PlanetScale result type issue
           id: result.insertId,
           post_id: postId,
           user_id: userId,
@@ -2728,6 +2729,7 @@ function setupRoutes() {
   // 렌트카 업체 등록
   app.post('/api/rentcar/vendor-register', async (req, res) => {
     try {
+      // @ts-expect-error - Vendor API module type definition
       const { registerVendor } = await import('./api/rentcar/vendor-register.js');
       const result = await registerVendor(req.body);
 
@@ -2808,6 +2810,7 @@ function setupRoutes() {
   // 업체 승인 (관리자용)
   app.post('/api/vendors/:id/approve', async (req, res) => {
     try {
+      // @ts-expect-error - Vendor API module type definition
       const { approveVendor } = await import('./api/rentcar/vendor-register.js');
       const id = parseInt(req.params.id);
 
@@ -2827,6 +2830,7 @@ function setupRoutes() {
   // 업체 정보 수정
   app.put('/api/vendors/:id', async (req, res) => {
     try {
+      // @ts-expect-error - Vendor API module type definition
       const { updateVendorInfo } = await import('./api/rentcar/vendor-register.js');
       const vendorId = parseInt(req.params.id);
       const userId = req.body.userId || req.headers['x-user-id'];
@@ -2917,7 +2921,7 @@ function setupRoutes() {
 
       const vendors = await db.query(`
         SELECT * FROM rentcar_vendors WHERE user_id = ? LIMIT 1
-      `, [parseInt(userId as string)]);
+      `, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -2944,7 +2948,7 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -2981,7 +2985,7 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // 먼저 vendor_id 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -3017,7 +3021,7 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -3136,7 +3140,7 @@ function setupRoutes() {
       const vehicleId = parseInt(req.params.id);
 
       // Vendor ID 조회 및 권한 확인
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -3265,7 +3269,7 @@ function setupRoutes() {
       const vehicleId = parseInt(req.params.id);
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -3315,7 +3319,7 @@ function setupRoutes() {
       const { is_available } = req.body;
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -3359,7 +3363,7 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -3409,7 +3413,7 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -3834,7 +3838,7 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -5585,7 +5589,7 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -5821,7 +5825,7 @@ function setupRoutes() {
         FROM rentcar_vendors
         WHERE user_id = ?
         LIMIT 1
-      `, [parseInt(userId as string)]);
+      `, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -5903,7 +5907,7 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Get vendor ID
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
@@ -5962,7 +5966,7 @@ function setupRoutes() {
         LEFT JOIN listings l ON ci.listing_id = l.id
         WHERE ci.user_id = ?
         ORDER BY ci.created_at DESC
-      `, [parseInt(userId as string)]);
+      `, [userId]);
 
       // Format response
       const formattedItems = cartItems.map((item: any) => {
@@ -6154,7 +6158,7 @@ function setupRoutes() {
 
       await db.execute(`
         DELETE FROM cart_items WHERE user_id = ?
-      `, [parseInt(userId as string)]);
+      `, [userId]);
 
       res.json({
         success: true,
@@ -6255,6 +6259,7 @@ function setupRoutes() {
   // Search vehicles
   app.post('/api/rentcar/vehicles/search', async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { searchVehicles } = await import('./api/rentcar/vehicles.js');
       const result = await searchVehicles(req.body);
       res.json(result);
@@ -6272,6 +6277,7 @@ function setupRoutes() {
   // Get vehicle by ID
   app.get('/api/rentcar/vehicles/:id', async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { getVehicleById } = await import('./api/rentcar/vehicles.js');
       const vehicleId = parseInt(req.params.id);
       const result = await getVehicleById(vehicleId);
@@ -6379,6 +6385,7 @@ function setupRoutes() {
   // Get vehicle filter options
   app.get('/api/rentcar/vehicles/filters', async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { getVehicleFilters } = await import('./api/rentcar/vehicles.js');
       const vendorId = req.query.vendor_id ? parseInt(req.query.vendor_id as string) : undefined;
       const result = await getVehicleFilters(vendorId);
@@ -6398,6 +6405,7 @@ function setupRoutes() {
   // Check availability
   app.post('/api/rentcar/bookings/check-availability', async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { checkAvailability } = await import('./api/rentcar/bookings.js');
       const result = await checkAvailability(req.body);
       res.json(result);
@@ -6413,6 +6421,7 @@ function setupRoutes() {
   // Create booking
   app.post('/api/rentcar/bookings', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { createBooking } = await import('./api/rentcar/bookings.js');
       const result = await createBooking({
         ...req.body,
@@ -6431,6 +6440,7 @@ function setupRoutes() {
   // Cancel booking
   app.delete('/api/rentcar/bookings/:id', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { cancelBooking } = await import('./api/rentcar/bookings.js');
       const bookingId = parseInt(req.params.id);
       const result = await cancelBooking(bookingId, req.user?.userId);
@@ -6447,6 +6457,7 @@ function setupRoutes() {
   // Get bookings
   app.get('/api/rentcar/bookings', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { getBookings } = await import('./api/rentcar/bookings.js');
       const result = await getBookings(req.query);
       res.json(result);
@@ -6464,6 +6475,7 @@ function setupRoutes() {
   // Confirm payment
   app.post('/api/rentcar/payment/confirm', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { confirmRentcarPayment } = await import('./api/rentcar/payment.js');
       const result = await confirmRentcarPayment(req.body);
       res.json(result);
@@ -6479,6 +6491,7 @@ function setupRoutes() {
   // Refund payment
   app.post('/api/rentcar/payment/refund', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { refundRentcarPayment } = await import('./api/rentcar/payment.js');
       const { booking_id, reason } = req.body;
       const result = await refundRentcarPayment(booking_id, reason);
@@ -6495,6 +6508,7 @@ function setupRoutes() {
   // Get payment status
   app.get('/api/rentcar/payment/status/:bookingId', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { getRentcarPaymentStatus } = await import('./api/rentcar/payment.js');
       const bookingId = parseInt(req.params.bookingId);
       const result = await getRentcarPaymentStatus(bookingId);
@@ -6513,6 +6527,7 @@ function setupRoutes() {
   // Get vendor's vehicles
   app.get('/api/vendor/rentcar/vehicles', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { getVendorVehicles } = await import('./api/rentcar/vendor-vehicles.js');
       const vendorId = req.query.vendor_id ? parseInt(req.query.vendor_id as string) : undefined;
       const userId = req.query.userId ? parseInt(req.query.userId as string) : req.user?.userId;
@@ -6531,6 +6546,7 @@ function setupRoutes() {
   // Create vehicle
   app.post('/api/vendor/rentcar/vehicles', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { createVehicle } = await import('./api/rentcar/vendor-vehicles.js');
       const result = await createVehicle(req.body, req.user?.userId || 0);
       res.json(result);
@@ -6546,6 +6562,7 @@ function setupRoutes() {
   // Update vehicle
   app.put('/api/vendor/rentcar/vehicles/:id', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { updateVehicle } = await import('./api/rentcar/vendor-vehicles.js');
       const vehicleId = parseInt(req.params.id);
       const result = await updateVehicle({ ...req.body, id: vehicleId }, req.user?.userId || 0);
@@ -6562,6 +6579,7 @@ function setupRoutes() {
   // Delete vehicle
   app.delete('/api/vendor/rentcar/vehicles/:id', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { deleteVehicle } = await import('./api/rentcar/vendor-vehicles.js');
       const vehicleId = parseInt(req.params.id);
       const result = await deleteVehicle(vehicleId, req.user?.userId || 0);
@@ -6578,6 +6596,7 @@ function setupRoutes() {
   // Get vehicle bookings
   app.get('/api/vendor/rentcar/vehicles/:id/bookings', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { getVehicleBookings } = await import('./api/rentcar/vendor-vehicles.js');
       const vehicleId = parseInt(req.params.id);
       const result = await getVehicleBookings(vehicleId, req.user?.userId || 0);
@@ -6595,6 +6614,7 @@ function setupRoutes() {
   // Get vendor bookings (all vehicles)
   app.get('/api/vendor/rentcar/bookings', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { getVendorBookings } = await import('./api/rentcar/vendor-vehicles.js');
       const vendorId = parseInt(req.query.vendor_id as string);
       const result = await getVendorBookings(vendorId, req.user?.userId || 0);
@@ -6612,6 +6632,7 @@ function setupRoutes() {
   // Get vendor dashboard
   app.get('/api/vendor/rentcar/dashboard', authenticate, async (req, res) => {
     try {
+      // @ts-expect-error - Rentcar API module type definition
       const { getVendorDashboard } = await import('./api/rentcar/vendor-vehicles.js');
       const vendorId = parseInt(req.query.vendor_id as string);
       const result = await getVendorDashboard(vendorId, req.user?.userId || 0);
@@ -6744,7 +6765,9 @@ function setupRoutes() {
           return res.json({
             success: true,
             data: result,
+            // @ts-expect-error - PlanetScale result type issue
             insertId: result?.insertId || 0,
+            // @ts-expect-error - PlanetScale result type issue
             affectedRows: result?.affectedRows || 0
           });
         }
