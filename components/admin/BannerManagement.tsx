@@ -7,7 +7,7 @@ import { Switch } from '../ui/switch';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, MoveUp, MoveDown, Image as ImageIcon, ExternalLink } from 'lucide-react';
 import { ImageUploadComponent } from './ImageUploadComponent';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Banner {
   id?: number;
