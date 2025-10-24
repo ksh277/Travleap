@@ -116,13 +116,51 @@ export const AccommodationManagement: React.FC = () => {
 
   const loadRooms = async (partnerId: number) => {
     try {
-      const response = await fetch(`/api/accommodations/${partnerId}`);
+      // 관리자는 is_published 필터 없이 모든 객실을 볼 수 있어야 함
+      console.log(`📥 객실 목록 로드 중... (vendor_id: ${partnerId})`);
+      const response = await fetch(`/api/admin/accommodation-rooms?vendor_id=${partnerId}`);
       const result = await response.json();
-      if (result.success && result.data?.rooms) {
-        setRooms(result.data.rooms);
+
+      console.log(`✅ 객실 목록 로드 완료:`, {
+        success: result.success,
+        count: result.data?.length || 0,
+        rooms: result.data
+      });
+
+      if (result.success && result.data) {
+        // API 응답 형식 매핑
+        const mappedRooms = result.data.map((room: any) => {
+          // images 파싱 (DB에서 JSON 문자열로 저장됨)
+          let imagesArray: string[] = [];
+          try {
+            if (room.images) {
+              imagesArray = typeof room.images === 'string'
+                ? JSON.parse(room.images)
+                : room.images;
+            }
+          } catch (e) {
+            console.warn('Failed to parse images for room:', room.id);
+          }
+
+          return {
+            id: room.id,
+            name: room.room_name || room.title,
+            listing_name: room.room_name || room.title,
+            description: room.description,
+            location: room.location || '',
+            address: room.address || '',
+            price_from: room.price_from || 0,
+            base_price_per_night: room.base_price_per_night || room.price_from || 0,
+            images: imagesArray,
+            is_available: room.is_available
+          };
+        });
+
+        console.log(`📋 매핑된 객실 데이터:`, mappedRooms);
+        setRooms(mappedRooms);
       }
     } catch (error) {
-      console.error('Failed to load rooms:', error);
+      console.error('❌ 객실 목록 로드 실패:', error);
       toast.error('객실 목록을 불러올 수 없습니다.');
     }
   };
@@ -489,12 +527,20 @@ export const AccommodationManagement: React.FC = () => {
 
       const method = selectedRoom ? 'PUT' : 'POST';
 
+      console.log(`📝 [${method}] 객실 저장 시도:`, {
+        url,
+        roomId: selectedRoom?.id,
+        roomData
+      });
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(roomData)
       });
       const result = await response.json();
+
+      console.log(`✅ 객실 저장 응답:`, result);
 
       if (result.success) {
         toast.success(selectedRoom ? '객실이 수정되었습니다.' : '객실이 추가되었습니다.');
@@ -510,12 +556,15 @@ export const AccommodationManagement: React.FC = () => {
         });
         setRoomImageFiles([]);
         setRoomImagePreviews([]);
-        loadRooms(selectedPartnerId);
+
+        console.log(`🔄 객실 목록 새로고침 중... (vendor_id: ${selectedPartnerId})`);
+        await loadRooms(selectedPartnerId);
       } else {
+        console.error('❌ 객실 저장 실패:', result);
         toast.error(result.message || (selectedRoom ? '객실 수정에 실패했습니다.' : '객실 추가에 실패했습니다.'));
       }
     } catch (error) {
-      console.error('Failed to save room:', error);
+      console.error('❌ 객실 저장 중 오류:', error);
       toast.error('객실 저장 중 오류가 발생했습니다.');
     }
   };

@@ -7,6 +7,7 @@ import { Switch } from '../ui/switch';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, MoveUp, MoveDown, Image as ImageIcon, ExternalLink } from 'lucide-react';
 import { ImageUploadComponent } from './ImageUploadComponent';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Banner {
   id?: number;
@@ -21,6 +22,7 @@ interface Banner {
 }
 
 export function BannerManagement() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'home' | 'page'>('home');
   const [selectedPage, setSelectedPage] = useState<string>('about');
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -36,12 +38,23 @@ export function BannerManagement() {
     is_active: true
   });
 
+  // 인증 헤더 생성
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    };
+  };
+
   // 배너 목록 로드
   const loadBanners = async () => {
     try {
       setLoading(true);
       if (activeTab === 'home') {
-        const response = await fetch('/api/admin/banners');
+        const response = await fetch('/api/admin/banners', {
+          headers: getAuthHeaders()
+        });
         const data = await response.json();
 
         if (data.success && data.banners) {
@@ -116,7 +129,7 @@ export function BannerManagement() {
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(formData)
       });
 
@@ -141,7 +154,8 @@ export function BannerManagement() {
 
     try {
       const response = await fetch(`/api/admin/banners/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
 
       const data = await response.json();
@@ -181,7 +195,7 @@ export function BannerManagement() {
     try {
       const response = await fetch('/api/admin/banners/reorder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ banners: updates })
       });
 

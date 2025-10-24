@@ -24,6 +24,8 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       const { vendor_id } = req.query;
 
+      console.log(`📥 [GET] 객실 목록 조회 요청 (vendor_id: ${vendor_id})`);
+
       let query = `SELECT
         id,
         partner_id as vendor_id,
@@ -50,6 +52,8 @@ module.exports = async function handler(req, res) {
         min_nights,
         max_nights,
         price_from,
+        location,
+        address,
         images,
         amenities,
         is_active as is_available,
@@ -67,7 +71,14 @@ module.exports = async function handler(req, res) {
 
       query += ' ORDER BY created_at DESC';
 
+      console.log(`🔍 실행할 쿼리:`, { query, params });
+
       const result = await connection.execute(query, params);
+
+      console.log(`✅ 조회 결과:`, {
+        count: result.rows?.length || 0,
+        rooms: result.rows
+      });
 
       return res.status(200).json({
         success: true,

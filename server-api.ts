@@ -1037,11 +1037,26 @@ function setupRoutes() {
         listingId
       ]);
 
-      console.log('✅ 상품 수정 완료:', listingId);
+      console.log('✅ 상품 UPDATE 완료:', listingId);
+
+      // ⭐ 중요: 업데이트된 데이터를 DB에서 다시 조회해서 반환
+      const updatedListing = await db.query(`
+        SELECT
+          l.*,
+          c.name_ko as category_name,
+          c.slug as category_slug,
+          p.business_name as partner_name
+        FROM listings l
+        LEFT JOIN categories c ON l.category_id = c.id
+        LEFT JOIN partners p ON l.partner_id = p.id
+        WHERE l.id = ?
+      `, [listingId]);
+
+      console.log('✅ 업데이트된 상품 데이터 조회 완료');
 
       res.json({
         success: true,
-        data: { id: listingId, ...listingData },
+        data: updatedListing[0] || null,
         message: '상품이 수정되었습니다.'
       });
     } catch (error) {

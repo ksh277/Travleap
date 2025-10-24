@@ -82,24 +82,36 @@ const loadProducts = async (): Promise<Product[]> => {
   try {
     const listings = await api.admin.getListings();
 
-    return listings.data.map((listing) => ({
-      id: listing.id.toString(),
-      title: listing.title,
-      category: listing.category_name || listing.category_slug || listing.category || '미분류',
-      price: listing.price_from || 0,
-      location: listing.location || '',
-      rating: listing.rating_avg || 0,
-      reviewCount: listing.rating_count || 0,
-      image: listing.images ?
-             (Array.isArray(listing.images) ?
-              listing.images[0] || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop' :
-              'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop') :
-             'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop',
-      description: listing.short_description || '상세 정보를 확인해보세요.',
-      status: listing.is_active ? 'active' : 'inactive',
-      createdAt: listing.created_at ? listing.created_at.split('T')[0] : '2024-01-01',
-      featured: listing.is_featured || false
-    }));
+    return listings.data.map((listing) => {
+      // images 파싱 (DB에서 JSON 문자열로 저장됨)
+      let imagesArray: string[] = [];
+      try {
+        if (listing.images) {
+          imagesArray = typeof listing.images === 'string'
+            ? JSON.parse(listing.images)
+            : listing.images;
+        }
+      } catch (e) {
+        console.warn('Failed to parse images for listing:', listing.id);
+      }
+
+      return {
+        id: listing.id.toString(),
+        title: listing.title,
+        category: (listing as any).category_name || (listing as any).category_slug || listing.category || '미분류',
+        price: listing.price_from || 0,
+        location: listing.location || '',
+        rating: listing.rating_avg || 0,
+        reviewCount: listing.rating_count || 0,
+        image: (Array.isArray(imagesArray) && imagesArray.length > 0)
+          ? imagesArray[0]
+          : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop',
+        description: listing.short_description || '상세 정보를 확인해보세요.',
+        status: listing.is_active ? 'active' : 'inactive',
+        createdAt: listing.created_at ? listing.created_at.split('T')[0] : '2024-01-01',
+        featured: listing.is_featured || false
+      } as Product;
+    });
   } catch (error) {
     console.error('Failed to load products:', error);
     return [];
@@ -1309,12 +1321,49 @@ export function AdminPage({}: AdminPageProps) {
         featured: editingProduct.featured || false
       };
 
+      console.log('📝 상품 수정 요청:', { id: editingProduct.id, updateData });
+
       const result = await api.admin.updateListing(parseInt(editingProduct.id), updateData);
+
+      console.log('✅ 상품 수정 응답:', result);
+
       if (result.success && result.data) {
+        // images 파싱 (DB에서 JSON 문자열로 저장됨)
+        let imagesArray: string[] = [];
+        try {
+          if (result.data.images) {
+            imagesArray = typeof result.data.images === 'string'
+              ? JSON.parse(result.data.images)
+              : result.data.images;
+          }
+        } catch (e) {
+          console.warn('Failed to parse images for updated listing:', result.data.id);
+        }
+
+        // ⭐ 중요: 서버에서 반환된 최신 데이터로 상품 목록 업데이트
+        const updatedProduct: Product = {
+          id: result.data.id.toString(),
+          title: result.data.title,
+          category: (result.data as any).category_name || (result.data as any).category_slug || result.data.category || '미분류',
+          price: result.data.price_from || 0,
+          location: result.data.location || '',
+          rating: result.data.rating_avg || 0,
+          reviewCount: result.data.rating_count || 0,
+          image: (Array.isArray(imagesArray) && imagesArray.length > 0)
+            ? imagesArray[0]
+            : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop',
+          description: result.data.short_description || '상세 정보를 확인해보세요.',
+          status: (result.data.is_active ? 'active' : 'inactive') as 'active' | 'inactive',
+          createdAt: result.data.created_at ? result.data.created_at.split('T')[0] : '2024-01-01',
+          featured: result.data.is_featured || false
+        };
+
+        console.log('🔄 업데이트된 상품 데이터:', updatedProduct);
+
         setProducts(prev =>
           prev.map(p =>
             p.id === editingProduct.id
-              ? { ...editingProduct }
+              ? updatedProduct
               : p
           )
         );
@@ -1325,6 +1374,7 @@ export function AdminPage({}: AdminPageProps) {
         // 실시간 데이터 갱신
         notifyDataChange.listingUpdated();
       } else {
+        console.error('❌ 상품 수정 실패:', result);
         toast.error(result.error || '상품 수정에 실패했습니다.');
       }
     } catch (error) {

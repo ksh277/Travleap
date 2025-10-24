@@ -85,6 +85,8 @@ module.exports = async function handler(req, res) {
 
     // PUT/PATCH - 객실 정보 수정
     if (req.method === 'PUT' || req.method === 'PATCH') {
+      console.log(`📝 [PUT] 객실 업데이트 요청 (ID: ${id}):`, req.body);
+
       const {
         title,
         listing_name,
@@ -178,16 +180,24 @@ module.exports = async function handler(req, res) {
       updates.push('updated_at = NOW()');
       values.push(id);
 
-      const result = await connection.execute(
-        `UPDATE listings SET ${updates.join(', ')} WHERE id = ?`,
-        values
-      );
+      const updateQuery = `UPDATE listings SET ${updates.join(', ')} WHERE id = ?`;
+      console.log(`🔄 실행할 UPDATE 쿼리:`, { query: updateQuery, values });
 
-      console.log('Update result:', result);
+      const result = await connection.execute(updateQuery, values);
+
+      console.log(`✅ UPDATE 결과:`, {
+        rowsAffected: result.rowsAffected,
+        insertId: result.insertId
+      });
+
+      if (result.rowsAffected === 0) {
+        console.warn(`⚠️ 경고: 업데이트된 행이 없습니다. 객실 ID ${id}가 존재하지 않을 수 있습니다.`);
+      }
 
       return res.status(200).json({
         success: true,
-        message: '객실 정보가 업데이트되었습니다.'
+        message: '객실 정보가 업데이트되었습니다.',
+        rowsAffected: result.rowsAffected
       });
     }
 
