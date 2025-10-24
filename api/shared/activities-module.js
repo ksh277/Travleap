@@ -7,13 +7,12 @@
  * - 관리자: 액티비티 생성/수정/삭제
  */
 
-import { db } from '../../utils/database.js';
-
 /**
  * 활성화된 액티비티 목록 조회 (공개용)
  */
 export async function getActiveActivities() {
   try {
+    const { db } = await import('../../utils/database.js');
     const activities = await db.query(`
       SELECT * FROM activities
       WHERE is_active = 1
@@ -32,6 +31,7 @@ export async function getActiveActivities() {
  */
 export async function getAllActivities() {
   try {
+    const { db } = await import('../../utils/database.js');
     const activities = await db.query(`
       SELECT * FROM activities
       ORDER BY display_order ASC, created_at DESC
@@ -48,6 +48,7 @@ export async function getAllActivities() {
  */
 export async function getActivityById(id) {
   try {
+    const { db } = await import('../../utils/database.js');
     const activities = await db.query(`
       SELECT * FROM activities WHERE id = ?
     `, [id]);
@@ -63,6 +64,7 @@ export async function getActivityById(id) {
  */
 export async function createActivity(data) {
   try {
+    const { db } = await import('../../utils/database.js');
     const result = await db.execute(`
       INSERT INTO activities
       (title, description, image_url, category, price, duration, location, display_order, is_active, created_at, updated_at)
@@ -91,6 +93,7 @@ export async function createActivity(data) {
  */
 export async function updateActivity(id, data) {
   try {
+    const { db } = await import('../../utils/database.js');
     await db.execute(`
       UPDATE activities
       SET title = ?,
@@ -129,6 +132,7 @@ export async function updateActivity(id, data) {
  */
 export async function deleteActivity(id) {
   try {
+    const { db } = await import('../../utils/database.js');
     await db.execute('DELETE FROM activities WHERE id = ?', [id]);
     return { success: true };
   } catch (error) {
@@ -142,6 +146,7 @@ export async function deleteActivity(id) {
  */
 export async function reorderActivities(activityIds) {
   try {
+    const { db } = await import('../../utils/database.js');
     // 액티비티 순서를 배열 인덱스 기반으로 업데이트
     for (let i = 0; i < activityIds.length; i++) {
       await db.execute(`

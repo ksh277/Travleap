@@ -112,8 +112,8 @@ async function startServer() {
   returnInspectAPI = returnInspectModule.default;
   paymentConfirmAPI = paymentConfirmModule;
   // lodgingAPI = lodgingModule; // 파일 없음 - 주석 처리
-  console.log('[DEBUG] bannerModule keys:', Object.keys(bannerModule));
-  console.log('[DEBUG] activityModule keys:', Object.keys(activityModule));
+  console.log('[DEBUG] bannerModule:', bannerModule);
+  console.log('[DEBUG] activityModule:', activityModule);
   bannerAPI = bannerModule;
   activityAPI = activityModule;
   // newsletterAPI = newsletterModule; // 파일 없음 - 주석 처리
@@ -2382,7 +2382,7 @@ function setupRoutes() {
 
       let sql = `
         SELECT id, business_name, contact_name, email, phone, business_number,
-               address, location, description, services, website, instagram,
+               business_address, location, description, services, website, instagram,
                status, tier, is_verified, is_featured, partner_type, created_at, updated_at
         FROM partners
         WHERE (partner_type = 'general' OR partner_type IS NULL)
@@ -2920,7 +2920,7 @@ function setupRoutes() {
         params.push(category);
       }
 
-      sql += ' ORDER BY sort_order ASC, created_at DESC';
+      sql += ' ORDER BY is_featured DESC, created_at DESC';
 
       const partners = await db.query(sql, params);
 

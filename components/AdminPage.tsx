@@ -2579,42 +2579,45 @@ export function AdminPage({}: AdminPageProps) {
                               </>
                             )}
 
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">
-                                {newProduct.category === '팝업' ? '재고 수량' : '최대 인원'}
-                              </label>
-                              <div className="flex items-center justify-between border rounded-md px-4 py-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setNewProduct(prev => ({
-                                    ...prev,
-                                    maxCapacity: Math.max(1, parseInt(prev.maxCapacity) - 1).toString()
-                                  }))}
-                                  disabled={parseInt(newProduct.maxCapacity) <= 1}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  -
-                                </Button>
-                                <span className="text-lg font-medium">
-                                  {newProduct.maxCapacity}{newProduct.category === '팝업' ? '개' : '명'}
-                                </span>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setNewProduct(prev => ({
-                                    ...prev,
-                                    maxCapacity: Math.min(1000, parseInt(prev.maxCapacity) + 1).toString()
-                                  }))}
-                                  disabled={parseInt(newProduct.maxCapacity) >= 1000}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  +
-                                </Button>
+                            {/* 팝업 카테고리가 아닐 때만 최대 인원/수량 입력 필드 표시 */}
+                            {newProduct.category !== '팝업' && (
+                              <div>
+                                <label className="text-sm font-medium mb-1 block">
+                                  최대 인원
+                                </label>
+                                <div className="flex items-center justify-between border rounded-md px-4 py-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setNewProduct(prev => ({
+                                      ...prev,
+                                      maxCapacity: Math.max(1, parseInt(prev.maxCapacity) - 1).toString()
+                                    }))}
+                                    disabled={parseInt(newProduct.maxCapacity) <= 1}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    -
+                                  </Button>
+                                  <span className="text-lg font-medium">
+                                    {newProduct.maxCapacity}명
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setNewProduct(prev => ({
+                                      ...prev,
+                                      maxCapacity: Math.min(1000, parseInt(prev.maxCapacity) + 1).toString()
+                                    }))}
+                                    disabled={parseInt(newProduct.maxCapacity) >= 1000}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    +
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                         </div>
 

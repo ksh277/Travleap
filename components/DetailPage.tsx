@@ -1772,11 +1772,6 @@ export function DetailPage() {
                               </Button>
                             </div>
                           </div>
-                          {item?.maxCapacity && (
-                            <p className="text-xs text-gray-500 text-center">
-                              최대 {item.maxCapacity}개까지 구매 가능
-                            </p>
-                          )}
                         </div>
                       ) : (
                         <>

@@ -7,13 +7,12 @@
  * - 관리자: 배너 생성/수정/삭제
  */
 
-import { db } from '../../utils/database.js';
-
 /**
  * 활성화된 배너 목록 조회 (공개용)
  */
 export async function getActiveBanners() {
   try {
+    const { db } = await import('../../utils/database.js');
     const banners = await db.query(`
       SELECT * FROM home_banners
       WHERE is_active = 1
@@ -32,6 +31,7 @@ export async function getActiveBanners() {
  */
 export async function getAllBanners() {
   try {
+    const { db } = await import('../../utils/database.js');
     const banners = await db.query(`
       SELECT * FROM home_banners
       ORDER BY display_order ASC, created_at DESC
@@ -48,6 +48,7 @@ export async function getAllBanners() {
  */
 export async function getBannerById(id) {
   try {
+    const { db } = await import('../../utils/database.js');
     const banners = await db.query(`
       SELECT * FROM home_banners WHERE id = ?
     `, [id]);
@@ -63,6 +64,7 @@ export async function getBannerById(id) {
  */
 export async function createBanner(data) {
   try {
+    const { db } = await import('../../utils/database.js');
     const result = await db.execute(`
       INSERT INTO home_banners
       (image_url, title, subtitle, link_url, display_order, is_active, created_at, updated_at)
@@ -88,6 +90,7 @@ export async function createBanner(data) {
  */
 export async function updateBanner(id, data) {
   try {
+    const { db } = await import('../../utils/database.js');
     await db.execute(`
       UPDATE home_banners
       SET image_url = ?,
@@ -120,6 +123,7 @@ export async function updateBanner(id, data) {
  */
 export async function deleteBanner(id) {
   try {
+    const { db } = await import('../../utils/database.js');
     await db.execute('DELETE FROM home_banners WHERE id = ?', [id]);
     return { success: true };
   } catch (error) {
@@ -133,6 +137,7 @@ export async function deleteBanner(id) {
  */
 export async function reorderBanners(bannerIds) {
   try {
+    const { db } = await import('../../utils/database.js');
     // 배너 순서를 배열 인덱스 기반으로 업데이트
     for (let i = 0; i < bannerIds.length; i++) {
       await db.execute(`
