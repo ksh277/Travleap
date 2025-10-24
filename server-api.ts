@@ -2424,24 +2424,71 @@ function setupRoutes() {
         });
       }
 
-      // 파트너 상태 업데이트
-      await db.execute(`
-        UPDATE partners
-        SET status = ?, updated_at = NOW()
-        WHERE id = ?
-      `, [status, id]);
+      // 파트너 존재 확인
+      const partnerCheck = await db.query(
+        `SELECT id, status, business_name FROM partners WHERE id = ?`,
+        [id]
+      );
+
+      if (!partnerCheck || partnerCheck.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'NOT_FOUND',
+          message: '파트너를 찾을 수 없습니다.'
+        });
+      }
+
+      const partner = partnerCheck[0];
+
+      // 승인 처리
+      if (status === 'approved') {
+        await db.execute(`
+          UPDATE partners
+          SET status = 'approved',
+              is_verified = 1,
+              approved_at = NOW(),
+              updated_at = NOW()
+          WHERE id = ?
+        `, [id]);
+
+        console.log(`✅ [API] 파트너 승인 완료: ${partner.business_name} (ID: ${id})`);
+
+        return res.json({
+          success: true,
+          message: `${partner.business_name} 파트너가 승인되었습니다.`,
+          data: { id, status: 'approved' }
+        });
+      }
+
+      // 거절 처리
+      if (status === 'rejected') {
+        await db.execute(`
+          UPDATE partners
+          SET status = 'rejected',
+              rejection_reason = ?,
+              rejected_at = NOW(),
+              updated_at = NOW()
+          WHERE id = ?
+        `, [reason || '관리자에 의해 거절됨', id]);
+
+        console.log(`❌ [API] 파트너 거절 완료: ${partner.business_name} (ID: ${id})`);
+
+        return res.json({
+          success: true,
+          message: `${partner.business_name} 파트너가 거절되었습니다.`,
+          data: { id, status: 'rejected', reason }
+        });
+      }
 
       // TODO: 이메일 알림 발송 (승인/거절 통지)
 
-      res.json({
-        success: true,
-        message: status === 'approved' ? '파트너 신청이 승인되었습니다.' : '파트너 신청이 거절되었습니다.'
-      });
     } catch (error) {
       console.error('❌ [API] Update partner status error:', error);
       res.status(500).json({
         success: false,
-        message: '파트너 상태 업데이트 실패'
+        error: 'INTERNAL_ERROR',
+        message: '파트너 상태 업데이트 중 오류가 발생했습니다.',
+        details: error instanceof Error ? error.message : String(error)
       });
     }
   });
