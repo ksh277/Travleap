@@ -53,35 +53,61 @@ module.exports = async function handler(req, res) {
       }
 
       try {
-        // 2-1. 장바구니 항목 삭제
-        await connection.execute(
-          'DELETE FROM cart_items WHERE listing_id = ?',
-          [id]
-        );
+        // 2-1. 장바구니 항목 삭제 (테이블이 없어도 계속 진행)
+        console.log('🔧 [1/5] 장바구니 항목 삭제 시작...');
+        try {
+          const cartResult = await connection.execute(
+            'DELETE FROM cart_items WHERE listing_id = ?',
+            [id]
+          );
+          console.log(`✅ [1/5] 장바구니 ${cartResult.rowsAffected || 0}개 삭제`);
+        } catch (err) {
+          console.log(`⚠️ [1/5] 장바구니 삭제 건너뜀 (테이블 없음 또는 오류): ${err.message}`);
+        }
 
         // 2-2. 과거 예약 삭제
-        await connection.execute(
-          'DELETE FROM bookings WHERE listing_id = ?',
-          [id]
-        );
+        console.log('🔧 [2/5] 예약 삭제 시작...');
+        try {
+          const bookingResult = await connection.execute(
+            'DELETE FROM bookings WHERE listing_id = ?',
+            [id]
+          );
+          console.log(`✅ [2/5] 예약 ${bookingResult.rowsAffected || 0}개 삭제`);
+        } catch (err) {
+          console.log(`⚠️ [2/5] 예약 삭제 건너뜀: ${err.message}`);
+        }
 
         // 2-3. 리뷰 삭제
-        await connection.execute(
-          'DELETE FROM reviews WHERE listing_id = ?',
-          [id]
-        );
+        console.log('🔧 [3/5] 리뷰 삭제 시작...');
+        try {
+          const reviewResult = await connection.execute(
+            'DELETE FROM reviews WHERE listing_id = ?',
+            [id]
+          );
+          console.log(`✅ [3/5] 리뷰 ${reviewResult.rowsAffected || 0}개 삭제`);
+        } catch (err) {
+          console.log(`⚠️ [3/5] 리뷰 삭제 건너뜀: ${err.message}`);
+        }
 
         // 2-4. 즐겨찾기 삭제
-        await connection.execute(
-          'DELETE FROM user_favorites WHERE listing_id = ?',
-          [id]
-        );
+        console.log('🔧 [4/5] 즐겨찾기 삭제 시작...');
+        try {
+          const favoriteResult = await connection.execute(
+            'DELETE FROM user_favorites WHERE listing_id = ?',
+            [id]
+          );
+          console.log(`✅ [4/5] 즐겨찾기 ${favoriteResult.rowsAffected || 0}개 삭제`);
+        } catch (err) {
+          console.log(`⚠️ [4/5] 즐겨찾기 삭제 건너뜀: ${err.message}`);
+        }
 
+        console.log('🔧 [5/5] 상품 삭제 시작...');
         // 2-5. 상품 삭제 (listings 테이블)
         const result = await connection.execute(
           'DELETE FROM listings WHERE id = ?',
           [id]
         );
+        console.log(`✅ [5/5] 상품 삭제 완료, rowsAffected: ${result.rowsAffected}`);
 
         if (result.rowsAffected === 0) {
           return res.status(404).json({
@@ -99,10 +125,16 @@ module.exports = async function handler(req, res) {
 
       } catch (deleteError) {
         console.error('❌ Listing deletion error:', deleteError);
+        console.error('❌ Error details:', {
+          message: deleteError.message,
+          stack: deleteError.stack,
+          name: deleteError.name
+        });
         return res.status(500).json({
           success: false,
           error: '상품 삭제 중 오류가 발생했습니다.',
-          details: deleteError.message
+          details: deleteError.message,
+          errorName: deleteError.name
         });
       }
     }
