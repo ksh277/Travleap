@@ -4758,10 +4758,12 @@ export function AdminPage({}: AdminPageProps) {
                     </div>
                   )}
 
-                  {/* 추가 이미지 URL 입력 */}
+                  {/* 이미지 URL 입력 또는 파일 업로드 */}
                   <div>
-                    <label className="text-sm font-medium mb-2 block">새 이미지 URL 추가</label>
-                    <div className="flex gap-2">
+                    <label className="text-sm font-medium mb-2 block">새 이미지 추가</label>
+
+                    {/* URL 입력 */}
+                    <div className="flex gap-2 mb-3">
                       <Input
                         id="edit-new-image-url"
                         placeholder="이미지 URL을 입력하고 Enter 또는 추가 버튼을 누르세요"
@@ -4793,6 +4795,57 @@ export function AdminPage({}: AdminPageProps) {
                       >
                         추가
                       </Button>
+                    </div>
+
+                    {/* 파일 업로드 */}
+                    <div>
+                      <label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => document.getElementById('edit-product-image-upload')?.click()}
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          파일 직접 업로드
+                        </Button>
+                        <input
+                          id="edit-product-image-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                const formData = new FormData();
+                                formData.append('file', file);
+                                formData.append('category', 'listings');
+
+                                const response = await fetch('/api/upload-image', {
+                                  method: 'POST',
+                                  body: formData,
+                                });
+
+                                const result = await response.json();
+
+                                if (result.success && result.url) {
+                                  setEditingProduct(prev =>
+                                    prev ? { ...prev, image: result.url } : null
+                                  );
+                                  toast.success('이미지가 업로드되었습니다.');
+                                } else {
+                                  toast.error(`이미지 업로드 실패: ${result.message || result.error}`);
+                                }
+                              } catch (error) {
+                                console.error('업로드 오류:', error);
+                                toast.error('이미지 업로드 오류');
+                              }
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>

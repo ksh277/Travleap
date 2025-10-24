@@ -1950,7 +1950,7 @@ export function DetailPage() {
 
           {/* Booking Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-4 lg:top-8">
+            <div className="sticky top-20 lg:top-24">
               <Card>
                 <CardHeader>
                   <CardTitle>예약하기</CardTitle>

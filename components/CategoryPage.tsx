@@ -661,8 +661,8 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                   </div>
 
                   {/* 정보 - 충분한 공간 확보 */}
-                  <CardContent className="p-6 pt-5 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
-                      <div className="space-y-4 flex-1">
+                  <CardContent className="p-6 pt-3 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
+                      <div className="space-y-3 flex-1">
                         <div className="flex items-start gap-2">
                           <h3 className="font-semibold text-base flex-1 line-clamp-2">{item.title}</h3>
                           {item.partner?.is_verified && (
@@ -672,10 +672,12 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
-                          <span className="text-xs text-gray-600 line-clamp-1">{item.location || '위치 정보 없음'}</span>
-                        </div>
+                        {item.category !== '팝업' && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                            <span className="text-xs text-gray-600 line-clamp-1">{item.location || '위치 정보 없음'}</span>
+                          </div>
+                        )}
 
                         <p className="text-xs text-gray-600 line-clamp-3">{item.short_description || item.description_md || ''}</p>
                       </div>
