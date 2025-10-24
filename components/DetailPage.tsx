@@ -970,7 +970,7 @@ export function DetailPage() {
                 <ImageWithFallback
                   src={images[currentImageIndex]}
                   alt={`${item.title} - 이미지 ${currentImageIndex + 1}/${images.length}`}
-                  className="w-full h-80 md:h-96 lg:h-[500px] object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-96 md:h-[450px] lg:h-[550px] object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="eager"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -1188,11 +1188,8 @@ export function DetailPage() {
 
             {/* Tabs */}
             <Tabs defaultValue="description" className="w-full mt-6">
-              <TabsList className={`grid w-full ${item?.category === '팝업' ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'} gap-1`}>
+              <TabsList className={`grid w-full ${item?.category === '팝업' ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-1`}>
                 <TabsTrigger value="description" className="text-xs sm:text-sm">소개</TabsTrigger>
-                {item?.category !== '팝업' && (
-                  <TabsTrigger value="details" className="text-xs sm:text-sm">포함/불포함</TabsTrigger>
-                )}
                 {item?.category !== '팝업' && (
                   <TabsTrigger value="location" className="text-xs sm:text-sm">위치</TabsTrigger>
                 )}
@@ -1235,269 +1232,6 @@ export function DetailPage() {
                 </Card>
               </TabsContent>
 
-              {/* 팝업 카테고리가 아닐 때만 포함/불포함 탭 표시 */}
-              {item?.category !== '팝업' && (
-                <TabsContent value="details" className="space-y-4 md:space-y-6">
-                  {/* Category-specific details */}
-                  {item.category === 'accommodation' && (item.roomType || item.checkInTime) && (
-                  <Card className="mb-6">
-                    <CardHeader>
-                      <CardTitle className="text-purple-600 flex items-center">
-                        <MapPin className="h-5 w-5 mr-2" />
-                        숙박 상세 정보
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {item.roomType && (
-                          <div>
-                            <p className="text-sm text-gray-600">객실 타입</p>
-                            <p className="font-medium">{item.roomType}</p>
-                          </div>
-                        )}
-                        {item.maxGuests && (
-                          <div>
-                            <p className="text-sm text-gray-600">최대 투숙 인원</p>
-                            <p className="font-medium">{item.maxGuests}명</p>
-                          </div>
-                        )}
-                        {item.checkInTime && (
-                          <div>
-                            <p className="text-sm text-gray-600">체크인 시간</p>
-                            <p className="font-medium">{item.checkInTime}</p>
-                          </div>
-                        )}
-                        {item.checkOutTime && (
-                          <div>
-                            <p className="text-sm text-gray-600">체크아웃 시간</p>
-                            <p className="font-medium">{item.checkOutTime}</p>
-                          </div>
-                        )}
-                        {item.bedType && (
-                          <div>
-                            <p className="text-sm text-gray-600">침대 타입</p>
-                            <p className="font-medium">{item.bedType}</p>
-                          </div>
-                        )}
-                        {item.bathroomType && (
-                          <div>
-                            <p className="text-sm text-gray-600">욕실 타입</p>
-                            <p className="font-medium">{item.bathroomType}</p>
-                          </div>
-                        )}
-                        {item.roomSize && (
-                          <div>
-                            <p className="text-sm text-gray-600">객실 크기</p>
-                            <p className="font-medium">{item.roomSize}㎡</p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-sm text-gray-600">편의시설</p>
-                          <div className="flex gap-2 mt-1">
-                            {item.wifiAvailable && (
-                              <Badge variant="secondary" className="text-xs">WiFi</Badge>
-                            )}
-                            {item.parkingAvailable && (
-                              <Badge variant="secondary" className="text-xs">주차</Badge>
-                            )}
-                            {item.breakfastIncluded && (
-                              <Badge variant="secondary" className="text-xs">조식</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {item.category === 'rentcar' && (item.brand || item.vehicleType) && (
-                  <Card className="mb-6">
-                    <CardHeader>
-                      <CardTitle className="text-blue-600 flex items-center">
-                        <MapPin className="h-5 w-5 mr-2" />
-                        차량 상세 정보
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {item.brand && item.model && (
-                          <div>
-                            <p className="text-sm text-gray-600">차량</p>
-                            <p className="font-medium">{item.brand} {item.model}</p>
-                          </div>
-                        )}
-                        {item.yearManufactured && (
-                          <div>
-                            <p className="text-sm text-gray-600">연식</p>
-                            <p className="font-medium">{item.yearManufactured}년형</p>
-                          </div>
-                        )}
-                        {item.vehicleType && (
-                          <div>
-                            <p className="text-sm text-gray-600">차종</p>
-                            <p className="font-medium">{item.vehicleType}</p>
-                          </div>
-                        )}
-                        {item.fuelType && (
-                          <div>
-                            <p className="text-sm text-gray-600">연료</p>
-                            <p className="font-medium">
-                              {item.fuelType === 'gasoline' && '휘발유'}
-                              {item.fuelType === 'diesel' && '경유'}
-                              {item.fuelType === 'electric' && '전기'}
-                              {item.fuelType === 'hybrid' && '하이브리드'}
-                            </p>
-                          </div>
-                        )}
-                        {item.seatingCapacity && (
-                          <div>
-                            <p className="text-sm text-gray-600">승차 인원</p>
-                            <p className="font-medium">{item.seatingCapacity}인승</p>
-                          </div>
-                        )}
-                        {item.transmission && (
-                          <div>
-                            <p className="text-sm text-gray-600">변속기</p>
-                            <p className="font-medium">
-                              {item.transmission === 'automatic' ? '자동' : '수동'}
-                            </p>
-                          </div>
-                        )}
-                        {item.mileageLimit && (
-                          <div>
-                            <p className="text-sm text-gray-600">주행거리 제한</p>
-                            <p className="font-medium">1일 {item.mileageLimit}km</p>
-                          </div>
-                        )}
-                        {item.depositAmount && (
-                          <div>
-                            <p className="text-sm text-gray-600">보증금</p>
-                            <p className="font-medium">{item.depositAmount.toLocaleString()}원</p>
-                          </div>
-                        )}
-                        {item.insuranceIncluded !== undefined && (
-                          <div>
-                            <p className="text-sm text-gray-600">보험</p>
-                            <p className="font-medium">
-                              {item.insuranceIncluded ? '포함' : '미포함'}
-                            </p>
-                            {item.insuranceDetails && (
-                              <p className="text-xs text-gray-500 mt-1">{item.insuranceDetails}</p>
-                            )}
-                          </div>
-                        )}
-                        {item.pickupLocation && (
-                          <div>
-                            <p className="text-sm text-gray-600">인수 장소</p>
-                            <p className="font-medium text-sm">{item.pickupLocation}</p>
-                          </div>
-                        )}
-                        {item.returnLocation && (
-                          <div>
-                            <p className="text-sm text-gray-600">반납 장소</p>
-                            <p className="font-medium text-sm">{item.returnLocation}</p>
-                          </div>
-                        )}
-                        {item.ageRequirement && (
-                          <div>
-                            <p className="text-sm text-gray-600">운전자 나이 제한</p>
-                            <p className="font-medium">만 {item.ageRequirement}세 이상</p>
-                          </div>
-                        )}
-                        {item.licenseRequirement && (
-                          <div>
-                            <p className="text-sm text-gray-600">면허 요구사항</p>
-                            <p className="font-medium text-sm">{item.licenseRequirement}</p>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-green-600 flex items-center">
-                        <Check className="h-5 w-5 mr-2" />
-                        포함사항
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2 text-gray-700">
-                        {item.included && item.included.length > 0 ? (
-                          item.included.map((includedItem: string, index: number) => (
-                            <li key={index} className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              {includedItem}
-                            </li>
-                          ))
-                        ) : (
-                          <>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              전문 가이드
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              이동 차량
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              입장료
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              기념품
-                            </li>
-                          </>
-                        )}
-                      </ul>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-red-600 flex items-center">
-                        <X className="h-5 w-5 mr-2" />
-                        불포함사항
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2 text-gray-700">
-                        {item.excluded && item.excluded.length > 0 ? (
-                          item.excluded.map((excludedItem: string, index: number) => (
-                            <li key={index} className="flex items-center">
-                              <X className="h-4 w-4 text-red-500 mr-2" />
-                              {excludedItem}
-                            </li>
-                          ))
-                        ) : (
-                          <>
-                            <li className="flex items-center">
-                              <X className="h-4 w-4 text-red-500 mr-2" />
-                              개인 식사비
-                            </li>
-                            <li className="flex items-center">
-                              <X className="h-4 w-4 text-red-500 mr-2" />
-                              개인 용품
-                            </li>
-                            <li className="flex items-center">
-                              <X className="h-4 w-4 text-red-500 mr-2" />
-                              여행자 보험
-                            </li>
-                            <li className="flex items-center">
-                              <X className="h-4 w-4 text-red-500 mr-2" />
-                              추가 액티비티
-                            </li>
-                          </>
-                        )}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-                </TabsContent>
-              )}
 
               {/* 팝업 카테고리가 아닐 때만 위치 탭 표시 */}
               {item?.category !== '팝업' && (
@@ -1771,6 +1505,44 @@ export function DetailPage() {
                         <span className="font-semibold text-gray-700">이메일:</span>
                         <span className="ml-2 text-gray-600">{(item as any).partner?.contact_email || 'info@travleap.com'}</span>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* A/S 안내 및 제조국 정보 (법적 필수) */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>A/S 안내</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <span className="font-semibold text-gray-700">A/S 책임자:</span>
+                        <span className="ml-2 text-gray-600">트래블립 고객센터</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">전화번호:</span>
+                        <span className="ml-2 text-gray-600">0504-0811-1330</span>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="font-semibold text-gray-700">이메일:</span>
+                        <span className="ml-2 text-gray-600">awesomeplan4606@naver.com</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">제조국:</span>
+                        <span className="ml-2 text-gray-600">대한민국</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">제조사:</span>
+                        <span className="ml-2 text-gray-600">어썸플랜 (Awesome Plan)</span>
+                      </div>
+                    </div>
+                    <div className="border-t pt-3 mt-3">
+                      <h4 className="font-semibold text-gray-700 mb-2">품질보증 기준</h4>
+                      <ul className="space-y-1 text-gray-700">
+                        <li>• 본 상품은 공정거래위원회 고시 「소비자분쟁해결기준」에 따라 보상받을 수 있습니다.</li>
+                        <li>• 제품 하자 발생 시 동일 상품으로 교환 또는 환불이 가능합니다.</li>
+                      </ul>
                     </div>
                   </CardContent>
                 </Card>

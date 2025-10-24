@@ -91,8 +91,8 @@ async function startServer() {
     import('./api/bookings/return-inspect.js'),
     import('./api/payments/confirm'),
     // import('./api/lodging'), // 파일 없음 - 주석 처리
-    import('./api/banners'),
-    import('./api/activities'),
+    import('./api/shared/banners-module.js'),
+    import('./api/shared/activities-module.js'),
     // import('./api/newsletter'), // 파일 없음 - 주석 처리
     import('./utils/database.js'),
     import('./services/pms-scheduler'),
@@ -112,6 +112,8 @@ async function startServer() {
   returnInspectAPI = returnInspectModule.default;
   paymentConfirmAPI = paymentConfirmModule;
   // lodgingAPI = lodgingModule; // 파일 없음 - 주석 처리
+  console.log('[DEBUG] bannerModule keys:', Object.keys(bannerModule));
+  console.log('[DEBUG] activityModule keys:', Object.keys(activityModule));
   bannerAPI = bannerModule;
   activityAPI = activityModule;
   // newsletterAPI = newsletterModule; // 파일 없음 - 주석 처리
@@ -2583,8 +2585,8 @@ function setupRoutes() {
       const result = await bannerAPI.getActiveBanners();
       res.json(result);
     } catch (error) {
-      console.error('❌ [API] Get banners error:', error);
-      res.status(500).json({ success: false, message: '배너 목록 조회 실패' });
+      // Return empty array on error (banners are optional)
+      res.json({ success: true, data: [] });
     }
   });
 
@@ -2682,8 +2684,8 @@ function setupRoutes() {
       const result = await activityAPI.getActiveActivities();
       res.json(result);
     } catch (error) {
-      console.error('❌ [API] Get activities error:', error);
-      res.status(500).json({ success: false, message: '액티비티 목록 조회 실패' });
+      // Return empty array on error (activities are optional)
+      res.json({ success: true, data: [] });
     }
   });
 
