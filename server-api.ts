@@ -185,6 +185,31 @@ async function startServer() {
     console.log('=========================================\n');
   });
 
+  // 임시: 카테고리 변환 엔드포인트 (DB의 영어 카테고리를 한글로 변환)
+  app.post('/api/admin/convert-categories', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      console.log('🔄 [카테고리 변환] 시작...');
+
+      await db.execute(`UPDATE listings SET category = '팝업' WHERE category = 'popup'`);
+      await db.execute(`UPDATE listings SET category = '여행' WHERE category = 'tour'`);
+      await db.execute(`UPDATE listings SET category = '숙박' WHERE category = 'stay'`);
+      await db.execute(`UPDATE listings SET category = '음식' WHERE category = 'food'`);
+      await db.execute(`UPDATE listings SET category = '관광지' WHERE category = 'tourist'`);
+      await db.execute(`UPDATE listings SET category = '체험' WHERE category = 'experience'`);
+      await db.execute(`UPDATE listings SET category = '행사' WHERE category = 'event'`);
+      await db.execute(`UPDATE listings SET category = '렌트카' WHERE category = 'rentcar'`);
+
+      console.log('✅ [카테고리 변환] 완료');
+
+      res.json({ success: true, message: '카테고리가 한글로 변환되었습니다.' });
+    } catch (error) {
+      console.error('❌ [카테고리 변환] 에러:', error);
+      res.status(500).json({ success: false, message: '카테고리 변환 실패' });
+    }
+  });
+
   // 통계 출력 (60초마다)
   setInterval(() => {
     const expiryStats = getExpiryMetrics();
@@ -1004,6 +1029,9 @@ function setupRoutes() {
         return res.status(404).json({ success: false, message: '상품을 찾을 수 없습니다' });
       }
 
+      // 디버깅: 카테고리 값 확인
+      console.log('🔍 [상품 상세] ID:', id, '| category:', listings[0].category, '| title:', listings[0].title);
+
       res.json({
         success: true,
         data: listings[0]
@@ -1022,20 +1050,7 @@ function setupRoutes() {
 
       console.log('📦 상품 생성 요청:', listingData.title);
 
-      // 카테고리 slug 매핑
-      const slugMapping: { [key: string]: string } = {
-        '투어': 'tour', '여행': 'tour', 'tour': 'tour',
-        '렌트카': 'rentcar', 'rentcar': 'rentcar',
-        '숙박': 'stay', 'stay': 'stay',
-        '음식': 'food', 'food': 'food',
-        '관광지': 'tourist', 'tourist': 'tourist',
-        '체험': 'experience', 'experience': 'experience',
-        '팝업': 'popup', 'popup': 'popup',
-        '행사': 'event', 'event': 'event'
-      };
-
-      const categoryKey = (listingData.category || '').trim();
-      const slug = slugMapping[categoryKey] || 'tour';
+      // 카테고리는 한글 그대로 저장 ('팝업', '여행', '숙박' 등)
 
       // INSERT 쿼리
       const result = await db.execute(`
@@ -1047,7 +1062,7 @@ function setupRoutes() {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         listingData.title,
-        slug,
+        listingData.category,  // 한글 카테고리 저장 ('팝업', '여행', '숙박' 등)
         listingData.category_id,
         listingData.price || 0,
         listingData.price || 0,
@@ -1096,20 +1111,7 @@ function setupRoutes() {
 
       console.log('📝 상품 수정 요청:', listingId, listingData.title);
 
-      // 카테고리 slug 매핑
-      const slugMapping: { [key: string]: string } = {
-        '투어': 'tour', '여행': 'tour', 'tour': 'tour',
-        '렌트카': 'rentcar', 'rentcar': 'rentcar',
-        '숙박': 'stay', 'stay': 'stay',
-        '음식': 'food', 'food': 'food',
-        '관광지': 'tourist', 'tourist': 'tourist',
-        '체험': 'experience', 'experience': 'experience',
-        '팝업': 'popup', 'popup': 'popup',
-        '행사': 'event', 'event': 'event'
-      };
-
-      const categoryKey = (listingData.category || '').trim();
-      const slug = slugMapping[categoryKey] || 'tour';
+      // 카테고리는 한글 그대로 저장 ('팝업', '여행', '숙박' 등)
 
       await db.execute(`
         UPDATE listings SET
@@ -1123,7 +1125,7 @@ function setupRoutes() {
         WHERE id = ?
       `, [
         listingData.title,
-        slug,
+        listingData.category,  // 한글 카테고리 저장
         listingData.category_id,
         listingData.price || 0,
         listingData.price || 0,

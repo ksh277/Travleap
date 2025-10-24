@@ -337,6 +337,7 @@ export function DetailPage() {
           ageRequirement: categoryDetails?.age_requirement,
           licenseRequirement: categoryDetails?.license_requirement
         };
+        console.log('🔍 상품 카테고리 확인:', processedItem.category, '| 상품명:', processedItem.title);
         setItem(processedItem);
         setRetryCount(0);
       } else {
@@ -1663,7 +1664,7 @@ export function DetailPage() {
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">판매자:</span>
-                        <span className="ml-2 text-gray-600">{item.partner?.business_name || '트래블립'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.business_name || '트래블립'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">카테고리:</span>
@@ -1683,7 +1684,7 @@ export function DetailPage() {
                       </div>
                       <div className="md:col-span-2">
                         <span className="font-semibold text-gray-700">소비자상담 관련 전화번호:</span>
-                        <span className="ml-2 text-gray-600">{item.partner?.contact_phone || '1588-0000'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.contact_phone || '1588-0000'}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -1711,10 +1712,25 @@ export function DetailPage() {
                         <li>• 소비자의 사용 또는 일부 소비에 의하여 상품의 가치가 현저히 감소한 경우</li>
                       </ul>
                     </div>
+                    {/* 팝업 상품 배송비 정책 */}
+                    {item?.category === '팝업' && (
+                      <div>
+                        <h4 className="font-semibold mb-2">배송비 정책</h4>
+                        <ul className="space-y-1 text-gray-700">
+                          <li>• <span className="font-medium">50,000원 이상 구매 시:</span> 무료 배송</li>
+                          <li>• <span className="font-medium">50,000원 미만 구매 시:</span> 배송비 3,000원</li>
+                          <li>• <span className="font-medium">반품 시:</span> 추가 배송비 3,000원 (고객 부담)</li>
+                        </ul>
+                      </div>
+                    )}
+
                     <div>
                       <h4 className="font-semibold mb-2">반품 배송비</h4>
                       <p className="text-gray-700">
-                        제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 왕복 배송비(6,000원)가 부과됩니다.
+                        {item?.category === '팝업'
+                          ? '제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 왕복 배송비(3,000원 + 3,000원 = 6,000원)가 부과됩니다.'
+                          : '제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 왕복 배송비(6,000원)가 부과됩니다.'
+                        }
                       </p>
                     </div>
                   </CardContent>
@@ -1729,31 +1745,31 @@ export function DetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
                         <span className="font-semibold text-gray-700">상호명:</span>
-                        <span className="ml-2 text-gray-600">{item.partner?.business_name || '트래블립'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.business_name || '트래블립'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">대표자:</span>
-                        <span className="ml-2 text-gray-600">{item.partner?.representative_name || '김대표'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.representative_name || '김대표'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">사업자등록번호:</span>
-                        <span className="ml-2 text-gray-600">{item.partner?.business_registration_number || '000-00-00000'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.business_registration_number || '000-00-00000'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">통신판매업 신고번호:</span>
-                        <span className="ml-2 text-gray-600">{item.partner?.online_business_registration_number || '제2024-전남신안-0000호'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.online_business_registration_number || '제2024-전남신안-0000호'}</span>
                       </div>
                       <div className="md:col-span-2">
                         <span className="font-semibold text-gray-700">사업장 소재지:</span>
-                        <span className="ml-2 text-gray-600">{item.partner?.address || '전라남도 신안군'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.address || '전라남도 신안군'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">대표 전화:</span>
-                        <span className="ml-2 text-gray-600">{item.partner?.contact_phone || '1588-0000'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.contact_phone || '1588-0000'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">이메일:</span>
-                        <span className="ml-2 text-gray-600">{item.partner?.contact_email || 'info@travleap.com'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.contact_email || 'info@travleap.com'}</span>
                       </div>
                     </div>
                   </CardContent>

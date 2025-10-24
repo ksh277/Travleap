@@ -218,6 +218,28 @@ export async function runMissingTablesMigration() {
       console.warn('⚠️  Lodging partners update warning:', error);
     }
 
+    // Update category values from English to Korean - 카테고리 자동 변환
+    try {
+      console.log('🔄 [Migration] Converting category values to Korean...');
+
+      const result1 = await db.execute(`UPDATE listings SET category = '팝업' WHERE category = 'popup'`);
+      const result2 = await db.execute(`UPDATE listings SET category = '여행' WHERE category = 'tour'`);
+      const result3 = await db.execute(`UPDATE listings SET category = '숙박' WHERE category = 'stay'`);
+      const result4 = await db.execute(`UPDATE listings SET category = '음식' WHERE category = 'food'`);
+      const result5 = await db.execute(`UPDATE listings SET category = '관광지' WHERE category = 'tourist'`);
+      const result6 = await db.execute(`UPDATE listings SET category = '체험' WHERE category = 'experience'`);
+      const result7 = await db.execute(`UPDATE listings SET category = '행사' WHERE category = 'event'`);
+      const result8 = await db.execute(`UPDATE listings SET category = '렌트카' WHERE category = 'rentcar'`);
+
+      console.log('✅ Category values converted to Korean');
+      console.log(`   - popup -> 팝업: ${result1.affectedRows || 0} rows`);
+      console.log(`   - tour -> 여행: ${result2.affectedRows || 0} rows`);
+      console.log(`   - stay -> 숙박: ${result3.affectedRows || 0} rows`);
+    } catch (error) {
+      console.error('❌ [Migration] Category conversion error:', error);
+      throw error;
+    }
+
     console.log('🎉 [Migration] All missing tables added successfully!');
     return true;
 

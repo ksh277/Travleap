@@ -630,11 +630,11 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
               return (
                 <Card
                   key={item.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full"
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[420px]"
                   onClick={() => navigate(`/detail/${item.id}`)}
                 >
-                  {/* 이미지 - 팝업 카테고리는 더 크게 */}
-                  <div className={`relative w-full ${item.category === '팝업' ? 'h-56' : 'h-40'} flex-shrink-0`}>
+                  {/* 이미지 */}
+                  <div className={`relative w-full ${item.category === '팝업' ? 'h-56' : 'h-56'} flex-shrink-0`}>
                     <ImageWithFallback
                       src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
                       alt={item.title}
@@ -660,11 +660,11 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                     </button>
                   </div>
 
-                  {/* 정보 - 이미지 아래에 고정 */}
-                  <CardContent className="p-4 flex flex-col flex-1 justify-between bg-white">
-                      <div className="space-y-2 mb-3">
+                  {/* 정보 - 충분한 공간 확보 */}
+                  <CardContent className="p-6 pt-5 flex flex-col flex-1 justify-between bg-white min-h-[232px]">
+                      <div className="space-y-4 flex-1">
                         <div className="flex items-start gap-2">
-                          <h3 className="font-semibold text-base flex-1 line-clamp-2 min-h-[2.5rem]">{item.title}</h3>
+                          <h3 className="font-semibold text-base flex-1 line-clamp-2">{item.title}</h3>
                           {item.partner?.is_verified && (
                             <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
                               인증
@@ -677,10 +677,10 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                           <span className="text-xs text-gray-600 line-clamp-1">{item.location || '위치 정보 없음'}</span>
                         </div>
 
-                        <p className="text-xs text-gray-600 line-clamp-2 min-h-[2rem]">{item.short_description || item.description_md || ''}</p>
+                        <p className="text-xs text-gray-600 line-clamp-3">{item.short_description || item.description_md || ''}</p>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center justify-between pt-4 mt-4 border-t">
                         {Number(item.rating_avg || 0) > 0 && (
                           <div className="flex items-center gap-1">
                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
