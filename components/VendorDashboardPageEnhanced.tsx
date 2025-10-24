@@ -42,6 +42,8 @@ import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ImageUploader } from './ui/ImageUploader';
+import { getGoogleMapsApiKey } from '../utils/env';
+import { MapPin } from 'lucide-react';
 
 interface Vehicle {
   id: number;
@@ -94,6 +96,8 @@ interface VendorInfo {
   contact_phone: string;
   contact_person: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   description?: string;
   logo_url?: string;
   images?: string[];
@@ -1053,6 +1057,8 @@ export function VendorDashboardPageEnhanced() {
           contact_email: editedInfo.contact_email || vendorInfo.contact_email,
           contact_phone: editedInfo.contact_phone || vendorInfo.contact_phone,
           address: editedInfo.address || vendorInfo.address,
+          latitude: editedInfo.latitude !== undefined ? editedInfo.latitude : vendorInfo.latitude,
+          longitude: editedInfo.longitude !== undefined ? editedInfo.longitude : vendorInfo.longitude,
           description: editedInfo.description || vendorInfo.description,
           logo_url: editedInfo.logo_url || vendorInfo.logo_url,
           images: editedInfo.images !== undefined ? editedInfo.images : vendorInfo.images, // 이미지 배열 추가
@@ -1072,6 +1078,8 @@ export function VendorDashboardPageEnhanced() {
           contact_email: editedInfo.contact_email!,
           contact_phone: editedInfo.contact_phone!,
           address: editedInfo.address!,
+          latitude: editedInfo.latitude !== undefined ? editedInfo.latitude : vendorInfo.latitude,
+          longitude: editedInfo.longitude !== undefined ? editedInfo.longitude : vendorInfo.longitude,
           description: editedInfo.description,
           logo_url: editedInfo.logo_url,
           images: editedInfo.images !== undefined ? editedInfo.images : vendorInfo.images, // 이미지 상태 업데이트
@@ -1942,12 +1950,126 @@ export function VendorDashboardPageEnhanced() {
                 </div>
                 <div>
                   <Label>주소</Label>
-                  <Textarea
-                    value={isEditingInfo ? (editedInfo.address || '') : (vendorInfo.address || '미등록')}
-                    onChange={(e) => setEditedInfo({ ...editedInfo, address: e.target.value })}
-                    disabled={!isEditingInfo}
-                    rows={2}
-                  />
+                  {isEditingInfo ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          value={editedInfo.address || ''}
+                          placeholder="주소 검색 버튼을 클릭하세요"
+                          readOnly
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          onClick={async () => {
+                            // 구글 Maps API 로드 확인 및 로드
+                            const loadGoogleMaps = (): Promise<void> => {
+                              return new Promise((resolve, reject) => {
+                                if ((window as any).google && (window as any).google.maps) {
+                                  console.log('✅ 구글 Maps API 이미 로드됨');
+                                  resolve();
+                                  return;
+                                }
+
+                                console.log('📡 구글 Maps API 로드 중...');
+                                const apiKey = getGoogleMapsApiKey();
+
+                                if (!apiKey) {
+                                  reject(new Error('구글 Maps API 키가 설정되지 않았습니다.'));
+                                  return;
+                                }
+
+                                const script = document.createElement('script');
+                                script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+                                script.async = true;
+                                script.defer = true;
+                                script.onload = () => {
+                                  console.log('✅ 구글 Maps API 로드 완료');
+                                  resolve();
+                                };
+                                script.onerror = () => {
+                                  reject(new Error('구글 Maps API 로드 실패'));
+                                };
+                                document.head.appendChild(script);
+                              });
+                            };
+
+                            try {
+                              // 구글 Maps API 로드
+                              await loadGoogleMaps();
+
+                              // Daum 주소 검색 팝업
+                              new (window as any).daum.Postcode({
+                                oncomplete: function(data: any) {
+                                  // 도로명 주소 또는 지번 주소 선택
+                                  const fullAddress = data.roadAddress || data.jibunAddress;
+
+                                  console.log('🔍 주소 선택됨:', fullAddress);
+
+                                  // 구글 Maps Geocoding API로 좌표 검색
+                                  const geocoder = new (window as any).google.maps.Geocoder();
+
+                                  geocoder.geocode({ address: fullAddress }, (results: any, status: any) => {
+                                    console.log('📡 Google Geocoder 응답:', { results, status });
+
+                                    if (status === 'OK' && results && results.length > 0) {
+                                      const location = results[0].geometry.location;
+                                      const lat = location.lat();
+                                      const lng = location.lng();
+
+                                      console.log('✅ 좌표 검색 성공!', {
+                                        address: fullAddress,
+                                        lat: lat,
+                                        lng: lng
+                                      });
+
+                                      setEditedInfo(prev => ({
+                                        ...prev,
+                                        address: fullAddress,
+                                        latitude: lat,
+                                        longitude: lng
+                                      }));
+
+                                      toast.success(`주소가 저장되었습니다.\n위도: ${lat.toFixed(6)}, 경도: ${lng.toFixed(6)}`);
+                                    } else {
+                                      console.error('❌ 좌표 검색 실패:', { fullAddress, status, results });
+                                      toast.error('좌표를 찾을 수 없습니다. 주소를 다시 확인해주세요.');
+
+                                      setEditedInfo(prev => ({
+                                        ...prev,
+                                        address: fullAddress
+                                      }));
+                                    }
+                                  });
+                                }
+                              }).open();
+                            } catch (error: any) {
+                              console.error('❌ 구글 Maps API 로드 오류:', error);
+                              toast.error(`구글 Maps API 로드 실패: ${error.message}`);
+                            }
+                          }}
+                          className="whitespace-nowrap"
+                        >
+                          <MapPin className="h-4 w-4 mr-2" />
+                          주소 검색
+                        </Button>
+                      </div>
+                      {editedInfo.latitude && editedInfo.longitude && (
+                        <p className="text-xs text-gray-500">
+                          좌표: {editedInfo.latitude.toFixed(6)}, {editedInfo.longitude.toFixed(6)}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-sm">{vendorInfo.address || '미등록'}</p>
+                      {vendorInfo.latitude && vendorInfo.longitude && (
+                        <p className="text-xs text-gray-500">
+                          좌표: {vendorInfo.latitude.toFixed(6)}, {vendorInfo.longitude.toFixed(6)}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <Label>업체 소개</Label>

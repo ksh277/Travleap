@@ -87,7 +87,7 @@ module.exports = async function handler(req, res) {
         FROM rentcar_bookings b
         LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
         WHERE b.vendor_id = ?
-          AND b.payment_status IN ('completed', 'paid')
+          AND b.payment_status = 'paid'
         ORDER BY b.created_at DESC`,
         [vendorId]
       );
@@ -161,7 +161,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      if (booking.payment_status !== 'completed' && booking.payment_status !== 'paid') {
+      if (booking.payment_status !== 'paid') {
         return res.status(400).json({
           success: false,
           message: '결제가 완료된 예약만 환불할 수 있습니다.'

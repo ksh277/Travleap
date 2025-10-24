@@ -39,6 +39,8 @@ module.exports = async function handler(req, res) {
           v.contact_email,
           v.contact_phone,
           v.address,
+          v.latitude,
+          v.longitude,
           v.description,
           v.logo_url,
           v.images,
@@ -103,6 +105,8 @@ module.exports = async function handler(req, res) {
         contact_email,
         contact_phone,
         address,
+        latitude,
+        longitude,
         description,
         logo_url,
         images,
@@ -115,7 +119,7 @@ module.exports = async function handler(req, res) {
 
       // 기존 데이터 조회 (null 방지를 위해)
       const existingVendor = await connection.execute(
-        'SELECT business_name, contact_name, contact_email, contact_phone, address, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
+        'SELECT business_name, contact_name, contact_email, contact_phone, address, latitude, longitude, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
         [id]
       );
 
@@ -134,6 +138,8 @@ module.exports = async function handler(req, res) {
       const finalContactEmail = contact_email || existing.contact_email;
       const finalContactPhone = contact_phone || existing.contact_phone;
       const finalAddress = address !== undefined ? address : existing.address;
+      const finalLatitude = latitude !== undefined ? latitude : existing.latitude;
+      const finalLongitude = longitude !== undefined ? longitude : existing.longitude;
       const finalDescription = description !== undefined ? description : existing.description;
       const finalLogoUrl = logo_url !== undefined ? logo_url : existing.logo_url;
       const finalCancellationPolicy = cancellation_policy !== undefined ? cancellation_policy : existing.cancellation_policy;
@@ -148,9 +154,9 @@ module.exports = async function handler(req, res) {
       await connection.execute(
         `UPDATE rentcar_vendors
          SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,
-             address = ?, description = ?, logo_url = ?, images = ?, cancellation_policy = ?, updated_at = NOW()
+             address = ?, latitude = ?, longitude = ?, description = ?, logo_url = ?, images = ?, cancellation_policy = ?, updated_at = NOW()
          WHERE id = ?`,
-        [finalName, finalContactPerson, finalContactEmail, finalContactPhone, finalAddress, finalDescription, finalLogoUrl, finalImages, finalCancellationPolicy, id]
+        [finalName, finalContactPerson, finalContactEmail, finalContactPhone, finalAddress, finalLatitude, finalLongitude, finalDescription, finalLogoUrl, finalImages, finalCancellationPolicy, id]
       );
 
       // 2. 이메일이 변경되었거나 비밀번호가 제공된 경우 Neon users 테이블 업데이트

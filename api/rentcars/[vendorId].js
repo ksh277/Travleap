@@ -81,8 +81,8 @@ module.exports = async function handler(req, res) {
       address: vendor.address || '제주특별자치도 제주시 연동',
       cancellation_policy: vendor.cancellation_policy || '예약 3일 전: 전액 환불\n예약 1-2일 전: 50% 환불\n예약 당일: 환불 불가',
       images: Array.isArray(vendorImages) ? vendorImages : [],
-      latitude: 33.4996,
-      longitude: 126.5312
+      latitude: vendor.latitude || 33.4996,  // 업체 좌표 사용, 없으면 제주 기본값
+      longitude: vendor.longitude || 126.5312
     };
 
     return res.status(200).json({
