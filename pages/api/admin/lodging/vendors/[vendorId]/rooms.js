@@ -74,17 +74,20 @@ module.exports = async function handler(req, res) {
         title,
         description_md,
         room_code,
+        room_type,
         location,
         address,
         price_from,
         base_price_per_night,
+        max_occupancy,
+        breakfast_included,
         images,
         amenities,
         is_active,
         created_at,
         updated_at
       ) VALUES (
-        ?, 'stay', ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', 1, NOW(), NOW()
+        ?, 'stay', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', 1, NOW(), NOW()
       )`,
       [
         STAY_CATEGORY_ID,
@@ -92,10 +95,13 @@ module.exports = async function handler(req, res) {
         listing_name,
         description || listing_name,
         roomCode,
+        'standard', // 기본값
         location,
         address,
         parseFloat(price_from),
         parseFloat(price_from),
+        2, // 기본 수용 인원
+        0, // 조식 미포함
         imagesJson
       ]
     );
