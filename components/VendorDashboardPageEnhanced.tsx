@@ -89,6 +89,19 @@ interface Booking {
   created_at: string;
 }
 
+interface Insurance {
+  id: number;
+  vendor_id: number;
+  name: string;
+  description: string | null;
+  coverage_details: string | null;
+  hourly_rate_krw: number;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 interface VendorInfo {
   id: number;
   name: string;
@@ -141,6 +154,7 @@ export function VendorDashboardPageEnhanced() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
+  const [insurances, setInsurances] = useState<Insurance[]>([]);
   const [activeTab, setActiveTab] = useState('vehicles');
   const [revenueData, setRevenueData] = useState<Array<{ date: string; revenue: number }>>([]);
 
@@ -190,6 +204,19 @@ export function VendorDashboardPageEnhanced() {
 
   // 이미지 URL 입력용
   const [currentImageUrl, setCurrentImageUrl] = useState('');
+
+  // 보험 추가/수정
+  const [isAddingInsurance, setIsAddingInsurance] = useState(false);
+  const [isEditingInsurance, setIsEditingInsurance] = useState(false);
+  const [editingInsuranceId, setEditingInsuranceId] = useState<number | null>(null);
+  const [insuranceForm, setInsuranceForm] = useState({
+    name: '',
+    description: '',
+    coverage_details: '',
+    hourly_rate_krw: 1000,
+    is_active: true,
+    display_order: 0
+  });
 
   // 반납 처리 상태
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
@@ -465,6 +492,20 @@ export function VendorDashboardPageEnhanced() {
         setRevenueData([]);
       }
 
+      // 5. 보험 상품 목록 조회 API - JWT 토큰으로 인증
+      const insuranceResponse = await fetch(`/api/vendor/insurance`, { headers });
+      const insuranceData = await insuranceResponse.json();
+
+      console.log('🔍 [DEBUG] 보험 API 응답:', insuranceData);
+
+      if (insuranceData.success && insuranceData.data) {
+        setInsurances(insuranceData.data);
+        console.log('✅ 보험 데이터 로드 완료:', insuranceData.data.length, '개');
+      } else {
+        console.warn('⚠️ 보험 데이터 없음');
+        setInsurances([]);
+      }
+
       console.log(`✅ 업체 데이터 로드 완료: ${vendor.name}`);
     } catch (error) {
       console.error('업체 데이터 로드 실패:', error);
@@ -602,20 +643,26 @@ export function VendorDashboardPageEnhanced() {
 
       if (isEditingVehicle && editingVehicleId) {
         // 수정 - PUT API
+        const updatePayload = {
+          id: editingVehicleId,
+          ...vehicleForm,
+          image_urls
+        };
+
+        console.log('🚗 [차량 수정] 전송 데이터:', updatePayload);
+
         const response = await fetch(`/api/vendor/vehicles`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({
-            id: editingVehicleId,
-            ...vehicleForm,
-            image_urls
-          })
+          body: JSON.stringify(updatePayload)
         });
 
         const result = await response.json();
+        console.log('🚗 [차량 수정] 응답:', result);
+
         if (result.success) {
           toast.success('차량이 수정되었습니다!');
         } else {
@@ -712,6 +759,140 @@ export function VendorDashboardPageEnhanced() {
       const result = await response.json();
       if (result.success) {
         toast.success(currentStatus ? '차량이 예약 불가로 변경되었습니다.' : '차량이 예약 가능으로 변경되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.message || '상태 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('상태 변경 실패:', error);
+      toast.error('상태 변경에 실패했습니다.');
+    }
+  };
+
+  // 보험 CRUD
+  const handleAddInsurance = () => {
+    setInsuranceForm({
+      name: '',
+      description: '',
+      coverage_details: '',
+      hourly_rate_krw: 1000,
+      is_active: true,
+      display_order: insurances.length + 1
+    });
+    setIsEditingInsurance(false);
+    setEditingInsuranceId(null);
+    setIsAddingInsurance(true);
+  };
+
+  const handleEditInsurance = (insurance: Insurance) => {
+    setInsuranceForm({
+      name: insurance.name,
+      description: insurance.description || '',
+      coverage_details: insurance.coverage_details || '',
+      hourly_rate_krw: insurance.hourly_rate_krw,
+      is_active: insurance.is_active,
+      display_order: insurance.display_order
+    });
+    setIsEditingInsurance(true);
+    setEditingInsuranceId(insurance.id);
+    setIsAddingInsurance(true);
+  };
+
+  const handleSaveInsurance = async () => {
+    if (!insuranceForm.name || insuranceForm.hourly_rate_krw <= 0) {
+      toast.error('보험 상품명과 시간당 요금은 필수 항목입니다.');
+      return;
+    }
+
+    const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+    if (!token) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const url = '/api/vendor/insurance';
+      const method = isEditingInsurance ? 'PUT' : 'POST';
+      const body = isEditingInsurance
+        ? { ...insuranceForm, id: editingInsuranceId }
+        : insuranceForm;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success(isEditingInsurance ? '보험 상품이 수정되었습니다.' : '보험 상품이 추가되었습니다.');
+        setIsAddingInsurance(false);
+        loadVendorData();
+      } else {
+        toast.error(result.message || '저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('보험 저장 실패:', error);
+      toast.error('저장에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteInsurance = async (insuranceId: number) => {
+    if (!confirm('정말 이 보험 상품을 삭제하시겠습니까?')) return;
+
+    const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+    if (!token) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/vendor/insurance?id=${insuranceId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('보험 상품이 삭제되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.message || '삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('보험 삭제 실패:', error);
+      toast.error('삭제에 실패했습니다.');
+    }
+  };
+
+  const toggleInsuranceActive = async (insuranceId: number, currentStatus: boolean) => {
+    const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+    if (!token) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/vendor/insurance`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          id: insuranceId,
+          is_active: !currentStatus
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success(currentStatus ? '보험 상품이 비활성화되었습니다.' : '보험 상품이 활성화되었습니다.');
         loadVendorData();
       } else {
         toast.error(result.message || '상태 변경에 실패했습니다.');
@@ -1279,6 +1460,7 @@ export function VendorDashboardPageEnhanced() {
           <TabsList className="mb-6">
             <TabsTrigger value="vehicles">차량 관리</TabsTrigger>
             <TabsTrigger value="bookings">예약 관리</TabsTrigger>
+            <TabsTrigger value="insurance">보험 관리</TabsTrigger>
             <TabsTrigger value="settings">업체 정보</TabsTrigger>
           </TabsList>
 
@@ -1883,6 +2065,181 @@ export function VendorDashboardPageEnhanced() {
                     </TableBody>
                   </Table>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 보험 관리 */}
+          <TabsContent value="insurance">
+            {/* 보험 추가/수정 폼 */}
+            {isAddingInsurance && (
+              <Card className="mb-6 border-green-200 bg-green-50">
+                <CardHeader>
+                  <CardTitle>{isEditingInsurance ? '보험 상품 수정' : '새 보험 상품 추가'}</CardTitle>
+                  <CardDescription>시간당 요금으로 보험 상품을 관리하세요</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>보험 상품명 *</Label>
+                      <Input
+                        placeholder="예: 기본 자차보험"
+                        value={insuranceForm.name}
+                        onChange={(e) => setInsuranceForm({...insuranceForm, name: e.target.value})}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>시간당 요금 (원) *</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="1000"
+                        value={insuranceForm.hourly_rate_krw}
+                        onChange={(e) => setInsuranceForm({...insuranceForm, hourly_rate_krw: parseInt(e.target.value) || 0})}
+                      />
+                      <p className="text-sm text-gray-500 mt-1">차량 렌트 시간만큼 곱해서 보험료가 계산됩니다</p>
+                    </div>
+
+                    <div>
+                      <Label>보험 설명</Label>
+                      <Textarea
+                        placeholder="예: 기본적인 자차 손해를 보장합니다"
+                        value={insuranceForm.description}
+                        onChange={(e) => setInsuranceForm({...insuranceForm, description: e.target.value})}
+                        rows={2}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>보장 내역</Label>
+                      <Textarea
+                        placeholder="예: 자차 손해 최대 500만원 보장&#10;면책금: 50만원"
+                        value={insuranceForm.coverage_details}
+                        onChange={(e) => setInsuranceForm({...insuranceForm, coverage_details: e.target.value})}
+                        rows={4}
+                      />
+                      <p className="text-sm text-gray-500 mt-1">줄바꿈으로 항목을 구분하세요</p>
+                    </div>
+
+                    <div>
+                      <Label>표시 순서</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={insuranceForm.display_order}
+                        onChange={(e) => setInsuranceForm({...insuranceForm, display_order: parseInt(e.target.value) || 0})}
+                      />
+                      <p className="text-sm text-gray-500 mt-1">숫자가 작을수록 먼저 표시됩니다</p>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={insuranceForm.is_active}
+                        onCheckedChange={(checked) => setInsuranceForm({...insuranceForm, is_active: checked})}
+                      />
+                      <Label>활성화 (고객에게 표시)</Label>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button onClick={handleSaveInsurance} className="bg-green-600 hover:bg-green-700">
+                        {isEditingInsurance ? '수정 완료' : '추가'}
+                      </Button>
+                      <Button variant="outline" onClick={() => setIsAddingInsurance(false)}>
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 보험 상품 목록 */}
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>보험 상품 목록</CardTitle>
+                    <CardDescription>고객이 선택할 수 있는 보험 상품을 관리하세요</CardDescription>
+                  </div>
+                  <Button onClick={handleAddInsurance} className="bg-green-600 hover:bg-green-700">
+                    <Plus className="mr-2 h-4 w-4" /> 보험 추가
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {insurances.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>등록된 보험 상품이 없습니다.</p>
+                    <p className="text-sm mt-2">고객이 예약 시 선택할 수 있는 보험 상품을 추가하세요.</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>순서</TableHead>
+                        <TableHead>보험명</TableHead>
+                        <TableHead>시간당 요금</TableHead>
+                        <TableHead>설명</TableHead>
+                        <TableHead>상태</TableHead>
+                        <TableHead className="text-right">관리</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {insurances
+                        .sort((a, b) => a.display_order - b.display_order)
+                        .map((insurance) => (
+                          <TableRow key={insurance.id}>
+                            <TableCell>{insurance.display_order}</TableCell>
+                            <TableCell className="font-medium">{insurance.name}</TableCell>
+                            <TableCell>{insurance.hourly_rate_krw.toLocaleString()}원/시간</TableCell>
+                            <TableCell className="max-w-xs truncate">{insurance.description || '-'}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={insurance.is_active}
+                                  onCheckedChange={() => toggleInsuranceActive(insurance.id, insurance.is_active)}
+                                />
+                                <span className="text-sm">
+                                  {insurance.is_active ? '활성' : '비활성'}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditInsurance(insurance)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteInsurance(insurance.id)}
+                                className="text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 보험 안내 */}
+            <Card className="mt-6 bg-blue-50 border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-blue-900">보험 시스템 안내</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-blue-800">
+                <p>• <strong>시간당 요금</strong>: 차량 렌트 시간에 비례하여 보험료가 자동 계산됩니다</p>
+                <p>• <strong>선택 사항</strong>: 고객은 보험을 선택하지 않고도 예약할 수 있습니다</p>
+                <p>• <strong>다중 옵션</strong>: 여러 보험 상품 중 하나를 선택할 수 있습니다</p>
+                <p>• <strong>예시</strong>: 24시간 렌트 × 1,000원/시간 = 24,000원 보험료</p>
               </CardContent>
             </Card>
           </TabsContent>

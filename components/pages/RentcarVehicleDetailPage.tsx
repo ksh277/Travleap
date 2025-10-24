@@ -65,6 +65,15 @@ interface VehicleDetail {
   deposit_amount_krw?: number;
 }
 
+interface Insurance {
+  id: number;
+  name: string;
+  description: string | null;
+  coverage_details: string | null;
+  hourly_rate_krw: number;
+  display_order: number;
+}
+
 export function RentcarVehicleDetailPage() {
   const { vehicleId } = useParams<{ vehicleId: string }>();
   const navigate = useNavigate();
@@ -83,6 +92,10 @@ export function RentcarVehicleDetailPage() {
   const [pickupTime, setPickupTime] = useState('10:00');
   const [returnTime, setReturnTime] = useState('10:00');
 
+  // 보험 상태
+  const [insurances, setInsurances] = useState<Insurance[]>([]);
+  const [selectedInsuranceId, setSelectedInsuranceId] = useState<number | null>(null);
+
   // 데이터 로드
   useEffect(() => {
     const fetchVehicleDetail = async () => {
@@ -97,6 +110,14 @@ export function RentcarVehicleDetailPage() {
 
         if (result.success && result.data) {
           setVehicle(result.data);
+
+          // 보험 상품 로드
+          const insuranceResponse = await fetch(`/api/rentcar/insurance?vendor_id=${result.data.vendor_id}`);
+          const insuranceResult = await insuranceResponse.json();
+
+          if (insuranceResult.success && insuranceResult.data) {
+            setInsurances(insuranceResult.data);
+          }
         } else {
           setError('차량 정보를 찾을 수 없습니다');
         }
@@ -144,7 +165,18 @@ export function RentcarVehicleDetailPage() {
     return Math.max(0, diffHours);
   };
 
-  // 가격 계산 (시간 단위)
+  // 보험료 계산
+  const calculateInsuranceFee = () => {
+    if (!selectedInsuranceId) return 0;
+
+    const selectedInsurance = insurances.find(ins => ins.id === selectedInsuranceId);
+    if (!selectedInsurance) return 0;
+
+    const totalHours = calculateRentalHours();
+    return Math.ceil(selectedInsurance.hourly_rate_krw * totalHours);
+  };
+
+  // 가격 계산 (시간 단위 + 보험료)
   const calculateTotalPrice = () => {
     if (!vehicle || !pickupDate || !returnDate) return 0;
 
@@ -153,7 +185,10 @@ export function RentcarVehicleDetailPage() {
 
     // 시간당 요금이 있으면 사용, 없으면 일일 요금을 24시간으로 나눔
     const hourlyRate = vehicle.hourly_rate_krw || Math.ceil(vehicle.daily_rate_krw / 24);
-    return Math.ceil(hourlyRate * totalHours);
+    const rentalFee = Math.ceil(hourlyRate * totalHours);
+    const insuranceFee = calculateInsuranceFee();
+
+    return rentalFee + insuranceFee;
   };
 
   // 예약 처리
@@ -198,7 +233,7 @@ export function RentcarVehicleDetailPage() {
         return;
       }
 
-      // 2. 예약 생성 (실제 사용자 정보 사용)
+      // 2. 예약 생성 (실제 사용자 정보 사용 + 보험)
       const bookingPayload = {
         vendor_id: vehicle.vendor_id,
         vehicle_id: vehicle.id,
@@ -212,6 +247,7 @@ export function RentcarVehicleDetailPage() {
         pickup_time: pickupTime,
         dropoff_date: format(returnDate, 'yyyy-MM-dd'),
         dropoff_time: returnTime,
+        insurance_id: selectedInsuranceId || undefined,
         special_requests: ''
       };
 
@@ -606,11 +642,115 @@ export function RentcarVehicleDetailPage() {
                     )}
                   </div>
 
+                  {/* 보험 선택 (선택사항) */}
+                  {insurances.length > 0 && pickupDate && returnDate && calculateRentalHours() >= 4 && (
+                    <>
+                      <Separator className="my-4" />
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 mb-2">보험 선택 (선택사항)</h3>
+                          <p className="text-xs text-gray-500 mb-3">원하시는 보험을 선택하세요. 선택하지 않아도 예약 가능합니다.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          {/* 보험 없음 옵션 */}
+                          <label className={`block border rounded-lg p-3 cursor-pointer transition-all ${
+                            selectedInsuranceId === null
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}>
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="radio"
+                                name="insurance"
+                                checked={selectedInsuranceId === null}
+                                onChange={() => setSelectedInsuranceId(null)}
+                                className="mt-1"
+                              />
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">보험 없음</div>
+                                <div className="text-sm text-gray-500">추가 보험료 없음</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-semibold text-gray-900">₩0</div>
+                              </div>
+                            </div>
+                          </label>
+
+                          {/* 보험 상품 목록 */}
+                          {insurances.map((insurance) => {
+                            const insuranceFee = Math.ceil(insurance.hourly_rate_krw * calculateRentalHours());
+                            return (
+                              <label
+                                key={insurance.id}
+                                className={`block border rounded-lg p-3 cursor-pointer transition-all ${
+                                  selectedInsuranceId === insurance.id
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <input
+                                    type="radio"
+                                    name="insurance"
+                                    checked={selectedInsuranceId === insurance.id}
+                                    onChange={() => setSelectedInsuranceId(insurance.id)}
+                                    className="mt-1"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-medium text-gray-900">{insurance.name}</div>
+                                    {insurance.description && (
+                                      <div className="text-sm text-gray-600 mt-1">{insurance.description}</div>
+                                    )}
+                                    {insurance.coverage_details && (
+                                      <div className="text-xs text-gray-500 mt-1 whitespace-pre-line">
+                                        {insurance.coverage_details.split('\n').slice(0, 2).join('\n')}
+                                      </div>
+                                    )}
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {insurance.hourly_rate_krw.toLocaleString()}원/시간 × {Math.floor(calculateRentalHours())}시간
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-semibold text-green-700">
+                                      +₩{insuranceFee.toLocaleString()}
+                                    </div>
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   <Separator className="my-4" />
 
                   {/* 가격 표시 */}
                   <div className="mb-6">
-                    <div className="text-sm text-gray-600 mb-1">총 대여 요금</div>
+                    {pickupDate && returnDate && calculateRentalHours() >= 4 && (
+                      <>
+                        <div className="space-y-2 mb-3">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">차량 대여료</span>
+                            <span className="font-medium">
+                              ₩{(calculateTotalPrice() - calculateInsuranceFee()).toLocaleString()}
+                            </span>
+                          </div>
+                          {calculateInsuranceFee() > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">보험료</span>
+                              <span className="font-medium text-green-600">
+                                +₩{calculateInsuranceFee().toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          <Separator />
+                        </div>
+                      </>
+                    )}
+                    <div className="text-sm text-gray-600 mb-1">총 결제 금액</div>
                     <div className="text-3xl font-bold text-blue-600">
                       ₩{calculateTotalPrice().toLocaleString()}
                     </div>
@@ -618,6 +758,7 @@ export function RentcarVehicleDetailPage() {
                       <p className="text-xs text-gray-500 mt-1">
                         {Math.floor(calculateRentalHours())}시간
                         {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`} 대여
+                        {calculateInsuranceFee() > 0 && ' (보험 포함)'}
                       </p>
                     )}
                   </div>

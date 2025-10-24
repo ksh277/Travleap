@@ -33,6 +33,8 @@ module.exports = async function handler(req, res) {
             COUNT(*) as total,
             SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed
           FROM rentcar_bookings
+          WHERE status NOT IN ('cancelled', 'deleted', 'failed')
+            AND payment_status = 'paid'
           GROUP BY vendor_id
         ) booking_counts ON v.id = booking_counts.vendor_id
         ORDER BY v.created_at DESC

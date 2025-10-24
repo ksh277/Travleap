@@ -77,15 +77,20 @@ module.exports = async function handler(req, res) {
           b.dropoff_date,
           b.dropoff_time,
           b.total_krw as total_amount,
+          b.insurance_id,
+          b.insurance_fee_krw,
           b.customer_name,
           b.customer_phone,
           b.customer_email,
           b.status,
           b.payment_status,
           b.created_at,
-          v.display_name as vehicle_name
+          v.display_name as vehicle_name,
+          i.name as insurance_name,
+          i.hourly_rate_krw as insurance_hourly_rate
         FROM rentcar_bookings b
         LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
+        LEFT JOIN rentcar_insurance i ON b.insurance_id = i.id
         WHERE b.vendor_id = ?
           AND b.payment_status = 'paid'
         ORDER BY b.created_at DESC`,

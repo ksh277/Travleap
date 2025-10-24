@@ -19,10 +19,13 @@ module.exports = async function handler(req, res) {
         SELECT
           b.*,
           v.brand, v.model, v.display_name, v.vehicle_class, v.thumbnail_url,
-          ve.business_name as vendor_business_name, ve.brand_name as vendor_brand_name
+          ve.business_name as vendor_business_name, ve.brand_name as vendor_brand_name,
+          i.name as insurance_name, i.description as insurance_description,
+          i.hourly_rate_krw as insurance_hourly_rate
         FROM rentcar_bookings b
         INNER JOIN rentcar_vehicles v ON b.vehicle_id = v.id
         INNER JOIN rentcar_vendors ve ON b.vendor_id = ve.id
+        LEFT JOIN rentcar_insurance i ON b.insurance_id = i.id
         WHERE 1=1
       `;
       const params = [];
@@ -48,7 +51,14 @@ module.exports = async function handler(req, res) {
         vendor: {
           business_name: row.vendor_business_name,
           brand_name: row.vendor_brand_name
-        }
+        },
+        insurance: row.insurance_id ? {
+          id: row.insurance_id,
+          name: row.insurance_name,
+          description: row.insurance_description,
+          hourly_rate_krw: row.insurance_hourly_rate,
+          fee_krw: row.insurance_fee_krw
+        } : null
       }));
 
       return res.status(200).json({
@@ -71,6 +81,7 @@ module.exports = async function handler(req, res) {
         pickup_time,
         dropoff_date,
         dropoff_time,
+        insurance_id,
         special_requests
       } = req.body;
 
@@ -169,12 +180,38 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 시간 단위 가격 계산
+      // 보험료 계산 (선택 사항)
+      let insuranceFee = 0;
+      if (insurance_id) {
+        const insuranceResult = await connection.execute(
+          'SELECT hourly_rate_krw, is_active FROM rentcar_insurance WHERE id = ? AND vendor_id = ?',
+          [insurance_id, vendor_id]
+        );
+
+        if (!insuranceResult.rows || insuranceResult.rows.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: '보험 상품을 찾을 수 없습니다.'
+          });
+        }
+
+        if (!insuranceResult.rows[0].is_active) {
+          return res.status(400).json({
+            success: false,
+            error: '선택하신 보험 상품은 현재 제공되지 않습니다.'
+          });
+        }
+
+        const insuranceHourlyRate = insuranceResult.rows[0].hourly_rate_krw;
+        insuranceFee = Math.ceil(insuranceHourlyRate * rentalHours);
+      }
+
+      // 시간 단위 가격 계산 (차량 대여료 + 보험료)
       const subtotal = Math.ceil(hourlyRate * rentalHours);
       const tax = Math.round(subtotal * 0.1);
-      const total = subtotal + tax;
+      const total = subtotal + tax + insuranceFee;
 
-      const bookingNumber = `RC${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+      const bookingNumber = `RC${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
       const result = await connection.execute(`
         INSERT INTO rentcar_bookings (
@@ -183,14 +220,16 @@ module.exports = async function handler(req, res) {
           pickup_location_id, dropoff_location_id,
           pickup_date, pickup_time, dropoff_date, dropoff_time,
           daily_rate_krw, rental_days, subtotal_krw, tax_krw, total_krw,
+          insurance_id, insurance_fee_krw,
           special_requests, status, payment_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending')
       `, [
         bookingNumber, vendor_id, vehicle_id, user_id,
         customer_name, customer_email, customer_phone,
         pickup_location_id, dropoff_location_id,
         pickup_date, pickup_time, dropoff_date, dropoff_time,
         hourlyRate, Math.ceil(rentalHours), subtotal, tax, total,
+        insurance_id || null, insuranceFee,
         special_requests || null
       ]);
 

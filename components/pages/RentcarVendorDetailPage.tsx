@@ -62,6 +62,15 @@ interface Vehicle {
   self_insurance_krw?: number;
 }
 
+interface Insurance {
+  id: number;
+  name: string;
+  description: string | null;
+  coverage_details: string | null;
+  hourly_rate_krw: number;
+  display_order: number;
+}
+
 interface VendorData {
   vendor: {
     id: number;
@@ -93,6 +102,7 @@ export function RentcarVendorDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const [insurances, setInsurances] = useState<Insurance[]>([]);
 
   // 예약 폼 상태
   const [pickupDate, setPickupDate] = useState<Date>();
@@ -130,6 +140,17 @@ export function RentcarVendorDetailPage() {
             }
           } catch (err) {
             console.error('예약 데이터 로드 실패:', err);
+          }
+
+          // 보험 상품 로드
+          try {
+            const insuranceRes = await fetch(`/api/rentcar/insurance?vendor_id=${vendorId}`);
+            const insuranceData = await insuranceRes.json();
+            if (insuranceData.success && insuranceData.data) {
+              setInsurances(insuranceData.data);
+            }
+          } catch (err) {
+            console.error('보험 데이터 로드 실패:', err);
           }
         } else {
           setError('업체 정보를 찾을 수 없습니다');
@@ -803,6 +824,45 @@ export function RentcarVendorDetailPage() {
                 <CardContent>
                   <div className="space-y-1 text-sm text-gray-700 whitespace-pre-line">
                     {vendorData.vendor.cancellation_policy}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 보험 상품 */}
+            {insurances.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>보험 상품 (선택사항)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600 mb-4">
+                      차량 예약 시 선택 가능한 보험 상품입니다. 시간당 요금으로 계산됩니다.
+                    </p>
+                    {insurances.map((insurance) => (
+                      <div key={insurance.id} className="border rounded-lg p-4 bg-gray-50">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-semibold text-gray-900">{insurance.name}</h4>
+                          <span className="text-green-600 font-semibold">
+                            {insurance.hourly_rate_krw.toLocaleString()}원/시간
+                          </span>
+                        </div>
+                        {insurance.description && (
+                          <p className="text-sm text-gray-600 mb-2">{insurance.description}</p>
+                        )}
+                        {insurance.coverage_details && (
+                          <div className="text-xs text-gray-500 whitespace-pre-line border-t pt-2 mt-2">
+                            {insurance.coverage_details}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+                      <p className="text-xs text-blue-700">
+                        💡 <strong>계산 예시:</strong> 24시간 렌트 × 1,000원/시간 = 24,000원 보험료
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
