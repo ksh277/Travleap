@@ -485,11 +485,15 @@ export const api = {
   // Lock Manager를 사용한 안전한 예약 생성
   createBookingWithLock: async (bookingData: BookingRequest): Promise<ApiResponse<any>> => {
     try {
+      // UUID 생성 (Idempotency-Key용)
+      const idempotencyKey = crypto.randomUUID();
+
       // API 엔드포인트로 요청
-      const response = await fetch('/api/bookings/create-with-lock', {
+      const response = await fetch('/api/bookings/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
         },
         body: JSON.stringify({
           listing_id: bookingData.listing_id,

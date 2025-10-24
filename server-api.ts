@@ -1326,6 +1326,79 @@ function setupRoutes() {
     }
   });
 
+  // 현재 사용자 프로필 조회 - 인증 필수
+  app.get('/api/user/profile', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const userId = (req as any).userId;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '인증이 필요합니다' });
+      }
+
+      const users = await db.query(`
+        SELECT id, email, name, phone, postal_code, address, detail_address, role, created_at, updated_at
+        FROM users
+        WHERE id = ?
+      `, [userId]);
+
+      if (!users || users.length === 0) {
+        return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다' });
+      }
+
+      const user = users[0];
+      res.json({
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone || '',
+          postalCode: user.postal_code || '',
+          address: user.address || '',
+          detailAddress: user.detail_address || '',
+          role: user.role,
+          createdAt: user.created_at,
+          updatedAt: user.updated_at
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Get user profile error:', error);
+      res.status(500).json({ success: false, message: '프로필 조회 실패' });
+    }
+  });
+
+  // 사용자 주소 업데이트 - 인증 필수
+  app.put('/api/user/address', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const userId = (req as any).userId;
+      const { postalCode, address, detailAddress } = req.body;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '인증이 필요합니다' });
+      }
+
+      if (!postalCode || !address) {
+        return res.status(400).json({ success: false, message: '우편번호와 주소는 필수입니다' });
+      }
+
+      await db.query(`
+        UPDATE users
+        SET postal_code = ?, address = ?, detail_address = ?, updated_at = NOW()
+        WHERE id = ?
+      `, [postalCode, address, detailAddress || '', userId]);
+
+      res.json({
+        success: true,
+        message: '주소가 성공적으로 업데이트되었습니다'
+      });
+    } catch (error) {
+      console.error('❌ [API] Update user address error:', error);
+      res.status(500).json({ success: false, message: '주소 업데이트 실패' });
+    }
+  });
+
   // ===== 블로그 관리 API =====
 
   // 블로그 목록 조회 (Admin Dashboard용) - 인증 필수

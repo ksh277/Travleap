@@ -35,6 +35,7 @@ import {
 import { toast } from 'sonner';
 import { api, type TravelItem } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
+import { AddressSearchModal } from './AddressSearchModal';
 
 interface Booking {
   id: string;
@@ -120,9 +121,13 @@ export function MyPage() {
     phone: '',
     birthDate: '',
     bio: '',
-    avatar: ''
+    avatar: '',
+    postalCode: '',
+    address: '',
+    detailAddress: ''
   });
   const [editProfile, setEditProfile] = useState(userProfile);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
 
   // 설정 상태
@@ -169,30 +174,59 @@ export function MyPage() {
 
   useEffect(() => {
     if (user) {
-      // 프로필 정보 불러오기 (localStorage에서)
-      const savedProfile = localStorage.getItem(`userProfile_${user.id}`);
-      let profile = {
-        name: user.name,
-        email: user.email,
-        phone: '',
-        birthDate: '',
-        bio: '',
-        avatar: ''
-      };
-
-      if (savedProfile) {
-        try {
-          profile = JSON.parse(savedProfile);
-        } catch (error) {
-          console.error('프로필 불러오기 오류:', error);
-        }
-      }
-
-      setUserProfile(profile);
-      setEditProfile(profile);
+      // 프로필 정보 불러오기 (API에서)
+      fetchUserProfile();
       fetchUserData();
     }
   }, [user]);
+
+  const fetchUserProfile = async () => {
+    if (!user?.id) return;
+
+    try {
+      const response = await fetch('/api/user/profile', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user.id.toString()
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const profile = {
+            name: data.user.name || '',
+            email: data.user.email || '',
+            phone: data.user.phone || '',
+            birthDate: '',
+            bio: '',
+            avatar: '',
+            postalCode: data.user.postalCode || '',
+            address: data.user.address || '',
+            detailAddress: data.user.detailAddress || ''
+          };
+
+          // localStorage에서 bio, avatar, birthDate 가져오기 (아직 DB에 없는 필드)
+          const savedProfile = localStorage.getItem(`userProfile_${user.id}`);
+          if (savedProfile) {
+            try {
+              const localProfile = JSON.parse(savedProfile);
+              profile.bio = localProfile.bio || '';
+              profile.avatar = localProfile.avatar || '';
+              profile.birthDate = localProfile.birthDate || '';
+            } catch (error) {
+              console.error('localStorage 프로필 파싱 오류:', error);
+            }
+          }
+
+          setUserProfile(profile);
+          setEditProfile(profile);
+        }
+      }
+    } catch (error) {
+      console.error('프로필 불러오기 오류:', error);
+    }
+  };
 
   const fetchUserData = useCallback(async () => {
     if (!user) return;
@@ -340,12 +374,66 @@ export function MyPage() {
     }
   };
 
+  // 주소 저장 핸들러
+  const handleAddressSave = async (addressData: {
+    postalCode: string;
+    address: string;
+    detailAddress: string;
+  }) => {
+    try {
+      const response = await fetch('/api/user/address', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user?.id?.toString() || ''
+        },
+        body: JSON.stringify(addressData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setEditProfile(prev => ({
+            ...prev,
+            postalCode: addressData.postalCode,
+            address: addressData.address,
+            detailAddress: addressData.detailAddress
+          }));
+          toast.success('주소가 저장되었습니다.');
+        }
+      } else {
+        throw new Error('주소 저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to save address:', error);
+      toast.error('주소 저장 중 오류가 발생했습니다.');
+    }
+  };
+
   // 프로필 저장
   const handleSaveProfile = async () => {
     if (!user) return;
 
     try {
-      // API를 통해 저장
+      // 주소 정보 먼저 저장 (주소가 변경된 경우)
+      if (editProfile.postalCode && editProfile.address) {
+        await fetch('/api/user/address', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'x-user-id': user.id.toString()
+          },
+          body: JSON.stringify({
+            postalCode: editProfile.postalCode,
+            address: editProfile.address,
+            detailAddress: editProfile.detailAddress || ''
+          })
+        });
+      }
+
+      // 프로필 정보 저장
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
@@ -682,6 +770,45 @@ export function MyPage() {
                         rows={3}
                       />
                     </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">
+                        <MapPin className="w-4 h-4 inline mr-1" />
+                        배송지 주소
+                      </label>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <Input
+                            value={editProfile.postalCode}
+                            readOnly
+                            placeholder="우편번호"
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => setIsAddressModalOpen(true)}
+                            variant="outline"
+                            size="sm"
+                            className="whitespace-nowrap"
+                          >
+                            주소 검색
+                          </Button>
+                        </div>
+                        <Input
+                          value={editProfile.address}
+                          readOnly
+                          placeholder="주소"
+                        />
+                        <Input
+                          value={editProfile.detailAddress}
+                          onChange={(e) => setEditProfile(prev => ({
+                            ...prev,
+                            detailAddress: e.target.value
+                          }))}
+                          placeholder="상세주소"
+                          maxLength={200}
+                        />
+                      </div>
+                    </div>
                     <div className="flex space-x-2">
                       <Button onClick={handleSaveProfile} size="sm" className="bg-[#8B5FBF] hover:bg-[#7A4FB5]">
                         <Save className="w-4 h-4 mr-1" />
@@ -708,6 +835,14 @@ export function MyPage() {
                     </div>
                     <p className="text-gray-600 mb-2">{userProfile.email}</p>
                     <p className="text-gray-600 mb-2">{userProfile.phone}</p>
+                    {userProfile.address && (
+                      <p className="text-gray-600 mb-2 flex items-start gap-1">
+                        <MapPin className="w-4 h-4 mt-1 flex-shrink-0" />
+                        <span>
+                          ({userProfile.postalCode}) {userProfile.address} {userProfile.detailAddress}
+                        </span>
+                      </p>
+                    )}
                     <p className="text-gray-700">{userProfile.bio}</p>
                   </div>
                 )}
@@ -715,6 +850,18 @@ export function MyPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* 주소 검색 모달 */}
+        <AddressSearchModal
+          isOpen={isAddressModalOpen}
+          onClose={() => setIsAddressModalOpen(false)}
+          onAddressSelected={handleAddressSave}
+          initialAddress={{
+            postalCode: editProfile.postalCode,
+            address: editProfile.address,
+            detailAddress: editProfile.detailAddress
+          }}
+        />
 
         {/* 탭 메뉴 - 모바일 최적화 */}
         <Tabs defaultValue="bookings" className="space-y-6">

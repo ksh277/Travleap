@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { api } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
 import PaymentWidget from './PaymentWidget';
+import { AddressSearchModal } from './AddressSearchModal';
 
 export function PaymentPage() {
   const navigate = useNavigate();
@@ -61,8 +62,48 @@ export function PaymentPage() {
     name: user?.name || '',
     email: user?.email || '',
     phone: '',
-    address: ''
+    postalCode: '',
+    address: '',
+    detailAddress: ''
   });
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  // 사용자 프로필 데이터 가져오기
+  useEffect(() => {
+    if (!isLoggedIn || !user?.id) return;
+
+    const fetchUserProfile = async () => {
+      try {
+        const response = await fetch('/api/user/profile', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'x-user-id': user.id.toString()
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setUserProfile(data.user);
+            // 사용자 정보로 청구 정보 자동 채우기
+            setBillingInfo({
+              name: data.user.name || '',
+              email: data.user.email || '',
+              phone: data.user.phone || '',
+              postalCode: data.user.postalCode || '',
+              address: data.user.address || '',
+              detailAddress: data.user.detailAddress || ''
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, [isLoggedIn, user?.id]);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -120,7 +161,50 @@ export function PaymentPage() {
     }
   };
 
+  const handleAddressSave = async (addressData: {
+    postalCode: string;
+    address: string;
+    detailAddress: string;
+  }) => {
+    try {
+      const response = await fetch('/api/user/address', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user?.id?.toString() || ''
+        },
+        body: JSON.stringify(addressData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setBillingInfo(prev => ({
+            ...prev,
+            postalCode: addressData.postalCode,
+            address: addressData.address,
+            detailAddress: addressData.detailAddress
+          }));
+          toast.success('주소가 저장되었습니다.');
+        }
+      } else {
+        throw new Error('주소 저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to save address:', error);
+      toast.error('주소 저장 중 오류가 발생했습니다.');
+    }
+  };
+
   const handlePayment = async () => {
+    // 주소가 없으면 주소 입력 모달 표시
+    if (!billingInfo.address || !billingInfo.postalCode) {
+      toast.error('배송지 주소를 입력해주세요.');
+      setIsAddressModalOpen(true);
+      return;
+    }
+
     if (!validatePaymentInfo()) {
       return;
     }
@@ -140,13 +224,14 @@ export function PaymentPage() {
         // 장바구니 주문 생성 및 결제 처리
         const orderResponse = await api.createOrder({
           userId: Number(user?.id) || 1,
-          items: orderData.items.map(item => ({
+          items: orderData.items.map((item: any) => ({
             listingId: Number(item.id),
             quantity: item.quantity,
             price: item.price,
             subtotal: item.price * item.quantity
           })),
           subtotal: orderData.subtotal,
+          deliveryFee: 0,
           couponDiscount: orderData.couponDiscount,
           couponCode: orderData.couponCode,
           total: orderData.total,
@@ -214,6 +299,11 @@ export function PaymentPage() {
 
     if (!billingInfo.name || !billingInfo.email || !billingInfo.phone) {
       toast.error('청구 정보를 모두 입력해주세요.');
+      return false;
+    }
+
+    if (!billingInfo.postalCode || !billingInfo.address) {
+      toast.error('배송지 주소를 입력해주세요.');
       return false;
     }
 
@@ -421,14 +511,41 @@ export function PaymentPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">주소 (선택)</label>
-                  <Input
-                    value={billingInfo.address}
-                    onChange={(e) => setBillingInfo(prev => ({
-                      ...prev,
-                      address: e.target.value
-                    }))}
-                  />
+                  <label className="block text-sm font-medium mb-2">
+                    배송지 주소 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        value={billingInfo.postalCode}
+                        readOnly
+                        placeholder="우편번호"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => setIsAddressModalOpen(true)}
+                        variant="outline"
+                        className="whitespace-nowrap"
+                      >
+                        주소 검색
+                      </Button>
+                    </div>
+                    <Input
+                      value={billingInfo.address}
+                      readOnly
+                      placeholder="주소"
+                    />
+                    <Input
+                      value={billingInfo.detailAddress}
+                      onChange={(e) => setBillingInfo(prev => ({
+                        ...prev,
+                        detailAddress: e.target.value
+                      }))}
+                      placeholder="상세주소"
+                      maxLength={200}
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -620,6 +737,18 @@ export function PaymentPage() {
           </div>
         </div>
       </div>
+
+      {/* 주소 검색 모달 */}
+      <AddressSearchModal
+        isOpen={isAddressModalOpen}
+        onClose={() => setIsAddressModalOpen(false)}
+        onAddressSelected={handleAddressSave}
+        initialAddress={{
+          postalCode: billingInfo.postalCode,
+          address: billingInfo.address,
+          detailAddress: billingInfo.detailAddress
+        }}
+      />
     </div>
   );
 }

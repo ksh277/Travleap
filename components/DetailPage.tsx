@@ -736,7 +736,7 @@ export function DetailPage() {
     }
   }, [user?.id, fetchReviews]);
 
-  const addToCartHandler = useCallback(() => {
+  const addToCartHandler = useCallback(async () => {
     if (!item) {
       toast.error('상품 정보를 불러올 수 없습니다.');
       return;
@@ -768,9 +768,16 @@ export function DetailPage() {
       guests: item.category === '팝업' ? quantity : totalGuests
     };
 
-    console.log('Adding to cart:', cartItem);
-    addToCart(cartItem);
-    toast.success('장바구니에 추가되었습니다.');
+    console.log('🛒 [DetailPage] 장바구니 추가 시작:', cartItem);
+
+    try {
+      await addToCart(cartItem);
+      toast.success('장바구니에 추가되었습니다.');
+      console.log('✅ [DetailPage] 장바구니 추가 성공');
+    } catch (error) {
+      console.error('❌ [DetailPage] 장바구니 추가 실패:', error);
+      toast.error(error instanceof Error ? error.message : '장바구니 추가에 실패했습니다.');
+    }
   }, [item, selectedDate, adults, children, infants, quantity, priceCalculation.total, addToCart]);
 
   const averageRating = useMemo(() => {
@@ -1120,7 +1127,7 @@ export function DetailPage() {
             {item?.category !== '팝업' && (
               <Card className="mt-6">
                 <CardHeader>
-                  <CardTitle>예약 옵션 선택</CardTitle>
+                  <CardTitle>상품 옵션 선택</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {/* 성인 옵션 */}
@@ -1179,7 +1186,7 @@ export function DetailPage() {
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <p className="text-sm text-blue-800">
                       <CheckCircle className="inline h-4 w-4 mr-1" />
-                      우측 예약하기에서 날짜와 인원을 선택하세요
+                      우측 결제하기에서 날짜와 인원을 선택하세요
                     </p>
                   </div>
                 </CardContent>
@@ -1725,7 +1732,7 @@ export function DetailPage() {
             <div className="sticky top-20 lg:top-24">
               <Card>
                 <CardHeader>
-                  <CardTitle>예약하기</CardTitle>
+                  <CardTitle>결제하기</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {!showBookingForm ? (
@@ -1968,7 +1975,7 @@ export function DetailPage() {
                         }}
                         disabled={item?.category !== '팝업' && !selectedDate}
                       >
-                        예약하기
+                        결제하기
                       </Button>
                     </>
                   ) : (
@@ -2036,7 +2043,7 @@ export function DetailPage() {
                           size="lg"
                           onClick={handleBooking}
                         >
-                          예약 확정
+                          결제 확정
                         </Button>
                         <Button
                           variant="outline"

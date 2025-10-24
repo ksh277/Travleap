@@ -99,43 +99,27 @@ export function useCartStore() {
           throw new Error(result.message || '장바구니 추가 실패');
         }
 
-        console.log('✅ [장바구니 추가] API 저장 성공');
+        console.log('✅ [장바구니 추가] API 저장 성공, 장바구니 새로고침 중...');
 
-        // 상태 업데이트
-        setCartState((prev) => {
-          const existingItem = prev.cartItems.find((cartItem) => cartItem.id === item.id);
+        // API 성공 후 전체 장바구니 다시 로드 (DB와 동기화)
+        const cartResponse = await fetch(`/api/cart?userId=${user.id}`);
+        const cartResult = await cartResponse.json();
 
-          if (existingItem) {
-            return {
-              cartItems: prev.cartItems.map((cartItem) =>
-                cartItem.id === item.id
-                  ? { ...cartItem, quantity: cartItem.quantity + 1 }
-                  : cartItem
-              ),
-            };
-          } else {
-            const newCartItem: CartItem = {
-              id: item.id!,
-              title: item.title || '상품',
-              price: item.price || 0,
-              quantity: 1,
-              image: item.image || '',
-              category: item.category || '',
-              location: item.location || '',
-              date: item.date,
-              guests: item.guests,
-            };
-            return {
-              cartItems: [...prev.cartItems, newCartItem],
-            };
-          }
-        });
+        if (cartResult.success) {
+          setCartState({
+            cartItems: cartResult.data
+          });
+          console.log('✅ [장바구니 추가] 장바구니 새로고침 완료:', cartResult.data.length, '개 항목');
+        } else {
+          throw new Error('장바구니 새로고침 실패');
+        }
       } catch (error) {
-        console.error('Failed to add item to cart in database:', error);
+        console.error('❌ [장바구니 추가] 실패:', error);
         throw error;
       }
     } else {
       // 비로그인 사용자는 localStorage만 사용
+      console.log('💾 [장바구니 추가] localStorage 사용 (비로그인)');
       setCartState((prev) => {
         const existingItem = prev.cartItems.find((cartItem) => cartItem.id === item.id);
 
@@ -164,6 +148,7 @@ export function useCartStore() {
           };
         }
       });
+      console.log('✅ [장바구니 추가] localStorage 저장 완료');
     }
   };
 
