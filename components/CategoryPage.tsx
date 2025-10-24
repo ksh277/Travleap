@@ -630,11 +630,11 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
               return (
                 <Card
                   key={item.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[400px]"
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[360px]"
                   onClick={() => navigate(`/detail/${item.id}`)}
                 >
                   {/* 이미지 */}
-                  <div className={`relative w-full ${item.category === '팝업' ? 'h-56' : 'h-56'} flex-shrink-0`}>
+                  <div className={`relative w-full ${item.category === '팝업' ? 'h-48' : 'h-48'} flex-shrink-0`}>
                     <ImageWithFallback
                       src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
                       alt={item.title}
@@ -661,7 +661,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                   </div>
 
                   {/* 정보 - 충분한 공간 확보 */}
-                  <CardContent className="p-6 pt-5 flex flex-col flex-1 justify-between bg-white min-h-[232px]">
+                  <CardContent className="p-6 pt-5 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
                       <div className="space-y-4 flex-1">
                         <div className="flex items-start gap-2">
                           <h3 className="font-semibold text-base flex-1 line-clamp-2">{item.title}</h3>
