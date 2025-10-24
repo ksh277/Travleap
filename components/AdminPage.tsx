@@ -1613,19 +1613,42 @@ export function AdminPage({}: AdminPageProps) {
 
   // 파트너 삭제
   const handleDeletePartner = async (id: number) => {
-    if (confirm('정말 이 파트너를 삭제하시겠습니까?')) {
-      try {
-        const result = await api.admin.deletePartner(id);
-        if (result.success) {
-          setPartners(prev => prev.filter(p => p.id !== id));
-          toast.success('파트너가 삭제되었습니다.');
+    if (!confirm('정말 이 파트너를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      // 먼저 cascade 없이 시도
+      const result = await api.admin.deletePartner(id, false);
+
+      if (result.success) {
+        setPartners(prev => prev.filter(p => p.id !== id));
+        toast.success(result.message || '파트너가 삭제되었습니다.');
+      } else {
+        // 리스팅이 연결되어 있는 경우
+        if (result.error?.includes('리스팅이 연결')) {
+          const cascadeConfirm = confirm(
+            `${result.error}\n\n연결된 리스팅도 함께 삭제하시겠습니까?`
+          );
+
+          if (cascadeConfirm) {
+            // cascade=true로 다시 시도
+            const cascadeResult = await api.admin.deletePartner(id, true);
+
+            if (cascadeResult.success) {
+              setPartners(prev => prev.filter(p => p.id !== id));
+              toast.success(cascadeResult.message || '파트너와 리스팅이 삭제되었습니다.');
+            } else {
+              toast.error(cascadeResult.error || '파트너 삭제에 실패했습니다.');
+            }
+          }
         } else {
           toast.error(result.error || '파트너 삭제에 실패했습니다.');
         }
-      } catch (error) {
-        console.error('Delete partner failed:', error);
-        toast.error('파트너 삭제에 실패했습니다.');
       }
+    } catch (error) {
+      console.error('Delete partner failed:', error);
+      toast.error('파트너 삭제 중 오류가 발생했습니다.');
     }
   };
 

@@ -95,6 +95,8 @@ module.exports = async function handler(req, res) {
 
     // DELETE - 파트너 삭제
     if (req.method === 'DELETE') {
+      const { cascade } = req.query; // cascade=true이면 리스팅도 함께 삭제
+
       // 파트너 삭제 전 관련 리스팅 확인
       const listingsCheck = await connection.execute(
         `SELECT COUNT(*) as count FROM listings WHERE partner_id = ?`,
@@ -104,10 +106,25 @@ module.exports = async function handler(req, res) {
       const listingCount = listingsCheck.rows?.[0]?.count || 0;
 
       if (listingCount > 0) {
-        return res.status(400).json({
-          success: false,
-          error: `이 파트너에 ${listingCount}개의 리스팅이 연결되어 있습니다. 먼저 리스팅을 삭제해주세요.`
-        });
+        if (cascade === 'true') {
+          // cascade 옵션이 true면 리스팅도 함께 삭제
+          console.log(`🗑️ Cascade delete: 파트너 ${id}의 ${listingCount}개 리스팅 삭제 중...`);
+
+          // 리스팅 먼저 삭제
+          await connection.execute(
+            `DELETE FROM listings WHERE partner_id = ?`,
+            [id]
+          );
+
+          console.log(`✅ ${listingCount}개의 리스팅 삭제 완료`);
+        } else {
+          // cascade 옵션이 없으면 에러 반환
+          return res.status(400).json({
+            success: false,
+            error: `이 파트너에 ${listingCount}개의 리스팅이 연결되어 있습니다. 먼저 리스팅을 삭제하거나 cascade=true 옵션을 사용하세요.`,
+            listingCount: listingCount
+          });
+        }
       }
 
       // 파트너 삭제
@@ -118,7 +135,10 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        message: '파트너가 성공적으로 삭제되었습니다.'
+        message: listingCount > 0
+          ? `파트너와 연결된 ${listingCount}개의 리스팅이 함께 삭제되었습니다.`
+          : '파트너가 성공적으로 삭제되었습니다.',
+        deletedListings: listingCount
       });
     }
 

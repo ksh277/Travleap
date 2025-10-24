@@ -2976,9 +2976,13 @@ export const api = {
     },
 
     // 파트너 삭제
-    deletePartner: async (partnerId: number): Promise<ApiResponse<null>> => {
+    deletePartner: async (partnerId: number, cascade: boolean = false): Promise<ApiResponse<null>> => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/partners/${partnerId}`, {
+        const url = cascade
+          ? `${API_BASE_URL}/api/admin/partners/${partnerId}?cascade=true`
+          : `${API_BASE_URL}/api/admin/partners/${partnerId}`;
+
+        const response = await fetch(url, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
