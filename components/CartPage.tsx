@@ -170,7 +170,7 @@ export function CartPage() {
 
   // Memoized calculations
   const calculations = useMemo(() => {
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const subtotal = cartItems.reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0);
     const couponDiscount = appliedCoupon
       ? appliedCoupon.type === 'fixed'
         ? appliedCoupon.discount
@@ -178,8 +178,8 @@ export function CartPage() {
       : 0;
     const total = Math.max(0, subtotal - couponDiscount);
     const savings = cartItems.reduce((sum, item) => {
-      if (item.originalPrice && item.originalPrice > item.price) {
-        return sum + ((item.originalPrice - item.price) * item.quantity);
+      if (item.originalPrice && item.originalPrice > (item.price || 0)) {
+        return sum + ((item.originalPrice - (item.price || 0)) * item.quantity);
       }
       return sum;
     }, 0);
@@ -742,18 +742,18 @@ export function CartPage() {
                             <div className="flex items-end justify-between">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
-                                  {item.originalPrice && item.originalPrice > item.price && (
+                                  {item.originalPrice && item.originalPrice > (item.price || 0) && (
                                     <span className="text-sm text-gray-400 line-through">
                                       {item.originalPrice.toLocaleString()}원
                                     </span>
                                   )}
                                   <span className="font-medium text-gray-800">
-                                    {item.price.toLocaleString()}원
+                                    {(item.price || 0).toLocaleString()}원
                                   </span>
                                 </div>
                                 {item.quantity > 1 && (
                                   <div className="text-xs text-gray-500 mt-1">
-                                    총 {(item.price * item.quantity).toLocaleString()}원
+                                    총 {((item.price || 0) * item.quantity).toLocaleString()}원
                                   </div>
                                 )}
                               </div>

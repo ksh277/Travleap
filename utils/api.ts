@@ -1653,6 +1653,20 @@ export const api = {
         userId = user.id;
       }
 
+      // 브라우저에서는 db가 null이므로 API 호출 사용
+      if (typeof window !== 'undefined') {
+        const response = await fetch(`${API_BASE_URL}/api/favorites?userId=${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data?.favorites?.map((fav: any) => fav.listing_id) || [];
+      }
+
+      // 서버에서는 db 직접 사용
+      if (!db) return [];
       const response = await db.select('user_favorites', { user_id: userId });
       return response?.map((fav: any) => fav.listing_id) || [];
     } catch (error) {
