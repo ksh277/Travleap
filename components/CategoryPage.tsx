@@ -630,7 +630,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
               return (
                 <Card
                   key={item.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[420px]"
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[400px]"
                   onClick={() => navigate(`/detail/${item.id}`)}
                 >
                   {/* 이미지 */}

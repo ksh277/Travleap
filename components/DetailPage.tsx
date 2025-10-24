@@ -1978,7 +1978,16 @@ export function DetailPage() {
                               >
                                 -
                               </Button>
-                              <span className="text-lg font-medium w-8 text-center">{quantity}</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={quantity}
+                                onChange={(e) => {
+                                  const value = parseInt(e.target.value) || 1;
+                                  setQuantity(Math.max(1, value));
+                                }}
+                                className="w-16 text-center text-lg font-medium border rounded px-2 py-1"
+                              />
                               <Button
                                 type="button"
                                 variant="outline"
