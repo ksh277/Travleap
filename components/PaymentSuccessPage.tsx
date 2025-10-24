@@ -56,7 +56,7 @@ export default function PaymentSuccessPage() {
             },
             body: JSON.stringify({
               booking_status: 'confirmed',
-              payment_status: 'completed'
+              payment_status: 'paid'  // ENUM 수정: 'completed' → 'paid'
             })
           });
         }

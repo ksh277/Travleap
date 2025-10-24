@@ -168,7 +168,66 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 환불 처리
+      // 1. rentcar_payments에서 paymentKey 조회
+      let paymentKey = null;
+      try {
+        const paymentResult = await connection.execute(
+          'SELECT payment_key FROM rentcar_payments WHERE booking_id = ? LIMIT 1',
+          [bookingId]
+        );
+
+        if (paymentResult.rows && paymentResult.rows.length > 0) {
+          paymentKey = paymentResult.rows[0].payment_key;
+        }
+      } catch (e) {
+        console.warn('⚠️ rentcar_payments 테이블 조회 실패 (테이블 없을 수 있음):', e.message);
+      }
+
+      // 2. Toss Payments API로 환불 처리 (paymentKey가 있을 때만)
+      if (paymentKey && process.env.TOSS_SECRET_KEY) {
+        try {
+          console.log('💳 [Toss Payments] 환불 요청:', paymentKey);
+
+          const tossResponse = await fetch(`https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${Buffer.from(process.env.TOSS_SECRET_KEY + ':').toString('base64')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              cancelReason: refund_reason || '벤더 요청 환불',
+              cancelAmount: refund_amount || booking.total_krw
+            })
+          });
+
+          if (!tossResponse.ok) {
+            const errorData = await tossResponse.json();
+            console.error('❌ [Toss Payments] 환불 실패:', errorData);
+
+            return res.status(400).json({
+              success: false,
+              message: `PG사 환불 처리 실패: ${errorData.message || '알 수 없는 오류'}`,
+              error: errorData
+            });
+          }
+
+          const tossResult = await tossResponse.json();
+          console.log('✅ [Toss Payments] 환불 성공:', tossResult);
+
+        } catch (tossError) {
+          console.error('❌ [Toss Payments] 환불 API 호출 오류:', tossError);
+
+          return res.status(500).json({
+            success: false,
+            message: 'PG사 환불 처리 중 오류가 발생했습니다.',
+            error: tossError.message
+          });
+        }
+      } else {
+        console.warn('⚠️ paymentKey 또는 TOSS_SECRET_KEY 없음 - DB만 업데이트');
+      }
+
+      // 3. DB에 환불 정보 저장
       await connection.execute(
         `UPDATE rentcar_bookings
          SET status = 'cancelled',
@@ -183,10 +242,11 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        message: '환불 처리가 완료되었습니다.',
+        message: paymentKey ? '환불 처리가 완료되었습니다.' : '환불 처리가 완료되었습니다. (PG사 연동 없이 DB만 업데이트됨)',
         data: {
           booking_id: bookingId,
-          refund_amount: refund_amount || booking.total_krw
+          refund_amount: refund_amount || booking.total_krw,
+          pg_refund_processed: !!paymentKey
         }
       });
     }

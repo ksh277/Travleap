@@ -20,25 +20,35 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       // 이미지 목록 조회 (home_banners 테이블에서)
-      const result = await connection.execute(`
-        SELECT
-          id,
-          image_url,
-          title,
-          subtitle,
-          link_url,
-          is_active,
-          display_order,
-          created_at
-        FROM home_banners
-        WHERE is_active = 1
-        ORDER BY display_order ASC, created_at DESC
-      `);
+      try {
+        const result = await connection.execute(`
+          SELECT
+            id,
+            image_url,
+            title,
+            subtitle,
+            link_url,
+            is_active,
+            display_order,
+            created_at
+          FROM home_banners
+          WHERE is_active = 1
+          ORDER BY display_order ASC, created_at DESC
+        `);
 
-      return res.status(200).json({
-        success: true,
-        data: result.rows || []
-      });
+        return res.status(200).json({
+          success: true,
+          data: result.rows || []
+        });
+      } catch (dbError) {
+        // 테이블이 없거나 쿼리 에러 시 빈 배열 반환
+        console.warn('⚠️ home_banners 테이블 조회 실패:', dbError.message);
+        return res.status(200).json({
+          success: true,
+          data: [],
+          message: 'No images available'
+        });
+      }
     }
 
     if (req.method === 'POST') {

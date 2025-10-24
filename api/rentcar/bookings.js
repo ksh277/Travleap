@@ -201,6 +201,64 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    if (req.method === 'PUT') {
+      // 예약 상태 업데이트 (결제 완료 후)
+      const { booking_status, payment_status } = req.body;
+
+      // URL에서 booking ID 추출 (/api/rentcar/bookings/123)
+      const bookingId = req.url.split('/').pop().split('?')[0];
+
+      if (!bookingId || bookingId === 'bookings') {
+        return res.status(400).json({
+          success: false,
+          error: 'Booking ID is required'
+        });
+      }
+
+      console.log('📝 [Booking Update] ID:', bookingId, 'Status:', booking_status, payment_status);
+
+      // 예약 존재 확인
+      const checkBooking = await connection.execute(
+        'SELECT id, status, payment_status FROM rentcar_bookings WHERE id = ?',
+        [bookingId]
+      );
+
+      if (!checkBooking.rows || checkBooking.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '예약을 찾을 수 없습니다.'
+        });
+      }
+
+      // 상태 업데이트
+      const updates = [];
+      const values = [];
+
+      if (booking_status) {
+        updates.push('status = ?');
+        values.push(booking_status);
+      }
+
+      if (payment_status) {
+        updates.push('payment_status = ?');
+        values.push(payment_status);
+      }
+
+      updates.push('updated_at = NOW()');
+      values.push(bookingId);
+
+      const updateQuery = `UPDATE rentcar_bookings SET ${updates.join(', ')} WHERE id = ?`;
+
+      await connection.execute(updateQuery, values);
+
+      console.log('✅ [Booking Update] 예약 상태 업데이트 완료:', bookingId);
+
+      return res.status(200).json({
+        success: true,
+        message: '예약 상태가 업데이트되었습니다.'
+      });
+    }
+
     return res.status(405).json({ success: false, error: 'Method not allowed' });
 
   } catch (error) {
