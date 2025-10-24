@@ -45,25 +45,31 @@ module.exports = async function handler(req, res) {
       }
 
       try {
-        // 2-1. 과거 예약 삭제
+        // 2-1. 장바구니 항목 삭제
+        await connection.execute(
+          'DELETE FROM cart_items WHERE listing_id = ?',
+          [id]
+        );
+
+        // 2-2. 과거 예약 삭제
         await connection.execute(
           'DELETE FROM bookings WHERE listing_id = ?',
           [id]
         );
 
-        // 2-2. 리뷰 삭제
+        // 2-3. 리뷰 삭제
         await connection.execute(
           'DELETE FROM reviews WHERE listing_id = ?',
           [id]
         );
 
-        // 2-3. 즐겨찾기 삭제
+        // 2-4. 즐겨찾기 삭제
         await connection.execute(
           'DELETE FROM user_favorites WHERE listing_id = ?',
           [id]
         );
 
-        // 2-4. 상품 삭제 (listings 테이블)
+        // 2-5. 상품 삭제 (listings 테이블)
         const result = await connection.execute(
           'DELETE FROM listings WHERE id = ?',
           [id]
