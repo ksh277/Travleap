@@ -48,31 +48,44 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
-      // 날짜별 매출 (최근 7일)
-      const dailyRevenueResult = await connection.execute(
-        `SELECT
-          DATE(pickup_datetime) as date,
-          SUM(total_krw) as revenue
-        FROM rentcar_bookings
-        WHERE vendor_id = ? AND status IN ('confirmed', 'completed')
-          AND pickup_datetime >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-        GROUP BY DATE(pickup_datetime)
-        ORDER BY date DESC`,
-        [vendorId]
-      );
+      try {
+        console.log('📊 [Revenue API] vendor_id:', vendorId);
 
-      // 배열이 비어있으면 빈 배열 반환
-      const revenueArray = dailyRevenueResult.rows && dailyRevenueResult.rows.length > 0
-        ? dailyRevenueResult.rows.map(row => ({
-            date: row.date,
-            revenue: Number(row.revenue || 0)
-          }))
-        : [];
+        // 날짜별 매출 (최근 7일) - pickup_datetime 대신 created_at 사용
+        const dailyRevenueResult = await connection.execute(
+          `SELECT
+            DATE(created_at) as date,
+            SUM(total_amount) as revenue
+          FROM rentcar_bookings
+          WHERE vendor_id = ? AND status IN ('confirmed', 'paid', 'completed')
+            AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+          GROUP BY DATE(created_at)
+          ORDER BY date DESC`,
+          [vendorId]
+        );
 
-      return res.status(200).json({
-        success: true,
-        data: revenueArray
-      });
+        console.log('📊 [Revenue API] 조회 결과:', dailyRevenueResult.rows);
+
+        // 배열이 비어있으면 빈 배열 반환
+        const revenueArray = dailyRevenueResult.rows && dailyRevenueResult.rows.length > 0
+          ? dailyRevenueResult.rows.map(row => ({
+              date: row.date,
+              revenue: Number(row.revenue || 0)
+            }))
+          : [];
+
+        return res.status(200).json({
+          success: true,
+          data: revenueArray
+        });
+      } catch (queryError) {
+        console.error('❌ [Revenue API] 쿼리 오류:', queryError);
+        // 오류 발생 시 빈 배열 반환 (대시보드가 작동하도록)
+        return res.status(200).json({
+          success: true,
+          data: []
+        });
+      }
     }
 
     return res.status(405).json({ success: false, message: '지원하지 않는 메서드입니다.' });

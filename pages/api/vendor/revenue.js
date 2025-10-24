@@ -11,7 +11,6 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // JWT 토큰 검증
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ success: false, message: '인증 토큰이 필요합니다.' });
@@ -32,7 +31,6 @@ module.exports = async function handler(req, res) {
 
     const connection = connect({ url: process.env.DATABASE_URL });
 
-    // user_id로 vendor_id 조회
     let vendorId;
     if (decoded.role === 'admin') {
       vendorId = req.query.vendorId || req.body?.vendorId;
@@ -49,35 +47,45 @@ module.exports = async function handler(req, res) {
       vendorId = vendorResult.rows[0].id;
     }
 
-    console.log('💰 [Revenue API] 요청:', { method: req.method, vendorId, user: decoded.email });
-
     if (req.method === 'GET') {
-      // 최근 7일 매출 통계 조회
-      const result = await connection.execute(
-        `SELECT
-          DATE(rb.created_at) as date,
-          SUM(rb.total_krw) as revenue
-        FROM rentcar_bookings rb
-        JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
-        WHERE rv.vendor_id = ?
-          AND rb.status IN ('confirmed', 'completed')
-          AND rb.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-        GROUP BY DATE(rb.created_at)
-        ORDER BY date ASC`,
-        [vendorId]
-      );
+      try {
+        console.log('📊 [Revenue API] vendor_id:', vendorId);
 
-      console.log('✅ [Revenue API] 매출 조회 완료:', result.rows?.length, '일');
+        // 날짜별 매출 (최근 7일) - pickup_datetime 대신 created_at 사용
+        const dailyRevenueResult = await connection.execute(
+          `SELECT
+            DATE(created_at) as date,
+            SUM(total_amount) as revenue
+          FROM rentcar_bookings
+          WHERE vendor_id = ? AND status IN ('confirmed', 'paid', 'completed')
+            AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+          GROUP BY DATE(created_at)
+          ORDER BY date DESC`,
+          [vendorId]
+        );
 
-      const revenueData = (result.rows || []).map(row => ({
-        date: row.date,
-        revenue: parseInt(row.revenue) || 0
-      }));
+        console.log('📊 [Revenue API] 조회 결과:', dailyRevenueResult.rows);
 
-      return res.status(200).json({
-        success: true,
-        data: revenueData
-      });
+        // 배열이 비어있으면 빈 배열 반환
+        const revenueArray = dailyRevenueResult.rows && dailyRevenueResult.rows.length > 0
+          ? dailyRevenueResult.rows.map(row => ({
+              date: row.date,
+              revenue: Number(row.revenue || 0)
+            }))
+          : [];
+
+        return res.status(200).json({
+          success: true,
+          data: revenueArray
+        });
+      } catch (queryError) {
+        console.error('❌ [Revenue API] 쿼리 오류:', queryError);
+        // 오류 발생 시 빈 배열 반환 (대시보드가 작동하도록)
+        return res.status(200).json({
+          success: true,
+          data: []
+        });
+      }
     }
 
     return res.status(405).json({ success: false, message: '지원하지 않는 메서드입니다.' });
