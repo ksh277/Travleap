@@ -282,13 +282,29 @@ function setupRoutes() {
           const { connect } = await import('@planetscale/database');
           const psConnection = connect({ url: process.env.DATABASE_URL! });
 
+          console.log('🔍 [LOGIN DEBUG] 벤더 타입 조회 시작... user.id:', user.id, '(타입:', typeof user.id, ')');
+
+          // STEP 1: partners 테이블 조회 (숙박 벤더)
+          // 타입 불일치 문제 해결: user.id를 문자열로도 조회
           const partnerResult = await psConnection.execute(
-            'SELECT partner_type, services, category FROM partners WHERE user_id = ? LIMIT 1',
-            [user.id]
+            `SELECT id, partner_type, services, category, user_id
+             FROM partners
+             WHERE user_id = ? OR user_id = ?
+             LIMIT 1`,
+            [user.id, user.id.toString()]
           );
+
+          console.log('🔍 [LOGIN DEBUG] partners 조회 결과:', partnerResult.rows?.length || 0, '개');
 
           if (partnerResult.rows && partnerResult.rows.length > 0) {
             const partner: any = partnerResult.rows[0];
+            console.log('✅ [LOGIN DEBUG] partners 테이블에서 발견:', {
+              id: partner.id,
+              user_id: partner.user_id,
+              partner_type: partner.partner_type,
+              services: partner.services,
+              category: partner.category
+            });
 
             // 1순위: partner_type 필드 사용
             if (partner.partner_type === 'lodging') {
@@ -309,10 +325,35 @@ function setupRoutes() {
               vendorType = 'rental';
             }
 
-            console.log('✅ 벤더 타입 확인:', vendorType, '(partner_type:', partner.partner_type, ', services:', partner.services, ', category:', partner.category, ')');
+            console.log('✅ 벤더 타입 확인 (partners):', vendorType);
           } else {
-            console.log('⚠️ partners 테이블에서 벤더 정보를 찾을 수 없음');
+            console.log('⚠️ partners 테이블에서 찾을 수 없음, rentcar_vendors 확인 중...');
+
+            // STEP 2: rentcar_vendors 테이블 조회 (렌트카 벤더 - 하위 호환성)
+            const rentcarResult = await psConnection.execute(
+              `SELECT id, user_id
+               FROM rentcar_vendors
+               WHERE user_id = ? OR user_id = ?
+               LIMIT 1`,
+              [user.id, user.id.toString()]
+            );
+
+            console.log('🔍 [LOGIN DEBUG] rentcar_vendors 조회 결과:', rentcarResult.rows?.length || 0, '개');
+
+            if (rentcarResult.rows && rentcarResult.rows.length > 0) {
+              vendorType = 'rental';
+              console.log('✅ 벤더 타입 확인 (rentcar_vendors):', vendorType);
+            } else {
+              console.log('⚠️ rentcar_vendors에서도 찾을 수 없음');
+            }
           }
+
+          if (vendorType) {
+            console.log('🎉 최종 벤더 타입:', vendorType);
+          } else {
+            console.log('❌ 벤더 정보를 어느 테이블에서도 찾을 수 없습니다');
+          }
+
         } catch (partnerError) {
           console.error('⚠️ 벤더 타입 조회 오류:', partnerError);
           // 벤더 타입 조회 실패 시에도 로그인은 허용
@@ -3414,13 +3455,14 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // 숙박 벤더는 partners 테이블 조회 (partner_type='lodging')
+      // 타입 불일치 대응: number와 string 둘 다 매칭
       const vendors = await db.query(`
         SELECT id, business_name as name, email as contact_email, phone as contact_phone,
                is_verified, partner_type, status
         FROM partners
-        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        WHERE (user_id = ? OR user_id = ?) AND (partner_type = 'lodging' OR services = 'accommodation')
         LIMIT 1
-      `, [parseInt(userId as string)]);
+      `, [userId, userId.toString()]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
@@ -3447,11 +3489,12 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회 (partners 테이블에서)
+      // 타입 불일치 대응: number와 string 둘 다 매칭
       const vendors = await db.query(`
         SELECT id FROM partners
-        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        WHERE (user_id = ? OR user_id = ?) AND (partner_type = 'lodging' OR services = 'accommodation')
         LIMIT 1
-      `, [parseInt(userId as string)]);
+      `, [userId, userId.toString()]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
@@ -3492,11 +3535,12 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회 (partners 테이블)
+      // 타입 불일치 대응: number와 string 둘 다 매칭
       const vendors = await db.query(`
         SELECT id FROM partners
-        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        WHERE (user_id = ? OR user_id = ?) AND (partner_type = 'lodging' OR services = 'accommodation')
         LIMIT 1
-      `, [parseInt(userId as string)]);
+      `, [userId, userId.toString()]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
@@ -3551,11 +3595,12 @@ function setupRoutes() {
       const lodgingId = parseInt(req.params.id);
 
       // Vendor ID 조회 (partners 테이블)
+      // 타입 불일치 대응: number와 string 둘 다 매칭
       const vendors = await db.query(`
         SELECT id FROM partners
-        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        WHERE (user_id = ? OR user_id = ?) AND (partner_type = 'lodging' OR services = 'accommodation')
         LIMIT 1
-      `, [parseInt(userId as string)]);
+      `, [userId, userId.toString()]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
@@ -3611,11 +3656,12 @@ function setupRoutes() {
       const lodgingId = parseInt(req.params.id);
 
       // Vendor ID 조회 (partners 테이블)
+      // 타입 불일치 대응: number와 string 둘 다 매칭
       const vendors = await db.query(`
         SELECT id FROM partners
-        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        WHERE (user_id = ? OR user_id = ?) AND (partner_type = 'lodging' OR services = 'accommodation')
         LIMIT 1
-      `, [parseInt(userId as string)]);
+      `, [userId, userId.toString()]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
@@ -3648,11 +3694,12 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회 (partners 테이블)
+      // 타입 불일치 대응: number와 string 둘 다 매칭
       const vendors = await db.query(`
         SELECT id FROM partners
-        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        WHERE (user_id = ? OR user_id = ?) AND (partner_type = 'lodging' OR services = 'accommodation')
         LIMIT 1
-      `, [parseInt(userId as string)]);
+      `, [userId, userId.toString()]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
@@ -3697,11 +3744,12 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
 
       // Vendor ID 조회 (partners 테이블)
+      // 타입 불일치 대응: number와 string 둘 다 매칭
       const vendors = await db.query(`
         SELECT id FROM partners
-        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        WHERE (user_id = ? OR user_id = ?) AND (partner_type = 'lodging' OR services = 'accommodation')
         LIMIT 1
-      `, [parseInt(userId as string)]);
+      `, [userId, userId.toString()]);
 
       if (!vendors || vendors.length === 0) {
         return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
