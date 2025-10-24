@@ -28,20 +28,28 @@ module.exports = async function handler(req, res) {
     if (req.method === 'DELETE') {
       console.log(`🗑️ [DELETE] 상품 삭제 요청 (ID: ${id})`);
 
-      // 1. 진행 중인 예약 확인
-      const activeBookings = await connection.execute(
-        `SELECT COUNT(*) as count
-         FROM bookings
-         WHERE listing_id = ? AND status IN ('pending', 'confirmed')`,
-        [id]
-      );
+      // 1. 진행 중인 예약 확인 (관리자는 강제 삭제 가능)
+      const forceDelete = req.query.force === 'true';
 
-      if (activeBookings.rows[0].count > 0) {
-        return res.status(400).json({
-          success: false,
-          error: '진행 중인 예약이 있어 삭제할 수 없습니다.',
-          activeBookings: activeBookings.rows[0].count
-        });
+      if (!forceDelete) {
+        const activeBookings = await connection.execute(
+          `SELECT COUNT(*) as count
+           FROM bookings
+           WHERE listing_id = ? AND status IN ('pending', 'confirmed', 'paid')`,
+          [id]
+        );
+
+        if (activeBookings.rows[0].count > 0) {
+          console.log(`⚠️ 진행 중인 예약 ${activeBookings.rows[0].count}건 발견`);
+          return res.status(400).json({
+            success: false,
+            error: '진행 중인 예약이 있어 삭제할 수 없습니다.',
+            activeBookings: activeBookings.rows[0].count,
+            hint: '강제 삭제하려면 force=true 파라미터를 추가하세요.'
+          });
+        }
+      } else {
+        console.log('🔧 [강제 삭제 모드] 예약 확인 건너뜀');
       }
 
       try {

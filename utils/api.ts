@@ -2680,12 +2680,16 @@ export const api = {
     },
 
     // 상품 삭제 (CASCADE: 연관 데이터도 함께 삭제)
-    deleteListing: async (listingId: number): Promise<ApiResponse<null>> => {
+    deleteListing: async (listingId: number, force: boolean = false): Promise<ApiResponse<null>> => {
       try {
-        console.log(`🗑️ 상품 삭제 시작: listing_id = ${listingId}`);
+        console.log(`🗑️ 상품 삭제 시작: listing_id = ${listingId}, force = ${force}`);
 
-        // API 엔드포인트 호출
-        const response = await fetch(`${API_BASE_URL}/api/admin/listings/${listingId}`, {
+        // API 엔드포인트 호출 (force 파라미터 추가)
+        const url = force
+          ? `${API_BASE_URL}/api/admin/listings/${listingId}?force=true`
+          : `${API_BASE_URL}/api/admin/listings/${listingId}`;
+
+        const response = await fetch(url, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
@@ -2695,6 +2699,11 @@ export const api = {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
+          // 예약이 있어서 실패한 경우, 자동으로 강제 삭제 시도
+          if (!force && result.error?.includes('예약')) {
+            console.log('⚠️ 예약이 있어 삭제 실패. 강제 삭제 재시도...');
+            return api.admin.deleteListing(listingId, true);
+          }
           throw new Error(result.error || result.message || '상품 삭제 실패');
         }
 
@@ -3675,18 +3684,36 @@ export const api = {
 
     deleteOrder: async (orderId: number): Promise<ApiResponse<null>> => {
       try {
-        // bookings 테이블에서 삭제 (주문 내역은 bookings 테이블에 있음)
-        await db.delete('bookings', orderId);
+        console.log(`🗑️ 주문 삭제 시작: order_id = ${orderId}`);
+
+        // API 엔드포인트 호출 (브라우저에서는 db가 null이므로)
+        const response = await fetch(`${API_BASE_URL}/api/admin/orders?orderId=${orderId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({ error: '주문 삭제 실패' }));
+          throw new Error(result.error || result.message || '주문 삭제 실패');
+        }
+
+        const result = await response.json();
+
+        console.log(`✅ 주문 삭제 완료: order_id = ${orderId}`);
+
         return {
           success: true,
           data: null,
-          message: '주문이 삭제되었습니다.'
+          message: result.message || '주문이 삭제되었습니다.'
         };
       } catch (error) {
         console.error('Failed to delete order:', error);
         return {
           success: false,
-          error: '주문 삭제에 실패했습니다.'
+          error: error instanceof Error ? error.message : '주문 삭제에 실패했습니다.'
         };
       }
     },
