@@ -634,11 +634,11 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                   onClick={() => navigate(`/detail/${item.id}`)}
                 >
                   {/* 이미지 */}
-                  <div className={`relative w-full ${item.category === '팝업' ? 'h-48' : 'h-48'} flex-shrink-0`}>
+                  <div className={`relative w-full h-48 max-h-48 overflow-hidden flex-shrink-0`}>
                     <ImageWithFallback
                       src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
                       alt={item.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-48 object-cover"
                     />
                     <button
                       className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
