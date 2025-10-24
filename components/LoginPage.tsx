@@ -41,8 +41,18 @@ export function LoginPage() {
             console.log('🏨 파트너 대시보드로 이동');
             navigate('/partner/dashboard', { replace: true });
           } else if (user?.role === 'vendor') {
-            console.log('🚗 벤더 대시보드로 이동');
-            navigate('/vendor/dashboard', { replace: true });
+            // 벤더 타입에 따라 다른 대시보드로 이동
+            if (user.vendorType === 'stay') {
+              console.log('🏨 숙박 벤더 대시보드로 이동');
+              navigate('/vendor/lodging', { replace: true });
+            } else if (user.vendorType === 'rental') {
+              console.log('🚗 렌트카 벤더 대시보드로 이동');
+              navigate('/vendor/dashboard', { replace: true });
+            } else {
+              // vendorType이 없으면 기본 렌트카 대시보드로 이동
+              console.log('🚗 벤더 대시보드로 이동 (기본)');
+              navigate('/vendor/dashboard', { replace: true });
+            }
           } else {
             console.log('🏠 홈으로 이동');
             navigate('/', { replace: true });

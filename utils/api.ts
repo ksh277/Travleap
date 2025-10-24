@@ -2803,37 +2803,30 @@ export const api = {
       try {
         console.log(`🔄 파트너 신청 승인 시작 (ID: ${applicationId})`);
 
-        // 1. partners 테이블에서 status='pending'인 파트너 찾기
-        const applicationResult = await db.query(
-          'SELECT * FROM partners WHERE id = ? AND status = ?',
-          [applicationId, 'pending']
-        );
+        const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
 
-        if (!applicationResult || applicationResult.length === 0) {
-          console.error('❌ 파트너 신청을 찾을 수 없음');
+        const response = await fetch(`/api/admin/partners/${applicationId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            status: 'approved'
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          console.error('❌ 파트너 승인 실패:', data.message);
           return {
             success: false,
-            error: '파트너 신청을 찾을 수 없습니다.'
+            error: data.message || '파트너 승인에 실패했습니다.'
           };
         }
 
-        const application = applicationResult[0];
-        console.log(`✅ 신청 정보 조회 완료: ${application.business_name}`);
-
-        // 2. status를 'approved'로 업데이트하고 tier 설정
-        await db.execute(`
-          UPDATE partners
-          SET status = 'approved',
-              tier = 'bronze',
-              is_verified = 1,
-              updated_at = NOW()
-          WHERE id = ?
-        `, [applicationId]);
-        console.log(`✅ 파트너 승인 완료 (ID: ${applicationId})`);
-
-        // 3. 실시간 데이터 갱신
-        notifyDataChange.partnerCreated();
-        console.log(`✅ 실시간 데이터 갱신 완료`);
+        console.log(`✅ 파트너 신청 승인 완료 (ID: ${applicationId})`);
 
         return {
           success: true,
@@ -2842,7 +2835,7 @@ export const api = {
             partnerId: applicationId,
             status: 'approved'
           },
-          message: '파트너 신청이 승인되었습니다.'
+          message: data.message || '파트너 신청이 승인되었습니다.'
         };
       } catch (error) {
         console.error('❌ 파트너 승인 오류:', error);
@@ -2880,19 +2873,36 @@ export const api = {
       try {
         console.log(`🔄 파트너 신청 거절 시작 (ID: ${applicationId})`);
 
-        // partners 테이블에서 status='pending'인 파트너를 'rejected'로 변경
-        await db.execute(`
-          UPDATE partners
-          SET status = 'rejected',
-              updated_at = NOW()
-          WHERE id = ? AND status = 'pending'
-        `, [applicationId]);
+        const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+        const response = await fetch(`/api/admin/partners/${applicationId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            status: 'rejected',
+            reason: reviewNotes
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          console.error('❌ 파트너 거절 실패:', data.message);
+          return {
+            success: false,
+            error: data.message || '파트너 거절에 실패했습니다.'
+          };
+        }
+
         console.log(`✅ 파트너 신청 거절 완료 (ID: ${applicationId})`);
 
         return {
           success: true,
           data: { id: applicationId, status: 'rejected' },
-          message: '파트너 신청이 거절되었습니다.'
+          message: data.message || '파트너 신청이 거절되었습니다.'
         };
       } catch (error) {
         console.error('❌ 파트너 거절 오류:', error);

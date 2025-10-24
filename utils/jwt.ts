@@ -6,6 +6,7 @@ export interface JWTPayload {
   email: string;
   role: 'admin' | 'user' | 'partner' | 'vendor';
   name: string;
+  vendorType?: string; // 'stay' (숙박) 또는 'rental' (렌트카)
   iat?: number;
   exp?: number;
 }
@@ -32,13 +33,20 @@ export class JWTUtils {
   // Access Token 생성 (24시간 유효)
   static generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string {
     try {
+      const tokenPayload: any = {
+        userId: payload.userId,
+        email: payload.email,
+        role: payload.role,
+        name: payload.name
+      };
+
+      // vendorType이 있으면 토큰에 포함
+      if (payload.vendorType) {
+        tokenPayload.vendorType = payload.vendorType;
+      }
+
       return jwt.sign(
-        {
-          userId: payload.userId,
-          email: payload.email,
-          role: payload.role,
-          name: payload.name
-        },
+        tokenPayload,
         this.SECRET_KEY,
         {
           expiresIn: '24h',

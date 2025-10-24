@@ -5,6 +5,7 @@ export interface JWTPayload {
   email: string;
   role: 'admin' | 'user' | 'partner' | 'vendor';
   name: string;
+  vendorType?: string; // 'stay' (숙박) 또는 'rental' (렌트카)
   iat?: number;
   exp?: number;
 }

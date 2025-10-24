@@ -9,6 +9,7 @@ interface User {
   name: string;
   phone?: string;
   role: 'admin' | 'user' | 'partner' | 'vendor';
+  vendorType?: string; // 'stay' (숙박) 또는 'rental' (렌트카) 등
 }
 
 interface AuthState {
@@ -52,12 +53,19 @@ const restoreUserFromToken = (token: string): User | null => {
     return null;
   }
 
-  return {
+  const user: User = {
     id: payload.userId,
     email: payload.email,
     name: payload.name,
     role: payload.role
   };
+
+  // vendorType이 있으면 추가
+  if (payload.vendorType) {
+    user.vendorType = payload.vendorType;
+  }
+
+  return user;
 };
 
 // 세션 복원 함수
@@ -244,6 +252,11 @@ export const useAuth = () => {
         phone: serverUser.phone,
         role: serverUser.role
       };
+
+      // vendorType이 있으면 추가 (숙박/렌트카 구분용)
+      if (serverUser.vendorType) {
+        user.vendorType = serverUser.vendorType;
+      }
 
       console.log('🔑 서버에서 JWT 토큰 받음:', token.substring(0, 50) + '...');
 

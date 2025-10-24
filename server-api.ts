@@ -233,7 +233,7 @@ function setupRoutes() {
     try {
       const bcrypt = await import('bcryptjs');
       const { JWTUtils } = await import('./utils/jwt.js');
-      const { connect } = await import('@planetscale/database');
+      const { neon } = await import('@neondatabase/serverless');
 
       const { email, password } = req.body;
 
@@ -247,14 +247,24 @@ function setupRoutes() {
         });
       }
 
-      // 2. DB에서 사용자 조회
-      const conn = connect({ url: process.env.DATABASE_URL! });
-      const result = await conn.execute(
-        'SELECT id, email, name, role, password_hash FROM users WHERE email = ?',
-        [email]
-      );
+      // 2. Neon DB(PostgreSQL)에서 사용자 조회
+      if (!process.env.POSTGRES_DATABASE_URL) {
+        console.error('❌ POSTGRES_DATABASE_URL이 설정되지 않았습니다.');
+        return res.status(500).json({
+          success: false,
+          error: '서버 설정 오류입니다.'
+        });
+      }
 
-      if (!result.rows || result.rows.length === 0) {
+      const sql = neon(process.env.POSTGRES_DATABASE_URL);
+      const result = await sql`
+        SELECT id, email, username, name, phone, role, password_hash
+        FROM users
+        WHERE email = ${email}
+        LIMIT 1
+      `;
+
+      if (!result || result.length === 0) {
         console.log('❌ 사용자를 찾을 수 없음:', email);
         return res.status(401).json({
           success: false,
@@ -262,8 +272,52 @@ function setupRoutes() {
         });
       }
 
-      const user: any = result.rows[0];
+      const user: any = result[0];
       console.log('✅ 사용자 찾음:', user.email, 'role:', user.role);
+
+      // 2-1. Vendor인 경우 PlanetScale에서 벤더 타입 확인 (숙박/렌트카 구분)
+      let vendorType: string | null = null;
+      if (user.role === 'vendor') {
+        try {
+          const { connect } = await import('@planetscale/database');
+          const psConnection = connect({ url: process.env.DATABASE_URL! });
+
+          const partnerResult = await psConnection.execute(
+            'SELECT partner_type, services, category FROM partners WHERE user_id = ? LIMIT 1',
+            [user.id]
+          );
+
+          if (partnerResult.rows && partnerResult.rows.length > 0) {
+            const partner: any = partnerResult.rows[0];
+
+            // 1순위: partner_type 필드 사용
+            if (partner.partner_type === 'lodging') {
+              vendorType = 'stay';
+            } else if (partner.partner_type === 'rental') {
+              vendorType = 'rental';
+            }
+            // 2순위: services 필드 사용 (파트너 신청 양식)
+            else if (partner.services === 'accommodation') {
+              vendorType = 'stay';
+            } else if (partner.services === 'rentcar') {
+              vendorType = 'rental';
+            }
+            // 3순위: category 필드 사용 (하위 호환성)
+            else if (partner.category === 'stay' || partner.category === 'accommodation') {
+              vendorType = 'stay';
+            } else if (partner.category === 'rental' || partner.category === 'rentcar') {
+              vendorType = 'rental';
+            }
+
+            console.log('✅ 벤더 타입 확인:', vendorType, '(partner_type:', partner.partner_type, ', services:', partner.services, ', category:', partner.category, ')');
+          } else {
+            console.log('⚠️ partners 테이블에서 벤더 정보를 찾을 수 없음');
+          }
+        } catch (partnerError) {
+          console.error('⚠️ 벤더 타입 조회 오류:', partnerError);
+          // 벤더 타입 조회 실패 시에도 로그인은 허용
+        }
+      }
 
       // 3. 비밀번호 검증
       if (!user.password_hash || !user.password_hash.startsWith('$2')) {
@@ -285,23 +339,35 @@ function setupRoutes() {
         });
       }
 
-      // 4. JWT 토큰 생성
-      const token = JWTUtils.generateToken({
+      // 4. JWT 토큰 생성 (vendorType 포함)
+      const tokenPayload: any = {
         userId: user.id,
         email: user.email,
         name: user.name,
         role: user.role
-      });
+      };
+
+      // Vendor인 경우 vendorType 추가
+      if (vendorType) {
+        tokenPayload.vendorType = vendorType;
+      }
+
+      const token = JWTUtils.generateToken(tokenPayload);
 
       // 5. 비밀번호 해시 제거 후 반환
-      const userResponse = {
+      const userResponse: any = {
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role
       };
 
-      console.log('✅ 로그인 성공:', user.email, 'role:', user.role);
+      // Vendor인 경우 vendorType 추가
+      if (vendorType) {
+        userResponse.vendorType = vendorType;
+      }
+
+      console.log('✅ 로그인 성공:', user.email, 'role:', user.role, vendorType ? `vendorType: ${vendorType}` : '');
 
       res.json({
         success: true,
@@ -908,7 +974,7 @@ function setupRoutes() {
   });
 
   // 상품 생성 (관리자용)
-  app.post('/api/admin/listings', async (req, res) => {
+  app.post('/api/admin/listings', authenticate, requireRole('admin'), async (req, res) => {
     try {
       const { db } = await import('./utils/database.js');
       const listingData = req.body;
@@ -981,7 +1047,7 @@ function setupRoutes() {
   });
 
   // 상품 수정 (관리자용)
-  app.put('/api/admin/listings/:id', async (req, res) => {
+  app.put('/api/admin/listings/:id', authenticate, requireRole('admin'), async (req, res) => {
     try {
       const { db } = await import('./utils/database.js');
       const listingId = parseInt(req.params.id);
@@ -2042,13 +2108,126 @@ function setupRoutes() {
     }
   });
 
+  // ===== 관리자 통계 API =====
+
+  // 관리자 대시보드 통계 조회
+  app.get('/api/admin/stats', authenticate, requireRole('admin'), async (_req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const { getNeonPool } = await import('./utils/neon-database.js');
+
+      // 1. 파트너 통계 (PlanetScale)
+      const totalPartnersResult = await db.query('SELECT COUNT(*) as count FROM partners');
+      const totalPartners = totalPartnersResult?.[0]?.count || 0;
+
+      const pendingPartnersResult = await db.query(
+        "SELECT COUNT(*) as count FROM partners WHERE status = 'pending'"
+      );
+      const pendingPartners = pendingPartnersResult?.[0]?.count || 0;
+
+      // 2. 상품 통계 (PlanetScale)
+      const totalProductsResult = await db.query('SELECT COUNT(*) as count FROM listings');
+      const totalProducts = totalProductsResult?.[0]?.count || 0;
+
+      const activeProductsResult = await db.query(
+        "SELECT COUNT(*) as count FROM listings WHERE status = 'active'"
+      );
+      const activeProducts = activeProductsResult?.[0]?.count || 0;
+
+      // 3. 사용자 통계 (Neon PostgreSQL)
+      let totalUsers = 0;
+      let newSignups = 0;
+      try {
+        const neonPool = getNeonPool();
+        const usersResult = await neonPool.query('SELECT COUNT(*) as count FROM users');
+        totalUsers = parseInt(usersResult.rows[0]?.count || '0');
+
+        const today = new Date().toISOString().split('T')[0];
+        const signupsResult = await neonPool.query(
+          `SELECT COUNT(*) as count FROM users WHERE created_at::date = $1`,
+          [today]
+        );
+        newSignups = parseInt(signupsResult.rows[0]?.count || '0');
+      } catch (err) {
+        console.error('❌ Neon DB query failed:', err);
+      }
+
+      // 4. 주문 통계 (PlanetScale payments 테이블)
+      const totalOrdersResult = await db.query('SELECT COUNT(*) as count FROM payments');
+      const totalOrders = totalOrdersResult?.[0]?.count || 0;
+
+      const today = new Date().toISOString().split('T')[0];
+      const todayOrdersResult = await db.query(
+        `SELECT COUNT(*) as count FROM payments WHERE DATE(created_at) = ?`,
+        [today]
+      );
+      const todayOrders = todayOrdersResult?.[0]?.count || 0;
+
+      // 5. 매출 통계
+      const revenueResult = await db.query(
+        'SELECT SUM(amount) as total FROM payments WHERE status = "completed"'
+      );
+      const revenue = revenueResult?.[0]?.total || 0;
+
+      // 6. 리뷰 통계
+      const totalReviewsResult = await db.query('SELECT COUNT(*) as count FROM reviews');
+      const totalReviews = totalReviewsResult?.[0]?.count || 0;
+
+      const avgRatingResult = await db.query('SELECT AVG(rating) as avg FROM reviews');
+      const avgRating = parseFloat(avgRatingResult?.[0]?.avg || '0').toFixed(1);
+
+      res.json({
+        success: true,
+        data: {
+          totalPartners,
+          pendingPartners,
+          totalProducts,
+          activeProducts,
+          totalUsers,
+          newSignups,
+          totalOrders,
+          todayOrders,
+          revenue,
+          totalReviews,
+          avgRating: parseFloat(avgRating),
+          commission: Math.floor(revenue * 0.07), // 7% 수수료
+          refunds: 0,
+          inquiries: 0
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Get admin stats error:', error);
+      res.status(500).json({
+        success: false,
+        message: '통계 조회 실패',
+        data: {
+          totalPartners: 0,
+          pendingPartners: 0,
+          totalProducts: 0,
+          activeProducts: 0,
+          totalUsers: 0,
+          newSignups: 0,
+          totalOrders: 0,
+          todayOrders: 0,
+          revenue: 0,
+          totalReviews: 0,
+          avgRating: 0,
+          commission: 0,
+          refunds: 0,
+          inquiries: 0
+        }
+      });
+    }
+  });
+
   // ===== 파트너 신청/관리 API =====
 
-  // 파트너 신청 제출 (공개 - 누구나 신청 가능)
-  app.post('/api/partners/apply', async (req, res) => {
+  // 파트너 신청 제출 (로그인 필수 - 회원만 신청 가능)
+  app.post('/api/partners/apply', authenticate, async (req, res) => {
     try {
       const { db } = await import('./utils/database.js');
       const applicationData = req.body;
+      const userId = (req as any).user.userId; // 로그인한 사용자 ID
 
       // 이메일 형식 검증
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -2070,8 +2249,8 @@ function setupRoutes() {
         });
       }
 
-      // 필수 필드 검증 (사업자번호는 선택사항)
-      const requiredFields = ['businessName', 'contactName', 'email', 'phone'];
+      // 필수 필드 검증
+      const requiredFields = ['business_name', 'contact_name', 'email', 'phone'];
       for (const field of requiredFields) {
         if (!applicationData[field]) {
           return res.status(400).json({
@@ -2082,41 +2261,58 @@ function setupRoutes() {
         }
       }
 
-      // 중복 신청 체크 (이메일 기준)
+      // 중복 신청 체크 (사용자 ID 기준 - 한 사용자당 하나의 파트너 신청만 가능)
       const existing = await db.query(
-        `SELECT id FROM partners WHERE email = ? LIMIT 1`,
-        [applicationData.email]
+        `SELECT id FROM partners WHERE user_id = ? LIMIT 1`,
+        [userId]
       );
 
       if (existing && existing.length > 0) {
         return res.status(409).json({
           success: false,
           error: 'DUPLICATE_APPLICATION',
-          message: '이미 신청된 이메일입니다.'
+          message: '이미 파트너 신청을 하셨습니다. 승인 결과를 기다려주세요.'
         });
       }
 
       // 파트너 신청 저장 (status: pending, partner_type: general)
+      // AdminPage와 동일한 필드 구조 사용
+      const imagesJson = applicationData.images && applicationData.images.length > 0
+        ? JSON.stringify(applicationData.images)
+        : null;
+
       await db.execute(`
         INSERT INTO partners (
-          business_name, contact_name, email, phone, business_number,
-          address, location, coordinates, description, services, website, instagram,
+          business_name, contact_name, email, phone,
+          business_address, location, services,
+          base_price, base_price_text, detailed_address,
+          description, images, business_hours,
+          duration, min_age, max_capacity, language,
+          lat, lng,
           status, tier, partner_type, is_verified, is_featured, user_id,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'bronze', 'general', 0, 0, 1, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'bronze', 'general', 0, 0, ?, NOW(), NOW())
       `, [
-        applicationData.businessName,
-        applicationData.contactName,
+        applicationData.business_name,
+        applicationData.contact_name,
         applicationData.email,
         applicationData.phone,
-        applicationData.businessNumber || null,
-        applicationData.address || null,
+        applicationData.business_address || null,
         applicationData.location || null,
-        applicationData.coordinates || null,
+        applicationData.services || null,
+        applicationData.base_price || null,
+        applicationData.base_price_text || null,
+        applicationData.detailed_address || null,
         applicationData.description || null,
-        applicationData.services ? JSON.stringify(applicationData.services.split(',').map((s: string) => s.trim())) : null,
-        applicationData.website || null,
-        applicationData.instagram || null
+        imagesJson,
+        applicationData.business_hours || null,
+        applicationData.duration || null,
+        applicationData.min_age || null,
+        applicationData.max_capacity || null,
+        applicationData.language || null,
+        applicationData.lat || null,
+        applicationData.lng || null,
+        userId // 로그인한 사용자 ID
       ]);
 
       res.json({
@@ -3618,7 +3814,7 @@ function setupRoutes() {
   });
 
   // Admin - 렌트카 업체 생성
-  app.post('/api/admin/rentcar/vendors', async (req, res) => {
+  app.post('/api/admin/rentcar/vendors', authenticate, requireRole('admin'), async (req, res) => {
     try {
       const { db } = await import('./utils/database.js');
       const vendorData = req.body;
@@ -3661,7 +3857,7 @@ function setupRoutes() {
   });
 
   // Admin - 렌트카 업체에 차량 추가
-  app.post('/api/admin/rentcar/vendors/:vendorId/vehicles', async (req, res) => {
+  app.post('/api/admin/rentcar/vendors/:vendorId/vehicles', authenticate, requireRole('admin'), async (req, res) => {
     try {
       const { db } = await import('./utils/database.js');
       const vendorId = parseInt(req.params.vendorId);

@@ -29,37 +29,44 @@ import {
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { api } from '../utils/api';
 import { toast } from 'sonner';
+import { useAuth } from '../hooks/useAuth';
 
 export function PartnerApplyPage() {
   const navigate = useNavigate();
+  const { user, isLoading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [addressSearchOpen, setAddressSearchOpen] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
-    // 기본 정보
-    businessName: '',
-    contactName: '',
+    // 기본 정보 (AdminPage와 동일)
+    business_name: '',
+    contact_name: '',
     email: '',
     phone: '',
-    businessNumber: '',
-    categories: [] as string[],
-    address: '',
+    business_address: '',
     location: '',
-    latitude: null as number | null,
-    longitude: null as number | null,
+    services: '', // 카테고리 (단일 선택)
 
-    // 소개/설명
+    // 가격 정보
+    base_price: '',
+    base_price_text: '',
+
+    // 상세 정보
+    detailed_address: '',
     description: '',
-    services: '',
-    promotion: '',
-    businessHours: '매일 09:00-18:00',
-    discountRate: '',
-    website: '',
-    instagram: '',
+    images: [] as string[], // URL 배열
+    business_hours: '매일 09:00-18:00',
 
-    // 업로드된 파일들
-    images: [] as File[],
+    // 투어/체험 정보
+    duration: '',
+    min_age: '',
+    max_capacity: '',
+    language: '',
+
+    // 좌표
+    lat: null as number | null,
+    lng: null as number | null,
 
     // 동의사항
     termsAgreed: false,
@@ -127,14 +134,13 @@ export function PartnerApplyPage() {
     }
   ];
 
-  const handleCategoryToggle = (categoryId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      categories: prev.categories.includes(categoryId)
-        ? prev.categories.filter(id => id !== categoryId)
-        : [...prev.categories, categoryId]
-    }));
-  };
+  // 로그인 체크 - 로그인 안 되어 있으면 로그인 페이지로 리다이렉트
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast.error('파트너 신청은 로그인 후 가능합니다.');
+      navigate('/login', { state: { from: '/partner-apply' } });
+    }
+  }, [authLoading, user, navigate]);
 
   // Kakao 주소 검색
   const openAddressSearch = () => {
@@ -155,19 +161,19 @@ export function PartnerApplyPage() {
           if (status === kakao.maps.services.Status.OK) {
             setFormData(prev => ({
               ...prev,
-              address: fullAddress,
+              business_address: fullAddress,
               location: `${data.sido} ${data.sigungu}`,
-              latitude: parseFloat(result[0].y),
-              longitude: parseFloat(result[0].x)
+              lat: parseFloat(result[0].y),
+              lng: parseFloat(result[0].x)
             }));
             toast.success('주소가 설정되었습니다.');
           } else {
             setFormData(prev => ({
               ...prev,
-              address: fullAddress,
+              business_address: fullAddress,
               location: `${data.sido} ${data.sigungu}`,
-              latitude: null,
-              longitude: null
+              lat: null,
+              lng: null
             }));
             toast.warning('좌표를 가져올 수 없어 주소만 저장되었습니다.');
           }
@@ -176,49 +182,45 @@ export function PartnerApplyPage() {
     }).open();
   };
 
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
       const fileArray = Array.from(files).slice(0, 3); // 최대 3장
-      setFormData(prev => ({
-        ...prev,
-        images: [...prev.images, ...fileArray].slice(0, 3)
-      }));
+      setImageFiles(prev => [...prev, ...fileArray].slice(0, 3));
     }
   };
 
   const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // 폼 검증
-    if (!formData.businessName || !formData.contactName || !formData.email || !formData.phone) {
+    if (!formData.business_name || !formData.contact_name || !formData.email || !formData.phone) {
       toast.error('필수 정보를 모두 입력해주세요.');
       return;
     }
 
-    if (!formData.address || !formData.location) {
+    if (!formData.business_address || !formData.location) {
       toast.error('주소와 위치 정보를 입력해주세요.');
       return;
     }
 
-    if (formData.categories.length === 0) {
-      toast.error('최소 하나의 카테고리를 선택해주세요.');
+    if (!formData.services) {
+      toast.error('카테고리를 선택해주세요.');
       return;
     }
 
-    if (formData.description.length < 100) {
-      toast.error('업체 소개는 최소 100자 이상 입력해주세요.');
+    if (formData.description.length < 50) {
+      toast.error('업체 소개는 최소 50자 이상 입력해주세요.');
       return;
     }
 
-    if (!formData.businessHours) {
+    if (!formData.business_hours) {
       toast.error('영업시간을 입력해주세요.');
       return;
     }
@@ -231,10 +233,10 @@ export function PartnerApplyPage() {
     try {
       // 이미지가 있으면 먼저 Vercel Blob에 업로드
       const imageUrls: string[] = [];
-      if (formData.images.length > 0) {
+      if (imageFiles.length > 0) {
         toast.info('이미지를 업로드하고 있습니다...');
 
-        for (const file of formData.images) {
+        for (const file of imageFiles) {
           try {
             const formDataToSend = new FormData();
             formDataToSend.append('file', file);
@@ -261,34 +263,43 @@ export function PartnerApplyPage() {
         }
       }
 
-      // 파트너 신청 데이터 준비 (로그인 불필요 - 누구나 신청 가능)
+      // 파트너 신청 데이터 준비 (AdminPage와 동일한 필드명)
       const applicationData = {
-        businessName: formData.businessName,
-        contactName: formData.contactName,
+        business_name: formData.business_name,
+        contact_name: formData.contact_name,
         email: formData.email,
         phone: formData.phone,
-        businessNumber: formData.businessNumber || '',
-        address: formData.address,
+        business_address: formData.business_address,
         location: formData.location,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        coordinates: formData.latitude && formData.longitude
-          ? `${formData.latitude},${formData.longitude}`
-          : null,
-        website: formData.website || '',
-        instagram: formData.instagram || '',
-        services: formData.categories.join(','), // 쉼표로 구분된 문자열
+        services: formData.services, // 카테고리
+        base_price: formData.base_price,
+        base_price_text: formData.base_price_text,
+        detailed_address: formData.detailed_address,
         description: formData.description,
-        businessHours: formData.businessHours,
-        discountRate: formData.discountRate || '',
-        images: imageUrls // Blob URL 배열 추가
+        images: imageUrls, // Blob URL 배열
+        business_hours: formData.business_hours,
+        duration: formData.duration,
+        min_age: formData.min_age,
+        max_capacity: formData.max_capacity,
+        language: formData.language,
+        lat: formData.lat,
+        lng: formData.lng
       };
 
-      // 새 API 엔드포인트로 신청
+      // 새 API 엔드포인트로 신청 (인증 토큰 필요)
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인 세션이 만료되었습니다. 다시 로그인해주세요.');
+        navigate('/login', { state: { from: '/partner-apply' } });
+        return;
+      }
+
       const response = await fetch('/api/partners/apply', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(applicationData),
       });
@@ -318,6 +329,18 @@ export function PartnerApplyPage() {
       setCurrentStep(currentStep - 1);
     }
   };
+
+  // 로그인 확인 중
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">로그인 확인 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isSubmitted) {
     return (
@@ -428,27 +451,27 @@ export function PartnerApplyPage() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <Label htmlFor="businessName">업체명 *</Label>
+                          <Label htmlFor="business_name">업체명 *</Label>
                           <Input
-                            id="businessName"
-                            value={formData.businessName}
-                            onChange={(e) => setFormData(prev => ({ ...prev, businessName: e.target.value }))}
+                            id="business_name"
+                            value={formData.business_name}
+                            onChange={(e) => setFormData(prev => ({ ...prev, business_name: e.target.value }))}
                             placeholder="신안여행사"
                             required
                           />
                         </div>
-                        
+
                         <div>
-                          <Label htmlFor="contactName">담당자 이름 *</Label>
+                          <Label htmlFor="contact_name">담당자 이름 *</Label>
                           <Input
-                            id="contactName"
-                            value={formData.contactName}
-                            onChange={(e) => setFormData(prev => ({ ...prev, contactName: e.target.value }))}
+                            id="contact_name"
+                            value={formData.contact_name}
+                            onChange={(e) => setFormData(prev => ({ ...prev, contact_name: e.target.value }))}
                             placeholder="홍길동"
                             required
                           />
                         </div>
-                        
+
                         <div>
                           <Label htmlFor="email">이메일 *</Label>
                           <Input
@@ -460,7 +483,7 @@ export function PartnerApplyPage() {
                             required
                           />
                         </div>
-                        
+
                         <div>
                           <Label htmlFor="phone">전화번호 *</Label>
                           <Input
@@ -469,16 +492,6 @@ export function PartnerApplyPage() {
                             onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                             placeholder="010-1234-5678"
                             required
-                          />
-                        </div>
-                        
-                        <div className="md:col-span-2">
-                          <Label htmlFor="businessNumber">사업자 등록번호 (선택)</Label>
-                          <Input
-                            id="businessNumber"
-                            value={formData.businessNumber}
-                            onChange={(e) => setFormData(prev => ({ ...prev, businessNumber: e.target.value }))}
-                            placeholder="123-45-67890"
                           />
                         </div>
 
@@ -492,13 +505,13 @@ export function PartnerApplyPage() {
                               className="w-full justify-start text-left"
                             >
                               <MapPin className="h-4 w-4 mr-2" />
-                              {formData.address || '주소 검색하기'}
+                              {formData.business_address || '주소 검색하기'}
                             </Button>
-                            {formData.address && (
+                            {formData.business_address && (
                               <div className="text-sm text-gray-600 pl-2">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">주소:</span>
-                                  <span>{formData.address}</span>
+                                  <span>{formData.business_address}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">지역:</span>
@@ -508,123 +521,132 @@ export function PartnerApplyPage() {
                             )}
                           </div>
                         </div>
+
+                        <div className="md:col-span-2">
+                          <Label htmlFor="location">지역 *</Label>
+                          <Input
+                            id="location"
+                            value={formData.location}
+                            onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                            placeholder="서비스 지역을 입력하세요"
+                          />
+                        </div>
                       </div>
 
                       <div>
-                        <Label>카테고리 선택 *</Label>
-                        <p className="text-sm text-gray-500 mb-4">제공하시는 서비스 카테고리를 선택해주세요 (다중 선택 가능)</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          {categories.map((category) => (
-                            <button
-                              key={category.id}
-                              type="button"
-                              onClick={() => handleCategoryToggle(category.id)}
-                              className={`p-4 rounded-lg border-2 transition-all text-center ${
-                                formData.categories.includes(category.id)
-                                  ? 'border-purple-500 bg-purple-50 text-purple-700'
-                                  : 'border-gray-200 hover:border-gray-300'
-                              }`}
-                            >
-                              <div className="text-2xl mb-2">{category.icon}</div>
-                              <div className="text-sm">{category.name}</div>
-                            </button>
-                          ))}
-                        </div>
+                        <Label htmlFor="services">제공 서비스 (카테고리) *</Label>
+                        <p className="text-sm text-gray-500 mb-2">가맹점 페이지에서 필터링에 사용됩니다</p>
+                        <Select value={formData.services} onValueChange={(value) => setFormData(prev => ({ ...prev, services: value }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="카테고리 선택" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.icon} {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   )}
 
-                  {/* Step 2: 소개/설명 */}
+                  {/* Step 2: 상세 정보 */}
                   {currentStep === 2 && (
                     <div className="space-y-6">
                       <div className="flex items-center mb-6">
                         <MessageCircle className="h-6 w-6 text-purple-600 mr-3" />
-                        <h3 className="text-xl">업체 소개</h3>
+                        <h3 className="text-xl">상세 정보</h3>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <Label htmlFor="base_price">가격 정보</Label>
+                          <Input
+                            id="base_price"
+                            value={formData.base_price}
+                            onChange={(e) => setFormData(prev => ({ ...prev, base_price: e.target.value }))}
+                            placeholder="예: 50000"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">• 숫자만 입력: "50000" → "50,000원"</p>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="base_price_text">가격 텍스트</Label>
+                          <Input
+                            id="base_price_text"
+                            value={formData.base_price_text}
+                            onChange={(e) => setFormData(prev => ({ ...prev, base_price_text: e.target.value }))}
+                            placeholder="예: 방4개 전체 예약시 20,000원 할인"
+                          />
+                        </div>
                       </div>
 
                       <div>
-                        <Label htmlFor="description">업체 소개 *</Label>
-                        <p className="text-sm text-gray-500 mb-2">최소 100자 이상 입력해주세요</p>
+                        <Label htmlFor="description">업체 설명 *</Label>
                         <Textarea
                           id="description"
                           value={formData.description}
                           onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="신안의 아름다운 자연과 함께하는 특별한 여행 경험을 제공합니다..."
+                          placeholder="업체에 대한 상세 설명을 입력하세요"
                           rows={5}
                           required
-                        />
-                        <p className="text-sm text-gray-500 mt-1">
-                          {formData.description.length}/100 자
-                        </p>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="services">제공 서비스 설명</Label>
-                        <Textarea
-                          id="services"
-                          value={formData.services}
-                          onChange={(e) => setFormData(prev => ({ ...prev, services: e.target.value }))}
-                          placeholder="제공하시는 구체적인 서비스나 상품에 대해 설명해주세요..."
-                          rows={4}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="promotion">프로모션/혜택 정보 (선택)</Label>
-                        <Input
-                          id="promotion"
-                          value={formData.promotion}
-                          onChange={(e) => setFormData(prev => ({ ...prev, promotion: e.target.value }))}
-                          placeholder="예: 신안 투어 패스 소지자 20% 할인"
                         />
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <Label htmlFor="businessHours">영업시간 *</Label>
+                          <Label htmlFor="business_hours">영업시간 *</Label>
                           <Input
-                            id="businessHours"
-                            value={formData.businessHours}
-                            onChange={(e) => setFormData(prev => ({ ...prev, businessHours: e.target.value }))}
-                            placeholder="매일 09:00-18:00"
+                            id="business_hours"
+                            value={formData.business_hours}
+                            onChange={(e) => setFormData(prev => ({ ...prev, business_hours: e.target.value }))}
+                            placeholder="예: 평일 09:00-18:00, 주말 10:00-17:00"
                             required
                           />
                         </div>
 
                         <div>
-                          <Label htmlFor="discountRate">할인율 (선택, %)</Label>
+                          <Label htmlFor="duration">기간 (일)</Label>
                           <Input
-                            id="discountRate"
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={formData.discountRate}
-                            onChange={(e) => setFormData(prev => ({ ...prev, discountRate: e.target.value }))}
-                            placeholder="10"
+                            id="duration"
+                            value={formData.duration}
+                            onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                            placeholder="예: 7"
                           />
+                          <p className="text-xs text-gray-500 mt-1">투어/체험 기간 (일수)</p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
-                          <Label htmlFor="website">웹사이트 URL (선택)</Label>
+                          <Label htmlFor="min_age">최소 연령</Label>
                           <Input
-                            id="website"
-                            type="url"
-                            value={formData.website}
-                            onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
-                            placeholder="https://www.example.com"
+                            id="min_age"
+                            value={formData.min_age}
+                            onChange={(e) => setFormData(prev => ({ ...prev, min_age: e.target.value }))}
+                            placeholder="예: 18"
                           />
                         </div>
-                        
+
                         <div>
-                          <Label htmlFor="instagram">인스타그램 URL (선택)</Label>
+                          <Label htmlFor="max_capacity">최대 인원</Label>
                           <Input
-                            id="instagram"
-                            type="url"
-                            value={formData.instagram}
-                            onChange={(e) => setFormData(prev => ({ ...prev, instagram: e.target.value }))}
-                            placeholder="https://instagram.com/username"
+                            id="max_capacity"
+                            value={formData.max_capacity}
+                            onChange={(e) => setFormData(prev => ({ ...prev, max_capacity: e.target.value }))}
+                            placeholder="예: 10"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="language">언어</Label>
+                          <Input
+                            id="language"
+                            value={formData.language}
+                            onChange={(e) => setFormData(prev => ({ ...prev, language: e.target.value }))}
+                            placeholder="예: 한국어, 영어"
                           />
                         </div>
                       </div>
@@ -632,7 +654,7 @@ export function PartnerApplyPage() {
                       <div>
                         <Label>대표 이미지 업로드 (최대 3장)</Label>
                         <p className="text-sm text-gray-500 mb-4">업체나 서비스를 대표할 수 있는 이미지를 업로드해주세요</p>
-                        
+
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                           <input
                             type="file"
@@ -649,9 +671,9 @@ export function PartnerApplyPage() {
                           </label>
                         </div>
 
-                        {formData.images.length > 0 && (
+                        {imageFiles.length > 0 && (
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                            {formData.images.map((image, index) => (
+                            {imageFiles.map((image, index) => (
                               <div key={index} className="relative">
                                 <img
                                   src={URL.createObjectURL(image)}
@@ -686,11 +708,11 @@ export function PartnerApplyPage() {
                         <div className="space-y-3 text-sm text-gray-700">
                           <div className="flex items-center">
                             <Check className="h-4 w-4 text-green-500 mr-2" />
-                            <span>업체명: {formData.businessName}</span>
+                            <span>업체명: {formData.business_name}</span>
                           </div>
                           <div className="flex items-center">
                             <Check className="h-4 w-4 text-green-500 mr-2" />
-                            <span>담당자: {formData.contactName}</span>
+                            <span>담당자: {formData.contact_name}</span>
                           </div>
                           <div className="flex items-center">
                             <Check className="h-4 w-4 text-green-500 mr-2" />
@@ -698,7 +720,7 @@ export function PartnerApplyPage() {
                           </div>
                           <div className="flex items-center">
                             <Check className="h-4 w-4 text-green-500 mr-2" />
-                            <span>카테고리: {formData.categories.length}개 선택</span>
+                            <span>카테고리: {formData.services || '미선택'}</span>
                           </div>
                           <div className="flex items-center">
                             <Check className="h-4 w-4 text-green-500 mr-2" />
@@ -706,7 +728,7 @@ export function PartnerApplyPage() {
                           </div>
                           <div className="flex items-center">
                             <Check className="h-4 w-4 text-green-500 mr-2" />
-                            <span>업로드 이미지: {formData.images.length}장</span>
+                            <span>업로드 이미지: {imageFiles.length}장</span>
                           </div>
                         </div>
                       </div>
