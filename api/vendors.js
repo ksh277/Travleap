@@ -29,6 +29,15 @@ module.exports = async function handler(req, res) {
 
     // GET: 벤더 목록 조회
     if (req.method === 'GET') {
+      // latitude, longitude 컬럼 존재 여부 확인
+      let latLngColumns = '';
+      try {
+        await connection.execute('SELECT latitude, longitude FROM rentcar_vendors LIMIT 1');
+        latLngColumns = 'v.latitude, v.longitude,';
+      } catch (e) {
+        console.warn('⚠️ latitude/longitude 컬럼 없음 - 기본값 사용');
+      }
+
       const vendors = await connection.execute(`
         SELECT
           v.id,
@@ -39,8 +48,7 @@ module.exports = async function handler(req, res) {
           v.contact_email,
           v.contact_phone,
           v.address,
-          v.latitude,
-          v.longitude,
+          ${latLngColumns}
           v.description,
           v.logo_url,
           v.images,
@@ -118,10 +126,20 @@ module.exports = async function handler(req, res) {
       console.log('✏️ [Vendor Update] 업체 정보 수정:', id, req.body);
 
       // 기존 데이터 조회 (null 방지를 위해)
-      const existingVendor = await connection.execute(
-        'SELECT business_name, contact_name, contact_email, contact_phone, address, latitude, longitude, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
-        [id]
-      );
+      // latitude, longitude 컬럼이 없을 수 있으므로 try-catch
+      let existingVendor;
+      try {
+        existingVendor = await connection.execute(
+          'SELECT business_name, contact_name, contact_email, contact_phone, address, latitude, longitude, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
+          [id]
+        );
+      } catch (e) {
+        // latitude, longitude 없으면 제외하고 조회
+        existingVendor = await connection.execute(
+          'SELECT business_name, contact_name, contact_email, contact_phone, address, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
+          [id]
+        );
+      }
 
       if (!existingVendor.rows || existingVendor.rows.length === 0) {
         return res.status(404).json({
@@ -151,13 +169,28 @@ module.exports = async function handler(req, res) {
       }
 
       // 1. PlanetScale rentcar_vendors 테이블 업데이트
-      await connection.execute(
-        `UPDATE rentcar_vendors
-         SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,
-             address = ?, latitude = ?, longitude = ?, description = ?, logo_url = ?, images = ?, cancellation_policy = ?, updated_at = NOW()
-         WHERE id = ?`,
-        [finalName, finalContactPerson, finalContactEmail, finalContactPhone, finalAddress, finalLatitude, finalLongitude, finalDescription, finalLogoUrl, finalImages, finalCancellationPolicy, id]
-      );
+      // latitude, longitude 컬럼이 있는지 확인
+      const hasLatLng = existing.latitude !== undefined;
+
+      if (hasLatLng) {
+        // latitude, longitude 컬럼이 있을 때
+        await connection.execute(
+          `UPDATE rentcar_vendors
+           SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,
+               address = ?, latitude = ?, longitude = ?, description = ?, logo_url = ?, images = ?, cancellation_policy = ?, updated_at = NOW()
+           WHERE id = ?`,
+          [finalName, finalContactPerson, finalContactEmail, finalContactPhone, finalAddress, finalLatitude, finalLongitude, finalDescription, finalLogoUrl, finalImages, finalCancellationPolicy, id]
+        );
+      } else {
+        // latitude, longitude 컬럼이 없을 때
+        await connection.execute(
+          `UPDATE rentcar_vendors
+           SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,
+               address = ?, description = ?, logo_url = ?, images = ?, cancellation_policy = ?, updated_at = NOW()
+           WHERE id = ?`,
+          [finalName, finalContactPerson, finalContactEmail, finalContactPhone, finalAddress, finalDescription, finalLogoUrl, finalImages, finalCancellationPolicy, id]
+        );
+      }
 
       // 2. 이메일이 변경되었거나 비밀번호가 제공된 경우 Neon users 테이블 업데이트
       if (old_email && (old_email !== contact_email || new_password)) {
