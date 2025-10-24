@@ -168,20 +168,33 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 1. rentcar_payments에서 paymentKey 조회
+      // 1. rentcar_payments에서 paymentKey와 실제 결제 금액 조회
       let paymentKey = null;
+      let actualPaidAmount = null;
       try {
         const paymentResult = await connection.execute(
-          'SELECT payment_key FROM rentcar_payments WHERE booking_id = ? LIMIT 1',
+          'SELECT payment_key, amount FROM rentcar_payments WHERE booking_id = ? LIMIT 1',
           [bookingId]
         );
 
         if (paymentResult.rows && paymentResult.rows.length > 0) {
           paymentKey = paymentResult.rows[0].payment_key;
+          actualPaidAmount = paymentResult.rows[0].amount;
+          console.log('💰 실제 결제 금액:', actualPaidAmount);
         }
       } catch (e) {
         console.warn('⚠️ rentcar_payments 테이블 조회 실패 (테이블 없을 수 있음):', e.message);
       }
+
+      // 환불 금액 결정: 사용자 입력 > 실제 결제 금액 > 예약 금액
+      const finalRefundAmount = refund_amount || actualPaidAmount || booking.total_krw;
+
+      console.log('💳 환불 금액 결정:', {
+        requested: refund_amount,
+        actualPaid: actualPaidAmount,
+        bookingTotal: booking.total_krw,
+        final: finalRefundAmount
+      });
 
       // 2. Toss Payments API로 환불 처리 (paymentKey가 있을 때만)
       if (paymentKey && process.env.TOSS_SECRET_KEY) {
@@ -196,7 +209,7 @@ module.exports = async function handler(req, res) {
             },
             body: JSON.stringify({
               cancelReason: refund_reason || '벤더 요청 환불',
-              cancelAmount: refund_amount || booking.total_krw
+              cancelAmount: finalRefundAmount  // 실제 결제 금액 사용
             })
           });
 
@@ -227,7 +240,7 @@ module.exports = async function handler(req, res) {
         console.warn('⚠️ paymentKey 또는 TOSS_SECRET_KEY 없음 - DB만 업데이트');
       }
 
-      // 3. DB에 환불 정보 저장
+      // 3. DB에 환불 정보 저장 (실제 결제 금액으로)
       await connection.execute(
         `UPDATE rentcar_bookings
          SET status = 'cancelled',
@@ -237,15 +250,22 @@ module.exports = async function handler(req, res) {
              refunded_at = NOW(),
              updated_at = NOW()
          WHERE id = ?`,
-        [refund_amount || booking.total_krw, refund_reason || '벤더 요청', bookingId]
+        [finalRefundAmount, refund_reason || '벤더 요청', bookingId]
       );
+
+      console.log('✅ 환불 완료:', {
+        bookingId,
+        refundAmount: finalRefundAmount,
+        pgProcessed: !!paymentKey
+      });
 
       return res.status(200).json({
         success: true,
         message: paymentKey ? '환불 처리가 완료되었습니다.' : '환불 처리가 완료되었습니다. (PG사 연동 없이 DB만 업데이트됨)',
         data: {
           booking_id: bookingId,
-          refund_amount: refund_amount || booking.total_krw,
+          refund_amount: finalRefundAmount,
+          actual_paid_amount: actualPaidAmount,
           pg_refund_processed: !!paymentKey
         }
       });
