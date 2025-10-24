@@ -676,10 +676,14 @@ export function PartnerPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">전체</SelectItem>
-                    <SelectItem value="투어">투어</SelectItem>
+                    <SelectItem value="여행">여행</SelectItem>
+                    <SelectItem value="렌트카">렌트카</SelectItem>
                     <SelectItem value="숙박">숙박</SelectItem>
                     <SelectItem value="음식">음식</SelectItem>
-                    <SelectItem value="렌트카">렌트카</SelectItem>
+                    <SelectItem value="관광지">관광지</SelectItem>
+                    <SelectItem value="팝업">팝업</SelectItem>
+                    <SelectItem value="행사">행사</SelectItem>
+                    <SelectItem value="체험">체험</SelectItem>
                   </SelectContent>
                 </Select>
 

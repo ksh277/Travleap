@@ -5476,15 +5476,27 @@ export function AdminPage({}: AdminPageProps) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                제공 서비스
+                제공 서비스 (카테고리) *
               </label>
-              <Textarea
-                value={newPartner.services}
-                onChange={(e) => setNewPartner({ ...newPartner, services: e.target.value })}
-                placeholder="제공하는 서비스를 설명해주세요"
-                id="services"
-                rows={3}
-              />
+              <Select
+                value={Array.isArray(newPartner.services) ? newPartner.services[0] : (typeof newPartner.services === 'string' && newPartner.services ? newPartner.services.split(',')[0].trim() : '')}
+                onValueChange={(value) => setNewPartner({ ...newPartner, services: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="카테고리 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="여행">여행</SelectItem>
+                  <SelectItem value="렌트카">렌트카</SelectItem>
+                  <SelectItem value="숙박">숙박</SelectItem>
+                  <SelectItem value="음식">음식</SelectItem>
+                  <SelectItem value="관광지">관광지</SelectItem>
+                  <SelectItem value="팝업">팝업</SelectItem>
+                  <SelectItem value="행사">행사</SelectItem>
+                  <SelectItem value="체험">체험</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">가맹점 페이지에서 필터링에 사용됩니다</p>
             </div>
 
             <div>
