@@ -359,12 +359,15 @@ export const useAuth = () => {
     isAdmin: globalState.isAdmin,
     user: globalState.user?.email || 'none',
     hasToken: !!globalState.token,
-    sessionRestored
+    sessionRestored,
+    isLoading: !sessionRestored
   });
 
   return {
     ...globalState,
     sessionRestored,
+    isLoading: !sessionRestored, // 세션 복원 중이면 로딩 상태
+    isAuthenticated: globalState.isLoggedIn, // 로그인 여부 (isLoggedIn과 동일)
     login,
     logout,
     validateToken,
