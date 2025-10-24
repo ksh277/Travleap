@@ -172,10 +172,13 @@ export function useCartStore() {
   };
 
   const removeFromCart = async (itemId: number) => {
+    console.log('🗑️ [장바구니 삭제] 시작, cart_item_id:', itemId);
+
     // 로그인한 사용자는 API를 통해 삭제
     if (isLoggedIn && user?.id) {
       try {
-        const response = await fetch(`/api/cart/remove/${itemId}?userId=${user.id}`, {
+        // ⭐ 수정: 올바른 API 경로 사용
+        const response = await fetch(`/api/cart?itemId=${itemId}&userId=${user.id}`, {
           method: 'DELETE'
         });
 
@@ -183,14 +186,20 @@ export function useCartStore() {
         if (!result.success) {
           throw new Error(result.message || '장바구니 제거 실패');
         }
+
+        console.log('✅ [장바구니 삭제] API 삭제 성공');
       } catch (error) {
-        console.error('Failed to remove item from cart:', error);
+        console.error('❌ [장바구니 삭제] API 실패:', error);
+        throw error; // 에러를 throw해서 상태 업데이트 방지
       }
     }
 
+    // API 성공 후에만 상태 업데이트
     setCartState((prev) => ({
       cartItems: prev.cartItems.filter((item) => item.id !== itemId),
     }));
+
+    console.log('✅ [장바구니 삭제] 상태 업데이트 완료');
   };
 
   const updateQuantity = async (itemId: number, quantity: number) => {
@@ -245,23 +254,34 @@ export function useCartStore() {
   };
 
   const clearCart = async () => {
+    console.log('🗑️ [장바구니 전체 삭제] 시작');
+
     // 로그인한 사용자는 API를 통해 삭제
     if (isLoggedIn && user?.id) {
       try {
-        const response = await fetch(`/api/cart/clear?userId=${user.id}`, {
-          method: 'DELETE'
-        });
+        // 각 항목을 개별 삭제
+        const deletePromises = cartState.cartItems.map(item =>
+          fetch(`/api/cart?itemId=${item.id}&userId=${user.id}`, {
+            method: 'DELETE'
+          }).then(res => res.json())
+        );
 
-        const result = await response.json();
-        if (!result.success) {
-          throw new Error(result.message || '장바구니 비우기 실패');
+        const results = await Promise.all(deletePromises);
+        const failedDeletes = results.filter(r => !r.success);
+
+        if (failedDeletes.length > 0) {
+          throw new Error(`${failedDeletes.length}개 항목 삭제 실패`);
         }
+
+        console.log('✅ [장바구니 전체 삭제] API 삭제 성공');
       } catch (error) {
-        console.error('Failed to clear cart:', error);
+        console.error('❌ [장바구니 전체 삭제] API 실패:', error);
+        throw error;
       }
     }
 
     setCartState({ cartItems: [] });
+    console.log('✅ [장바구니 전체 삭제] 완료');
   };
 
   const checkout = (orderData: any) => {
