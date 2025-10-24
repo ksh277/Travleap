@@ -727,7 +727,7 @@ export function CartPage() {
                               {item.guests && (
                                 <div className="flex items-center gap-1">
                                   <Users className="h-3 w-3 flex-shrink-0" />
-                                  <span>{item.guests}{item.category === 'popup' ? '개' : '명'}</span>
+                                  <span>{item.guests}{item.category === '팝업' ? '개' : '명'}</span>
                                 </div>
                               )}
                               {item.rating && item.rating > 0 && item.reviewCount && item.reviewCount > 0 && (

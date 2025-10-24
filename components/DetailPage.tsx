@@ -508,7 +508,7 @@ export function DetailPage() {
 
   const validateBookingForm = useCallback(() => {
     // 팝업이 아닐 때만 날짜 검증
-    if (item?.category !== 'popup' && !selectedDate) {
+    if (item?.category !== '팝업' && !selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return false;
     }
@@ -526,7 +526,7 @@ export function DetailPage() {
     }
 
     // 팝업이 아닐 때만 인원 검증
-    if (item?.category !== 'popup') {
+    if (item?.category !== '팝업') {
       const totalGuests = adults + children + infants;
       if (totalGuests < 1 || totalGuests > (item?.maxCapacity || 10)) {
         toast.error(`인원은 1명부터 ${item?.maxCapacity || 10}명까지 가능합니다.`);
@@ -556,7 +556,7 @@ export function DetailPage() {
     }
 
     // 팝업이 아닐 때만 날짜 선택 검증
-    if (item.category !== 'popup' && !selectedDate) {
+    if (item.category !== '팝업' && !selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return;
     }
@@ -587,17 +587,17 @@ export function DetailPage() {
       const bookingRequest = {
         listing_id: Number(item.id),
         user_id: user?.id || 1,
-        num_adults: item.category === 'popup' ? quantity : adults,
-        num_children: item.category === 'popup' ? 0 : children,
-        num_seniors: item.category === 'popup' ? 0 : infants,
+        num_adults: item.category === '팝업' ? quantity : adults,
+        num_children: item.category === '팝업' ? 0 : children,
+        num_seniors: item.category === '팝업' ? 0 : infants,
         start_time: startTime || '09:00',
         guest_name: bookingData.name.trim(),
         guest_phone: bookingData.phone.trim(),
         guest_email: bookingData.email.trim(),
-        booking_date: item.category === 'popup' ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
-        guest_count: item.category === 'popup' ? quantity : totalGuests,
+        booking_date: item.category === '팝업' ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
+        guest_count: item.category === '팝업' ? quantity : totalGuests,
         special_requests: bookingData.requests.trim() || '',
-        total_amount: item.category === 'popup' ? (item.price || 0) * quantity : priceCalculation.total,
+        total_amount: item.category === '팝업' ? (item.price || 0) * quantity : priceCalculation.total,
         emergency_contact: bookingData.emergencyContact?.trim() || '',
         dietary_restrictions: bookingData.dietaryRestrictions?.trim() || '',
         special_needs: bookingData.specialNeeds?.trim() || ''
@@ -629,8 +629,8 @@ export function DetailPage() {
           bookingNumber: response.data.booking_number,
           amount: response.data.total_amount.toString(),
           title: item.title,
-          date: item.category === 'popup' ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
-          guests: item.category === 'popup' ? quantity.toString() : totalGuests.toString(),
+          date: item.category === '팝업' ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
+          guests: item.category === '팝업' ? quantity.toString() : totalGuests.toString(),
           customerName: response.data.guest_name,
           customerEmail: response.data.guest_email
         });
@@ -742,7 +742,7 @@ export function DetailPage() {
     }
 
     // 팝업이 아닐 때만 날짜 검증
-    if (item.category !== 'popup' && !selectedDate) {
+    if (item.category !== '팝업' && !selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return;
     }
@@ -759,12 +759,12 @@ export function DetailPage() {
     const cartItem = {
       id: item.id,
       title: item.title || '상품',
-      price: item.category === 'popup' ? (item.price || 0) * quantity : (priceCalculation.total || item.price || 0),
+      price: item.category === '팝업' ? (item.price || 0) * quantity : (priceCalculation.total || item.price || 0),
       image: item.images?.[0] || '',
       category: item.category || '',
       location: item.location || '',
-      date: item.category === 'popup' ? '' : selectedDate!.toISOString().split('T')[0],
-      guests: item.category === 'popup' ? quantity : totalGuests
+      date: item.category === '팝업' ? '' : selectedDate!.toISOString().split('T')[0],
+      guests: item.category === '팝업' ? quantity : totalGuests
     };
 
     console.log('Adding to cart:', cartItem);
@@ -1104,11 +1104,11 @@ export function DetailPage() {
                   </div>
                 </div>
                 <div className="text-left md:text-right flex-shrink-0">
-                  {item?.category !== 'popup' && (
+                  {item?.category !== '팝업' && (
                     <div className="text-xs md:text-sm text-gray-500">부터</div>
                   )}
                   <div className="text-xl md:text-2xl lg:text-3xl text-blue-600 font-bold">{(item.price || 0).toLocaleString()}원</div>
-                  {item?.category !== 'popup' && (
+                  {item?.category !== '팝업' && (
                     <div className="text-xs md:text-sm text-gray-500">/ 1인</div>
                   )}
                 </div>
@@ -1116,7 +1116,7 @@ export function DetailPage() {
             </div>
 
             {/* 예약 옵션 선택 - 팝업 카테고리가 아닐 때만 표시 */}
-            {item?.category !== 'popup' && (
+            {item?.category !== '팝업' && (
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle>예약 옵션 선택</CardTitle>
@@ -1187,12 +1187,12 @@ export function DetailPage() {
 
             {/* Tabs */}
             <Tabs defaultValue="description" className="w-full mt-6">
-              <TabsList className={`grid w-full ${item?.category === 'popup' ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'} gap-1`}>
+              <TabsList className={`grid w-full ${item?.category === '팝업' ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'} gap-1`}>
                 <TabsTrigger value="description" className="text-xs sm:text-sm">소개</TabsTrigger>
-                {item?.category !== 'popup' && (
+                {item?.category !== '팝업' && (
                   <TabsTrigger value="details" className="text-xs sm:text-sm">포함/불포함</TabsTrigger>
                 )}
-                {item?.category !== 'popup' && (
+                {item?.category !== '팝업' && (
                   <TabsTrigger value="location" className="text-xs sm:text-sm">위치</TabsTrigger>
                 )}
                 <TabsTrigger value="policy" className="text-xs sm:text-sm">정책</TabsTrigger>
@@ -1209,7 +1209,7 @@ export function DetailPage() {
                       {item.description}
                     </p>
                     {/* 팝업 카테고리가 아닐 때만 특징 표시 */}
-                    {item.category !== 'popup' && (
+                    {item.category !== '팝업' && (
                       <div className="mt-6 space-y-4">
                         <div>
                           <h4 className="text-lg mb-2">특징</h4>
@@ -1235,7 +1235,7 @@ export function DetailPage() {
               </TabsContent>
 
               {/* 팝업 카테고리가 아닐 때만 포함/불포함 탭 표시 */}
-              {item?.category !== 'popup' && (
+              {item?.category !== '팝업' && (
                 <TabsContent value="details" className="space-y-4 md:space-y-6">
                   {/* Category-specific details */}
                   {item.category === 'accommodation' && (item.roomType || item.checkInTime) && (
@@ -1499,7 +1499,7 @@ export function DetailPage() {
               )}
 
               {/* 팝업 카테고리가 아닐 때만 위치 탭 표시 */}
-              {item?.category !== 'popup' && (
+              {item?.category !== '팝업' && (
                 <TabsContent value="location" className="space-y-6">
                 <Card>
                   <CardHeader>
@@ -1525,8 +1525,8 @@ export function DetailPage() {
                             <>
                               <iframe
                                 src={
-                                  item.coordinates
-                                    ? `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${item.coordinates}&zoom=15&maptype=roadmap&language=ko`
+                                  (item as any).coordinates
+                                    ? `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${(item as any).coordinates}&zoom=15&maptype=roadmap&language=ko`
                                     : `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent((item.address || item.location) + ' 신안군')}&zoom=14&maptype=roadmap&language=ko`
                                 }
                                 className="w-full h-full border-0"
@@ -1544,7 +1544,7 @@ export function DetailPage() {
                                   size="sm"
                                   className="bg-white/90 text-gray-700 hover:bg-white shadow-lg"
                                   onClick={() => {
-                                    const query = item.coordinates || encodeURIComponent(item.location + ' 신안군');
+                                    const query = (item as any).coordinates || encodeURIComponent(item.location + ' 신안군');
                                     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
                                     window.open(mapUrl, '_blank');
                                   }}
@@ -1557,7 +1557,7 @@ export function DetailPage() {
                                   variant="outline"
                                   className="bg-white/90 hover:bg-white shadow-lg"
                                   onClick={() => {
-                                    const destination = item.coordinates || encodeURIComponent(item.location + ' 신안군');
+                                    const destination = (item as any).coordinates || encodeURIComponent(item.location + ' 신안군');
                                     const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
                                     window.open(directionsUrl, '_blank');
                                   }}
@@ -1617,27 +1617,171 @@ export function DetailPage() {
                 </TabsContent>
               )}
 
+              {/* 정책 탭 - 모든 카테고리에 표시 (법적 필수) */}
               <TabsContent value="policy" className="space-y-6">
+                {/* 팝업이 아닐 때만 취소 정책 표시 */}
+                {item?.category !== '팝업' && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>취소 및 환불 정책</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <h4 className="mb-2">취소 수수료</h4>
+                        <ul className="space-y-1 text-gray-700">
+                          <li>• 3일 전: 무료 취소</li>
+                          <li>• 1-2일 전: 50% 환불</li>
+                          <li>• 당일: 환불 불가</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="mb-2">주의사항</h4>
+                        <ul className="space-y-1 text-gray-700">
+                          <li>• 악천후 시 일정 변경 가능</li>
+                          <li>• 최소 출발 인원 미달 시 취소 가능</li>
+                          <li>• 안전상의 이유로 참여 제한 가능</li>
+                        </ul>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 상품정보 제공고시 (법적 필수 - 전자상거래법) */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>취소 및 환불 정책</CardTitle>
+                    <CardTitle>상품정보 제공고시</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <span className="font-semibold text-gray-700">상품명:</span>
+                        <span className="ml-2 text-gray-600">{item.title}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">판매가:</span>
+                        <span className="ml-2 text-gray-600">{item.price?.toLocaleString()}원</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">판매자:</span>
+                        <span className="ml-2 text-gray-600">{item.partner?.business_name || '트래블립'}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">카테고리:</span>
+                        <span className="ml-2 text-gray-600">{item.category}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">제공지역:</span>
+                        <span className="ml-2 text-gray-600">{item.location}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">이용기간:</span>
+                        <span className="ml-2 text-gray-600">예약일로부터 1일</span>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="font-semibold text-gray-700">취소/환불 조건:</span>
+                        <span className="ml-2 text-gray-600">전자상거래 등에서의 소비자보호에 관한 법률 및 소비자분쟁해결기준에 따름</span>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="font-semibold text-gray-700">소비자상담 관련 전화번호:</span>
+                        <span className="ml-2 text-gray-600">{item.partner?.contact_phone || '1588-0000'}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 교환/반품 정보 (법적 필수 - 소비자보호법) */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>교환 및 반품 정보</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm">
                     <div>
-                      <h4 className="mb-2">취소 수수료</h4>
+                      <h4 className="font-semibold mb-2">교환 및 반품이 가능한 경우</h4>
                       <ul className="space-y-1 text-gray-700">
-                        <li>• 3일 전: 무료 취소</li>
-                        <li>• 1-2일 전: 50% 환불</li>
-                        <li>• 당일: 환불 불가</li>
+                        <li>• 상품을 공급 받으신 날로부터 7일 이내</li>
+                        <li>• 공급받으신 상품이 표시·광고 내용과 다르거나 계약내용과 다르게 이행된 경우</li>
                       </ul>
                     </div>
                     <div>
-                      <h4 className="mb-2">주의사항</h4>
+                      <h4 className="font-semibold mb-2">교환 및 반품이 불가능한 경우</h4>
                       <ul className="space-y-1 text-gray-700">
-                        <li>• 악천후 시 일정 변경 가능</li>
-                        <li>• 최소 출발 인원 미달 시 취소 가능</li>
-                        <li>• 안전상의 이유로 참여 제한 가능</li>
+                        <li>• 시간의 경과에 의해 재판매가 곤란한 경우</li>
+                        <li>• 복제가 가능한 상품의 포장을 훼손한 경우</li>
+                        <li>• 소비자의 책임 있는 사유로 상품 등이 멸실 또는 훼손된 경우</li>
+                        <li>• 소비자의 사용 또는 일부 소비에 의하여 상품의 가치가 현저히 감소한 경우</li>
                       </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-2">반품 배송비</h4>
+                      <p className="text-gray-700">
+                        제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 왕복 배송비(6,000원)가 부과됩니다.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 사업자 정보 (법적 필수) */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>사업자 정보</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <span className="font-semibold text-gray-700">상호명:</span>
+                        <span className="ml-2 text-gray-600">{item.partner?.business_name || '트래블립'}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">대표자:</span>
+                        <span className="ml-2 text-gray-600">{item.partner?.representative_name || '김대표'}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">사업자등록번호:</span>
+                        <span className="ml-2 text-gray-600">{item.partner?.business_registration_number || '000-00-00000'}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">통신판매업 신고번호:</span>
+                        <span className="ml-2 text-gray-600">{item.partner?.online_business_registration_number || '제2024-전남신안-0000호'}</span>
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="font-semibold text-gray-700">사업장 소재지:</span>
+                        <span className="ml-2 text-gray-600">{item.partner?.address || '전라남도 신안군'}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">대표 전화:</span>
+                        <span className="ml-2 text-gray-600">{item.partner?.contact_phone || '1588-0000'}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-700">이메일:</span>
+                        <span className="ml-2 text-gray-600">{item.partner?.contact_email || 'info@travleap.com'}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 소비자 보호 정보 (법적 필수) */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>소비자 피해보상 및 분쟁처리</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm text-gray-700">
+                    <p>소비자분쟁해결기준(공정거래위원회 고시) 및 관계법령에 따릅니다.</p>
+                    <div>
+                      <h4 className="font-semibold mb-1">분쟁처리 기관</h4>
+                      <ul className="space-y-1">
+                        <li>• 한국소비자원: 국번없이 1372</li>
+                        <li>• 공정거래위원회: 국번없이 1301</li>
+                        <li>• 전자거래분쟁조정위원회: www.ecmc.or.kr</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold mb-1">환불 지연 시 지연배상금</h4>
+                      <p>
+                        전자상거래 등에서의 소비자보호에 관한 법률에 따라 소비자의 청약철회 후
+                        판매자가 재화 등을 반환받은 날로부터 3영업일 이내에 지급받은 대금의 환급을
+                        정당한 사유 없이 지연하는 때에는 소비자는 지연기간에 대해서 연 15%의
+                        지연배상금을 판매자에게 청구할 수 있습니다.
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1799,7 +1943,7 @@ export function DetailPage() {
                   {!showBookingForm ? (
                     <>
                       {/* 팝업 카테고리: 수량 선택만 */}
-                      {item?.category === 'popup' ? (
+                      {item?.category === '팝업' ? (
                         <div className="space-y-3">
                           <label className="block text-sm font-medium mb-2">수량</label>
                           <div className="flex items-center justify-between border rounded-md px-4 py-3">
@@ -1967,7 +2111,7 @@ export function DetailPage() {
                       )}
 
                       <div className="border-t pt-4 space-y-2">
-                        {item?.category === 'popup' ? (
+                        {item?.category === '팝업' ? (
                           <>
                             {/* 팝업: 수량 x 가격 */}
                             <div className="flex justify-between items-center text-sm">
@@ -2030,7 +2174,7 @@ export function DetailPage() {
                           }
                           setShowBookingForm(true);
                         }}
-                        disabled={item?.category !== 'popup' && !selectedDate}
+                        disabled={item?.category !== '팝업' && !selectedDate}
                       >
                         예약하기
                       </Button>
@@ -2079,7 +2223,7 @@ export function DetailPage() {
 
                       <div className="border-t pt-4">
                         <div className="text-sm text-gray-600 mb-4 space-y-1">
-                          {item?.category === 'popup' ? (
+                          {item?.category === '팝업' ? (
                             <>
                               <div>수량: {quantity}개</div>
                               <div>총 금액: {((item.price || 0) * quantity).toLocaleString()}원</div>
@@ -2122,15 +2266,13 @@ export function DetailPage() {
         {showImageGallery && (
           <Dialog open={showImageGallery} onOpenChange={setShowImageGallery}>
             <DialogContent className="max-w-7xl w-full h-[90vh] p-0">
-              <DialogHeader className="absolute top-4 right-4 z-50">
-                <button
-                  onClick={() => setShowImageGallery(false)}
-                  className="bg-black/60 text-white hover:bg-black/80 backdrop-blur-sm rounded-full p-2 transition-colors"
-                  aria-label="닫기"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </DialogHeader>
+              <button
+                onClick={() => setShowImageGallery(false)}
+                className="absolute top-4 right-4 z-50 bg-black/60 text-white hover:bg-black/80 backdrop-blur-sm rounded-full p-2 transition-colors"
+                aria-label="닫기"
+              >
+                <X className="h-6 w-6" />
+              </button>
               <div className="relative w-full h-full flex items-center justify-center bg-black">
                 <ImageWithFallback
                   src={images[currentImageIndex]}

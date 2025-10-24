@@ -630,40 +630,39 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
               return (
                 <Card
                   key={item.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[450px] flex flex-col"
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col h-full"
                   onClick={() => navigate(`/detail/${item.id}`)}
                 >
-                  <div className="flex flex-col h-full">
-                    {/* 이미지 */}
-                    <div className="relative w-full h-32 flex-shrink-0">
-                      <ImageWithFallback
-                        src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(item.id);
-                        }}
-                      >
-                        <Heart className={`h-4 w-4 ${favorites.has(item.id) ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
-                      </button>
-                      <button
-                        className="absolute top-2 left-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleShare(item);
-                        }}
-                      >
-                        <Share2 className="h-4 w-4 text-gray-600" />
-                      </button>
-                    </div>
+                  {/* 이미지 - 팝업 카테고리는 더 크게 */}
+                  <div className={`relative w-full ${item.category === '팝업' ? 'h-56' : 'h-40'} flex-shrink-0`}>
+                    <ImageWithFallback
+                      src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(item.id);
+                      }}
+                    >
+                      <Heart className={`h-4 w-4 ${favorites.has(item.id) ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
+                    </button>
+                    <button
+                      className="absolute top-2 left-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShare(item);
+                      }}
+                    >
+                      <Share2 className="h-4 w-4 text-gray-600" />
+                    </button>
+                  </div>
 
-                    {/* 정보 */}
-                    <CardContent className="p-4 flex flex-col flex-1 justify-between">
-                      <div className="space-y-2">
+                  {/* 정보 - 이미지 아래에 고정 */}
+                  <CardContent className="p-4 flex flex-col flex-1 justify-between bg-white">
+                      <div className="space-y-2 mb-3">
                         <div className="flex items-start gap-2">
                           <h3 className="font-semibold text-base flex-1 line-clamp-2 min-h-[2.5rem]">{item.title}</h3>
                           {item.partner?.is_verified && (
@@ -678,10 +677,10 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                           <span className="text-xs text-gray-600 line-clamp-1">{item.location || '위치 정보 없음'}</span>
                         </div>
 
-                        <p className="text-xs text-gray-600 line-clamp-2">{item.short_description || item.description_md || ''}</p>
+                        <p className="text-xs text-gray-600 line-clamp-2 min-h-[2rem]">{item.short_description || item.description_md || ''}</p>
                       </div>
 
-                      <div className="flex items-center justify-between mt-auto pt-2">
+                      <div className="flex items-center justify-between pt-2 border-t">
                         {Number(item.rating_avg || 0) > 0 && (
                           <div className="flex items-center gap-1">
                             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
@@ -694,7 +693,6 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                         </div>
                       </div>
                     </CardContent>
-                  </div>
                 </Card>
               );
             })}

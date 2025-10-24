@@ -2544,34 +2544,45 @@ export function AdminPage({}: AdminPageProps) {
                               )}
                             </div>
                             <div>
-                              <label className="text-sm font-medium mb-1 block">성인 가격 *</label>
+                              <label className="text-sm font-medium mb-1 block">
+                                {newProduct.category === '팝업' ? '상품 가격 *' : '성인 가격 *'}
+                              </label>
                               <Input
                                 type="number"
                                 value={newProduct.price}
                                 onChange={(e) => setNewProduct(prev => ({ ...prev, price: e.target.value }))}
-                                placeholder="성인 가격을 입력하세요"
+                                placeholder={newProduct.category === '팝업' ? '상품 가격을 입력하세요' : '성인 가격을 입력하세요'}
                               />
                             </div>
+
+                            {/* 팝업이 아닐 때만 어린이/유아 가격 표시 */}
+                            {newProduct.category !== '팝업' && (
+                              <>
+                                <div>
+                                  <label className="text-sm font-medium mb-1 block">어린이 가격</label>
+                                  <Input
+                                    type="number"
+                                    value={newProduct.childPrice || ''}
+                                    onChange={(e) => setNewProduct(prev => ({ ...prev, childPrice: e.target.value }))}
+                                    placeholder="어린이 가격 (미입력시 성인의 70%)"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium mb-1 block">유아 가격</label>
+                                  <Input
+                                    type="number"
+                                    value={newProduct.infantPrice || ''}
+                                    onChange={(e) => setNewProduct(prev => ({ ...prev, infantPrice: e.target.value }))}
+                                    placeholder="유아 가격 (미입력시 성인의 30%)"
+                                  />
+                                </div>
+                              </>
+                            )}
+
                             <div>
-                              <label className="text-sm font-medium mb-1 block">어린이 가격</label>
-                              <Input
-                                type="number"
-                                value={newProduct.childPrice || ''}
-                                onChange={(e) => setNewProduct(prev => ({ ...prev, childPrice: e.target.value }))}
-                                placeholder="어린이 가격 (미입력시 성인의 70%)"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">유아 가격</label>
-                              <Input
-                                type="number"
-                                value={newProduct.infantPrice || ''}
-                                onChange={(e) => setNewProduct(prev => ({ ...prev, infantPrice: e.target.value }))}
-                                placeholder="유아 가격 (미입력시 성인의 30%)"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium mb-1 block">최대 인원</label>
+                              <label className="text-sm font-medium mb-1 block">
+                                {newProduct.category === '팝업' ? '재고 수량' : '최대 인원'}
+                              </label>
                               <div className="flex items-center justify-between border rounded-md px-4 py-2">
                                 <Button
                                   type="button"
@@ -2586,7 +2597,9 @@ export function AdminPage({}: AdminPageProps) {
                                 >
                                   -
                                 </Button>
-                                <span className="text-lg font-medium">{newProduct.maxCapacity}명</span>
+                                <span className="text-lg font-medium">
+                                  {newProduct.maxCapacity}{newProduct.category === '팝업' ? '개' : '명'}
+                                </span>
                                 <Button
                                   type="button"
                                   variant="outline"
@@ -4726,15 +4739,62 @@ export function AdminPage({}: AdminPageProps) {
               {/* 이미지 */}
               <div>
                 <h3 className="text-lg font-medium mb-3">이미지</h3>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">메인 이미지 URL</label>
-                  <Input
-                    value={editingProduct.image}
-                    onChange={(e) => setEditingProduct(prev =>
-                      prev ? { ...prev, image: e.target.value } : null
-                    )}
-                    placeholder="이미지 URL을 입력하세요"
-                  />
+                <div className="space-y-4">
+                  {/* 현재 이미지 목록 */}
+                  {editingProduct.image && (
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">현재 메인 이미지</label>
+                      <div className="flex gap-2 items-center">
+                        <img src={editingProduct.image} alt="메인 이미지" className="w-24 h-24 object-cover rounded" />
+                        <Input
+                          value={editingProduct.image}
+                          onChange={(e) => setEditingProduct(prev =>
+                            prev ? { ...prev, image: e.target.value } : null
+                          )}
+                          placeholder="이미지 URL"
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 추가 이미지 URL 입력 */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">새 이미지 URL 추가</label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="edit-new-image-url"
+                        placeholder="이미지 URL을 입력하고 Enter 또는 추가 버튼을 누르세요"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            const url = e.currentTarget.value.trim();
+                            if (url) {
+                              setEditingProduct(prev =>
+                                prev ? { ...prev, image: url } : null
+                              );
+                              e.currentTarget.value = '';
+                            }
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          const input = document.getElementById('edit-new-image-url') as HTMLInputElement;
+                          const url = input?.value.trim();
+                          if (url) {
+                            setEditingProduct(prev =>
+                              prev ? { ...prev, image: url } : null
+                            );
+                            input.value = '';
+                          }
+                        }}
+                      >
+                        추가
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
