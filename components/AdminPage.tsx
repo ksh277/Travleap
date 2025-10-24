@@ -1076,7 +1076,7 @@ export function AdminPage({}: AdminPageProps) {
       maxCapacity: formData.rooms[0]?.maxOccupancy.toString() || '2',
       // 추가 정보를 highlights에 저장
       highlights: formData.rooms.map(room =>
-        `${room.roomName} - ${room.price.toLocaleString()}원 (최대 ${room.maxOccupancy}명)`
+        `${room.roomName} - ${(room.price || 0).toLocaleString()}원 (최대 ${room.maxOccupancy}명)`
       ),
       availableStartTimes: prev.availableStartTimes,
       itinerary: prev.itinerary,
@@ -2259,7 +2259,7 @@ export function AdminPage({}: AdminPageProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    ₩{stats.totalRevenue.toLocaleString()}
+                    ₩{(stats.totalRevenue || 0).toLocaleString()}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     이번 달 예상
@@ -2394,7 +2394,7 @@ export function AdminPage({}: AdminPageProps) {
                         <p className="text-xs md:text-sm text-gray-600 truncate">{product.category} • {product.location}</p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="font-medium text-xs md:text-sm">₩{product.price.toLocaleString()}</p>
+                        <p className="font-medium text-xs md:text-sm">₩{(product.price || 0).toLocaleString()}</p>
                         <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                           {product.status === 'active' ? '활성' : '비활성'}
                         </Badge>
@@ -2989,7 +2989,7 @@ export function AdminPage({}: AdminPageProps) {
                           <TableCell>
                             <Badge variant="outline">{product.category}</Badge>
                           </TableCell>
-                          <TableCell>₩{product.price.toLocaleString()}</TableCell>
+                          <TableCell>₩{(product.price || 0).toLocaleString()}</TableCell>
                           <TableCell>
                             <div className="flex items-center">
                               <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
