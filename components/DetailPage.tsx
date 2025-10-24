@@ -170,6 +170,7 @@ export function DetailPage() {
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
   const [infants, setInfants] = useState(0);
+  const [quantity, setQuantity] = useState(1); // 팝업 상품 수량
   const [startTime, setStartTime] = useState('');
   const [selectedPackages, setSelectedPackages] = useState<{[key: string]: number}>({});
   const [customGuestCount, setCustomGuestCount] = useState('');
@@ -506,7 +507,8 @@ export function DetailPage() {
   }, [item?.id]);
 
   const validateBookingForm = useCallback(() => {
-    if (!selectedDate) {
+    // 팝업이 아닐 때만 날짜 검증
+    if (item?.category !== 'popup' && !selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return false;
     }
@@ -522,17 +524,28 @@ export function DetailPage() {
       toast.error('유효한 이메일을 입력해주세요.');
       return false;
     }
-    const totalGuests = adults + children + infants;
-    if (totalGuests < 1 || totalGuests > (item?.maxCapacity || 10)) {
-      toast.error(`인원은 1명부터 ${item?.maxCapacity || 10}명까지 가능합니다.`);
-      return false;
+
+    // 팝업이 아닐 때만 인원 검증
+    if (item?.category !== 'popup') {
+      const totalGuests = adults + children + infants;
+      if (totalGuests < 1 || totalGuests > (item?.maxCapacity || 10)) {
+        toast.error(`인원은 1명부터 ${item?.maxCapacity || 10}명까지 가능합니다.`);
+        return false;
+      }
+      if (adults < 1 && children < 1) {
+        toast.error('최소 1명 이상의 성인 또는 어린이가 필요합니다.');
+        return false;
+      }
+    } else {
+      // 팝업일 때는 수량 검증
+      if (quantity < 1) {
+        toast.error('최소 1개 이상 선택해주세요.');
+        return false;
+      }
     }
-    if (adults < 1 && children < 1) {
-      toast.error('최소 1명 이상의 성인 또는 어린이가 필요합니다.');
-      return false;
-    }
+
     return true;
-  }, [selectedDate, bookingData, adults, children, infants, item?.maxCapacity]);
+  }, [item?.category, selectedDate, bookingData, adults, children, infants, quantity, item?.maxCapacity]);
 
   const handleBooking = useCallback(async () => {
     // 상품 정보 검증
@@ -542,8 +555,8 @@ export function DetailPage() {
       return;
     }
 
-    // 날짜 선택 검증
-    if (!selectedDate) {
+    // 팝업이 아닐 때만 날짜 선택 검증
+    if (item.category !== 'popup' && !selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return;
     }
@@ -574,17 +587,17 @@ export function DetailPage() {
       const bookingRequest = {
         listing_id: Number(item.id),
         user_id: user?.id || 1,
-        num_adults: adults,
-        num_children: children,
-        num_seniors: infants,
+        num_adults: item.category === 'popup' ? quantity : adults,
+        num_children: item.category === 'popup' ? 0 : children,
+        num_seniors: item.category === 'popup' ? 0 : infants,
         start_time: startTime || '09:00',
         guest_name: bookingData.name.trim(),
         guest_phone: bookingData.phone.trim(),
         guest_email: bookingData.email.trim(),
-        booking_date: selectedDate.toISOString().split('T')[0],
-        guest_count: totalGuests,
+        booking_date: item.category === 'popup' ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
+        guest_count: item.category === 'popup' ? quantity : totalGuests,
         special_requests: bookingData.requests.trim() || '',
-        total_amount: priceCalculation.total,
+        total_amount: item.category === 'popup' ? (item.price || 0) * quantity : priceCalculation.total,
         emergency_contact: bookingData.emergencyContact?.trim() || '',
         dietary_restrictions: bookingData.dietaryRestrictions?.trim() || '',
         special_needs: bookingData.specialNeeds?.trim() || ''
@@ -616,8 +629,8 @@ export function DetailPage() {
           bookingNumber: response.data.booking_number,
           amount: response.data.total_amount.toString(),
           title: item.title,
-          date: selectedDate.toISOString().split('T')[0],
-          guests: totalGuests.toString(),
+          date: item.category === 'popup' ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
+          guests: item.category === 'popup' ? quantity.toString() : totalGuests.toString(),
           customerName: response.data.guest_name,
           customerEmail: response.data.guest_email
         });
@@ -632,7 +645,7 @@ export function DetailPage() {
     } finally {
       setBookingLoading(false);
     }
-  }, [item, selectedDate, validateBookingForm, bookingData, adults, children, infants, startTime, priceCalculation.total, user?.id, navigate]);
+  }, [item, selectedDate, validateBookingForm, bookingData, adults, children, infants, quantity, startTime, priceCalculation.total, user?.id, navigate]);
 
   const handleReviewSubmit = useCallback(async () => {
     if (!newReview.comment.trim()) {
@@ -728,7 +741,8 @@ export function DetailPage() {
       return;
     }
 
-    if (!selectedDate) {
+    // 팝업이 아닐 때만 날짜 검증
+    if (item.category !== 'popup' && !selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return;
     }
@@ -745,18 +759,18 @@ export function DetailPage() {
     const cartItem = {
       id: item.id,
       title: item.title || '상품',
-      price: priceCalculation.total || item.price || 0,
+      price: item.category === 'popup' ? (item.price || 0) * quantity : (priceCalculation.total || item.price || 0),
       image: item.images?.[0] || '',
       category: item.category || '',
       location: item.location || '',
-      date: selectedDate.toISOString().split('T')[0],
-      guests: totalGuests
+      date: item.category === 'popup' ? '' : selectedDate!.toISOString().split('T')[0],
+      guests: item.category === 'popup' ? quantity : totalGuests
     };
 
     console.log('Adding to cart:', cartItem);
     addToCart(cartItem);
     toast.success('장바구니에 추가되었습니다.');
-  }, [item, selectedDate, adults, children, infants, priceCalculation.total, addToCart]);
+  }, [item, selectedDate, adults, children, infants, quantity, priceCalculation.total, addToCart]);
 
   const averageRating = useMemo(() => {
     if (reviews.length > 0) {
@@ -955,7 +969,7 @@ export function DetailPage() {
                 <ImageWithFallback
                   src={images[currentImageIndex]}
                   alt={`${item.title} - 이미지 ${currentImageIndex + 1}/${images.length}`}
-                  className="w-full h-64 md:h-80 lg:h-96 object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-80 md:h-96 lg:h-[500px] object-cover transition-transform duration-300 group-hover:scale-105"
                   loading="eager"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -1090,87 +1104,97 @@ export function DetailPage() {
                   </div>
                 </div>
                 <div className="text-left md:text-right flex-shrink-0">
-                  <div className="text-xs md:text-sm text-gray-500">부터</div>
+                  {item?.category !== 'popup' && (
+                    <div className="text-xs md:text-sm text-gray-500">부터</div>
+                  )}
                   <div className="text-xl md:text-2xl lg:text-3xl text-blue-600 font-bold">{(item.price || 0).toLocaleString()}원</div>
-                  <div className="text-xs md:text-sm text-gray-500">/ 1인</div>
+                  {item?.category !== 'popup' && (
+                    <div className="text-xs md:text-sm text-gray-500">/ 1인</div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* 예약 옵션 선택 */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>예약 옵션 선택</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* 성인 옵션 */}
-                <div className="p-4 border rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-white">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">성인</h3>
-                      <p className="text-sm text-gray-600">만 13세 이상</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">
-                        {(item.price || 0).toLocaleString()}원
-                      </div>
-                      <div className="text-xs text-gray-500">1인 기준</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 아동 옵션 */}
-                {item.childPrice && item.childPrice > 0 && (
+            {/* 예약 옵션 선택 - 팝업 카테고리가 아닐 때만 표시 */}
+            {item?.category !== 'popup' && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>예약 옵션 선택</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* 성인 옵션 */}
                   <div className="p-4 border rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-white">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <h3 className="font-semibold mb-1">아동</h3>
-                        <p className="text-sm text-gray-600">만 6세 ~ 12세</p>
+                        <h3 className="font-semibold mb-1">성인</h3>
+                        <p className="text-sm text-gray-600">만 13세 이상</p>
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-blue-600">
-                          {item.childPrice.toLocaleString()}원
+                          {(item.price || 0).toLocaleString()}원
                         </div>
                         <div className="text-xs text-gray-500">1인 기준</div>
                       </div>
                     </div>
                   </div>
-                )}
 
-                {/* 유아 옵션 */}
-                {item.infantPrice && item.infantPrice > 0 && (
-                  <div className="p-4 border rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-white">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold mb-1">유아</h3>
-                        <p className="text-sm text-gray-600">만 0세 ~ 5세</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-blue-600">
-                          {item.infantPrice.toLocaleString()}원
+                  {/* 아동 옵션 */}
+                  {item.childPrice && item.childPrice > 0 && (
+                    <div className="p-4 border rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-white">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold mb-1">아동</h3>
+                          <p className="text-sm text-gray-600">만 6세 ~ 12세</p>
                         </div>
-                        <div className="text-xs text-gray-500">1인 기준</div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {item.childPrice.toLocaleString()}원
+                          </div>
+                          <div className="text-xs text-gray-500">1인 기준</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* 선택 안내 */}
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    <CheckCircle className="inline h-4 w-4 mr-1" />
-                    우측 예약하기에서 날짜와 인원을 선택하세요
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                  {/* 유아 옵션 */}
+                  {item.infantPrice && item.infantPrice > 0 && (
+                    <div className="p-4 border rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-white">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold mb-1">유아</h3>
+                          <p className="text-sm text-gray-600">만 0세 ~ 5세</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {item.infantPrice.toLocaleString()}원
+                          </div>
+                          <div className="text-xs text-gray-500">1인 기준</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 선택 안내 */}
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <CheckCircle className="inline h-4 w-4 mr-1" />
+                      우측 예약하기에서 날짜와 인원을 선택하세요
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Tabs */}
             <Tabs defaultValue="description" className="w-full mt-6">
-              <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1">
+              <TabsList className={`grid w-full ${item?.category === 'popup' ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5'} gap-1`}>
                 <TabsTrigger value="description" className="text-xs sm:text-sm">소개</TabsTrigger>
-                <TabsTrigger value="details" className="text-xs sm:text-sm">포함/불포함</TabsTrigger>
-                <TabsTrigger value="location" className="text-xs sm:text-sm">위치</TabsTrigger>
+                {item?.category !== 'popup' && (
+                  <TabsTrigger value="details" className="text-xs sm:text-sm">포함/불포함</TabsTrigger>
+                )}
+                {item?.category !== 'popup' && (
+                  <TabsTrigger value="location" className="text-xs sm:text-sm">위치</TabsTrigger>
+                )}
                 <TabsTrigger value="policy" className="text-xs sm:text-sm">정책</TabsTrigger>
                 <TabsTrigger value="reviews" className="text-xs sm:text-sm col-span-2 md:col-span-1">리뷰 ({reviews.length})</TabsTrigger>
               </TabsList>
@@ -1184,32 +1208,37 @@ export function DetailPage() {
                     <p className="text-gray-700 leading-relaxed">
                       {item.description}
                     </p>
-                    <div className="mt-6 space-y-4">
-                      <div>
-                        <h4 className="text-lg mb-2">특징</h4>
-                        <ul className="list-disc list-inside space-y-1 text-gray-600">
-                          {item.features && item.features.length > 0 ? (
-                            item.features.map((feature: string, index: number) => (
-                              <li key={index}>{feature}</li>
-                            ))
-                          ) : (
-                            <>
-                              <li>전문 가이드와 함께하는 안전한 투어</li>
-                              <li>소규룹으로 진행되는 프리미엄 서비스</li>
-                              <li>현지 맛집 및 명소 추천</li>
-                              <li>기념품 증정</li>
-                            </>
-                          )}
-                        </ul>
+                    {/* 팝업 카테고리가 아닐 때만 특징 표시 */}
+                    {item.category !== 'popup' && (
+                      <div className="mt-6 space-y-4">
+                        <div>
+                          <h4 className="text-lg mb-2">특징</h4>
+                          <ul className="list-disc list-inside space-y-1 text-gray-600">
+                            {item.features && item.features.length > 0 ? (
+                              item.features.map((feature: string, index: number) => (
+                                <li key={index}>{feature}</li>
+                              ))
+                            ) : (
+                              <>
+                                <li>전문 가이드와 함께하는 안전한 투어</li>
+                                <li>소규룹으로 진행되는 프리미엄 서비스</li>
+                                <li>현지 맛집 및 명소 추천</li>
+                                <li>기념품 증정</li>
+                              </>
+                            )}
+                          </ul>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="details" className="space-y-4 md:space-y-6">
-                {/* Category-specific details */}
-                {item.category === 'accommodation' && (item.roomType || item.checkInTime) && (
+              {/* 팝업 카테고리가 아닐 때만 포함/불포함 탭 표시 */}
+              {item?.category !== 'popup' && (
+                <TabsContent value="details" className="space-y-4 md:space-y-6">
+                  {/* Category-specific details */}
+                  {item.category === 'accommodation' && (item.roomType || item.checkInTime) && (
                   <Card className="mb-6">
                     <CardHeader>
                       <CardTitle className="text-purple-600 flex items-center">
@@ -1466,9 +1495,12 @@ export function DetailPage() {
                     </CardContent>
                   </Card>
                 </div>
-              </TabsContent>
+                </TabsContent>
+              )}
 
-              <TabsContent value="location" className="space-y-6">
+              {/* 팝업 카테고리가 아닐 때만 위치 탭 표시 */}
+              {item?.category !== 'popup' && (
+                <TabsContent value="location" className="space-y-6">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
@@ -1582,7 +1614,8 @@ export function DetailPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
+                </TabsContent>
+              )}
 
               <TabsContent value="policy" className="space-y-6">
                 <Card>
@@ -1765,153 +1798,214 @@ export function DetailPage() {
                 <CardContent className="space-y-4">
                   {!showBookingForm ? (
                     <>
-                      <div>
-                        <label className="block text-sm mb-2">날짜 선택</label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start text-left min-h-[44px]"
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {selectedDate ? formatDate(selectedDate) : '날짜를 선택하세요'}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0">
-                            <Calendar
-                              mode="single"
-                              selected={selectedDate}
-                              onSelect={setSelectedDate}
-                              disabled={(date) => date < new Date()}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-
-                      <div className="space-y-3">
-                        <label className="block text-sm font-medium mb-2">인원</label>
-
-                        {/* 성인 */}
-                        <div className="flex items-center justify-between border rounded-md px-4 py-3">
-                          <div>
-                            <div className="font-medium">성인</div>
-                            <div className="text-xs text-gray-500">18세 이상</div>
+                      {/* 팝업 카테고리: 수량 선택만 */}
+                      {item?.category === 'popup' ? (
+                        <div className="space-y-3">
+                          <label className="block text-sm font-medium mb-2">수량</label>
+                          <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                            <div>
+                              <div className="font-medium">상품 개수</div>
+                              <div className="text-xs text-gray-500">구매 수량을 선택하세요</div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                disabled={quantity <= 1}
+                                className="h-8 w-8 p-0"
+                              >
+                                -
+                              </Button>
+                              <span className="text-lg font-medium w-8 text-center">{quantity}</span>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setQuantity(quantity + 1)}
+                                disabled={quantity >= (item?.maxCapacity || 100)}
+                                className="h-8 w-8 p-0"
+                              >
+                                +
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setAdults(Math.max(0, adults - 1))}
-                              disabled={adults <= 0}
-                              className="h-8 w-8 p-0"
-                            >
-                              -
-                            </Button>
-                            <span className="text-lg font-medium w-8 text-center">{adults}</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setAdults(adults + 1)}
-                              disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
-                              className="h-8 w-8 p-0"
-                            >
-                              +
-                            </Button>
-                          </div>
+                          {item?.maxCapacity && (
+                            <p className="text-xs text-gray-500 text-center">
+                              최대 {item.maxCapacity}개까지 구매 가능
+                            </p>
+                          )}
                         </div>
-
-                        {/* 어린이 */}
-                        <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                      ) : (
+                        <>
+                          {/* 일반 카테고리: 날짜 + 인원 선택 */}
                           <div>
-                            <div className="font-medium">어린이</div>
-                            <div className="text-xs text-gray-500">6-17세</div>
+                            <label className="block text-sm mb-2">날짜 선택</label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start text-left min-h-[44px]"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {selectedDate ? formatDate(selectedDate) : '날짜를 선택하세요'}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                  mode="single"
+                                  selected={selectedDate}
+                                  onSelect={setSelectedDate}
+                                  disabled={(date) => date < new Date()}
+                                />
+                              </PopoverContent>
+                            </Popover>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setChildren(Math.max(0, children - 1))}
-                              disabled={children <= 0}
-                              className="h-8 w-8 p-0"
-                            >
-                              -
-                            </Button>
-                            <span className="text-lg font-medium w-8 text-center">{children}</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setChildren(children + 1)}
-                              disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
-                              className="h-8 w-8 p-0"
-                            >
-                              +
-                            </Button>
-                          </div>
-                        </div>
 
-                        {/* 유아 */}
-                        <div className="flex items-center justify-between border rounded-md px-4 py-3">
-                          <div>
-                            <div className="font-medium">유아</div>
-                            <div className="text-xs text-gray-500">0-5세</div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setInfants(Math.max(0, infants - 1))}
-                              disabled={infants <= 0}
-                              className="h-8 w-8 p-0"
-                            >
-                              -
-                            </Button>
-                            <span className="text-lg font-medium w-8 text-center">{infants}</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setInfants(infants + 1)}
-                              disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
-                              className="h-8 w-8 p-0"
-                            >
-                              +
-                            </Button>
-                          </div>
-                        </div>
+                          <div className="space-y-3">
+                            <label className="block text-sm font-medium mb-2">인원</label>
 
-                        <p className="text-xs text-gray-500">
-                          최대 {item?.maxCapacity || 100}명 | 총 {adults + children + infants}명
-                        </p>
-                      </div>
+                            {/* 성인 */}
+                            <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                              <div>
+                                <div className="font-medium">성인</div>
+                                <div className="text-xs text-gray-500">18세 이상</div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setAdults(Math.max(0, adults - 1))}
+                                  disabled={adults <= 0}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  -
+                                </Button>
+                                <span className="text-lg font-medium w-8 text-center">{adults}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setAdults(adults + 1)}
+                                  disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* 어린이 */}
+                            <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                              <div>
+                                <div className="font-medium">어린이</div>
+                                <div className="text-xs text-gray-500">6-17세</div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setChildren(Math.max(0, children - 1))}
+                                  disabled={children <= 0}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  -
+                                </Button>
+                                <span className="text-lg font-medium w-8 text-center">{children}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setChildren(children + 1)}
+                                  disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* 유아 */}
+                            <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                              <div>
+                                <div className="font-medium">유아</div>
+                                <div className="text-xs text-gray-500">0-5세</div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setInfants(Math.max(0, infants - 1))}
+                                  disabled={infants <= 0}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  -
+                                </Button>
+                                <span className="text-lg font-medium w-8 text-center">{infants}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setInfants(infants + 1)}
+                                  disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-gray-500">
+                              최대 {item?.maxCapacity || 100}명 | 총 {adults + children + infants}명
+                            </p>
+                          </div>
+                        </>
+                      )}
 
                       <div className="border-t pt-4 space-y-2">
-                        {adults > 0 && (
-                          <div className="flex justify-between items-center text-sm">
-                            <span>성인</span>
-                            <span>{(item.price || 0).toLocaleString()}원 x {adults}명</span>
-                          </div>
+                        {item?.category === 'popup' ? (
+                          <>
+                            {/* 팝업: 수량 x 가격 */}
+                            <div className="flex justify-between items-center text-sm">
+                              <span>상품 가격</span>
+                              <span>{(item.price || 0).toLocaleString()}원 x {quantity}개</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t text-lg font-semibold">
+                              <span>총 금액</span>
+                              <span className="text-blue-600">{((item.price || 0) * quantity).toLocaleString()}원</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            {/* 일반: 인원별 가격 */}
+                            {adults > 0 && (
+                              <div className="flex justify-between items-center text-sm">
+                                <span>성인</span>
+                                <span>{(item.price || 0).toLocaleString()}원 x {adults}명</span>
+                              </div>
+                            )}
+                            {children > 0 && (
+                              <div className="flex justify-between items-center text-sm">
+                                <span>어린이</span>
+                                <span>{((item.childPrice || item.price * 0.7) || 0).toLocaleString()}원 x {children}명</span>
+                              </div>
+                            )}
+                            {infants > 0 && (
+                              <div className="flex justify-between items-center text-sm">
+                                <span>유아</span>
+                                <span>{((item.infantPrice || item.price * 0.3) || 0).toLocaleString()}원 x {infants}명</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center pt-2 border-t text-lg font-semibold">
+                              <span>총 금액</span>
+                              <span className="text-blue-600">{priceCalculation.total.toLocaleString()}원</span>
+                            </div>
+                          </>
                         )}
-                        {children > 0 && (
-                          <div className="flex justify-between items-center text-sm">
-                            <span>어린이</span>
-                            <span>{((item.childPrice || item.price * 0.7) || 0).toLocaleString()}원 x {children}명</span>
-                          </div>
-                        )}
-                        {infants > 0 && (
-                          <div className="flex justify-between items-center text-sm">
-                            <span>유아</span>
-                            <span>{((item.infantPrice || item.price * 0.3) || 0).toLocaleString()}원 x {infants}명</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between items-center pt-2 border-t text-lg font-semibold">
-                          <span>총 금액</span>
-                          <span className="text-blue-600">{priceCalculation.total.toLocaleString()}원</span>
-                        </div>
                       </div>
 
                       {/* 장바구니 추가 버튼 */}
@@ -1936,7 +2030,7 @@ export function DetailPage() {
                           }
                           setShowBookingForm(true);
                         }}
-                        disabled={!selectedDate}
+                        disabled={item?.category !== 'popup' && !selectedDate}
                       >
                         예약하기
                       </Button>
@@ -1985,9 +2079,18 @@ export function DetailPage() {
 
                       <div className="border-t pt-4">
                         <div className="text-sm text-gray-600 mb-4 space-y-1">
-                          <div>날짜: {selectedDate && formatDate(selectedDate)}</div>
-                          <div>인원: 성인 {adults}명{children > 0 ? `, 어린이 ${children}명` : ''}{infants > 0 ? `, 유아 ${infants}명` : ''}</div>
-                          <div>총 금액: {priceCalculation.total.toLocaleString()}원</div>
+                          {item?.category === 'popup' ? (
+                            <>
+                              <div>수량: {quantity}개</div>
+                              <div>총 금액: {((item.price || 0) * quantity).toLocaleString()}원</div>
+                            </>
+                          ) : (
+                            <>
+                              <div>날짜: {selectedDate && formatDate(selectedDate)}</div>
+                              <div>인원: 성인 {adults}명{children > 0 ? `, 어린이 ${children}명` : ''}{infants > 0 ? `, 유아 ${infants}명` : ''}</div>
+                              <div>총 금액: {priceCalculation.total.toLocaleString()}원</div>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -2014,6 +2117,80 @@ export function DetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Image Gallery Dialog */}
+        {showImageGallery && (
+          <Dialog open={showImageGallery} onOpenChange={setShowImageGallery}>
+            <DialogContent className="max-w-7xl w-full h-[90vh] p-0">
+              <DialogHeader className="absolute top-4 right-4 z-50">
+                <button
+                  onClick={() => setShowImageGallery(false)}
+                  className="bg-black/60 text-white hover:bg-black/80 backdrop-blur-sm rounded-full p-2 transition-colors"
+                  aria-label="닫기"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </DialogHeader>
+              <div className="relative w-full h-full flex items-center justify-center bg-black">
+                <ImageWithFallback
+                  src={images[currentImageIndex]}
+                  alt={`${item.title} - 이미지 ${currentImageIndex + 1}/${images.length}`}
+                  className="max-w-full max-h-full object-contain"
+                />
+
+                {/* Image counter */}
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+                  {currentImageIndex + 1} / {images.length}
+                </div>
+
+                {/* Navigation buttons */}
+                {images.length > 1 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/60 text-white hover:bg-black/80 backdrop-blur-sm w-12 h-12"
+                      onClick={() => setCurrentImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1)}
+                      aria-label="이전 이미지"
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/60 text-white hover:bg-black/80 backdrop-blur-sm w-12 h-12"
+                      onClick={() => setCurrentImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1)}
+                      aria-label="다음 이미지"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </Button>
+                  </>
+                )}
+
+                {/* Thumbnail strip */}
+                {images.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90%] overflow-x-auto px-4 py-2 bg-black/60 backdrop-blur-sm rounded-lg">
+                    {images.map((image, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentImageIndex(index)}
+                        className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                          index === currentImageIndex ? 'border-white scale-110' : 'border-transparent opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        <img
+                          src={image}
+                          alt={`썸네일 ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </div>
   );

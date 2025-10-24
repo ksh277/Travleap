@@ -635,7 +635,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                 >
                   <div className="flex flex-col h-full">
                     {/* 이미지 */}
-                    <div className="relative w-full h-52 flex-shrink-0">
+                    <div className="relative w-full h-32 flex-shrink-0">
                       <ImageWithFallback
                         src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
                         alt={item.title}
