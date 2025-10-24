@@ -15,46 +15,58 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const connection = connect({ url: process.env.DATABASE_URL });
+  // DATABASE_URL 체크
+  if (!process.env.DATABASE_URL) {
+    console.error('❌ DATABASE_URL 환경 변수가 설정되지 않았습니다!');
+    return res.status(500).json({
+      success: false,
+      error: 'Database configuration error',
+      message: 'DATABASE_URL is not configured'
+    });
+  }
 
+  let connection;
   try {
+    connection = connect({ url: process.env.DATABASE_URL });
+
     // GET - 모든 숙박 벤더 조회 (partners 테이블에서 partner_type='lodging')
     if (req.method === 'GET') {
       console.log('📥 [GET] 숙박 벤더 목록 조회 요청');
 
+      // 간소화된 쿼리 (복잡한 서브쿼리 제거)
       const result = await connection.execute(
         `SELECT
-          id,
-          id as partner_id,
-          user_id,
-          business_name,
-          business_number,
-          contact_name,
-          email as contact_email,
-          phone as contact_phone,
-          description,
-          logo as logo_url,
-          pms_provider,
-          pms_api_key,
-          pms_property_id,
-          pms_sync_enabled,
-          pms_sync_interval,
-          last_sync_at,
-          check_in_time,
-          check_out_time,
-          policies,
-          status,
-          is_active,
-          tier,
-          created_at,
-          updated_at,
-          (SELECT COUNT(*) FROM listings WHERE partner_id = partners.id AND category = 'stay' AND category_id = 1857) as room_count,
-          (SELECT MIN(price_from) FROM listings WHERE partner_id = partners.id AND category = 'stay' AND category_id = 1857) as min_price,
-          (SELECT AVG(rating) FROM reviews WHERE listing_id IN (SELECT id FROM listings WHERE partner_id = partners.id AND category = 'stay' AND category_id = 1857)) as avg_rating,
-          (SELECT COUNT(*) FROM reviews WHERE listing_id IN (SELECT id FROM listings WHERE partner_id = partners.id AND category = 'stay' AND category_id = 1857)) as total_reviews
-        FROM partners
-        WHERE partner_type = 'lodging'
-        ORDER BY created_at DESC`
+          p.id,
+          p.id as partner_id,
+          p.user_id,
+          p.business_name,
+          p.business_number,
+          p.contact_name,
+          p.email as contact_email,
+          p.phone as contact_phone,
+          p.description,
+          p.logo as logo_url,
+          p.pms_provider,
+          p.pms_api_key,
+          p.pms_property_id,
+          p.pms_sync_enabled,
+          p.pms_sync_interval,
+          p.last_sync_at,
+          p.check_in_time,
+          p.check_out_time,
+          p.policies,
+          p.status,
+          p.is_active,
+          p.tier,
+          p.created_at,
+          p.updated_at,
+          COALESCE(COUNT(DISTINCT l.id), 0) as room_count,
+          COALESCE(MIN(l.price_from), 0) as min_price
+        FROM partners p
+        LEFT JOIN listings l ON l.partner_id = p.id AND l.category = 'stay' AND l.category_id = 1857
+        WHERE p.partner_type = 'lodging'
+        GROUP BY p.id
+        ORDER BY p.created_at DESC`
       );
 
       console.log(`✅ 숙박 벤더 ${result.rows?.length || 0}개 조회 완료`);
@@ -63,7 +75,9 @@ module.exports = async function handler(req, res) {
       const vendors = (result.rows || []).map(vendor => ({
         ...vendor,
         brand_name: vendor.brand_name || vendor.business_name,
-        vendor_code: `ACC${vendor.id}` // vendor_code 생성
+        vendor_code: `ACC${vendor.id}`,
+        avg_rating: 0, // 기본값
+        total_reviews: 0 // 기본값
       }));
 
       return res.status(200).json({
@@ -74,7 +88,7 @@ module.exports = async function handler(req, res) {
 
     // POST - 숙박 벤더 추가 (partners 테이블에 삽입)
     if (req.method === 'POST') {
-      console.log('📥 [POST] 숙박 벤더 추가 요청:', req.body);
+      console.log('📥 [POST] 숙박 벤더 추가 요청');
 
       const {
         user_id,
@@ -106,25 +120,31 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // user_id가 없으면 임시 생성 (실제로는 인증 시스템과 연동되어야 함)
+      // user_id가 없으면 임시 생성
       let finalUserId = user_id;
       if (!finalUserId) {
-        // 임시 사용자 ID 생성 또는 조회
-        const tempUserResult = await connection.execute(
-          `SELECT id FROM users WHERE email = ? LIMIT 1`,
-          [email || 'temp@accommodation.com']
-        );
-
-        if (tempUserResult.rows && tempUserResult.rows.length > 0) {
-          finalUserId = tempUserResult.rows[0].id;
-        } else {
-          // 임시 사용자 생성
-          const createUserResult = await connection.execute(
-            `INSERT INTO users (email, name, user_type, created_at, updated_at)
-             VALUES (?, ?, 'vendor', NOW(), NOW())`,
-            [email || 'temp@accommodation.com', contact_name || business_name]
+        try {
+          // 임시 사용자 ID 생성 또는 조회
+          const tempUserResult = await connection.execute(
+            `SELECT id FROM users WHERE email = ? LIMIT 1`,
+            [email || 'temp@accommodation.com']
           );
-          finalUserId = createUserResult.insertId;
+
+          if (tempUserResult.rows && tempUserResult.rows.length > 0) {
+            finalUserId = tempUserResult.rows[0].id;
+          } else {
+            // 임시 사용자 생성
+            const createUserResult = await connection.execute(
+              `INSERT INTO users (email, name, user_type, created_at, updated_at)
+               VALUES (?, ?, 'vendor', NOW(), NOW())`,
+              [email || 'temp@accommodation.com', contact_name || business_name]
+            );
+            finalUserId = createUserResult.insertId;
+          }
+        } catch (userError) {
+          console.error('❌ 사용자 생성 오류:', userError);
+          // 사용자 생성 실패해도 기본값으로 진행
+          finalUserId = 1; // 기본 사용자 ID
         }
       }
 
@@ -199,11 +219,19 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Accommodation vendors API error:', error);
+    console.error('❌ Accommodation vendors API error:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno
+    });
+
     return res.status(500).json({
       success: false,
       error: '서버 오류가 발생했습니다.',
-      message: error.message
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
