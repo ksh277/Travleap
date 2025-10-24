@@ -3413,12 +3413,17 @@ function setupRoutes() {
 
       const { db } = await import('./utils/database.js');
 
+      // 숙박 벤더는 partners 테이블 조회 (partner_type='lodging')
       const vendors = await db.query(`
-        SELECT * FROM rentcar_vendors WHERE user_id = ? LIMIT 1
+        SELECT id, business_name as name, email as contact_email, phone as contact_phone,
+               is_verified, partner_type, status
+        FROM partners
+        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        LIMIT 1
       `, [parseInt(userId as string)]);
 
       if (!vendors || vendors.length === 0) {
-        return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
+        return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
       }
 
       res.json({
@@ -3441,11 +3446,15 @@ function setupRoutes() {
 
       const { db } = await import('./utils/database.js');
 
-      // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      // Vendor ID 조회 (partners 테이블에서)
+      const vendors = await db.query(`
+        SELECT id FROM partners
+        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        LIMIT 1
+      `, [parseInt(userId as string)]);
 
       if (!vendors || vendors.length === 0) {
-        return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
+        return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
       }
 
       const vendorId = vendors[0].id;
@@ -3482,11 +3491,15 @@ function setupRoutes() {
 
       const { db } = await import('./utils/database.js');
 
-      // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      // Vendor ID 조회 (partners 테이블)
+      const vendors = await db.query(`
+        SELECT id FROM partners
+        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        LIMIT 1
+      `, [parseInt(userId as string)]);
 
       if (!vendors || vendors.length === 0) {
-        return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
+        return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
       }
 
       const vendorId = vendors[0].id;
@@ -3537,11 +3550,15 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
       const lodgingId = parseInt(req.params.id);
 
-      // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      // Vendor ID 조회 (partners 테이블)
+      const vendors = await db.query(`
+        SELECT id FROM partners
+        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        LIMIT 1
+      `, [parseInt(userId as string)]);
 
       if (!vendors || vendors.length === 0) {
-        return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
+        return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
       }
 
       const vendorId = vendors[0].id;
@@ -3593,11 +3610,15 @@ function setupRoutes() {
       const { db } = await import('./utils/database.js');
       const lodgingId = parseInt(req.params.id);
 
-      // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      // Vendor ID 조회 (partners 테이블)
+      const vendors = await db.query(`
+        SELECT id FROM partners
+        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        LIMIT 1
+      `, [parseInt(userId as string)]);
 
       if (!vendors || vendors.length === 0) {
-        return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
+        return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
       }
 
       const vendorId = vendors[0].id;
@@ -3626,11 +3647,15 @@ function setupRoutes() {
 
       const { db } = await import('./utils/database.js');
 
-      // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      // Vendor ID 조회 (partners 테이블)
+      const vendors = await db.query(`
+        SELECT id FROM partners
+        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        LIMIT 1
+      `, [parseInt(userId as string)]);
 
       if (!vendors || vendors.length === 0) {
-        return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
+        return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
       }
 
       const vendorId = vendors[0].id;
@@ -3671,11 +3696,15 @@ function setupRoutes() {
 
       const { db } = await import('./utils/database.js');
 
-      // Vendor ID 조회
-      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [parseInt(userId as string)]);
+      // Vendor ID 조회 (partners 테이블)
+      const vendors = await db.query(`
+        SELECT id FROM partners
+        WHERE user_id = ? AND (partner_type = 'lodging' OR services = 'accommodation')
+        LIMIT 1
+      `, [parseInt(userId as string)]);
 
       if (!vendors || vendors.length === 0) {
-        return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
+        return res.status(404).json({ success: false, message: '숙박 업체 정보를 찾을 수 없습니다.' });
       }
 
       const vendorId = vendors[0].id;
