@@ -43,6 +43,12 @@ export interface CartItem {
   inStock?: boolean;
   estimatedDelivery?: string;
   total?: number;
+  selectedOption?: {
+    id: number;
+    name: string;
+    value: string;
+    priceAdjustment: number;
+  };
 }
 
 export interface Category {

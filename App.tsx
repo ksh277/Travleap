@@ -31,7 +31,10 @@ import { PlaceGoodsPage } from './components/PlaceGoodsPage';
 import { PartnersDiscountPage } from './components/PartnersDiscountPage';
 import { PartnerDetailPage } from './components/PartnerDetailPage';
 import { AIRecommendationPage } from './components/AIRecommendationPage';
-import { LegalPage } from './components/LegalPage';
+import { LegalPage } from './components/pages/LegalPage';
+import { TermsPage } from './components/pages/TermsPage';
+import { PrivacyPage } from './components/pages/PrivacyPage';
+import { RefundPolicyPage } from './components/pages/RefundPolicyPage';
 import { AffiliatePage } from './components/AffiliatePage';
 import { RentcarSearchPage } from './components/RentcarSearchPage';
 import { AccommodationDetailPage } from './components/AccommodationDetailPage';
@@ -41,6 +44,7 @@ import { RentcarVehicleDetailPage } from './components/pages/RentcarVehicleDetai
 import { VendorRegistrationPage } from './components/VendorRegistrationPage';
 import VendorDashboardPageEnhanced from './components/VendorDashboardPageEnhanced';
 import { PartnerDashboardPageEnhanced } from './components/PartnerDashboardPageEnhanced';
+import PopupVendorDashboard from './components/PopupVendorDashboard';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentFailPage from './components/PaymentFailPage';
@@ -131,6 +135,15 @@ function AppContent() {
           <Route path="/vendor/dashboard" element={
             isLoggedIn && user?.role === 'vendor' ? (
               <VendorDashboardPageEnhanced />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 팝업 벤더 대시보드 */}
+          <Route path="/vendor/popup-dashboard" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <PopupVendorDashboard />
             ) : (
               <Navigate to="/login" replace />
             )
@@ -239,7 +252,10 @@ function AppContent() {
           <Route path="/community-blog/:id" element={<CommunityBlogDetailPage />} />
           <Route path="/rewards" element={<RewardsPage />} />
           <Route path="/work-with-us" element={<WorkWithUsPage />} />
-          <Route path="/legal" element={<LegalPage onBack={() => navigate(-1)} />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/refund-policy" element={<RefundPolicyPage />} />
+          <Route path="/legal" element={<LegalPage />} />
           <Route path="/affiliate" element={<AffiliatePage onBack={() => navigate(-1)} />} />
 
           {/* 새로운 특별 페이지들 */}

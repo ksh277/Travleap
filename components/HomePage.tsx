@@ -54,7 +54,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [backgroundVideo, setBackgroundVideo] = useState({
-    url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
+    url: 'https://www.youtube.com/watch?v=kroXVig0QRc',
     overlayOpacity: 0.4
   });
 
@@ -251,7 +251,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
           />
           {/* Fallback 이미지 (비디오 로딩 실패 시) */}
           <img
-            src="https://images.unsplash.com/photo-1693098436985-4a7dece474b5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0cm9waWNhbCUyMHBhbG0lMjB0cmVlcyUyMGJlYWNoJTIwdmFjYXRpb258ZW58MXx8fHwxNzU3NTcwNjQzfDA&ixlib=rb-4.1.0&q=80&w=1080"
+            src="https://www.youtube.com/watch?v=kroXVig0QRc"
             alt="Beach background"
             className="w-full h-full object-cover"
           />
@@ -267,7 +267,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
               My Travel Awesomeplan
             </h1>
             <p className="text-xs sm:text-sm md:text-base text-white/90 font-light px-4 animate-fade-in-delay">
-              어떤곳을 내게만 여행상품을 찾아볼 느낌이
+              어썸플랜의 다양한 여행상품을 확인해 보세요
             </p>
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mt-4">

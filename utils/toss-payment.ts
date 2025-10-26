@@ -78,103 +78,59 @@ function loadTossPayments(clientKey: string): Promise<any> {
 }
 
 /**
- * 결제 승인 (서버에서 호출)
+ * ❌ DEPRECATED - 보안상 위험: 시크릿 키를 프론트엔드에 노출시킵니다!
+ *
+ * 결제 승인은 반드시 백엔드 API를 통해 처리해야 합니다.
+ * 대신 POST /api/payments/confirm 엔드포인트를 사용하세요.
+ *
+ * @deprecated 보안 문제로 제거됨. 백엔드 API 사용 필수
  */
 export async function approveTossPayment(
   paymentKey: string,
   orderId: string,
   amount: number
 ): Promise<TossPaymentResponse> {
-  const secretKey = import.meta.env.VITE_TOSS_SECRET_KEY;
-
-  if (!secretKey) {
-    throw new Error('토스페이먼츠 시크릿 키가 설정되지 않았습니다.');
-  }
-
-  const response = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${btoa(secretKey + ':')}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      paymentKey,
-      orderId,
-      amount
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || '결제 승인 실패');
-  }
-
-  return await response.json();
+  throw new Error(
+    '❌ 보안 위험: 이 함수는 더 이상 사용할 수 없습니다. ' +
+    '결제 승인은 반드시 백엔드 API (/api/payments/confirm)를 통해 처리해야 합니다. ' +
+    '시크릿 키는 절대 프론트엔드에 노출되어서는 안 됩니다!'
+  );
 }
 
 /**
- * 결제 취소 (환불)
+ * ❌ DEPRECATED - 보안상 위험: 시크릿 키를 프론트엔드에 노출시킵니다!
+ *
+ * 결제 취소는 반드시 백엔드 API를 통해 처리해야 합니다.
+ * 향후 POST /api/payments/refund 엔드포인트를 구현 예정입니다.
+ *
+ * @deprecated 보안 문제로 제거됨. 백엔드 API 사용 필수
  */
 export async function cancelTossPayment(
   paymentKey: string,
   cancelReason: string,
   cancelAmount?: number
 ): Promise<TossPaymentResponse> {
-  const secretKey = import.meta.env.VITE_TOSS_SECRET_KEY;
-
-  if (!secretKey) {
-    throw new Error('토스페이먼츠 시크릿 키가 설정되지 않았습니다.');
-  }
-
-  const body: any = {
-    cancelReason
-  };
-
-  if (cancelAmount) {
-    body.cancelAmount = cancelAmount;
-  }
-
-  const response = await fetch(`https://api.tosspayments.com/v1/payments/${paymentKey}/cancel`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${btoa(secretKey + ':')}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || '결제 취소 실패');
-  }
-
-  return await response.json();
+  throw new Error(
+    '❌ 보안 위험: 이 함수는 더 이상 사용할 수 없습니다. ' +
+    '결제 취소는 반드시 백엔드 API를 통해 처리해야 합니다. ' +
+    'TODO: /api/payments/refund 엔드포인트 구현 필요'
+  );
 }
 
 /**
- * 결제 정보 조회
+ * ❌ DEPRECATED - 보안상 위험: 시크릿 키를 프론트엔드에 노출시킵니다!
+ *
+ * 결제 정보 조회는 반드시 백엔드 API를 통해 처리해야 합니다.
+ * 향후 GET /api/payments/:paymentKey 엔드포인트를 구현 예정입니다.
+ *
+ * @deprecated 보안 문제로 제거됨. 백엔드 API 사용 필수
  */
 export async function getTossPayment(paymentKey: string): Promise<TossPaymentResponse> {
-  const secretKey = import.meta.env.VITE_TOSS_SECRET_KEY;
-
-  if (!secretKey) {
-    throw new Error('토스페이먼츠 시크릿 키가 설정되지 않았습니다.');
-  }
-
-  const response = await fetch(`https://api.tosspayments.com/v1/payments/${paymentKey}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Basic ${btoa(secretKey + ':')}`,
-      'Content-Type': 'application/json'
-    }
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || '결제 정보 조회 실패');
-  }
-
-  return await response.json();
+  throw new Error(
+    '❌ 보안 위험: 이 함수는 더 이상 사용할 수 없습니다. ' +
+    '결제 정보 조회는 반드시 백엔드 API를 통해 처리해야 합니다. ' +
+    'TODO: /api/payments/:paymentKey 엔드포인트 구현 필요'
+  );
 }
 
 /**

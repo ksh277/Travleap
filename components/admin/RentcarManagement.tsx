@@ -734,7 +734,7 @@ export const RentcarManagement: React.FC = () => {
   };
 
   // Update booking status
-  const handleUpdateBookingStatus = async (id: number, status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled') => {
+  const handleUpdateBookingStatus = async (id: number, status: 'pending' | 'confirmed' | 'picked_up' | 'returned' | 'completed' | 'canceled') => {
     const response = await rentcarApi.bookings.updateStatus(id, status);
     if (response.success) {
       toast.success('예약 상태가 변경되었습니다.');
@@ -756,13 +756,14 @@ export const RentcarManagement: React.FC = () => {
   // Get status badge
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; className: string }> = {
-      pending: { label: '대기중', className: 'bg-yellow-100 text-yellow-800' },
+      pending: { label: '결제대기', className: 'bg-yellow-100 text-yellow-800' },
       active: { label: '활성', className: 'bg-green-100 text-green-800' },
       suspended: { label: '정지', className: 'bg-red-100 text-red-800' },
       confirmed: { label: '확정', className: 'bg-blue-100 text-blue-800' },
-      in_progress: { label: '진행중', className: 'bg-purple-100 text-purple-800' },
-      completed: { label: '완료', className: 'bg-gray-100 text-gray-800' },
-      cancelled: { label: '취소', className: 'bg-red-100 text-red-800' }
+      picked_up: { label: '대여중', className: 'bg-green-100 text-green-800' },
+      returned: { label: '반납완료', className: 'bg-purple-100 text-purple-800' },
+      completed: { label: '정산완료', className: 'bg-gray-100 text-gray-800' },
+      canceled: { label: '취소', className: 'bg-red-100 text-red-800' }
     };
     const config = statusMap[status] || { label: status, className: '' };
     return <Badge className={config.className}>{config.label}</Badge>;
@@ -1418,11 +1419,12 @@ export const RentcarManagement: React.FC = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="pending">대기중</SelectItem>
+                            <SelectItem value="pending">결제대기</SelectItem>
                             <SelectItem value="confirmed">확정</SelectItem>
-                            <SelectItem value="in_progress">진행중</SelectItem>
-                            <SelectItem value="completed">완료</SelectItem>
-                            <SelectItem value="cancelled">취소</SelectItem>
+                            <SelectItem value="picked_up">대여중</SelectItem>
+                            <SelectItem value="returned">반납완료</SelectItem>
+                            <SelectItem value="completed">정산완료</SelectItem>
+                            <SelectItem value="canceled">취소</SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>

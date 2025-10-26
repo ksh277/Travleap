@@ -7,8 +7,9 @@
  */
 
 import * as crypto from 'crypto';
+import { getTossSecretKey } from './toss-config.js';
 
-const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || '';
+const TOSS_SECRET_KEY = getTossSecretKey();
 const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;

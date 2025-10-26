@@ -42,57 +42,39 @@ interface RentcarSearchPageProps {
   selectedCurrency?: string;
 }
 
-// 실제 DB에서 렌트카 검색 (rentcar_vehicles + 가용성 체크)
+// 실제 DB에서 렌트카 검색 (MVP API: 가용성 + 가격 계산 통합)
 async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult[]> {
   try {
-    // 1. rentcar_vehicles 테이블에서 모든 활성 차량 조회
-    const vehiclesResponse = await fetch('/api/rentcar/vehicles/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: request.pickupPlaceId,
-        is_active: true
-      })
+    // 새로운 MVP API 호출 (가용성 + 가격 계산 한 번에)
+    const params = new URLSearchParams({
+      pickup_at: request.pickupAt,
+      return_at: request.dropoffAt,
+      location_id: '1', // TODO: location code를 ID로 매핑 필요
     });
 
-    if (!vehiclesResponse.ok) {
-      console.error('Failed to fetch vehicles');
+    if (request.driverAge) {
+      params.append('driver_age', request.driverAge.toString());
+    }
+
+    const response = await fetch(`/api/rentals/search?${params.toString()}`);
+
+    if (!response.ok) {
+      console.error('Failed to search rentals');
       return [];
     }
 
-    const vehiclesData = await vehiclesResponse.json();
-    const vehicles = vehiclesData.data || [];
+    const data = await response.json();
+    const vehicles = data.data?.vehicles || [];
 
     if (vehicles.length === 0) {
       return [];
     }
 
-    // 2. 날짜 기반 가용성 체크
-    const pickupDate = request.pickupAt.split('T')[0];
-    const dropoffDate = request.dropoffAt.split('T')[0];
-
-    const availabilityResponse = await fetch('/api/rentcar/bookings/check-availability', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pickupDate,
-        returnDate: dropoffDate
-      })
-    });
-
-    const availabilityData = await availabilityResponse.json();
-    const unavailableVehicleIds = availabilityData.data?.unavailableVehicleIds || [];
-
-    // 3. 가용 차량만 필터링
-    const availableVehicles = vehicles.filter((vehicle: any) =>
-      !unavailableVehicleIds.includes(vehicle.id)
-    );
-
-    // 4. CarSearchResult 형식으로 변환
+    // CarSearchResult 형식으로 변환
     const pickupLoc = LOCATIONS.find(l => l.code === request.pickupPlaceId) || LOCATIONS[0];
     const dropoffLoc = LOCATIONS.find(l => l.code === request.dropoffPlaceId) || LOCATIONS[0];
 
-    return availableVehicles.map((vehicle: any): CarSearchResult => {
+    return vehicles.map((vehicle: any): CarSearchResult => {
       const images = vehicle.images && Array.isArray(vehicle.images) && vehicle.images.length > 0
         ? vehicle.images
         : vehicle.thumbnail_url
@@ -112,6 +94,11 @@ async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult
         automatic: 'Automatic',
         manual: 'Manual'
       };
+
+      // MVP API에서 제공하는 pricing 정보 사용 (시간 기반 계산 포함)
+      const pricing = vehicle.pricing || {};
+      const baseAmount = pricing.base_amount || 0;
+      const depositAmount = pricing.deposit_amount || 0;
 
       return {
         supplierId: `vendor_${vehicle.vendor_id}`,
@@ -133,10 +120,10 @@ async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult
           features: vehicle.features || []
         },
         price: {
-          base: vehicle.daily_rate_krw || 50000,
-          taxes: Math.floor((vehicle.daily_rate_krw || 50000) * 0.1),
+          base: baseAmount,
+          taxes: 0, // 세금 별도 계산 없음 (baseAmount에 포함)
           fees: [],
-          total: Math.floor((vehicle.daily_rate_krw || 50000) * 1.1),
+          total: baseAmount,
           currency: 'KRW',
           paymentType: 'PREPAID'
         },
@@ -159,7 +146,7 @@ async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult
           }
         },
         policies: {
-          mileage: vehicle.unlimited_mileage ? 'UNLIMITED' : `${vehicle.mileage_limit_per_day}km/day`,
+          mileage: vehicle.unlimited_mileage ? 'UNLIMITED' : `${vehicle.mileage_limit_per_day || 100}km/day`,
           fuel: 'FULL_TO_FULL',
           insurance: {
             cdw: true,
@@ -167,11 +154,11 @@ async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult
             tp: true,
             pai: false,
             excess: 300000,
-            deposit: vehicle.deposit_amount_krw || 500000
+            deposit: depositAmount
           },
           cancellation: {
             free: true,
-            freeUntil: format(new Date(Date.now() + 86400000 * 2), "yyyy-MM-dd'T'HH:mm:ssXXX")
+            freeUntil: format(new Date(Date.now() + 86400000 * 3), "yyyy-MM-dd'T'HH:mm:ssXXX") // 3일 전까지 무료 취소
           },
           amendment: {
             allowed: true,
@@ -184,7 +171,7 @@ async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult
           { code: 'GPS', name: '내비게이션', price: 5000, per: 'DAY' },
           { code: 'CHILD_SEAT', name: '카시트', price: 8000, per: 'DAY' }
         ],
-        rateKey: `rental_${vehicle.id}_${Date.now()}`,
+        rateKey: `rental_${vehicle.vehicle_id}_${Date.now()}`, // vehicle_id 사용
         expiresAt: format(new Date(Date.now() + 900000), "yyyy-MM-dd'T'HH:mm:ssXXX") // 15분 후
       };
     });

@@ -8,13 +8,12 @@ import { Separator } from './ui/separator';
 import {
   ArrowLeft,
   CreditCard,
-  Check,
   Shield,
   Calendar,
-  MapPin,
   Users,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Coins
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
@@ -67,7 +66,25 @@ export function PaymentPage() {
     detailAddress: ''
   });
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [preparedOrderNumber, setPreparedOrderNumber] = useState<string | null>(null);
+  const [preparedAmount, setPreparedAmount] = useState<number>(0);
+  const [preparedOrderName, setPreparedOrderName] = useState<string>('');
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [pointsToUse, setPointsToUse] = useState(0);
+  const [pointsLoading, setPointsLoading] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
+
+  // 팝업 상품 여부 확인 (배송지 필요 여부 판단용)
+  const hasPopupProducts =
+    orderData?.items?.some((item: any) => item.category === '팝업') || // 장바구니 주문
+    booking?.listing?.category === '팝업' || // 단일 상품 주문
+    false;
+
+  // 최종 결제 금액 계산 (배송비 + 포인트 차감 후)
+  const orderTotal = orderData ? orderData.total : parseInt(booking?.totalPrice || amount || totalAmount || '0');
+  const totalWithDelivery = orderTotal + deliveryFee;
+  const finalAmount = Math.max(0, totalWithDelivery - pointsToUse);
 
   // 사용자 프로필 데이터 가져오기
   useEffect(() => {
@@ -85,7 +102,6 @@ export function PaymentPage() {
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
-            setUserProfile(data.user);
             // 사용자 정보로 청구 정보 자동 채우기
             setBillingInfo({
               name: data.user.name || '',
@@ -103,7 +119,34 @@ export function PaymentPage() {
     };
 
     fetchUserProfile();
+    fetchPoints();
   }, [isLoggedIn, user?.id]);
+
+  // 사용자 포인트 조회
+  const fetchPoints = async () => {
+    if (!user?.id) return;
+
+    setPointsLoading(true);
+    try {
+      const response = await fetch('/api/user/points', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user.id.toString()
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTotalPoints(data.data.totalPoints || 0);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch points:', error);
+    } finally {
+      setPointsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -140,6 +183,59 @@ export function PaymentPage() {
 
     loadBookingDetails();
   }, [bookingId, orderData, isLoggedIn]);
+
+  // 배송비 계산 (팝업 상품이 있고 주소가 입력되었을 때)
+  useEffect(() => {
+    const calculateDeliveryFee = async () => {
+      // 팝업 상품이 없으면 배송비 0
+      if (!hasPopupProducts) {
+        setDeliveryFee(0);
+        return;
+      }
+
+      // 장바구니 주문이 아니면 배송비 계산 안 함 (단일 상품 주문은 별도 처리)
+      if (!orderData?.items) {
+        setDeliveryFee(0);
+        return;
+      }
+
+      // 주소가 입력되지 않았으면 기본 배송비로 설정 (3,000원)
+      if (!billingInfo.address) {
+        setDeliveryFee(3000);
+        return;
+      }
+
+      try {
+        setDeliveryFeeLoading(true);
+        const response = await fetch('/api/calculate-shipping', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            items: orderData.items,
+            shippingAddress: billingInfo.address
+          })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          setDeliveryFee(result.data.total_fee);
+          console.log('✅ [PaymentPage] 배송비 계산:', result.data);
+        } else {
+          console.error('❌ [PaymentPage] 배송비 계산 실패:', result.error);
+          setDeliveryFee(3000); // 기본 배송비
+        }
+      } catch (error) {
+        console.error('❌ [PaymentPage] 배송비 계산 오류:', error);
+        setDeliveryFee(3000); // 기본 배송비
+      } finally {
+        setDeliveryFeeLoading(false);
+      }
+    };
+
+    calculateDeliveryFee();
+  }, [hasPopupProducts, orderData?.items, billingInfo.address]);
 
   const loadBookingDetails = async () => {
     try {
@@ -197,10 +293,10 @@ export function PaymentPage() {
     }
   };
 
-  const handlePayment = async () => {
-    // 주소가 없으면 주소 입력 모달 표시
-    if (!billingInfo.address || !billingInfo.postalCode) {
-      toast.error('배송지 주소를 입력해주세요.');
+  const handlePreparePayment = async () => {
+    // 팝업 상품이 있을 때만 배송지 주소 필수
+    if (hasPopupProducts && (!billingInfo.address || !billingInfo.postalCode)) {
+      toast.error('팝업 상품 배송을 위해 배송지 주소를 입력해주세요.');
       setIsAddressModalOpen(true);
       return;
     }
@@ -212,91 +308,85 @@ export function PaymentPage() {
     setIsProcessing(true);
     try {
       if (orderData) {
-        // 장바구니 주문 처리
-        const cartPaymentData = {
-          orderData,
-          amount: parseFloat(totalAmount || '0'),
-          paymentMethod,
-          cardInfo: paymentMethod === 'card' ? cardInfo : null,
-          billingInfo
-        };
+        // 포인트 사용 검증
+        if (pointsToUse > 0) {
+          if (pointsToUse < 1000) {
+            toast.error('최소 1,000P부터 사용 가능합니다.');
+            setIsProcessing(false);
+            return;
+          }
+          if (pointsToUse > totalPoints) {
+            toast.error('보유 포인트를 초과하여 사용할 수 없습니다.');
+            setIsProcessing(false);
+            return;
+          }
+          if (pointsToUse > totalWithDelivery) {
+            toast.error('주문 금액을 초과하여 포인트를 사용할 수 없습니다.');
+            setIsProcessing(false);
+            return;
+          }
+        }
 
-        // 장바구니 주문 생성 및 결제 처리
+        // 장바구니 주문 생성 (Toss Payments로 넘기기 전 준비)
+        // ✅ 팝업 상품이 있을 때만 배송 정보 포함 (PG사 심사 필수)
         const orderResponse = await api.createOrder({
           userId: Number(user?.id) || 1,
           items: orderData.items.map((item: any) => ({
             listingId: Number(item.id),
             quantity: item.quantity,
             price: item.price,
-            subtotal: item.price * item.quantity
+            subtotal: item.price * item.quantity,
+            selectedOption: item.selectedOption // 팝업 상품 옵션 정보
           })),
           subtotal: orderData.subtotal,
-          deliveryFee: 0,
+          deliveryFee: deliveryFee,
           couponDiscount: orderData.couponDiscount,
           couponCode: orderData.couponCode,
-          total: orderData.total,
+          pointsUsed: pointsToUse,
+          total: finalAmount,
           status: 'pending' as const,
-          paymentMethod
+          paymentMethod,
+          // ✅ 팝업 상품이 있을 때만 배송 정보 전달
+          ...(hasPopupProducts && {
+            shippingInfo: {
+              name: billingInfo.name,
+              phone: billingInfo.phone,
+              zipcode: billingInfo.postalCode,
+              address: billingInfo.address,
+              addressDetail: billingInfo.detailAddress,
+              memo: '' // 추후 배송 메모 필드 추가 시 사용
+            }
+          })
         });
 
         if (orderResponse.success) {
-          // 결제 처리
-          const response = await api.processPayment({
-            bookingId: orderResponse.data.id.toString(),
-            amount: orderData.total,
-            paymentMethod,
-            cardInfo: paymentMethod === 'card' ? cardInfo : null,
-            billingInfo
-          });
+          // 주문 생성 성공 - PaymentWidget에 필요한 정보 설정 (포인트 차감 후 금액)
+          setPreparedOrderNumber(orderResponse.data.orderNumber);
+          setPreparedAmount(finalAmount);
+          setPreparedOrderName(`장바구니 주문 (${orderData.items.length}개 상품)`);
 
-          if (response.success) {
-            toast.success('결제가 완료되었습니다!');
-            navigate(`/payment-success?orderId=${orderResponse.data.id}`);
+          if (pointsToUse > 0) {
+            toast.success(`${pointsToUse.toLocaleString()}P가 차감되었습니다. 결제를 진행해주세요.`);
           } else {
-            throw new Error(response.error || '결제 처리 중 오류가 발생했습니다.');
+            toast.success('주문이 생성되었습니다. 결제를 진행해주세요.');
           }
         } else {
           throw new Error(orderResponse.error || '주문 생성 중 오류가 발생했습니다.');
         }
       } else {
-        // 단일 예약 결제 처리
-        const paymentData = {
-          bookingId,
-          amount: parseFloat(amount || '0'),
-          paymentMethod,
-          cardInfo: paymentMethod === 'card' ? cardInfo : null,
-          billingInfo
-        };
-
-        const response = await api.processPayment(paymentData);
-
-        if (response.success) {
-          toast.success('결제가 완료되었습니다!');
-          navigate(`/payment-success?bookingId=${bookingId}`);
-        } else {
-          throw new Error(response.error || '결제 처리 중 오류가 발생했습니다.');
-        }
+        toast.error('주문 정보가 없습니다.');
       }
     } catch (error) {
-      console.error('Payment failed:', error);
-      toast.error(error instanceof Error ? error.message : '결제 중 오류가 발생했습니다.');
+      console.error('Order preparation failed:', error);
+      toast.error(error instanceof Error ? error.message : '주문 준비 중 오류가 발생했습니다.');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const validatePaymentInfo = () => {
-    if (paymentMethod === 'card') {
-      if (!cardInfo.number || !cardInfo.expiry || !cardInfo.cvv || !cardInfo.name) {
-        toast.error('카드 정보를 모두 입력해주세요.');
-        return false;
-      }
-      if (cardInfo.number.replace(/\s/g, '').length < 13) {
-        toast.error('올바른 카드번호를 입력해주세요.');
-        return false;
-      }
-    }
-
+    // PaymentWidget 사용 시 카드 정보는 Toss가 받으므로 검증 불필요
+    // 청구/배송 정보만 검증
     if (!billingInfo.name || !billingInfo.email || !billingInfo.phone) {
       toast.error('청구 정보를 모두 입력해주세요.');
       return false;
@@ -510,43 +600,49 @@ export function PaymentPage() {
                     }))}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    배송지 주소 <span className="text-red-500">*</span>
-                  </label>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
+                {/* 팝업 상품이 있을 때만 배송지 입력 표시 */}
+                {hasPopupProducts && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      배송지 주소 <span className="text-red-500">*</span>
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          value={billingInfo.postalCode}
+                          readOnly
+                          placeholder="우편번호"
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => setIsAddressModalOpen(true)}
+                          variant="outline"
+                          className="whitespace-nowrap"
+                        >
+                          주소 검색
+                        </Button>
+                      </div>
                       <Input
-                        value={billingInfo.postalCode}
+                        value={billingInfo.address}
                         readOnly
-                        placeholder="우편번호"
-                        className="flex-1"
+                        placeholder="주소"
                       />
-                      <Button
-                        type="button"
-                        onClick={() => setIsAddressModalOpen(true)}
-                        variant="outline"
-                        className="whitespace-nowrap"
-                      >
-                        주소 검색
-                      </Button>
+                      <Input
+                        value={billingInfo.detailAddress}
+                        onChange={(e) => setBillingInfo(prev => ({
+                          ...prev,
+                          detailAddress: e.target.value
+                        }))}
+                        placeholder="상세주소"
+                        maxLength={200}
+                      />
                     </div>
-                    <Input
-                      value={billingInfo.address}
-                      readOnly
-                      placeholder="주소"
-                    />
-                    <Input
-                      value={billingInfo.detailAddress}
-                      onChange={(e) => setBillingInfo(prev => ({
-                        ...prev,
-                        detailAddress: e.target.value
-                      }))}
-                      placeholder="상세주소"
-                      maxLength={200}
-                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      팝업 상품 배송을 위해 주소가 필요합니다.
+                    </p>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -651,10 +747,19 @@ export function PaymentPage() {
                           <span>-{orderData.couponDiscount.toLocaleString()}원</span>
                         </div>
                       )}
+                      {hasPopupProducts && (
+                        <div className="flex justify-between">
+                          <span className="flex items-center gap-1">
+                            배송비
+                            {deliveryFeeLoading && <span className="text-xs text-gray-400">(계산 중...)</span>}
+                          </span>
+                          <span>{deliveryFee.toLocaleString()}원</span>
+                        </div>
+                      )}
                       <Separator />
                       <div className="flex justify-between font-medium text-lg">
-                        <span>총 결제 금액</span>
-                        <span className="text-[#8B5FBF]">{orderData.total.toLocaleString()}원</span>
+                        <span>주문 금액</span>
+                        <span className="text-gray-700">{totalWithDelivery.toLocaleString()}원</span>
                       </div>
                     </>
                   ) : (
@@ -669,11 +774,82 @@ export function PaymentPage() {
                       </div>
                       <Separator />
                       <div className="flex justify-between font-medium text-lg">
-                        <span>총 결제 금액</span>
-                        <span className="text-[#8B5FBF]">{parseInt(booking?.totalPrice || amount || totalAmount || '0').toLocaleString()}원</span>
+                        <span>주문 금액</span>
+                        <span className="text-gray-700">{parseInt(booking?.totalPrice || amount || totalAmount || '0').toLocaleString()}원</span>
                       </div>
                     </>
                   )}
+                </div>
+
+                {/* 포인트 사용 */}
+                {!preparedOrderNumber && (
+                  <div className="border-t pt-4 mt-4">
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium flex items-center gap-1">
+                          <Coins className="w-4 h-4 text-purple-600" />
+                          포인트 사용
+                        </label>
+                        <span className="text-xs text-gray-500">
+                          보유: {totalPoints.toLocaleString()}P
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max={Math.min(totalPoints, totalWithDelivery)}
+                          value={pointsToUse || ''}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value) || 0;
+                            const maxUsable = Math.min(totalPoints, totalWithDelivery);
+                            setPointsToUse(Math.min(value, maxUsable));
+                          }}
+                          placeholder="사용할 포인트 입력"
+                          className="flex-1"
+                          disabled={totalPoints < 1000}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const maxUsable = Math.min(totalPoints, totalWithDelivery);
+                            setPointsToUse(maxUsable);
+                          }}
+                          disabled={totalPoints < 1000}
+                          className="whitespace-nowrap"
+                        >
+                          전액 사용
+                        </Button>
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {totalPoints < 1000 && (
+                          <p className="text-xs text-orange-600">최소 1,000P부터 사용 가능합니다</p>
+                        )}
+                        {pointsToUse > 0 && pointsToUse < 1000 && (
+                          <p className="text-xs text-red-600">최소 1,000P 이상 사용해주세요</p>
+                        )}
+                        <p className="text-xs text-gray-500">1P = 1원으로 사용됩니다</p>
+                      </div>
+                    </div>
+
+                    {pointsToUse > 0 && (
+                      <>
+                        <Separator className="my-3" />
+                        <div className="flex justify-between text-green-600">
+                          <span>포인트 차감</span>
+                          <span>-{pointsToUse.toLocaleString()}원</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* 최종 결제 금액 */}
+                <Separator />
+                <div className="flex justify-between font-bold text-xl">
+                  <span>최종 결제 금액</span>
+                  <span className="text-[#8B5FBF]">{finalAmount.toLocaleString()}원</span>
                 </div>
 
                 <div className="bg-blue-50 p-3 rounded-lg">
@@ -686,22 +862,43 @@ export function PaymentPage() {
                   </div>
                 </div>
 
-                {/* Lock 기반 예약이면 PaymentWidget 표시, 아니면 기존 결제 버튼 */}
-                {isLockBasedBooking && bookingId && bookingNumber ? (
+                {/* Toss Payments Widget 표시 조건:
+                    1. Lock 기반 예약 (bookingNumber가 있는 경우)
+                    2. 장바구니 주문이 준비된 경우 (preparedOrderNumber가 있는 경우)
+                */}
+                {(isLockBasedBooking && bookingId && bookingNumber) || preparedOrderNumber ? (
                   <div className="mt-4">
+                    {pointsToUse > 0 && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                        <div className="flex items-center gap-2 text-sm text-purple-800">
+                          <Coins className="w-4 h-4" />
+                          <span className="font-medium">
+                            {pointsToUse.toLocaleString()}P 차감 적용됨
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     <PaymentWidget
-                      bookingId={parseInt(bookingId)}
-                      bookingNumber={bookingNumber}
-                      amount={parseInt(amount || totalAmount || '0')}
-                      orderName={title || '예약 결제'}
+                      bookingId={preparedOrderNumber ? 0 : parseInt(bookingId || '0')}
+                      bookingNumber={preparedOrderNumber || bookingNumber || ''}
+                      amount={preparedAmount || parseInt(amount || totalAmount || '0')}
+                      orderName={preparedOrderName || title || '예약 결제'}
                       customerEmail={customerEmail || user?.email || ''}
                       customerName={customerName || user?.name || '고객'}
+                      customerMobilePhone={billingInfo.phone}
+                      shippingInfo={hasPopupProducts ? {
+                        name: billingInfo.name,
+                        phone: billingInfo.phone,
+                        zipcode: billingInfo.postalCode,
+                        address: billingInfo.address,
+                        addressDetail: billingInfo.detailAddress
+                      } : undefined}
                     />
                   </div>
                 ) : (
                   <>
                     <Button
-                      onClick={handlePayment}
+                      onClick={orderData ? handlePreparePayment : () => toast.error('결제 정보가 올바르지 않습니다.')}
                       disabled={isProcessing}
                       className="w-full bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white py-3"
                       size="lg"
@@ -709,15 +906,12 @@ export function PaymentPage() {
                       {isProcessing ? (
                         <div className="flex items-center gap-2">
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          결제 처리 중...
+                          결제 준비 중...
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
                           <CreditCard className="h-4 w-4" />
-                          {orderData
-                            ? `${orderData.total.toLocaleString()}원 결제하기`
-                            : `${parseInt(booking?.totalPrice || amount || totalAmount || '0').toLocaleString()}원 결제하기`
-                          }
+                          {finalAmount.toLocaleString()}원 결제하기
                         </div>
                       )}
                     </Button>

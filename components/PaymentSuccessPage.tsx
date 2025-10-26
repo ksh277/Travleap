@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { approveTossPayment } from '../utils/toss-payment';
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
@@ -15,54 +14,58 @@ export default function PaymentSuccessPage() {
         const paymentKey = searchParams.get('paymentKey');
         const orderId = searchParams.get('orderId');
         const amount = searchParams.get('amount');
-        const bookingId = searchParams.get('bookingId');
 
         if (!paymentKey || !orderId || !amount) {
           throw new Error('결제 정보가 올바르지 않습니다.');
         }
 
-        // 1. 토스페이먼츠에 결제 승인 요청
-        const paymentResult = await approveTossPayment(
-          paymentKey,
-          orderId,
-          parseInt(amount)
-        );
+        // 렌트카 예약 여부 확인 (booking_number가 RNT로 시작)
+        const isRentcarBooking = orderId.startsWith('RNT');
 
-        console.log('결제 승인 완료:', paymentResult);
+        let response;
 
-        // 2. DB에 결제 정보 저장
-        if (bookingId) {
-          await fetch('/api/rentcar/bookings/payment', {
+        if (isRentcarBooking) {
+          // ✅ 렌트카 MVP API 사용
+          console.log('🚗 렌트카 예약 결제 승인 중...', orderId);
+
+          response = await fetch(`/api/rentals/${orderId}/confirm`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              bookingId: parseInt(bookingId),
-              paymentKey: paymentResult.paymentKey,
-              orderId: paymentResult.orderId,
-              amount: paymentResult.totalAmount,
-              method: paymentResult.method,
-              status: paymentResult.status,
-              approvedAt: paymentResult.approvedAt
+              paymentKey,
+              orderId,
+              amount: parseInt(amount)
             })
           });
+        } else {
+          // ✅ 일반 상품 결제 승인 (팝업, 액티비티 등)
+          console.log('🛍️ 일반 상품 결제 승인 중...', orderId);
 
-          // 3. 예약 상태 업데이트 (confirmed) + 차량 예약 불가 처리
-          await fetch(`/api/rentcar/bookings/${bookingId}`, {
-            method: 'PUT',
+          response = await fetch('/api/payments/confirm', {
+            method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              booking_status: 'confirmed',
-              payment_status: 'paid'  // ENUM 수정: 'completed' → 'paid'
+              paymentKey,
+              orderId,
+              amount: parseInt(amount)
             })
           });
         }
 
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || result.error || '결제 승인에 실패했습니다.');
+        }
+
+        console.log('✅ 결제 승인 완료:', result);
+
         setStatus('success');
-        setMessage('결제가 완료되었습니다!');
+        setMessage(isRentcarBooking ? '렌트카 예약이 확정되었습니다!' : '결제가 완료되었습니다!');
 
         // 3초 후 마이페이지로 이동
         setTimeout(() => {
@@ -70,7 +73,7 @@ export default function PaymentSuccessPage() {
         }, 3000);
 
       } catch (error: any) {
-        console.error('결제 처리 오류:', error);
+        console.error('❌ 결제 처리 오류:', error);
         setStatus('error');
         setMessage(error.message || '결제 처리 중 오류가 발생했습니다.');
       }

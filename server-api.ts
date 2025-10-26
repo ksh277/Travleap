@@ -14,25 +14,47 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// ===== Timezone Configuration =====
+// IMPORTANT: 모든 시간 데이터는 Asia/Seoul (KST, UTC+9) 기준으로 처리
+// DOCS: docs/TIMEZONE_CURRENCY_RULES.md 참고
+process.env.TZ = process.env.TZ || 'Asia/Seoul';
+
 import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
+import helmet from 'helmet';
 import { authenticate, requireRole, optionalAuth } from './middleware/authenticate.js';
+import { requireFeature, requirePaymentByCategory } from './utils/feature-flags-db.js';
 
 const PORT = parseInt(process.env.PORT || '3004', 10);
 const HOST = process.env.HOST || '0.0.0.0';
+const PRODUCTION_ORIGIN = process.env.PRODUCTION_ORIGIN || 'https://yourdomain.com';
 
 // Express 앱 생성
 const app = express();
 const httpServer = createServer(app);
 
 // 미들웨어
+// 1. Security headers (helmet)
+// IMPORTANT: Production에서는 HTTPS 필수
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false, // CSP는 production에서만
+  hsts: process.env.NODE_ENV === 'production' ? {
+    maxAge: 31536000, // 1년
+    includeSubDomains: true,
+    preload: true
+  } : false
+}));
+
+// 2. CORS
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://yourdomain.com'] // TODO: 실제 프로덕션 도메인으로 변경
+    ? [PRODUCTION_ORIGIN] // .env의 PRODUCTION_ORIGIN 사용
     : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3004'],
   credentials: true
 }));
+
+// 3. Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -51,6 +73,29 @@ let lodgingAPI: any;
 let bannerAPI: any;
 let activityAPI: any;
 let newsletterAPI: any;
+let paymentRefundAPI: any;
+let updateShippingAPI: any; // ✅ 배송 정보 업데이트 API
+let rentcarGenerateVoucherAPI: any; // ✅ 렌트카 바우처 생성
+let rentcarVerifyVoucherAPI: any; // ✅ 렌트카 바우처 검증
+let rentcarCheckInAPI: any; // ✅ 렌트카 차량 인수
+let rentcarCheckOutAPI: any; // ✅ 렌트카 차량 반납
+let rentcarSearchAPI: any; // ✅ 렌트카 검색 (가용성 + 가격 계산)
+let rentcarCreateRentalAPI: any; // ✅ 렌트카 예약 생성
+let rentcarConfirmPaymentAPI: any; // ✅ 렌트카 결제 확인
+let rentcarCancelRentalAPI: any; // ✅ 렌트카 예약 취소
+let rentcarVehicleBlocksAPI: any; // ✅ 렌트카 차량 차단 관리
+let rentcarVoucherVerifyPostAPI: any; // ✅ 렌트카 바우처 인증 (POST)
+let rentcarBookingsTodayAPI: any; // ✅ 렌트카 오늘 예약 조회
+let rentcarDepositPreauthAPI: any; // ✅ 렌트카 보증금 사전승인
+let rentcarDepositSettleAPI: any; // ✅ 렌트카 보증금 정산
+let rentcarAdditionalPaymentAPI: any; // ✅ 렌트카 추가 결제
+let rentcarGetUserRentalsAPI: any; // ✅ 렌트카 사용자 예약 목록 조회
+let rentcarVendorRefundsAPI: any; // ✅ 렌트카 벤더 환불/정산 관리
+let rentcarVehicleAvailabilityAPI: any; // ✅ 렌트카 차량 비활성화/활성화
+let lodgingGenerateVoucherAPI: any; // ✅ 숙박 바우처 생성
+let lodgingVerifyVoucherAPI: any; // ✅ 숙박 바우처 검증
+let lodgingCheckInAPI: any; // ✅ 숙박 체크인
+let lodgingCheckOutAPI: any; // ✅ 숙박 체크아웃
 let startPMSScheduler: any;
 let startLodgingExpiryWorker: any;
 let getLodgingExpiryMetrics: any;
@@ -60,6 +105,13 @@ let startLodgingPMSScheduler: any;
 
 async function startServer() {
   console.log('\n🚀 [Server] Starting Booking System API Server...\n');
+
+  // Log timezone and currency configuration
+  console.log('🌏 [Config] Timezone:', process.env.TZ || 'Asia/Seoul (default)');
+  console.log('💰 [Config] Currency:', process.env.DEFAULT_CURRENCY || 'KRW (default)');
+  console.log('🌐 [Config] Locale:', process.env.CURRENCY_LOCALE || 'ko-KR (default)');
+  console.log('🔒 [Config] CORS Origin:', process.env.NODE_ENV === 'production' ? PRODUCTION_ORIGIN : 'localhost (dev)');
+  console.log('');
 
   // Dynamically import all modules AFTER dotenv has loaded
   console.log('📦 [Server] Loading modules...');
@@ -72,7 +124,30 @@ async function startServer() {
     webhookModule,
     createBookingModule,
     returnInspectModule,
+    updateShippingModule, // ✅ 배송 정보 업데이트
+    rentcarGenerateVoucherModule, // ✅ 렌트카 바우처 생성
+    rentcarVerifyVoucherModule, // ✅ 렌트카 바우처 검증
+    rentcarCheckInModule, // ✅ 렌트카 차량 인수
+    rentcarCheckOutModule, // ✅ 렌트카 차량 반납
+    rentcarSearchModule, // ✅ 렌트카 검색 (가용성 + 가격)
+    rentcarCreateRentalModule, // ✅ 렌트카 예약 생성
+    rentcarConfirmPaymentModule, // ✅ 렌트카 결제 확인
+    rentcarCancelRentalModule, // ✅ 렌트카 예약 취소
+    rentcarVehicleBlocksModule, // ✅ 렌트카 차량 차단 관리
+    rentcarVoucherVerifyPostModule, // ✅ 렌트카 바우처 인증 (POST)
+    rentcarBookingsTodayModule, // ✅ 렌트카 오늘 예약 조회
+    rentcarDepositPreauthModule, // ✅ 렌트카 보증금 사전승인
+    rentcarDepositSettleModule, // ✅ 렌트카 보증금 정산
+    rentcarAdditionalPaymentModule, // ✅ 렌트카 추가 결제
+    rentcarGetUserRentalsModule, // ✅ 렌트카 사용자 예약 목록 조회
+    rentcarVendorRefundsModule, // ✅ 렌트카 벤더 환불/정산 관리
+    rentcarVehicleAvailabilityModule, // ✅ 렌트카 차량 비활성화/활성화
+    lodgingGenerateVoucherModule, // ✅ 숙박 바우처 생성
+    lodgingVerifyVoucherModule, // ✅ 숙박 바우처 검증
+    lodgingCheckInModule, // ✅ 숙박 체크인
+    lodgingCheckOutModule, // ✅ 숙박 체크아웃
     paymentConfirmModule,
+    paymentRefundModule,
     // lodgingModule, // 파일 없음 - 주석 처리
     bannerModule,
     activityModule,
@@ -89,7 +164,30 @@ async function startServer() {
     import('./api/payments/webhook.js'),
     import('./api/bookings/create-with-lock.js'),
     import('./api/bookings/return-inspect.js'),
+    import('./api/bookings/update-shipping.js'), // ✅ 배송 정보 업데이트 API
+    import('./api/rentcar/generate-voucher.js'), // ✅ 렌트카 바우처 생성
+    import('./api/rentcar/verify-voucher.js'), // ✅ 렌트카 바우처 검증
+    import('./api/rentcar/check-in.js'), // ✅ 렌트카 차량 인수
+    import('./api/rentcar/check-out.js'), // ✅ 렌트카 차량 반납
+    import('./api/rentcar/search.js'), // ✅ 렌트카 검색 (가용성 + 가격)
+    import('./api/rentcar/create-rental.js'), // ✅ 렌트카 예약 생성
+    import('./api/rentcar/confirm-payment.js'), // ✅ 렌트카 결제 확인
+    import('./api/rentcar/cancel-rental.js'), // ✅ 렌트카 예약 취소
+    import('./api/rentcar/vehicle-blocks.js'), // ✅ 렌트카 차량 차단 관리
+    import('./api/rentcar/voucher-verify.js'), // ✅ 렌트카 바우처 인증 (POST)
+    import('./api/rentcar/bookings-today.js'), // ✅ 렌트카 오늘 예약 조회
+    import('./api/rentcar/deposit-preauth.js'), // ✅ 렌트카 보증금 사전승인
+    import('./api/rentcar/deposit-settle.js'), // ✅ 렌트카 보증금 정산
+    import('./api/rentcar/additional-payment.js'), // ✅ 렌트카 추가 결제
+    import('./api/rentcar/get-user-rentals.js'), // ✅ 렌트카 사용자 예약 목록 조회
+    import('./api/rentcar/vendor-refunds.js'), // ✅ 렌트카 벤더 환불/정산 관리
+    import('./api/rentcar/vehicle-availability.js'), // ✅ 렌트카 차량 비활성화/활성화
+    import('./api/lodging/generate-voucher.js'), // ✅ 숙박 바우처 생성
+    import('./api/lodging/verify-voucher.js'), // ✅ 숙박 바우처 검증
+    import('./api/lodging/check-in.js'), // ✅ 숙박 체크인
+    import('./api/lodging/check-out.js'), // ✅ 숙박 체크아웃
     import('./api/payments/confirm'),
+    import('./api/payments/refund.js'),
     // import('./api/lodging'), // 파일 없음 - 주석 처리
     import('./api/shared/banners-module.js'),
     import('./api/shared/activities-module.js'),
@@ -110,7 +208,30 @@ async function startServer() {
   webhookAPI = webhookModule.default;
   createBookingAPI = createBookingModule.default;
   returnInspectAPI = returnInspectModule.default;
+  updateShippingAPI = updateShippingModule.default; // ✅ 배송 정보 업데이트
+  rentcarGenerateVoucherAPI = rentcarGenerateVoucherModule.default; // ✅ 렌트카 바우처 생성
+  rentcarVerifyVoucherAPI = rentcarVerifyVoucherModule.default; // ✅ 렌트카 바우처 검증
+  rentcarCheckInAPI = rentcarCheckInModule.default; // ✅ 렌트카 차량 인수
+  rentcarCheckOutAPI = rentcarCheckOutModule.default; // ✅ 렌트카 차량 반납
+  rentcarSearchAPI = rentcarSearchModule.default; // ✅ 렌트카 검색 (가용성 + 가격)
+  rentcarCreateRentalAPI = rentcarCreateRentalModule.default; // ✅ 렌트카 예약 생성
+  rentcarConfirmPaymentAPI = rentcarConfirmPaymentModule.default; // ✅ 렌트카 결제 확인
+  rentcarCancelRentalAPI = rentcarCancelRentalModule.default; // ✅ 렌트카 예약 취소
+  rentcarVehicleBlocksAPI = rentcarVehicleBlocksModule.default; // ✅ 렌트카 차량 차단 관리
+  rentcarVoucherVerifyPostAPI = rentcarVoucherVerifyPostModule.default; // ✅ 렌트카 바우처 인증 (POST)
+  rentcarBookingsTodayAPI = rentcarBookingsTodayModule.default; // ✅ 렌트카 오늘 예약 조회
+  rentcarDepositPreauthAPI = rentcarDepositPreauthModule.default; // ✅ 렌트카 보증금 사전승인
+  rentcarDepositSettleAPI = rentcarDepositSettleModule.default; // ✅ 렌트카 보증금 정산
+  rentcarAdditionalPaymentAPI = rentcarAdditionalPaymentModule.default; // ✅ 렌트카 추가 결제
+  rentcarGetUserRentalsAPI = rentcarGetUserRentalsModule.default; // ✅ 렌트카 사용자 예약 목록 조회
+  rentcarVendorRefundsAPI = rentcarVendorRefundsModule.default; // ✅ 렌트카 벤더 환불/정산 관리
+  rentcarVehicleAvailabilityAPI = rentcarVehicleAvailabilityModule.default; // ✅ 렌트카 차량 비활성화/활성화
+  lodgingGenerateVoucherAPI = lodgingGenerateVoucherModule.default; // ✅ 숙박 바우처 생성
+  lodgingVerifyVoucherAPI = lodgingVerifyVoucherModule.default; // ✅ 숙박 바우처 검증
+  lodgingCheckInAPI = lodgingCheckInModule.default; // ✅ 숙박 체크인
+  lodgingCheckOutAPI = lodgingCheckOutModule.default; // ✅ 숙박 체크아웃
   paymentConfirmAPI = paymentConfirmModule;
+  paymentRefundAPI = paymentRefundModule;
   // lodgingAPI = lodgingModule; // 파일 없음 - 주석 처리
   console.log('[DEBUG] bannerModule:', bannerModule);
   console.log('[DEBUG] activityModule:', activityModule);
@@ -178,12 +299,21 @@ async function startServer() {
   console.log('');
 
   // HTTP 서버 시작
-  httpServer.listen(PORT, HOST, () => {
+  httpServer.listen(PORT, HOST, async () => {
     console.log('\n🎉 ===== Booking System Server Ready =====');
     console.log(`✅ API Server: http://${HOST}:${PORT}`);
     console.log(`✅ Socket.IO: http://${HOST}:${PORT}/socket.io`);
     console.log(`✅ Health Check: http://${HOST}:${PORT}/health`);
     console.log('✅ Background Workers: Active');
+
+    // 렌트카 크론잡 시작
+    try {
+      const { startCronJobs } = await import('./api/rentcar/cron/index.js');
+      startCronJobs();
+    } catch (error) {
+      console.error('❌ Failed to start cron jobs:', error);
+    }
+
     console.log('=========================================\n');
   });
 
@@ -591,13 +721,147 @@ function setupRoutes() {
     }
   });
 
-  // Toss Payments 웹훅
-  app.post('/api/payments/webhook', async (req, res) => {
-    await webhookAPI.handleTossWebhook(req as any, res as any);
+  // ✅ 배송 정보 업데이트 (송장번호, 배송 상태 변경)
+  app.patch('/api/bookings/:id/shipping', async (req, res) => {
+    await updateShippingAPI(req as any, res as any);
   });
 
-  // 결제 승인
-  app.post('/api/payments/confirm', async (req, res) => {
+  // ✅ 렌트카 바우처 생성 (결제 완료 후)
+  app.post('/api/rentcar/bookings/:id/generate-voucher', async (req, res) => {
+    await rentcarGenerateVoucherAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 바우처 검증 (벤더 확인용)
+  app.get('/api/rentcar/verify/:voucherCode', async (req, res) => {
+    await rentcarVerifyVoucherAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 차량 인수 체크인 (ID 기반)
+  app.post('/api/rentcar/bookings/:id/check-in', async (req, res) => {
+    await rentcarCheckInAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 차량 인수 체크인 (벤더용 - booking_number 기반)
+  app.post('/api/rentcar/check-in', async (req, res) => {
+    await rentcarCheckInAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 차량 반납 체크아웃 (ID 기반)
+  app.post('/api/rentcar/bookings/:id/check-out', async (req, res) => {
+    await rentcarCheckOutAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 차량 반납 체크아웃 (벤더용 - booking_number 기반)
+  app.post('/api/rentcar/check-out', async (req, res) => {
+    await rentcarCheckOutAPI(req as any, res as any);
+  });
+
+  // ========== 렌트카 MVP 시스템 API ==========
+
+  // ✅ 렌트카 검색 (가용성 + 가격 계산)
+  app.get('/api/rentals/search', async (req, res) => {
+    await rentcarSearchAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 예약 생성 (운전자 검증 + 중복 방지)
+  app.post('/api/rentals', async (req, res) => {
+    await rentcarCreateRentalAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 결제 확인 (Toss Payments)
+  app.post('/api/rentals/:booking_number/confirm', async (req, res) => {
+    await rentcarConfirmPaymentAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 예약 취소 (정책 기반 환불)
+  app.post('/api/rentals/:booking_number/cancel', async (req, res) => {
+    await rentcarCancelRentalAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 차량 차단 생성
+  app.post('/api/rentcar/vehicles/:vehicle_id/blocks', async (req, res) => {
+    await rentcarVehicleBlocksAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 차량 차단 목록 조회
+  app.get('/api/rentcar/vehicles/:vehicle_id/blocks', async (req, res) => {
+    await rentcarVehicleBlocksAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 차량 차단 해제
+  app.patch('/api/rentcar/vehicles/:vehicle_id/blocks/:block_id', async (req, res) => {
+    await rentcarVehicleBlocksAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 바우처 인증 (벤더용 - POST)
+  app.post('/api/rentcar/voucher/verify', async (req, res) => {
+    await rentcarVoucherVerifyPostAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 오늘 예약 조회 (벤더용)
+  app.get('/api/rentcar/bookings/today', async (req, res) => {
+    await rentcarBookingsTodayAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 보증금 사전승인 (체크인 시)
+  app.post('/api/rentcar/deposit/preauth', async (req, res) => {
+    await rentcarDepositPreauthAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 보증금 정산 (체크아웃 시)
+  app.post('/api/rentcar/deposit/settle', async (req, res) => {
+    await rentcarDepositSettleAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 추가 결제 (보증금 부족 또는 현장 결제)
+  app.post('/api/rentcar/additional-payment', async (req, res) => {
+    await rentcarAdditionalPaymentAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 사용자 예약 목록 조회 (체크인/체크아웃 정보 포함)
+  app.get('/api/rentcar/user/rentals', async (req, res) => {
+    await rentcarGetUserRentalsAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 벤더 환불/정산 관리 (취소 환불, 보증금 정산, 추가 결제 내역)
+  app.get('/api/rentcar/vendor/refunds', async (req, res) => {
+    await rentcarVendorRefundsAPI(req as any, res as any);
+  });
+
+  // ✅ 렌트카 차량 비활성화/활성화
+  app.patch('/api/rentcar/vehicles/:id/availability', async (req, res) => {
+    await rentcarVehicleAvailabilityAPI(req as any, res as any);
+  });
+
+  // ========== 숙박 검증 시스템 API ==========
+
+  // ✅ 숙박 바우처 생성 (결제 완료 후)
+  app.post('/api/lodging/bookings/:id/generate-voucher', async (req, res) => {
+    await lodgingGenerateVoucherAPI(req as any, res as any);
+  });
+
+  // ✅ 숙박 바우처 검증 (프론트 데스크 확인용)
+  app.get('/api/lodging/verify/:voucherCode', async (req, res) => {
+    await lodgingVerifyVoucherAPI(req as any, res as any);
+  });
+
+  // ✅ 숙박 체크인 (게스트 도착)
+  app.post('/api/lodging/bookings/:id/check-in', async (req, res) => {
+    await lodgingCheckInAPI(req as any, res as any);
+  });
+
+  // ✅ 숙박 체크아웃 (게스트 퇴실)
+  app.post('/api/lodging/bookings/:id/check-out', async (req, res) => {
+    await lodgingCheckOutAPI(req as any, res as any);
+  });
+
+  // Toss Payments 웹훅
+  app.post('/api/payments/webhook', async (req, res) => {
+    await webhookAPI(req as any, res as any);
+  });
+
+  // 결제 승인 (✅ 기능 플래그 적용: payment_enabled)
+  app.post('/api/payments/confirm', requireFeature('payment_enabled'), async (req, res) => {
     try {
       const result = await paymentConfirmAPI.confirmPayment(req.body);
 
@@ -628,6 +892,65 @@ function setupRoutes() {
       res.status(500).json({
         success: false,
         message: '결제 실패 처리 중 오류가 발생했습니다.'
+      });
+    }
+  });
+
+  // 결제 환불 처리 (✅ 기능 플래그 적용: refund_enabled)
+  app.post('/api/payments/refund', requireFeature('refund_enabled'), async (req, res) => {
+    try {
+      const { paymentKey, cancelReason, cancelAmount, skipPolicy } = req.body;
+
+      if (!paymentKey || !cancelReason) {
+        return res.status(400).json({
+          success: false,
+          message: 'paymentKey와 cancelReason은 필수입니다.'
+        });
+      }
+
+      const result = await paymentRefundAPI.refundPayment({
+        paymentKey,
+        cancelReason,
+        cancelAmount,
+        skipPolicy
+      });
+
+      if (result.success) {
+        res.status(200).json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error('❌ [API] Refund error:', error);
+      res.status(500).json({
+        success: false,
+        message: '환불 처리 중 오류가 발생했습니다.',
+        error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+      });
+    }
+  });
+
+  // 환불 정책 조회
+  app.get('/api/payments/refund-policy/:paymentKey', async (req, res) => {
+    try {
+      const { paymentKey } = req.params;
+
+      if (!paymentKey) {
+        return res.status(400).json({
+          success: false,
+          message: 'paymentKey가 필요합니다.'
+        });
+      }
+
+      const result = await paymentRefundAPI.getRefundPolicy(paymentKey);
+
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('❌ [API] Get refund policy error:', error);
+      res.status(500).json({
+        success: false,
+        message: '환불 정책 조회 중 오류가 발생했습니다.',
+        error: error instanceof Error ? error.message : 'UNKNOWN_ERROR'
       });
     }
   });
@@ -1054,14 +1377,15 @@ function setupRoutes() {
 
       // 카테고리는 한글 그대로 저장 ('팝업', '여행', '숙박' 등)
 
-      // INSERT 쿼리
+      // INSERT 쿼리 (팝업 상품 필드 포함)
       const result = await db.execute(`
         INSERT INTO listings
         (title, category, category_id, price_from, price_to, child_price, infant_price,
          location, address, meeting_point, images, short_description, description_md,
          highlights, included, excluded, max_capacity, is_featured, is_active, is_published,
+         has_options, min_purchase, max_purchase, stock_enabled, stock, shipping_fee,
          created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         listingData.title,
         listingData.category,  // 한글 카테고리 저장 ('팝업', '여행', '숙박' 등)
@@ -1082,7 +1406,14 @@ function setupRoutes() {
         listingData.maxCapacity || 20,
         listingData.featured ? 1 : 0,
         listingData.is_active !== false ? 1 : 0,
-        1
+        1,
+        // 팝업 상품 전용 필드
+        listingData.hasOptions ? 1 : 0,
+        listingData.minPurchase || 1,
+        listingData.maxPurchase || null,
+        listingData.stockEnabled ? 1 : 0,
+        listingData.stock || 0,
+        listingData.shippingFee || null
       ]);
 
       console.log('✅ 상품 생성 완료:', result.insertId);
@@ -1123,6 +1454,8 @@ function setupRoutes() {
           images = ?, short_description = ?, description_md = ?,
           highlights = ?, included = ?, excluded = ?,
           max_capacity = ?, is_featured = ?, is_active = ?,
+          has_options = ?, min_purchase = ?, max_purchase = ?,
+          stock_enabled = ?, stock = ?, shipping_fee = ?,
           updated_at = NOW()
         WHERE id = ?
       `, [
@@ -1145,6 +1478,13 @@ function setupRoutes() {
         listingData.maxCapacity || 20,
         listingData.featured ? 1 : 0,
         listingData.is_active !== false ? 1 : 0,
+        // 팝업 상품 전용 필드
+        listingData.hasOptions ? 1 : 0,
+        listingData.minPurchase || 1,
+        listingData.maxPurchase || null,
+        listingData.stockEnabled ? 1 : 0,
+        listingData.stock || 0,
+        listingData.shippingFee || null,
         listingId
       ]);
 
@@ -1303,6 +1643,191 @@ function setupRoutes() {
     }
   });
 
+  // 특정 상품에 리뷰 작성 (사용자)
+  app.post('/api/reviews/:listingId', async (req, res) => {
+    try {
+      const listingId = parseInt(req.params.listingId);
+      const { user_id, rating, title, content, images } = req.body;
+      const { db } = await import('./utils/database.js');
+
+      // 필수 필드 검증
+      if (!user_id || !rating || !content) {
+        return res.status(400).json({
+          success: false,
+          error: '필수 정보가 누락되었습니다'
+        });
+      }
+
+      // 평점 범위 검증
+      if (rating < 1 || rating > 5) {
+        return res.status(400).json({
+          success: false,
+          error: '평점은 1-5 사이여야 합니다'
+        });
+      }
+
+      // 리뷰 생성
+      const result = await db.execute(`
+        INSERT INTO reviews (listing_id, user_id, rating, title, comment_md, images, is_verified, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, true, NOW())
+      `, [listingId, user_id, rating, title || '', content, JSON.stringify(images || [])]);
+
+      // 상품의 평균 평점과 리뷰 개수 업데이트
+      const stats = await db.query(`
+        SELECT
+          COUNT(*) as review_count,
+          COALESCE(AVG(rating), 0) as avg_rating
+        FROM reviews
+        WHERE listing_id = ?
+      `, [listingId]);
+
+      if (stats && stats.length > 0) {
+        await db.execute(`
+          UPDATE listings
+          SET rating_avg = ?, rating_count = ?
+          WHERE id = ?
+        `, [stats[0].avg_rating, stats[0].review_count, listingId]);
+      }
+
+      // 생성된 리뷰 조회
+      const newReview = await db.query(`
+        SELECT r.*, u.name as user_name
+        FROM reviews r
+        LEFT JOIN users u ON r.user_id = u.id
+        WHERE r.id = ?
+      `, [result.insertId]);
+
+      res.json({
+        success: true,
+        data: newReview[0],
+        message: '리뷰가 성공적으로 등록되었습니다'
+      });
+    } catch (error) {
+      console.error('❌ [API] Create review error:', error);
+      res.status(500).json({
+        success: false,
+        error: '리뷰 생성에 실패했습니다'
+      });
+    }
+  });
+
+  // 사용자 리뷰 삭제 (본인만 가능)
+  app.delete('/api/reviews/edit/:reviewId', async (req, res) => {
+    try {
+      const reviewId = parseInt(req.params.reviewId);
+      const userId = parseInt(req.query.user_id as string);
+      const { db } = await import('./utils/database.js');
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          error: '사용자 ID가 필요합니다'
+        });
+      }
+
+      // 리뷰 소유권 확인
+      const review = await db.query(`
+        SELECT user_id, listing_id FROM reviews WHERE id = ?
+      `, [reviewId]);
+
+      if (!review || review.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '리뷰를 찾을 수 없습니다'
+        });
+      }
+
+      if (review[0].user_id !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: '본인의 리뷰만 삭제할 수 있습니다'
+        });
+      }
+
+      const listingId = review[0].listing_id;
+
+      // 리뷰 삭제
+      await db.execute(`DELETE FROM reviews WHERE id = ?`, [reviewId]);
+
+      // 상품 평점 업데이트
+      const stats = await db.query(`
+        SELECT
+          COUNT(*) as review_count,
+          COALESCE(AVG(rating), 0) as avg_rating
+        FROM reviews
+        WHERE listing_id = ?
+      `, [listingId]);
+
+      if (stats && stats.length > 0) {
+        await db.execute(`
+          UPDATE listings
+          SET rating_avg = ?, rating_count = ?
+          WHERE id = ?
+        `, [stats[0].avg_rating, stats[0].review_count, listingId]);
+      }
+
+      res.json({
+        success: true,
+        message: '리뷰가 삭제되었습니다'
+      });
+    } catch (error) {
+      console.error('❌ [API] Delete review error:', error);
+      res.status(500).json({
+        success: false,
+        error: '리뷰 삭제에 실패했습니다'
+      });
+    }
+  });
+
+  // 리뷰 도움됨 표시
+  app.post('/api/reviews/helpful/:reviewId', async (req, res) => {
+    try {
+      const reviewId = parseInt(req.params.reviewId);
+      const { user_id } = req.body;
+      const { db } = await import('./utils/database.js');
+
+      if (!user_id) {
+        return res.status(400).json({
+          success: false,
+          error: '사용자 ID가 필요합니다'
+        });
+      }
+
+      // 리뷰가 존재하는지 확인
+      const review = await db.query(`SELECT id FROM reviews WHERE id = ?`, [reviewId]);
+      if (!review || review.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: '리뷰를 찾을 수 없습니다'
+        });
+      }
+
+      // helpful_count 증가
+      await db.execute(`
+        UPDATE reviews
+        SET helpful_count = helpful_count + 1
+        WHERE id = ?
+      `, [reviewId]);
+
+      // 업데이트된 카운트 조회
+      const updated = await db.query(`
+        SELECT helpful_count FROM reviews WHERE id = ?
+      `, [reviewId]);
+
+      res.json({
+        success: true,
+        data: { helpful_count: updated[0].helpful_count },
+        message: '도움됨으로 표시되었습니다'
+      });
+    } catch (error) {
+      console.error('❌ [API] Mark review helpful error:', error);
+      res.status(500).json({
+        success: false,
+        error: '도움됨 처리에 실패했습니다'
+      });
+    }
+  });
+
   // ===== 사용자 관리 API =====
 
   // 사용자 목록 조회 (Admin Dashboard용) - 인증 필수
@@ -1330,7 +1855,7 @@ function setupRoutes() {
   app.get('/api/user/profile', authenticate, async (req, res) => {
     try {
       const { db } = await import('./utils/database.js');
-      const userId = (req as any).userId;
+      const userId = (req as any).user?.userId;
 
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다' });
@@ -1372,7 +1897,7 @@ function setupRoutes() {
   app.put('/api/user/address', authenticate, async (req, res) => {
     try {
       const { db } = await import('./utils/database.js');
-      const userId = (req as any).userId;
+      const userId = (req as any).user?.userId;
       const { postalCode, address, detailAddress } = req.body;
 
       if (!userId) {
@@ -1396,6 +1921,569 @@ function setupRoutes() {
     } catch (error) {
       console.error('❌ [API] Update user address error:', error);
       res.status(500).json({ success: false, message: '주소 업데이트 실패' });
+    }
+  });
+
+  // 사용자 결제 내역 조회 - 인증 필수
+  app.get('/api/user/payments', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const userId = (req as any).user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '인증이 필요합니다' });
+      }
+
+      const payments = await db.query(`
+        SELECT
+          p.id,
+          p.booking_id,
+          p.order_id,
+          p.order_id_str,
+          p.payment_key,
+          p.amount,
+          p.payment_method,
+          p.payment_status,
+          p.approved_at,
+          p.receipt_url,
+          p.card_company,
+          p.card_number,
+          p.notes,
+          p.created_at,
+          b.booking_number,
+          b.listing_id,
+          l.title as listing_title,
+          l.category,
+          l.images
+        FROM payments p
+        LEFT JOIN bookings b ON p.booking_id = b.id
+        LEFT JOIN listings l ON b.listing_id = l.id
+        WHERE p.user_id = ?
+        ORDER BY p.created_at DESC
+        LIMIT 100
+      `, [userId]);
+
+      res.json({
+        success: true,
+        data: payments
+      });
+    } catch (error) {
+      console.error('❌ [API] Get user payments error:', error);
+      res.status(500).json({ success: false, message: '결제 내역 조회 실패' });
+    }
+  });
+
+  // 사용자 포인트 내역 조회 - 인증 필수
+  app.get('/api/user/points', authenticate, async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const userId = (req as any).user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '인증이 필요합니다' });
+      }
+
+      // 현재 총 포인트 조회
+      const users = await db.query(`
+        SELECT total_points FROM users WHERE id = ?
+      `, [userId]);
+
+      if (!users || users.length === 0) {
+        return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다' });
+      }
+
+      const totalPoints = users[0].total_points || 0;
+
+      // 포인트 내역 조회 (최근 50개)
+      const pointHistory = await db.query(`
+        SELECT
+          id,
+          user_id,
+          points,
+          point_type,
+          reason,
+          related_order_id,
+          balance_after,
+          expires_at,
+          created_at
+        FROM user_points
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 50
+      `, [userId]);
+
+      res.json({
+        success: true,
+        data: {
+          totalPoints,
+          history: pointHistory
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Get user points error:', error);
+      res.status(500).json({ success: false, message: '포인트 내역 조회 실패' });
+    }
+  });
+
+  // ===== 관리자 결제 관리 API =====
+
+  // 전체 결제 내역 조회 (관리자) - 필터링, 페이지네이션 지원
+  app.get('/api/admin/payments', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      // 쿼리 파라미터
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = (page - 1) * limit;
+
+      const status = req.query.status as string; // paid, pending, failed, refunded
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      const searchQuery = req.query.search as string;
+
+      // WHERE 조건 구성
+      let whereConditions = [];
+      let params: any[] = [];
+
+      if (status) {
+        whereConditions.push('p.payment_status = ?');
+        params.push(status);
+      }
+
+      if (startDate) {
+        whereConditions.push('DATE(p.created_at) >= ?');
+        params.push(startDate);
+      }
+
+      if (endDate) {
+        whereConditions.push('DATE(p.created_at) <= ?');
+        params.push(endDate);
+      }
+
+      if (searchQuery) {
+        whereConditions.push('(p.order_id_str LIKE ? OR u.name LIKE ? OR u.email LIKE ?)');
+        const searchPattern = `%${searchQuery}%`;
+        params.push(searchPattern, searchPattern, searchPattern);
+      }
+
+      const whereClause = whereConditions.length > 0
+        ? 'WHERE ' + whereConditions.join(' AND ')
+        : '';
+
+      // 전체 카운트
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM payments p
+        LEFT JOIN users u ON p.user_id = u.id
+        ${whereClause}
+      `;
+
+      const countResult = await db.query(countQuery, params);
+      const total = countResult[0]?.total || 0;
+
+      // 결제 내역 조회
+      const paymentsQuery = `
+        SELECT
+          p.id,
+          p.user_id,
+          p.booking_id,
+          p.order_id,
+          p.order_id_str,
+          p.payment_key,
+          p.amount,
+          p.payment_method,
+          p.payment_status,
+          p.approved_at,
+          p.receipt_url,
+          p.card_company,
+          p.card_number,
+          p.notes,
+          p.created_at,
+          p.updated_at,
+          u.name as user_name,
+          u.email as user_email,
+          b.booking_number,
+          b.listing_id,
+          l.title as listing_title,
+          l.category,
+          l.partner_id
+        FROM payments p
+        LEFT JOIN users u ON p.user_id = u.id
+        LEFT JOIN bookings b ON p.booking_id = b.id
+        LEFT JOIN listings l ON b.listing_id = l.id
+        ${whereClause}
+        ORDER BY p.created_at DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      params.push(limit, offset);
+      const payments = await db.query(paymentsQuery, params);
+
+      res.json({
+        success: true,
+        data: {
+          payments,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit)
+          }
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Admin get payments error:', error);
+      res.status(500).json({ success: false, message: '결제 내역 조회 실패' });
+    }
+  });
+
+  // 날짜별 매출 통계 (관리자)
+  app.get('/api/admin/payments/stats', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      const groupBy = req.query.groupBy as string || 'day'; // day, month, year
+
+      let dateFormat = '%Y-%m-%d';
+      if (groupBy === 'month') {
+        dateFormat = '%Y-%m';
+      } else if (groupBy === 'year') {
+        dateFormat = '%Y';
+      }
+
+      let whereConditions = ["p.payment_status IN ('paid', 'completed')"];
+      let params: any[] = [];
+
+      if (startDate) {
+        whereConditions.push('DATE(p.created_at) >= ?');
+        params.push(startDate);
+      }
+
+      if (endDate) {
+        whereConditions.push('DATE(p.created_at) <= ?');
+        params.push(endDate);
+      }
+
+      const whereClause = 'WHERE ' + whereConditions.join(' AND ');
+
+      // 날짜별 매출 통계
+      const statsQuery = `
+        SELECT
+          DATE_FORMAT(p.created_at, '${dateFormat}') as date,
+          COUNT(*) as total_count,
+          SUM(p.amount) as total_amount,
+          AVG(p.amount) as avg_amount,
+          COUNT(DISTINCT p.user_id) as unique_users
+        FROM payments p
+        ${whereClause}
+        GROUP BY DATE_FORMAT(p.created_at, '${dateFormat}')
+        ORDER BY date DESC
+        LIMIT 100
+      `;
+
+      const stats = await db.query(statsQuery, params);
+
+      // 전체 요약
+      const summaryQuery = `
+        SELECT
+          COUNT(*) as total_transactions,
+          SUM(p.amount) as total_revenue,
+          AVG(p.amount) as avg_transaction,
+          COUNT(DISTINCT p.user_id) as total_customers
+        FROM payments p
+        ${whereClause}
+      `;
+
+      const summary = await db.query(summaryQuery, params);
+
+      // 결제 수단별 통계
+      const methodStatsQuery = `
+        SELECT
+          p.payment_method,
+          COUNT(*) as count,
+          SUM(p.amount) as total_amount
+        FROM payments p
+        ${whereClause}
+        GROUP BY p.payment_method
+      `;
+
+      const methodStats = await db.query(methodStatsQuery, params);
+
+      res.json({
+        success: true,
+        data: {
+          summary: summary[0] || {},
+          dailyStats: stats,
+          methodStats
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Admin payment stats error:', error);
+      res.status(500).json({ success: false, message: '매출 통계 조회 실패' });
+    }
+  });
+
+  // ===== 기능 플래그 관리 API (관리자 전용) =====
+
+  // 모든 기능 플래그 조회 (관리자)
+  app.get('/api/admin/feature-flags', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { getAllFlags } = await import('./utils/feature-flags-db.js');
+      const flags = await getAllFlags();
+      res.json({ success: true, flags });
+    } catch (error) {
+      console.error('❌ [API] Get feature flags error:', error);
+      res.status(500).json({ success: false, message: '기능 플래그 조회 실패' });
+    }
+  });
+
+  // 기능 플래그 활성화/비활성화 (관리자)
+  app.patch('/api/admin/feature-flags/:flagName', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { flagName } = req.params;
+      const { isEnabled, disabledMessage } = req.body;
+      const { enableFlag, disableFlag, clearFlagCache } = await import('./utils/feature-flags-db.js');
+
+      if (isEnabled) {
+        await enableFlag(flagName);
+        res.json({ success: true, message: `"${flagName}" 플래그가 활성화되었습니다.` });
+      } else {
+        await disableFlag(flagName, disabledMessage);
+        res.json({ success: true, message: `"${flagName}" 플래그가 비활성화되었습니다.` });
+      }
+
+      // 캐시 무효화
+      clearFlagCache(flagName);
+    } catch (error) {
+      console.error('❌ [API] Update feature flag error:', error);
+      res.status(500).json({ success: false, message: '기능 플래그 업데이트 실패' });
+    }
+  });
+
+  // 새 기능 플래그 생성 (관리자)
+  app.post('/api/admin/feature-flags', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const { flagName, isEnabled, category, description, disabledMessage } = req.body;
+
+      if (!flagName) {
+        return res.status(400).json({ success: false, message: 'flagName은 필수입니다.' });
+      }
+
+      // 중복 확인
+      const existing = await db.query('SELECT id FROM feature_flags WHERE flag_name = ?', [flagName]);
+      if (existing.length > 0) {
+        return res.status(400).json({ success: false, message: '이미 존재하는 플래그 이름입니다.' });
+      }
+
+      await db.execute(
+        `INSERT INTO feature_flags (flag_name, is_enabled, category, description, disabled_message, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          flagName,
+          isEnabled !== false, // 기본값: true
+          category || null,
+          description || '',
+          disabledMessage || null
+        ]
+      );
+
+      res.json({ success: true, message: '기능 플래그가 생성되었습니다.' });
+    } catch (error) {
+      console.error('❌ [API] Create feature flag error:', error);
+      res.status(500).json({ success: false, message: '기능 플래그 생성 실패' });
+    }
+  });
+
+  // 기능 플래그 캐시 초기화 (관리자)
+  app.post('/api/admin/feature-flags/clear-cache', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { clearFlagCache } = await import('./utils/feature-flags-db.js');
+      const { flagName } = req.body;
+
+      clearFlagCache(flagName); // flagName이 없으면 전체 캐시 초기화
+
+      res.json({
+        success: true,
+        message: flagName ? `"${flagName}" 캐시가 초기화되었습니다.` : '전체 캐시가 초기화되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Clear feature flag cache error:', error);
+      res.status(500).json({ success: false, message: '캐시 초기화 실패' });
+    }
+  });
+
+  // 파트너별 정산 내역 (관리자)
+  app.get('/api/admin/payments/partners', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+
+      let whereConditions = ["p.payment_status IN ('paid', 'completed')"];
+      let params: any[] = [];
+
+      if (startDate) {
+        whereConditions.push('DATE(p.created_at) >= ?');
+        params.push(startDate);
+      }
+
+      if (endDate) {
+        whereConditions.push('DATE(p.created_at) <= ?');
+        params.push(endDate);
+      }
+
+      const whereClause = 'WHERE ' + whereConditions.join(' AND ');
+
+      // 파트너별 매출 집계
+      const partnerStatsQuery = `
+        SELECT
+          l.partner_id,
+          par.company_name,
+          par.email as partner_email,
+          par.phone as partner_phone,
+          COUNT(DISTINCT p.id) as total_orders,
+          SUM(p.amount) as total_revenue,
+          AVG(p.amount) as avg_order_value,
+          cr.commission_rate,
+          SUM(p.amount * COALESCE(cr.commission_rate, 0.15) / 100) as commission_amount,
+          SUM(p.amount * (1 - COALESCE(cr.commission_rate, 0.15) / 100)) as partner_payout
+        FROM payments p
+        LEFT JOIN bookings b ON p.booking_id = b.id
+        LEFT JOIN listings l ON b.listing_id = l.id
+        LEFT JOIN partners par ON l.partner_id = par.id
+        LEFT JOIN commission_rates cr ON l.partner_id = cr.partner_id AND cr.is_active = 1
+        ${whereClause}
+        AND l.partner_id IS NOT NULL
+        GROUP BY l.partner_id, par.company_name, par.email, par.phone, cr.commission_rate
+        ORDER BY total_revenue DESC
+      `;
+
+      const partnerStats = await db.query(partnerStatsQuery, params);
+
+      // 전체 요약
+      const totalRevenue = partnerStats.reduce((sum: number, p: any) => sum + (parseFloat(p.total_revenue) || 0), 0);
+      const totalCommission = partnerStats.reduce((sum: number, p: any) => sum + (parseFloat(p.commission_amount) || 0), 0);
+      const totalPayout = partnerStats.reduce((sum: number, p: any) => sum + (parseFloat(p.partner_payout) || 0), 0);
+
+      res.json({
+        success: true,
+        data: {
+          partners: partnerStats,
+          summary: {
+            total_partners: partnerStats.length,
+            total_revenue: totalRevenue,
+            total_commission: totalCommission,
+            total_partner_payout: totalPayout
+          }
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Admin partner settlements error:', error);
+      res.status(500).json({ success: false, message: '파트너 정산 내역 조회 실패' });
+    }
+  });
+
+  // 환불 처리 (관리자)
+  app.post('/api/admin/payments/:id/refund', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const { tossPayments } = await import('./utils/toss-payments.js');
+
+      const paymentId = parseInt(req.params.id);
+      const { refundAmount, refundReason } = req.body;
+
+      if (!paymentId || !refundAmount) {
+        return res.status(400).json({
+          success: false,
+          message: '결제 ID와 환불 금액이 필요합니다.'
+        });
+      }
+
+      // 결제 정보 조회
+      const payments = await db.query(
+        'SELECT * FROM payments WHERE id = ?',
+        [paymentId]
+      );
+
+      if (!payments || payments.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '결제 내역을 찾을 수 없습니다.'
+        });
+      }
+
+      const payment = payments[0];
+
+      // 이미 환불된 경우 체크
+      if (payment.payment_status === 'refunded') {
+        return res.status(400).json({
+          success: false,
+          message: '이미 환불된 결제입니다.'
+        });
+      }
+
+      // Toss Payments 환불 API 호출
+      try {
+        const refundResult = await tossPayments.refundPayment({
+          paymentKey: payment.payment_key,
+          refundAmount,
+          refundReason: refundReason || '관리자 환불 처리'
+        });
+
+        console.log('✅ [환불] Toss Payments 환불 완료:', refundResult);
+
+        // DB 업데이트
+        await db.execute(
+          `UPDATE payments
+           SET payment_status = 'refunded',
+               refund_amount = ?,
+               notes = JSON_SET(COALESCE(notes, '{}'), '$.refund_reason', ?, '$.refunded_at', NOW()),
+               updated_at = NOW()
+           WHERE id = ?`,
+          [refundAmount, refundReason || '관리자 환불', paymentId]
+        );
+
+        // 예약이 있으면 예약 상태도 변경
+        if (payment.booking_id) {
+          await db.execute(
+            `UPDATE bookings
+             SET status = 'cancelled',
+                 payment_status = 'refunded',
+                 updated_at = NOW()
+             WHERE id = ?`,
+            [payment.booking_id]
+          );
+        }
+
+        res.json({
+          success: true,
+          message: '환불이 완료되었습니다.',
+          data: {
+            paymentId,
+            refundAmount,
+            refundedAt: new Date().toISOString()
+          }
+        });
+
+      } catch (tossError: any) {
+        console.error('❌ [환불] Toss Payments 환불 실패:', tossError);
+
+        // Toss API 에러는 사용자에게 전달
+        return res.status(400).json({
+          success: false,
+          message: tossError.message || '환불 처리 중 오류가 발생했습니다.',
+          error: tossError
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ [API] Admin refund payment error:', error);
+      res.status(500).json({ success: false, message: '환불 처리 실패' });
     }
   });
 
@@ -2191,7 +3279,553 @@ function setupRoutes() {
     }
   });
 
+  // ===== 상품 옵션 관리 API =====
+
+  // 상품 옵션 목록 조회
+  app.get('/api/listings/:listingId/options', async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const listingId = parseInt(req.params.listingId);
+
+      const options = await db.query(`
+        SELECT * FROM product_options
+        WHERE listing_id = ? AND is_available = 1
+        ORDER BY id ASC
+      `, [listingId]);
+
+      res.json({
+        success: true,
+        data: options
+      });
+    } catch (error) {
+      console.error('❌ [API] Get product options error:', error);
+      res.status(500).json({ success: false, message: '옵션 조회 실패' });
+    }
+  });
+
+  // 상품 옵션 추가 (관리자용)
+  app.post('/api/admin/listings/:listingId/options', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const listingId = parseInt(req.params.listingId);
+      const { optionName, optionValue, priceAdjustment, stock } = req.body;
+
+      if (!optionName || !optionValue) {
+        return res.status(400).json({ success: false, message: '옵션명과 옵션값은 필수입니다.' });
+      }
+
+      const result = await db.execute(`
+        INSERT INTO product_options (listing_id, option_name, option_value, price_adjustment, stock, is_available, created_at)
+        VALUES (?, ?, ?, ?, ?, 1, NOW())
+      `, [listingId, optionName, optionValue, priceAdjustment || 0, stock || 0]);
+
+      console.log(`✅ [옵션] 추가 완료: ${optionName} - ${optionValue}`);
+
+      res.json({
+        success: true,
+        data: {
+          id: result.insertId,
+          listing_id: listingId,
+          option_name: optionName,
+          option_value: optionValue,
+          price_adjustment: priceAdjustment || 0,
+          stock: stock || 0
+        },
+        message: '옵션이 추가되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Add product option error:', error);
+      res.status(500).json({ success: false, message: '옵션 추가 실패' });
+    }
+  });
+
+  // 상품 옵션 수정 (관리자용)
+  app.put('/api/admin/product-options/:optionId', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const optionId = parseInt(req.params.optionId);
+      const { optionName, optionValue, priceAdjustment, stock, isAvailable } = req.body;
+
+      await db.execute(`
+        UPDATE product_options SET
+          option_name = ?, option_value = ?, price_adjustment = ?, stock = ?, is_available = ?,
+          updated_at = NOW()
+        WHERE id = ?
+      `, [optionName, optionValue, priceAdjustment || 0, stock || 0, isAvailable ? 1 : 0, optionId]);
+
+      console.log(`✅ [옵션] 수정 완료: ID ${optionId}`);
+
+      res.json({ success: true, message: '옵션이 수정되었습니다.' });
+    } catch (error) {
+      console.error('❌ [API] Update product option error:', error);
+      res.status(500).json({ success: false, message: '옵션 수정 실패' });
+    }
+  });
+
+  // 상품 옵션 삭제 (관리자용)
+  app.delete('/api/admin/product-options/:optionId', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const optionId = parseInt(req.params.optionId);
+
+      await db.execute('DELETE FROM product_options WHERE id = ?', [optionId]);
+
+      console.log(`✅ [옵션] 삭제 완료: ID ${optionId}`);
+
+      res.json({ success: true, message: '옵션이 삭제되었습니다.' });
+    } catch (error) {
+      console.error('❌ [API] Delete product option error:', error);
+      res.status(500).json({ success: false, message: '옵션 삭제 실패' });
+    }
+  });
+
   // ===== 주문 관리 API =====
+
+  // 배송비 계산 API
+  app.post('/api/calculate-shipping', async (req, res) => {
+    try {
+      const { calculateShipping } = await import('./utils/shipping-calculator.js');
+      const { db } = await import('./utils/database.js');
+      const { items, shippingAddress } = req.body;
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: '상품 정보가 필요합니다.'
+        });
+      }
+
+      // 전체 상품 금액 계산
+      let totalProductAmount = 0;
+      let hasCustomShippingFee = false;
+      let customShippingFee = 0;
+
+      for (const item of items) {
+        totalProductAmount += (item.price || 0) * (item.quantity || 1);
+
+        // 상품별 배송비 확인
+        const listing = await db.query(
+          `SELECT shipping_fee FROM listings WHERE id = ?`,
+          [item.id]
+        );
+
+        if (listing && listing.length > 0 && listing[0].shipping_fee !== null) {
+          hasCustomShippingFee = true;
+          customShippingFee = Math.max(customShippingFee, listing[0].shipping_fee);
+        }
+      }
+
+      // 배송비 계산
+      const shippingCalc = await calculateShipping(
+        totalProductAmount,
+        shippingAddress,
+        hasCustomShippingFee ? customShippingFee : null
+      );
+
+      res.json({
+        success: true,
+        data: shippingCalc
+      });
+
+    } catch (error) {
+      console.error('❌ [API] Calculate shipping error:', error);
+      res.status(500).json({
+        success: false,
+        error: '배송비 계산 중 오류가 발생했습니다.'
+      });
+    }
+  });
+
+  // ✅ 주문 생성 (Cart Checkout) - 인증 필요 + 기능 플래그 적용
+  app.post('/api/orders', requirePaymentByCategory(), async (req, res) => {
+    try {
+      const { db } = await import('./utils/database.js');
+      const orderData = req.body;
+
+      // Validation
+      if (!orderData.userId || !orderData.items || !Array.isArray(orderData.items) || orderData.items.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: '필수 정보가 누락되었습니다. (userId, items)'
+        });
+      }
+
+      const orderNumber = `ORDER_${Date.now()}`;
+      const bookingIds: number[] = [];
+      const pointsUsed = orderData.pointsUsed || 0;
+
+      // ===== 💰 서버-사이드 금액 재계산 (단일 진실 원본) =====
+      let serverCalculatedSubtotal = 0;
+      let serverCalculatedShippingFee = 0;
+      const serverCalculatedItems: any[] = [];
+
+      // 1차: 모든 상품의 가격을 DB에서 조회하여 재계산
+      for (const item of orderData.items) {
+        // DB에서 실제 가격 조회
+        const listings = await db.query(
+          'SELECT id, price, shipping_fee FROM listings WHERE id = ?',
+          [item.listingId]
+        );
+
+        if (!listings || listings.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: `상품을 찾을 수 없습니다. (상품 ID: ${item.listingId})`
+          });
+        }
+
+        const listing = listings[0];
+        let itemPrice = listing.price;
+
+        // 옵션이 있는 경우 옵션 가격 사용
+        if (item.selectedOption && item.selectedOption.id) {
+          const options = await db.query(
+            'SELECT id, price, is_available FROM product_options WHERE id = ?',
+            [item.selectedOption.id]
+          );
+
+          if (!options || options.length === 0) {
+            return res.status(400).json({
+              success: false,
+              error: 'OPTION_NOT_FOUND',
+              message: `선택한 옵션이 더 이상 존재하지 않습니다. (상품: ${listing.title})`,
+              itemId: item.listingId,
+              optionId: item.selectedOption.id
+            });
+          }
+
+          if (!options[0].is_available) {
+            return res.status(400).json({
+              success: false,
+              error: 'OPTION_UNAVAILABLE',
+              message: `선택한 옵션이 판매 중지되었습니다. (상품: ${listing.title})`,
+              itemId: item.listingId,
+              optionId: item.selectedOption.id
+            });
+          }
+
+          itemPrice = options[0].price;
+        }
+
+        const itemSubtotal = itemPrice * item.quantity;
+        const itemShippingFee = listing.shipping_fee || 0;
+
+        serverCalculatedSubtotal += itemSubtotal;
+        serverCalculatedShippingFee += itemShippingFee;
+
+        serverCalculatedItems.push({
+          ...item,
+          priceFromDB: itemPrice,
+          subtotalFromDB: itemSubtotal,
+          shippingFeeFromDB: itemShippingFee
+        });
+      }
+
+      // 🎟️ 쿠폰 할인 적용 (서버 사이드 재검증)
+      let couponDiscount = 0;
+      const couponCode = orderData.couponCode || null;
+
+      if (couponCode) {
+        console.log(`🎟️ [쿠폰 검증] 쿠폰 코드: ${couponCode}`);
+
+        try {
+          // 1. DB에서 쿠폰 조회
+          const coupons = await db.query(`
+            SELECT * FROM coupons
+            WHERE code = ? AND is_active = TRUE
+            LIMIT 1
+          `, [couponCode.toUpperCase()]);
+
+          if (coupons.length === 0) {
+            console.error('❌ [쿠폰 검증 실패] 유효하지 않은 쿠폰');
+            return res.status(400).json({
+              success: false,
+              error: 'INVALID_COUPON',
+              message: '유효하지 않은 쿠폰 코드입니다'
+            });
+          }
+
+          const coupon = coupons[0];
+
+          // 2. 만료 확인
+          if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+            console.error('❌ [쿠폰 검증 실패] 쿠폰 만료');
+            return res.status(400).json({
+              success: false,
+              error: 'COUPON_EXPIRED',
+              message: '만료된 쿠폰입니다'
+            });
+          }
+
+          // 3. 사용 한도 확인
+          if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
+            console.error('❌ [쿠폰 검증 실패] 사용 한도 초과');
+            return res.status(400).json({
+              success: false,
+              error: 'COUPON_LIMIT_EXCEEDED',
+              message: '쿠폰 사용 한도가 초과되었습니다'
+            });
+          }
+
+          // 4. 최소 주문 금액 확인
+          if (serverCalculatedSubtotal < coupon.min_amount) {
+            console.error('❌ [쿠폰 검증 실패] 최소 금액 미달:', {
+              주문금액: serverCalculatedSubtotal,
+              최소금액: coupon.min_amount
+            });
+            return res.status(400).json({
+              success: false,
+              error: 'MIN_AMOUNT_NOT_MET',
+              message: `최소 주문 금액 ${coupon.min_amount.toLocaleString()}원 이상이어야 사용 가능합니다`
+            });
+          }
+
+          // 5. 할인 금액 재계산
+          if (coupon.discount_type === 'percentage') {
+            couponDiscount = Math.floor(serverCalculatedSubtotal * coupon.discount_value / 100);
+            // 최대 할인 금액 제한
+            if (coupon.max_discount && couponDiscount > coupon.max_discount) {
+              couponDiscount = coupon.max_discount;
+            }
+          } else {
+            // fixed
+            couponDiscount = coupon.discount_value;
+          }
+
+          console.log('✅ [쿠폰 검증 성공]', {
+            쿠폰코드: couponCode,
+            할인타입: coupon.discount_type,
+            할인금액: couponDiscount
+          });
+
+        } catch (error) {
+          console.error('❌ [쿠폰 검증 오류]', error);
+          return res.status(500).json({
+            success: false,
+            error: 'COUPON_VALIDATION_ERROR',
+            message: '쿠폰 검증 중 오류가 발생했습니다'
+          });
+        }
+      } else {
+        couponDiscount = 0;
+      }
+
+      // 최종 서버 계산 금액: 상품 합계 + 배송비 - 쿠폰 할인 - 포인트 사용
+      const serverCalculatedTotal = serverCalculatedSubtotal + serverCalculatedShippingFee - couponDiscount - pointsUsed;
+
+      console.log('💰 [서버 금액 재계산]', {
+        상품합계: serverCalculatedSubtotal,
+        배송비: serverCalculatedShippingFee,
+        쿠폰할인: couponDiscount,
+        포인트사용: pointsUsed,
+        최종금액: serverCalculatedTotal
+      });
+
+      // ===== 금액 검증: 클라이언트 금액 vs 서버 계산 금액 =====
+      const clientTotal = orderData.total || 0;
+      if (Math.abs(clientTotal - serverCalculatedTotal) > 1) { // 1원 오차 허용 (부동소수점)
+        console.error('❌ [금액 불일치]', {
+          클라이언트: clientTotal,
+          서버계산: serverCalculatedTotal,
+          차이: clientTotal - serverCalculatedTotal
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: 'AMOUNT_MISMATCH',
+          message: `결제 금액이 일치하지 않습니다. (서버 계산: ${serverCalculatedTotal.toLocaleString()}원, 클라이언트: ${clientTotal.toLocaleString()}원)`,
+          serverCalculated: {
+            subtotal: serverCalculatedSubtotal,
+            shippingFee: serverCalculatedShippingFee,
+            couponDiscount,
+            pointsUsed,
+            total: serverCalculatedTotal
+          }
+        });
+      }
+
+      console.log('✅ [금액 검증 통과] 클라이언트 금액과 서버 계산 금액 일치:', serverCalculatedTotal);
+
+      // 포인트 사용 처리
+      if (pointsUsed > 0) {
+        const { usePoints } = await import('./utils/points-system.js');
+        const pointsResult = await usePoints(
+          orderData.userId,
+          pointsUsed,
+          `주문 결제 (주문번호: ${orderNumber})`,
+          orderNumber
+        );
+
+        if (!pointsResult.success) {
+          return res.status(400).json({
+            success: false,
+            error: pointsResult.message || '포인트 사용에 실패했습니다.'
+          });
+        }
+
+        console.log(`✅ [Orders] Points deducted: ${pointsUsed}P for user ${orderData.userId}`);
+      }
+
+      // 2. 각 상품별로 bookings 테이블에 예약 생성 (배송 정보 포함)
+      for (const item of serverCalculatedItems) {
+        const bookingNumber = `BK${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+        const bookingInsertData: any = {
+          booking_number: bookingNumber,
+          listing_id: item.listingId,
+          user_id: orderData.userId,
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: new Date().toISOString().split('T')[0],
+          num_adults: item.quantity,
+          num_children: 0,
+          num_seniors: 0,
+          total_amount: item.subtotal,
+          // points_used는 payments 테이블에만 저장 (중복 방지)
+          payment_method: orderData.paymentMethod || 'card',
+          payment_status: 'pending',
+          status: 'pending',
+          customer_info: JSON.stringify({
+            name: orderData.shippingInfo?.name || '',
+            phone: orderData.shippingInfo?.phone || '',
+            email: ''
+          }),
+          special_requests: orderData.shippingInfo?.memo || ''
+        };
+
+        // 배송 정보 추가
+        if (orderData.shippingInfo) {
+          bookingInsertData.shipping_name = orderData.shippingInfo.name;
+          bookingInsertData.shipping_phone = orderData.shippingInfo.phone;
+          bookingInsertData.shipping_zipcode = orderData.shippingInfo.zipcode;
+          bookingInsertData.shipping_address = orderData.shippingInfo.address;
+          bookingInsertData.shipping_address_detail = orderData.shippingInfo.addressDetail;
+          bookingInsertData.shipping_memo = orderData.shippingInfo.memo || null;
+          bookingInsertData.delivery_status = 'PENDING';
+
+          // 🚚 배송비 스냅샷 저장 (정책 변경 대응)
+          // 주문 시점의 배송비를 저장하여 나중에 배송 정책이 변경되어도 정확한 금액 유지
+          bookingInsertData.shipping_fee_snapshot = item.shippingFee || 0;
+          console.log(`📦 [배송비 스냅샷] 저장: ${item.shippingFee}원`);
+        }
+
+        // 팝업 상품 옵션 정보 저장 및 재고 확인/차감
+        if (item.selectedOption) {
+          bookingInsertData.selected_options = JSON.stringify(item.selectedOption);
+
+          // 옵션 재고 확인 및 차감
+          const option = await db.query(
+            `SELECT stock, is_available FROM product_options WHERE id = ? FOR UPDATE`,
+            [item.selectedOption.id]
+          );
+
+          if (!option || option.length === 0) {
+            throw new Error(`옵션을 찾을 수 없습니다. (옵션 ID: ${item.selectedOption.id})`);
+          }
+
+          if (!option[0].is_available) {
+            throw new Error(`선택한 옵션이 판매 중지되었습니다.`);
+          }
+
+          if (option[0].stock !== null && option[0].stock < item.quantity) {
+            throw new Error(`재고가 부족합니다. (현재 재고: ${option[0].stock}개, 주문 수량: ${item.quantity}개)`);
+          }
+
+          // 재고 차감
+          if (option[0].stock !== null) {
+            await db.execute(
+              `UPDATE product_options SET stock = stock - ? WHERE id = ?`,
+              [item.quantity, item.selectedOption.id]
+            );
+            console.log(`✅ [Orders] 옵션 재고 차감: 옵션ID ${item.selectedOption.id}, 수량 ${item.quantity}`);
+          }
+        } else {
+          // 옵션이 없는 경우, 상품 레벨 재고 확인 및 차감
+          const listing = await db.query(
+            `SELECT stock_enabled, stock FROM listings WHERE id = ? FOR UPDATE`,
+            [item.listingId]
+          );
+
+          if (listing && listing.length > 0 && listing[0].stock_enabled) {
+            if (listing[0].stock !== null && listing[0].stock < item.quantity) {
+              throw new Error(`재고가 부족합니다. (현재 재고: ${listing[0].stock}개, 주문 수량: ${item.quantity}개)`);
+            }
+
+            // 재고 차감
+            if (listing[0].stock !== null) {
+              await db.execute(
+                `UPDATE listings SET stock = stock - ? WHERE id = ?`,
+                [item.quantity, item.listingId]
+              );
+              console.log(`✅ [Orders] 상품 재고 차감: 상품ID ${item.listingId}, 수량 ${item.quantity}`);
+            }
+          }
+        }
+
+        const bookingResult = await db.execute(
+          `INSERT INTO bookings SET ?`,
+          [bookingInsertData]
+        );
+        if (bookingResult.insertId) {
+          bookingIds.push(bookingResult.insertId);
+        }
+      }
+
+      // 2. payments 테이블에 전체 주문 정보 저장 (✅ 서버 계산 금액 사용)
+      const paymentInsertData = {
+        user_id: orderData.userId,
+        booking_id: bookingIds[0] || null,
+        amount: serverCalculatedTotal, // ✅ 서버에서 계산한 금액 사용 (단일 진실 원본)
+        points_used: pointsUsed, // ✅ 전체 주문의 포인트 사용량
+        payment_method: orderData.paymentMethod || 'card',
+        payment_status: 'pending',
+        gateway_transaction_id: orderNumber,
+        coupon_code: orderData.couponCode || null,
+        discount_amount: couponDiscount,
+        fee_amount: serverCalculatedShippingFee,
+        refund_amount: 0,
+        notes: JSON.stringify({
+          items: orderData.items,
+          subtotal: serverCalculatedSubtotal, // ✅ 서버 계산 값
+          shippingFee: serverCalculatedShippingFee, // ✅ 서버 계산 값
+          orderType: 'cart',
+          bookingIds: bookingIds,
+          shippingInfo: orderData.shippingInfo,
+          pointsUsed: pointsUsed, // notes에도 백업 저장
+          serverCalculated: true // 서버 재계산 완료 플래그
+        })
+      };
+
+      await db.execute(
+        `INSERT INTO payments SET ?`,
+        [paymentInsertData]
+      );
+
+      console.log(`✅ [Orders] Created cart order: ${orderNumber} (${bookingIds.length} items)`);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          orderNumber,
+          bookingIds,
+          total: serverCalculatedTotal, // ✅ 서버 계산 금액 반환
+          subtotal: serverCalculatedSubtotal,
+          shippingFee: serverCalculatedShippingFee,
+          couponDiscount,
+          pointsUsed,
+          items: orderData.items,
+          shippingInfo: orderData.shippingInfo
+        },
+        message: '주문이 성공적으로 생성되었습니다.'
+      });
+
+    } catch (error) {
+      console.error('❌ [API] Create order error:', error);
+      return res.status(500).json({
+        success: false,
+        error: '주문 생성에 실패했습니다.'
+      });
+    }
+  });
 
   // 주문 목록 조회 (Admin Dashboard용) - 인증 필수
   app.get('/api/orders', authenticate, requireRole('admin'), async (_req, res) => {
@@ -4159,21 +5793,38 @@ function setupRoutes() {
 
       const bookings = await db.query(`
         SELECT
-          rb.id,
-          rb.vehicle_id,
+          rr.id,
+          rr.booking_number,
+          rr.vehicle_id,
           rv.display_name as vehicle_name,
           v.business_name as vendor_name,
-          rb.customer_name,
-          rb.customer_phone,
-          rb.pickup_date,
-          rb.dropoff_date,
-          rb.total_amount,
-          rb.status,
-          rb.created_at
-        FROM rentcar_bookings rb
-        INNER JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
+          rr.customer_name,
+          rr.customer_phone,
+          rr.driver_name,
+          rr.driver_license_number,
+          rr.driver_birth_date,
+          rr.pickup_at as pickup_date,
+          rr.return_at as dropoff_date,
+          rr.pickup_location,
+          rr.return_location,
+          rr.total_price_krw as total_amount,
+          rr.status,
+          rr.payment_key,
+          rr.order_id,
+          rr.has_voucher,
+          rr.voucher_verified_at,
+          rr.picked_up_at,
+          rr.returned_at,
+          rr.created_at,
+          rd.id as deposit_id,
+          rd.status as deposit_status,
+          rd.deposit_amount_krw,
+          rd.refund_amount_krw
+        FROM rentcar_rentals rr
+        INNER JOIN rentcar_vehicles rv ON rr.vehicle_id = rv.id
         INNER JOIN rentcar_vendors v ON rv.vendor_id = v.id
-        ORDER BY rb.created_at DESC
+        LEFT JOIN rentcar_rental_deposits rd ON rr.id = rd.rental_id
+        ORDER BY rr.created_at DESC
         LIMIT 100
       `);
 
@@ -6244,7 +7895,38 @@ function setupRoutes() {
     }
   });
 
-  // Remove item from cart
+  // Remove item from cart (query params version - used by useCartStore)
+  app.delete('/api/cart', async (req, res) => {
+    try {
+      const userId = req.query.userId || req.headers['x-user-id'];
+      const itemId = req.query.itemId;
+
+      if (!userId) {
+        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
+      }
+
+      if (!itemId) {
+        return res.status(400).json({ success: false, message: '상품 ID가 필요합니다.' });
+      }
+
+      const { db } = await import('./utils/database.js');
+
+      // Delete all cart items for this user and listing
+      await db.execute(`
+        DELETE FROM cart_items WHERE user_id = ? AND listing_id = ?
+      `, [parseInt(userId as string), parseInt(itemId as string)]);
+
+      res.json({
+        success: true,
+        message: '장바구니에서 제거되었습니다.'
+      });
+    } catch (error) {
+      console.error('❌ [API] Remove from cart error:', error);
+      res.status(500).json({ success: false, message: '장바구니 제거 실패' });
+    }
+  });
+
+  // Remove item from cart (path param version - legacy)
   app.delete('/api/cart/remove/:listingId', async (req, res) => {
     try {
       const userId = req.query.userId || req.headers['x-user-id'];
@@ -6411,6 +8093,62 @@ function setupRoutes() {
       res.status(500).json({
         success: false,
         message: '차량 정보 조회 중 오류가 발생했습니다'
+      });
+    }
+  });
+
+  // Create vehicle
+  app.post('/api/rentcar/vehicles', async (req, res) => {
+    try {
+      const { rentcarApi } = await import('./utils/rentcar-api');
+      const { vendor_id, ...vehicleData } = req.body;
+
+      if (!vendor_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'vendor_id is required'
+        });
+      }
+
+      const result = await rentcarApi.vehicles.create(vendor_id, vehicleData);
+      res.json(result);
+    } catch (error) {
+      console.error('❌ [API] Create vehicle error:', error);
+      res.status(500).json({
+        success: false,
+        error: '차량 등록 중 오류가 발생했습니다'
+      });
+    }
+  });
+
+  // Update vehicle
+  app.put('/api/rentcar/vehicles/:id', async (req, res) => {
+    try {
+      const { rentcarApi } = await import('./utils/rentcar-api');
+      const vehicleId = parseInt(req.params.id);
+      const result = await rentcarApi.vehicles.update(vehicleId, req.body);
+      res.json(result);
+    } catch (error) {
+      console.error('❌ [API] Update vehicle error:', error);
+      res.status(500).json({
+        success: false,
+        error: '차량 수정 중 오류가 발생했습니다'
+      });
+    }
+  });
+
+  // Delete vehicle
+  app.delete('/api/rentcar/vehicles/:id', async (req, res) => {
+    try {
+      const { rentcarApi } = await import('./utils/rentcar-api');
+      const vehicleId = parseInt(req.params.id);
+      const result = await rentcarApi.vehicles.delete(vehicleId);
+      res.json(result);
+    } catch (error) {
+      console.error('❌ [API] Delete vehicle error:', error);
+      res.status(500).json({
+        success: false,
+        error: '차량 삭제 중 오류가 발생했습니다'
       });
     }
   });

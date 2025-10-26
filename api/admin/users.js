@@ -1,4 +1,5 @@
 const { connect } = require('@planetscale/database');
+const { maskForLog } = require('../../utils/pii-masking');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -28,7 +29,7 @@ module.exports = async function handler(req, res) {
       data: result.rows || []
     });
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('Error fetching users:', maskForLog(error));
     // 에러 시 빈 배열 반환
     return res.status(200).json({
       success: true,

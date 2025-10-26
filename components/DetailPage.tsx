@@ -5,13 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Input } from './ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { Progress } from './ui/progress';
-import { Separator } from './ui/separator';
+import { Dialog, DialogContent } from './ui/dialog';
 import {
   Star,
   MapPin,
@@ -19,7 +16,6 @@ import {
   Share2,
   Heart,
   Calendar as CalendarIcon,
-  Check,
   X,
   ChevronLeft,
   ChevronRight,
@@ -27,36 +23,20 @@ import {
   Shield,
   Award,
   ShoppingCart,
-  Users,
-  Wifi,
-  Car,
-  Coffee,
-  Utensils,
   Camera,
-  Umbrella,
   Phone,
-  Mail,
   AlertCircle,
   CheckCircle,
   Loader2,
   ExternalLink,
-  Download,
-  Flag,
   ThumbsUp,
-  ThumbsDown,
-  MoreHorizontal,
-  Zap,
-  Gift,
-  CreditCard,
-  RefreshCw,
-  Calendar as DateIcon
+  RefreshCw
 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { api, ExtendedReview } from '../utils/api';
 import { toast } from 'sonner';
 import { useCartStore } from '../hooks/useCartStore';
 import { useAuth } from '../hooks/useAuth';
-import { notifyDataChange } from '../hooks/useRealTimeData';
 import { getGoogleMapsApiKey } from '../utils/env';
 
 // Date formatting helper
@@ -144,6 +124,14 @@ interface DetailItem {
   returnLocation?: string;
   ageRequirement?: number;
   licenseRequirement?: string;
+
+  // Popup product-specific fields
+  hasOptions?: boolean;
+  minPurchase?: number;
+  maxPurchase?: number;
+  stockEnabled?: boolean;
+  stock?: number;
+  shippingFee?: number;
 }
 
 interface BookingFormData {
@@ -175,6 +163,8 @@ export function DetailPage() {
   const [selectedPackages, setSelectedPackages] = useState<{[key: string]: number}>({});
   const [customGuestCount, setCustomGuestCount] = useState('');
   const [isCustomGuests, setIsCustomGuests] = useState(false);
+  const [productOptions, setProductOptions] = useState<any[]>([]);
+  const [selectedOption, setSelectedOption] = useState<any | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '', images: [] as string[] });
   const [showBookingForm, setShowBookingForm] = useState(false);
@@ -335,9 +325,17 @@ export function DetailPage() {
           pickupLocation: categoryDetails?.pickup_location,
           returnLocation: categoryDetails?.return_location,
           ageRequirement: categoryDetails?.age_requirement,
-          licenseRequirement: categoryDetails?.license_requirement
+          licenseRequirement: categoryDetails?.license_requirement,
+
+          // Popup product-specific fields
+          hasOptions: data.has_options === 1 || data.has_options === true,
+          minPurchase: data.min_purchase,
+          maxPurchase: data.max_purchase,
+          stockEnabled: data.stock_enabled === 1 || data.stock_enabled === true,
+          stock: data.stock,
+          shippingFee: data.shipping_fee
         };
-        console.log('🔍 상품 카테고리 확인:', processedItem.category, '| 상품명:', processedItem.title);
+        console.log('🔍 상품 카테고리 확인:', processedItem.category, '| 상품명:', processedItem.title, '| hasOptions:', processedItem.hasOptions);
         setItem(processedItem);
         setRetryCount(0);
       } else {
@@ -459,6 +457,28 @@ export function DetailPage() {
     setError(null);
     fetchItemDetails();
   }, [fetchItemDetails]);
+
+  // Fetch product options if item has options enabled
+  useEffect(() => {
+    const fetchProductOptions = async () => {
+      if (!item?.id) return;
+
+      // @ts-ignore - Check if item has hasOptions property
+      if (item.category === '팝업' && item.hasOptions) {
+        try {
+          const response = await fetch(`/api/listings/${item.id}/options`);
+          const result = await response.json();
+          if (result.success) {
+            setProductOptions(result.data || []);
+          }
+        } catch (error) {
+          console.error('Failed to fetch options:', error);
+        }
+      }
+    };
+
+    fetchProductOptions();
+  }, [item]);
 
   const getDefaultImage = (category: string) => {
     const defaultImages: { [key: string]: string } = {
@@ -585,6 +605,13 @@ export function DetailPage() {
         return;
       }
 
+      // ✅ 팝업 상품의 경우 옵션 가격 반영
+      let finalAmount = item.category === '팝업' ? (item.price || 0) * quantity : priceCalculation.total;
+      if (item.category === '팝업' && selectedOption) {
+        // 옵션 추가금을 수량에 곱해서 반영
+        finalAmount += selectedOption.price_adjustment * quantity;
+      }
+
       const bookingRequest = {
         listing_id: Number(item.id),
         user_id: user?.id || 1,
@@ -598,10 +625,19 @@ export function DetailPage() {
         booking_date: item.category === '팝업' ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
         guest_count: item.category === '팝업' ? quantity : totalGuests,
         special_requests: bookingData.requests.trim() || '',
-        total_amount: item.category === '팝업' ? (item.price || 0) * quantity : priceCalculation.total,
+        total_amount: finalAmount,
         emergency_contact: bookingData.emergencyContact?.trim() || '',
         dietary_restrictions: bookingData.dietaryRestrictions?.trim() || '',
-        special_needs: bookingData.specialNeeds?.trim() || ''
+        special_needs: bookingData.specialNeeds?.trim() || '',
+        // ✅ 팝업 상품 옵션 정보 추가
+        ...(item.category === '팝업' && selectedOption && {
+          selected_option: {
+            id: selectedOption.id,
+            name: selectedOption.option_name,
+            value: selectedOption.option_value,
+            priceAdjustment: selectedOption.price_adjustment
+          }
+        })
       };
 
       console.log('Creating booking with Lock Manager:', bookingRequest);
@@ -757,15 +793,32 @@ export function DetailPage() {
       return;
     }
 
+    // 팝업 상품 옵션 검증
+    if (item.category === '팝업' && productOptions.length > 0 && !selectedOption) {
+      toast.error('옵션을 선택해주세요.');
+      return;
+    }
+
+    // 옵션 가격 계산
+    const optionPrice = selectedOption ? (selectedOption.price_adjustment || 0) : 0;
+    const basePrice = item.price || 0;
+    const finalPrice = item.category === '팝업' ? (basePrice + optionPrice) * quantity : (priceCalculation.total || item.price || 0);
+
     const cartItem = {
       id: item.id,
       title: item.title || '상품',
-      price: item.category === '팝업' ? (item.price || 0) * quantity : (priceCalculation.total || item.price || 0),
+      price: finalPrice,
       image: item.images?.[0] || '',
       category: item.category || '',
       location: item.location || '',
       date: item.category === '팝업' ? '' : selectedDate!.toISOString().split('T')[0],
-      guests: item.category === '팝업' ? quantity : totalGuests
+      guests: item.category === '팝업' ? quantity : totalGuests,
+      selectedOption: selectedOption ? {
+        id: selectedOption.id,
+        name: selectedOption.option_name,
+        value: selectedOption.option_value,
+        priceAdjustment: selectedOption.price_adjustment
+      } : undefined
     };
 
     console.log('🛒 [DetailPage] 장바구니 추가 시작:', cartItem);
@@ -1361,32 +1414,202 @@ export function DetailPage() {
 
               {/* 정책 탭 - 모든 카테고리에 표시 (법적 필수) */}
               <TabsContent value="policy" className="space-y-6">
-                {/* 팝업이 아닐 때만 취소 정책 표시 */}
-                {item?.category !== '팝업' && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>취소 및 환불 정책</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <h4 className="mb-2">취소 수수료</h4>
-                        <ul className="space-y-1 text-gray-700">
-                          <li>• 3일 전: 무료 취소</li>
-                          <li>• 1-2일 전: 50% 환불</li>
-                          <li>• 당일: 환불 불가</li>
-                        </ul>
+                {/* 취소 및 환불 정책 - 카테고리별 */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <RefreshCw className="h-5 w-5" />
+                      취소 및 환불 정책
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {item?.category === '팝업' ? (
+                      <>
+                        {/* 팝업 스토어 상품 - 상품별 정책 우선 표시 */}
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-purple-900 mb-2">팝업 스토어 상품</h4>
+
+                          {/* 상품별 취소/환불 정책이 있는 경우 */}
+                          {item.policies?.cancellation || item.policies?.refund ? (
+                            <div className="space-y-3">
+                              {item.policies.cancellation && (
+                                <div>
+                                  <h5 className="text-sm font-semibold text-purple-800 mb-1">취소 정책</h5>
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.policies.cancellation}</p>
+                                </div>
+                              )}
+                              {item.policies.refund && (
+                                <div>
+                                  <h5 className="text-sm font-semibold text-purple-800 mb-1">환불 정책</h5>
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.policies.refund}</p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            /* 기본 정책 */
+                            <ul className="space-y-2 text-sm text-gray-700">
+                              <li className="flex items-start gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                <span><strong>배송 전:</strong> 무료 취소 가능</span>
+                              </li>
+                              <li className="flex items-start gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                <span><strong>배송 후 7일 이내:</strong> 반품 가능 (단순 변심 시 왕복 배송비 고객 부담)</span>
+                              </li>
+                              <li className="flex items-start gap-2">
+                                <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                                <span><strong>환불 불가:</strong> 상품 훼손, 포장 개봉, 사용 흔적이 있는 경우</span>
+                              </li>
+                            </ul>
+                          )}
+                        </div>
+
+                        {/* 교환/반품 주소는 기본 정책일 때만 표시 */}
+                        {!item.policies?.cancellation && !item.policies?.refund && (
+                          <div>
+                            <h4 className="font-semibold mb-2">교환/반품 주소</h4>
+                            <p className="text-sm text-gray-600">전라남도 목포시 원산중앙로 44 2층 (58636)</p>
+                            <p className="text-sm text-gray-500 mt-1">* 반품 배송비: 편도 3,000원 (왕복 6,000원)</p>
+                          </div>
+                        )}
+                      </>
+                    ) : item?.category === '여행' ? (
+                      <>
+                        {/* 여행 상품 */}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-blue-900 mb-2">여행 상품</h4>
+                          <ul className="space-y-2 text-sm text-gray-700">
+                            <li className="flex items-start gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>출발 7일 전:</strong> 100% 환불 (수수료 없음)</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>출발 3-7일 전:</strong> 50% 환불 (취소 수수료 50%)</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <X className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>출발 3일 이내:</strong> 환불 불가</span>
+                            </li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold mb-2">주의사항</h4>
+                          <ul className="space-y-1 text-sm text-gray-700">
+                            <li>• 악천후 시 일정 변경 또는 전액 환불 가능</li>
+                            <li>• 최소 출발 인원 미달 시 취소 및 전액 환불</li>
+                            <li>• 안전상의 이유로 참여 제한 가능 (전액 환불)</li>
+                          </ul>
+                        </div>
+                      </>
+                    ) : item?.category === '숙박' ? (
+                      <>
+                        {/* 숙박 상품 */}
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-green-900 mb-2">숙박 상품</h4>
+                          <ul className="space-y-2 text-sm text-gray-700">
+                            <li className="flex items-start gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>체크인 7일 전:</strong> 무료 취소 (100% 환불)</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>체크인 3-7일 전:</strong> 50% 환불 (취소 수수료 50%)</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <X className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>체크인 3일 이내:</strong> 환불 불가 (No-Show 포함)</span>
+                            </li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold mb-2">추가 안내</h4>
+                          <ul className="space-y-1 text-sm text-gray-700">
+                            <li>• 체크인 시간: 15:00 / 체크아웃: 11:00</li>
+                            <li>• 조기 체크인/늦은 체크아웃은 숙소 문의</li>
+                            <li>• 예약 변경은 취소 후 재예약 필요</li>
+                          </ul>
+                        </div>
+                      </>
+                    ) : item?.category === '렌트카' ? (
+                      <>
+                        {/* 렌트카 상품 */}
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-orange-900 mb-2">렌트카 상품</h4>
+                          <ul className="space-y-2 text-sm text-gray-700">
+                            <li className="flex items-start gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>픽업 3일 전:</strong> 무료 취소 (100% 환불)</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>픽업 1-3일 전:</strong> 취소 수수료 30% 부과</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <X className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>픽업 당일:</strong> 취소 수수료 50% 부과</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <X className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>No-Show:</strong> 환불 불가</span>
+                            </li>
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold mb-2">보증금 안내</h4>
+                          <ul className="space-y-1 text-sm text-gray-700">
+                            <li>• 픽업 시 보증금 사전승인 (50,000원)</li>
+                            <li>• 반납 후 이상 없을 시 자동 해제</li>
+                            <li>• 차량 손상 시 수리비 청구 가능</li>
+                          </ul>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* 기타 상품 */}
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                          <ul className="space-y-2 text-sm text-gray-700">
+                            <li className="flex items-start gap-2">
+                              <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>이용 7일 전:</strong> 무료 취소 가능</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>이용 3-7일 전:</strong> 50% 환불</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <X className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>이용 3일 이내:</strong> 환불 불가</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </>
+                    )}
+
+                    {/* 공통 환불 안내 */}
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold mb-2">환불 처리 안내</h4>
+                      <ul className="space-y-1 text-sm text-gray-600">
+                        <li>• 환불 요청 후 영업일 기준 3-5일 내 처리</li>
+                        <li>• 결제 수단에 따라 환불 시점이 다를 수 있음</li>
+                        <li>• 카드 결제: 카드사 정책에 따라 영업일 기준 3-7일</li>
+                        <li>• 계좌 이체: 영업일 기준 1-3일</li>
+                      </ul>
+                    </div>
+
+                    {/* 고객센터 안내 */}
+                    <div className="bg-blue-50 rounded-lg p-4 mt-4">
+                      <div className="flex items-start gap-3">
+                        <Phone className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <h4 className="font-semibold text-blue-900 mb-1">취소/환불 문의</h4>
+                          <p className="text-sm text-gray-700">고객센터: 0504-0811-1330</p>
+                          <p className="text-sm text-gray-600">평일 09:00 - 18:00 (주말/공휴일 휴무)</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="mb-2">주의사항</h4>
-                        <ul className="space-y-1 text-gray-700">
-                          <li>• 악천후 시 일정 변경 가능</li>
-                          <li>• 최소 출발 인원 미달 시 취소 가능</li>
-                          <li>• 안전상의 이유로 참여 제한 가능</li>
-                        </ul>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {/* 상품정보 제공고시 (법적 필수 - 전자상거래법) */}
                 <Card>
@@ -1737,46 +1960,189 @@ export function DetailPage() {
                 <CardContent className="space-y-4">
                   {!showBookingForm ? (
                     <>
-                      {/* 팝업 카테고리: 수량 선택만 */}
+                      {/* 팝업 카테고리: 옵션 + 수량 선택 */}
                       {item?.category === '팝업' ? (
-                        <div className="space-y-3">
-                          <label className="block text-sm font-medium mb-2">수량</label>
-                          <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                        <div className="space-y-4">
+                          {/* 옵션 선택 */}
+                          {productOptions.length > 0 && (
                             <div>
-                              <div className="font-medium">상품 개수</div>
-                              <div className="text-xs text-gray-500">구매 수량을 선택하세요</div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                disabled={quantity <= 1}
-                                className="h-8 w-8 p-0"
-                              >
-                                -
-                              </Button>
-                              <input
-                                type="number"
-                                min="1"
-                                value={quantity}
+                              <label className="block text-sm font-medium mb-2">옵션 선택 *</label>
+                              <select
+                                value={selectedOption?.id || ''}
                                 onChange={(e) => {
-                                  const value = parseInt(e.target.value) || 1;
-                                  setQuantity(Math.max(1, value));
+                                  const option = productOptions.find(opt => opt.id === parseInt(e.target.value));
+                                  setSelectedOption(option || null);
                                 }}
-                                className="w-16 text-center text-lg font-medium border rounded px-2 py-1"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setQuantity(quantity + 1)}
-                                disabled={false}
-                                className="h-8 w-8 p-0"
+                                className="w-full border rounded-md px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
                               >
-                                +
-                              </Button>
+                                <option value="">옵션을 선택하세요</option>
+                                {productOptions.map((option: any) => (
+                                  <option key={option.id} value={option.id} disabled={!option.is_available || (option.stock !== null && option.stock <= 0)}>
+                                    {option.option_name}: {option.option_value}
+                                    {option.price_adjustment > 0 && ` (+${option.price_adjustment.toLocaleString()}원)`}
+                                    {option.price_adjustment < 0 && ` (${option.price_adjustment.toLocaleString()}원)`}
+                                    {option.stock !== null && ` - 재고: ${option.stock}개`}
+                                    {!option.is_available && ' (품절)'}
+                                  </option>
+                                ))}
+                              </select>
+                              {selectedOption && (
+                                <div className="mt-2 text-sm text-gray-600">
+                                  선택한 옵션: {selectedOption.option_name} - {selectedOption.option_value}
+                                  {selectedOption.price_adjustment !== 0 && (
+                                    <span className="ml-2 font-medium text-blue-600">
+                                      ({selectedOption.price_adjustment > 0 ? '+' : ''}{selectedOption.price_adjustment.toLocaleString()}원)
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* 수량 선택 */}
+                          <div>
+                            <label className="block text-sm font-medium mb-2">수량</label>
+                            <div className="border rounded-md p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-medium">상품 개수</div>
+                                  <div className="text-xs text-gray-500">
+                                    {(() => {
+                                      // @ts-ignore
+                                      const minPurchase = item.minPurchase || 1;
+                                      // @ts-ignore
+                                      const maxPurchase = item.maxPurchase;
+                                      const optionStock = selectedOption?.stock;
+
+                                      let text = `최소 ${minPurchase}개`;
+                                      if (maxPurchase) text += `, 최대 ${maxPurchase}개`;
+                                      if (optionStock !== null && optionStock !== undefined) {
+                                        text += ` (재고: ${optionStock}개)`;
+                                      }
+                                      return text;
+                                    })()}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      // @ts-ignore
+                                      const minPurchase = item.minPurchase || 1;
+                                      setQuantity(Math.max(minPurchase, quantity - 1));
+                                    }}
+                                    disabled={(() => {
+                                      // @ts-ignore
+                                      const minPurchase = item.minPurchase || 1;
+                                      return quantity <= minPurchase;
+                                    })()}
+                                    className="h-9 w-9 p-0"
+                                  >
+                                    -
+                                  </Button>
+                                  <input
+                                    type="number"
+                                    min={
+                                      // @ts-ignore
+                                      item.minPurchase || 1
+                                    }
+                                    max={(() => {
+                                      // @ts-ignore
+                                      const maxPurchase = item.maxPurchase;
+                                      const optionStock = selectedOption?.stock;
+
+                                      let max = maxPurchase || 9999;
+                                      if (optionStock !== null && optionStock !== undefined) {
+                                        max = Math.min(max, optionStock);
+                                      }
+                                      return max;
+                                    })()}
+                                    value={quantity}
+                                    onChange={(e) => {
+                                      const value = parseInt(e.target.value) || 1;
+                                      // @ts-ignore
+                                      const minPurchase = item.minPurchase || 1;
+                                      // @ts-ignore
+                                      const maxPurchase = item.maxPurchase;
+                                      const optionStock = selectedOption?.stock;
+
+                                      let max = maxPurchase || 9999;
+                                      if (optionStock !== null && optionStock !== undefined) {
+                                        max = Math.min(max, optionStock);
+                                      }
+
+                                      setQuantity(Math.max(minPurchase, Math.min(max, value)));
+                                    }}
+                                    placeholder="수량 입력"
+                                    className="w-28 text-center text-xl font-bold border-2 rounded-md px-3 py-2 focus:border-blue-500 focus:outline-none"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      // @ts-ignore
+                                      const maxPurchase = item.maxPurchase;
+                                      const optionStock = selectedOption?.stock;
+
+                                      let max = maxPurchase || 9999;
+                                      if (optionStock !== null && optionStock !== undefined) {
+                                        max = Math.min(max, optionStock);
+                                      }
+
+                                      setQuantity(Math.min(max, quantity + 1));
+                                    }}
+                                    disabled={(() => {
+                                      // @ts-ignore
+                                      const maxPurchase = item.maxPurchase;
+                                      const optionStock = selectedOption?.stock;
+
+                                      let max = maxPurchase || 9999;
+                                      if (optionStock !== null && optionStock !== undefined) {
+                                        max = Math.min(max, optionStock);
+                                      }
+
+                                      return quantity >= max;
+                                    })()}
+                                    className="h-9 w-9 p-0"
+                                  >
+                                    +
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* 빠른 수량 추가 버튼 */}
+                              <div className="flex items-center gap-2 pt-2 border-t">
+                                <span className="text-xs text-gray-600">빠른 추가:</span>
+                                {[10, 50, 100, 500].map((amount) => {
+                                  // @ts-ignore
+                                  const maxPurchase = item.maxPurchase;
+                                  const optionStock = selectedOption?.stock;
+                                  let max = maxPurchase || 9999;
+                                  if (optionStock !== null && optionStock !== undefined) {
+                                    max = Math.min(max, optionStock);
+                                  }
+                                  const canAdd = quantity + amount <= max;
+
+                                  return (
+                                    <Button
+                                      key={amount}
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setQuantity(Math.min(max, quantity + amount));
+                                      }}
+                                      disabled={!canAdd}
+                                      className="h-7 px-3 text-xs"
+                                    >
+                                      +{amount}
+                                    </Button>
+                                  );
+                                })}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1914,12 +2280,26 @@ export function DetailPage() {
                           <>
                             {/* 팝업: 수량 x 가격 */}
                             <div className="flex justify-between items-center text-sm">
-                              <span>상품 가격</span>
-                              <span>{(item.price || 0).toLocaleString()}원 x {quantity}개</span>
+                              <span>상품 기본 가격</span>
+                              <span>{(item.price || 0).toLocaleString()}원</span>
+                            </div>
+                            {selectedOption && selectedOption.price_adjustment !== 0 && (
+                              <div className="flex justify-between items-center text-sm">
+                                <span>옵션 추가금</span>
+                                <span className={selectedOption.price_adjustment > 0 ? 'text-blue-600' : 'text-green-600'}>
+                                  {selectedOption.price_adjustment > 0 ? '+' : ''}{selectedOption.price_adjustment.toLocaleString()}원
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center text-sm">
+                              <span>수량</span>
+                              <span>x {quantity}개</span>
                             </div>
                             <div className="flex justify-between items-center pt-2 border-t text-lg font-semibold">
                               <span>총 금액</span>
-                              <span className="text-blue-600">{((item.price || 0) * quantity).toLocaleString()}원</span>
+                              <span className="text-blue-600">
+                                {(((item.price || 0) + (selectedOption?.price_adjustment || 0)) * quantity).toLocaleString()}원
+                              </span>
                             </div>
                           </>
                         ) : (
@@ -2119,7 +2499,7 @@ export function DetailPage() {
                           index === currentImageIndex ? 'border-white scale-110' : 'border-transparent opacity-60 hover:opacity-100'
                         }`}
                       >
-                        <img
+                        <ImageWithFallback
                           src={image}
                           alt={`썸네일 ${index + 1}`}
                           className="w-full h-full object-cover"

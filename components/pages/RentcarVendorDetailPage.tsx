@@ -60,6 +60,16 @@ interface Vehicle {
   excess_mileage_fee_krw?: number;
   fuel_efficiency?: number;
   self_insurance_krw?: number;
+  // MVP API 추가 필드
+  is_available?: boolean;
+  pricing?: {
+    total_hours: number;
+    rental_days: number;
+    remainder_hours: number;
+    base_amount: number;
+    hourly_rate: number;
+    daily_rate: number;
+  };
 }
 
 interface Insurance {
@@ -102,21 +112,33 @@ export function RentcarVendorDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
-  const [insurances, setInsurances] = useState<Insurance[]>([]);
 
-  // 예약 폼 상태
-  const [pickupDate, setPickupDate] = useState<Date>();
-  const [returnDate, setReturnDate] = useState<Date>();
+  // 예약 폼 상태 - 기본값으로 내일/모레 설정 (MVP API 자동 호출용)
+  const [pickupDate, setPickupDate] = useState<Date>(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    return tomorrow;
+  });
+  const [returnDate, setReturnDate] = useState<Date>(() => {
+    const dayAfterTomorrow = new Date();
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    dayAfterTomorrow.setHours(0, 0, 0, 0);
+    return dayAfterTomorrow;
+  });
   const [pickupTime, setPickupTime] = useState('10:00');
   const [returnTime, setReturnTime] = useState('10:00');
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [existingBookings, setExistingBookings] = useState<any[]>([]);
+
+  // 보험 옵션 (UI에서 사용하므로 유지)
+  const [insurances, setInsurances] = useState<Insurance[]>([]);
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   // 데이터 로드
+  // 업체 기본 정보 로드
   useEffect(() => {
     const fetchVendorData = async () => {
       if (!vendorId) return;
@@ -130,28 +152,6 @@ export function RentcarVendorDetailPage() {
 
         if (result.success && result.data) {
           setVendorData(result.data);
-
-          // 예약 데이터 로드 (중복 방지용)
-          try {
-            const bookingsRes = await fetch(`/api/rentcars/${vendorId}/bookings`);
-            const bookingsData = await bookingsRes.json();
-            if (bookingsData.success) {
-              setExistingBookings(bookingsData.data || []);
-            }
-          } catch (err) {
-            console.error('예약 데이터 로드 실패:', err);
-          }
-
-          // 보험 상품 로드
-          try {
-            const insuranceRes = await fetch(`/api/rentcar/insurance?vendor_id=${vendorId}`);
-            const insuranceData = await insuranceRes.json();
-            if (insuranceData.success && insuranceData.data) {
-              setInsurances(insuranceData.data);
-            }
-          } catch (err) {
-            console.error('보험 데이터 로드 실패:', err);
-          }
         } else {
           setError('업체 정보를 찾을 수 없습니다');
         }
@@ -165,6 +165,68 @@ export function RentcarVendorDetailPage() {
 
     fetchVendorData();
   }, [vendorId]);
+
+  // 날짜/시간 변경 시 MVP search API로 가용성 + 가격 조회
+  useEffect(() => {
+    const searchAvailableVehicles = async () => {
+      // vendorData가 로드된 후에만 실행
+      if (!vendorId || !vendorData || !pickupDate || !returnDate) {
+        return;
+      }
+
+      try {
+        // ISO 8601 형식으로 변환
+        const [pickupHour, pickupMinute] = pickupTime.split(':').map(Number);
+        const [returnHour, returnMinute] = returnTime.split(':').map(Number);
+
+        const pickup = new Date(pickupDate);
+        pickup.setHours(pickupHour, pickupMinute, 0, 0);
+
+        const returnD = new Date(returnDate);
+        returnD.setHours(returnHour, returnMinute, 0, 0);
+
+        const pickupISO = pickup.toISOString();
+        const returnISO = returnD.toISOString();
+
+        console.log(`🔍 [업체 상세] MVP API 호출: ${vendorId}, ${pickupISO} → ${returnISO}`);
+
+        // MVP search API 호출
+        const params = new URLSearchParams({
+          pickup_at: pickupISO,
+          return_at: returnISO,
+          location_id: '1',
+          vendor_id: vendorId
+        });
+
+        const response = await fetch(`/api/rentals/search?${params.toString()}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          console.log(`✅ [업체 상세] MVP API 응답: ${result.data.length}개 차량`);
+
+          // 기존 vendorData의 vehicles를 search 결과로 교체
+          setVendorData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              vehicles: result.data.map((item: any) => ({
+                ...item.vehicle,
+                // MVP API에서 받은 가격 정보 추가
+                pricing: item.pricing,
+                is_available: item.available
+              }))
+            };
+          });
+        } else {
+          console.warn('⚠️ [업체 상세] MVP API 응답 실패:', result);
+        }
+      } catch (err) {
+        console.error('❌ [업체 상세] 차량 검색 오류:', err);
+      }
+    };
+
+    searchAvailableVehicles();
+  }, [vendorId, vendorData, pickupDate, returnDate, pickupTime, returnTime]);
 
   // 이미지 갤러리용 - 벤더 이미지 우선, 없으면 차량 이미지 fallback
   const allImages = (() => {
@@ -207,50 +269,11 @@ export function RentcarVendorDetailPage() {
     return Math.max(0, diffHours);
   };
 
-  // 차량 재고 확인 (선택한 날짜/시간에 사용 가능한지)
-  const checkVehicleAvailability = (vehicle: Vehicle) => {
-    if (!pickupDate || !returnDate) return vehicle.stock;
+  // MVP API를 사용하므로 별도의 재고 확인 함수 불필요
+  // vehicle.is_available 속성을 사용
 
-    const [pickupHour, pickupMinute] = pickupTime.split(':').map(Number);
-    const [returnHour, returnMinute] = returnTime.split(':').map(Number);
-
-    const pickup = new Date(pickupDate);
-    pickup.setHours(pickupHour, pickupMinute, 0, 0);
-
-    const returnD = new Date(returnDate);
-    returnD.setHours(returnHour, returnMinute, 0, 0);
-
-    // 버퍼 타임 설정 (차량 청소/점검용 1시간)
-    const BUFFER_TIME_MS = 60 * 60 * 1000; // 1시간
-
-    // 해당 차량의 예약 중 겹치는 것 찾기
-    const conflictingBookings = existingBookings.filter(booking => {
-      if (booking.vehicle_id !== vehicle.id) return false;
-
-      // 예약 시작/종료 시간 조합
-      const bookingStart = new Date(booking.pickup_date + ' ' + (booking.pickup_time || '00:00'));
-      let bookingEnd = new Date(booking.dropoff_date + ' ' + (booking.dropoff_time || '23:59'));
-
-      // ⚠️ 중요: 기존 예약 종료 시간에 버퍼 타임 추가
-      // 예) 14:00 반납 → 버퍼 타임 포함 15:00까지 사용 불가
-      bookingEnd = new Date(bookingEnd.getTime() + BUFFER_TIME_MS);
-
-      // 시간 겹침 체크 (버퍼 타임 포함)
-      return !(returnD.getTime() <= bookingStart.getTime() || pickup.getTime() >= bookingEnd.getTime());
-    });
-
-    return Math.max(0, vehicle.stock - conflictingBookings.length);
-  };
-
-  // 예약 처리
-  const handleBooking = async () => {
-    // 로그인 체크
-    if (!isLoggedIn || !user) {
-      toast.error('로그인이 필요한 서비스입니다');
-      navigate('/login', { state: { returnUrl: `/rentcar/${vendorId}` } });
-      return;
-    }
-
+  // 예약 처리 - MVP 방식: 차량 상세 페이지로 이동 (운전자 정보 입력용)
+  const handleBooking = () => {
     if (!pickupDate || !returnDate) {
       toast.error('대여/반납 날짜를 선택해주세요');
       return;
@@ -273,74 +296,30 @@ export function RentcarVendorDetailPage() {
       return;
     }
 
-    // 재고 확인
-    const availableStock = checkVehicleAvailability(selectedVehicle);
-    if (availableStock <= 0) {
+    // MVP API에서 is_available로 이미 체크됨
+    if (selectedVehicle.is_available === false) {
       toast.error('선택한 날짜/시간에 해당 차량을 이용할 수 없습니다');
       return;
     }
 
-    try {
-      setIsBooking(true);
+    // 차량 상세 페이지로 이동 (운전자 정보 입력 + 예약 생성)
+    const [pickupHour, pickupMinute] = pickupTime.split(':').map(Number);
+    const [returnHour, returnMinute] = returnTime.split(':').map(Number);
 
-      // 1. 가용성 확인
-      const availabilityResponse = await fetch(
-        `/api/rentcar/check-availability?vehicle_id=${selectedVehicle.id}&pickup_date=${format(pickupDate, 'yyyy-MM-dd')}&pickup_time=${pickupTime}&dropoff_date=${format(returnDate, 'yyyy-MM-dd')}&dropoff_time=${returnTime}`
-      );
-      const availabilityResult = await availabilityResponse.json();
+    const pickup = new Date(pickupDate);
+    pickup.setHours(pickupHour, pickupMinute, 0, 0);
 
-      if (!availabilityResult.success || !availabilityResult.available) {
-        toast.error(availabilityResult.reason || '선택한 날짜/시간에 예약할 수 없습니다');
-        return;
+    const returnD = new Date(returnDate);
+    returnD.setHours(returnHour, returnMinute, 0, 0);
+
+    navigate(`/rentcar/vehicle/${selectedVehicle.id}`, {
+      state: {
+        pickupAt: pickup.toISOString(),
+        returnAt: returnD.toISOString(),
+        vendorId: vendorId,
+        pricing: selectedVehicle.pricing
       }
-
-      // 2. 예약 생성 (실제 사용자 정보 사용)
-      const bookingPayload = {
-        vendor_id: vendorData?.vendor.id,
-        vehicle_id: selectedVehicle.id,
-        user_id: user.id,
-        customer_name: user.name,
-        customer_email: user.email,
-        customer_phone: user.phone || '',
-        pickup_location_id: 1,
-        dropoff_location_id: 1,
-        pickup_date: format(pickupDate, 'yyyy-MM-dd'),
-        pickup_time: pickupTime,
-        dropoff_date: format(returnDate, 'yyyy-MM-dd'),
-        dropoff_time: returnTime,
-        special_requests: ''
-      };
-
-      const bookingResponse = await fetch('/api/rentcar/bookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(bookingPayload)
-      });
-
-      const bookingResult = await bookingResponse.json();
-
-      if (!bookingResult.success) {
-        toast.error(bookingResult.error || '예약 생성에 실패했습니다');
-        return;
-      }
-
-      // 3. 결제 페이지로 이동 (bookingId와 함께)
-      const bookingData = bookingResult.data;
-      const hourlyRate = selectedVehicle.hourly_rate_krw || Math.ceil(selectedVehicle.daily_rate_krw / 24);
-      const totalPrice = Math.ceil(hourlyRate * totalHours);
-
-      navigate(
-        `/payment?bookingId=${bookingData.id}&bookingNumber=${bookingData.booking_number}&amount=${totalPrice}&title=${encodeURIComponent(selectedVehicle.display_name || selectedVehicle.model)}&customerName=${encodeURIComponent(user.name)}&customerEmail=${encodeURIComponent(user.email)}`
-      );
-
-    } catch (error) {
-      console.error('예약 처리 오류:', error);
-      toast.error('예약 처리 중 오류가 발생했습니다');
-    } finally {
-      setIsBooking(false);
-    }
+    });
   };
 
   // 즐겨찾기 토글
@@ -393,17 +372,19 @@ export function RentcarVendorDetailPage() {
     ? Math.min(...vendorData.vehicles.map(v => v.daily_rate_krw))
     : 0;
 
-  // 차량 정렬: 재고 있는 것 먼저, 그 다음 가격순
+  // 차량 정렬: 가용 차량 먼저, 그 다음 가격순 (MVP API)
   const sortedVehicles = [...vendorData.vehicles].sort((a, b) => {
-    const stockA = checkVehicleAvailability(a);
-    const stockB = checkVehicleAvailability(b);
+    const availableA = a.is_available !== false; // undefined는 true로 간주
+    const availableB = b.is_available !== false;
 
-    // 재고 없는 것은 맨 아래로
-    if (stockA === 0 && stockB > 0) return 1;
-    if (stockA > 0 && stockB === 0) return -1;
+    // 예약 불가능한 것은 맨 아래로
+    if (!availableA && availableB) return 1;
+    if (availableA && !availableB) return -1;
 
-    // 둘 다 재고가 있거나 없으면 가격순
-    return a.daily_rate_krw - b.daily_rate_krw;
+    // 둘 다 가용하거나 불가하면 가격순
+    const priceA = a.pricing?.base_amount || a.daily_rate_krw;
+    const priceB = b.pricing?.base_amount || b.daily_rate_krw;
+    return priceA - priceB;
   });
 
   // 페이지네이션 계산
@@ -629,8 +610,8 @@ export function RentcarVendorDetailPage() {
                     {/* 2열 그리드 레이아웃 */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 auto-rows-fr">
                       {currentVehicles.map((vehicle) => {
-                    const availableStock = checkVehicleAvailability(vehicle);
-                    const isAvailable = availableStock > 0;
+                    // MVP API에서 is_available로 가용성 체크
+                    const isAvailable = vehicle.is_available !== false;
 
                     return (
                       <div
@@ -705,19 +686,39 @@ export function RentcarVendorDetailPage() {
                           {/* 가격 및 재고 */}
                           <div className="flex items-center justify-between pt-3 border-t">
                             <div>
-                              {vehicle.hourly_rate_krw && (
-                                <div className="text-sm text-gray-600 mb-1">
-                                  시간: ₩{vehicle.hourly_rate_krw.toLocaleString()}
-                                </div>
+                              {/* MVP API에서 계산된 가격 표시 (날짜 선택 시) */}
+                              {vehicle.pricing && pickupDate && returnDate ? (
+                                <>
+                                  <div className="text-sm text-gray-600 mb-1">
+                                    {vehicle.pricing.rental_days}일 {vehicle.pricing.remainder_hours > 0 && `+ ${vehicle.pricing.remainder_hours}시간`}
+                                  </div>
+                                  <div className={`text-xl font-bold ${isAvailable ? 'text-blue-600' : 'text-gray-400'}`}>
+                                    ₩{vehicle.pricing.base_amount.toLocaleString()}
+                                  </div>
+                                  <div className="text-xs text-gray-500">총 대여료</div>
+                                </>
+                              ) : (
+                                <>
+                                  {vehicle.hourly_rate_krw && (
+                                    <div className="text-sm text-gray-600 mb-1">
+                                      시간: ₩{vehicle.hourly_rate_krw.toLocaleString()}
+                                    </div>
+                                  )}
+                                  <div className={`text-xl font-bold ${isAvailable ? 'text-blue-600' : 'text-gray-400'}`}>
+                                    ₩{vehicle.daily_rate_krw.toLocaleString()}
+                                  </div>
+                                  <div className="text-xs text-gray-500">1일 기준</div>
+                                </>
                               )}
-                              <div className={`text-xl font-bold ${isAvailable ? 'text-blue-600' : 'text-gray-400'}`}>
-                                ₩{vehicle.daily_rate_krw.toLocaleString()}
-                              </div>
-                              <div className="text-xs text-gray-500">1일 기준</div>
                             </div>
                             {isAvailable && pickupDate && returnDate && (
                               <Badge variant="outline" className="text-xs text-green-600 border-green-600">
-                                {availableStock}대 가능
+                                예약 가능
+                              </Badge>
+                            )}
+                            {!isAvailable && pickupDate && returnDate && (
+                              <Badge variant="outline" className="text-xs text-red-600 border-red-600">
+                                예약 불가
                               </Badge>
                             )}
                           </div>

@@ -30,7 +30,9 @@ import {
   RefreshCcw,
   Trash2,
   Eye,
-  EyeOff
+  EyeOff,
+  Receipt,
+  Coins
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, type TravelItem } from '../utils/api';
@@ -61,6 +63,28 @@ interface Review {
   date: string;
   image: string;
   category: string;
+}
+
+interface PaymentHistory {
+  id: number;
+  booking_id: number | null;
+  order_id: number | null;
+  order_id_str: string;
+  payment_key: string;
+  amount: number;
+  payment_method: string;
+  payment_status: string;
+  approved_at: string;
+  receipt_url: string | null;
+  card_company: string | null;
+  card_number: string | null;
+  created_at: string;
+  booking_number: string | null;
+  listing_id: number | null;
+  listing_title: string | null;
+  category: string | null;
+  images: string[] | null;
+  notes: string | null;
 }
 
 // 가상 데이터
@@ -113,8 +137,13 @@ export function MyPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+  const [payments, setPayments] = useState<PaymentHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [pointsLoading, setPointsLoading] = useState(false);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [pointHistory, setPointHistory] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -177,6 +206,8 @@ export function MyPage() {
       // 프로필 정보 불러오기 (API에서)
       fetchUserProfile();
       fetchUserData();
+      fetchPayments();
+      fetchPoints();
     }
   }, [user]);
 
@@ -255,7 +286,18 @@ export function MyPage() {
           image: Array.isArray(booking.listing?.images) && booking.listing.images.length > 0
             ? booking.listing.images[0]
             : getDefaultImage(booking.listing?.category),
-          location: booking.listing?.location || '위치 정보 없음'
+          location: booking.listing?.location || '위치 정보 없음',
+          // ✅ 배송 정보 추가 (팝업 상품용)
+          delivery_status: booking.delivery_status,
+          tracking_number: booking.tracking_number,
+          courier_company: booking.courier_company,
+          shipping_name: booking.shipping_name,
+          shipping_phone: booking.shipping_phone,
+          shipping_address: booking.shipping_address,
+          shipping_address_detail: booking.shipping_address_detail,
+          shipping_zipcode: booking.shipping_zipcode,
+          shipped_at: booking.shipped_at,
+          delivered_at: booking.delivered_at
         }));
         setBookings(formattedBookings);
       } else {
@@ -344,6 +386,74 @@ export function MyPage() {
     } catch (error) {
       console.error('리뷰 불러오기 오류:', error);
       setReviews([]);
+    }
+  };
+
+  // 사용자 결제 내역 가져오기
+  const fetchPayments = async () => {
+    if (!user) return;
+
+    setPaymentsLoading(true);
+    try {
+      const response = await fetch('/api/user/payments', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user.id.toString()
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setPayments(data.data || []);
+          console.log('✅ [결제 내역] 로드 완료:', data.data.length, '개');
+        } else {
+          throw new Error(data.message || '결제 내역 조회 실패');
+        }
+      } else {
+        throw new Error('결제 내역 조회 요청 실패');
+      }
+    } catch (error) {
+      console.error('결제 내역 불러오기 오류:', error);
+      toast.error('결제 내역을 불러오는 중 오류가 발생했습니다.');
+      setPayments([]);
+    } finally {
+      setPaymentsLoading(false);
+    }
+  };
+
+  // 사용자 포인트 내역 가져오기
+  const fetchPoints = async () => {
+    if (!user) return;
+
+    setPointsLoading(true);
+    try {
+      const response = await fetch('/api/user/points', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user.id.toString()
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setTotalPoints(data.data.totalPoints || 0);
+          setPointHistory(data.data.history || []);
+          console.log('✅ [포인트] 로드 완료:', data.data.totalPoints, 'P');
+        } else {
+          throw new Error(data.message || '포인트 내역 조회 실패');
+        }
+      } else {
+        throw new Error('포인트 내역 조회 요청 실패');
+      }
+    } catch (error) {
+      console.error('포인트 내역 불러오기 오류:', error);
+      toast.error('포인트 내역을 불러오는 중 오류가 발생했습니다.');
+      setTotalPoints(0);
+      setPointHistory([]);
+    } finally {
+      setPointsLoading(false);
     }
   };
 
@@ -865,11 +975,21 @@ export function MyPage() {
 
         {/* 탭 메뉴 - 모바일 최적화 */}
         <Tabs defaultValue="bookings" className="space-y-6">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full max-w-2xl gap-2">
+          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full max-w-4xl gap-2">
             <TabsTrigger value="bookings" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
               <Calendar className="w-4 h-4 sm:hidden mr-2" />
               <span className="hidden sm:inline">예약 내역</span>
               <span className="sm:hidden">예약</span>
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
+              <Receipt className="w-4 h-4 sm:hidden mr-2" />
+              <span className="hidden sm:inline">결제 내역</span>
+              <span className="sm:hidden">결제</span>
+            </TabsTrigger>
+            <TabsTrigger value="points" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
+              <Coins className="w-4 h-4 sm:hidden mr-2" />
+              <span className="hidden sm:inline">포인트</span>
+              <span className="sm:hidden">포인트</span>
             </TabsTrigger>
             <TabsTrigger value="favorites" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
               <Heart className="w-4 h-4 sm:hidden mr-2" />
@@ -975,6 +1095,117 @@ export function MyPage() {
                                 </div>
                               </div>
 
+                              {/* ✅ 배송 정보 표시 (팝업 상품인 경우) */}
+                              {(booking as any).delivery_status && (
+                                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
+                                    <span className="text-sm font-medium text-gray-700">배송 정보</span>
+                                  </div>
+                                  <div className="space-y-1 text-xs">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600">배송 상태:</span>
+                                      <span className={`font-medium ${
+                                        (booking as any).delivery_status === 'DELIVERED' ? 'text-green-600' :
+                                        (booking as any).delivery_status === 'SHIPPING' ? 'text-orange-600' :
+                                        (booking as any).delivery_status === 'READY' ? 'text-blue-600' :
+                                        'text-gray-600'
+                                      }`}>
+                                        {(booking as any).delivery_status === 'DELIVERED' ? '배송완료' :
+                                         (booking as any).delivery_status === 'SHIPPING' ? '배송중' :
+                                         (booking as any).delivery_status === 'READY' ? '배송준비' :
+                                         (booking as any).delivery_status === 'PENDING' ? '결제대기' : '취소'}
+                                      </span>
+                                    </div>
+                                    {(booking as any).tracking_number && (
+                                      <>
+                                        <div className="flex justify-between">
+                                          <span className="text-gray-600">택배사:</span>
+                                          <span className="font-medium">
+                                            {(booking as any).courier_company === 'cj' ? 'CJ대한통운' :
+                                             (booking as any).courier_company === 'hanjin' ? '한진택배' :
+                                             (booking as any).courier_company === 'lotte' ? '롯데택배' :
+                                             (booking as any).courier_company === 'post' ? '우체국택배' :
+                                             (booking as any).courier_company || '-'}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-gray-600">송장번호:</span>
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-mono font-medium">{(booking as any).tracking_number}</span>
+                                            <button
+                                              onClick={() => {
+                                                navigator.clipboard.writeText((booking as any).tracking_number);
+                                                toast.success('송장번호가 복사되었습니다.');
+                                              }}
+                                              className="text-blue-600 hover:text-blue-700 text-sm"
+                                            >
+                                              복사
+                                            </button>
+                                            <a
+                                              href={`https://tracker.delivery/#/${(booking as any).courier_company}/${(booking as any).tracking_number}`}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-600 hover:text-blue-700 text-sm underline"
+                                            >
+                                              배송조회
+                                            </a>
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
+                                    {(booking as any).shipping_address && (
+                                      <div className="pt-2 border-t border-blue-200 mt-2">
+                                        <div className="text-gray-600">배송지:</div>
+                                        <div className="font-medium mt-1">
+                                          [{(booking as any).shipping_zipcode}] {(booking as any).shipping_address}
+                                          {(booking as any).shipping_address_detail && (
+                                            <div className="text-gray-600">{(booking as any).shipping_address_detail}</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 선택한 옵션 정보 표시 (팝업 상품인 경우) */}
+                              {(booking as any).selected_options && (() => {
+                                try {
+                                  const options = typeof (booking as any).selected_options === 'string'
+                                    ? JSON.parse((booking as any).selected_options)
+                                    : (booking as any).selected_options;
+                                  return (
+                                    <div className="mt-3 p-3 bg-purple-50 rounded-lg border border-purple-100">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                        </svg>
+                                        <span className="text-sm font-medium text-gray-700">선택 옵션</span>
+                                      </div>
+                                      <div className="space-y-1 text-xs">
+                                        <div className="flex justify-between">
+                                          <span className="text-gray-600">{options.name}:</span>
+                                          <span className="font-medium text-purple-700">{options.value}</span>
+                                        </div>
+                                        {options.priceAdjustment !== 0 && (
+                                          <div className="flex justify-between">
+                                            <span className="text-gray-600">옵션 추가금:</span>
+                                            <span className={`font-medium ${options.priceAdjustment > 0 ? 'text-blue-600' : 'text-green-600'}`}>
+                                              {options.priceAdjustment > 0 ? '+' : ''}{options.priceAdjustment.toLocaleString()}원
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                } catch (e) {
+                                  return null;
+                                }
+                              })()}
+
                               {/* 취소 수수료 정보 표시 */}
                               {canCancel && (
                                 <div className="mt-3 p-3 bg-gray-50 rounded-lg">
@@ -1016,6 +1247,288 @@ export function MyPage() {
                     })}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 결제 내역 탭 */}
+          <TabsContent value="payments" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Receipt className="w-5 h-5 mr-2" />
+                    결제 내역
+                  </div>
+                  {paymentsLoading && (
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {paymentsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <span className="ml-2">결제 내역을 불러오는 중...</span>
+                  </div>
+                ) : payments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Receipt className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">결제 내역이 없습니다</h3>
+                    <p className="text-gray-600 mb-4">아직 결제한 내역이 없습니다.</p>
+                    <Button onClick={() => navigate('/')} variant="outline">
+                      상품 둘러보기
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {payments.map((payment) => {
+                      // 이미지 처리: notes에 items가 있으면 첫 번째 상품 이미지, 아니면 listing 이미지
+                      let displayImage = getDefaultImage(payment.category || 'tour');
+                      let displayTitle = payment.listing_title || '주문';
+                      let itemCount = 1;
+
+                      // 장바구니 주문인 경우 notes에서 정보 추출
+                      if (payment.notes) {
+                        try {
+                          const notesData = JSON.parse(payment.notes);
+                          if (notesData.items && Array.isArray(notesData.items) && notesData.items.length > 0) {
+                            itemCount = notesData.items.length;
+                            displayTitle = `장바구니 주문 (${itemCount}개 상품)`;
+                          }
+                        } catch (e) {
+                          console.error('notes 파싱 오류:', e);
+                        }
+                      }
+
+                      // listing 이미지가 있으면 사용
+                      if (payment.images && Array.isArray(payment.images) && payment.images.length > 0) {
+                        displayImage = payment.images[0];
+                      }
+
+                      return (
+                        <div key={payment.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex space-x-4">
+                            <img
+                              src={displayImage}
+                              alt={displayTitle}
+                              className="w-24 h-24 rounded-lg object-cover"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-lg">{displayTitle}</h3>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant="outline" className="text-xs">
+                                      {payment.category || '일반'}
+                                    </Badge>
+                                    <Badge
+                                      className={
+                                        payment.payment_status === 'paid' || payment.payment_status === 'completed'
+                                          ? 'bg-green-100 text-green-800'
+                                          : payment.payment_status === 'pending'
+                                          ? 'bg-yellow-100 text-yellow-800'
+                                          : 'bg-red-100 text-red-800'
+                                      }
+                                    >
+                                      {payment.payment_status === 'paid' || payment.payment_status === 'completed'
+                                        ? '결제 완료'
+                                        : payment.payment_status === 'pending'
+                                        ? '결제 대기'
+                                        : payment.payment_status === 'refunded'
+                                        ? '환불 완료'
+                                        : payment.payment_status}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-xl font-bold text-purple-600">
+                                    ₩{payment.amount.toLocaleString()}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                  <span className="text-gray-600">주문번호:</span>
+                                  <p className="font-mono text-xs mt-1">{payment.order_id_str}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">결제일:</span>
+                                  <p className="mt-1">
+                                    {new Date(payment.approved_at || payment.created_at).toLocaleDateString('ko-KR', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric'
+                                    })}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">결제수단:</span>
+                                  <p className="mt-1">
+                                    {payment.payment_method === 'card' && payment.card_company
+                                      ? `${payment.card_company} ${payment.card_number || ''}`
+                                      : payment.payment_method === 'transfer'
+                                      ? '계좌이체'
+                                      : payment.payment_method || '기타'}
+                                  </p>
+                                </div>
+                                {payment.booking_number && (
+                                  <div>
+                                    <span className="text-gray-600">예약번호:</span>
+                                    <p className="font-mono text-xs mt-1">{payment.booking_number}</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 영수증 버튼 */}
+                              {payment.receipt_url && (
+                                <div className="mt-3">
+                                  <a
+                                    href={payment.receipt_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700 font-medium"
+                                  >
+                                    <Receipt className="w-4 h-4 mr-1" />
+                                    영수증 보기
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 포인트 탭 */}
+          <TabsContent value="points" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Coins className="w-5 h-5 mr-2" />
+                    포인트
+                  </div>
+                  {pointsLoading && (
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* 총 포인트 */}
+                <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 mb-6">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 mb-2">보유 포인트</p>
+                    <div className="flex items-center justify-center gap-2">
+                      <Coins className="w-8 h-8 text-purple-600" />
+                      <span className="text-4xl font-bold text-purple-600">
+                        {totalPoints.toLocaleString()}
+                      </span>
+                      <span className="text-2xl text-gray-500">P</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3">
+                      결제 시 1P = 1원으로 사용 가능합니다
+                    </p>
+                  </div>
+                </div>
+
+                {/* 포인트 적립 안내 */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-semibold mb-2">포인트 적립 안내</p>
+                      <ul className="list-disc list-inside space-y-1 text-xs">
+                        <li>모든 결제 금액의 2%가 포인트로 적립됩니다 (배송비 제외)</li>
+                        <li>포인트는 결제 완료 즉시 자동 적립됩니다</li>
+                        <li>적립된 포인트는 1년간 유효합니다</li>
+                        <li>최소 1,000P부터 결제 시 사용 가능합니다</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 포인트 내역 */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-4">포인트 내역</h3>
+                  {pointsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                      <span className="ml-2">포인트 내역을 불러오는 중...</span>
+                    </div>
+                  ) : pointHistory.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Coins className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2">포인트 내역이 없습니다</h3>
+                      <p className="text-gray-600 mb-4">상품을 구매하고 포인트를 적립해보세요!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {pointHistory.map((point) => {
+                        const isEarn = point.point_type === 'earn';
+                        const isExpire = point.point_type === 'expire';
+
+                        return (
+                          <div key={point.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge
+                                    className={
+                                      isEarn ? 'bg-green-100 text-green-800' :
+                                      isExpire ? 'bg-gray-100 text-gray-800' :
+                                      'bg-red-100 text-red-800'
+                                    }
+                                  >
+                                    {point.point_type === 'earn' ? '적립' :
+                                     point.point_type === 'use' ? '사용' :
+                                     point.point_type === 'expire' ? '만료' : '관리자'}
+                                  </Badge>
+                                  <span className="text-sm text-gray-600">
+                                    {new Date(point.created_at).toLocaleDateString('ko-KR', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-700 mb-1">{point.reason}</p>
+                                {point.related_order_id && (
+                                  <p className="text-xs text-gray-500">주문번호: {point.related_order_id}</p>
+                                )}
+                                {point.expires_at && new Date(point.expires_at) > new Date() && (
+                                  <p className="text-xs text-orange-600 mt-1">
+                                    만료일: {new Date(point.expires_at).toLocaleDateString('ko-KR')}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right ml-4">
+                                <div className={`text-lg font-bold ${
+                                  isEarn ? 'text-green-600' :
+                                  isExpire ? 'text-gray-500' :
+                                  'text-red-600'
+                                }`}>
+                                  {isEarn ? '+' : ''}{point.points.toLocaleString()}P
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  잔액: {point.balance_after.toLocaleString()}P
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -137,10 +137,9 @@ module.exports = async function handler(req, res) {
           policies,
           status,
           is_active,
-          tier,
           created_at,
           updated_at
-        ) VALUES (?, 'lodging', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'standard', NOW(), NOW())`,
+        ) VALUES (?, 'lodging', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
         [
           finalUserId,
           business_name,

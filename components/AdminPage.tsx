@@ -27,7 +27,9 @@ import {
   Check,
   Upload,
   X,
-  Car
+  Car,
+  Settings,
+  Truck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
@@ -42,6 +44,8 @@ import { MediaManagement } from './admin/MediaManagement';
 import { RentcarManagement } from './admin/RentcarManagement';
 import { AccommodationManagement } from './admin/AccommodationManagement';
 import { BannerManagement } from './admin/BannerManagement';
+import { ShippingManagementDialog } from './ShippingManagementDialog';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 import type { Listing, User } from '../types/database';
 import type { AdminProductFormData } from '../utils/pms/admin-integration';
 import { previewPrice, sanitizePriceInput } from '../utils/price-formatter';
@@ -74,6 +78,12 @@ interface Product {
   availableStartTimes?: string[];
   itinerary?: { time: string; activity: string; description?: string }[];
   packages?: { id: string; name: string; price: string; description?: string }[];
+  hasOptions?: boolean;
+  minPurchase?: number;
+  maxPurchase?: number;
+  stockEnabled?: boolean;
+  stock?: number;
+  shippingFee?: number;
 }
 
 
@@ -211,28 +221,26 @@ export function AdminPage({}: AdminPageProps) {
           description: `신안의 ${categoryName} 관련 테스트 상품입니다.`,
           longDescription: `신안군에서 제공하는 ${categoryName} 상품으로 많은 사람들이 즐길 수 있는 체험입니다.`,
           highlights: [''],
-          duration: '2시간',
           maxCapacity: '20',
           minCapacity: '1',
-          difficulty: '초급',
-          language: '한국어',
-          minAge: '0',
-          startDate: '',
-          endDate: '',
           meetingPoint: '',
           cancellationPolicy: 'standard',
+          language: 'korean',
           tags: [''],
           included: ['가이드 동행', '체험도구 제공'],
           excluded: ['개인 용품'],
           policies: ['우천시 취소 가능'],
           amenities: ['주차장', '화장실'],
           images: ['https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop'],
-          availableStartTimes: [''],
-          itinerary: [{ time: '', activity: '', description: '' }],
-          packages: [{ id: '', name: '', price: '', description: '' }],
           featured: false,
           isPMSProduct: false,
-          pmsFormData: null
+          pmsFormData: null,
+          hasOptions: false,
+          minPurchase: '1',
+          maxPurchase: '',
+          stockEnabled: false,
+          stock: '0',
+          shippingFee: ''
         });
         setIsAddModalOpen(true);
       };
@@ -583,6 +591,10 @@ export function AdminPage({}: AdminPageProps) {
   const [partners, setPartners] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProductForOptions, setEditingProductForOptions] = useState<Product | null>(null);
+  const [isOptionsDialogOpen, setIsOptionsDialogOpen] = useState(false);
+  const [productOptions, setProductOptions] = useState<any[]>([]);
+  const [newOption, setNewOption] = useState({ optionName: '', optionValue: '', priceAdjustment: '0', stock: '0' });
   const [editingPartner, setEditingPartner] = useState<any | null>(null);
   const [isPartnerDialogOpen, setIsPartnerDialogOpen] = useState(false);
   const [isCreatePartnerMode, setIsCreatePartnerMode] = useState(false);
@@ -643,6 +655,10 @@ export function AdminPage({}: AdminPageProps) {
   const [orders, setOrders] = useState<any[]>([]);
   const [editingOrder, setEditingOrder] = useState<any | null>(null);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+
+  // 배송 관리 상태
+  const [selectedShippingOrder, setSelectedShippingOrder] = useState<any | null>(null);
+  const [isShippingDialogOpen, setIsShippingDialogOpen] = useState(false);
 
   // 이미지 관리 상태
   const [images, setImages] = useState<any[]>([]);
@@ -705,7 +721,14 @@ export function AdminPage({}: AdminPageProps) {
     tags: [''],
     amenities: [''],
     isPMSProduct: false, // PMS 연동 상품 여부
-    pmsFormData: null as any // PMS 원본 데이터 저장
+    pmsFormData: null as any, // PMS 원본 데이터 저장
+    // 팝업 상품 전용 필드
+    hasOptions: false, // 옵션 사용 여부
+    minPurchase: '1', // 최소 구매 수량
+    maxPurchase: '', // 최대 구매 수량 (빈 값 = 무제한)
+    stockEnabled: false, // 재고 관리 사용 여부
+    stock: '0', // 재고 수량
+    shippingFee: '' // 상품별 배송비 (빈 값 = 정책 사용)
   });
 
   // 렌트카, 숙박은 별도 관리 탭에서 추가하므로 제외
@@ -946,6 +969,13 @@ export function AdminPage({}: AdminPageProps) {
     return () => clearInterval(interval);
   }, [loadAdminData]);
 
+  // 옵션 다이얼로그 열릴 때 옵션 목록 불러오기
+  useEffect(() => {
+    if (isOptionsDialogOpen && editingProductForOptions) {
+      fetchProductOptions(parseInt(editingProductForOptions.id));
+    }
+  }, [isOptionsDialogOpen, editingProductForOptions]);
+
   // 수동 새로고침 함수 (실시간 동기화 포함)
   const handleRefresh = async () => {
     toast.info('🔄 관리자 데이터 및 전체 시스템 새로고침 중...');
@@ -1184,7 +1214,13 @@ export function AdminPage({}: AdminPageProps) {
             tags: [''],
             amenities: [''],
             isPMSProduct: false,
-            pmsFormData: null
+            pmsFormData: null,
+            hasOptions: false,
+            minPurchase: '1',
+            maxPurchase: '',
+            stockEnabled: false,
+            stock: '0',
+            shippingFee: ''
           });
 
           setIsLoading(false);
@@ -1220,7 +1256,14 @@ export function AdminPage({}: AdminPageProps) {
         included: newProduct.included.filter(i => i.trim() !== ''),
         excluded: newProduct.excluded.filter(e => e.trim() !== ''),
         is_active: true,
-        featured: newProduct.featured || false
+        featured: newProduct.featured || false,
+        // 팝업 상품 전용 필드
+        hasOptions: newProduct.hasOptions || false,
+        minPurchase: newProduct.minPurchase ? parseInt(newProduct.minPurchase) : 1,
+        maxPurchase: newProduct.maxPurchase ? parseInt(newProduct.maxPurchase) : null,
+        stockEnabled: newProduct.stockEnabled || false,
+        stock: newProduct.stock ? parseInt(newProduct.stock) : 0,
+        shippingFee: newProduct.shippingFee ? parseInt(newProduct.shippingFee) : null
       };
 
       const response = await api.admin.createListing(listingData);
@@ -1268,7 +1311,13 @@ export function AdminPage({}: AdminPageProps) {
           tags: [''],
           amenities: [''],
           isPMSProduct: false,
-          pmsFormData: null
+          pmsFormData: null,
+          hasOptions: false,
+          minPurchase: '1',
+          maxPurchase: '',
+          stockEnabled: false,
+          stock: '0',
+          shippingFee: ''
         });
         setIsAddModalOpen(false);
         toast.success('상품이 추가되었습니다.');
@@ -1431,6 +1480,113 @@ export function AdminPage({}: AdminPageProps) {
     } catch (error) {
       console.error('Status toggle failed:', error);
       toast.error('상태 변경 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 상품 옵션 관리 함수들
+  const fetchProductOptions = async (listingId: number) => {
+    try {
+      const response = await fetch(`/api/listings/${listingId}/options`);
+      const result = await response.json();
+      if (result.success) {
+        setProductOptions(result.data || []);
+      } else {
+        toast.error('옵션 목록을 불러오는데 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to fetch options:', error);
+      toast.error('옵션 목록을 불러오는데 실패했습니다.');
+    }
+  };
+
+  const handleAddOption = async () => {
+    if (!editingProductForOptions) return;
+    if (!newOption.optionName.trim() || !newOption.optionValue.trim()) {
+      toast.error('옵션명과 옵션값을 모두 입력해주세요.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/admin/listings/${editingProductForOptions.id}/options`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          optionName: newOption.optionName,
+          optionValue: newOption.optionValue,
+          priceAdjustment: parseInt(newOption.priceAdjustment) || 0,
+          stock: parseInt(newOption.stock) || 0
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('옵션이 추가되었습니다.');
+        setNewOption({ optionName: '', optionValue: '', priceAdjustment: '0', stock: '0' });
+        await fetchProductOptions(parseInt(editingProductForOptions.id));
+      } else {
+        toast.error(result.error || '옵션 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to add option:', error);
+      toast.error('옵션 추가에 실패했습니다.');
+    }
+  };
+
+  const handleUpdateOption = async (optionId: number, updates: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/admin/product-options/${optionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('옵션이 수정되었습니다.');
+        if (editingProductForOptions) {
+          await fetchProductOptions(parseInt(editingProductForOptions.id));
+        }
+      } else {
+        toast.error(result.error || '옵션 수정에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to update option:', error);
+      toast.error('옵션 수정에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteOption = async (optionId: number) => {
+    if (!confirm('이 옵션을 삭제하시겠습니까?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/admin/product-options/${optionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('옵션이 삭제되었습니다.');
+        if (editingProductForOptions) {
+          await fetchProductOptions(parseInt(editingProductForOptions.id));
+        }
+      } else {
+        toast.error(result.error || '옵션 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete option:', error);
+      toast.error('옵션 삭제에 실패했습니다.');
     }
   };
 
@@ -2407,7 +2563,7 @@ export function AdminPage({}: AdminPageProps) {
                 <div className="space-y-3 md:space-y-4">
                   {products.slice(0, 5).map((product) => (
                     <div key={product.id} className="flex items-center space-x-3 md:space-x-4">
-                      <img
+                      <ImageWithFallback
                         src={product.image}
                         alt={product.title}
                         className="w-10 h-10 md:w-12 md:h-12 rounded-lg object-cover flex-shrink-0"
@@ -2618,6 +2774,106 @@ export function AdminPage({}: AdminPageProps) {
                                 </div>
                               </div>
                             )}
+
+                            {/* 팝업 카테고리 전용 필드 */}
+                            {newProduct.category === '팝업' && (
+                              <>
+                                {/* 옵션 사용 여부 */}
+                                <div className="col-span-full">
+                                  <label className="flex items-center space-x-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={newProduct.hasOptions}
+                                      onChange={(e) => setNewProduct(prev => ({ ...prev, hasOptions: e.target.checked }))}
+                                      className="w-4 h-4"
+                                    />
+                                    <span className="text-sm font-medium">옵션 사용 (사이즈, 색상 등)</span>
+                                  </label>
+                                  <p className="text-xs text-gray-500 mt-1 ml-6">
+                                    체크 시 상품 등록 후 옵션을 추가할 수 있습니다
+                                  </p>
+                                </div>
+
+                                {/* 구매 수량 제한 */}
+                                <div>
+                                  <label className="text-sm font-medium mb-1 block">최소 구매 수량</label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={newProduct.minPurchase}
+                                    onChange={(e) => setNewProduct(prev => ({ ...prev, minPurchase: e.target.value }))}
+                                    placeholder="1"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    기본값: 1개
+                                  </p>
+                                </div>
+
+                                <div>
+                                  <label className="text-sm font-medium mb-1 block">최대 구매 수량</label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={newProduct.maxPurchase}
+                                    onChange={(e) => setNewProduct(prev => ({ ...prev, maxPurchase: e.target.value }))}
+                                    placeholder="무제한"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    빈 값 = 무제한
+                                  </p>
+                                </div>
+
+                                {/* 재고 관리 */}
+                                <div className="col-span-full">
+                                  <label className="flex items-center space-x-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={newProduct.stockEnabled}
+                                      onChange={(e) => setNewProduct(prev => ({ ...prev, stockEnabled: e.target.checked }))}
+                                      className="w-4 h-4"
+                                    />
+                                    <span className="text-sm font-medium">재고 관리 활성화</span>
+                                  </label>
+                                  <p className="text-xs text-gray-500 mt-1 ml-6">
+                                    {newProduct.hasOptions
+                                      ? '옵션별 재고를 별도 관리합니다'
+                                      : '상품 재고를 관리합니다'}
+                                  </p>
+                                </div>
+
+                                {/* 재고 수량 (옵션 없고 재고 관리 활성화 시에만 표시) */}
+                                {newProduct.stockEnabled && !newProduct.hasOptions && (
+                                  <div>
+                                    <label className="text-sm font-medium mb-1 block">재고 수량</label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={newProduct.stock}
+                                      onChange={(e) => setNewProduct(prev => ({ ...prev, stock: e.target.value }))}
+                                      placeholder="0"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      0 = 품절 상태
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* 배송비 설정 */}
+                                <div>
+                                  <label className="text-sm font-medium mb-1 block">상품별 배송비</label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={newProduct.shippingFee}
+                                    onChange={(e) => setNewProduct(prev => ({ ...prev, shippingFee: e.target.value }))}
+                                    placeholder="기본 정책 사용 (3,000원)"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    빈 값 = 기본 정책 사용 (30,000원 이상 무료)
+                                  </p>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
 
@@ -2741,7 +2997,7 @@ export function AdminPage({}: AdminPageProps) {
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                   {newProduct.images.map((image, index) => (
                                     <div key={index} className="relative group">
-                                      <img
+                                      <ImageWithFallback
                                         src={image}
                                         alt={`상품 이미지 ${index + 1}`}
                                         className="w-full h-24 object-cover rounded-lg border"
@@ -3009,7 +3265,7 @@ export function AdminPage({}: AdminPageProps) {
                         <TableRow key={product.id}>
                           <TableCell>
                             <div className="flex items-center space-x-3">
-                              <img
+                              <ImageWithFallback
                                 src={product.image}
                                 alt={product.title}
                                 className="w-10 h-10 rounded-lg object-cover"
@@ -3047,6 +3303,20 @@ export function AdminPage({}: AdminPageProps) {
                           <TableCell>{product.createdAt}</TableCell>
                           <TableCell>
                             <div className="flex space-x-1">
+                              {product.category === '팝업' && product.hasOptions && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingProductForOptions(product);
+                                    setIsOptionsDialogOpen(true);
+                                  }}
+                                  title="옵션 관리"
+                                  className="text-purple-600 hover:text-purple-700"
+                                >
+                                  <Settings className="h-3 w-3" />
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -3156,7 +3426,7 @@ export function AdminPage({}: AdminPageProps) {
                       <Card className="md:col-span-2">
                         <CardContent className="p-4">
                           <div className="space-y-3">
-                            <img
+                            <ImageWithFallback
                               src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=400&h=300&fit=crop"
                               alt="민박 메인 이미지"
                               className="w-full h-48 object-cover rounded-lg"
@@ -3184,7 +3454,7 @@ export function AdminPage({}: AdminPageProps) {
                         <Card>
                           <CardContent className="p-3">
                             <div className="space-y-2">
-                              <img
+                              <ImageWithFallback
                                 src="https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=300&h=200&fit=crop"
                                 alt="갯벌체험"
                                 className="w-full h-24 object-cover rounded"
@@ -3210,7 +3480,7 @@ export function AdminPage({}: AdminPageProps) {
                         <Card>
                           <CardContent className="p-3">
                             <div className="space-y-2">
-                              <img
+                              <ImageWithFallback
                                 src="https://images.unsplash.com/photo-1464822759880-4601b726be04?w=300&h=200&fit=crop"
                                 alt="홍도 유람선"
                                 className="w-full h-24 object-cover rounded"
@@ -3586,6 +3856,23 @@ export function AdminPage({}: AdminPageProps) {
                             <div className="text-xs text-gray-500">
                               {order.category ? `카테고리: ${order.category}` : ''}
                             </div>
+                            {order.selected_options && (() => {
+                              try {
+                                const options = typeof order.selected_options === 'string'
+                                  ? JSON.parse(order.selected_options)
+                                  : order.selected_options;
+                                return (
+                                  <div className="text-xs text-purple-700 font-medium mt-1 bg-purple-50 px-2 py-1 rounded">
+                                    옵션: {options.name} - {options.value}
+                                    {options.priceAdjustment !== 0 && (
+                                      <span className="ml-1">({options.priceAdjustment > 0 ? '+' : ''}{options.priceAdjustment.toLocaleString()}원)</span>
+                                    )}
+                                  </div>
+                                );
+                              } catch (e) {
+                                return null;
+                              }
+                            })()}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -3637,7 +3924,7 @@ export function AdminPage({}: AdminPageProps) {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                             <Button size="sm" variant="outline">
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -3648,6 +3935,20 @@ export function AdminPage({}: AdminPageProps) {
                                 onClick={() => handleUpdateOrderStatus(order.id, 'confirmed')}
                               >
                                 확정
+                              </Button>
+                            )}
+                            {order.category === '팝업' && order.delivery_status && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-blue-50 hover:bg-blue-100 text-blue-700"
+                                onClick={() => {
+                                  setSelectedShippingOrder(order);
+                                  setIsShippingDialogOpen(true);
+                                }}
+                              >
+                                <Truck className="h-4 w-4 mr-1" />
+                                배송 관리
                               </Button>
                             )}
                             <Button
@@ -3675,6 +3976,14 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* 배송 관리 다이얼로그 */}
+            <ShippingManagementDialog
+              open={isShippingDialogOpen}
+              onOpenChange={setIsShippingDialogOpen}
+              booking={selectedShippingOrder}
+              onUpdate={loadAdminData}
+            />
           </TabsContent>
 
           {/* 숙박 관리 탭 */}
@@ -4748,7 +5057,7 @@ export function AdminPage({}: AdminPageProps) {
                     <div>
                       <label className="text-sm font-medium mb-2 block">현재 메인 이미지</label>
                       <div className="flex gap-2 items-center">
-                        <img src={editingProduct.image} alt="메인 이미지" className="w-24 h-24 object-cover rounded" />
+                        <ImageWithFallback src={editingProduct.image} alt="메인 이미지" className="w-24 h-24 object-cover rounded" />
                         <Input
                           value={editingProduct.image}
                           onChange={(e) => setEditingProduct(prev =>
@@ -5800,7 +6109,7 @@ export function AdminPage({}: AdminPageProps) {
                   <div className="grid grid-cols-3 gap-2">
                     {newPartner.images.map((img, idx) => (
                       <div key={idx} className="relative group">
-                        <img
+                        <ImageWithFallback
                           src={img}
                           alt={`Preview ${idx + 1}`}
                           className="w-full h-24 object-cover rounded border"
@@ -6327,6 +6636,157 @@ export function AdminPage({}: AdminPageProps) {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 상품 옵션 관리 다이얼로그 */}
+      <Dialog open={isOptionsDialogOpen} onOpenChange={setIsOptionsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>옵션 관리 - {editingProductForOptions?.title}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* 옵션 추가 폼 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">새 옵션 추가</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label>옵션명 (예: 사이즈)</Label>
+                    <Input
+                      value={newOption.optionName}
+                      onChange={(e) => setNewOption(prev => ({ ...prev, optionName: e.target.value }))}
+                      placeholder="사이즈"
+                    />
+                  </div>
+                  <div>
+                    <Label>옵션값 (예: L)</Label>
+                    <Input
+                      value={newOption.optionValue}
+                      onChange={(e) => setNewOption(prev => ({ ...prev, optionValue: e.target.value }))}
+                      placeholder="L"
+                    />
+                  </div>
+                  <div>
+                    <Label>추가 가격</Label>
+                    <Input
+                      type="number"
+                      value={newOption.priceAdjustment}
+                      onChange={(e) => setNewOption(prev => ({ ...prev, priceAdjustment: e.target.value }))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <Label>재고</Label>
+                    <Input
+                      type="number"
+                      value={newOption.stock}
+                      onChange={(e) => setNewOption(prev => ({ ...prev, stock: e.target.value }))}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={handleAddOption}
+                  className="mt-4 bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  옵션 추가
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* 옵션 목록 */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">옵션 목록 ({productOptions.length}개)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {productOptions.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">등록된 옵션이 없습니다.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>옵션명</TableHead>
+                        <TableHead>옵션값</TableHead>
+                        <TableHead>추가 가격</TableHead>
+                        <TableHead>재고</TableHead>
+                        <TableHead>상태</TableHead>
+                        <TableHead>작업</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {productOptions.map((option: any) => (
+                        <TableRow key={option.id}>
+                          <TableCell>{option.option_name}</TableCell>
+                          <TableCell>{option.option_value}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              defaultValue={option.price_adjustment || 0}
+                              onBlur={(e) => {
+                                const newValue = parseInt(e.target.value) || 0;
+                                if (newValue !== option.price_adjustment) {
+                                  handleUpdateOption(option.id, { priceAdjustment: newValue });
+                                }
+                              }}
+                              className="w-24"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              defaultValue={option.stock || 0}
+                              onBlur={(e) => {
+                                const newValue = parseInt(e.target.value) || 0;
+                                if (newValue !== option.stock) {
+                                  handleUpdateOption(option.id, { stock: newValue });
+                                }
+                              }}
+                              className="w-24"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={option.is_available ? 'default' : 'secondary'}>
+                              {option.is_available ? '활성' : '비활성'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUpdateOption(option.id, { isAvailable: !option.is_available })}
+                              >
+                                {option.is_available ? '비활성화' : '활성화'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeleteOption(option.id)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsOptionsDialogOpen(false)}>
+              닫기
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

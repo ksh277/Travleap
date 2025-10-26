@@ -62,6 +62,23 @@ export default function PaymentSuccessPage2() {
 
       setBookingId(result.bookingId || null);
       setReceiptUrl(result.receiptUrl || null);
+
+      // 장바구니 주문인 경우 장바구니 비우기
+      if (orderId && orderId.startsWith('ORDER_')) {
+        try {
+          const userId = localStorage.getItem('userId');
+          if (userId) {
+            await fetch(`/api/cart/clear?userId=${userId}`, {
+              method: 'DELETE'
+            });
+            console.log('✅ 장바구니 비우기 완료');
+          }
+        } catch (clearError) {
+          console.error('장바구니 비우기 실패:', clearError);
+          // 에러가 발생해도 계속 진행 (결제는 성공했으므로)
+        }
+      }
+
       setIsProcessing(false);
 
     } catch (err: any) {

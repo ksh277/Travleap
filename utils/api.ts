@@ -98,6 +98,13 @@ export interface TravelItem {
     tier: string;
     is_verified: boolean;
   };
+  // Popup product-specific fields
+  has_options?: boolean | number;
+  min_purchase?: number;
+  max_purchase?: number;
+  stock_enabled?: boolean | number;
+  stock?: number;
+  shipping_fee?: number;
 }
 
 export interface BookingRequest {
@@ -507,7 +514,11 @@ export const api = {
           guest_phone: bookingData.guest_phone || '',
           guest_email: bookingData.guest_email || '',
           total_amount: bookingData.total_amount || 0,
-          special_requests: bookingData.special_requests
+          special_requests: bookingData.special_requests,
+          // ✅ 팝업 상품 옵션 정보 전달 (selected_option이 있으면 포함)
+          ...(bookingData.selected_option && {
+            selected_option: bookingData.selected_option
+          })
         })
       });
 
@@ -586,43 +597,40 @@ export const api = {
     total: number;
     status: 'pending' | 'confirmed' | 'cancelled';
     paymentMethod: string;
+    // ✅ 배송 정보 추가 (PG사 심사 필수)
+    shippingInfo?: {
+      name: string;
+      phone: string;
+      zipcode: string;
+      address: string;
+      addressDetail: string;
+      memo?: string;
+    };
   }): Promise<ApiResponse<any>> => {
     try {
-      // 주문 정보 저장을 위한 payments 테이블 사용
-      const payment = {
-        user_id: orderData.userId,
-        booking_id: 0, // 장바구니 주문은 booking_id 없음
-        amount: orderData.total,
-        payment_method: orderData.paymentMethod,
-        payment_status: 'pending' as const,
-        gateway_transaction_id: `ORDER_${Date.now()}`,
-        coupon_code: orderData.couponCode || null,
-        discount_amount: orderData.couponDiscount,
-        fee_amount: orderData.deliveryFee,
-        refund_amount: 0,
-        notes: JSON.stringify({
-          items: orderData.items,
-          subtotal: orderData.subtotal,
-          orderType: 'cart'
-        })
-      };
-
-      const response = await db.insert('payments', payment);
-
-      return {
-        success: true,
-        data: {
-          id: response.data.id,
-          orderNumber: payment.gateway_transaction_id,
-          ...orderData
+      // ✅ SECURITY FIX: Call server API instead of direct DB access
+      const response = await fetch(`${API_BASE_URL}/api/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
         },
-        message: '주문이 성공적으로 생성되었습니다.'
-      };
+        body: JSON.stringify(orderData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || '주문 생성에 실패했습니다.');
+      }
+
+      const result = await response.json();
+      return result;
+
     } catch (error) {
       console.error('Failed to create order:', error);
       return {
         success: false,
-        error: '주문 생성에 실패했습니다.'
+        error: error instanceof Error ? error.message : '주문 생성에 실패했습니다.'
       };
     }
   },

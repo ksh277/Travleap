@@ -1,40 +1,18 @@
 import { useState } from 'react';
-import { Phone, Mail } from 'lucide-react';
+import { Phone, Mail, MessageCircle } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { t } from '../utils/translations';
 import { toast } from 'sonner';
 
 interface FooterProps {
-  selectedLanguage?: string;
-  selectedCurrency?: string;
-  onLanguageChange?: (language: string) => void;
-  onCurrencyChange?: (currency: string) => void;
   onCategorySelect?: (category: string) => void;
 }
 
 export function Footer({
-  selectedLanguage = 'ko',
-  selectedCurrency = 'KRW',
-  onLanguageChange,
-  onCurrencyChange,
   onCategorySelect
 }: FooterProps) {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleLanguageChange = (value: string) => {
-    if (onLanguageChange) {
-      onLanguageChange(value);
-    }
-  };
-
-  const handleCurrencyChange = (value: string) => {
-    if (onCurrencyChange) {
-      onCurrencyChange(value);
-    }
-  };
 
   const handleSubscribe = async () => {
     if (!email || !email.trim()) {
@@ -42,7 +20,6 @@ export function Footer({
       return;
     }
 
-    // 이메일 형식 검증
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       toast.error('올바른 이메일 형식이 아닙니다.');
@@ -53,9 +30,7 @@ export function Footer({
       setIsSubmitting(true);
       const response = await fetch('/api/newsletter/subscribe', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim() })
       });
 
@@ -76,198 +51,215 @@ export function Footer({
   };
 
   return (
-    <footer className="bg-gray-50 border-t border-gray-200">
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        {/* 뉴스레터 구독 섹션 */}
-        <div className="flex items-center justify-center mb-6 md:mb-8">
-          <div className="bg-white rounded-lg p-4 md:p-6 shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full max-w-4xl">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
-                <Mail className="h-4 w-4 text-gray-600" />
-              </div>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-gray-900 mb-1">{t('getUpdates', selectedLanguage)}</h3>
-              <p className="text-xs text-gray-600 mb-3">{t('thoughtfulThoughts', selectedLanguage)}</p>
-              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full">
-                <Input
-                  type="email"
-                  placeholder={t('emailPlaceholder', selectedLanguage)}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 text-xs min-h-[44px] sm:h-8"
-                />
-                <Button
-                  onClick={handleSubscribe}
-                  disabled={isSubmitting}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 min-h-[44px] sm:h-8 text-xs flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? '처리 중...' : t('subscribe', selectedLanguage)}
-                </Button>
-              </div>
-            </div>
+    <footer className="bg-white border-t border-gray-200">
+      <div className="max-w-7xl mx-auto px-6">
+
+        {/* 상단 약관 링크 (네이버 스타일) */}
+        <div className="py-4 border-b border-gray-200">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-700">
+            <a href="/terms" className="hover:text-purple-600 font-medium">이용약관</a>
+            <span className="text-gray-300">|</span>
+            <a href="/privacy" className="hover:text-purple-600 font-bold text-gray-900">개인정보처리방침</a>
+            <span className="text-gray-300">|</span>
+            <a href="/refund-policy" className="hover:text-purple-600 font-medium">취소/환불정책</a>
+            <span className="text-gray-300">|</span>
+            <a href="/legal" className="hover:text-purple-600">전자금융거래 이용약관</a>
+            <span className="text-gray-300">|</span>
+            <button
+              onClick={() => onCategorySelect?.('contact')}
+              className="hover:text-purple-600"
+            >
+              고객센터
+            </button>
           </div>
         </div>
 
-        {/* 푸터 링크 섹션 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-          
-          {/* NEED HELP? */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-4">{t('needHelp', selectedLanguage)}</h3>
-            <ul className="space-y-3 text-sm">
-              <li>
-                <div className="text-gray-600">{t('callUs', selectedLanguage)}</div>
-                <div className="flex items-center space-x-1 text-gray-900">
-                  <Phone className="h-3 w-3" />
-                  <span>0504-0811-1330</span>
+        {/* 메인 Footer 콘텐츠 */}
+        <div className="py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+
+            {/* 사업자 정보 */}
+            <div>
+              <h3 className="text-base font-bold text-gray-900 mb-4">어썸플랜</h3>
+
+              <div className="space-y-1.5 text-xs text-gray-600 leading-relaxed">
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <span><span className="text-gray-900 font-medium">대표</span> 함은비</span>
+                  <span className="text-gray-300">|</span>
+                  <span>
+                    <span className="text-gray-900 font-medium">사업자등록번호</span> 268-87-01436
+                    <a
+                      href="https://www.ftc.go.kr/bizCommPop.do?wrkr_no=2688701436"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-1 text-purple-600 hover:underline"
+                    >
+                      [사업자정보확인]
+                    </a>
+                  </span>
                 </div>
-              </li>
-              <li>
-                <div className="text-gray-600">{t('emailUs', selectedLanguage)}</div>
-                <div className="text-gray-900">awesomeplan4606@naver.com123123</div>
-              </li>
-            </ul>
-          </div>
 
-          {/* COMPANY */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-4">{t('company', selectedLanguage)}</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <button
-                  onClick={() => onCategorySelect?.('company')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
-                >
-                  회사 소개
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onCategorySelect?.('blog')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
-                >
-                  블로그
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onCategorySelect?.('community-blog')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
-                >
-                  {t('communityBlog', selectedLanguage)}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onCategorySelect?.('rewards')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
-                >
-                  {t('rewards', selectedLanguage)}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onCategorySelect?.('work-with-us')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left min-h-[1px] flex items-center"
-                >
-                  {t('workWithUs', selectedLanguage)}
-                </button>
-              </li>
-            </ul>
-          </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <span><span className="text-gray-900 font-medium">통신판매업</span> 2020-전남목포-0368</span>
+                  <span className="text-gray-300">|</span>
+                  <span><span className="text-gray-900 font-medium">호스팅</span> Vercel Inc.</span>
+                </div>
 
-          {/* SUPPORT */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-4">{t('support', selectedLanguage)}</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <button
-                  onClick={() => onCategorySelect?.('mypage')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left"
-                >
-                  {t('account', selectedLanguage)}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onCategorySelect?.('legal')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left"
-                >
-                  {t('legal', selectedLanguage)}
-                </button>
-              </li>
-              <li>
+                <div>
+                  <span className="text-gray-900 font-medium">주소</span> 전라남도 목포시 원산중앙로 44 2층 (우: 58636)
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  <span className="text-gray-900 font-medium">이메일</span> awesomeplan4606@naver.com
+                </div>
+
+                <div>
+                  <span className="text-gray-900 font-medium">개인정보보호책임자</span> 함은비
+                </div>
+              </div>
+            </div>
+
+            {/* COMPANY */}
+            <div className="lg:pl-24">
+              <h3 className="text-base font-bold text-gray-900 mb-4">COMPANY</h3>
+              <ul className="space-y-2.5 text-sm text-gray-600">
+                <li>
+                  <a href="/about" className="hover:text-purple-600 transition-colors">
+                    회사 소개
+                  </a>
+                </li>
+                <li>
+                  <a href="/blog" className="hover:text-purple-600 transition-colors">
+                    커뮤니티 블로그
+                  </a>
+                </li>
+                <li>
+                  <a href="/rewards" className="hover:text-purple-600 transition-colors">
+                    포인트 제도
+                  </a>
+                </li>
+                <li>
+                  <a href="/careers" className="hover:text-purple-600 transition-colors">
+                    함께 일하기
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* SETTING */}
+            <div>
+              <h3 className="text-base font-bold text-gray-900 mb-4">SETTING</h3>
+              <div>
+                <label className="text-sm text-gray-600 block mb-2">통화</label>
+                <select className="w-full h-10 text-sm border border-gray-300 rounded-md px-3 bg-white hover:border-purple-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-colors">
+                  <option value="KRW">KRW (₩)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="JPY">JPY (¥)</option>
+                  <option value="CNY">CNY (¥)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 고객센터 */}
+            <div>
+              <h3 className="text-base font-bold text-gray-900 mb-4">고객센터</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 text-2xl font-bold text-gray-900 mb-2">
+                    <Phone className="h-6 w-6" />
+                    0504-0811-1330
+                  </div>
+                  <p className="text-sm text-gray-600">평일 09:00 - 18:00</p>
+                  <p className="text-xs text-gray-500">(주말/공휴일 휴무)</p>
+                </div>
+
                 <button
                   onClick={() => onCategorySelect?.('contact')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left"
+                  className="flex items-center gap-2 text-base text-purple-600 hover:text-purple-700 font-semibold transition-colors"
                 >
-                  {t('contact', selectedLanguage)}
+                  <MessageCircle className="h-5 w-5" />
+                  1:1 문의하기
                 </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onCategorySelect?.('affiliate')}
-                  className="text-gray-600 hover:text-purple-600 transition-colors text-left"
-                >
-                  {t('affiliate', selectedLanguage)}
-                </button>
-              </li>
-            </ul>
-          </div>
 
-          {/* SETTING */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-4">{t('setting', selectedLanguage)}</h3>
-            <div className="space-y-4">
-              {/* 화폐 선택 */}
-              <div>
-                <label className="text-sm text-gray-600 block mb-2">{t('currency', selectedLanguage)}</label>
-                <Select value={selectedCurrency} onValueChange={handleCurrencyChange}>
-                  <SelectTrigger className="w-full text-sm min-h-[44px] md:h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="KRW">KRW</SelectItem>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="EUR">EUR</SelectItem>
-                    <SelectItem value="JPY">JPY</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* 언어 선택 */}
-              <div>
-                <label className="text-sm text-gray-600 block mb-2">{t('language', selectedLanguage)}</label>
-                <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
-                  <SelectTrigger className="w-full text-sm min-h-[44px] md:h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ko">한국어</SelectItem>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="zh">中文</SelectItem>
-                    <SelectItem value="ja">日本語</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* 뉴스레터 */}
+                <div className="pt-4 border-t border-gray-200">
+                  <p className="text-sm font-medium text-gray-700 mb-3">뉴스레터</p>
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      type="email"
+                      placeholder="이메일 주소"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="h-10 text-sm"
+                    />
+                    <Button
+                      onClick={handleSubscribe}
+                      disabled={isSubmitting}
+                      className="bg-purple-600 hover:bg-purple-700 text-white h-10 px-4 text-sm font-semibold w-full"
+                    >
+                      구독
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 저작권 정보 */}
-        <div className="border-t border-gray-200 mt-6 md:mt-8 pt-4 md:pt-6">
-          <div className="flex flex-col lg:flex-row justify-between items-center space-y-3 lg:space-y-0">
-            <div className="text-xs text-gray-500 text-center lg:text-left">
-              {t('copyright', selectedLanguage)}
+        {/* 법정 고지사항 */}
+        <div className="py-4 border-t border-gray-200">
+          <div className="space-y-2 text-xs text-gray-500 leading-relaxed">
+            <p>
+              어썸플랜은 통신판매업자로서 일부 상품은 직접 판매하며, 일부 상품은 통신판매중개 서비스를 제공합니다.
+              중개 상품의 경우 상품의 예약, 이용 및 환불 등과 관련한 의무와 책임은 각 판매자에게 있습니다.
+            </p>
+            <p>
+              <strong className="text-gray-700">전자상거래 소비자보호:</strong> 상품 구매 시 개인정보는 배송업체 및 결제대행업체(토스페이먼츠)에 제공되며,
+              거래 완료 후 관계 법령에 따라 일정 기간 보관됩니다.
+            </p>
+            <p>
+              <strong className="text-gray-700">취소/환불:</strong> 일반 상품은 수령 후 7일 이내 청약철회 가능합니다.
+              다만, 여행/숙박/렌트카 등 날짜가 정해진 서비스 상품은 각 상품의 취소 정책에 따르며,
+              일부 상품은 취소 수수료가 부과되거나 취소가 불가능할 수 있습니다.
+              자세한 사항은 <a href="/refund-policy" className="text-purple-600 hover:underline">취소/환불 정책</a>을 확인하세요.
+            </p>
+            <p>
+              <strong className="text-gray-700">소비자 피해 보상:</strong> 공정거래위원회 고시 소비자분쟁해결기준에 따라 피해 보상을 받을 수 있습니다.
+            </p>
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div className="py-4 border-t border-gray-100">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div className="text-xs text-gray-500">
+              © {new Date().getFullYear()} 어썸플랜. All rights reserved.
             </div>
-            <div className="flex flex-wrap justify-center lg:justify-end space-x-4 md:space-x-6 text-xs">
-              <a href="#" className="text-gray-500 hover:text-purple-600 transition-colors min-h-[44px] py-2 flex items-center">{t('privacyPolicy', selectedLanguage)}</a>
-              <a href="#" className="text-gray-500 hover:text-purple-600 transition-colors min-h-[44px] py-2 flex items-center">{t('termsOfService', selectedLanguage)}</a>
-              <a href="#" className="text-gray-500 hover:text-purple-600 transition-colors min-h-[44px] py-2 flex items-center">{t('cookiePolicy', selectedLanguage)}</a>
+            <div className="flex gap-4 text-xs text-gray-500">
+              <button
+                onClick={() => onCategorySelect?.('company')}
+                className="hover:text-purple-600"
+              >
+                회사소개
+              </button>
+              <button
+                onClick={() => onCategorySelect?.('blog')}
+                className="hover:text-purple-600"
+              >
+                블로그
+              </button>
+              <button
+                onClick={() => onCategorySelect?.('affiliate')}
+                className="hover:text-purple-600"
+              >
+                제휴문의
+              </button>
             </div>
           </div>
         </div>
+
       </div>
     </footer>
   );

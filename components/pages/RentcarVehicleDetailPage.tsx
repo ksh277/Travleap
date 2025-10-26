@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -77,6 +77,7 @@ interface Insurance {
 export function RentcarVehicleDetailPage() {
   const { vehicleId } = useParams<{ vehicleId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isLoggedIn } = useAuth();
 
   const [vehicle, setVehicle] = useState<VehicleDetail | null>(null);
@@ -92,9 +93,46 @@ export function RentcarVehicleDetailPage() {
   const [pickupTime, setPickupTime] = useState('10:00');
   const [returnTime, setReturnTime] = useState('10:00');
 
+  // MVP API 가격 정보 (업체 페이지에서 전달받음)
+  const [mvpPricing, setMvpPricing] = useState<any>(null);
+
+  // 운전자 정보 상태 (MVP API 필수)
+  const [driverName, setDriverName] = useState('');
+  const [driverBirth, setDriverBirth] = useState(''); // YYYY-MM-DD 형식
+  const [driverLicenseNo, setDriverLicenseNo] = useState('');
+  const [driverLicenseExp, setDriverLicenseExp] = useState(''); // YYYY-MM-DD 형식
+
   // 보험 상태
   const [insurances, setInsurances] = useState<Insurance[]>([]);
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<number | null>(null);
+
+  // 업체 페이지에서 전달받은 날짜/가격 정보 초기화
+  useEffect(() => {
+    const state = location.state as any;
+    if (state) {
+      console.log('업체 페이지에서 전달받은 정보:', state);
+
+      // 대여 시작 날짜/시간 설정
+      if (state.pickupAt) {
+        const pickupDateTime = new Date(state.pickupAt);
+        setPickupDate(pickupDateTime);
+        setPickupTime(`${pickupDateTime.getHours().toString().padStart(2, '0')}:${pickupDateTime.getMinutes().toString().padStart(2, '0')}`);
+      }
+
+      // 반납 날짜/시간 설정
+      if (state.returnAt) {
+        const returnDateTime = new Date(state.returnAt);
+        setReturnDate(returnDateTime);
+        setReturnTime(`${returnDateTime.getHours().toString().padStart(2, '0')}:${returnDateTime.getMinutes().toString().padStart(2, '0')}`);
+      }
+
+      // MVP API 가격 정보 저장
+      if (state.pricing) {
+        setMvpPricing(state.pricing);
+        console.log('MVP API 가격 정보:', state.pricing);
+      }
+    }
+  }, [location.state]);
 
   // 데이터 로드
   useEffect(() => {
@@ -183,15 +221,24 @@ export function RentcarVehicleDetailPage() {
     const totalHours = calculateRentalHours();
     if (totalHours < 4) return 0; // 최소 4시간
 
-    // 시간당 요금이 있으면 사용, 없으면 일일 요금을 24시간으로 나눔
-    const hourlyRate = vehicle.hourly_rate_krw || Math.ceil(vehicle.daily_rate_krw / 24);
-    const rentalFee = Math.ceil(hourlyRate * totalHours);
+    // MVP API 가격이 있으면 사용 (업체 페이지에서 전달받은 경우)
+    let rentalFee = 0;
+    if (mvpPricing && mvpPricing.base_amount) {
+      rentalFee = mvpPricing.base_amount;
+      console.log('MVP API 가격 사용:', rentalFee);
+    } else {
+      // 없으면 로컬 계산
+      const hourlyRate = vehicle.hourly_rate_krw || Math.ceil(vehicle.daily_rate_krw / 24);
+      rentalFee = Math.ceil(hourlyRate * totalHours);
+      console.log('로컬 계산 가격:', rentalFee);
+    }
+
     const insuranceFee = calculateInsuranceFee();
 
     return rentalFee + insuranceFee;
   };
 
-  // 예약 처리
+  // 예약 처리 (새 MVP API 사용)
   const handleBooking = async () => {
     if (!vehicle) return;
 
@@ -204,6 +251,24 @@ export function RentcarVehicleDetailPage() {
 
     if (!pickupDate || !returnDate) {
       toast.error('대여/반납 날짜를 선택해주세요');
+      return;
+    }
+
+    // 운전자 정보 검증
+    if (!driverName.trim()) {
+      toast.error('운전자 이름을 입력해주세요');
+      return;
+    }
+    if (!driverBirth) {
+      toast.error('운전자 생년월일을 입력해주세요');
+      return;
+    }
+    if (!driverLicenseNo.trim()) {
+      toast.error('운전면허 번호를 입력해주세요');
+      return;
+    }
+    if (!driverLicenseExp) {
+      toast.error('운전면허 만료일을 입력해주세요');
       return;
     }
 
@@ -222,36 +287,31 @@ export function RentcarVehicleDetailPage() {
     try {
       setIsBooking(true);
 
-      // 1. 가용성 확인
-      const availabilityResponse = await fetch(
-        `/api/rentcar/check-availability?vehicle_id=${vehicle.id}&pickup_date=${format(pickupDate, 'yyyy-MM-dd')}&pickup_time=${pickupTime}&dropoff_date=${format(returnDate, 'yyyy-MM-dd')}&dropoff_time=${returnTime}`
-      );
-      const availabilityResult = await availabilityResponse.json();
+      // ISO 8601 형식으로 변환 (KST UTC+9)
+      const pickupDateTime = `${format(pickupDate, 'yyyy-MM-dd')}T${pickupTime}:00+09:00`;
+      const returnDateTime = `${format(returnDate, 'yyyy-MM-dd')}T${returnTime}:00+09:00`;
 
-      if (!availabilityResult.success || !availabilityResult.available) {
-        toast.error(availabilityResult.reason || '선택한 날짜/시간에 예약할 수 없습니다');
-        return;
-      }
-
-      // 2. 예약 생성 (실제 사용자 정보 사용 + 보험)
+      // 새 MVP API로 예약 생성 (운전자 정보 포함)
       const bookingPayload = {
-        vendor_id: vehicle.vendor_id,
         vehicle_id: vehicle.id,
-        user_id: user.id,
-        customer_name: user.name,
-        customer_email: user.email,
-        customer_phone: user.phone || '',
+        pickup_at: pickupDateTime,
+        return_at: returnDateTime,
         pickup_location_id: 1,
         dropoff_location_id: 1,
-        pickup_date: format(pickupDate, 'yyyy-MM-dd'),
-        pickup_time: pickupTime,
-        dropoff_date: format(returnDate, 'yyyy-MM-dd'),
-        dropoff_time: returnTime,
-        insurance_id: selectedInsuranceId || undefined,
-        special_requests: ''
+        driver: {
+          name: driverName,
+          birth: driverBirth,
+          license_no: driverLicenseNo,
+          license_exp: driverLicenseExp
+        },
+        customer: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone || ''
+        }
       };
 
-      const bookingResponse = await fetch('/api/rentcar/bookings', {
+      const bookingResponse = await fetch('/api/rentals', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -266,13 +326,15 @@ export function RentcarVehicleDetailPage() {
         return;
       }
 
-      // 3. 결제 페이지로 이동 (bookingId와 함께)
+      // 결제 페이지로 이동
       const bookingData = bookingResult.data;
-      const totalPrice = calculateTotalPrice();
+      const totalPrice = bookingData.pricing?.total_amount || calculateTotalPrice();
 
       navigate(
-        `/payment?bookingId=${bookingData.id}&bookingNumber=${bookingData.booking_number}&amount=${totalPrice}&title=${encodeURIComponent(vehicle.display_name)}&customerName=${encodeURIComponent(user.name)}&customerEmail=${encodeURIComponent(user.email)}`
+        `/payment?bookingId=${bookingData.rental_id}&bookingNumber=${bookingData.booking_number}&amount=${totalPrice}&title=${encodeURIComponent(vehicle.display_name)}&customerName=${encodeURIComponent(user.name)}&customerEmail=${encodeURIComponent(user.email)}`
       );
+
+      toast.success('예약이 생성되었습니다!');
 
     } catch (error) {
       console.error('예약 처리 오류:', error);
@@ -627,9 +689,17 @@ export function RentcarVehicleDetailPage() {
                           <strong>총 대여 시간:</strong> {Math.floor(calculateRentalHours())}시간
                           {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`}
                         </p>
-                        <p className="text-xs text-blue-700 mt-1">
-                          시간당 약 ₩{(vehicle.hourly_rate_krw || Math.ceil(vehicle.daily_rate_krw / 24)).toLocaleString()}
-                        </p>
+                        {mvpPricing ? (
+                          <p className="text-xs text-blue-700 mt-1">
+                            {mvpPricing.rental_days}일 {mvpPricing.remainder_hours > 0 && `+ ${mvpPricing.remainder_hours}시간`}
+                            {' '}(일 ₩{mvpPricing.daily_rate?.toLocaleString() || vehicle.daily_rate_krw.toLocaleString()},
+                            시간 ₩{mvpPricing.hourly_rate?.toLocaleString() || vehicle.hourly_rate_krw?.toLocaleString() || Math.ceil(vehicle.daily_rate_krw / 24).toLocaleString()})
+                          </p>
+                        ) : (
+                          <p className="text-xs text-blue-700 mt-1">
+                            시간당 약 ₩{(vehicle.hourly_rate_krw || Math.ceil(vehicle.daily_rate_krw / 24)).toLocaleString()}
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -641,6 +711,68 @@ export function RentcarVehicleDetailPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* 운전자 정보 입력 (필수) */}
+                  {pickupDate && returnDate && calculateRentalHours() >= 4 && (
+                    <>
+                      <Separator className="my-4" />
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                            <Users className="h-5 w-5" />
+                            운전자 정보 (필수)
+                          </h3>
+                          <p className="text-xs text-gray-500 mb-3">차량을 직접 운전하실 분의 정보를 입력해주세요</p>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium mb-1 block">운전자 이름 *</label>
+                          <input
+                            type="text"
+                            value={driverName}
+                            onChange={(e) => setDriverName(e.target.value)}
+                            placeholder="홍길동"
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium mb-1 block">생년월일 *</label>
+                          <input
+                            type="date"
+                            value={driverBirth}
+                            onChange={(e) => setDriverBirth(e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium mb-1 block">운전면허 번호 *</label>
+                          <input
+                            type="text"
+                            value={driverLicenseNo}
+                            onChange={(e) => setDriverLicenseNo(e.target.value)}
+                            placeholder="12-345678-90"
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">'-' 포함하여 입력해주세요</p>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium mb-1 block">면허 만료일 *</label>
+                          <input
+                            type="date"
+                            value={driverLicenseExp}
+                            onChange={(e) => setDriverLicenseExp(e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">반납일 이후여야 합니다</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {/* 보험 선택 (선택사항) */}
                   {insurances.length > 0 && pickupDate && returnDate && calculateRentalHours() >= 4 && (
@@ -733,7 +865,14 @@ export function RentcarVehicleDetailPage() {
                       <>
                         <div className="space-y-2 mb-3">
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">차량 대여료</span>
+                            <span className="text-gray-600">
+                              차량 대여료
+                              {mvpPricing && (
+                                <span className="text-xs text-gray-500 ml-1">
+                                  ({mvpPricing.rental_days}일 {mvpPricing.remainder_hours > 0 && `+ ${mvpPricing.remainder_hours}시간`})
+                                </span>
+                              )}
+                            </span>
                             <span className="font-medium">
                               ₩{(calculateTotalPrice() - calculateInsuranceFee()).toLocaleString()}
                             </span>
@@ -756,9 +895,18 @@ export function RentcarVehicleDetailPage() {
                     </div>
                     {pickupDate && returnDate && calculateRentalHours() >= 4 && (
                       <p className="text-xs text-gray-500 mt-1">
-                        {Math.floor(calculateRentalHours())}시간
-                        {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`} 대여
-                        {calculateInsuranceFee() > 0 && ' (보험 포함)'}
+                        {mvpPricing ? (
+                          <>
+                            {mvpPricing.rental_days}일 {mvpPricing.remainder_hours > 0 && `+ ${mvpPricing.remainder_hours}시간`} 대여
+                            {calculateInsuranceFee() > 0 && ' (보험 포함)'}
+                          </>
+                        ) : (
+                          <>
+                            {Math.floor(calculateRentalHours())}시간
+                            {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`} 대여
+                            {calculateInsuranceFee() > 0 && ' (보험 포함)'}
+                          </>
+                        )}
                       </p>
                     )}
                   </div>
@@ -767,7 +915,16 @@ export function RentcarVehicleDetailPage() {
                     onClick={handleBooking}
                     className="w-full"
                     size="lg"
-                    disabled={isBooking || !pickupDate || !returnDate || calculateRentalHours() < 4}
+                    disabled={
+                      isBooking ||
+                      !pickupDate ||
+                      !returnDate ||
+                      calculateRentalHours() < 4 ||
+                      !driverName.trim() ||
+                      !driverBirth ||
+                      !driverLicenseNo.trim() ||
+                      !driverLicenseExp
+                    }
                   >
                     {isBooking ? (
                       <div className="flex items-center gap-2">
@@ -779,8 +936,16 @@ export function RentcarVehicleDetailPage() {
                     )}
                   </Button>
 
+                  {pickupDate && returnDate && calculateRentalHours() >= 4 && (
+                    !driverName.trim() || !driverBirth || !driverLicenseNo.trim() || !driverLicenseExp
+                  ) && (
+                    <p className="text-xs text-center text-orange-600 mt-2">
+                      운전자 정보를 모두 입력해주세요
+                    </p>
+                  )}
+
                   <p className="text-xs text-center text-gray-500 mt-3">
-                    즉시 확정됩니다
+                    예약 후 10분 이내 결제를 완료해주세요
                   </p>
                 </CardContent>
               </Card>

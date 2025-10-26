@@ -4,14 +4,15 @@
  * 공식 문서: https://docs.tosspayments.com/
  */
 
-// Toss Payments 환경 변수 (개발/운영 분리)
-// Node.js에서는 process.env, 브라우저(Vite)에서는 import.meta.env 사용
-const TOSS_CLIENT_KEY = (typeof process !== 'undefined' && process.env?.VITE_TOSS_CLIENT_KEY) ||
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_TOSS_CLIENT_KEY) ||
-  'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
-const TOSS_SECRET_KEY = (typeof process !== 'undefined' && process.env?.VITE_TOSS_SECRET_KEY) ||
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_TOSS_SECRET_KEY) ||
-  'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R';
+import { getTossClientKey, getTossSecretKey } from './toss-config.js';
+
+// Toss Payments 환경 변수 (백엔드 전용)
+// ⚠️  이 파일은 백엔드(Node.js)에서만 사용됩니다!
+// ⚠️  프론트엔드에서는 절대 사용하지 마세요 (시크릿 키 노출 위험)
+//
+// TOSS_MODE에 따라 자동으로 TEST/LIVE 키 선택
+const TOSS_CLIENT_KEY = getTossClientKey();
+const TOSS_SECRET_KEY = getTossSecretKey();
 
 // API 엔드포인트
 const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
@@ -144,7 +145,7 @@ export class TossPaymentsClient {
   }
 
   /**
-   * 결제 취소
+   * 결제 취소 (전액)
    */
   async cancelPayment(paymentKey: string, cancelReason: string): Promise<PaymentApprovalResponse> {
     try {
@@ -173,6 +174,54 @@ export class TossPaymentsClient {
 
     } catch (error) {
       console.error('❌ 결제 취소 중 오류:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 결제 환불 (부분 환불 지원)
+   */
+  async refundPayment(params: {
+    paymentKey: string;
+    refundAmount?: number;  // 부분 환불 금액 (없으면 전액)
+    refundReason: string;
+  }): Promise<PaymentApprovalResponse> {
+    try {
+      console.log(`💰 환불 요청: ${params.paymentKey}`);
+      console.log(`   - 환불 금액: ${params.refundAmount ? params.refundAmount.toLocaleString() + '원' : '전액'}`);
+      console.log(`   - 사유: ${params.refundReason}`);
+
+      const requestBody: any = {
+        cancelReason: params.refundReason
+      };
+
+      // 부분 환불인 경우 금액 지정
+      if (params.refundAmount) {
+        requestBody.cancelAmount = params.refundAmount;
+      }
+
+      const response = await fetch(`${TOSS_API_BASE}/payments/${params.paymentKey}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${btoa(this.secretKey + ':')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ 환불 실패:', error);
+        throw new Error(`환불 실패: ${error.message || response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ 환불 성공:', result);
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ 환불 처리 중 오류:', error);
       throw error;
     }
   }
@@ -238,6 +287,7 @@ if (typeof window !== 'undefined' &&
   console.log('   - tossPayments.approvePayment(approval)');
   console.log('   - tossPayments.getPayment(paymentKey)');
   console.log('   - tossPayments.cancelPayment(paymentKey, reason)');
+  console.log('   - tossPayments.refundPayment({ paymentKey, refundAmount?, refundReason })');
 }
 
 export default tossPayments;

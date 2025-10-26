@@ -14,6 +14,14 @@ export interface PaymentWidgetProps {
   orderName: string;
   customerEmail?: string;
   customerName?: string;
+  customerMobilePhone?: string;
+  shippingInfo?: {
+    name: string;
+    phone: string;
+    zipcode: string;
+    address: string;
+    addressDetail: string;
+  };
   onSuccess?: (paymentKey: string, orderId: string, amount: number) => void;
   onFail?: (error: any) => void;
 }
@@ -25,6 +33,8 @@ export default function PaymentWidget({
   orderName,
   customerEmail,
   customerName,
+  customerMobilePhone,
+  shippingInfo,
   onSuccess,
   onFail
 }: PaymentWidgetProps) {
@@ -75,15 +85,44 @@ export default function PaymentWidget({
     try {
       console.log('💳 결제 요청:', { bookingNumber, amount, orderName });
 
-      // 결제 요청
-      await paymentWidget.requestPayment({
-        orderId: bookingNumber,  // 우리 시스템의 booking_number 사용
+      // successUrl 조건부 설정
+      // bookingId가 0이면 장바구니 주문 → PaymentSuccessPage2 사용
+      // bookingId가 있으면 단일 예약 → PaymentSuccessPage 사용
+      const isCartOrder = bookingId === 0 || bookingNumber.startsWith('ORDER_');
+      const successUrl = isCartOrder
+        ? `${window.location.origin}/payment/success2`
+        : `${window.location.origin}/payment/success?bookingId=${bookingId}`;
+      const failUrl = isCartOrder
+        ? `${window.location.origin}/payment/fail2`
+        : `${window.location.origin}/payment/fail?bookingId=${bookingId}`;
+
+      // 결제 요청 (배송 정보 포함)
+      const paymentRequest: any = {
+        orderId: bookingNumber,  // 우리 시스템의 booking_number 또는 ORDER_xxx
         orderName,
         customerEmail,
         customerName,
-        successUrl: `${window.location.origin}/payment/success?bookingId=${bookingId}`,
-        failUrl: `${window.location.origin}/payment/fail?bookingId=${bookingId}`
-      });
+        successUrl,
+        failUrl
+      };
+
+      // 고객 전화번호 추가 (있으면)
+      if (customerMobilePhone) {
+        paymentRequest.customerMobilePhone = customerMobilePhone;
+      }
+
+      // 배송 정보 추가 (있으면)
+      if (shippingInfo) {
+        paymentRequest.deliveryInformation = {
+          receiverName: shippingInfo.name,
+          receiverPhoneNumber: shippingInfo.phone,
+          addressLine1: shippingInfo.address,
+          addressLine2: shippingInfo.addressDetail,
+          zipCode: shippingInfo.zipcode
+        };
+      }
+
+      await paymentWidget.requestPayment(paymentRequest);
 
       // Toss Payments로 리다이렉트됨 (successUrl 또는 failUrl로 돌아옴)
 

@@ -26,12 +26,14 @@ import {
   RefreshCw,
   Shield,
   Tag,
-  Info
+  Info,
+  Package
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { useCartStore } from '../hooks/useCartStore';
 import { addToFavorites, removeFromFavorites, getFavorites } from '../utils/api';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface CartItem {
   id: number;
@@ -52,6 +54,12 @@ interface CartItem {
   maxQuantity?: number;
   inStock?: boolean;
   estimatedDelivery?: string;
+  selectedOption?: {
+    id: number;
+    name: string;
+    value: string;
+    priceAdjustment: number;
+  };
 }
 
 interface Coupon {
@@ -86,49 +94,36 @@ export function CartPage() {
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
   const [itemErrors, setItemErrors] = useState<Record<number, string>>({});
   const [showCouponDetails, setShowCouponDetails] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [isCouponsLoading, setIsCouponsLoading] = useState(false);
 
-  const availableCoupons: Coupon[] = useMemo(() => [
-    {
-      code: 'WELCOME10',
-      discount: 10,
-      minAmount: 100000,
-      description: '첫 방문 10% 할인',
-      type: 'percentage',
-      expiresAt: '2024-12-31'
-    },
-    {
-      code: 'PARTNER20',
-      discount: 20,
-      minAmount: 200000,
-      description: '파트너 전용 20% 할인',
-      type: 'percentage',
-      expiresAt: '2024-12-31'
-    },
-    {
-      code: 'SINAN5000',
-      discount: 5000,
-      minAmount: 50000,
-      description: '신안 여행 5천원 할인',
-      type: 'fixed',
-      expiresAt: '2024-12-31'
-    },
-    {
-      code: 'SUMMER30',
-      discount: 30,
-      minAmount: 300000,
-      description: '여름 휴가 30% 대할인',
-      type: 'percentage',
-      expiresAt: '2024-08-31'
-    },
-    {
-      code: 'FIRST15',
-      discount: 15,
-      minAmount: 50000,
-      description: '첫 구매 15% 할인',
-      type: 'percentage',
-      expiresAt: '2024-12-31'
-    }
-  ], []);
+  // 🔄 쿠폰 데이터를 DB에서 가져오기 (하드코딩 제거)
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      if (!isLoggedIn) return;
+
+      setIsCouponsLoading(true);
+      try {
+        const response = await fetch(`/api/coupons?userId=${user?.id}`);
+        const result = await response.json();
+
+        if (result.success) {
+          console.log('🎟️ [쿠폰] DB에서 가져온 쿠폰:', result.data.length, '개');
+          setAvailableCoupons(result.data);
+        } else {
+          console.error('❌ [쿠폰] 조회 실패:', result.error);
+          setAvailableCoupons([]);
+        }
+      } catch (error) {
+        console.error('❌ [쿠폰] API 오류:', error);
+        setAvailableCoupons([]);
+      } finally {
+        setIsCouponsLoading(false);
+      }
+    };
+
+    fetchCoupons();
+  }, [isLoggedIn, user?.id]);
 
   // Load favorites on mount
   useEffect(() => {
@@ -149,7 +144,64 @@ export function CartPage() {
     loadFavorites();
   }, [isLoggedIn]);
 
-  // Validate cart items stock and availability
+  // 🔍 Priority 2 Improvement: Validate cart items on page load
+  useEffect(() => {
+    const validateCartOnLoad = async () => {
+      if (!isLoggedIn || cartItems.length === 0) return;
+
+      try {
+        console.log('🔍 [장바구니 검증] 페이지 로드 시 검증 시작');
+
+        // 서버에서 검증된 장바구니 데이터 다시 가져오기
+        const response = await fetch(`/api/cart?userId=${user?.id}`);
+        const result = await response.json();
+
+        if (!result.success) {
+          console.error('❌ [장바구니 검증] 실패:', result.error);
+          return;
+        }
+
+        // 유효하지 않은 항목 찾기
+        const invalidItems = result.data.filter((item: any) => item.validationStatus === 'invalid');
+
+        if (invalidItems.length > 0) {
+          console.log(`🗑️ [장바구니 검증] ${invalidItems.length}개 유효하지 않은 항목 발견`);
+
+          // 사용자에게 알림
+          const removedItemNames = invalidItems.map((item: any) =>
+            `• ${item.title || '상품'} (${item.validationMessage})`
+          ).join('\n');
+
+          toast.error(
+            `다음 상품이 장바구니에서 자동 제거되었습니다:\n\n${removedItemNames}`,
+            {
+              duration: 5000,
+              style: { whiteSpace: 'pre-line' }
+            }
+          );
+
+          // 유효하지 않은 항목 삭제
+          for (const item of invalidItems) {
+            await fetch(`/api/cart?itemId=${item.id}&userId=${user?.id}`, {
+              method: 'DELETE'
+            });
+          }
+
+          // 장바구니 새로고침
+          window.location.reload();
+        } else {
+          console.log('✅ [장바구니 검증] 모든 항목이 유효합니다');
+        }
+      } catch (error) {
+        console.error('❌ [장바구니 검증] 오류:', error);
+      }
+    };
+
+    // 페이지 로드 시 한 번만 실행
+    validateCartOnLoad();
+  }, [isLoggedIn, user?.id]); // cartItems를 의존성에서 제외하여 한 번만 실행
+
+  // Validate cart items stock and availability (기존 로컬 검증)
   useEffect(() => {
     const validateItems = () => {
       const errors: Record<number, string> = {};
@@ -613,14 +665,11 @@ export function CartPage() {
                         <div className="flex gap-4">
                           {/* Enhanced product image */}
                           <div className="flex-shrink-0 relative group">
-                            <img
+                            <ImageWithFallback
                               src={item.image}
                               alt={itemName}
                               className="w-24 h-24 object-cover rounded-lg transition-transform duration-200 group-hover:scale-105"
                               loading="lazy"
-                              onError={(e) => {
-                                e.currentTarget.src = '/images/placeholder.jpg';
-                              }}
                             />
                             {item.discount && (
                               <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
@@ -728,6 +777,19 @@ export function CartPage() {
                                 <div className="flex items-center gap-1">
                                   <Users className="h-3 w-3 flex-shrink-0" />
                                   <span>{item.guests}{item.category === '팝업' ? '개' : '명'}</span>
+                                </div>
+                              )}
+                              {item.selectedOption && (
+                                <div className="flex items-center gap-1">
+                                  <Package className="h-3 w-3 flex-shrink-0 text-purple-600" />
+                                  <span className="text-purple-700 font-medium">
+                                    {item.selectedOption.name}: {item.selectedOption.value}
+                                    {item.selectedOption.priceAdjustment !== 0 && (
+                                      <span className="ml-1">
+                                        ({item.selectedOption.priceAdjustment > 0 ? '+' : ''}{item.selectedOption.priceAdjustment.toLocaleString()}원)
+                                      </span>
+                                    )}
+                                  </span>
                                 </div>
                               )}
                               {item.rating && item.rating > 0 && item.reviewCount && item.reviewCount > 0 && (

@@ -19,39 +19,78 @@ module.exports = async function handler(req, res) {
     const connection = connect({ url: process.env.DATABASE_URL });
 
     if (req.method === 'GET') {
-      // 장바구니 조회
+      // 장바구니 조회 (검증 포함)
       const result = await connection.execute(`
         SELECT
           c.*,
+          l.id AS listing_exists,
           l.title,
           l.price_from,
           l.images,
-          l.category_id
+          l.category_id,
+          l.is_active,
+          l.stock_quantity
         FROM cart_items c
         LEFT JOIN listings l ON c.listing_id = l.id
         WHERE c.user_id = ?
         ORDER BY c.created_at DESC
       `, [userId]);
 
+      const invalidItemIds = [];
       const items = (result.rows || []).map(item => {
         let images = [];
         let selectedOptions = {};
+        let validationStatus = 'valid';
+        let validationMessage = '';
 
         try {
           if (item.images) images = JSON.parse(item.images);
           if (item.selected_options) selectedOptions = JSON.parse(item.selected_options);
         } catch (e) {}
 
+        // 🔍 상품 존재 여부 확인
+        if (!item.listing_exists) {
+          validationStatus = 'invalid';
+          validationMessage = '상품이 삭제되었습니다';
+          invalidItemIds.push(item.id);
+        }
+        // 🔍 상품 활성화 여부 확인
+        else if (!item.is_active) {
+          validationStatus = 'invalid';
+          validationMessage = '판매가 중단된 상품입니다';
+          invalidItemIds.push(item.id);
+        }
+        // 🔍 재고 확인 (팝업 카테고리인 경우)
+        else if (item.stock_quantity !== null && item.stock_quantity <= 0) {
+          validationStatus = 'invalid';
+          validationMessage = '품절된 상품입니다';
+          invalidItemIds.push(item.id);
+        }
+
         return {
           ...item,
           images: Array.isArray(images) ? images : [],
-          selected_options: selectedOptions
+          selected_options: selectedOptions,
+          validationStatus,
+          validationMessage
         };
       });
 
+      // 🗑️ 자동으로 유효하지 않은 항목 삭제 (옵션)
+      if (invalidItemIds.length > 0) {
+        console.log(`🗑️ [장바구니] 유효하지 않은 항목 ${invalidItemIds.length}개 발견:`, invalidItemIds);
+
+        // 실제 삭제는 클라이언트에서 처리하도록 하고, 여기서는 로그만 남김
+        // 필요시 자동 삭제를 원한다면 아래 코드 주석 해제:
+        // await connection.execute(`
+        //   DELETE FROM cart_items WHERE id IN (${invalidItemIds.join(',')})
+        // `);
+      }
+
       return res.status(200).json({
         success: true,
-        data: items
+        data: items,
+        invalidCount: invalidItemIds.length
       });
     }
 
@@ -84,6 +123,40 @@ module.exports = async function handler(req, res) {
         num_children,
         num_seniors
       });
+
+      // 🔍 상품 존재 여부 및 활성화 상태 확인
+      const listingCheck = await connection.execute(`
+        SELECT id, is_active, stock_quantity
+        FROM listings
+        WHERE id = ?
+        LIMIT 1
+      `, [listing_id]);
+
+      if (!listingCheck.rows || listingCheck.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'LISTING_NOT_FOUND',
+          message: '상품을 찾을 수 없습니다.'
+        });
+      }
+
+      const listing = listingCheck.rows[0];
+
+      if (!listing.is_active) {
+        return res.status(400).json({
+          success: false,
+          error: 'LISTING_INACTIVE',
+          message: '판매가 중단된 상품입니다.'
+        });
+      }
+
+      if (listing.stock_quantity !== null && listing.stock_quantity <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'OUT_OF_STOCK',
+          message: '품절된 상품입니다.'
+        });
+      }
 
       const result = await connection.execute(`
         INSERT INTO cart_items (
