@@ -39,10 +39,13 @@ class Database {
   async execute(sqlString: string, params: any[] = []): Promise<QueryResult> {
     try {
       // PlanetScale execute 사용
+      // ✅ PlanetScale는 배열과 메타데이터를 함께 반환
+      // result는 배열이면서 insertId, rowsAffected 속성을 가짐
       const result = await this.connection.execute(sqlString, params);
 
+      // ✅ PlanetScale 결과: result 자체가 배열 (result.rows 아님!)
       return {
-        rows: result.rows || [],
+        rows: Array.isArray(result) ? result : [],
         insertId: result.insertId ? Number(result.insertId) : 0,
         affectedRows: result.rowsAffected || 0
       };
