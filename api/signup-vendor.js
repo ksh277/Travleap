@@ -112,7 +112,7 @@ module.exports = async function handler(req, res) {
       [username, email]
     );
 
-    if (existingUser.rows && existingUser.rows.length > 0) {
+    if (existingUser && existingUser.length > 0) {
       return res.status(409).json({
         success: false,
         error: '이미 사용중인 아이디 또는 이메일입니다.'
@@ -130,7 +130,7 @@ module.exports = async function handler(req, res) {
       [username, email, hashedPassword, name, phone || null]
     );
 
-    const user = userResult.rows[0];
+    const user = userResult[0];
     console.log('✅ Neon DB 사용자 생성:', { userId: user.id, email: user.email });
 
     // 2. PlanetScale DB에 partners 테이블 레코드 자동 생성

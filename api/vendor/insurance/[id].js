@@ -74,14 +74,14 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult.rows || vendorResult.rows.length === 0) {
+      if (!vendorResult || vendorResult.length === 0) {
         return res.status(403).json({
           success: false,
           message: '등록된 벤더 정보가 없습니다.'
         });
       }
 
-      vendorId = vendorResult.rows[0].id;
+      vendorId = vendorResult[0].id;
 
       // 본인 업체의 보험만 삭제 가능
       await connection.execute(

@@ -53,14 +53,14 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult.rows || vendorResult.rows.length === 0) {
+      if (!vendorResult || vendorResult.length === 0) {
         return res.status(403).json({
           success: false,
           message: '등록된 벤더 정보가 없습니다.'
         });
       }
 
-      const vendor = vendorResult.rows[0];
+      const vendor = vendorResult[0];
       if (vendor.status !== 'active') {
         return res.status(403).json({
           success: false,
@@ -142,7 +142,7 @@ module.exports = async function handler(req, res) {
         [vendorId]
       );
 
-      const vehicles = (result.rows || []).map(vehicle => ({
+      const vehicles = (result || []).map(vehicle => ({
         ...vehicle,
         is_available: vehicle.is_available === 1,
         unlimited_mileage: vehicle.unlimited_mileage === 1,
@@ -292,14 +292,14 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      if (!ownerCheck.rows || ownerCheck.rows.length === 0) {
+      if (!ownerCheck || ownerCheck.length === 0) {
         return res.status(404).json({
           success: false,
           message: '차량을 찾을 수 없습니다.'
         });
       }
 
-      if (ownerCheck.rows[0].vendor_id !== vendorId) {
+      if (ownerCheck[0].vendor_id !== vendorId) {
         return res.status(403).json({
           success: false,
           message: '권한이 없습니다.'
@@ -402,14 +402,14 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      if (!ownerCheck.rows || ownerCheck.rows.length === 0) {
+      if (!ownerCheck || ownerCheck.length === 0) {
         return res.status(404).json({
           success: false,
           message: '차량을 찾을 수 없습니다.'
         });
       }
 
-      if (ownerCheck.rows[0].vendor_id !== vendorId) {
+      if (ownerCheck[0].vendor_id !== vendorId) {
         return res.status(403).json({
           success: false,
           message: '권한이 없습니다.'

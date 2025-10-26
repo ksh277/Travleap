@@ -33,10 +33,10 @@ module.exports = async function handler(req, res) {
         'SELECT id, username, email, name, phone, role, created_at, updated_at FROM users ORDER BY created_at DESC'
       );
 
-      console.log('✅ [Neon] 사용자 조회 완료:', result.rows.length, '명');
+      console.log('✅ [Neon] 사용자 조회 완료:', result.length, '명');
       return res.status(200).json({
         success: true,
-        data: result.rows
+        data: result
       });
     }
 
@@ -56,10 +56,10 @@ module.exports = async function handler(req, res) {
         [username, email, hashedPassword, name, phone || null, role || 'user']
       );
 
-      console.log('✅ [Neon] 사용자 생성 완료:', result.rows[0].email);
+      console.log('✅ [Neon] 사용자 생성 완료:', result[0].email);
       return res.status(201).json({
         success: true,
-        data: result.rows[0]
+        data: result[0]
       });
     }
 
@@ -77,10 +77,10 @@ module.exports = async function handler(req, res) {
         [name, phone, role, id]
       );
 
-      console.log('✅ [Neon] 사용자 수정 완료:', result.rows[0]?.email);
+      console.log('✅ [Neon] 사용자 수정 완료:', result[0]?.email);
       return res.status(200).json({
         success: true,
-        data: result.rows[0]
+        data: result[0]
       });
     }
 

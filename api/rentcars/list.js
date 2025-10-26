@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(sql);
 
-    const vendors = (result.rows || []).map(vendor => ({
+    const vendors = (result || []).map(vendor => ({
       id: vendor.id,
       vendor_code: vendor.vendor_code,
       business_name: vendor.business_name,

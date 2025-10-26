@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      categories: result.rows || []
+      categories: result || []
     });
   } catch (error) {
     console.error('Error fetching categories:', error);

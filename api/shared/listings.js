@@ -101,14 +101,14 @@ module.exports = async function handler(req, res) {
       'SELECT COUNT(*)'
     );
     const countResult = await conn.execute(countSql, params);
-    const totalCount = countResult.rows[0]?.total || 0;
+    const totalCount = countResult[0]?.total || 0;
 
     // 2. 실제 데이터 조회 (pagination 적용)
     sql += ' LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
     const result = await conn.execute(sql, params);
-    const listings = result.rows || [];
+    const listings = result || [];
 
     // 이미지 JSON 파싱 (안전하게)
     const parseJsonField = (field: any) => {

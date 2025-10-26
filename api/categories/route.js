@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
     `);
 
     return new Response(
-      JSON.stringify({ success: true, categories: result.rows || [] }),
+      JSON.stringify({ success: true, categories: result || [] }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

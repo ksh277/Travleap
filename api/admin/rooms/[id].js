@@ -34,11 +34,11 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      if (activeBookings.rows[0].count > 0) {
+      if (activeBookings[0].count > 0) {
         return res.status(400).json({
           success: false,
           error: '진행 중인 예약이 있어 삭제할 수 없습니다.',
-          activeBookings: activeBookings.rows[0].count
+          activeBookings: activeBookings[0].count
         });
       }
 
@@ -61,7 +61,7 @@ module.exports = async function handler(req, res) {
           [id]
         );
 
-        if (result.rowsAffected === 0) {
+        if (resultAffected === 0) {
           return res.status(404).json({
             success: false,
             error: '객실을 찾을 수 없습니다.'
@@ -186,18 +186,18 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(updateQuery, values);
 
       console.log(`✅ UPDATE 결과:`, {
-        rowsAffected: result.rowsAffected,
+        rowsAffected: resultAffected,
         insertId: result.insertId
       });
 
-      if (result.rowsAffected === 0) {
+      if (resultAffected === 0) {
         console.warn(`⚠️ 경고: 업데이트된 행이 없습니다. 객실 ID ${id}가 존재하지 않을 수 있습니다.`);
       }
 
       return res.status(200).json({
         success: true,
         message: '객실 정보가 업데이트되었습니다.',
-        rowsAffected: result.rowsAffected
+        rowsAffected: resultAffected
       });
     }
 

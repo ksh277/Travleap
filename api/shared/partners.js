@@ -53,7 +53,7 @@ module.exports = async function handler(req, res) {
     `;
 
     const result = await conn.execute(sql);
-    const partners = result.rows || [];
+    const partners = result || [];
 
     // Parse JSON fields if needed
     const parseJsonField = (field) => {

@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
       SELECT id FROM categories WHERE slug = 'stay' LIMIT 1
     `);
 
-    const categoryId = categoryResult.rows[0]?.id || 1857;
+    const categoryId = categoryResult[0]?.id || 1857;
 
     const hotels = await connection.execute(`
       SELECT

@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
       ORDER BY v.is_verified DESC, v.business_name ASC
     `);
 
-    const parsedVendors = vendors.rows.map((vendor) => {
+    const parsedVendors = vendors.map((vendor) => {
       let images = [];
 
       // 1. vendor의 images 우선 사용

@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return res.status(404).json({
           success: false,
           error: '벤더를 찾을 수 없습니다.'
@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        data: result.rows[0]
+        data: result[0]
       });
     }
 
@@ -116,11 +116,11 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      if (activeBookings.rows[0]?.count > 0) {
+      if (activeBookings[0]?.count > 0) {
         return res.status(400).json({
           success: false,
           error: '진행 중인 예약이 있어 삭제할 수 없습니다.',
-          activeBookings: activeBookings.rows[0].count
+          activeBookings: activeBookings[0].count
         });
       }
 

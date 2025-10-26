@@ -61,7 +61,7 @@ module.exports = async function handler(req, res) {
       [userId]
     );
 
-    if (!vendorResult.rows || vendorResult.rows.length === 0) {
+    if (!vendorResult || vendorResult.length === 0) {
       console.error('❌ [Lodging Vendor Info] 등록된 숙박 업체 없음:', { userId });
       return res.status(404).json({
         success: false,
@@ -69,8 +69,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    vendorId = vendorResult.rows[0].id;
-    console.log('✅ [Lodging Vendor Info] 벤더 발견:', { vendorId, businessName: vendorResult.rows[0].business_name });
+    vendorId = vendorResult[0].id;
+    console.log('✅ [Lodging Vendor Info] 벤더 발견:', { vendorId, businessName: vendorResult[0].business_name });
 
     if (req.method === 'GET') {
       // 숙박 업체 정보 조회

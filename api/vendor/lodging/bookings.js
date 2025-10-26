@@ -50,14 +50,14 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult.rows || vendorResult.rows.length === 0) {
+      if (!vendorResult || vendorResult.length === 0) {
         return res.status(404).json({
           success: false,
           message: '등록된 숙박 업체 정보가 없습니다.'
         });
       }
 
-      vendorId = vendorResult.rows[0].id;
+      vendorId = vendorResult[0].id;
     }
 
     console.log('📋 [Lodging Bookings API] 예약 조회:', { vendorId });
@@ -92,7 +92,7 @@ module.exports = async function handler(req, res) {
       [vendorId]
     );
 
-    const bookings = (result.rows || []).map(row => ({
+    const bookings = (result || []).map(row => ({
       id: row.id,
       listing_id: row.listing_id,
       lodging_name: row.lodging_name,

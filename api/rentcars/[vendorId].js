@@ -24,11 +24,11 @@ module.exports = async function handler(req, res) {
       LIMIT 1
     `, [vendorId]);
 
-    if (!vendorResult.rows || vendorResult.rows.length === 0) {
+    if (!vendorResult || vendorResult.length === 0) {
       return res.status(404).json({ success: false, error: '렌트카 업체를 찾을 수 없습니다.' });
     }
 
-    const vendor = vendorResult.rows[0];
+    const vendor = vendorResult[0];
 
     // 차량 목록 조회
     const vehiclesResult = await connection.execute(`

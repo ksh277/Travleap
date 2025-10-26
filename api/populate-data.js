@@ -43,13 +43,13 @@ module.exports = async function handler(req, res) {
     // 2. Get category and partner mappings
     const categories = await connection.execute('SELECT id, slug FROM categories');
     const catMap = {};
-    categories.rows.forEach(cat => {
+    categories.forEach(cat => {
       catMap[cat.slug] = cat.id;
     });
 
     const partnerResult = await connection.execute('SELECT id, email FROM partners');
     const partnerMap = {};
-    partnerResult.rows.forEach(p => {
+    partnerResult.forEach(p => {
       partnerMap[p.email] = p.id;
     });
 

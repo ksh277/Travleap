@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
 
         return res.status(200).json({
           success: true,
-          data: result.rows || []
+          data: result || []
         });
       } catch (dbError) {
         // 테이블이 없거나 쿼리 에러 시 빈 배열 반환

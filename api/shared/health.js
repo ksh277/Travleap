@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       success: true,
       message: 'Database connected',
-      data: result.rows
+      data: result
     });
   } catch (error) {
     return res.status(500).json({

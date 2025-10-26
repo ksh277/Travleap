@@ -34,11 +34,11 @@ module.exports = async function handler(req, res) {
       [finalVendorId]
     );
 
-    if (!configResult.rows || configResult.rows.length === 0) {
+    if (!configResult || configResult.length === 0) {
       return res.status(404).json({ success: false, error: 'Vendor config not found' });
     }
 
-    const pmsConfig = configResult.rows[0];
+    const pmsConfig = configResult[0];
 
     // PMS 설정 확인
     if (!pmsConfig.pms_provider) {

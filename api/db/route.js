@@ -66,9 +66,9 @@ async function handleQuery(body: { sql; params?[] }) {
     return NextResponse.json(
       {
         success: true,
-        data: result.rows,
+        data: result,
         insertId: result.insertId,
-        affectedRows: result.rowsAffected,
+        affectedRows: resultAffected,
       },
       { headers: corsHeaders }
     );
@@ -107,7 +107,7 @@ async function handleSelect(body: { table; where?: Record<string, any> }) {
     const result = await conn.execute(sql, params);
 
     return NextResponse.json(
-      { success: true, data: result.rows },
+      { success: true, data: result },
       { headers: corsHeaders }
     );
   } catch (error) {
@@ -181,7 +181,7 @@ async function handleUpdate(body: { table; id; data: Record<string, any> }) {
     return NextResponse.json(
       {
         success: true,
-        affectedRows: result.rowsAffected,
+        affectedRows: resultAffected,
       },
       { headers: corsHeaders }
     );
@@ -214,7 +214,7 @@ async function handleDelete(body: { table; id }) {
     return NextResponse.json(
       {
         success: true,
-        affectedRows: result.rowsAffected,
+        affectedRows: resultAffected,
       },
       { headers: corsHeaders }
     );

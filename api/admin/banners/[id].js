@@ -56,7 +56,7 @@ module.exports = async function handler(req, res) {
         ]
       );
 
-      if (result.rowsAffected === 0) {
+      if (resultAffected === 0) {
         return res.status(404).json({
           success: false,
           message: '배너를 찾을 수 없습니다.'
@@ -76,7 +76,7 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      if (result.rowsAffected === 0) {
+      if (resultAffected === 0) {
         return res.status(404).json({
           success: false,
           message: '배너를 찾을 수 없습니다.'

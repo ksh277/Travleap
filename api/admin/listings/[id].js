@@ -39,12 +39,12 @@ module.exports = async function handler(req, res) {
           [id]
         );
 
-        if (activeBookings.rows[0].count > 0) {
-          console.log(`⚠️ 진행 중인 예약 ${activeBookings.rows[0].count}건 발견`);
+        if (activeBookings[0].count > 0) {
+          console.log(`⚠️ 진행 중인 예약 ${activeBookings[0].count}건 발견`);
           return res.status(400).json({
             success: false,
             error: '진행 중인 예약이 있어 삭제할 수 없습니다.',
-            activeBookings: activeBookings.rows[0].count,
+            activeBookings: activeBookings[0].count,
             hint: '강제 삭제하려면 force=true 파라미터를 추가하세요.'
           });
         }
@@ -84,7 +84,7 @@ module.exports = async function handler(req, res) {
             'DELETE FROM reviews WHERE listing_id = ?',
             [id]
           );
-          console.log(`✅ [3/5] 리뷰 ${reviewResult.rowsAffected || 0}개 삭제`);
+          console.log(`✅ [3/5] 리뷰 ${reviewResultAffected || 0}개 삭제`);
         } catch (err) {
           console.log(`⚠️ [3/5] 리뷰 삭제 건너뜀: ${err.message}`);
         }
@@ -107,9 +107,9 @@ module.exports = async function handler(req, res) {
           'DELETE FROM listings WHERE id = ?',
           [id]
         );
-        console.log(`✅ [5/5] 상품 삭제 완료, rowsAffected: ${result.rowsAffected}`);
+        console.log(`✅ [5/5] 상품 삭제 완료, rowsAffected: ${resultAffected}`);
 
-        if (result.rowsAffected === 0) {
+        if (resultAffected === 0) {
           return res.status(404).json({
             success: false,
             error: '상품을 찾을 수 없습니다.'
@@ -262,11 +262,11 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(updateQuery, values);
 
       console.log(`✅ UPDATE 결과:`, {
-        rowsAffected: result.rowsAffected,
+        rowsAffected: resultAffected,
         insertId: result.insertId
       });
 
-      if (result.rowsAffected === 0) {
+      if (resultAffected === 0) {
         console.warn(`⚠️ 경고: 업데이트된 행이 없습니다. 상품 ID ${id}가 존재하지 않을 수 있습니다.`);
         return res.status(404).json({
           success: false,
@@ -294,7 +294,7 @@ module.exports = async function handler(req, res) {
         success: true,
         data: updatedResult.rows[0] || null,
         message: '상품 정보가 업데이트되었습니다.',
-        rowsAffected: result.rowsAffected
+        rowsAffected: resultAffected
       });
     }
 

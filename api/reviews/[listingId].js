@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
         WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE)
       `, [listingId]);
 
-      const reviews = result.rows || [];
+      const reviews = result || [];
 
       const stats = statsResult.rows?.[0] || {
         total_count: 0,
@@ -115,7 +115,7 @@ module.exports = async function handler(req, res) {
         [listingId, user_id]
       );
 
-      if (existingReview.rows && existingReview.rows.length > 0) {
+      if (existingReview && existingReview.length > 0) {
         return res.status(400).json({
           success: false,
           error: '이미 이 상품에 대한 리뷰를 작성하셨습니다. 기존 리뷰를 수정해주세요.'
@@ -129,14 +129,14 @@ module.exports = async function handler(req, res) {
           [booking_id, listingId]
         );
 
-        if (!bookingCheck.rows || bookingCheck.rows.length === 0) {
+        if (!bookingCheck || bookingCheck.length === 0) {
           return res.status(400).json({
             success: false,
             error: '유효하지 않은 예약입니다.'
           });
         }
 
-        if (bookingCheck.rows[0].user_id != user_id) {
+        if (bookingCheck[0].user_id != user_id) {
           return res.status(403).json({
             success: false,
             error: '본인의 예약에만 리뷰를 작성할 수 있습니다.'

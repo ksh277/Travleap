@@ -61,14 +61,14 @@ module.exports = async function handler(req, res) {
       [vehicle_id]
     );
 
-    if (!vehicleCheck.rows || vehicleCheck.rows.length === 0) {
+    if (!vehicleCheck || vehicleCheck.length === 0) {
       return res.status(404).json({
         success: false,
         error: '차량을 찾을 수 없습니다.'
       });
     }
 
-    if (!vehicleCheck.rows[0].is_active) {
+    if (!vehicleCheck[0].is_active) {
       return res.status(200).json({
         success: true,
         available: false,

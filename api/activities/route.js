@@ -24,7 +24,7 @@ module.exports = async function handler(req, res) {
       ORDER BY display_order ASC, created_at DESC
     `);
 
-    return res.status(200).json({ success: true, activities: result.rows || [] });
+    return res.status(200).json({ success: true, activities: result || [] });
   } catch (error) {
     console.error('Activities error:', error);
     return res.status(500).json({ success: false, error: 'Failed to fetch activities', activities: [] });

@@ -84,8 +84,8 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      data: result.rows || [],
-      total: result.rows ? result.rows.length : 0,
+      data: result || [],
+      total: result ? result.length : 0,
       page: pageNum,
       limit: limitNum
     });

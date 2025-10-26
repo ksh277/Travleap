@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
       }
 
       const result = await connection.execute(sql, params);
-      return res.status(200).json({ success: true, data: result.rows });
+      return res.status(200).json({ success: true, data: result });
     }
 
     // INSERT
@@ -104,7 +104,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        data: result.rows
+        data: result
       });
     }
 

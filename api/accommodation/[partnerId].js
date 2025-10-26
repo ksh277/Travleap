@@ -24,11 +24,11 @@ module.exports = async function handler(req, res) {
       LIMIT 1
     `, [partnerId]);
 
-    if (!partnerResult.rows || partnerResult.rows.length === 0) {
+    if (!partnerResult || partnerResult.length === 0) {
       return res.status(404).json({ success: false, error: '호텔을 찾을 수 없습니다.' });
     }
 
-    const partner = partnerResult.rows[0];
+    const partner = partnerResult[0];
 
     // 객실 목록 조회
     const roomsResult = await connection.execute(`
@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
       ORDER BY price_from ASC
     `, [partnerId]);
 
-    const rooms = (roomsResult.rows || []).map(room => {
+    const rooms = (roomsResult || []).map(room => {
       let images = [];
       let amenities = [];
       let highlights = [];
