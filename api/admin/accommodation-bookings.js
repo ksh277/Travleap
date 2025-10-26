@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
     const result = await connection.execute(query, params);
 
     // customer_info JSON 파싱
-    const bookings = (result.rows || []).map(booking => {
+    const bookings = (result || []).map(booking => {
       let customerInfo = {};
       try {
         if (booking.customer_info) {

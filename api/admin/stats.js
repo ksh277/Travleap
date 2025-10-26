@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
     // 간단한 통계만 반환
     try {
       const listings = await connection.execute('SELECT COUNT(*) as count FROM listings');
-      stats.totalListings = listings.rows[0]?.count || 0;
+      stats.totalListings = listings[0]?.count || 0;
     } catch (e) {}
 
     // Users from Neon DB
@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
 
     try {
       const partners = await connection.execute('SELECT COUNT(*) as count FROM partners');
-      stats.totalPartners = partners.rows[0]?.count || 0;
+      stats.totalPartners = partners[0]?.count || 0;
     } catch (e) {}
 
     return res.status(200).json({

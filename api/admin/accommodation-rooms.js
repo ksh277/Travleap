@@ -76,13 +76,13 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(query, params);
 
       console.log(`✅ 조회 결과:`, {
-        count: result.rows?.length || 0,
-        rooms: result.rows
+        count: result?.length || 0,
+        rooms: result
       });
 
       return res.status(200).json({
         success: true,
-        data: result.rows || []
+        data: result || []
       });
     }
 

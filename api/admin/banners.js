@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        banners: result.rows
+        banners: result
       });
     }
 
@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
         const countResult = await connection.execute(
           'SELECT COUNT(*) as count FROM banners'
         );
-        finalOrder = countResult.rows[0].count;
+        finalOrder = countResult[0].count;
       }
 
       const result = await connection.execute(

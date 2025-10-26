@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
     `;
 
     const result = await conn.execute(sql, [listingId]);
-    const listings = result.rows || [];
+    const listings = result || [];
 
     if (listings.length === 0) {
       return res.status(404).json({

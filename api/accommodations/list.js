@@ -71,7 +71,7 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(sql, params);
 
-    const lodgings = (result.rows || []).map(lodging => {
+    const lodgings = (result || []).map(lodging => {
       let images = [];
       let amenities = {};
 
