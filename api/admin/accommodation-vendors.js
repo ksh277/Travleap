@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
       );
 
       // brand_name 없으면 business_name 사용
-      const vendors = (result.rows || []).map(vendor => ({
+      const vendors = (result || []).map(vendor => ({
         ...vendor,
         brand_name: vendor.brand_name || vendor.business_name,
         vendor_code: `ACC${vendor.id}` // vendor_code 생성
@@ -103,8 +103,8 @@ module.exports = async function handler(req, res) {
           [contact_email || 'temp@accommodation.com']
         );
 
-        if (tempUserResult.rows && tempUserResult.rows.length > 0) {
-          finalUserId = tempUserResult.rows[0].id;
+        if (tempUserResult && tempUserResult.length > 0) {
+          finalUserId = tempUserResult[0].id;
         } else {
           // 임시 사용자 생성
           const createUserResult = await connection.execute(

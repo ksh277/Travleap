@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
         ORDER BY discount_value DESC, expires_at ASC
       `);
 
-      const couponList = (coupons.rows || []).map(coupon => ({
+      const couponList = (coupons || []).map(coupon => ({
         code: coupon.code,
         discount: coupon.discount_value,
         minAmount: coupon.min_amount || 0,
@@ -91,7 +91,7 @@ module.exports = async function handler(req, res) {
         LIMIT 1
       `, [code.toUpperCase()]);
 
-      if (!result.rows || result.rows.length === 0) {
+      if (!result || result.length === 0) {
         return res.status(404).json({
           success: false,
           error: 'INVALID_CODE',
@@ -99,7 +99,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      const coupon = result.rows[0];
+      const coupon = result[0];
 
       // 만료 확인
       if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
@@ -197,7 +197,7 @@ module.exports = async function handler(req, res) {
         FOR UPDATE
       `, [code.toUpperCase()]);
 
-      if (!couponCheck.rows || couponCheck.rows.length === 0) {
+      if (!couponCheck || couponCheck.length === 0) {
         return res.status(404).json({
           success: false,
           error: 'COUPON_NOT_FOUND',
@@ -205,7 +205,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      const coupon = couponCheck.rows[0];
+      const coupon = couponCheck[0];
 
       // 사용 한도 재확인 (FOR UPDATE 락 획득 후)
       if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {

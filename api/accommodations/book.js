@@ -81,14 +81,14 @@ module.exports = async function handler(req, res) {
       [listing_id]
     );
 
-    if (!roomResult.rows || roomResult.rows.length === 0) {
+    if (!roomResult || roomResult.length === 0) {
       return res.status(404).json({
         success: false,
         error: '객실을 찾을 수 없습니다.'
       });
     }
 
-    const room = roomResult.rows[0];
+    const room = roomResult[0];
 
     if (!room.is_active) {
       return res.status(400).json({
@@ -110,7 +110,7 @@ module.exports = async function handler(req, res) {
       [listing_id, start_date, start_date, end_date, end_date, start_date, end_date]
     );
 
-    if (conflictCheck.rows && conflictCheck.rows.length > 0) {
+    if (conflictCheck && conflictCheck.length > 0) {
       return res.status(400).json({
         success: false,
         error: '선택하신 날짜에 이미 예약이 존재합니다.'
@@ -139,8 +139,8 @@ module.exports = async function handler(req, res) {
         [user_email]
       );
 
-      if (existingUser.rows && existingUser.rows.length > 0) {
-        finalUserId = existingUser.rows[0].id;
+      if (existingUser && existingUser.length > 0) {
+        finalUserId = existingUser[0].id;
       } else {
         // 신규 게스트 사용자 생성
         const newUser = await connection.execute(
