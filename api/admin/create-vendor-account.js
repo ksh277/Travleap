@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
       [email]
     );
 
-    if (existingUser.rows.length > 0) {
+    if (existingUser.length > 0) {
       return res.status(400).json({ error: '이미 등록된 이메일입니다' });
     }
 

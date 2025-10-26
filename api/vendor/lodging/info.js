@@ -105,11 +105,11 @@ module.exports = async function handler(req, res) {
         [vendorId]
       );
 
-      if (!result.rows || result.rows.length === 0) {
+      if (!result || result.length === 0) {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
       }
 
-      const vendor = result.rows[0];
+      const vendor = result[0];
 
       // policies JSON 파싱
       let parsedPolicies = null;

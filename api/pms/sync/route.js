@@ -68,11 +68,11 @@ async function syncPMSVehicles(vendorId) {
       [vendorId]
     );
 
-    if (!vendorResult.rows || vendorResult.rows.length === 0) {
+    if (!vendorResult || vendorResult.length === 0) {
       throw new Error('PMS 동기화가 비활성화되어 있거나 설정이 없습니다.');
     }
 
-    const vendor = vendorResult.rows[0];
+    const vendor = vendorResult[0];
     const config = {
       provider: vendor.pms_provider,
       apiKey: vendor.pms_api_key,
@@ -109,7 +109,7 @@ async function syncPMSVehicles(vendorId) {
     );
 
     const mappingMap = new Map(
-      (existingMappingsResult.rows[]).map((m) => [m.pms_vehicle_id, m.local_vehicle_id])
+      (existingMappingsResult).map((m) => [m.pms_vehicle_id, m.local_vehicle_id])
     );
 
     // 4. 차량별로 동기화

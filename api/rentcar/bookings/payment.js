@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
       [bookingId]
     );
 
-    if (!bookingCheck.rows || bookingCheck.rows.length === 0) {
+    if (!bookingCheck || bookingCheck.length === 0) {
       return res.status(404).json({
         success: false,
         error: '예약을 찾을 수 없습니다.'

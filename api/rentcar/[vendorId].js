@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
       ORDER BY daily_rate_krw ASC
     `, [vendorId]);
 
-    const vehicles = (vehiclesResult.rows || []).map(vehicle => {
+    const vehicles = (vehiclesResult || []).map(vehicle => {
       // PlanetScale는 JSON 컬럼을 자동으로 파싱하므로 타입 체크 필요
       const images = vehicle.images
         ? (typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images)

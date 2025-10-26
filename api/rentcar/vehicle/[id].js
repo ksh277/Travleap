@@ -82,14 +82,14 @@ module.exports = async function handler(req, res) {
       [id]
     );
 
-    if (!result.rows || result.rows.length === 0) {
+    if (!result || result.length === 0) {
       return res.status(404).json({
         success: false,
         error: '차량을 찾을 수 없습니다'
       });
     }
 
-    const vehicle = result.rows[0];
+    const vehicle = result[0];
 
     // JSON 파싱
     const vehicleData = {

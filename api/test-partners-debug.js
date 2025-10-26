@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
     debugInfo.queries.push({
       step: 1,
       query: 'SELECT COUNT(*) as total FROM partners',
-      result: countResult.rows
+      result: countResult
     });
 
     // Step 2: 파트너 5개만 조회 (간단)
@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
     debugInfo.queries.push({
       step: 2,
       query: 'SELECT id, business_name, partner_type, is_active, status FROM partners LIMIT 5',
-      result: simpleResult.rows
+      result: simpleResult
     });
 
     // Step 3: LEFT JOIN 없이 조회
@@ -47,7 +47,7 @@ module.exports = async function handler(req, res) {
     debugInfo.queries.push({
       step: 3,
       query: 'SELECT * FROM partners LIMIT 3',
-      result: noJoinResult.rows
+      result: noJoinResult
     });
 
     // Step 4: LEFT JOIN with GROUP BY (문제의 쿼리)
@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
     debugInfo.queries.push({
       step: 4,
       query: 'LEFT JOIN with GROUP BY',
-      result: joinResult.rows
+      result: joinResult
     });
 
     debugInfo.step = 'Success!';

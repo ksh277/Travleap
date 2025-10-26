@@ -45,7 +45,7 @@ module.exports = async function handler(req, res) {
       [finalVendorId]
     );
 
-    console.log('✅ [PMS Logs] 로그 조회 완료:', result.rows.length, '개');
+    console.log('✅ [PMS Logs] 로그 조회 완료:', result.length, '개');
 
     return res.status(200).json({
       success: true,

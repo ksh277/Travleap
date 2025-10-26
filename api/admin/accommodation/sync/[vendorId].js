@@ -37,14 +37,14 @@ module.exports = async function handler(req, res) {
       [vendorId]
     );
 
-    if (!vendorResult.rows || vendorResult.rows.length === 0) {
+    if (!vendorResult || vendorResult.length === 0) {
       return res.status(404).json({
         success: false,
         error: '벤더를 찾을 수 없습니다.'
       });
     }
 
-    const vendor = vendorResult.rows[0];
+    const vendor = vendorResult[0];
 
     if (!vendor.pms_provider || !vendor.pms_api_key) {
       return res.status(400).json({
@@ -71,7 +71,7 @@ module.exports = async function handler(req, res) {
           [vendorId, roomData.room_code]
         );
 
-        if (existingRoom.rows && existingRoom.rows.length > 0) {
+        if (existingRoom && existingRoom.length > 0) {
           // 업데이트
           await connection.execute(
             `UPDATE accommodation_rooms SET
@@ -86,7 +86,7 @@ module.exports = async function handler(req, res) {
               roomData.price,
               roomData.breakfast_included,
               roomData.description,
-              existingRoom.rows[0].id
+              existingRoom[0].id
             ]
           );
           roomsUpdated++;

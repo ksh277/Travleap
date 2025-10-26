@@ -140,7 +140,7 @@ module.exports = async function handler(req, res) {
 
       // 시간 범위 겹침 확인 (버퍼 타임 포함)
       const conflicts = [];
-      const hasConflict = (conflictCheck.rows || []).some(booking => {
+      const hasConflict = (conflictCheck || []).some(booking => {
         const [existingPickupHour, existingPickupMinute] = (booking.pickup_time || '00:00').split(':').map(Number);
         const [existingDropoffHour, existingDropoffMinute] = (booking.dropoff_time || '23:59').split(':').map(Number);
 
@@ -188,21 +188,21 @@ module.exports = async function handler(req, res) {
           [insurance_id, vendor_id]
         );
 
-        if (!insuranceResult.rows || insuranceResult.rows.length === 0) {
+        if (!insuranceResult || insuranceResult.length === 0) {
           return res.status(404).json({
             success: false,
             error: '보험 상품을 찾을 수 없습니다.'
           });
         }
 
-        if (!insuranceResult.rows[0].is_active) {
+        if (!insuranceResult[0].is_active) {
           return res.status(400).json({
             success: false,
             error: '선택하신 보험 상품은 현재 제공되지 않습니다.'
           });
         }
 
-        const insuranceHourlyRate = insuranceResult.rows[0].hourly_rate_krw;
+        const insuranceHourlyRate = insuranceResult[0].hourly_rate_krw;
         insuranceFee = Math.ceil(insuranceHourlyRate * rentalHours);
       }
 
@@ -262,7 +262,7 @@ module.exports = async function handler(req, res) {
         [bookingId]
       );
 
-      if (!checkBooking.rows || checkBooking.rows.length === 0) {
+      if (!checkBooking || checkBooking.length === 0) {
         return res.status(404).json({
           success: false,
           error: '예약을 찾을 수 없습니다.'

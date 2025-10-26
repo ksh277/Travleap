@@ -49,7 +49,7 @@ module.exports = async function handler(req, res) {
       ORDER BY p.status = 'approved' DESC, p.is_featured DESC, avg_rating DESC
     `, [categoryId]);
 
-    const parsedHotels = hotels.rows.map((hotel) => {
+    const parsedHotels = hotels.map((hotel) => {
       let images = [];
       try {
         if (hotel.sample_images) {

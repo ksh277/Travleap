@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
         ORDER BY rb.pickup_date ASC
       `, [vendorId]);
 
-      bookings = bookingsResult.rows || [];
+      bookings = bookingsResult || [];
     } catch (error) {
       // rentcar_bookings 테이블이 없을 수 있으므로 에러는 무시하고 빈 배열 반환
       console.log('No bookings table or no data:', error.message);

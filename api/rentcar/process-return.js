@@ -154,8 +154,8 @@ module.exports = async function handler(req, res) {
     let nextBookingAlert = null;
     let shouldAlertNextCustomer = false;
 
-    if (nextBookingResult.rows && nextBookingResult.rows.length > 0) {
-      const nextBooking = nextBookingResult.rows[0];
+    if (nextBookingResult && nextBookingResult.length > 0) {
+      const nextBooking = nextBookingResult[0];
       const nextPickupTime = new Date(nextBooking.pickup_date + ' ' + nextBooking.pickup_time);
 
       // 버퍼 타임 60분 고려

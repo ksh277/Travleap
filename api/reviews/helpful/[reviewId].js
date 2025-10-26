@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
         [reviewId]
       );
 
-      if (!reviewCheck.rows || reviewCheck.rows.length === 0) {
+      if (!reviewCheck || reviewCheck.length === 0) {
         return res.status(404).json({
           success: false,
           error: '리뷰를 찾을 수 없습니다.'
@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
         [reviewId, user_id]
       );
 
-      if (existingHelpful.rows && existingHelpful.rows.length > 0) {
+      if (existingHelpful && existingHelpful.length > 0) {
         return res.status(400).json({
           success: false,
           error: '이미 이 리뷰에 도움됨을 표시하셨습니다.'

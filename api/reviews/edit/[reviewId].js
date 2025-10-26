@@ -41,14 +41,14 @@ module.exports = async function handler(req, res) {
         [reviewId]
       );
 
-      if (!reviewResult.rows || reviewResult.rows.length === 0) {
+      if (!reviewResult || reviewResult.length === 0) {
         return res.status(404).json({
           success: false,
           error: '리뷰를 찾을 수 없습니다'
         });
       }
 
-      const review = reviewResult.rows[0];
+      const review = reviewResult[0];
 
       // 1. 소유자 확인
       if (review.user_id != user_id) {
@@ -113,14 +113,14 @@ module.exports = async function handler(req, res) {
         [reviewId]
       );
 
-      if (!reviewResult.rows || reviewResult.rows.length === 0) {
+      if (!reviewResult || reviewResult.length === 0) {
         return res.status(404).json({
           success: false,
           error: '리뷰를 찾을 수 없습니다'
         });
       }
 
-      const review = reviewResult.rows[0];
+      const review = reviewResult[0];
       if (review.user_id != user_id) {
         return res.status(403).json({
           success: false,

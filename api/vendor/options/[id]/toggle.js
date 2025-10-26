@@ -80,14 +80,14 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult.rows || vendorResult.rows.length === 0) {
+      if (!vendorResult || vendorResult.length === 0) {
         return res.status(403).json({
           success: false,
           message: '등록된 벤더 정보가 없습니다.'
         });
       }
 
-      const vendorId = vendorResult.rows[0].id;
+      const vendorId = vendorResult[0].id;
 
       await connection.execute(
         'UPDATE rentcar_additional_options SET is_active = ?, updated_at = NOW() WHERE id = ? AND vendor_id = ?',

@@ -118,7 +118,7 @@ module.exports = async function handler(req, res) {
     );
 
     // 다음 예약과 충돌 체크
-    for (const nextBooking of conflictCheck.rows || []) {
+    for (const nextBooking of conflictCheck || []) {
       const [nextPickupHour, nextPickupMinute] = nextBooking.pickup_time.split(':').map(Number);
       const nextPickupDateObj = new Date(nextBooking.pickup_date);
       nextPickupDateObj.setHours(nextPickupHour, nextPickupMinute, 0, 0);

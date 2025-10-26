@@ -38,11 +38,11 @@ module.exports = async function handler(req, res) {
       [id]
     );
 
-    if (!partnerCheck.rows || partnerCheck.rows.length === 0) {
+    if (!partnerCheck || partnerCheck.length === 0) {
       return res.status(404).json({ success: false, error: '파트너를 찾을 수 없습니다.' });
     }
 
-    const partner = partnerCheck.rows[0];
+    const partner = partnerCheck[0];
 
     // 승인 처리
     if (status === 'approved') {

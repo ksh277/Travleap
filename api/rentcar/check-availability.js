@@ -88,7 +88,7 @@ module.exports = async function handler(req, res) {
     );
 
     // 시간 범위 겹침 체크 (버퍼 타임 포함)
-    const hasConflict = (conflictCheck.rows || []).some(booking => {
+    const hasConflict = (conflictCheck || []).some(booking => {
       const [existingPickupHour, existingPickupMinute] = (booking.pickup_time || '00:00').split(':').map(Number);
       const [existingDropoffHour, existingDropoffMinute] = (booking.dropoff_time || '23:59').split(':').map(Number);
 
@@ -111,7 +111,7 @@ module.exports = async function handler(req, res) {
         success: true,
         available: false,
         reason: `선택하신 날짜/시간에 이미 예약이 있습니다.\n\n차량 청소 및 점검을 위해 반납 후 ${BUFFER_TIME_MINUTES}분의 버퍼 타임이 필요합니다.\n\n다른 시간을 선택해주세요.`,
-        conflicting_bookings: (conflictCheck.rows || []).length
+        conflicting_bookings: (conflictCheck || []).length
       });
     }
 

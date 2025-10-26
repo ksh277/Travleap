@@ -59,7 +59,7 @@ module.exports = async function handler(req, res) {
 
       const reviews = result || [];
 
-      const stats = statsResult.rows?.[0] || {
+      const stats = statsResult[0] || {
         total_count: 0,
         average_rating: 0,
         rating_5_count: 0,

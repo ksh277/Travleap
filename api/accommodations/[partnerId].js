@@ -49,7 +49,7 @@ module.exports = async function handler(req, res) {
       ORDER BY l.price_from ASC
     `, [partnerId, categoryId]);
 
-    const rooms = (roomsResult.rows || []).map(room => {
+    const rooms = (roomsResult || []).map(room => {
       let images = [];
       try {
         if (room.images) images = JSON.parse(room.images);

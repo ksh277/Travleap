@@ -292,7 +292,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        data: updatedResult.rows[0] || null,
+        data: updatedResult[0] || null,
         message: '상품 정보가 업데이트되었습니다.',
         rowsAffected: resultAffected
       });

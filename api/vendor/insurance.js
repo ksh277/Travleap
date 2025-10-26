@@ -161,7 +161,7 @@ module.exports = async function handler(req, res) {
         [id, vendorId]
       );
 
-      if (!checkResult.rows || checkResult.rows.length === 0) {
+      if (!checkResult || checkResult.length === 0) {
         return res.status(404).json({
           success: false,
           message: '보험 상품을 찾을 수 없거나 수정 권한이 없습니다.'
@@ -243,7 +243,7 @@ module.exports = async function handler(req, res) {
         [id, vendorId]
       );
 
-      if (!checkResult.rows || checkResult.rows.length === 0) {
+      if (!checkResult || checkResult.length === 0) {
         return res.status(404).json({
           success: false,
           message: '보험 상품을 찾을 수 없거나 삭제 권한이 없습니다.'

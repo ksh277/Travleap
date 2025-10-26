@@ -68,7 +68,7 @@ module.exports = async function handler(req, res) {
       [lodgingId, vendorId]
     );
 
-    if (!ownershipCheck.rows || ownershipCheck.rows.length === 0) {
+    if (!ownershipCheck || ownershipCheck.length === 0) {
       return res.status(403).json({
         success: false,
         message: '해당 숙소에 대한 권한이 없습니다.'
