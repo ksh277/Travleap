@@ -1,5 +1,18 @@
-const { connect } = require('@planetscale/database');
+const { Pool } = require('@neondatabase/serverless');
 const { maskForLog } = require('../../utils/pii-masking');
+
+// Neon PostgreSQL connection (users 테이블은 Neon에 있음)
+let pool;
+function getPool() {
+  if (!pool) {
+    const connectionString = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('POSTGRES_DATABASE_URL not configured');
+    }
+    pool = new Pool({ connectionString });
+  }
+  return pool;
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,9 +28,10 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const connection = connect({ url: process.env.DATABASE_URL });
+    const db = getPool();
 
-    const result = await connection.execute(`
+    // Neon PostgreSQL은 .rows 사용
+    const result = await db.query(`
       SELECT
         id, email, name, role, created_at, updated_at
       FROM users
