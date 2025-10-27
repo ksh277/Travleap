@@ -4790,14 +4790,109 @@ function setupRoutes() {
       }
 
       const vendorId = vendors[0].id;
-      const { name, contact_person, contact_email, contact_phone, address } = req.body;
+      const {
+        name,
+        contact_person,
+        contact_email,
+        contact_phone,
+        address,
+        address_detail,
+        latitude,
+        longitude,
+        description,
+        logo_url,
+        images,
+        cancellation_policy,
+        rental_guide,
+        cancellation_rules,
+        check_in_time,
+        check_out_time
+      } = req.body;
+
+      // 업데이트할 필드와 값 동적 생성
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+
+      if (name !== undefined) {
+        updateFields.push('name = ?');
+        updateValues.push(name);
+      }
+      if (contact_person !== undefined) {
+        updateFields.push('contact_person = ?');
+        updateValues.push(contact_person);
+      }
+      if (contact_email !== undefined) {
+        updateFields.push('contact_email = ?');
+        updateValues.push(contact_email);
+      }
+      if (contact_phone !== undefined) {
+        updateFields.push('contact_phone = ?');
+        updateValues.push(contact_phone);
+      }
+      if (address !== undefined) {
+        updateFields.push('address = ?');
+        updateValues.push(address);
+      }
+      if (address_detail !== undefined) {
+        updateFields.push('address_detail = ?');
+        updateValues.push(address_detail);
+      }
+      if (latitude !== undefined) {
+        updateFields.push('latitude = ?');
+        updateValues.push(latitude);
+      }
+      if (longitude !== undefined) {
+        updateFields.push('longitude = ?');
+        updateValues.push(longitude);
+      }
+      if (description !== undefined) {
+        updateFields.push('description = ?');
+        updateValues.push(description);
+      }
+      if (logo_url !== undefined) {
+        updateFields.push('logo_url = ?');
+        updateValues.push(logo_url);
+      }
+      if (images !== undefined) {
+        updateFields.push('images = ?');
+        updateValues.push(JSON.stringify(images));
+      }
+      if (cancellation_policy !== undefined) {
+        updateFields.push('cancellation_policy = ?');
+        updateValues.push(cancellation_policy);
+      }
+      if (rental_guide !== undefined) {
+        updateFields.push('rental_guide = ?');
+        updateValues.push(rental_guide);
+      }
+      if (cancellation_rules !== undefined) {
+        updateFields.push('cancellation_rules = ?');
+        updateValues.push(JSON.stringify(cancellation_rules));
+      }
+      if (check_in_time !== undefined) {
+        updateFields.push('check_in_time = ?');
+        updateValues.push(check_in_time);
+      }
+      if (check_out_time !== undefined) {
+        updateFields.push('check_out_time = ?');
+        updateValues.push(check_out_time);
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({ success: false, message: '수정할 정보가 없습니다.' });
+      }
+
+      // vendorId 추가
+      updateValues.push(vendorId);
 
       // 업체 정보 업데이트
       await db.execute(`
         UPDATE rentcar_vendors
-        SET name = ?, contact_person = ?, contact_email = ?, contact_phone = ?, address = ?
+        SET ${updateFields.join(', ')}
         WHERE id = ?
-      `, [name, contact_person, contact_email, contact_phone, address, vendorId]);
+      `, updateValues);
+
+      console.log('✅ [API] Vendor info updated:', { vendorId, fields: updateFields });
 
       res.json({
         success: true,

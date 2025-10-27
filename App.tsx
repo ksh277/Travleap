@@ -81,7 +81,17 @@ function AppContent() {
   // REMOVED: Hardcoded admin credentials (security risk)
   // To create an admin account, use: tsx scripts/create-admin.ts
 
-
+  // 세션 복원 중일 때 로딩 화면 표시
+  if (!sessionRestored) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">세션 복원 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

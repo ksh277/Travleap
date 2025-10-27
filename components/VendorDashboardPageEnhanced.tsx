@@ -1326,14 +1326,23 @@ export function VendorDashboardPageEnhanced() {
     if (!vendorInfo?.id) return;
 
     try {
-      // PUT API로 업체 정보 수정 (/api/vendors 사용)
-      const response = await fetch('/api/vendors', {
+      // JWT 토큰 가져오기
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+        navigate('/login');
+        return;
+      }
+
+      // PUT API로 업체 정보 수정 (/api/vendor/info 사용)
+      const response = await fetch('/api/vendor/info', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          id: vendorInfo.id,
           name: editedInfo.name || vendorInfo.name,
           contact_person: editedInfo.contact_person || vendorInfo.contact_person,
           contact_email: editedInfo.contact_email || vendorInfo.contact_email,
@@ -1348,46 +1357,43 @@ export function VendorDashboardPageEnhanced() {
           cancellation_policy: editedInfo.cancellation_policy || vendorInfo.cancellation_policy,
           rental_guide: editedInfo.rental_guide !== undefined ? editedInfo.rental_guide : vendorInfo.rental_guide,
           cancellation_rules: editedInfo.cancellation_rules !== undefined ? editedInfo.cancellation_rules : vendorInfo.cancellation_rules,
-          old_email: vendorInfo.contact_email,
-          new_password: newPassword || undefined
+          check_in_time: editedInfo.check_in_time || vendorInfo.check_in_time,
+          check_out_time: editedInfo.check_out_time || vendorInfo.check_out_time
         })
       });
 
       const result = await response.json();
       if (result.success) {
-        // 업체 정보 업데이트
+        // 업체 정보 업데이트 - 실제로 변경된 필드만 업데이트
         setVendorInfo({
           ...vendorInfo,
-          name: editedInfo.name!,
-          contact_person: editedInfo.contact_person!,
-          contact_email: editedInfo.contact_email!,
-          contact_phone: editedInfo.contact_phone!,
-          address: editedInfo.address!,
-          address_detail: editedInfo.address_detail,
+          name: editedInfo.name || vendorInfo.name,
+          contact_person: editedInfo.contact_person || vendorInfo.contact_person,
+          contact_email: editedInfo.contact_email || vendorInfo.contact_email,
+          contact_phone: editedInfo.contact_phone || vendorInfo.contact_phone,
+          address: editedInfo.address || vendorInfo.address,
+          address_detail: editedInfo.address_detail !== undefined ? editedInfo.address_detail : vendorInfo.address_detail,
           latitude: editedInfo.latitude !== undefined ? editedInfo.latitude : vendorInfo.latitude,
           longitude: editedInfo.longitude !== undefined ? editedInfo.longitude : vendorInfo.longitude,
-          description: editedInfo.description,
-          logo_url: editedInfo.logo_url,
+          description: editedInfo.description !== undefined ? editedInfo.description : vendorInfo.description,
+          logo_url: editedInfo.logo_url !== undefined ? editedInfo.logo_url : vendorInfo.logo_url,
           images: editedInfo.images !== undefined ? editedInfo.images : vendorInfo.images,
-          cancellation_policy: editedInfo.cancellation_policy,
-          rental_guide: editedInfo.rental_guide,
-          cancellation_rules: editedInfo.cancellation_rules
+          cancellation_policy: editedInfo.cancellation_policy !== undefined ? editedInfo.cancellation_policy : vendorInfo.cancellation_policy,
+          rental_guide: editedInfo.rental_guide !== undefined ? editedInfo.rental_guide : vendorInfo.rental_guide,
+          cancellation_rules: editedInfo.cancellation_rules !== undefined ? editedInfo.cancellation_rules : vendorInfo.cancellation_rules,
+          check_in_time: editedInfo.check_in_time || vendorInfo.check_in_time,
+          check_out_time: editedInfo.check_out_time || vendorInfo.check_out_time
         });
 
         setIsEditingInfo(false);
         setEditedInfo({});
         setNewPassword('');
-        toast.success('업체 정보가 수정되었습니다!' + (newPassword ? ' 비밀번호도 변경되었습니다.' : ''));
+        toast.success('업체 정보가 수정되었습니다!');
 
-        // 이메일이 변경되었으면 다시 로그인 필요
-        if (vendorInfo.contact_email !== editedInfo.contact_email) {
-          toast.info('이메일이 변경되었습니다. 다시 로그인해주세요.');
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 2000);
-        }
+        // 데이터 다시 로드하여 DB와 동기화
+        await loadVendorData();
       } else {
-        toast.error(result.error || '정보 수정에 실패했습니다.');
+        toast.error(result.message || result.error || '정보 수정에 실패했습니다.');
       }
     } catch (error) {
       console.error('정보 수정 실패:', error);
