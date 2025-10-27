@@ -23,6 +23,7 @@ module.exports = async function handler(req, res) {
   try {
 
     // 활성화된 파트너만 조회 (is_active = 1, status = 'approved')
+    // 렌트카 업체 제외 (partner_type != 'rentcar') - 렌트카는 별도 페이지에서 관리
     // 이제 images 필드를 포함 (base64 정리완료, URL만 저장)
     const result = await connection.execute(`
       SELECT
@@ -33,7 +34,7 @@ module.exports = async function handler(req, res) {
         p.tier, p.partner_type, p.is_verified, p.is_featured,
         p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at
       FROM partners p
-      WHERE p.is_active = 1 AND p.status = 'approved'
+      WHERE p.is_active = 1 AND p.status = 'approved' AND p.partner_type != 'rentcar'
       ORDER BY
         p.is_featured DESC,
         p.created_at DESC
