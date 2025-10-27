@@ -79,7 +79,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       // 카테고리 페이지와 동일한 API 사용
       const [categoriesResult, featuredResult, hotelsResult, reviewsResult, homepageSettings, activitiesResult] = await Promise.all([
         api.getCategories().catch(() => []),
-        api.getListings({ limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
+        // 🛑 Toss 심사용: 팝업 카테고리만 표시
+        api.getListings({ category: 'popup', limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
         // 숙박: 카테고리 페이지와 동일하게 /api/accommodations 사용
         fetch('/api/accommodations').then(res => res.json()).then(result => result.success ? result.data : []).catch(() => []),
         api.getRecentReviews(4).catch(() => []),
