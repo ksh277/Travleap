@@ -769,7 +769,16 @@ export function PaymentPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h3 className="font-medium text-gray-800">{title}</h3>
+                  <h3 className="font-medium text-gray-800">
+                    {orderData?.items?.[0]?.title || title}
+                  </h3>
+                  {orderData?.items?.[0]?.category && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      {orderData.items[0].category === '팝업' ? '팝업 상품' :
+                       orderData.items[0].category === '숙박' ? '숙박' :
+                       orderData.items[0].category}
+                    </p>
+                  )}
                 </div>
 
                 {booking && (

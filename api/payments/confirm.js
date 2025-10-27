@@ -354,6 +354,33 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
             shippingFee
           });
           console.log(`✅ [알림] 결제 완료 알림 발송 (${user.email})`);
+
+          // ✅ 청구 정보를 사용자 프로필에 저장 (shippingInfo가 있을 경우)
+          const { Pool } = require('@neondatabase/serverless');
+          const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+          if (notes && notes.shippingInfo) {
+            try {
+              await poolNeon.query(`
+                UPDATE users
+                SET phone = COALESCE(NULLIF($1, ''), phone),
+                    postal_code = COALESCE(NULLIF($2, ''), postal_code),
+                    address = COALESCE(NULLIF($3, ''), address),
+                    detail_address = COALESCE(NULLIF($4, ''), detail_address),
+                    updated_at = NOW()
+                WHERE id = $5
+              `, [
+                notes.shippingInfo.phone,
+                notes.shippingInfo.zipcode,
+                notes.shippingInfo.address,
+                notes.shippingInfo.addressDetail,
+                userId
+              ]);
+              console.log(`✅ [사용자 정보] 청구 정보 업데이트 완료 (user_id: ${userId})`);
+            } catch (updateError) {
+              console.warn('⚠️  [사용자 정보] 업데이트 실패 (계속 진행):', updateError);
+            }
+          }
         }
       } catch (pointsError) {
         console.warn('⚠️  [포인트/알림] 처리 실패 (계속 진행):', pointsError);

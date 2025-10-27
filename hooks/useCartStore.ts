@@ -87,10 +87,14 @@ export function useCartStore() {
           },
           body: JSON.stringify({
             userId: user.id,
-            listingId: item.id,
-            date: item.date || null,
-            guests: item.guests || 1,
-            price: item.price || 0
+            listing_id: item.id,
+            quantity: item.quantity || 1,
+            selected_date: item.date || null,
+            selected_options: item.selectedOption || null,
+            num_adults: item.guests || 1,
+            num_children: 0,
+            num_seniors: 0,
+            price_snapshot: item.price || 0
           })
         });
 
