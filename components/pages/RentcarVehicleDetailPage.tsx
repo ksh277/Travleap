@@ -234,8 +234,9 @@ export function RentcarVehicleDetailPage() {
     }
 
     const insuranceFee = calculateInsuranceFee();
+    const depositFee = vehicle.deposit_amount_krw || 0;
 
-    return rentalFee + insuranceFee;
+    return rentalFee + insuranceFee + depositFee;
   };
 
   // 예약 처리 (새 MVP API 사용)
@@ -555,19 +556,22 @@ export function RentcarVehicleDetailPage() {
                 <CardTitle>대여 조건</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">주행거리 제한</span>
-                  <span className="font-medium">
-                    1일 {vehicle.mileage_limit_per_day || 200}km
-                  </span>
-                </div>
+                {/* 주행거리 제한 - 0이 아닐 때만 표시 */}
+                {vehicle.mileage_limit_per_day && vehicle.mileage_limit_per_day > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">주행거리 제한</span>
+                    <span className="font-medium">
+                      1일 {vehicle.mileage_limit_per_day}km
+                    </span>
+                  </div>
+                )}
                 {vehicle.excess_mileage_fee_krw && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">초과 요금</span>
-                    <span className="font-medium">km당 ₩{vehicle.excess_mileage_fee_krw}</span>
+                    <span className="font-medium">km당 ₩{vehicle.excess_mileage_fee_krw.toLocaleString()}</span>
                   </div>
                 )}
-                {vehicle.deposit_amount_krw && (
+                {vehicle.deposit_amount_krw && vehicle.deposit_amount_krw > 0 && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">보증금</span>
                     <span className="font-medium">₩{vehicle.deposit_amount_krw.toLocaleString()}</span>
@@ -874,7 +878,7 @@ export function RentcarVehicleDetailPage() {
                               )}
                             </span>
                             <span className="font-medium">
-                              ₩{(calculateTotalPrice() - calculateInsuranceFee()).toLocaleString()}
+                              ₩{(calculateTotalPrice() - calculateInsuranceFee() - (vehicle.deposit_amount_krw || 0)).toLocaleString()}
                             </span>
                           </div>
                           {calculateInsuranceFee() > 0 && (
@@ -882,6 +886,14 @@ export function RentcarVehicleDetailPage() {
                               <span className="text-gray-600">보험료</span>
                               <span className="font-medium text-green-600">
                                 +₩{calculateInsuranceFee().toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {vehicle.deposit_amount_krw && vehicle.deposit_amount_krw > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">보증금</span>
+                              <span className="font-medium text-orange-600">
+                                +₩{vehicle.deposit_amount_krw.toLocaleString()}
                               </span>
                             </div>
                           )}
