@@ -44,7 +44,7 @@ export async function getDefaultShippingPolicy(): Promise<ShippingPolicy | null>
         id: 0,
         policy_name: '기본 배송비 정책',
         base_fee: 3000,
-        free_shipping_threshold: 30000,
+        free_shipping_threshold: 50000,  // ✅ 5만원 이상 무료 배송
         jeju_extra_fee: 3000,
         island_extra_fee: 5000,
         is_default: true

@@ -802,12 +802,13 @@ export function DetailPage() {
     // 옵션 가격 계산
     const optionPrice = selectedOption ? (selectedOption.price_adjustment || 0) : 0;
     const basePrice = item.price || 0;
-    const finalPrice = item.category === '팝업' ? (basePrice + optionPrice) * quantity : (priceCalculation.total || item.price || 0);
+    const itemPrice = item.category === '팝업' ? basePrice : (priceCalculation.basePrice || item.price || 0);
 
     const cartItem = {
       id: item.id,
       title: item.title || '상품',
-      price: finalPrice,
+      price: itemPrice,  // ✅ 1개당 가격 (옵션 제외)
+      quantity: item.category === '팝업' ? quantity : 1,  // ✅ 수량 추가
       image: item.images?.[0] || '',
       category: item.category || '',
       location: item.location || '',

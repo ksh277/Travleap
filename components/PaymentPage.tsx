@@ -201,7 +201,7 @@ export function PaymentPage() {
     loadBookingDetails();
   }, [bookingId, orderData, isLoggedIn]);
 
-  // 배송비 계산 (팝업 상품이 있고 주소가 입력되었을 때)
+  // 배송비 계산 (팝업 상품이 있을 때)
   useEffect(() => {
     const calculateDeliveryFee = async () => {
       // 팝업 상품이 없으면 배송비 0
@@ -210,15 +210,9 @@ export function PaymentPage() {
         return;
       }
 
-      // 장바구니 주문이 아니면 배송비 계산 안 함 (단일 상품 주문은 별도 처리)
+      // 주문 데이터가 없으면 배송비 0
       if (!orderData?.items) {
         setDeliveryFee(0);
-        return;
-      }
-
-      // 주소가 입력되지 않았으면 기본 배송비로 설정 (3,000원)
-      if (!billingInfo.address) {
-        setDeliveryFee(3000);
         return;
       }
 
