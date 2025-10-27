@@ -976,6 +976,96 @@ export async function runMissingTablesMigration() {
       console.warn('⚠️  [Migration] rentcar_vendors table PMS column addition warning:', error);
     }
 
+    // ========================================
+    // 18. coupons 테이블 개선 (usage_per_user 추가)
+    // ========================================
+    console.log('🎫 [Migration] Creating/updating coupons table...');
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS coupons (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          code VARCHAR(50) UNIQUE NOT NULL COMMENT '쿠폰 코드',
+          description TEXT COMMENT '쿠폰 설명',
+          discount_type ENUM('percentage', 'fixed') DEFAULT 'percentage' COMMENT '할인 유형',
+          discount_value DECIMAL(10, 2) NOT NULL COMMENT '할인 값 (percentage: 10 = 10%, fixed: 금액)',
+          min_amount DECIMAL(10, 2) DEFAULT 0 COMMENT '최소 주문 금액',
+          max_usage INT DEFAULT NULL COMMENT '최대 사용 횟수 (NULL이면 무제한)',
+          usage_per_user INT DEFAULT NULL COMMENT '사용자당 사용 가능 횟수 (NULL이면 무제한)',
+          current_usage INT DEFAULT 0 COMMENT '현재 사용 횟수',
+          valid_from DATETIME COMMENT '유효 시작 날짜',
+          valid_until DATETIME COMMENT '유효 종료 날짜',
+          is_active BOOLEAN DEFAULT TRUE COMMENT '활성화 여부',
+          target_category VARCHAR(50) COMMENT '적용 카테고리 (NULL이면 전체)',
+          created_by INT COMMENT '생성자 ID (관리자)',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_code (code),
+          INDEX idx_active (is_active),
+          INDEX idx_valid_dates (valid_from, valid_until),
+          INDEX idx_category (target_category)
+        )
+      `);
+      console.log('✅ coupons table created/verified');
+
+      // usage_per_user 컬럼이 없으면 추가 (기존 테이블 호환)
+      const usagePerUserCol = await db.query(`SHOW COLUMNS FROM coupons LIKE 'usage_per_user'`);
+      if (!usagePerUserCol || usagePerUserCol.length === 0) {
+        await db.execute(`ALTER TABLE coupons ADD COLUMN usage_per_user INT DEFAULT NULL COMMENT '사용자당 사용 가능 횟수' AFTER max_usage`);
+        console.log('   ✅ coupons.usage_per_user column added');
+      }
+
+      // current_usage 컬럼이 없으면 추가
+      const currentUsageCol = await db.query(`SHOW COLUMNS FROM coupons LIKE 'current_usage'`);
+      if (!currentUsageCol || currentUsageCol.length === 0) {
+        await db.execute(`ALTER TABLE coupons ADD COLUMN current_usage INT DEFAULT 0 COMMENT '현재 사용 횟수' AFTER usage_per_user`);
+        console.log('   ✅ coupons.current_usage column added');
+      }
+
+      // target_category 컬럼이 없으면 추가
+      const targetCategoryCol = await db.query(`SHOW COLUMNS FROM coupons LIKE 'target_category'`);
+      if (!targetCategoryCol || targetCategoryCol.length === 0) {
+        await db.execute(`ALTER TABLE coupons ADD COLUMN target_category VARCHAR(50) COMMENT '적용 카테고리' AFTER is_active`);
+        console.log('   ✅ coupons.target_category column added');
+      }
+
+      // created_by 컬럼이 없으면 추가
+      const createdByCol = await db.query(`SHOW COLUMNS FROM coupons LIKE 'created_by'`);
+      if (!createdByCol || createdByCol.length === 0) {
+        await db.execute(`ALTER TABLE coupons ADD COLUMN created_by INT COMMENT '생성자 ID' AFTER target_category`);
+        console.log('   ✅ coupons.created_by column added');
+      }
+
+      console.log('✅ [Migration] coupons table setup complete');
+    } catch (error) {
+      console.warn('⚠️  [Migration] coupons table creation/update warning:', error);
+    }
+
+    // ========================================
+    // 19. coupon_usage 테이블 (쿠폰 사용 내역 추적)
+    // ========================================
+    console.log('📋 [Migration] Creating coupon_usage table...');
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS coupon_usage (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          coupon_id INT NOT NULL COMMENT '쿠폰 ID',
+          user_id INT NOT NULL COMMENT '사용자 ID',
+          order_id VARCHAR(100) COMMENT '주문 번호',
+          payment_id INT COMMENT '결제 ID',
+          discount_amount DECIMAL(10, 2) NOT NULL COMMENT '실제 할인된 금액',
+          used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '사용 시각',
+          INDEX idx_coupon (coupon_id),
+          INDEX idx_user (user_id),
+          INDEX idx_order (order_id),
+          INDEX idx_used_at (used_at),
+          UNIQUE KEY unique_user_coupon_order (user_id, coupon_id, order_id)
+        )
+      `);
+      console.log('✅ coupon_usage table created/verified');
+    } catch (error) {
+      console.warn('⚠️  [Migration] coupon_usage table creation warning:', error);
+    }
+
     console.log('🎉 [Migration] All missing tables added successfully!');
     return true;
 

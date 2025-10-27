@@ -8683,6 +8683,47 @@ function setupRoutes() {
     }
   });
 
+  // ===== Admin Coupon Management API =====
+  app.get('/api/admin/coupons', async (req, res) => {
+    try {
+      const adminCouponsAPI = await import('./api/admin/coupons.js');
+      await adminCouponsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Admin coupons GET error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 목록 조회 중 오류가 발생했습니다' });
+    }
+  });
+
+  app.post('/api/admin/coupons', async (req, res) => {
+    try {
+      const adminCouponsAPI = await import('./api/admin/coupons.js');
+      await adminCouponsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Admin coupons POST error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 생성 중 오류가 발생했습니다' });
+    }
+  });
+
+  app.put('/api/admin/coupons', async (req, res) => {
+    try {
+      const adminCouponsAPI = await import('./api/admin/coupons.js');
+      await adminCouponsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Admin coupons PUT error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 수정 중 오류가 발생했습니다' });
+    }
+  });
+
+  app.delete('/api/admin/coupons', async (req, res) => {
+    try {
+      const adminCouponsAPI = await import('./api/admin/coupons.js');
+      await adminCouponsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Admin coupons DELETE error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 삭제 중 오류가 발생했습니다' });
+    }
+  });
+
   // 404 핸들러
   app.use((req, res) => {
     res.status(404).json({

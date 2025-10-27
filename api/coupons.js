@@ -76,7 +76,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      console.log(`🔍 [Coupons] Validating coupon: ${code}, orderAmount: ${orderAmount}`);
+      console.log(`🔍 [Coupons] Validating coupon: ${code}, orderAmount: ${orderAmount}, userId: ${userId}`);
 
       // 쿠폰 조회
       const result = await connection.execute(`
@@ -94,6 +94,66 @@ module.exports = async function handler(req, res) {
       }
 
       const coupon = result.rows[0];
+
+      // 유효 기간 체크
+      const now = new Date();
+      if (coupon.valid_from && new Date(coupon.valid_from) > now) {
+        return res.status(400).json({
+          success: false,
+          error: 'NOT_YET_VALID',
+          message: '아직 사용할 수 없는 쿠폰입니다'
+        });
+      }
+      if (coupon.valid_until && new Date(coupon.valid_until) < now) {
+        return res.status(400).json({
+          success: false,
+          error: 'EXPIRED',
+          message: '만료된 쿠폰입니다'
+        });
+      }
+
+      // 최대 사용 횟수 체크 (전체)
+      if (coupon.max_usage !== null && coupon.current_usage >= coupon.max_usage) {
+        return res.status(400).json({
+          success: false,
+          error: 'MAX_USAGE_EXCEEDED',
+          message: '쿠폰 사용 가능 횟수가 초과되었습니다'
+        });
+      }
+
+      // 사용자당 사용 횟수 체크
+      if (userId && coupon.usage_per_user !== null) {
+        try {
+          const usageCount = await connection.execute(`
+            SELECT COUNT(*) as count
+            FROM coupon_usage
+            WHERE coupon_id = ? AND user_id = ?
+          `, [coupon.id, userId]);
+
+          const currentUserUsage = usageCount.rows[0]?.count || 0;
+          console.log(`📊 [Coupons] User ${userId} has used coupon ${coupon.code} ${currentUserUsage} times (limit: ${coupon.usage_per_user})`);
+
+          if (currentUserUsage >= coupon.usage_per_user) {
+            return res.status(400).json({
+              success: false,
+              error: 'USER_LIMIT_EXCEEDED',
+              message: `이 쿠폰은 1인당 ${coupon.usage_per_user}회만 사용 가능합니다`
+            });
+          }
+        } catch (error) {
+          console.error('⚠️ [Coupons] Error checking user usage:', error);
+          // 에러가 나도 계속 진행 (테이블이 없을 수 있음)
+        }
+      }
+
+      // 카테고리 체크
+      if (coupon.target_category && category && coupon.target_category !== category) {
+        return res.status(400).json({
+          success: false,
+          error: 'CATEGORY_MISMATCH',
+          message: `이 쿠폰은 ${coupon.target_category} 카테고리 상품만 사용 가능합니다`
+        });
+      }
 
       // 최소 주문 금액 확인
       if (orderAmount && coupon.min_amount && orderAmount < coupon.min_amount) {
@@ -127,7 +187,7 @@ module.exports = async function handler(req, res) {
 
     // POST: 쿠폰 사용 처리 (주문 완료 시 호출)
     if (req.method === 'POST' && req.url.includes('/use')) {
-      const { code, userId, orderId } = req.body;
+      const { code, userId, orderId, paymentId, discountAmount } = req.body;
 
       if (!code) {
         return res.status(400).json({
@@ -137,7 +197,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      console.log(`📝 [Coupons] Using coupon: ${code} for order ${orderId}`);
+      console.log(`📝 [Coupons] Using coupon: ${code} for order ${orderId}, discount: ${discountAmount}`);
 
       // 쿠폰 존재 확인
       const couponCheck = await connection.execute(`
@@ -154,16 +214,33 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 쿠폰 사용 기록 저장 (선택사항 - coupon_usage 테이블이 있는 경우)
+      const coupon = couponCheck.rows[0];
+
+      // 쿠폰 사용 기록 저장
       try {
         await connection.execute(`
           INSERT INTO coupon_usage (
-            coupon_code, user_id, order_id, used_at
-          ) VALUES (?, ?, ?, NOW())
-        `, [code.toUpperCase(), userId || null, orderId || null]);
+            coupon_id, user_id, order_id, payment_id, discount_amount
+          ) VALUES (?, ?, ?, ?, ?)
+        `, [coupon.id, userId || null, orderId || null, paymentId || null, discountAmount || 0]);
+
+        console.log(`✅ [Coupons] Usage recorded in coupon_usage table`);
       } catch (error) {
-        // 테이블이 없으면 무시
-        console.log('⚠️ [Coupons] coupon_usage table not found, skipping usage log');
+        console.error('⚠️ [Coupons] Error recording usage:', error);
+        // 에러가 나도 계속 진행
+      }
+
+      // 쿠폰 current_usage 증가
+      try {
+        await connection.execute(`
+          UPDATE coupons
+          SET current_usage = current_usage + 1
+          WHERE id = ?
+        `, [coupon.id]);
+
+        console.log(`✅ [Coupons] current_usage incremented`);
+      } catch (error) {
+        console.error('⚠️ [Coupons] Error incrementing current_usage:', error);
       }
 
       console.log(`✅ [Coupons] Coupon used successfully`);
