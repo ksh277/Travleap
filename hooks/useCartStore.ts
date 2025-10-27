@@ -46,9 +46,14 @@ export function useCartStore() {
           const transformedItems = result.data.map((item: any) => {
             let images = [];
             try {
-              images = item.images ? JSON.parse(item.images) : [];
+              if (item.images && typeof item.images === 'string' && item.images.trim() !== '') {
+                images = JSON.parse(item.images);
+              } else if (Array.isArray(item.images)) {
+                images = item.images;
+              }
             } catch (e) {
-              console.error('이미지 파싱 실패:', e);
+              console.error('이미지 파싱 실패:', e, '원본:', item.images);
+              images = [];
             }
 
             return {
@@ -141,9 +146,14 @@ export function useCartStore() {
           const transformedItems = cartResult.data.map((item: any) => {
             let images = [];
             try {
-              images = item.images ? JSON.parse(item.images) : [];
+              if (item.images && typeof item.images === 'string' && item.images.trim() !== '') {
+                images = JSON.parse(item.images);
+              } else if (Array.isArray(item.images)) {
+                images = item.images;
+              }
             } catch (e) {
-              console.error('이미지 파싱 실패:', e);
+              console.error('이미지 파싱 실패:', e, '원본:', item.images);
+              images = [];
             }
 
             return {
