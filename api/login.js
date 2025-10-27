@@ -1,4 +1,5 @@
 const { Pool } = require('@neondatabase/serverless');
+const { connect } = require('@planetscale/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -70,31 +71,75 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // 벤더인 경우 벤더 타입 확인 (숙박 vs 렌트카)
+    let vendorType = null;
+    if (user.role === 'vendor') {
+      const planetscale = connect({ url: process.env.DATABASE_URL });
+
+      // 1. partners 테이블에서 숙박 벤더 확인
+      const lodgingCheck = await planetscale.execute(
+        `SELECT id FROM partners WHERE user_id = ? AND partner_type = 'lodging' LIMIT 1`,
+        [user.id]
+      );
+
+      if (lodgingCheck.rows && lodgingCheck.rows.length > 0) {
+        vendorType = 'stay';
+        console.log('✅ 숙박 벤더로 확인됨:', user.email);
+      } else {
+        // 2. rentcar_vendors 테이블에서 렌트카 벤더 확인
+        const rentcarCheck = await planetscale.execute(
+          `SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`,
+          [user.id]
+        );
+
+        if (rentcarCheck.rows && rentcarCheck.rows.length > 0) {
+          vendorType = 'rental';
+          console.log('✅ 렌트카 벤더로 확인됨:', user.email);
+        }
+      }
+    }
+
+    // JWT 토큰 생성 시 vendorType 포함
+    const tokenPayload = {
+      userId: user.id,
+      email: user.email,
+      username: user.username,
+      name: user.name,
+      role: user.role
+    };
+
+    // vendorType이 있으면 추가
+    if (vendorType) {
+      tokenPayload.vendorType = vendorType;
+    }
+
     const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        username: user.username,
-        name: user.name,
-        role: user.role
-      },
+      tokenPayload,
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    console.log('✅ 로그인 성공:', user.username || user.email, 'role:', user.role);
+    console.log('✅ 로그인 성공:', user.username || user.email, 'role:', user.role, 'vendorType:', vendorType);
+
+    // 응답 user 객체 생성
+    const responseUser = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      name: user.name,
+      role: user.role
+    };
+
+    // vendorType이 있으면 추가
+    if (vendorType) {
+      responseUser.vendorType = vendorType;
+    }
 
     return res.status(200).json({
       success: true,
       data: {
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          name: user.name,
-          role: user.role
-        }
+        user: responseUser
       }
     });
   } catch (error) {
