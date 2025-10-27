@@ -182,6 +182,56 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
       console.log(`✅ [주문] 상태 변경: pending → paid (payment_id: ${orderId_num})`);
 
+      // ✅ 쿠폰 사용 처리 (동시성 제어 포함)
+      try {
+        const notes = order.notes ? JSON.parse(order.notes) : null;
+        if (notes && notes.couponCode) {
+          console.log(`🎟️ [쿠폰] 쿠폰 사용 처리: ${notes.couponCode}`);
+
+          // 🔒 FOR UPDATE 락으로 동시성 제어
+          const couponCheck = await db.execute(`
+            SELECT usage_limit, used_count
+            FROM coupons
+            WHERE code = ? AND is_active = TRUE
+            FOR UPDATE
+          `, [notes.couponCode.toUpperCase()]);
+
+          if (couponCheck && couponCheck.length > 0) {
+            const coupon = couponCheck[0];
+
+            // 사용 한도 재확인 (FOR UPDATE 락 획득 후)
+            if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
+              console.error(`⚠️ [쿠폰] 사용 한도 초과: ${notes.couponCode} (${coupon.used_count}/${coupon.usage_limit})`);
+              // 한도 초과해도 결제는 성공 처리 (쿠폰만 미적용)
+            } else {
+              // 쿠폰 사용 횟수 증가
+              await db.execute(`
+                UPDATE coupons
+                SET used_count = used_count + 1,
+                    updated_at = NOW()
+                WHERE code = ?
+              `, [notes.couponCode.toUpperCase()]);
+
+              // 쿠폰 사용 기록 저장
+              try {
+                await db.execute(`
+                  INSERT INTO coupon_usage (
+                    coupon_code, user_id, order_id, used_at
+                  ) VALUES (?, ?, ?, NOW())
+                `, [notes.couponCode.toUpperCase(), userId, orderId]);
+              } catch (usageError) {
+                // coupon_usage 테이블이 없으면 무시
+                console.log('⚠️ [쿠폰] coupon_usage 테이블 없음, 스킵');
+              }
+
+              console.log(`✅ [쿠폰] 쿠폰 사용 완료: ${notes.couponCode}`);
+            }
+          }
+        }
+      } catch (couponError) {
+        console.error('⚠️ [쿠폰] 사용 처리 실패 (계속 진행):', couponError);
+      }
+
       // 장바구니 주문: notes 필드에서 items 추출하여 각 파트너에게 알림
       try {
         const notes = order.notes ? JSON.parse(order.notes) : null;

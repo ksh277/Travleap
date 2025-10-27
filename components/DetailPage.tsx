@@ -2378,6 +2378,7 @@ export function DetailPage() {
                             total: item.category === '팝업'
                               ? (item.price || 0) * quantity + (selectedOption ? selectedOption.price_adjustment * quantity : 0)
                               : priceCalculation.total,
+                            // ✅ 쿠폰 정보 초기값 (PaymentPage에서 업데이트)
                             couponDiscount: 0,
                             couponCode: null
                           };

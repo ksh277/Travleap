@@ -40,14 +40,20 @@ export function PaymentPage() {
   // Lock 기반 HOLD 예약인지 확인
   const isLockBasedBooking = Boolean(bookingNumber);
 
-  let orderData = null;
-  if (orderDataParam) {
-    try {
-      orderData = JSON.parse(orderDataParam);
-    } catch (error) {
-      console.error('Failed to parse order data:', error);
+  // ✅ orderData를 state로 관리하여 쿠폰 정보 업데이트 가능하게 수정
+  const [orderData, setOrderData] = useState<any>(null);
+
+  // URL 파라미터에서 orderData 파싱 (초기 로드 시에만)
+  useEffect(() => {
+    if (orderDataParam) {
+      try {
+        const parsed = JSON.parse(orderDataParam);
+        setOrderData(parsed);
+      } catch (error) {
+        console.error('Failed to parse order data:', error);
+      }
     }
-  }
+  }, [orderDataParam]);
 
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -296,6 +302,16 @@ export function PaymentPage() {
         setCouponDiscount(result.data.discountAmount);
         setCouponCode(code);
         setShowCouponModal(false);
+
+        // ✅ orderData에도 쿠폰 정보 업데이트
+        if (orderData) {
+          setOrderData({
+            ...orderData,
+            couponDiscount: result.data.discountAmount,
+            couponCode: result.data.code
+          });
+        }
+
         toast.success(`쿠폰이 적용되었습니다! ${result.data.discountAmount.toLocaleString()}원 할인`);
       } else {
         toast.error(result.message || '쿠폰 적용에 실패했습니다');
@@ -313,6 +329,16 @@ export function PaymentPage() {
     setSelectedCoupon(null);
     setCouponDiscount(0);
     setCouponCode('');
+
+    // ✅ orderData에서도 쿠폰 정보 제거
+    if (orderData) {
+      setOrderData({
+        ...orderData,
+        couponDiscount: 0,
+        couponCode: null
+      });
+    }
+
     toast.success('쿠폰이 제거되었습니다');
   };
 
@@ -399,7 +425,8 @@ export function PaymentPage() {
             setIsProcessing(false);
             return;
           }
-          if (pointsToUse > totalWithDelivery) {
+          // ✅ 쿠폰 할인 적용 후 금액으로 검증
+          if (pointsToUse > totalWithCoupon) {
             toast.error('주문 금액을 초과하여 포인트를 사용할 수 없습니다.');
             setIsProcessing(false);
             return;
@@ -415,12 +442,18 @@ export function PaymentPage() {
             quantity: item.quantity,
             price: item.price,
             subtotal: item.price * item.quantity,
-            selectedOption: item.selectedOption // 팝업 상품 옵션 정보
+            selectedOption: item.selectedOption, // 팝업 상품 옵션 정보
+            // ✅ bookings 테이블에 저장할 필드 추가
+            category: item.category,
+            selectedDate: item.selectedDate,
+            adults: item.adults,
+            children: item.children,
+            infants: item.infants
           })),
           subtotal: orderData.subtotal,
           deliveryFee: deliveryFee,
-          couponDiscount: orderData.couponDiscount,
-          couponCode: orderData.couponCode,
+          couponDiscount: orderData.couponDiscount || 0,
+          couponCode: orderData.couponCode || null,
           pointsUsed: pointsToUse,
           total: finalAmount,
           status: 'pending' as const,
