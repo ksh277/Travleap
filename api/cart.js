@@ -36,8 +36,7 @@ module.exports = async function handler(req, res) {
           l.price_from,
           l.images,
           l.category_id,
-          l.is_active,
-          l.stock_quantity
+          l.is_active
         FROM cart_items c
         LEFT JOIN listings l ON c.listing_id = l.id
         WHERE c.user_id = ?
@@ -68,12 +67,6 @@ module.exports = async function handler(req, res) {
         else if (!item.is_active) {
           validationStatus = 'invalid';
           validationMessage = '판매가 중단된 상품입니다';
-          invalidItemIds.push(item.id);
-        }
-        // 🔍 재고 확인 (팝업 카테고리인 경우)
-        else if (item.stock_quantity !== null && item.stock_quantity <= 0) {
-          validationStatus = 'invalid';
-          validationMessage = '품절된 상품입니다';
           invalidItemIds.push(item.id);
         }
 
@@ -137,7 +130,7 @@ module.exports = async function handler(req, res) {
 
       // 🔍 상품 존재 여부 및 활성화 상태 확인
       const listingCheck = await connection.execute(`
-        SELECT id, is_active, stock_quantity
+        SELECT id, is_active
         FROM listings
         WHERE id = ?
         LIMIT 1
@@ -158,14 +151,6 @@ module.exports = async function handler(req, res) {
           success: false,
           error: 'LISTING_INACTIVE',
           message: '판매가 중단된 상품입니다.'
-        });
-      }
-
-      if (listing.stock_quantity !== null && listing.stock_quantity <= 0) {
-        return res.status(400).json({
-          success: false,
-          error: 'OUT_OF_STOCK',
-          message: '품절된 상품입니다.'
         });
       }
 

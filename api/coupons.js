@@ -34,7 +34,6 @@ module.exports = async function handler(req, res) {
           discount_type,
           discount_value,
           min_amount,
-          max_discount,
           description,
           expires_at,
           usage_limit,
@@ -54,7 +53,6 @@ module.exports = async function handler(req, res) {
         code: coupon.code,
         discount: coupon.discount_value,
         minAmount: coupon.min_amount || 0,
-        maxDiscount: coupon.max_discount || null,
         description: coupon.description || '',
         type: coupon.discount_type === 'percentage' ? 'percentage' : 'fixed',
         expiresAt: coupon.expires_at ? new Date(coupon.expires_at).toISOString().split('T')[0] : null,
@@ -158,9 +156,6 @@ module.exports = async function handler(req, res) {
       let discountAmount = 0;
       if (coupon.discount_type === 'percentage') {
         discountAmount = Math.floor(orderAmount * coupon.discount_value / 100);
-        if (coupon.max_discount && discountAmount > coupon.max_discount) {
-          discountAmount = coupon.max_discount;
-        }
       } else {
         discountAmount = coupon.discount_value;
       }
