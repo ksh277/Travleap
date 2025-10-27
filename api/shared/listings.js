@@ -29,9 +29,9 @@ module.exports = async function handler(req, res) {
     const limit = parseInt(req.query.limit) || 20;
     const sortBy = req.query.sortBy || 'popular';
     const search = req.query.search;
-    const minPrice = req.query.minPrice ? parseInt(req.query.minPrice) ;
-    const maxPrice = req.query.maxPrice ? parseInt(req.query.maxPrice) ;
-    const rating = req.query.rating ? parseFloat(req.query.rating) ;
+    const minPrice = req.query.minPrice ? parseInt(req.query.minPrice) : undefined;
+    const maxPrice = req.query.maxPrice ? parseInt(req.query.maxPrice) : undefined;
+    const rating = req.query.rating ? parseFloat(req.query.rating) : undefined;
 
     const offset = (page - 1) * limit;
 
@@ -111,7 +111,7 @@ module.exports = async function handler(req, res) {
     const listings = result.rows || [];
 
     // 이미지 JSON 파싱 (안전하게)
-    const parseJsonField = (field: any) => {
+    const parseJsonField = (field) => {
       if (!field) return [];
       if (typeof field === 'string') {
         try {
@@ -123,7 +123,7 @@ module.exports = async function handler(req, res) {
       return field;
     };
 
-    const parsedListings = listings.map((listing: any) => ({
+    const parsedListings = listings.map((listing) => ({
       ...listing,
       images: parseJsonField(listing.images),
       amenities: parseJsonField(listing.amenities),
