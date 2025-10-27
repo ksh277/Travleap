@@ -869,6 +869,7 @@ export function VendorDashboardPageEnhanced() {
       coverage_details: '',
       hourly_rate_krw: 1000,
       is_active: true,
+      is_required: false,
       display_order: insurances.length + 1
     });
     setIsEditingInsurance(false);
@@ -1361,12 +1362,29 @@ export function VendorDashboardPageEnhanced() {
           rental_guide: editedInfo.rental_guide !== undefined ? editedInfo.rental_guide : vendorInfo.rental_guide,
           cancellation_rules: editedInfo.cancellation_rules !== undefined ? editedInfo.cancellation_rules : vendorInfo.cancellation_rules,
           check_in_time: editedInfo.check_in_time || vendorInfo.check_in_time,
-          check_out_time: editedInfo.check_out_time || vendorInfo.check_out_time
+          check_out_time: editedInfo.check_out_time || vendorInfo.check_out_time,
+          // 로그인 계정 정보 (users 테이블)
+          email: editedInfo.contact_email || undefined, // 로그인 이메일 변경
+          password: newPassword || undefined // 비밀번호 변경 (입력된 경우만)
         })
       });
 
       const result = await response.json();
       if (result.success) {
+        // 이메일 또는 비밀번호가 변경되었는지 확인
+        const emailChanged = editedInfo.contact_email && editedInfo.contact_email !== vendorInfo.contact_email;
+        const passwordChanged = newPassword && newPassword.length > 0;
+
+        if (emailChanged || passwordChanged) {
+          // 이메일 또는 비밀번호 변경 시 재로그인 필요
+          toast.success('계정 정보가 변경되었습니다. 다시 로그인해주세요.');
+          setTimeout(() => {
+            logout();
+            navigate('/login');
+          }, 2000);
+          return;
+        }
+
         // 업체 정보 업데이트 - 실제로 변경된 필드만 업데이트
         setVendorInfo({
           ...vendorInfo,

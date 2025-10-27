@@ -4806,7 +4806,10 @@ function setupRoutes() {
         rental_guide,
         cancellation_rules,
         check_in_time,
-        check_out_time
+        check_out_time,
+        // 로그인 계정 정보 (users 테이블)
+        email,
+        password
       } = req.body;
 
       // 업데이트할 필드와 값 동적 생성
@@ -4893,6 +4896,33 @@ function setupRoutes() {
       `, updateValues);
 
       console.log('✅ [API] Vendor info updated:', { vendorId, fields: updateFields });
+
+      // users 테이블 업데이트 (이메일 또는 비밀번호 변경 시)
+      const userUpdateFields: string[] = [];
+      const userUpdateValues: any[] = [];
+
+      if (email !== undefined && email) {
+        userUpdateFields.push('email = ?');
+        userUpdateValues.push(email);
+      }
+
+      if (password !== undefined && password) {
+        // 비밀번호 해시화
+        const bcrypt = await import('bcryptjs');
+        const hashedPassword = await bcrypt.hash(password, 10);
+        userUpdateFields.push('password = ?');
+        userUpdateValues.push(hashedPassword);
+      }
+
+      if (userUpdateFields.length > 0) {
+        userUpdateValues.push(userId);
+        await db.execute(`
+          UPDATE users
+          SET ${userUpdateFields.join(', ')}
+          WHERE id = ?
+        `, userUpdateValues);
+        console.log('✅ [API] User account updated:', { userId, fields: userUpdateFields });
+      }
 
       res.json({
         success: true,
