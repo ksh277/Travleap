@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      if (!result || result.length === 0) {
+      if (!result.rows || result.rows.length === 0) {
         return res.status(404).json({
           success: false,
           error: '예약을 찾을 수 없습니다.'
@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        data: result[0]
+        data: result.rows[0]
       });
     }
 
@@ -72,14 +72,14 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      if (!bookingResult || bookingResult.length === 0) {
+      if (!bookingResult.rows || bookingResult.rows.length === 0) {
         return res.status(404).json({
           success: false,
           error: '예약을 찾을 수 없습니다.'
         });
       }
 
-      const booking = bookingResult[0];
+      const booking = bookingResult.rows[0];
       const vehicleId = booking.vehicle_id;
 
       // 예약 상태 업데이트

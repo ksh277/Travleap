@@ -35,10 +35,10 @@ module.exports = async function handler(req, res) {
         [finalVendorId]
       );
 
-      if (result && result.length > 0) {
+      if (result.rows && result.rows.length > 0) {
         return res.status(200).json({
           success: true,
-          data: result[0]
+          data: result.rows[0]
         });
       } else {
         return res.status(404).json({ success: false, error: 'PMS config not found' });

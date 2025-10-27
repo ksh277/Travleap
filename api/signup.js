@@ -76,7 +76,7 @@ module.exports = async function handler(req, res) {
       [username, email]
     );
 
-    if (existingUser && existingUser.length > 0) {
+    if (existingUser.rows && existingUser.rows.length > 0) {
       return res.status(409).json({
         success: false,
         error: '이미 사용중인 아이디 또는 이메일입니다.'
@@ -94,7 +94,7 @@ module.exports = async function handler(req, res) {
       [username, email, hashedPassword, name, phone || null, 'user']
     );
 
-    const user = result[0];
+    const user = result.rows[0];
 
     // JWT 토큰 생성
     const token = jwt.sign(

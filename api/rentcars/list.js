@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(sql);
 
-    const vendors = (result || []).map(vendor => ({
+    const vendors = (result.rows || []).map(vendor => ({
       id: vendor.id,
       vendor_code: vendor.vendor_code,
       business_name: vendor.business_name,
@@ -86,7 +86,7 @@ module.exports = async function handler(req, res) {
       FROM rentcar_vendors
       WHERE status = 'active'
     `);
-    const total = countResult[0]?.total || 0;
+    const total = countResult.rows?.[0]?.total || 0;
 
     return res.status(200).json({
       success: true,

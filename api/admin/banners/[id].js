@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
         is_active
       } = req.body;
 
-      const result = await connection.execute(
+      await connection.execute(
         `UPDATE banners SET
           image_url = COALESCE(?, image_url),
           title = COALESCE(?, title),
@@ -56,13 +56,6 @@ module.exports = async function handler(req, res) {
         ]
       );
 
-      if (resultAffected === 0) {
-        return res.status(404).json({
-          success: false,
-          message: '배너를 찾을 수 없습니다.'
-        });
-      }
-
       return res.status(200).json({
         success: true,
         message: '배너가 성공적으로 수정되었습니다.'
@@ -71,17 +64,10 @@ module.exports = async function handler(req, res) {
 
     // DELETE - 배너 삭제
     if (req.method === 'DELETE') {
-      const result = await connection.execute(
+      await connection.execute(
         'DELETE FROM banners WHERE id = ?',
         [id]
       );
-
-      if (resultAffected === 0) {
-        return res.status(404).json({
-          success: false,
-          message: '배너를 찾을 수 없습니다.'
-        });
-      }
 
       return res.status(200).json({
         success: true,

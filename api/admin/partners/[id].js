@@ -89,7 +89,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         success: true,
         message: '파트너 정보가 성공적으로 수정되었습니다.',
-        data: updatedPartner[0]
+        data: updatedPartner.rows?.[0]
       });
     }
 
@@ -103,7 +103,7 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      const listingCount = listingsCheck?.[0]?.count || 0;
+      const listingCount = listingsCheck.rows?.[0]?.count || 0;
 
       if (listingCount > 0) {
         if (cascade === 'true') {

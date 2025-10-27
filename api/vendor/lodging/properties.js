@@ -82,7 +82,7 @@ module.exports = async function handler(req, res) {
         [vendorId]
       );
 
-      const lodgings = (result || []).map(row => {
+      const lodgings = (result.rows || []).map(row => {
         let images = [];
         try {
           images = row.images ? JSON.parse(row.images) : [];

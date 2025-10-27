@@ -71,7 +71,7 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(sql, params);
 
-    const lodgings = (result || []).map(lodging => {
+    const lodgings = (result.rows || []).map(lodging => {
       let images = [];
       let amenities = {};
 
@@ -116,7 +116,7 @@ module.exports = async function handler(req, res) {
     }
 
     const countResult = await connection.execute(countSql, countParams);
-    const total = countResult[0]?.total || 0;
+    const total = countResult.rows?.[0]?.total || 0;
 
     return res.status(200).json({
       success: true,

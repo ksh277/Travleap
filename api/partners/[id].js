@@ -41,14 +41,14 @@ module.exports = async function handler(req, res) {
       GROUP BY p.id
     `, [id]);
 
-    if (!result || result.length === 0) {
+    if (!result.rows || result.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: '파트너를 찾을 수 없습니다.'
       });
     }
 
-    const partner = result[0];
+    const partner = result.rows[0];
 
     // images 필드 파싱 (JSON 문자열인 경우)
     if (partner.images && typeof partner.images === 'string') {

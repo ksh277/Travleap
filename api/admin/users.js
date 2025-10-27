@@ -28,7 +28,12 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    console.log('👥 [Admin Users] API 호출 시작');
+    console.log('📍 POSTGRES_DATABASE_URL 존재:', !!process.env.POSTGRES_DATABASE_URL);
+    console.log('📍 DATABASE_URL 존재:', !!process.env.DATABASE_URL);
+
     const db = getPool();
+    console.log('✅ [Admin Users] Pool 연결 성공');
 
     // Neon PostgreSQL은 .rows 사용
     const result = await db.query(`
@@ -38,16 +43,26 @@ module.exports = async function handler(req, res) {
       ORDER BY created_at DESC
     `);
 
+    console.log(`✅ [Admin Users] ${result.rows?.length || 0}명 조회 완료`);
+
     return res.status(200).json({
       success: true,
       data: result.rows || []
     });
   } catch (error) {
-    console.error('Error fetching users:', maskForLog(error));
-    // 에러 시 빈 배열 반환
+    console.error('❌ [Admin Users] Error fetching users:', error);
+    console.error('❌ Error details:', maskForLog(error));
+    console.error('❌ Error stack:', error.stack);
+
+    // 에러 시 빈 배열 반환 (200 상태로)
     return res.status(200).json({
       success: true,
-      data: []
+      data: [],
+      error: error.message,
+      _debug: {
+        hasPostgresUrl: !!process.env.POSTGRES_DATABASE_URL,
+        hasDatabaseUrl: !!process.env.DATABASE_URL
+      }
     });
   }
 };

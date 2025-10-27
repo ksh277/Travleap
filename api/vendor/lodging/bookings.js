@@ -92,7 +92,7 @@ module.exports = async function handler(req, res) {
       [vendorId]
     );
 
-    const bookings = (result || []).map(row => ({
+    const bookings = (result.rows || []).map(row => ({
       id: row.id,
       listing_id: row.listing_id,
       lodging_name: row.lodging_name,
