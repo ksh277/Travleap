@@ -42,6 +42,7 @@ module.exports = async function handler(req, res) {
         description,
         coverage_details,
         hourly_rate_krw,
+        is_required,
         display_order
        FROM rentcar_insurance
        WHERE vendor_id = ? AND is_active = TRUE

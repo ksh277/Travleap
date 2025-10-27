@@ -73,7 +73,7 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(
         `SELECT
           id, vendor_id, name, description, coverage_details,
-          hourly_rate_krw, is_active, display_order,
+          hourly_rate_krw, is_active, is_required, display_order,
           created_at, updated_at
          FROM rentcar_insurance
          WHERE vendor_id = ?
@@ -95,6 +95,7 @@ module.exports = async function handler(req, res) {
         coverage_details,
         hourly_rate_krw,
         is_active,
+        is_required,
         display_order
       } = req.body;
 
@@ -116,9 +117,9 @@ module.exports = async function handler(req, res) {
       await connection.execute(
         `INSERT INTO rentcar_insurance (
           vendor_id, name, description, coverage_details,
-          hourly_rate_krw, is_active, display_order,
+          hourly_rate_krw, is_active, is_required, display_order,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           vendorId,
           name,
@@ -126,6 +127,7 @@ module.exports = async function handler(req, res) {
           coverage_details || null,
           hourly_rate_krw,
           is_active !== undefined ? is_active : true,
+          is_required !== undefined ? is_required : false,
           display_order || 0
         ]
       );
@@ -145,6 +147,7 @@ module.exports = async function handler(req, res) {
         coverage_details,
         hourly_rate_krw,
         is_active,
+        is_required,
         display_order
       } = req.body;
 
@@ -197,6 +200,10 @@ module.exports = async function handler(req, res) {
       if (is_active !== undefined) {
         updates.push('is_active = ?');
         values.push(is_active);
+      }
+      if (is_required !== undefined) {
+        updates.push('is_required = ?');
+        values.push(is_required);
       }
       if (display_order !== undefined) {
         updates.push('display_order = ?');

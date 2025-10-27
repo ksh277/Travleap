@@ -103,6 +103,7 @@ interface Insurance {
   coverage_details: string | null;
   hourly_rate_krw: number;
   is_active: boolean;
+  is_required?: boolean;
   display_order: number;
   created_at: string;
   updated_at: string;
@@ -230,6 +231,7 @@ export function VendorDashboardPageEnhanced() {
     coverage_details: '',
     hourly_rate_krw: 1000,
     is_active: true,
+    is_required: false,
     display_order: 0
   });
 
@@ -881,6 +883,7 @@ export function VendorDashboardPageEnhanced() {
       coverage_details: insurance.coverage_details || '',
       hourly_rate_krw: insurance.hourly_rate_krw,
       is_active: insurance.is_active,
+      is_required: insurance.is_required || false,
       display_order: insurance.display_order
     });
     setIsEditingInsurance(true);
@@ -2285,6 +2288,14 @@ export function VendorDashboardPageEnhanced() {
                       <Label>활성화 (고객에게 표시)</Label>
                     </div>
 
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={insuranceForm.is_required}
+                        onCheckedChange={(checked) => setInsuranceForm({...insuranceForm, is_required: checked})}
+                      />
+                      <Label>필수 가입 (고객이 반드시 선택해야 함)</Label>
+                    </div>
+
                     <div className="flex gap-2">
                       <Button onClick={handleSaveInsurance} className="bg-green-600 hover:bg-green-700">
                         {isEditingInsurance ? '수정 완료' : '추가'}
@@ -2325,6 +2336,7 @@ export function VendorDashboardPageEnhanced() {
                         <TableHead>보험명</TableHead>
                         <TableHead>시간당 요금</TableHead>
                         <TableHead>설명</TableHead>
+                        <TableHead>필수</TableHead>
                         <TableHead>상태</TableHead>
                         <TableHead className="text-right">관리</TableHead>
                       </TableRow>
@@ -2338,6 +2350,13 @@ export function VendorDashboardPageEnhanced() {
                             <TableCell className="font-medium">{insurance.name}</TableCell>
                             <TableCell>{insurance.hourly_rate_krw.toLocaleString()}원/시간</TableCell>
                             <TableCell className="max-w-xs truncate">{insurance.description || '-'}</TableCell>
+                            <TableCell>
+                              {insurance.is_required ? (
+                                <Badge variant="destructive">필수</Badge>
+                              ) : (
+                                <Badge variant="secondary">선택</Badge>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Switch

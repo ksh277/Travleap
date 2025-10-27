@@ -1066,6 +1066,25 @@ export async function runMissingTablesMigration() {
       console.warn('⚠️  [Migration] coupon_usage table creation warning:', error);
     }
 
+    // ========================================
+    // 20. rentcar_insurance 테이블에 is_required 컬럼 추가
+    // ========================================
+    console.log('🔧 [Migration] Adding is_required column to rentcar_insurance table...');
+    try {
+      const isRequiredCol = await db.query(`SHOW COLUMNS FROM rentcar_insurance LIKE 'is_required'`);
+      if (!isRequiredCol || isRequiredCol.length === 0) {
+        await db.execute(`
+          ALTER TABLE rentcar_insurance
+          ADD COLUMN is_required BOOLEAN DEFAULT FALSE COMMENT '보험 필수 가입 여부 (true면 고객이 반드시 선택해야 함)'
+        `);
+        console.log('   ✅ rentcar_insurance.is_required column added');
+      } else {
+        console.log('   ℹ️  rentcar_insurance.is_required column already exists');
+      }
+    } catch (error) {
+      console.warn('⚠️  [Migration] rentcar_insurance.is_required column addition warning:', error);
+    }
+
     console.log('🎉 [Migration] All missing tables added successfully!');
     return true;
 

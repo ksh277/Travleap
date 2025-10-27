@@ -71,6 +71,7 @@ interface Insurance {
   description: string | null;
   coverage_details: string | null;
   hourly_rate_krw: number;
+  is_required?: boolean;
   display_order: number;
 }
 
@@ -270,6 +271,13 @@ export function RentcarVehicleDetailPage() {
     }
     if (!driverLicenseExp) {
       toast.error('운전면허 만료일을 입력해주세요');
+      return;
+    }
+
+    // 필수 보험 체크
+    const requiredInsurances = insurances.filter(ins => ins.is_required);
+    if (requiredInsurances.length > 0 && !selectedInsuranceId) {
+      toast.error('필수 보험을 선택해주세요');
       return;
     }
 
@@ -790,28 +798,41 @@ export function RentcarVehicleDetailPage() {
 
                         <div className="space-y-2">
                           {/* 보험 없음 옵션 */}
-                          <label className={`block border rounded-lg p-3 cursor-pointer transition-all ${
-                            selectedInsuranceId === null
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}>
-                            <div className="flex items-start gap-3">
-                              <input
-                                type="radio"
-                                name="insurance"
-                                checked={selectedInsuranceId === null}
-                                onChange={() => setSelectedInsuranceId(null)}
-                                className="mt-1"
-                              />
-                              <div className="flex-1">
-                                <div className="font-medium text-gray-900">보험 없음</div>
-                                <div className="text-sm text-gray-500">추가 보험료 없음</div>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-semibold text-gray-900">₩0</div>
-                              </div>
-                            </div>
-                          </label>
+                          {(() => {
+                            const hasRequiredInsurance = insurances.some(ins => ins.is_required);
+                            return (
+                              <label className={`block border rounded-lg p-3 transition-all ${
+                                hasRequiredInsurance
+                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                                  : selectedInsuranceId === null
+                                  ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                                  : 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                              }`}>
+                                <div className="flex items-start gap-3">
+                                  <input
+                                    type="radio"
+                                    name="insurance"
+                                    checked={selectedInsuranceId === null}
+                                    onChange={() => !hasRequiredInsurance && setSelectedInsuranceId(null)}
+                                    disabled={hasRequiredInsurance}
+                                    className="mt-1"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-medium text-gray-900">
+                                      보험 없음
+                                      {hasRequiredInsurance && (
+                                        <span className="ml-2 text-xs text-red-600">(필수 보험 선택 필요)</span>
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-gray-500">추가 보험료 없음</div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-semibold text-gray-900">₩0</div>
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })()}
 
                           {/* 보험 상품 목록 */}
                           {insurances.map((insurance) => {
@@ -834,7 +855,14 @@ export function RentcarVehicleDetailPage() {
                                     className="mt-1"
                                   />
                                   <div className="flex-1">
-                                    <div className="font-medium text-gray-900">{insurance.name}</div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="font-medium text-gray-900">{insurance.name}</div>
+                                      {insurance.is_required && (
+                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
+                                          필수
+                                        </span>
+                                      )}
+                                    </div>
                                     {insurance.description && (
                                       <div className="text-sm text-gray-600 mt-1">{insurance.description}</div>
                                     )}
