@@ -56,14 +56,52 @@ module.exports = async function handler(req, res) {
     console.log('현재 partners 테이블 상태:', currentRows);
 
     const currentPartnerType = currentRows[0]?.partner_type || 'NONE';
+    let operation = '';
 
-    // partner_type을 'rentcar'로 업데이트
-    await mysqlConnection.execute(
-      'UPDATE partners SET partner_type = ? WHERE user_id = ?',
-      ['rentcar', user.id]
-    );
+    if (currentRows.length === 0) {
+      // partners 테이블에 row가 없으면 INSERT
+      console.log('⚠️ partners 테이블에 row 없음 → INSERT 실행');
 
-    console.log('✅ UPDATE 완료');
+      await mysqlConnection.execute(
+        `INSERT INTO partners (
+          user_id,
+          partner_type,
+          business_name,
+          business_number,
+          contact_name,
+          email,
+          phone,
+          status,
+          is_active,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW(), NOW())`,
+        [
+          user.id,
+          'rentcar',
+          '드림렌트카',
+          null,
+          user.name,
+          user.email,
+          '010-9999-9999'
+        ]
+      );
+
+      operation = 'INSERT';
+      console.log('✅ INSERT 완료');
+
+    } else {
+      // partners 테이블에 row가 있으면 UPDATE
+      console.log('✅ partners 테이블에 row 존재 → UPDATE 실행');
+
+      await mysqlConnection.execute(
+        'UPDATE partners SET partner_type = ? WHERE user_id = ?',
+        ['rentcar', user.id]
+      );
+
+      operation = 'UPDATE';
+      console.log('✅ UPDATE 완료');
+    }
 
     // 업데이트 후 확인
     const [verifyRows] = await mysqlConnection.execute(
@@ -71,14 +109,15 @@ module.exports = async function handler(req, res) {
       [user.id]
     );
 
-    console.log('업데이트 후 partners 테이블:', verifyRows);
+    console.log('수정 후 partners 테이블:', verifyRows);
 
     await mysqlConnection.end();
 
     return res.status(200).json({
       success: true,
-      message: 'rentcar@vendor.com의 partner_type이 rentcar로 수정되었습니다.',
+      message: `rentcar@vendor.com의 partner_type이 rentcar로 ${operation === 'INSERT' ? '생성' : '수정'}되었습니다.`,
       data: {
+        operation: operation,
         user: user,
         before: currentPartnerType,
         after: verifyRows[0]?.partner_type || 'UNKNOWN',
