@@ -16,7 +16,11 @@ module.exports = async function handler(req, res) {
   try {
     const { category, page = '1', limit = '8', sortBy = 'popular', search, minPrice, maxPrice, rating } = req.query;
 
-    const connection = connect({ url: process.env.DATABASE_URL });
+    const connection = connect({
+      host: process.env.DATABASE_HOST,
+      username: process.env.DATABASE_USERNAME,
+      password: process.env.DATABASE_PASSWORD
+    });
 
     let sql = `
       SELECT

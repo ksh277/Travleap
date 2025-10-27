@@ -74,7 +74,11 @@ module.exports = async function handler(req, res) {
     // 벤더인 경우 벤더 타입 확인 (partners 테이블에서)
     let vendorType = null;
     if (user.role === 'vendor') {
-      const planetscale = connect({ url: process.env.DATABASE_URL });
+      const planetscale = connect({
+        host: process.env.DATABASE_HOST,
+        username: process.env.DATABASE_USERNAME,
+        password: process.env.DATABASE_PASSWORD
+      });
 
       // partners 테이블에서 벤더 타입 확인
       const partnerCheck = await planetscale.execute(

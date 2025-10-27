@@ -17,7 +17,11 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const connection = connect({ url: process.env.DATABASE_URL });
+    const connection = connect({
+      host: process.env.DATABASE_HOST,
+      username: process.env.DATABASE_USERNAME,
+      password: process.env.DATABASE_PASSWORD
+    });
 
     // GET: 사용 가능한 쿠폰 목록 조회
     if (req.method === 'GET') {
