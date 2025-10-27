@@ -39,28 +39,23 @@ class Database {
   async execute(sqlString: string, params: any[] = []): Promise<QueryResult> {
     try {
       // PlanetScale execute 사용
-      // ✅ PlanetScale는 배열과 메타데이터를 함께 반환
-      // result는 배열이면서 insertId, rowsAffected 속성을 가짐
+      // ✅ PlanetScale 결과 구조: { rows: [], rowsAffected: 0, insertId: '0', ... }
       const result = await this.connection.execute(sqlString, params);
 
-      // ✅ PlanetScale 결과: result 자체가 배열 (result.rows 아님!)
+      // ✅ FIX: PlanetScale는 result.rows 속성에 데이터 존재 (result 자체가 배열이 아님)
       return {
-        rows: Array.isArray(result) ? result : [],
+        rows: result.rows || [],
         insertId: result.insertId ? Number(result.insertId) : 0,
         affectedRows: result.rowsAffected || 0
       };
     } catch (error: any) {
-      console.error('Database execution error:', error);
+      console.error('❌ [Database] Execution error:', error);
+      console.error('   SQL:', sqlString);
+      console.error('   Params:', params);
 
-      // DB 연결 실패 시에도 앱이 계속 작동하도록 빈 결과 반환
-      if (!error.message?.includes('Unknown column') && !error.message?.includes("doesn't exist")) {
-        console.warn('Database query failed, returning empty result:', error);
-      }
-      return {
-        rows: [],
-        insertId: 0,
-        affectedRows: 0
-      };
+      // ✅ FIX: 에러를 다시 throw해서 상위에서 처리하도록
+      // 빈 배열 반환은 에러를 숨기고 디버깅을 어렵게 만듦
+      throw error;
     }
   }
 
