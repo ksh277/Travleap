@@ -44,10 +44,16 @@ module.exports = async function handler(req, res) {
       const couponList = coupons.map(coupon => ({
         id: coupon.id,
         code: coupon.code,
-        discount: coupon.discount_value,
-        minAmount: coupon.min_amount || 0,
+        title: coupon.description || coupon.code,
         description: coupon.description || '',
-        type: coupon.discount_type === 'percentage' ? 'percentage' : 'fixed'
+        // MyPage 형식
+        discount_type: coupon.discount_type,
+        discount_value: coupon.discount_value,
+        min_amount: coupon.min_amount || 0,
+        // CartPage 형식 (호환성)
+        type: coupon.discount_type,
+        discount: coupon.discount_value,
+        minAmount: coupon.min_amount || 0
       }));
 
       console.log(`✅ [Coupons] Found ${couponList.length} active coupons`);
