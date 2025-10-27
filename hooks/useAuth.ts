@@ -168,6 +168,10 @@ const clearSession = () => {
     CookieUtils.deleteMultipleCookies(['auth_token']);
     StorageUtils.removeMultipleItems(['auth_token', 'user_info']);
 
+    // 🔒 보안: 장바구니 localStorage도 삭제 (계정 간 데이터 격리)
+    localStorage.removeItem('travleap_cart');
+    console.log('🗑️ 장바구니 localStorage 삭제 완료');
+
     globalState = {
       isLoggedIn: false,
       isAdmin: false,

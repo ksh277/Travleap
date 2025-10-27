@@ -27,9 +27,16 @@ export function useCartStore() {
             console.error('Failed to parse saved cart state:', error);
             localStorage.removeItem('travleap_cart');
           }
+        } else {
+          // localStorage가 비어있으면 장바구니도 비우기
+          setCartState({ cartItems: [] });
         }
         return;
       }
+
+      // 🔒 보안: 로그인 시 localStorage 클리어 (계정 간 데이터 격리)
+      localStorage.removeItem('travleap_cart');
+      console.log('🔒 로그인 감지: localStorage 장바구니 클리어');
 
       // 로그인한 사용자는 API에서 로드
       setIsLoading(true);
