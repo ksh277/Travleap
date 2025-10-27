@@ -14,6 +14,7 @@
 
 const { db } = require('../../utils/database');
 const { JWTUtils } = require('../../utils/jwt');
+const { encrypt, encryptPhone, encryptEmail } = require('../../utils/encryption');
 
 /**
  * 만나이 계산
@@ -277,6 +278,14 @@ module.exports = async function handler(req, res) {
     // 10. HOLD 만료시간 (10분)
     const holdExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
+    // 10.5 고객 정보 암호화 (PIPA 준수)
+    const encryptedCustomerName = encrypt(customer_name);
+    const encryptedCustomerEmail = encryptEmail(customer_email);
+    const encryptedCustomerPhone = encryptPhone(customer_phone);
+    const encryptedDriverName = encrypt(driver.name);
+
+    console.log(`   🔒 Customer data encrypted for security`);
+
     // 11. DB 삽입 (트랜잭션)
     const insertResult = await db.execute(`
       INSERT INTO rentcar_bookings (
@@ -330,9 +339,9 @@ module.exports = async function handler(req, res) {
       vehicle_id,
       vehicle.rate_plan_id,
       userId,
-      customer_name,
-      customer_email,
-      customer_phone,
+      encryptedCustomerName,
+      encryptedCustomerEmail,
+      encryptedCustomerPhone,
       pickup_location_id,
       dropoff_location_id,
       pickup_at,
@@ -353,7 +362,7 @@ module.exports = async function handler(req, res) {
       extrasPriceKrw,
       totalPriceKrw,
       depositAmountKrw,
-      driver.name,
+      encryptedDriverName,
       driver.birth,
       driver.license_no,
       driver.license_exp,

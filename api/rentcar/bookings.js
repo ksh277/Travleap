@@ -1,4 +1,5 @@
 const { connect } = require('@planetscale/database');
+const { decrypt, decryptPhone, decryptEmail } = require('../../utils/encryption');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -41,6 +42,11 @@ module.exports = async function handler(req, res) {
 
       const formatted = (bookings.rows || []).map((row) => ({
         ...row,
+        // 고객 정보 복호화 (PIPA 준수)
+        customer_name: decrypt(row.customer_name),
+        customer_email: decryptEmail(row.customer_email),
+        customer_phone: decryptPhone(row.customer_phone),
+        driver_name: row.driver_name ? decrypt(row.driver_name) : null,
         vehicle: {
           brand: row.brand,
           model: row.model,
