@@ -42,10 +42,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 2. 컬럼 추가
+    // 2. 컬럼 추가 (끝에 추가)
     await connection.execute(`
       ALTER TABLE rentcar_vehicles
-      ADD COLUMN deposit_krw INT DEFAULT 0 COMMENT '보증금 (원)' AFTER monthly_rate_krw
+      ADD COLUMN deposit_krw INT DEFAULT 0 COMMENT '보증금 (원)'
     `);
 
     console.log('✅ deposit_krw 컬럼 추가 완료');
