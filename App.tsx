@@ -141,7 +141,7 @@ function AppContent() {
           } />
 
           {/* 팝업 벤더 대시보드 */}
-          <Route path="/vendor/popup-dashboard" element={
+          <Route path="/vendor/popup" element={
             isLoggedIn && user?.role === 'vendor' ? (
               <PopupVendorDashboard />
             ) : (

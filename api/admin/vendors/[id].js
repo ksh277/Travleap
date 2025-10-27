@@ -34,7 +34,7 @@ module.exports = async function handler(req, res) {
         [id]
       );
 
-      if (activeBookings.rows[0].count > 0) {
+      if (activeBookings.rows?.[0]?.count > 0) {
         return res.status(400).json({
           success: false,
           error: '진행 중인 예약이 있어 삭제할 수 없습니다.',

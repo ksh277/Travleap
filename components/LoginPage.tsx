@@ -48,10 +48,28 @@ export function LoginPage() {
             } else if (user.vendorType === 'rental') {
               console.log('🚗 렌트카 벤더 대시보드로 이동');
               navigate('/vendor/dashboard', { replace: true });
+            } else if (user.vendorType === 'popup') {
+              console.log('🎪 팝업 벤더 대시보드로 이동');
+              navigate('/vendor/popup', { replace: true });
+            } else if (user.vendorType === 'food') {
+              console.log('🍽️ 음식 벤더 대시보드로 이동');
+              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
+            } else if (user.vendorType === 'attraction') {
+              console.log('📷 관광지 벤더 대시보드로 이동');
+              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
+            } else if (user.vendorType === 'travel') {
+              console.log('🗺️ 여행 벤더 대시보드로 이동');
+              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
+            } else if (user.vendorType === 'event') {
+              console.log('📅 행사 벤더 대시보드로 이동');
+              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
+            } else if (user.vendorType === 'experience') {
+              console.log('🎡 체험 벤더 대시보드로 이동');
+              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
             } else {
-              // vendorType이 없으면 기본 렌트카 대시보드로 이동
-              console.log('🚗 벤더 대시보드로 이동 (기본)');
-              navigate('/vendor/dashboard', { replace: true });
+              // vendorType이 없으면 기본 팝업 대시보드로 이동 (Toss 심사용)
+              console.log('🎪 벤더 대시보드로 이동 (기본 - 팝업)');
+              navigate('/vendor/popup', { replace: true });
             }
           } else {
             console.log('🏠 홈으로 이동');

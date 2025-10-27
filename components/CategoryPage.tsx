@@ -87,17 +87,17 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
   const [itemsPerPage] = useState(8);
 
   const categoryNames: { [key: string]: string } = {
-    tour: '여행상품',
-    accommodation: '숙박',
-    stay: '숙박',
-    rentcar: '렌터카',
-    food: '맛집',
-    attraction: '관광지',
-    tourist: '관광지',
-    package: '패키지',
-    event: '행사',
+    // tour: '여행상품',
+    // accommodation: '숙박',
+    // stay: '숙박',
+    // rentcar: '렌터카',
+    // food: '맛집',
+    // attraction: '관광지',
+    // tourist: '관광지',
+    // package: '패키지',
+    // event: '행사',
     popup: '팝업',
-    experience: '체험'
+    // experience: '체험'
   };
 
   // 날짜 포맷 함수

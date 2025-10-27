@@ -52,6 +52,17 @@ export function Header({
     console.log('🎯 Auth 상태:', { isLoggedIn, isAdmin, user: user?.email || 'none' });
   }, [isLoggedIn, isAdmin, user]);
 
+  // 벤더 타입에 따른 대시보드 경로 반환
+  const getVendorDashboardPath = () => {
+    if (!user?.vendorType) return '/vendor/popup'; // 기본값: 팝업 대시보드
+
+    if (user.vendorType === 'stay') return '/vendor/lodging';
+    if (user.vendorType === 'rental') return '/vendor/dashboard';
+
+    // 나머지는 모두 팝업 대시보드로
+    return '/vendor/popup';
+  };
+
 
   const location = useLocation();
   const currentView = location.pathname;
@@ -162,7 +173,7 @@ export function Header({
                   className="text-white hover:text-blue-100 transition-colors"
                   onClick={() => navigate(
                     isAdmin ? "/admin" :
-                    user?.role === 'vendor' ? "/vendor/dashboard" :
+                    user?.role === 'vendor' ? getVendorDashboardPath() :
                     "/mypage"
                   )}
                 >
@@ -227,8 +238,8 @@ export function Header({
                         <ChevronDown className="w-3 h-3 ml-1" />
                       </button>
                       {/* 드롭다운 메뉴 */}
-                      <div className="absolute top-full left-0 mt-2 w-[400px] bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                        <div className="grid grid-cols-2 gap-3 p-4">
+                      <div className="absolute top-full left-0 mt-2 w-[220px] bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        <div className="grid grid-cols-1 gap-3 p-4">
                           {categories.map((category) => (
                             <button
                               key={category.id}
@@ -306,7 +317,7 @@ export function Header({
                   ) : user?.role === 'vendor' ? (
                     <Button
                       variant="outline"
-                      onClick={() => navigate("/vendor/dashboard")}
+                      onClick={() => navigate(getVendorDashboardPath())}
                       className="text-blue-600 border-blue-600 hover:bg-blue-50"
                     >
                       벤더 대시보드
@@ -406,7 +417,7 @@ export function Header({
                           </button>
                         ) : user?.role === 'vendor' ? (
                           <button
-                            onClick={() => navigate("/vendor/dashboard")}
+                            onClick={() => navigate(getVendorDashboardPath())}
                             className="block w-full text-left px-6 py-4 hover:bg-blue-50 text-blue-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
                           >
                             벤더 대시보드

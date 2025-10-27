@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
           [id]
         );
 
-        if (activeBookings.rows[0].count > 0) {
+        if (activeBookings.rows?.[0]?.count > 0) {
           console.log(`⚠️ 진행 중인 예약 ${activeBookings.rows[0].count}건 발견`);
           return res.status(400).json({
             success: false,
