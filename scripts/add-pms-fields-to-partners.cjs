@@ -24,7 +24,8 @@ async function addPMSFields() {
       { name: 'last_sync_at', type: 'DATETIME', comment: '마지막 PMS 동기화 시간' },
       { name: 'check_in_time', type: 'VARCHAR(10)', comment: '체크인 시간' },
       { name: 'check_out_time', type: 'VARCHAR(10)', comment: '체크아웃 시간' },
-      { name: 'policies', type: 'TEXT', comment: '숙소 정책' }
+      { name: 'policies', type: 'TEXT', comment: '숙소 정책' },
+      { name: 'logo', type: 'VARCHAR(500)', comment: '벤더 로고 URL' }
     ];
 
     // 기존 필드 확인

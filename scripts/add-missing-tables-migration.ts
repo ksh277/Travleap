@@ -185,20 +185,26 @@ export async function runMissingTablesMigration() {
     }
     console.log('✅ commission_rates seed data inserted');
 
-    // Add partner_type column to partners table
+    // Add partner_type column to partners table (8개 벤더 타입 지원)
     try {
       // Check if column exists first
       const columns = await db.query(`SHOW COLUMNS FROM partners LIKE 'partner_type'`);
 
       if (!columns || columns.length === 0) {
+        // 컬럼이 없으면 새로 생성 (8개 벤더 타입)
         await db.execute(`
           ALTER TABLE partners
-          ADD COLUMN partner_type ENUM('general', 'lodging', 'rentcar') DEFAULT 'general'
+          ADD COLUMN partner_type ENUM('general', 'lodging', 'rentcar', 'popup', 'food', 'attraction', 'travel', 'event', 'experience') DEFAULT 'general'
           AFTER tier
         `);
-        console.log('✅ partner_type column added to partners table');
+        console.log('✅ partner_type column added to partners table (8 vendor types)');
       } else {
-        console.log('✅ partner_type column already exists');
+        // 컬럼이 이미 있으면 ENUM 확장 (기존 3개 → 8개)
+        await db.execute(`
+          ALTER TABLE partners
+          MODIFY COLUMN partner_type ENUM('general', 'lodging', 'rentcar', 'popup', 'food', 'attraction', 'travel', 'event', 'experience') DEFAULT 'general'
+        `);
+        console.log('✅ partner_type column ENUM extended to 8 vendor types');
       }
     } catch (error: any) {
       console.warn('⚠️  partner_type column addition warning:', error.message);

@@ -534,6 +534,17 @@ class Database {
         images JSON,
         business_hours VARCHAR(200),
         tier ENUM('bronze', 'silver', 'gold', 'vip') DEFAULT 'bronze',
+        partner_type ENUM('general', 'lodging', 'rentcar', 'popup', 'food', 'attraction', 'travel', 'event', 'experience') DEFAULT 'general',
+        pms_provider VARCHAR(50),
+        pms_api_key VARCHAR(255),
+        pms_property_id VARCHAR(100),
+        pms_sync_enabled TINYINT(1) DEFAULT 0,
+        pms_sync_interval INT DEFAULT 60,
+        last_sync_at DATETIME,
+        check_in_time VARCHAR(10),
+        check_out_time VARCHAR(10),
+        policies TEXT,
+        logo VARCHAR(500),
         is_verified BOOLEAN DEFAULT FALSE,
         is_featured BOOLEAN DEFAULT FALSE,
         is_active BOOLEAN DEFAULT TRUE,
@@ -546,7 +557,8 @@ class Database {
         INDEX idx_status (status),
         INDEX idx_user (user_id),
         INDEX idx_active (is_active),
-        INDEX idx_location (location)
+        INDEX idx_location (location),
+        INDEX idx_partner_type (partner_type)
       )
     `);
 
