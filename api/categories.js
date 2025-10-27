@@ -15,11 +15,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const connection = connect({
-      host: process.env.DATABASE_HOST,
-      username: process.env.DATABASE_USERNAME,
-      password: process.env.DATABASE_PASSWORD
-    });
+    const connection = connect({ url: process.env.DATABASE_URL });
 
     // 🛑 Toss 심사용: 팝업만 활성화
     // 나중에 WHERE 조건 제거하면 전체 카테고리 활성화됨

@@ -16,11 +16,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const connection = connect({
-      host: process.env.DATABASE_HOST,
-      username: process.env.DATABASE_USERNAME,
-      password: process.env.DATABASE_PASSWORD
-    });
+    const connection = connect({ url: process.env.DATABASE_URL });
 
     if (req.method === 'GET') {
       // 장바구니 조회 (검증 포함)
