@@ -13,7 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Car, Lock } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Car, Lock, Clock, User, Phone, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Vehicle {
@@ -56,6 +57,7 @@ export function VendorRentcarCalendar() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [blocks, setBlocks] = useState<VehicleBlock[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
 
   // 월 시작/종료 날짜 계산
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
@@ -289,6 +291,11 @@ export function VendorRentcarCalendar() {
               {calendarDays.map((day, idx) => (
                 <div
                   key={idx}
+                  onClick={() => {
+                    if (day.bookings.length > 0 || day.blocks.length > 0) {
+                      setSelectedDay(day);
+                    }
+                  }}
                   className={`
                     min-h-[100px] p-2 border rounded-lg
                     ${day.isToday ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}
@@ -372,6 +379,142 @@ export function VendorRentcarCalendar() {
             </div>
           </>
         )}
+
+        {/* 날짜 상세 모달 */}
+        <Dialog open={selectedDay !== null} onOpenChange={(open) => !open && setSelectedDay(null)}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl">
+                📅 {selectedDay?.date.toLocaleDateString('ko-KR', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  weekday: 'long'
+                })}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* 예약 목록 */}
+              {selectedDay && selectedDay.bookings.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Car className="h-5 w-5 text-blue-600" />
+                    예약 현황 ({selectedDay.bookings.length}건)
+                  </h3>
+                  <div className="space-y-3">
+                    {selectedDay.bookings.map((booking) => (
+                      <Card key={booking.id} className="overflow-hidden">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <User className="h-5 w-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <div className="font-semibold text-lg">{booking.customer_name}</div>
+                                <div className="text-sm text-gray-500">예약번호: {booking.booking_number}</div>
+                              </div>
+                            </div>
+                            <Badge className={`
+                              ${booking.status === 'confirmed' ? 'bg-blue-500' :
+                                booking.status === 'picked_up' ? 'bg-green-500' :
+                                booking.status === 'returned' ? 'bg-purple-500' :
+                                booking.status === 'completed' ? 'bg-gray-500' :
+                                booking.status === 'canceled' ? 'bg-red-500' :
+                                'bg-yellow-500'}
+                            `}>
+                              {booking.status === 'confirmed' ? '예약 확정' :
+                               booking.status === 'picked_up' ? '대여 중' :
+                               booking.status === 'returned' ? '반납 완료' :
+                               booking.status === 'completed' ? '완료' :
+                               booking.status === 'canceled' ? '취소됨' :
+                               '대기 중'}
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-2 text-gray-700">
+                              <Clock className="h-4 w-4 text-gray-500" />
+                              <div>
+                                <div className="font-medium">픽업 시간</div>
+                                <div>{new Date(booking.pickup_at).toLocaleString('ko-KR', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}</div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-gray-700">
+                              <Clock className="h-4 w-4 text-gray-500" />
+                              <div>
+                                <div className="font-medium">반납 시간</div>
+                                <div>{new Date(booking.return_at).toLocaleString('ko-KR', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {booking.status === 'picked_up' && (
+                            <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                                <CreditCard className="h-4 w-4" />
+                                현재 대여 중인 차량입니다
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 차량 차단 목록 */}
+              {selectedDay && selectedDay.blocks.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Lock className="h-5 w-5 text-gray-600" />
+                    차량 차단 ({selectedDay.blocks.length}건)
+                  </h3>
+                  <div className="space-y-3">
+                    {selectedDay.blocks.map((block) => (
+                      <Card key={block.id} className="bg-gray-50">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Lock className="h-4 w-4 text-gray-600" />
+                            <span className="font-medium">{block.block_reason}</span>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {new Date(block.starts_at).toLocaleString('ko-KR')} ~ {new Date(block.ends_at).toLocaleString('ko-KR')}
+                          </div>
+                          {block.notes && (
+                            <div className="mt-2 text-sm text-gray-500">
+                              메모: {block.notes}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 예약/차단 둘 다 없을 때 */}
+              {selectedDay && selectedDay.bookings.length === 0 && selectedDay.blocks.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  이 날짜에는 예약이나 차단이 없습니다.
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
