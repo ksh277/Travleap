@@ -60,6 +60,7 @@ interface Vehicle {
   monthly_rate_krw: number;
   mileage_limit_km: number;
   excess_mileage_fee_krw: number;
+  deposit_krw?: number;
   images: string[];
   is_available: boolean;
   created_at: string;
@@ -141,6 +142,7 @@ interface VehicleFormData {
   monthly_rate_krw: number;
   mileage_limit_km: number;
   excess_mileage_fee_krw: number;
+  deposit_krw: number;
   is_available: boolean;
   image_urls: string[];
   insurance_included: boolean;
@@ -198,6 +200,7 @@ export function VendorDashboardPageEnhanced() {
     monthly_rate_krw: 1000000,
     mileage_limit_km: 200,
     excess_mileage_fee_krw: 100,
+    deposit_krw: 0,
     is_available: true,
     image_urls: [],
     insurance_included: true,
@@ -547,6 +550,7 @@ export function VendorDashboardPageEnhanced() {
       monthly_rate_krw: 1000000,
       mileage_limit_km: 200,
       excess_mileage_fee_krw: 100,
+      deposit_krw: 0,
       is_available: true,
       image_urls: [],
       insurance_included: true,
@@ -581,6 +585,7 @@ export function VendorDashboardPageEnhanced() {
       monthly_rate_krw: vehicle.monthly_rate_krw,
       mileage_limit_km: vehicle.mileage_limit_km,
       excess_mileage_fee_krw: vehicle.excess_mileage_fee_krw,
+      deposit_krw: vehicle.deposit_krw || 0,
       is_available: vehicle.is_available,
       image_urls: Array.isArray(vehicle.images) ? vehicle.images : [],
       insurance_included: vehicle.insurance_included || true,
@@ -954,7 +959,8 @@ export function VendorDashboardPageEnhanced() {
         weekly_rate_krw: ['주간요금', '주요금', 'weekly_rate', '주중요금', '7일요금'],
         monthly_rate_krw: ['월간요금', '월요금', 'monthly_rate', '한달요금', '30일요금'],
         mileage_limit_km: ['주행제한', '주행거리제한', '주행제한(km)', '주행제한km', 'mileage_limit', 'mileage'],
-        excess_mileage_fee_krw: ['초과요금', '초과비용', 'excess_fee', 'overage_fee', '초과주행요금']
+        excess_mileage_fee_krw: ['초과요금', '초과비용', 'excess_fee', 'overage_fee', '초과주행요금'],
+        deposit_krw: ['보증금', '보증금액', 'deposit', '예치금', '보증비']
       };
 
       // 헤더에서 각 필드의 인덱스 찾기
@@ -976,7 +982,8 @@ export function VendorDashboardPageEnhanced() {
         weekly_rate_krw: findColumnIndex('weekly_rate_krw'),
         monthly_rate_krw: findColumnIndex('monthly_rate_krw'),
         mileage_limit_km: findColumnIndex('mileage_limit_km'),
-        excess_mileage_fee_krw: findColumnIndex('excess_mileage_fee_krw')
+        excess_mileage_fee_krw: findColumnIndex('excess_mileage_fee_krw'),
+        deposit_krw: findColumnIndex('deposit_krw')
       };
 
       // 필수 컬럼 체크
@@ -1052,6 +1059,7 @@ export function VendorDashboardPageEnhanced() {
           const monthlyRate = colIndexes.monthly_rate_krw >= 0 ? parseInt(values[colIndexes.monthly_rate_krw]) : dailyRate * 25;
           const mileageLimit = colIndexes.mileage_limit_km >= 0 ? parseInt(values[colIndexes.mileage_limit_km]) : 200;
           const excessFee = colIndexes.excess_mileage_fee_krw >= 0 ? parseInt(values[colIndexes.excess_mileage_fee_krw]) : 100;
+          const depositKrw = colIndexes.deposit_krw >= 0 ? parseInt(values[colIndexes.deposit_krw]) : 0;
 
           const vehicleData = {
             display_name: displayName,
@@ -1067,6 +1075,7 @@ export function VendorDashboardPageEnhanced() {
             monthly_rate_krw: monthlyRate || dailyRate * 25,
             mileage_limit_km: mileageLimit || 200,
             excess_mileage_fee_krw: excessFee || 100,
+            deposit_krw: depositKrw || 0,
             is_available: true,
             image_urls: [
               'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
@@ -1147,11 +1156,11 @@ export function VendorDashboardPageEnhanced() {
   };
 
   const downloadCSVTemplate = () => {
-    const csv = `차량명,제조사,모델,연식,차량등급,승차인원,변속기,연료,일일요금,주간요금,월간요금,주행제한(km),초과요금
-아반떼 2024,현대,아반떼,2024,중형,5,자동,가솔린,50000,300000,1000000,200,100
-쏘나타 2024,현대,쏘나타,2024,중형,5,자동,가솔린,70000,420000,1400000,200,100
-그랜저 2024,현대,그랜저,2024,대형,5,자동,가솔린,100000,600000,2000000,200,150
-싼타페 2024,현대,싼타페,2024,SUV,7,자동,디젤,90000,540000,1800000,200,150`;
+    const csv = `차량명,제조사,모델,연식,차량등급,승차인원,변속기,연료,일일요금,주간요금,월간요금,주행제한(km),초과요금,보증금
+아반떼 2024,현대,아반떼,2024,중형,5,자동,가솔린,50000,300000,1000000,200,100,500000
+쏘나타 2024,현대,쏘나타,2024,중형,5,자동,가솔린,70000,420000,1400000,200,100,500000
+그랜저 2024,현대,그랜저,2024,대형,5,자동,가솔린,100000,600000,2000000,200,150,1000000
+싼타페 2024,현대,싼타페,2024,SUV,7,자동,디젤,90000,540000,1800000,200,150,1000000`;
 
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
@@ -1643,6 +1652,18 @@ export function VendorDashboardPageEnhanced() {
                       />
                     </div>
 
+                    <div>
+                      <Label>보증금 (원) - 선택사항</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="10000"
+                        placeholder="0 (없음)"
+                        value={vehicleForm.deposit_krw}
+                        onChange={(e) => setVehicleForm({...vehicleForm, deposit_krw: parseInt(e.target.value) || 0})}
+                      />
+                    </div>
+
                     <div className="md:col-span-2 flex items-center gap-2">
                       <Switch
                         checked={vehicleForm.insurance_included}
@@ -1862,6 +1883,9 @@ export function VendorDashboardPageEnhanced() {
                             <div className="text-sm">
                               <div className="text-gray-600">시간: ₩{vehicle.hourly_rate_krw?.toLocaleString() || 'N/A'}</div>
                               <div className="font-medium">일일: ₩{vehicle.daily_rate_krw.toLocaleString()}</div>
+                              {vehicle.deposit_krw && vehicle.deposit_krw > 0 && (
+                                <div className="text-blue-600 text-xs mt-1">보증금: ₩{vehicle.deposit_krw.toLocaleString()}</div>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>

@@ -515,76 +515,6 @@ export function RentcarVendorDetailPage() {
               </CardContent>
             </Card>
 
-            {/* 예약 정보 */}
-            {pickupDate && returnDate && selectedVehicle && (
-              <Card className="border-blue-200 bg-blue-50">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-blue-600" />
-                    예약 정보
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <Calendar className="h-5 w-5 text-gray-600 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">대여 기간</p>
-                      <p className="text-sm text-gray-600">
-                        {format(pickupDate, 'yyyy년 M월 d일 (E) ' + pickupTime, { locale: ko })} ~ {format(returnDate, 'M월 d일 (E) ' + returnTime, { locale: ko })}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        총 {Math.floor(calculateRentalHours())}시간
-                        {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`}
-                      </p>
-                    </div>
-                  </div>
-                  <Separator />
-                  <div className="flex items-start gap-3">
-                    <Car className="h-5 w-5 text-gray-600 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-700">선택 차량</p>
-                      <p className="text-sm text-gray-600">
-                        {selectedVehicle.display_name || `${selectedVehicle.brand} ${selectedVehicle.model}`}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {selectedVehicle.seating_capacity}인승 · {selectedVehicle.transmission} · {selectedVehicle.fuel_type}
-                      </p>
-                    </div>
-                  </div>
-                  <Separator />
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-5 w-5 text-gray-600 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">인수/반납 위치</p>
-                      <p className="text-sm text-gray-600">{vendorData.vendor.business_name || vendorData.vendor.vendor_name}</p>
-                      {vendorData.vendor.phone && (
-                        <p className="text-xs text-gray-500 mt-1">{vendorData.vendor.phone}</p>
-                      )}
-                    </div>
-                  </div>
-                  <Separator />
-                  <div className="bg-white rounded-lg p-3">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm text-gray-600">
-                        차량 대여료 ({Math.floor(calculateRentalHours())}시간
-                        {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`})
-                      </span>
-                      <span className="font-medium">
-                        ₩{Math.ceil((selectedVehicle.hourly_rate_krw || Math.ceil(selectedVehicle.daily_rate_krw / 24)) * calculateRentalHours()).toLocaleString()}
-                      </span>
-                    </div>
-                    <Separator className="my-2" />
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold">총 결제 금액</span>
-                      <span className="text-xl font-bold text-blue-600">
-                        ₩{Math.ceil((selectedVehicle.hourly_rate_krw || Math.ceil(selectedVehicle.daily_rate_krw / 24)) * calculateRentalHours()).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* 차량 선택 */}
             <Card>
               <CardHeader>
@@ -933,6 +863,24 @@ export function RentcarVendorDetailPage() {
                     </div>
                   )}
                 </div>
+
+                <Separator className="my-4" />
+
+                {/* 선택된 차량 정보 */}
+                {selectedVehicle && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Car className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-semibold text-blue-900">선택된 차량</span>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {selectedVehicle.display_name || `${selectedVehicle.brand} ${selectedVehicle.model}`}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {selectedVehicle.seating_capacity}인승 · {selectedVehicle.transmission} · {selectedVehicle.fuel_type}
+                    </p>
+                  </div>
+                )}
 
                 <Separator className="my-4" />
 

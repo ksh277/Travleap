@@ -120,11 +120,12 @@ module.exports = async function handler(req, res) {
           mileage_limit_per_day as mileage_limit_km,
           unlimited_mileage,
           deposit_amount_krw,
+          COALESCE(deposit_krw, 0) as deposit_krw,
           smoking_allowed,
           daily_rate_krw,
           hourly_rate_krw,
-          daily_rate_krw * 6 as weekly_rate_krw,
-          daily_rate_krw * 25 as monthly_rate_krw,
+          COALESCE(weekly_rate_krw, daily_rate_krw * 6) as weekly_rate_krw,
+          COALESCE(monthly_rate_krw, daily_rate_krw * 25) as monthly_rate_krw,
           excess_mileage_fee_krw,
           fuel_efficiency,
           self_insurance_krw,
@@ -179,8 +180,11 @@ module.exports = async function handler(req, res) {
         fuel_type,
         daily_rate_krw,
         hourly_rate_krw,
+        weekly_rate_krw,
+        monthly_rate_krw,
         mileage_limit_km,
         excess_mileage_fee_krw,
+        deposit_krw,
         is_available,
         image_urls
       } = req.body;
@@ -229,14 +233,17 @@ module.exports = async function handler(req, res) {
           mileage_limit_per_day,
           unlimited_mileage,
           deposit_amount_krw,
+          deposit_krw,
           smoking_allowed,
           daily_rate_krw,
           hourly_rate_krw,
+          weekly_rate_krw,
+          monthly_rate_krw,
           excess_mileage_fee_krw,
           is_active,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           vendorId,
           vehicle_code,
@@ -260,9 +267,12 @@ module.exports = async function handler(req, res) {
           mileage_limit_km || 200,
           0,
           500000,
+          deposit_krw || 0,
           0,
           daily_rate_krw,
           calculatedHourlyRate,
+          weekly_rate_krw || null,
+          monthly_rate_krw || null,
           excess_mileage_fee_krw || 100,
           is_available ? 1 : 0
         ]
@@ -343,6 +353,14 @@ module.exports = async function handler(req, res) {
         updates.push('hourly_rate_krw = ?');
         values.push(updateData.hourly_rate_krw);
       }
+      if (updateData.weekly_rate_krw !== undefined) {
+        updates.push('weekly_rate_krw = ?');
+        values.push(updateData.weekly_rate_krw || null);
+      }
+      if (updateData.monthly_rate_krw !== undefined) {
+        updates.push('monthly_rate_krw = ?');
+        values.push(updateData.monthly_rate_krw || null);
+      }
       if (updateData.mileage_limit_km) {
         updates.push('mileage_limit_per_day = ?');
         values.push(updateData.mileage_limit_km);
@@ -350,6 +368,10 @@ module.exports = async function handler(req, res) {
       if (updateData.excess_mileage_fee_krw) {
         updates.push('excess_mileage_fee_krw = ?');
         values.push(updateData.excess_mileage_fee_krw);
+      }
+      if (updateData.deposit_krw !== undefined) {
+        updates.push('deposit_krw = ?');
+        values.push(updateData.deposit_krw || 0);
       }
       if (typeof is_available !== 'undefined') {
         updates.push('is_active = ?');
