@@ -1603,11 +1603,6 @@ export function MyPage() {
                                 최소 주문금액: {coupon.min_amount.toLocaleString()}원
                               </p>
                             )}
-                            {coupon.valid_until && (
-                              <p className="text-xs text-orange-600 mt-1">
-                                유효기간: ~{new Date(coupon.valid_until).toLocaleDateString('ko-KR')}
-                              </p>
-                            )}
                           </div>
                           <Button
                             variant="outline"

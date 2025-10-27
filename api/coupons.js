@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
       console.log('🎟️ [Coupons] Fetching available coupons, userId:', userId);
       console.log('🎟️ [Coupons] DATABASE_URL exists:', !!process.env.DATABASE_URL);
 
-      // 현재 유효한 쿠폰 조회
+      // 현재 유효한 쿠폰 조회 (기본 컬럼만)
       const result = await connection.execute(`
         SELECT
           id,
@@ -34,32 +34,20 @@ module.exports = async function handler(req, res) {
           discount_type,
           discount_value,
           min_amount,
-          description,
-          expires_at,
-          usage_limit,
-          used_count,
-          is_active,
-          category_restriction,
-          user_restriction
+          description
         FROM coupons
         WHERE is_active = 1
-          AND (expires_at IS NULL OR expires_at > NOW())
-          AND (usage_limit IS NULL OR used_count < usage_limit)
-        ORDER BY discount_value DESC, expires_at ASC
+        ORDER BY discount_value DESC
       `);
 
       const coupons = result.rows || [];
       const couponList = coupons.map(coupon => ({
+        id: coupon.id,
         code: coupon.code,
         discount: coupon.discount_value,
         minAmount: coupon.min_amount || 0,
         description: coupon.description || '',
-        type: coupon.discount_type === 'percentage' ? 'percentage' : 'fixed',
-        expiresAt: coupon.expires_at ? new Date(coupon.expires_at).toISOString().split('T')[0] : null,
-        usageLimit: coupon.usage_limit,
-        usedCount: coupon.used_count || 0,
-        categoryRestriction: coupon.category_restriction,
-        userRestriction: coupon.user_restriction
+        type: coupon.discount_type === 'percentage' ? 'percentage' : 'fixed'
       }));
 
       console.log(`✅ [Coupons] Found ${couponList.length} active coupons`);
@@ -101,55 +89,13 @@ module.exports = async function handler(req, res) {
 
       const coupon = result.rows[0];
 
-      // 만료 확인
-      if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
-        return res.status(400).json({
-          success: false,
-          error: 'EXPIRED',
-          message: '만료된 쿠폰입니다'
-        });
-      }
-
-      // 사용 횟수 확인
-      if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
-        return res.status(400).json({
-          success: false,
-          error: 'LIMIT_EXCEEDED',
-          message: '쿠폰 사용 한도가 초과되었습니다'
-        });
-      }
-
       // 최소 주문 금액 확인
-      if (orderAmount < coupon.min_amount) {
+      if (orderAmount && coupon.min_amount && orderAmount < coupon.min_amount) {
         return res.status(400).json({
           success: false,
           error: 'MIN_AMOUNT_NOT_MET',
           message: `최소 주문 금액 ${coupon.min_amount.toLocaleString()}원 이상이어야 사용 가능합니다`
         });
-      }
-
-      // 카테고리 제한 확인
-      if (coupon.category_restriction && category) {
-        const allowedCategories = JSON.parse(coupon.category_restriction || '[]');
-        if (allowedCategories.length > 0 && !allowedCategories.includes(category)) {
-          return res.status(400).json({
-            success: false,
-            error: 'CATEGORY_RESTRICTION',
-            message: '이 쿠폰은 해당 카테고리에서 사용할 수 없습니다'
-          });
-        }
-      }
-
-      // 사용자 제한 확인
-      if (coupon.user_restriction && userId) {
-        const allowedUsers = JSON.parse(coupon.user_restriction || '[]');
-        if (allowedUsers.length > 0 && !allowedUsers.includes(parseInt(userId))) {
-          return res.status(400).json({
-            success: false,
-            error: 'USER_RESTRICTION',
-            message: '이 쿠폰은 사용할 수 없습니다'
-          });
-        }
       }
 
       // 할인 금액 계산
@@ -187,11 +133,11 @@ module.exports = async function handler(req, res) {
 
       console.log(`📝 [Coupons] Using coupon: ${code} for order ${orderId}`);
 
-      // 🔒 FOR UPDATE 락으로 동시성 제어 (마지막 1개 쿠폰 경쟁 상태 방지)
+      // 쿠폰 존재 확인
       const couponCheck = await connection.execute(`
-        SELECT * FROM coupons
+        SELECT id, code FROM coupons
         WHERE code = ? AND is_active = 1
-        FOR UPDATE
+        LIMIT 1
       `, [code.toUpperCase()]);
 
       if (!couponCheck.rows || couponCheck.rows.length === 0) {
@@ -201,26 +147,6 @@ module.exports = async function handler(req, res) {
           message: '쿠폰을 찾을 수 없습니다'
         });
       }
-
-      const coupon = couponCheck.rows[0];
-
-      // 사용 한도 재확인 (FOR UPDATE 락 획득 후)
-      if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
-        console.log(`⚠️ [Coupons] Coupon limit exceeded: ${code}`);
-        return res.status(400).json({
-          success: false,
-          error: 'LIMIT_EXCEEDED',
-          message: '쿠폰 사용 한도가 초과되었습니다'
-        });
-      }
-
-      // 쿠폰 사용 횟수 증가
-      await connection.execute(`
-        UPDATE coupons
-        SET used_count = used_count + 1,
-            updated_at = NOW()
-        WHERE code = ?
-      `, [code.toUpperCase()]);
 
       // 쿠폰 사용 기록 저장 (선택사항 - coupon_usage 테이블이 있는 경우)
       try {
