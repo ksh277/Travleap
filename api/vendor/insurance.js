@@ -58,14 +58,14 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult || vendorResult.length === 0) {
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
         return res.status(403).json({
           success: false,
           message: '등록된 벤더 정보가 없습니다.'
         });
       }
 
-      vendorId = vendorResult[0].id;
+      vendorId = vendorResult.rows[0].id;
     }
 
     // GET: 보험 상품 목록 조회
@@ -161,7 +161,7 @@ module.exports = async function handler(req, res) {
         [id, vendorId]
       );
 
-      if (!checkResult || checkResult.length === 0) {
+      if (!checkResult.rows || checkResult.rows.length === 0) {
         return res.status(404).json({
           success: false,
           message: '보험 상품을 찾을 수 없거나 수정 권한이 없습니다.'
@@ -243,7 +243,7 @@ module.exports = async function handler(req, res) {
         [id, vendorId]
       );
 
-      if (!checkResult || checkResult.length === 0) {
+      if (!checkResult.rows || checkResult.rows.length === 0) {
         return res.status(404).json({
           success: false,
           message: '보험 상품을 찾을 수 없거나 삭제 권한이 없습니다.'

@@ -83,7 +83,7 @@ module.exports = async function handler(req, res) {
       `);
 
       // images 필드 파싱 (text 타입이므로 JSON 파싱 필요)
-      const parsedVendors = (vendors || []).map(vendor => {
+      const parsedVendors = (vendors.rows || []).map(vendor => {
         let images = [];
         if (vendor.images) {
           try {
@@ -141,14 +141,14 @@ module.exports = async function handler(req, res) {
         );
       }
 
-      if (!existingVendor || existingVendor.length === 0) {
+      if (!existingVendor.rows || existingVendor.rows.length === 0) {
         return res.status(404).json({
           success: false,
           error: '업체를 찾을 수 없습니다.'
         });
       }
 
-      const existing = existingVendor[0];
+      const existing = existingVendor.rows[0];
 
       // NULL 값 방지 - 값이 없으면 기존 값 유지
       const finalName = name || existing.business_name;

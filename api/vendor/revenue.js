@@ -40,11 +40,11 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult || vendorResult.length === 0) {
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
         return res.status(403).json({ success: false, message: '등록된 벤더 정보가 없습니다.' });
       }
 
-      vendorId = vendorResult[0].id;
+      vendorId = vendorResult.rows[0].id;
     }
 
     if (req.method === 'GET') {
@@ -67,8 +67,8 @@ module.exports = async function handler(req, res) {
         console.log('📊 [Revenue API] 조회 결과:', dailyRevenueResult);
 
         // 배열이 비어있으면 빈 배열 반환
-        const revenueArray = dailyRevenueResult && dailyRevenueResult.length > 0
-          ? dailyRevenueResult.map(row => ({
+        const revenueArray = dailyRevenueResult.rows && dailyRevenueResult.rows.length > 0
+          ? dailyRevenueResult.rows.map(row => ({
               date: row.date,
               revenue: Number(row.revenue || 0)
             }))

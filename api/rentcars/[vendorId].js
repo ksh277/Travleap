@@ -24,11 +24,11 @@ module.exports = async function handler(req, res) {
       LIMIT 1
     `, [vendorId]);
 
-    if (!vendorResult || vendorResult.length === 0) {
+    if (!vendorResult.rows || vendorResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: '렌트카 업체를 찾을 수 없습니다.' });
     }
 
-    const vendor = vendorResult[0];
+    const vendor = vendorResult.rows[0];
 
     // 차량 목록 조회
     const vehiclesResult = await connection.execute(`
@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
       ORDER BY daily_rate_krw ASC
     `, [vendorId]);
 
-    const vehicles = (vehiclesResult || []).map(vehicle => {
+    const vehicles = (vehiclesResult.rows || []).map(vehicle => {
       // PlanetScale는 JSON 컬럼을 자동으로 파싱하므로 타입 체크 필요
       const images = vehicle.images
         ? (typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images)

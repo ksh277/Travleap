@@ -56,14 +56,14 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult || vendorResult.length === 0) {
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
         return res.status(403).json({
           success: false,
           message: '등록된 벤더 정보가 없습니다.'
         });
       }
 
-      vendorId = vendorResult[0].id;
+      vendorId = vendorResult.rows[0].id;
     }
 
     // GET: 요금 정책 목록 조회

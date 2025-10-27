@@ -50,14 +50,14 @@ module.exports = async function handler(req, res) {
       [booking_id]
     );
 
-    if (!bookingResult || bookingResult.length === 0) {
+    if (!bookingResult.rows || bookingResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: '예약을 찾을 수 없습니다.'
       });
     }
 
-    const booking = bookingResult[0];
+    const booking = bookingResult.rows[0];
 
     // 2. 권한 확인 (예약자 본인만 연장 가능)
     if (booking.user_id !== user_id) {

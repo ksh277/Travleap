@@ -53,14 +53,14 @@ module.exports = async function handler(req, res) {
       [userId]
     );
 
-    if (!vendorResult || vendorResult.length === 0) {
+    if (!vendorResult.rows || vendorResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: '등록된 숙박 업체 정보가 없습니다.'
       });
     }
 
-    const vendorId = vendorResult[0].id;
+    const vendorId = vendorResult.rows[0].id;
 
     // 숙소 소유권 확인
     const ownershipCheck = await connection.execute(
@@ -68,7 +68,7 @@ module.exports = async function handler(req, res) {
       [lodgingId, vendorId]
     );
 
-    if (!ownershipCheck || ownershipCheck.length === 0) {
+    if (!ownershipCheck.rows || ownershipCheck.rows.length === 0) {
       return res.status(403).json({
         success: false,
         message: '해당 숙소에 대한 권한이 없습니다.'

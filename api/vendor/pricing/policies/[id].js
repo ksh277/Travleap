@@ -56,14 +56,14 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult || vendorResult.length === 0) {
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
         return res.status(403).json({
           success: false,
           message: '등록된 벤더 정보가 없습니다.'
         });
       }
 
-      vendorId = vendorResult[0].id;
+      vendorId = vendorResult.rows[0].id;
     }
 
     const { id } = req.query;
@@ -81,14 +81,14 @@ module.exports = async function handler(req, res) {
       [id]
     );
 
-    if (!ownerCheck || ownerCheck.length === 0) {
+    if (!ownerCheck.rows || ownerCheck.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: '정책을 찾을 수 없습니다.'
       });
     }
 
-    if (ownerCheck[0].vendor_id !== vendorId) {
+    if (ownerCheck.rows[0].vendor_id !== vendorId) {
       return res.status(403).json({
         success: false,
         message: '권한이 없습니다.'

@@ -71,14 +71,14 @@ module.exports = async function handler(req, res) {
       [booking_id]
     );
 
-    if (!bookingResult || bookingResult.length === 0) {
+    if (!bookingResult.rows || bookingResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: '예약을 찾을 수 없습니다.'
       });
     }
 
-    const booking = bookingResult[0];
+    const booking = bookingResult.rows[0];
 
     // 2. 벤더 권한 확인
     if (decoded.role === 'vendor') {
@@ -87,11 +87,11 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult || vendorResult.length === 0) {
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
         return res.status(403).json({ success: false, message: '등록된 벤더 정보가 없습니다.' });
       }
 
-      const vendorId = vendorResult[0].id;
+      const vendorId = vendorResult.rows[0].id;
       if (booking.vendor_id !== vendorId) {
         return res.status(403).json({ success: false, message: '본인 업체의 예약만 처리할 수 있습니다.' });
       }
@@ -154,8 +154,8 @@ module.exports = async function handler(req, res) {
     let nextBookingAlert = null;
     let shouldAlertNextCustomer = false;
 
-    if (nextBookingResult && nextBookingResult.length > 0) {
-      const nextBooking = nextBookingResult[0];
+    if (nextBookingResult.rows && nextBookingResult.rows.length > 0) {
+      const nextBooking = nextBookingResult.rows[0];
       const nextPickupTime = new Date(nextBooking.pickup_date + ' ' + nextBooking.pickup_time);
 
       // 버퍼 타임 60분 고려
