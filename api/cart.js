@@ -36,9 +36,12 @@ module.exports = async function handler(req, res) {
           l.price_from,
           l.images,
           l.category_id,
-          l.is_active
+          l.is_active,
+          l.location,
+          cat.name AS category_name
         FROM cart_items c
         LEFT JOIN listings l ON c.listing_id = l.id
+        LEFT JOIN categories cat ON l.category_id = cat.id
         WHERE c.user_id = ?
         ORDER BY c.created_at DESC
       `, [userId]);
