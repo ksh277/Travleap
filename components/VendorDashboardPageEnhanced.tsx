@@ -109,6 +109,7 @@ interface VendorInfo {
   contact_phone: string;
   contact_person: string;
   address: string;
+  address_detail?: string;
   latitude?: number;
   longitude?: number;
   description?: string;
@@ -117,6 +118,12 @@ interface VendorInfo {
   is_verified: boolean;
   vehicle_count: number;
   cancellation_policy?: string;
+  rental_guide?: string;
+  cancellation_rules?: {
+    '3_days_before': number;
+    '1_2_days_before': number;
+    'same_day': number;
+  };
   check_in_time?: string;
   check_out_time?: string;
 }
@@ -1209,9 +1216,16 @@ export function VendorDashboardPageEnhanced() {
       contact_email: vendorInfo?.contact_email,
       contact_phone: vendorInfo?.contact_phone,
       address: vendorInfo?.address,
+      address_detail: vendorInfo?.address_detail,
       description: vendorInfo?.description,
       logo_url: vendorInfo?.logo_url,
-      cancellation_policy: vendorInfo?.cancellation_policy
+      cancellation_policy: vendorInfo?.cancellation_policy,
+      rental_guide: vendorInfo?.rental_guide,
+      cancellation_rules: vendorInfo?.cancellation_rules || {
+        '3_days_before': 100,
+        '1_2_days_before': 50,
+        'same_day': 0
+      }
     });
   };
 
@@ -1238,14 +1252,17 @@ export function VendorDashboardPageEnhanced() {
           contact_email: editedInfo.contact_email || vendorInfo.contact_email,
           contact_phone: editedInfo.contact_phone || vendorInfo.contact_phone,
           address: editedInfo.address || vendorInfo.address,
+          address_detail: editedInfo.address_detail !== undefined ? editedInfo.address_detail : vendorInfo.address_detail,
           latitude: editedInfo.latitude !== undefined ? editedInfo.latitude : vendorInfo.latitude,
           longitude: editedInfo.longitude !== undefined ? editedInfo.longitude : vendorInfo.longitude,
           description: editedInfo.description || vendorInfo.description,
           logo_url: editedInfo.logo_url || vendorInfo.logo_url,
-          images: editedInfo.images !== undefined ? editedInfo.images : vendorInfo.images, // 이미지 배열 추가
+          images: editedInfo.images !== undefined ? editedInfo.images : vendorInfo.images,
           cancellation_policy: editedInfo.cancellation_policy || vendorInfo.cancellation_policy,
-          old_email: vendorInfo.contact_email, // 이전 이메일 (Neon DB 업데이트용)
-          new_password: newPassword || undefined // 비밀번호가 입력되었을 때만
+          rental_guide: editedInfo.rental_guide !== undefined ? editedInfo.rental_guide : vendorInfo.rental_guide,
+          cancellation_rules: editedInfo.cancellation_rules !== undefined ? editedInfo.cancellation_rules : vendorInfo.cancellation_rules,
+          old_email: vendorInfo.contact_email,
+          new_password: newPassword || undefined
         })
       });
 
@@ -1259,12 +1276,15 @@ export function VendorDashboardPageEnhanced() {
           contact_email: editedInfo.contact_email!,
           contact_phone: editedInfo.contact_phone!,
           address: editedInfo.address!,
+          address_detail: editedInfo.address_detail,
           latitude: editedInfo.latitude !== undefined ? editedInfo.latitude : vendorInfo.latitude,
           longitude: editedInfo.longitude !== undefined ? editedInfo.longitude : vendorInfo.longitude,
           description: editedInfo.description,
           logo_url: editedInfo.logo_url,
-          images: editedInfo.images !== undefined ? editedInfo.images : vendorInfo.images, // 이미지 상태 업데이트
-          cancellation_policy: editedInfo.cancellation_policy
+          images: editedInfo.images !== undefined ? editedInfo.images : vendorInfo.images,
+          cancellation_policy: editedInfo.cancellation_policy,
+          rental_guide: editedInfo.rental_guide,
+          cancellation_rules: editedInfo.cancellation_rules
         });
 
         setIsEditingInfo(false);
@@ -2429,6 +2449,15 @@ export function VendorDashboardPageEnhanced() {
                   )}
                 </div>
                 <div>
+                  <Label>상세주소</Label>
+                  <Input
+                    value={isEditingInfo ? (editedInfo.address_detail || '') : (vendorInfo.address_detail || '미등록')}
+                    onChange={(e) => setEditedInfo({ ...editedInfo, address_detail: e.target.value })}
+                    disabled={!isEditingInfo}
+                    placeholder="상세주소를 입력하세요 (예: 3층 301호)"
+                  />
+                </div>
+                <div>
                   <Label>업체 소개</Label>
                   <Textarea
                     value={isEditingInfo ? (editedInfo.description || '') : (vendorInfo.description || '미등록')}
@@ -2492,6 +2521,97 @@ export function VendorDashboardPageEnhanced() {
                     rows={4}
                     placeholder="예: 예약 3일 전: 전액 환불&#10;예약 1-2일 전: 50% 환불&#10;예약 당일: 환불 불가"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    고객에게 표시될 환불 정책 텍스트입니다.
+                  </p>
+                </div>
+
+                <div>
+                  <Label>환불 비율 설정 (자동 계산용)</Label>
+                  <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm">3일 전 예약 취소</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={isEditingInfo ? (editedInfo.cancellation_rules?.['3_days_before'] ?? 100) : (vendorInfo.cancellation_rules?.['3_days_before'] ?? 100)}
+                            onChange={(e) => setEditedInfo({
+                              ...editedInfo,
+                              cancellation_rules: {
+                                ...(editedInfo.cancellation_rules || {}),
+                                '3_days_before': parseInt(e.target.value) || 0
+                              }
+                            })}
+                            disabled={!isEditingInfo}
+                            className="w-24"
+                          />
+                          <span className="text-sm text-gray-600">% 환불</span>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm">1-2일 전 예약 취소</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={isEditingInfo ? (editedInfo.cancellation_rules?.['1_2_days_before'] ?? 50) : (vendorInfo.cancellation_rules?.['1_2_days_before'] ?? 50)}
+                            onChange={(e) => setEditedInfo({
+                              ...editedInfo,
+                              cancellation_rules: {
+                                ...(editedInfo.cancellation_rules || {}),
+                                '1_2_days_before': parseInt(e.target.value) || 0
+                              }
+                            })}
+                            disabled={!isEditingInfo}
+                            className="w-24"
+                          />
+                          <span className="text-sm text-gray-600">% 환불</span>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm">당일 예약 취소</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={isEditingInfo ? (editedInfo.cancellation_rules?.['same_day'] ?? 0) : (vendorInfo.cancellation_rules?.['same_day'] ?? 0)}
+                            onChange={(e) => setEditedInfo({
+                              ...editedInfo,
+                              cancellation_rules: {
+                                ...(editedInfo.cancellation_rules || {}),
+                                'same_day': parseInt(e.target.value) || 0
+                              }
+                            })}
+                            disabled={!isEditingInfo}
+                            className="w-24"
+                          />
+                          <span className="text-sm text-gray-600">% 환불</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      💡 환불 요청 시 이 비율에 따라 자동 계산됩니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <Label>대여 안내</Label>
+                  <Textarea
+                    value={isEditingInfo ? (editedInfo.rental_guide || '') : (vendorInfo.rental_guide || '미등록')}
+                    onChange={(e) => setEditedInfo({ ...editedInfo, rental_guide: e.target.value })}
+                    disabled={!isEditingInfo}
+                    rows={6}
+                    placeholder="예:&#10;• 운전면허 취득 1년 이상 필수&#10;• 만 21세 이상 대여 가능&#10;• 대여 시 신분증, 운전면허증, 신용카드 필요&#10;• 보험 가입 필수 (기본 보험 포함)&#10;• 주행거리 제한: 1일 200km (초과 시 km당 ₩100)"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    업체 상세페이지에 표시될 대여 안내사항입니다.
+                  </p>
                 </div>
                 <div className="flex gap-2 pt-4">
                   {!isEditingInfo ? (

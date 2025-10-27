@@ -38,6 +38,15 @@ module.exports = async function handler(req, res) {
         console.warn('⚠️ latitude/longitude 컬럼 없음 - 기본값 사용');
       }
 
+      // address_detail, rental_guide, cancellation_rules 컬럼 존재 여부 확인
+      let newColumns = '';
+      try {
+        await connection.execute('SELECT address_detail, rental_guide, cancellation_rules FROM rentcar_vendors LIMIT 1');
+        newColumns = 'v.address_detail, v.rental_guide, v.cancellation_rules,';
+      } catch (e) {
+        console.warn('⚠️ address_detail/rental_guide/cancellation_rules 컬럼 없음');
+      }
+
       const vendors = await connection.execute(`
         SELECT
           v.id,
@@ -49,6 +58,7 @@ module.exports = async function handler(req, res) {
           v.contact_phone,
           v.address,
           ${latLngColumns}
+          ${newColumns}
           v.description,
           v.logo_url,
           v.images,
@@ -82,7 +92,7 @@ module.exports = async function handler(req, res) {
         ORDER BY v.created_at DESC
       `);
 
-      // images 필드 파싱 (text 타입이므로 JSON 파싱 필요)
+      // images, cancellation_rules 필드 파싱 (JSON 타입)
       const parsedVendors = (vendors.rows || []).map(vendor => {
         let images = [];
         if (vendor.images) {
@@ -92,9 +102,22 @@ module.exports = async function handler(req, res) {
             console.error('Failed to parse vendor images:', vendor.id, e);
           }
         }
+
+        let cancellationRules = null;
+        if (vendor.cancellation_rules) {
+          try {
+            cancellationRules = typeof vendor.cancellation_rules === 'string'
+              ? JSON.parse(vendor.cancellation_rules)
+              : vendor.cancellation_rules;
+          } catch (e) {
+            console.error('Failed to parse cancellation_rules:', vendor.id, e);
+          }
+        }
+
         return {
           ...vendor,
-          images: Array.isArray(images) ? images : []
+          images: Array.isArray(images) ? images : [],
+          cancellation_rules: cancellationRules
         };
       });
 
@@ -113,12 +136,15 @@ module.exports = async function handler(req, res) {
         contact_email,
         contact_phone,
         address,
+        address_detail,
         latitude,
         longitude,
         description,
         logo_url,
         images,
         cancellation_policy,
+        rental_guide,
+        cancellation_rules,
         old_email,
         new_password
       } = req.body;
@@ -126,19 +152,27 @@ module.exports = async function handler(req, res) {
       console.log('✏️ [Vendor Update] 업체 정보 수정:', id, req.body);
 
       // 기존 데이터 조회 (null 방지를 위해)
-      // latitude, longitude 컬럼이 없을 수 있으므로 try-catch
       let existingVendor;
       try {
+        // 모든 컬럼 조회 시도 (새 컬럼 포함)
         existingVendor = await connection.execute(
-          'SELECT business_name, contact_name, contact_email, contact_phone, address, latitude, longitude, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
+          'SELECT business_name, contact_name, contact_email, contact_phone, address, address_detail, latitude, longitude, description, logo_url, images, cancellation_policy, rental_guide, cancellation_rules FROM rentcar_vendors WHERE id = ?',
           [id]
         );
       } catch (e) {
-        // latitude, longitude 없으면 제외하고 조회
-        existingVendor = await connection.execute(
-          'SELECT business_name, contact_name, contact_email, contact_phone, address, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
-          [id]
-        );
+        // 새 컬럼 없으면 기존 컬럼만 조회
+        try {
+          existingVendor = await connection.execute(
+            'SELECT business_name, contact_name, contact_email, contact_phone, address, latitude, longitude, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
+            [id]
+          );
+        } catch (e2) {
+          // latitude, longitude도 없으면 최소 컬럼만
+          existingVendor = await connection.execute(
+            'SELECT business_name, contact_name, contact_email, contact_phone, address, description, logo_url, images, cancellation_policy FROM rentcar_vendors WHERE id = ?',
+            [id]
+          );
+        }
       }
 
       if (!existingVendor.rows || existingVendor.rows.length === 0) {
@@ -156,11 +190,13 @@ module.exports = async function handler(req, res) {
       const finalContactEmail = contact_email || existing.contact_email;
       const finalContactPhone = contact_phone || existing.contact_phone;
       const finalAddress = address !== undefined ? address : existing.address;
+      const finalAddressDetail = address_detail !== undefined ? address_detail : existing.address_detail;
       const finalLatitude = latitude !== undefined ? latitude : existing.latitude;
       const finalLongitude = longitude !== undefined ? longitude : existing.longitude;
       const finalDescription = description !== undefined ? description : existing.description;
       const finalLogoUrl = logo_url !== undefined ? logo_url : existing.logo_url;
       const finalCancellationPolicy = cancellation_policy !== undefined ? cancellation_policy : existing.cancellation_policy;
+      const finalRentalGuide = rental_guide !== undefined ? rental_guide : existing.rental_guide;
 
       // images 처리: 배열을 JSON 문자열로 변환
       let finalImages = existing.images;
@@ -168,12 +204,35 @@ module.exports = async function handler(req, res) {
         finalImages = Array.isArray(images) ? JSON.stringify(images) : images;
       }
 
-      // 1. PlanetScale rentcar_vendors 테이블 업데이트
-      // latitude, longitude 컬럼이 있는지 확인
-      const hasLatLng = existing.latitude !== undefined;
+      // cancellation_rules 처리: 객체를 JSON 문자열로 변환
+      let finalCancellationRules = existing.cancellation_rules;
+      if (cancellation_rules !== undefined) {
+        finalCancellationRules = typeof cancellation_rules === 'object'
+          ? JSON.stringify(cancellation_rules)
+          : cancellation_rules;
+      }
 
-      if (hasLatLng) {
-        // latitude, longitude 컬럼이 있을 때
+      // 1. PlanetScale rentcar_vendors 테이블 업데이트
+      const hasLatLng = existing.latitude !== undefined;
+      const hasNewFields = existing.address_detail !== undefined;
+
+      if (hasNewFields) {
+        // 새 컬럼 포함 (address_detail, rental_guide, cancellation_rules)
+        await connection.execute(
+          `UPDATE rentcar_vendors
+           SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,
+               address = ?, address_detail = ?, latitude = ?, longitude = ?,
+               description = ?, logo_url = ?, images = ?,
+               cancellation_policy = ?, rental_guide = ?, cancellation_rules = ?,
+               updated_at = NOW()
+           WHERE id = ?`,
+          [finalName, finalContactPerson, finalContactEmail, finalContactPhone,
+           finalAddress, finalAddressDetail, finalLatitude, finalLongitude,
+           finalDescription, finalLogoUrl, finalImages,
+           finalCancellationPolicy, finalRentalGuide, finalCancellationRules, id]
+        );
+      } else if (hasLatLng) {
+        // latitude, longitude만 있을 때
         await connection.execute(
           `UPDATE rentcar_vendors
            SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,
@@ -182,7 +241,7 @@ module.exports = async function handler(req, res) {
           [finalName, finalContactPerson, finalContactEmail, finalContactPhone, finalAddress, finalLatitude, finalLongitude, finalDescription, finalLogoUrl, finalImages, finalCancellationPolicy, id]
         );
       } else {
-        // latitude, longitude 컬럼이 없을 때
+        // 기본 컬럼만
         await connection.execute(
           `UPDATE rentcar_vendors
            SET business_name = ?, contact_name = ?, contact_email = ?, contact_phone = ?,

@@ -91,9 +91,16 @@ interface VendorData {
     phone?: string;
     email?: string;
     address?: string;
+    address_detail?: string;
     latitude?: number;
     longitude?: number;
     cancellation_policy?: string;
+    rental_guide?: string;
+    cancellation_rules?: {
+      '3_days_before': number;
+      '1_2_days_before': number;
+      'same_day': number;
+    };
     images?: string[];
   };
   vehicles: Vehicle[];
@@ -800,6 +807,9 @@ export function RentcarVendorDetailPage() {
                   <div>
                     <p className="text-sm font-medium text-gray-700 mb-1">주소</p>
                     <p className="text-gray-600">{vendorData.vendor.address}</p>
+                    {vendorData.vendor.address_detail && (
+                      <p className="text-sm text-gray-500 mt-1">{vendorData.vendor.address_detail}</p>
+                    )}
                   </div>
                   {vendorData.vendor.latitude && vendorData.vendor.longitude && (
                     <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
@@ -870,20 +880,18 @@ export function RentcarVendorDetailPage() {
             )}
 
             {/* 안내사항 */}
-            <Card>
-              <CardHeader>
-                <CardTitle>대여 안내</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm text-gray-700">
-                  <p>• 운전면허 취득 1년 이상 필수</p>
-                  <p>• 만 21세 이상 대여 가능</p>
-                  <p>• 대여 시 신분증, 운전면허증, 신용카드 필요</p>
-                  <p>• 보험 가입 필수 (기본 보험 포함)</p>
-                  <p>• 주행거리 제한: 1일 200km (초과 시 km당 ₩100)</p>
-                </div>
-              </CardContent>
-            </Card>
+            {vendorData.vendor.rental_guide && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>대여 안내</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1 text-sm text-gray-700 whitespace-pre-line">
+                    {vendorData.vendor.rental_guide}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* 리뷰 섹션 */}
             <Card>

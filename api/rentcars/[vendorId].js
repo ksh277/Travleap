@@ -72,6 +72,19 @@ module.exports = async function handler(req, res) {
       vendorImages = [];
     }
 
+    // cancellation_rules 파싱 (JSON 타입)
+    let cancellationRules = null;
+    try {
+      if (vendor.cancellation_rules) {
+        cancellationRules = typeof vendor.cancellation_rules === 'string'
+          ? JSON.parse(vendor.cancellation_rules)
+          : vendor.cancellation_rules;
+      }
+    } catch (e) {
+      console.error('Failed to parse cancellation_rules for vendor', vendor.id, ':', e);
+      cancellationRules = null;
+    }
+
     // vendor 정보에 모든 필드 포함
     const vendorWithLocation = {
       ...vendor,
@@ -79,9 +92,12 @@ module.exports = async function handler(req, res) {
       phone: vendor.contact_phone,
       email: vendor.contact_email,
       address: vendor.address || '주소 미등록',
+      address_detail: vendor.address_detail || null,
       cancellation_policy: vendor.cancellation_policy || '예약 3일 전: 전액 환불\n예약 1-2일 전: 50% 환불\n예약 당일: 환불 불가',
+      rental_guide: vendor.rental_guide || '• 운전면허 취득 1년 이상 필수\n• 만 21세 이상 대여 가능\n• 대여 시 신분증, 운전면허증, 신용카드 필요\n• 보험 가입 필수 (기본 보험 포함)\n• 주행거리 제한: 1일 200km (초과 시 km당 ₩100)',
+      cancellation_rules: cancellationRules,
       images: Array.isArray(vendorImages) ? vendorImages : [],
-      latitude: vendor.latitude || null,  // 업체 좌표 사용, 기본값 없음
+      latitude: vendor.latitude || null,
       longitude: vendor.longitude || null
     };
 
