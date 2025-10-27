@@ -24,6 +24,9 @@ module.exports = async function handler(req, res) {
     const connection = connect({ url: process.env.DATABASE_URL });
 
     if (req.method === 'GET') {
+      console.log('🛒 [Cart] GET request, userId:', userId, 'type:', typeof userId);
+      console.log('🛒 [Cart] DATABASE_URL exists:', !!process.env.DATABASE_URL);
+
       // 장바구니 조회 (검증 포함)
       const result = await connection.execute(`
         SELECT
@@ -40,6 +43,8 @@ module.exports = async function handler(req, res) {
         WHERE c.user_id = ?
         ORDER BY c.created_at DESC
       `, [userId]);
+
+      console.log('🛒 [Cart] Query executed, rows:', result.rows?.length || 0);
 
       const invalidItemIds = [];
       const items = (result.rows || []).map(item => {
@@ -119,8 +124,9 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      console.log('장바구니 추가:', {
+      console.log('🛒 [Cart] POST - Adding to cart:', {
         userId,
+        userIdType: typeof userId,
         listing_id,
         quantity,
         selected_date,
@@ -247,10 +253,18 @@ module.exports = async function handler(req, res) {
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (error) {
-    console.error('장바구니 API 오류:', error);
+    console.error('❌ [Cart] API Error:', error);
+    console.error('❌ [Cart] Error stack:', error.stack);
+    console.error('❌ [Cart] Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno,
+      sqlMessage: error.sqlMessage
+    });
     return res.status(500).json({
       success: false,
-      error: error.message || '장바구니 처리 중 오류가 발생했습니다'
+      error: error.message || '장바구니 처리 중 오류가 발생했습니다',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };

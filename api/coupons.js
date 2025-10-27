@@ -24,6 +24,7 @@ module.exports = async function handler(req, res) {
       const userId = req.query.userId ? parseInt(req.query.userId) : null;
 
       console.log('🎟️ [Coupons] Fetching available coupons, userId:', userId);
+      console.log('🎟️ [Coupons] DATABASE_URL exists:', !!process.env.DATABASE_URL);
 
       // 현재 유효한 쿠폰 조회
       const result = await connection.execute(`
@@ -42,7 +43,7 @@ module.exports = async function handler(req, res) {
           category_restriction,
           user_restriction
         FROM coupons
-        WHERE is_active = TRUE
+        WHERE is_active = 1
           AND (expires_at IS NULL OR expires_at > NOW())
           AND (usage_limit IS NULL OR used_count < usage_limit)
         ORDER BY discount_value DESC, expires_at ASC
@@ -88,7 +89,7 @@ module.exports = async function handler(req, res) {
       // 쿠폰 조회
       const result = await connection.execute(`
         SELECT * FROM coupons
-        WHERE code = ? AND is_active = TRUE
+        WHERE code = ? AND is_active = 1
         LIMIT 1
       `, [code.toUpperCase()]);
 
@@ -194,7 +195,7 @@ module.exports = async function handler(req, res) {
       // 🔒 FOR UPDATE 락으로 동시성 제어 (마지막 1개 쿠폰 경쟁 상태 방지)
       const couponCheck = await connection.execute(`
         SELECT * FROM coupons
-        WHERE code = ? AND is_active = TRUE
+        WHERE code = ? AND is_active = 1
         FOR UPDATE
       `, [code.toUpperCase()]);
 
@@ -253,10 +254,18 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ [Coupons] API error:', error);
+    console.error('❌ [Coupons] Error stack:', error.stack);
+    console.error('❌ [Coupons] Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno,
+      sqlMessage: error.sqlMessage
+    });
     return res.status(500).json({
       success: false,
       error: 'SERVER_ERROR',
-      message: error.message || '쿠폰 처리 중 오류가 발생했습니다'
+      message: error.message || '쿠폰 처리 중 오류가 발생했습니다',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
