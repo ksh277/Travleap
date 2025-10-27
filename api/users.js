@@ -34,9 +34,16 @@ module.exports = async function handler(req, res) {
       );
 
       console.log('✅ [Neon] 사용자 조회 완료:', result.rows?.length || 0, '명');
+      const total = result.rows?.length || 0;
       return res.status(200).json({
         success: true,
-        data: result.rows || []
+        data: result.rows || [],
+        pagination: {
+          page: 1,
+          limit: total,
+          total: total,
+          total_pages: 1
+        }
       });
     }
 

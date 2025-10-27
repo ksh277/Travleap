@@ -45,9 +45,16 @@ module.exports = async function handler(req, res) {
 
     console.log(`✅ [Admin Users] ${result.rows?.length || 0}명 조회 완료`);
 
+    const total = result.rows?.length || 0;
     return res.status(200).json({
       success: true,
-      data: result.rows || []
+      data: result.rows || [],
+      pagination: {
+        page: 1,
+        limit: total,
+        total: total,
+        total_pages: 1
+      }
     });
   } catch (error) {
     console.error('❌ [Admin Users] Error fetching users:', error);
@@ -58,6 +65,12 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       success: true,
       data: [],
+      pagination: {
+        page: 1,
+        limit: 0,
+        total: 0,
+        total_pages: 0
+      },
       error: error.message,
       _debug: {
         hasPostgresUrl: !!process.env.POSTGRES_DATABASE_URL,
