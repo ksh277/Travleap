@@ -647,8 +647,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
         <HomeBanner autoSlideInterval={5000} />
       </section>
 
-      {/* 주변 숙소 */}
-      <div className="container mx-auto px-4 py-12 md:py-16">
+      {/* 주변 숙소 - 주석 처리 (Toss 심사용) */}
+      {/* <div className="container mx-auto px-4 py-12 md:py-16">
         <section>
           <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 mb-6 md:mb-8">주변 숙소 보기</h2>
           {loading ? (
@@ -679,6 +679,91 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                   className="text-sm"
                 >
                   숙박 카테고리 보기
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div> */}
+
+      {/* 인기 상품 보기 (팝업 카테고리) */}
+      <div className="container mx-auto px-4 py-12 md:py-16">
+        <section>
+          <div className="flex items-center justify-between mb-6 md:mb-8">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🎪</span>
+              <h2 className="text-2xl md:text-3xl font-semibold text-gray-800">인기 상품 보기</h2>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/category/popup')}
+              className="text-purple-600 hover:text-purple-700"
+            >
+              전체보기 →
+            </Button>
+          </div>
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-gray-200 h-64 md:h-80 rounded-lg"></div>
+                </div>
+              ))}
+            </div>
+          ) : featuredListings.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              {featuredListings.slice(0, 8).map((listing) => (
+                <Card
+                  key={listing.id}
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => navigate(`/listing/${listing.id}`)}
+                >
+                  <div className="relative h-48">
+                    <ImageWithFallback
+                      src={listing.image_url}
+                      alt={listing.title}
+                      className="w-full h-full object-cover"
+                    />
+                    {listing.discount && (
+                      <Badge className="absolute top-2 right-2 bg-red-500">
+                        {listing.discount}% 할인
+                      </Badge>
+                    )}
+                  </div>
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold text-lg mb-2 line-clamp-1">{listing.title}</h3>
+                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{listing.description}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <span className="text-sm font-medium">{listing.rating || '4.5'}</span>
+                        <span className="text-sm text-gray-500">({listing.reviews || '0'})</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-purple-600">
+                          {formatPrice(listing.price, selectedCurrency)}
+                        </div>
+                        <div className="text-xs text-gray-500">1인 기준</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="max-w-md mx-auto">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">🎪</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">인기 상품 준비 중</h3>
+                <p className="text-gray-600 mb-4">곧 다양한 팝업 스토어 상품을 만나보실 수 있습니다.</p>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/category/popup')}
+                  className="text-sm"
+                >
+                  팝업 카테고리 보기
                 </Button>
               </div>
             </div>
