@@ -1833,21 +1833,30 @@ function setupRoutes() {
   // 사용자 목록 조회 (Admin Dashboard용) - 인증 필수
   app.get('/api/users', authenticate, requireRole('admin'), async (_req, res) => {
     try {
-      const { db } = await import('./utils/database.js');
+      // Neon DB 사용 (users 테이블은 Neon에 있음)
+      const { Pool } = await import('@neondatabase/serverless');
+      const connectionString = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
 
-      const users = await db.query(`
+      if (!connectionString) {
+        throw new Error('POSTGRES_DATABASE_URL not configured');
+      }
+
+      const pool = new Pool({ connectionString });
+      const result = await pool.query(`
         SELECT id, email, name, role, created_at, updated_at
         FROM users
         ORDER BY created_at DESC
       `);
 
+      await pool.end();
+
       res.json({
         success: true,
-        users: users || []
+        data: result.rows || []
       });
     } catch (error) {
       console.error('❌ [API] Get users error:', error);
-      res.status(500).json({ success: false, message: '사용자 목록 조회 실패', users: [] });
+      res.status(500).json({ success: false, message: '사용자 목록 조회 실패', data: [] });
     }
   });
 
