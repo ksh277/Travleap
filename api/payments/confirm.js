@@ -350,7 +350,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
             userEmail: user.email,
             userName: user.name,
             userPhone: user.phone,
-            orderAmount: productAmount,
+            orderAmount: originalSubtotal,
             shippingFee
           });
           console.log(`✅ [알림] 결제 완료 알림 발송 (${user.email})`);
