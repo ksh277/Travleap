@@ -142,7 +142,7 @@ module.exports = async function handler(req, res) {
           item.listingId,
           bookingNumber,
           orderNumber,
-          item.price * item.quantity,
+          item.subtotal || item.price * item.quantity, // ✅ subtotal 사용 (옵션 가격 포함)
           status || 'pending',
           'pending',
           item.selectedDate || null,

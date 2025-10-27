@@ -441,7 +441,8 @@ export function PaymentPage() {
             listingId: Number(item.id),
             quantity: item.quantity,
             price: item.price,
-            subtotal: item.price * item.quantity,
+            // ✅ 옵션 가격 포함한 subtotal 계산
+            subtotal: item.price * item.quantity + (item.selectedOption?.priceAdjustment || 0) * item.quantity,
             selectedOption: item.selectedOption, // 팝업 상품 옵션 정보
             // ✅ bookings 테이블에 저장할 필드 추가
             category: item.category,
