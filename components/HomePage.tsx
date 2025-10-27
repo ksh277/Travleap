@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import { Star, MapPin, Clock, Gift, Sparkles, Heart, Zap, Search, Loader2, AlertCircle, TrendingUp, CalendarIcon } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { Star, MapPin, Clock, Gift, Sparkles, Heart, Zap, Search, Loader2, AlertCircle, TrendingUp, CalendarIcon, Share2 } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { Users } from 'lucide-react';
@@ -711,39 +712,71 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
               ))}
             </div>
           ) : featuredListings.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {featuredListings.slice(0, 8).map((listing) => (
                 <Card
                   key={listing.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[360px]"
                   onClick={() => navigate(`/listing/${listing.id}`)}
                 >
-                  <div className="relative h-48">
+                  {/* 이미지 */}
+                  <div className="relative w-full h-48 max-h-48 overflow-hidden flex-shrink-0">
                     <ImageWithFallback
-                      src={listing.image_url}
+                      src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
                       alt={listing.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-48 object-cover"
                     />
-                    {listing.discount && (
-                      <Badge className="absolute top-2 right-2 bg-red-500">
-                        {listing.discount}% 할인
-                      </Badge>
-                    )}
+                    <button
+                      className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // 즐겨찾기 기능 (추후 구현)
+                      }}
+                    >
+                      <Heart className="h-4 w-4 text-gray-600" />
+                    </button>
+                    <button
+                      className="absolute top-2 left-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // 공유 기능
+                        const shareUrl = `${window.location.origin}/listing/${listing.id}`;
+                        if (navigator.share) {
+                          navigator.share({ title: listing.title, url: shareUrl });
+                        } else {
+                          navigator.clipboard.writeText(shareUrl);
+                        }
+                      }}
+                    >
+                      <Share2 className="h-4 w-4 text-gray-600" />
+                    </button>
                   </div>
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold text-lg mb-2 line-clamp-1">{listing.title}</h3>
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{listing.description}</p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm font-medium">{listing.rating || '4.5'}</span>
-                        <span className="text-sm text-gray-500">({listing.reviews || '0'})</span>
+
+                  {/* 정보 */}
+                  <CardContent className="p-6 pt-3 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
+                    <div className="space-y-3 flex-1">
+                      <div className="flex items-start gap-2">
+                        <h3 className="font-semibold text-base flex-1 line-clamp-2">{listing.title}</h3>
+                        {listing.partner?.is_verified && (
+                          <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
+                            인증
+                          </Badge>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-purple-600">
-                          {formatPrice(listing.price, selectedCurrency)}
+
+                      <p className="text-xs text-gray-600 line-clamp-3">{listing.short_description || listing.description_md || ''}</p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-4 mt-4 border-t">
+                      {Number(listing.rating_avg || 0) > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          <span className="text-xs">{Number(listing.rating_avg || 0).toFixed(1)}</span>
+                          <span className="text-xs text-gray-500">({listing.rating_count || 0})</span>
                         </div>
-                        <div className="text-xs text-gray-500">1인 기준</div>
+                      )}
+                      <div className="text-base font-bold text-[#ff6a3d]">
+                        {formatPrice(listing.price_from || 0, selectedCurrency)}
                       </div>
                     </div>
                   </CardContent>
