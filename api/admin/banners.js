@@ -37,15 +37,26 @@ module.exports = async function handler(req, res) {
         title,
         link_url,
         display_order,
-        is_active
+        is_active,
+        media_type,
+        video_url
       } = req.body;
 
-      // 필수 필드 검증
-      if (!image_url || image_url.trim() === '') {
-        return res.status(400).json({
-          success: false,
-          message: '배너 이미지 URL은 필수입니다.'
-        });
+      // 필수 필드 검증 (미디어 타입에 따라)
+      if (media_type === 'video') {
+        if (!video_url || video_url.trim() === '') {
+          return res.status(400).json({
+            success: false,
+            message: '동영상 URL은 필수입니다.'
+          });
+        }
+      } else {
+        if (!image_url || image_url.trim() === '') {
+          return res.status(400).json({
+            success: false,
+            message: '배너 이미지 URL은 필수입니다.'
+          });
+        }
       }
 
       // display_order가 없으면 마지막 순서로 설정
@@ -63,14 +74,18 @@ module.exports = async function handler(req, res) {
           title,
           link_url,
           display_order,
-          is_active
-        ) VALUES (?, ?, ?, ?, ?)`,
+          is_active,
+          media_type,
+          video_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
-          image_url,
+          image_url || null,
           title || null,
           link_url || null,
           finalOrder,
-          is_active !== undefined ? is_active : true
+          is_active !== undefined ? is_active : true,
+          media_type || 'image',
+          video_url || null
         ]
       );
 

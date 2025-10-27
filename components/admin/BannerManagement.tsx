@@ -4,8 +4,9 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, MoveUp, MoveDown, Image as ImageIcon, ExternalLink } from 'lucide-react';
+import { Plus, Pencil, Trash2, MoveUp, MoveDown, Image as ImageIcon, ExternalLink, Video } from 'lucide-react';
 import { ImageUploadComponent } from './ImageUploadComponent';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -17,6 +18,8 @@ interface Banner {
   link_url?: string;
   display_order: number;
   is_active: boolean;
+  media_type?: 'image' | 'video';
+  video_url?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -35,7 +38,9 @@ export function BannerManagement() {
     title: '',
     link_url: '',
     display_order: 0,
-    is_active: true
+    is_active: true,
+    media_type: 'image',
+    video_url: ''
   });
 
   // 인증 헤더 생성
@@ -90,7 +95,9 @@ export function BannerManagement() {
       title: '',
       link_url: '',
       display_order: banners.length,
-      is_active: true
+      is_active: true,
+      media_type: 'image',
+      video_url: ''
     });
     setEditingBanner(null);
     setShowForm(false);
@@ -115,8 +122,14 @@ export function BannerManagement() {
 
   // 배너 저장 (생성/수정)
   const handleSave = async () => {
-    if (!formData.image_url.trim()) {
+    // 유효성 검사
+    if (formData.media_type === 'image' && !formData.image_url.trim()) {
       toast.error('배너 이미지를 선택해주세요.');
+      return;
+    }
+
+    if (formData.media_type === 'video' && !formData.video_url?.trim()) {
+      toast.error('동영상 URL을 입력해주세요.');
       return;
     }
 
@@ -509,23 +522,80 @@ export function BannerManagement() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* 이미지 업로드 */}
+            {/* 미디어 타입 선택 */}
             <div className="space-y-2">
-              <Label>배너 이미지 *</Label>
-              <ImageUploadComponent
-                onUploadComplete={handleImageUpload}
-                existingImageUrl={formData.image_url}
-              />
-              {formData.image_url && (
-                <div className="mt-2 border rounded-lg overflow-hidden">
-                  <img
-                    src={formData.image_url}
-                    alt="미리보기"
-                    className="w-full h-48 object-cover"
-                  />
-                </div>
-              )}
+              <Label>배너 타입 *</Label>
+              <Select
+                value={formData.media_type || 'image'}
+                onValueChange={(value: 'image' | 'video') => setFormData({ ...formData, media_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="배너 타입 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="image">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4" />
+                      <span>이미지 배너</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="video">
+                    <div className="flex items-center gap-2">
+                      <Video className="h-4 w-4" />
+                      <span>동영상 배너</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* 이미지 업로드 (이미지 타입인 경우) */}
+            {formData.media_type === 'image' && (
+              <div className="space-y-2">
+                <Label>배너 이미지 *</Label>
+                <ImageUploadComponent
+                  onUploadComplete={handleImageUpload}
+                  existingImageUrl={formData.image_url}
+                />
+                {formData.image_url && (
+                  <div className="mt-2 border rounded-lg overflow-hidden">
+                    <img
+                      src={formData.image_url}
+                      alt="미리보기"
+                      className="w-full h-48 object-cover"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 동영상 URL 입력 (동영상 타입인 경우) */}
+            {formData.media_type === 'video' && (
+              <div className="space-y-2">
+                <Label htmlFor="video_url">동영상 URL *</Label>
+                <Input
+                  id="video_url"
+                  value={formData.video_url || ''}
+                  onChange={(e) => setFormData({ ...formData, video_url: e.target.value })}
+                  placeholder="https://example.com/video.mp4 또는 Vercel Blob URL"
+                />
+                <p className="text-xs text-gray-500">
+                  MP4, WebM 등의 동영상 파일 URL을 입력하세요 (자동재생, 음소거, 반복 재생됩니다)
+                </p>
+                {formData.video_url && (
+                  <div className="mt-2 border rounded-lg overflow-hidden">
+                    <video
+                      src={formData.video_url}
+                      className="w-full h-48 object-cover"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 배너 제목 */}
             <div className="space-y-2">

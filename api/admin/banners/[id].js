@@ -34,7 +34,9 @@ module.exports = async function handler(req, res) {
         title,
         link_url,
         display_order,
-        is_active
+        is_active,
+        media_type,
+        video_url
       } = req.body;
 
       await connection.execute(
@@ -44,6 +46,8 @@ module.exports = async function handler(req, res) {
           link_url = COALESCE(?, link_url),
           display_order = COALESCE(?, display_order),
           is_active = COALESCE(?, is_active),
+          media_type = COALESCE(?, media_type),
+          video_url = COALESCE(?, video_url),
           updated_at = NOW()
         WHERE id = ?`,
         [
@@ -52,6 +56,8 @@ module.exports = async function handler(req, res) {
           link_url,
           display_order,
           is_active,
+          media_type,
+          video_url,
           id
         ]
       );

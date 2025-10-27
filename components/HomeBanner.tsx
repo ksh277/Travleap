@@ -8,6 +8,8 @@ interface Banner {
   title?: string;
   link_url?: string;
   display_order: number;
+  media_type?: 'image' | 'video';
+  video_url?: string;
 }
 
 interface HomeBannerProps {
@@ -90,7 +92,7 @@ export function HomeBanner({ autoSlideInterval = 5000 }: HomeBannerProps) {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* 배너 이미지들 */}
+      {/* 배너 이미지/동영상들 */}
       <div className="relative w-full h-full">
         {banners.map((banner, index) => (
           <div
@@ -101,11 +103,24 @@ export function HomeBanner({ autoSlideInterval = 5000 }: HomeBannerProps) {
             onClick={() => handleBannerClick(banner)}
             style={{ cursor: banner.link_url ? 'pointer' : 'default' }}
           >
-            <ImageWithFallback
-              src={banner.image_url}
-              alt={banner.title || `배너 ${index + 1}`}
-              className="w-full h-full object-cover"
-            />
+            {/* 동영상 배너 */}
+            {banner.media_type === 'video' && banner.video_url ? (
+              <video
+                src={banner.video_url}
+                className="w-full h-full object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+              />
+            ) : (
+              /* 이미지 배너 (기본) */
+              <ImageWithFallback
+                src={banner.image_url}
+                alt={banner.title || `배너 ${index + 1}`}
+                className="w-full h-full object-cover"
+              />
+            )}
 
             {/* 배너 제목 (있는 경우) */}
             {banner.title && (

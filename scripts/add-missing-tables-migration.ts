@@ -31,6 +31,23 @@ export async function runMissingTablesMigration() {
     `);
     console.log('✅ home_banners table created/verified');
 
+    // 배너 테이블에 동영상 지원 컬럼 추가
+    try {
+      await db.execute(`ALTER TABLE home_banners ADD COLUMN media_type ENUM('image', 'video') DEFAULT 'image'`);
+      console.log('✅ media_type column added to home_banners');
+    } catch (error) {
+      // 이미 존재하면 무시
+      console.log('ℹ️  media_type column already exists');
+    }
+
+    try {
+      await db.execute(`ALTER TABLE home_banners ADD COLUMN video_url VARCHAR(500) NULL`);
+      console.log('✅ video_url column added to home_banners');
+    } catch (error) {
+      // 이미 존재하면 무시
+      console.log('ℹ️  video_url column already exists');
+    }
+
     // 액티비티 이미지 테이블
     await db.execute(`
       CREATE TABLE IF NOT EXISTS activity_images (

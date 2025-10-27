@@ -1862,6 +1862,17 @@ function setupRoutes() {
     }
   });
 
+  // Admin 사용자 목록 조회 (Vercel style API 파일 사용)
+  app.get('/api/admin/users', async (req, res) => {
+    try {
+      const adminUsersAPI = await import('./api/admin/users.js');
+      await adminUsersAPI.default(req as any, res as any);
+    } catch (error) {
+      console.error('❌ [API] Admin users error:', error);
+      res.status(500).json({ success: false, message: '사용자 목록 조회 실패', data: [] });
+    }
+  });
+
   // 현재 사용자 프로필 조회 - 인증 필수
   app.get('/api/user/profile', authenticate, async (req, res) => {
     try {
@@ -8471,10 +8482,8 @@ function setupRoutes() {
   // Check availability
   app.post('/api/rentcar/bookings/check-availability', async (req, res) => {
     try {
-      // @ts-expect-error - Rentcar API module type definition
-      const { checkAvailability } = await import('./api/rentcar/bookings.js');
-      const result = await checkAvailability(req.body);
-      res.json(result);
+      const bookingsAPI = await import('./api/rentcar/bookings.js');
+      await bookingsAPI.default(req as any, res as any);
     } catch (error) {
       console.error('❌ [API] Check availability error:', error);
       res.status(500).json({
@@ -8485,15 +8494,10 @@ function setupRoutes() {
   });
 
   // Create booking
-  app.post('/api/rentcar/bookings', authenticate, async (req, res) => {
+  app.post('/api/rentcar/bookings', async (req, res) => {
     try {
-      // @ts-expect-error - Rentcar API module type definition
-      const { createBooking } = await import('./api/rentcar/bookings.js');
-      const result = await createBooking({
-        ...req.body,
-        user_id: req.user?.userId
-      });
-      res.json(result);
+      const bookingsAPI = await import('./api/rentcar/bookings.js');
+      await bookingsAPI.default(req as any, res as any);
     } catch (error) {
       console.error('❌ [API] Create booking error:', error);
       res.status(500).json({
@@ -8504,13 +8508,10 @@ function setupRoutes() {
   });
 
   // Cancel booking
-  app.delete('/api/rentcar/bookings/:id', authenticate, async (req, res) => {
+  app.delete('/api/rentcar/bookings/:id', async (req, res) => {
     try {
-      // @ts-expect-error - Rentcar API module type definition
-      const { cancelBooking } = await import('./api/rentcar/bookings.js');
-      const bookingId = parseInt(req.params.id);
-      const result = await cancelBooking(bookingId, req.user?.userId);
-      res.json(result);
+      const bookingsAPI = await import('./api/rentcar/bookings.js');
+      await bookingsAPI.default(req as any, res as any);
     } catch (error) {
       console.error('❌ [API] Cancel booking error:', error);
       res.status(500).json({
@@ -8521,12 +8522,10 @@ function setupRoutes() {
   });
 
   // Get bookings
-  app.get('/api/rentcar/bookings', authenticate, async (req, res) => {
+  app.get('/api/rentcar/bookings', async (req, res) => {
     try {
-      // @ts-expect-error - Rentcar API module type definition
-      const { getBookings } = await import('./api/rentcar/bookings.js');
-      const result = await getBookings(req.query);
-      res.json(result);
+      const bookingsAPI = await import('./api/rentcar/bookings.js');
+      await bookingsAPI.default(req as any, res as any);
     } catch (error) {
       console.error('❌ [API] Get bookings error:', error);
       res.status(500).json({
