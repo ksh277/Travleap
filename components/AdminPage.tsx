@@ -728,7 +728,8 @@ export function AdminPage({}: AdminPageProps) {
     maxPurchase: '', // 최대 구매 수량 (빈 값 = 무제한)
     stockEnabled: false, // 재고 관리 사용 여부
     stock: '0', // 재고 수량
-    shippingFee: '' // 상품별 배송비 (빈 값 = 정책 사용)
+    shippingFee: '', // 상품별 배송비 (빈 값 = 정책 사용)
+    isRefundable: true // 환불 가능 여부 (기본값: 환불 가능)
   });
 
   // 렌트카, 숙박은 별도 관리 탭에서 추가하므로 제외
@@ -1263,7 +1264,8 @@ export function AdminPage({}: AdminPageProps) {
         maxPurchase: newProduct.maxPurchase ? parseInt(newProduct.maxPurchase) : null,
         stockEnabled: newProduct.stockEnabled || false,
         stock: newProduct.stock ? parseInt(newProduct.stock) : 0,
-        shippingFee: newProduct.shippingFee ? parseInt(newProduct.shippingFee) : null
+        shippingFee: newProduct.shippingFee ? parseInt(newProduct.shippingFee) : null,
+        is_refundable: newProduct.isRefundable !== undefined ? newProduct.isRefundable : true
       };
 
       const response = await api.admin.createListing(listingData);
@@ -2870,6 +2872,38 @@ export function AdminPage({}: AdminPageProps) {
                                   />
                                   <p className="text-xs text-gray-500 mt-1">
                                     빈 값 = 기본 정책 사용 (30,000원 이상 무료)
+                                  </p>
+                                </div>
+
+                                {/* 환불 정책 */}
+                                <div className="col-span-full">
+                                  <label className="text-sm font-medium mb-2 block">환불 정책</label>
+                                  <div className="flex gap-4">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name="refundPolicy"
+                                        checked={newProduct.isRefundable === true}
+                                        onChange={() => setNewProduct(prev => ({ ...prev, isRefundable: true }))}
+                                        className="w-4 h-4"
+                                      />
+                                      <span className="text-sm">환불 가능</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name="refundPolicy"
+                                        checked={newProduct.isRefundable === false}
+                                        onChange={() => setNewProduct(prev => ({ ...prev, isRefundable: false }))}
+                                        className="w-4 h-4"
+                                      />
+                                      <span className="text-sm text-red-600 font-medium">환불 불가</span>
+                                    </label>
+                                  </div>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {newProduct.isRefundable
+                                      ? '배송 전 무료 취소 가능, 반품/교환 정책 적용'
+                                      : '고객이 구매 시 환불이 불가능한 상품으로 표시됩니다'}
                                   </p>
                                 </div>
                               </>

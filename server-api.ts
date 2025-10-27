@@ -1383,9 +1383,9 @@ function setupRoutes() {
         (title, category, category_id, price_from, price_to, child_price, infant_price,
          location, address, meeting_point, images, short_description, description_md,
          highlights, included, excluded, max_capacity, is_featured, is_active, is_published,
-         has_options, min_purchase, max_purchase, stock_enabled, stock, shipping_fee,
+         has_options, min_purchase, max_purchase, stock_enabled, stock, shipping_fee, is_refundable,
          created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         listingData.title,
         listingData.category,  // 한글 카테고리 저장 ('팝업', '여행', '숙박' 등)
@@ -1413,7 +1413,8 @@ function setupRoutes() {
         listingData.maxPurchase || null,
         listingData.stockEnabled ? 1 : 0,
         listingData.stock || 0,
-        listingData.shippingFee || null
+        listingData.shippingFee || null,
+        listingData.is_refundable !== undefined ? (listingData.is_refundable ? 1 : 0) : 1 // 기본값: 환불 가능
       ]);
 
       console.log('✅ 상품 생성 완료:', result.insertId);
@@ -1455,7 +1456,7 @@ function setupRoutes() {
           highlights = ?, included = ?, excluded = ?,
           max_capacity = ?, is_featured = ?, is_active = ?,
           has_options = ?, min_purchase = ?, max_purchase = ?,
-          stock_enabled = ?, stock = ?, shipping_fee = ?,
+          stock_enabled = ?, stock = ?, shipping_fee = ?, is_refundable = ?,
           updated_at = NOW()
         WHERE id = ?
       `, [
@@ -1485,6 +1486,7 @@ function setupRoutes() {
         listingData.stockEnabled ? 1 : 0,
         listingData.stock || 0,
         listingData.shippingFee || null,
+        listingData.is_refundable !== undefined ? (listingData.is_refundable ? 1 : 0) : 1, // 기본값: 환불 가능
         listingId
       ]);
 

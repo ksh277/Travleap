@@ -1426,28 +1426,19 @@ export function DetailPage() {
                   <CardContent className="space-y-4">
                     {item?.category === '팝업' ? (
                       <>
-                        {/* 팝업 스토어 상품 - 상품별 정책 우선 표시 */}
+                        {/* 팝업 스토어 상품 - 환불 정책 */}
                         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                           <h4 className="font-semibold text-purple-900 mb-2">팝업 스토어 상품</h4>
 
-                          {/* 상품별 취소/환불 정책이 있는 경우 */}
-                          {item.policies?.cancellation || item.policies?.refund ? (
-                            <div className="space-y-3">
-                              {item.policies.cancellation && (
-                                <div>
-                                  <h5 className="text-sm font-semibold text-purple-800 mb-1">취소 정책</h5>
-                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.policies.cancellation}</p>
-                                </div>
-                              )}
-                              {item.policies.refund && (
-                                <div>
-                                  <h5 className="text-sm font-semibold text-purple-800 mb-1">환불 정책</h5>
-                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{item.policies.refund}</p>
-                                </div>
-                              )}
+                          {/* is_refundable 값에 따라 표시 */}
+                          {item.is_refundable === false ? (
+                            /* 환불 불가 */
+                            <div className="flex items-start gap-2 text-sm text-red-700">
+                              <X className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                              <span><strong>환불 불가:</strong> 이 상품은 환불이 불가능합니다</span>
                             </div>
                           ) : (
-                            /* 기본 정책 */
+                            /* 환불 가능 (기본) */
                             <ul className="space-y-2 text-sm text-gray-700">
                               <li className="flex items-start gap-2">
                                 <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
@@ -1465,8 +1456,8 @@ export function DetailPage() {
                           )}
                         </div>
 
-                        {/* 교환/반품 주소는 기본 정책일 때만 표시 */}
-                        {!item.policies?.cancellation && !item.policies?.refund && (
+                        {/* 교환/반품 주소는 환불 가능일 때만 표시 */}
+                        {item.is_refundable !== false && (
                           <div>
                             <h4 className="font-semibold mb-2">교환/반품 주소</h4>
                             <p className="text-sm text-gray-600">전라남도 목포시 원산중앙로 44 2층 (58636)</p>

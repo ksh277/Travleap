@@ -123,6 +123,7 @@ export interface Listing {
   excluded?: string[];
   cancellation_policy?: string;
   refund_policy?: string;
+  is_refundable?: boolean; // 환불 가능/불가능 (팝업 상품용)
   weather_policy?: string;
   amenities?: string[];
   tags?: string[];
