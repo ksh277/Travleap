@@ -23,11 +23,12 @@ module.exports = async function handler(req, res) {
       ORDER BY display_order ASC
     `);
 
+    const banners = result.rows || [];
     return res.status(200).json({
       success: true,
-      banners: result || [],
-      data: result || [],
-      message: result && result.length > 0 ? `Found ${result.length} banners` : 'No banners found'
+      banners: banners,
+      data: banners,
+      message: banners.length > 0 ? `Found ${banners.length} banners` : 'No banners found'
     });
   } catch (error) {
     console.error('Error fetching banners:', error);

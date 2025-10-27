@@ -62,7 +62,7 @@ module.exports = async function handler(req, res) {
       );
 
       // brand_name 없으면 business_name 사용
-      const vendors = (result || []).map(vendor => ({
+      const vendors = (result.rows || []).map(vendor => ({
         ...vendor,
         brand_name: vendor.brand_name || vendor.business_name,
         vendor_code: `ACC${vendor.id}` // vendor_code 생성

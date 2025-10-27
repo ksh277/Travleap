@@ -31,7 +31,7 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      data: result || []
+      data: result.rows || []
     });
   } catch (error) {
     console.error('Error fetching recent reviews:', error);

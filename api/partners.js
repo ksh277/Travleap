@@ -39,11 +39,12 @@ module.exports = async function handler(req, res) {
         p.created_at DESC
     `);
 
-    console.log(`✅ Partners API: ${result?.length || 0}개 파트너 조회 성공`);
+    const partners = result.rows || [];
+    console.log(`✅ Partners API: ${partners.length}개 파트너 조회 성공`);
 
     return res.status(200).json({
       success: true,
-      data: result || []
+      data: partners
     });
   } catch (error) {
     console.error('❌ Partners API Error:', error);

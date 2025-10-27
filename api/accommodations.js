@@ -22,9 +22,9 @@ module.exports = async function handler(req, res) {
       SELECT id FROM categories WHERE slug = 'stay' LIMIT 1
     `);
 
-    const categoryId = categoryResult[0]?.id || 1857;
+    const categoryId = categoryResult.rows?.[0]?.id || 1857;
 
-    const hotels = await connection.execute(`
+    const hotelsResult = await connection.execute(`
       SELECT
         p.id as partner_id,
         p.business_name,
@@ -49,7 +49,8 @@ module.exports = async function handler(req, res) {
       ORDER BY p.status = 'approved' DESC, p.is_featured DESC, avg_rating DESC
     `, [categoryId, categoryId]);
 
-    const parsedHotels = (hotels || []).map((hotel) => {
+    const hotels = hotelsResult.rows || [];
+    const parsedHotels = hotels.map((hotel) => {
       let images = [];
       try {
         if (hotel.sample_images) {

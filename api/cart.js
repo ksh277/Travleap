@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
       `, [userId]);
 
       const invalidItemIds = [];
-      const items = (result || []).map(item => {
+      const items = (result.rows || []).map(item => {
         let images = [];
         let selectedOptions = {};
         let validationStatus = 'valid';
@@ -132,7 +132,7 @@ module.exports = async function handler(req, res) {
         LIMIT 1
       `, [listing_id]);
 
-      if (!listingCheck || listingCheck.length === 0) {
+      if (!listingCheck.rows || listingCheck.rows.length === 0) {
         return res.status(404).json({
           success: false,
           error: 'LISTING_NOT_FOUND',
@@ -140,7 +140,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      const listing = listingCheck[0];
+      const listing = listingCheck.rows[0];
 
       if (!listing.is_active) {
         return res.status(400).json({

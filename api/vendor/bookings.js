@@ -53,14 +53,14 @@ module.exports = async function handler(req, res) {
         [decoded.userId]
       );
 
-      if (!vendorResult || vendorResult.length === 0) {
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
         return res.status(403).json({
           success: false,
           message: '등록된 벤더 정보가 없습니다.'
         });
       }
 
-      vendorId = vendorResult[0].id;
+      vendorId = vendorResult.rows[0].id;
     }
 
     // GET: 예약 목록 조회
@@ -99,7 +99,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        data: result || []
+        data: result.rows || []
       });
     }
 
@@ -113,14 +113,14 @@ module.exports = async function handler(req, res) {
         [bookingId]
       );
 
-      if (!checkResult || checkResult.length === 0) {
+      if (!checkResult.rows || checkResult.rows.length === 0) {
         return res.status(404).json({
           success: false,
           message: '예약을 찾을 수 없습니다.'
         });
       }
 
-      if (decoded.role !== 'admin' && checkResult[0].vendor_id !== vendorId) {
+      if (decoded.role !== 'admin' && checkResult.rows[0].vendor_id !== vendorId) {
         return res.status(403).json({
           success: false,
           message: '해당 예약에 대한 권한이 없습니다.'
@@ -150,14 +150,14 @@ module.exports = async function handler(req, res) {
         [bookingId]
       );
 
-      if (!checkResult || checkResult.length === 0) {
+      if (!checkResult.rows || checkResult.rows.length === 0) {
         return res.status(404).json({
           success: false,
           message: '예약을 찾을 수 없습니다.'
         });
       }
 
-      const booking = checkResult[0];
+      const booking = checkResult.rows[0];
 
       if (decoded.role !== 'admin' && booking.vendor_id !== vendorId) {
         return res.status(403).json({
@@ -182,9 +182,9 @@ module.exports = async function handler(req, res) {
           [bookingId]
         );
 
-        if (paymentResult && paymentResult.length > 0) {
-          paymentKey = paymentResult[0].payment_key;
-          actualPaidAmount = paymentResult[0].amount;
+        if (paymentResult.rows && paymentResult.rows.length > 0) {
+          paymentKey = paymentResult.rows[0].payment_key;
+          actualPaidAmount = paymentResult.rows[0].amount;
           console.log('💰 실제 결제 금액:', actualPaidAmount);
         }
       } catch (e) {

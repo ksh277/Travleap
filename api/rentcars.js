@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
 
-    const vendors = await connection.execute(`
+    const result = await connection.execute(`
       SELECT
         v.id as vendor_id,
         v.vendor_code,
@@ -38,7 +38,8 @@ module.exports = async function handler(req, res) {
       ORDER BY v.is_verified DESC, v.business_name ASC
     `);
 
-    const parsedVendors = (vendors || []).map((vendor) => {
+    const vendors = result.rows || [];
+    const parsedVendors = vendors.map((vendor) => {
       let images = [];
 
       // 1. vendor의 images 우선 사용

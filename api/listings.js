@@ -82,10 +82,11 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(sql, params);
 
+    const listings = result.rows || [];
     return res.status(200).json({
       success: true,
-      data: result || [],
-      total: result ? result.length : 0,
+      data: listings,
+      total: listings.length,
       page: pageNum,
       limit: limitNum
     });

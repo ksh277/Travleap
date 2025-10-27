@@ -17,18 +17,33 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(`
         SELECT
           b.*,
-          u.name as user_name,
-          u.email as user_email,
           l.title as listing_title
         FROM bookings b
-        LEFT JOIN users u ON b.user_id = u.id
         LEFT JOIN listings l ON b.listing_id = l.id
         ORDER BY b.created_at DESC
       `);
 
+      // customer_info에서 사용자 정보 추출
+      const bookings = (result.rows || []).map(booking => {
+        let customerInfo = {};
+        try {
+          if (booking.customer_info) {
+            customerInfo = typeof booking.customer_info === 'string'
+              ? JSON.parse(booking.customer_info)
+              : booking.customer_info;
+          }
+        } catch (e) {}
+
+        return {
+          ...booking,
+          user_name: customerInfo.name || customerInfo.customer_name || 'Unknown',
+          user_email: customerInfo.email || customerInfo.customer_email || ''
+        };
+      });
+
       return res.status(200).json({
         success: true,
-        data: result || []
+        data: bookings
       });
     }
 

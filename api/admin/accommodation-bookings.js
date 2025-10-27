@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
     const result = await connection.execute(query, params);
 
     // customer_info JSON 파싱 (users 테이블이 Neon에 있으므로 customer_info에서만 추출)
-    const bookings = (result || []).map(booking => {
+    const bookings = (result.rows || []).map(booking => {
       let customerInfo = {};
       try {
         if (booking.customer_info) {
