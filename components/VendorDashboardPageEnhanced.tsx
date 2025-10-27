@@ -156,7 +156,7 @@ interface VehicleFormData {
 
 export function VendorDashboardPageEnhanced() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, sessionRestored, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [vendorInfo, setVendorInfo] = useState<VendorInfo | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -390,11 +390,16 @@ export function VendorDashboardPageEnhanced() {
 
   // 업체 정보 로드
   useEffect(() => {
+    // 🔒 보안: 세션 복원 완료 후에만 데이터 로드
+    if (!sessionRestored) return;
     loadVendorData();
-  }, [user?.id]);
+  }, [user?.id, sessionRestored]);
 
   const loadVendorData = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      console.log('⚠️ user.id 없음 - 데이터 로드 스킵');
+      return;
+    }
 
     try {
       setLoading(true);
@@ -1309,12 +1314,13 @@ export function VendorDashboardPageEnhanced() {
     }
   };
 
-  if (loading) {
+  // 🔒 보안: 인증 로딩 중이거나 데이터 로딩 중일 때 로딩 화면 표시
+  if (authLoading || loading || !sessionRestored) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">데이터를 불러오는 중...</p>
+          <p className="text-gray-600">{authLoading || !sessionRestored ? '세션 복원 중...' : '데이터를 불러오는 중...'}</p>
         </div>
       </div>
     );
