@@ -114,44 +114,77 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 7. 취소 정책 조회
-    let policyCode = rental.cancel_policy_code || 'moderate';
-
-    const policies = await db.query(`
-      SELECT rules_json, no_show_penalty_rate
-      FROM cancellation_policies
-      WHERE category = ?
-      LIMIT 1
-    `, [policyCode]);
-
-    let policyRules = [];
-    let noShowPenaltyRate = 100;
-
-    if (policies.length > 0) {
-      try {
-        policyRules = JSON.parse(policies[0].rules_json);
-        noShowPenaltyRate = policies[0].no_show_penalty_rate;
-      } catch (parseError) {
-        console.warn('⚠️  Failed to parse policy rules, using default');
-      }
-    }
-
-    // 8. 환불율 계산
+    // 7. 벤더별 취소 정책 조회 (우선 적용)
     const now = new Date();
     const pickupAt = new Date(rental.pickup_at_utc);
     const hoursUntilPickup = (pickupAt - now) / 3600000;
 
     let refundRate = 0;
+    let policySource = 'global'; // 'vendor' or 'global'
 
-    // 정책 규칙 순회
-    for (const rule of policyRules) {
-      if (hoursUntilPickup >= rule.hours_before_pickup) {
-        refundRate = rule.refund_rate;
-        break;
+    // 7-1. 먼저 벤더의 cancellation_rules 확인
+    const vendorPolicies = await db.query(`
+      SELECT cancellation_rules
+      FROM rentcar_vendors
+      WHERE id = ?
+      LIMIT 1
+    `, [rental.vendor_id]);
+
+    if (vendorPolicies.length > 0 && vendorPolicies[0].cancellation_rules) {
+      try {
+        const rules = typeof vendorPolicies[0].cancellation_rules === 'string'
+          ? JSON.parse(vendorPolicies[0].cancellation_rules)
+          : vendorPolicies[0].cancellation_rules;
+
+        // 시간 기준으로 환불율 결정
+        if (hoursUntilPickup >= 72) { // 3일 = 72시간
+          refundRate = rules['3_days_before'] || 100;
+        } else if (hoursUntilPickup >= 24) { // 1-2일
+          refundRate = rules['1_2_days_before'] || 50;
+        } else {
+          refundRate = rules['same_day'] || 0;
+        }
+
+        policySource = 'vendor';
+        console.log(`   📋 Using vendor-specific cancellation policy`);
+      } catch (parseError) {
+        console.warn('⚠️  Failed to parse vendor cancellation_rules, falling back to global policy');
       }
     }
 
-    console.log(`   📜 Policy: ${policyCode}, Hours until pickup: ${hoursUntilPickup.toFixed(1)}h, Refund rate: ${refundRate}%`);
+    // 7-2. 벤더 정책이 없으면 전역 정책 사용
+    if (policySource === 'global') {
+      let policyCode = rental.cancel_policy_code || 'moderate';
+
+      const policies = await db.query(`
+        SELECT rules_json, no_show_penalty_rate
+        FROM cancellation_policies
+        WHERE category = ?
+        LIMIT 1
+      `, [policyCode]);
+
+      let policyRules = [];
+
+      if (policies.length > 0) {
+        try {
+          policyRules = JSON.parse(policies[0].rules_json);
+        } catch (parseError) {
+          console.warn('⚠️  Failed to parse policy rules, using default');
+        }
+      }
+
+      // 정책 규칙 순회
+      for (const rule of policyRules) {
+        if (hoursUntilPickup >= rule.hours_before_pickup) {
+          refundRate = rule.refund_rate;
+          break;
+        }
+      }
+
+      console.log(`   📋 Using global cancellation policy: ${policyCode}`);
+    }
+
+    console.log(`   📜 Hours until pickup: ${hoursUntilPickup.toFixed(1)}h, Refund rate: ${refundRate}%, Source: ${policySource}`);
 
     // 환불 금액
     const refundAmount = Math.floor(rental.total_price_krw * (refundRate / 100));
