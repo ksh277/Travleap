@@ -5,6 +5,17 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { Pool } = require('@neondatabase/serverless');
+
+// Neon PostgreSQL connection for users table
+let neonPool;
+function getNeonPool() {
+  if (!neonPool) {
+    const connectionString = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+    neonPool = new Pool({ connectionString });
+  }
+  return neonPool;
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -94,25 +105,31 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // user_id가 없으면 임시 생성 (실제로는 인증 시스템과 연동되어야 함)
+      // user_id가 없으면 임시 생성 (Neon PostgreSQL의 users 테이블 사용)
       let finalUserId = user_id;
       if (!finalUserId) {
-        // 임시 사용자 ID 생성 또는 조회
-        const tempUserResult = await connection.execute(
-          `SELECT id FROM users WHERE email = ? LIMIT 1`,
-          [contact_email || 'temp@accommodation.com']
-        );
-
-        if (tempUserResult && tempUserResult.length > 0) {
-          finalUserId = tempUserResult[0].id;
-        } else {
-          // 임시 사용자 생성
-          const createUserResult = await connection.execute(
-            `INSERT INTO users (email, name, user_type, created_at, updated_at)
-             VALUES (?, ?, 'vendor', NOW(), NOW())`,
-            [contact_email || 'temp@accommodation.com', contact_name || business_name]
+        try {
+          const neonDb = getNeonPool();
+          // 임시 사용자 ID 생성 또는 조회
+          const tempUserResult = await neonDb.query(
+            `SELECT id FROM users WHERE email = $1 LIMIT 1`,
+            [contact_email || 'temp@accommodation.com']
           );
-          finalUserId = createUserResult.insertId;
+
+          if (tempUserResult.rows && tempUserResult.rows.length > 0) {
+            finalUserId = tempUserResult.rows[0].id;
+          } else {
+            // 임시 사용자 생성
+            const createUserResult = await neonDb.query(
+              `INSERT INTO users (email, name, role, created_at, updated_at)
+               VALUES ($1, $2, 'vendor', NOW(), NOW()) RETURNING id`,
+              [contact_email || 'temp@accommodation.com', contact_name || business_name]
+            );
+            finalUserId = createUserResult.rows[0].id;
+          }
+        } catch (userError) {
+          console.warn('Failed to create/find user in Neon, using default:', userError);
+          finalUserId = 1; // Fallback to default admin user
         }
       }
 

@@ -31,13 +31,10 @@ module.exports = async function handler(req, res) {
         p.business_name as vendor_name,
         p.id as vendor_id,
         l.title as room_name,
-        l.room_code,
-        u.name as customer_name,
-        u.email as customer_email
+        l.room_code
       FROM bookings b
       JOIN listings l ON b.listing_id = l.id
       JOIN partners p ON l.partner_id = p.id
-      LEFT JOIN users u ON b.user_id = u.id
       WHERE l.category = 'stay' AND l.category_id = ${STAY_CATEGORY_ID} AND p.partner_type = 'lodging'
     `;
 
@@ -53,7 +50,7 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(query, params);
 
-    // customer_info JSON 파싱
+    // customer_info JSON 파싱 (users 테이블이 Neon에 있으므로 customer_info에서만 추출)
     const bookings = (result || []).map(booking => {
       let customerInfo = {};
       try {
@@ -69,8 +66,8 @@ module.exports = async function handler(req, res) {
       return {
         ...booking,
         customer_info: customerInfo,
-        customer_name: booking.customer_name || customerInfo.name || 'Unknown',
-        customer_email: booking.customer_email || customerInfo.email || ''
+        customer_name: customerInfo.name || customerInfo.customer_name || 'Unknown',
+        customer_email: customerInfo.email || customerInfo.customer_email || ''
       };
     });
 

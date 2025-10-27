@@ -34,20 +34,20 @@ module.exports = async function handler(req, res) {
         p.tier,
         p.status,
         p.is_featured,
-        COUNT(l.id) as room_count,
+        COUNT(DISTINCT l.id) as room_count,
         MIN(l.price_from) as min_price,
         MAX(l.price_from) as max_price,
-        MIN(l.images) as sample_images,
+        (SELECT images FROM listings WHERE partner_id = p.id AND category_id = ? AND is_published = 1 AND is_active = 1 LIMIT 1) as sample_images,
         GROUP_CONCAT(DISTINCT l.location SEPARATOR ', ') as locations,
         AVG(l.rating_avg) as avg_rating,
         SUM(l.rating_count) as total_reviews
       FROM partners p
       LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = ? AND l.is_published = 1 AND l.is_active = 1
-      WHERE p.is_active = 1
+      WHERE p.is_active = 1 AND (p.partner_type = 'lodging' OR p.partner_type IS NULL)
       GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.tier, p.status, p.is_featured
       HAVING room_count > 0
       ORDER BY p.status = 'approved' DESC, p.is_featured DESC, avg_rating DESC
-    `, [categoryId]);
+    `, [categoryId, categoryId]);
 
     const parsedHotels = (hotels || []).map((hotel) => {
       let images = [];
