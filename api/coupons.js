@@ -17,15 +17,11 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const connection = connect({
-      host: process.env.DATABASE_HOST,
-      username: process.env.DATABASE_USERNAME,
-      password: process.env.DATABASE_PASSWORD
-    });
+    const connection = connect({ url: process.env.DATABASE_URL });
 
     // GET: 사용 가능한 쿠폰 목록 조회
     if (req.method === 'GET') {
-      const { userId } = req.query;
+      const userId = req.query.userId ? parseInt(req.query.userId) : null;
 
       console.log('🎟️ [Coupons] Fetching available coupons, userId:', userId);
 

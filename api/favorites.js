@@ -9,18 +9,19 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { userId } = req.query;
+  const userIdParam = req.query.userId;
 
-  if (!userId) {
+  if (!userIdParam) {
     return res.status(400).json({ success: false, error: 'userId is required' });
   }
 
+  const userId = parseInt(userIdParam);
+  if (isNaN(userId)) {
+    return res.status(400).json({ success: false, error: 'Invalid userId' });
+  }
+
   try {
-    const connection = connect({
-      host: process.env.DATABASE_HOST,
-      username: process.env.DATABASE_USERNAME,
-      password: process.env.DATABASE_PASSWORD
-    });
+    const connection = connect({ url: process.env.DATABASE_URL });
 
     if (req.method === 'GET') {
       // 즐겨찾기 조회
