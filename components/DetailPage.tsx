@@ -2351,7 +2351,46 @@ export function DetailPage() {
                             navigate('/login');
                             return;
                           }
-                          setShowBookingForm(true);
+
+                          // ✅ 바로 PaymentPage로 이동
+                          const orderData = {
+                            items: [{
+                              id: item.id,
+                              title: item.title,
+                              price: item.category === '팝업' ? item.price : priceCalculation.basePrice,
+                              quantity: item.category === '팝업' ? quantity : 1,
+                              image: Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : '',
+                              category: item.category,
+                              selectedDate: item.category === '팝업' ? null : selectedDate?.toISOString().split('T')[0],
+                              adults: item.category === '팝업' ? quantity : adults,
+                              children: item.category === '팝업' ? 0 : children,
+                              infants: item.category === '팝업' ? 0 : infants,
+                              selectedOption: item.category === '팝업' && selectedOption ? {
+                                id: selectedOption.id,
+                                name: selectedOption.option_name,
+                                value: selectedOption.option_value,
+                                priceAdjustment: selectedOption.price_adjustment
+                              } : null
+                            }],
+                            subtotal: item.category === '팝업'
+                              ? (item.price || 0) * quantity + (selectedOption ? selectedOption.price_adjustment * quantity : 0)
+                              : priceCalculation.total,
+                            total: item.category === '팝업'
+                              ? (item.price || 0) * quantity + (selectedOption ? selectedOption.price_adjustment * quantity : 0)
+                              : priceCalculation.total,
+                            couponDiscount: 0,
+                            couponCode: null
+                          };
+
+                          const paymentParams = new URLSearchParams({
+                            title: item.title,
+                            totalAmount: orderData.total.toString(),
+                            customerName: user?.name || '',
+                            customerEmail: user?.email || '',
+                            orderData: JSON.stringify(orderData)
+                          });
+
+                          navigate(`/payment?${paymentParams.toString()}`);
                         }}
                         disabled={item?.category !== '팝업' && !selectedDate}
                       >
