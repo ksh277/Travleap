@@ -17,9 +17,11 @@ module.exports = async function handler(req, res) {
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
 
+    // 🛑 Toss 심사용: 팝업만 활성화
+    // 나중에 WHERE 조건 제거하면 전체 카테고리 활성화됨
     const result = await connection.execute(`
       SELECT * FROM categories
-      WHERE is_active = 1
+      WHERE is_active = 1 AND slug = 'popup'
       ORDER BY sort_order ASC
     `);
 
