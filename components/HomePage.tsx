@@ -718,7 +718,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                 <Card
                   key={listing.id}
                   className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[360px]"
-                  onClick={() => navigate(`/product/${listing.id}`)}
+                  onClick={() => navigate(`/detail/${listing.id}`)}
                 >
                   {/* 이미지 */}
                   <div className="relative w-full h-48 max-h-48 overflow-hidden flex-shrink-0">
@@ -741,7 +741,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                       onClick={(e) => {
                         e.stopPropagation();
                         // 공유 기능
-                        const shareUrl = `${window.location.origin}/product/${listing.id}`;
+                        const shareUrl = `${window.location.origin}/detail/${listing.id}`;
                         if (navigator.share) {
                           navigator.share({ title: listing.title, url: shareUrl });
                         } else {

@@ -41,9 +41,36 @@ export function useCartStore() {
 
         if (result.success) {
           console.log('🛒 [장바구니] API에서 가져온 항목:', result.data);
-          setCartState({
-            cartItems: result.data
+
+          // API 응답을 프론트엔드 형식으로 변환
+          const transformedItems = result.data.map((item: any) => {
+            let images = [];
+            try {
+              images = item.images ? JSON.parse(item.images) : [];
+            } catch (e) {
+              console.error('이미지 파싱 실패:', e);
+            }
+
+            return {
+              id: item.id,
+              title: item.title || '상품',
+              price: item.price_from || 0,
+              quantity: item.quantity || 1,
+              image: images[0] || '/placeholder.jpg',
+              category: item.category_id ? `category_${item.category_id}` : '',
+              location: item.location || '',
+              date: item.selected_date,
+              guests: item.num_adults || 1,
+              inStock: item.is_active === 1 || item.is_active === true,
+              validationStatus: item.validationStatus,
+              validationMessage: item.validationMessage
+            };
           });
+
+          setCartState({
+            cartItems: transformedItems
+          });
+          console.log('✅ [장바구니] 데이터 변환 완료:', transformedItems.length, '개');
         } else {
           throw new Error(result.message || '장바구니 로드 실패');
         }
@@ -110,10 +137,33 @@ export function useCartStore() {
         const cartResult = await cartResponse.json();
 
         if (cartResult.success) {
-          setCartState({
-            cartItems: cartResult.data
+          // API 응답을 프론트엔드 형식으로 변환
+          const transformedItems = cartResult.data.map((item: any) => {
+            let images = [];
+            try {
+              images = item.images ? JSON.parse(item.images) : [];
+            } catch (e) {
+              console.error('이미지 파싱 실패:', e);
+            }
+
+            return {
+              id: item.id,
+              title: item.title || '상품',
+              price: item.price_from || 0,
+              quantity: item.quantity || 1,
+              image: images[0] || '/placeholder.jpg',
+              category: item.category_id ? `category_${item.category_id}` : '',
+              location: item.location || '',
+              date: item.selected_date,
+              guests: item.num_adults || 1,
+              inStock: item.is_active === 1 || item.is_active === true
+            };
           });
-          console.log('✅ [장바구니 추가] 장바구니 새로고침 완료:', cartResult.data.length, '개 항목');
+
+          setCartState({
+            cartItems: transformedItems
+          });
+          console.log('✅ [장바구니 추가] 장바구니 새로고침 완료:', transformedItems.length, '개 항목');
         } else {
           throw new Error('장바구니 새로고침 실패');
         }
