@@ -228,7 +228,8 @@ export function CartPage() {
         ? appliedCoupon.discount
         : Math.floor(subtotal * appliedCoupon.discount / 100)
       : 0;
-    const total = Math.max(0, subtotal - couponDiscount);
+    const shippingFee = subtotal >= 50000 ? 0 : 3000;
+    const total = Math.max(0, subtotal - couponDiscount + shippingFee);
     const savings = cartItems.reduce((sum, item) => {
       if (item.originalPrice && item.originalPrice > (item.price || 0)) {
         return sum + ((item.originalPrice - (item.price || 0)) * item.quantity);
@@ -236,10 +237,10 @@ export function CartPage() {
       return sum;
     }, 0);
 
-    return { subtotal, couponDiscount, total, savings };
+    return { subtotal, couponDiscount, shippingFee, total, savings };
   }, [cartItems, appliedCoupon]);
 
-  const { subtotal, couponDiscount, total, savings } = calculations;
+  const { subtotal, couponDiscount, shippingFee, total, savings } = calculations;
 
   // Enhanced item removal with confirmation
   const removeItem = useCallback((id: number, itemName: string) => {
@@ -427,11 +428,6 @@ export function CartPage() {
         return;
       }
 
-      // Minimum order amount validation
-      if (total < 10000) {
-        toast.error('최소 주문 금액은 10,000원입니다');
-        return;
-      }
 
       // Create comprehensive order summary
       const orderSummary: OrderSummary = {
@@ -1090,6 +1086,19 @@ export function CartPage() {
                           <span className="font-medium text-green-600">-{couponDiscount.toLocaleString()}원</span>
                         </div>
                       )}
+
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1">
+                          <Package className="h-3 w-3 text-blue-500" />
+                          <span className="text-gray-600">배송비</span>
+                          {shippingFee === 0 && (
+                            <span className="text-xs text-blue-600">(50,000원 이상 무료)</span>
+                          )}
+                        </div>
+                        <span className={`font-medium ${shippingFee === 0 ? 'text-blue-600' : 'text-gray-800'}`}>
+                          {shippingFee === 0 ? '무료' : `+${shippingFee.toLocaleString()}원`}
+                        </span>
+                      </div>
 
                       <Separator className="my-3" />
 
