@@ -793,7 +793,7 @@ function setupRoutes() {
     await rentcarVehicleBlocksAPI(req as any, res as any);
   });
 
-  // ✅ 렌트카 바우처 인증 (벤더용 - POST)
+  // 렌트카 바우처 인증 (벤더용 - POST)
   app.post('/api/rentcar/voucher/verify', async (req, res) => {
     await rentcarVoucherVerifyPostAPI(req as any, res as any);
   });

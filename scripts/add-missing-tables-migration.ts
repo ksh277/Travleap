@@ -945,6 +945,37 @@ export async function runMissingTablesMigration() {
       console.warn('⚠️  [Migration] bookings table point column addition warning:', error);
     }
 
+    // ========================================
+    // 17. rentcar_vendors 테이블에 PMS 컬럼 추가
+    // ========================================
+    console.log('🚗 [Migration] Adding PMS columns to rentcar_vendors table...');
+    try {
+      // pms_provider
+      const pmsProviderCol = await db.query(`SHOW COLUMNS FROM rentcar_vendors LIKE 'pms_provider'`);
+      if (!pmsProviderCol || pmsProviderCol.length === 0) {
+        await db.execute(`ALTER TABLE rentcar_vendors ADD COLUMN pms_provider VARCHAR(50) COMMENT 'PMS 제공자'`);
+        console.log('   ✅ rentcar_vendors.pms_provider column added');
+      }
+
+      // pms_api_key
+      const pmsApiKeyCol = await db.query(`SHOW COLUMNS FROM rentcar_vendors LIKE 'pms_api_key'`);
+      if (!pmsApiKeyCol || pmsApiKeyCol.length === 0) {
+        await db.execute(`ALTER TABLE rentcar_vendors ADD COLUMN pms_api_key VARCHAR(500) COMMENT 'PMS API 키'`);
+        console.log('   ✅ rentcar_vendors.pms_api_key column added');
+      }
+
+      // pms_property_id
+      const pmsPropertyIdCol = await db.query(`SHOW COLUMNS FROM rentcar_vendors LIKE 'pms_property_id'`);
+      if (!pmsPropertyIdCol || pmsPropertyIdCol.length === 0) {
+        await db.execute(`ALTER TABLE rentcar_vendors ADD COLUMN pms_property_id VARCHAR(100) COMMENT 'PMS 프로퍼티 ID'`);
+        console.log('   ✅ rentcar_vendors.pms_property_id column added');
+      }
+
+      console.log('✅ [Migration] rentcar_vendors table PMS columns added successfully');
+    } catch (error) {
+      console.warn('⚠️  [Migration] rentcar_vendors table PMS column addition warning:', error);
+    }
+
     console.log('🎉 [Migration] All missing tables added successfully!');
     return true;
 

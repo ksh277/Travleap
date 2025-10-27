@@ -20,6 +20,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Switch } from './ui/switch';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import {
   Car,
   Plus,
@@ -78,6 +79,7 @@ interface Vehicle {
 
 interface Booking {
   id: number;
+  booking_number?: string;
   vehicle_id: number;
   vehicle_name: string;
   customer_name: string;
@@ -89,6 +91,8 @@ interface Booking {
   total_amount: number;
   status: string;
   created_at: string;
+  picked_up_at?: string;
+  returned_at?: string;
 }
 
 interface Insurance {
@@ -229,30 +233,116 @@ export function VendorDashboardPageEnhanced() {
     display_order: 0
   });
 
+  // 픽업 처리 상태
+  const [isProcessingPickup, setIsProcessingPickup] = useState(false);
+  const [pickupModalOpen, setPickupModalOpen] = useState(false);
+  const [pickupBooking, setPickupBooking] = useState<Booking | null>(null);
+  const [pickupForm, setPickupForm] = useState({
+    mileage: 0,
+    fuel_level: 100,
+    damage_notes: ''
+  });
+
   // 반납 처리 상태
   const [isProcessingReturn, setIsProcessingReturn] = useState(false);
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [returnForm, setReturnForm] = useState({
+    mileage: 0,
+    fuel_level: 100,
+    damage_notes: '',
+    additional_charges: 0
+  });
   const [actualReturnDateTime, setActualReturnDateTime] = useState('');
   const [vendorNote, setVendorNote] = useState('');
+
+  // 픽업 처리 모달 열기
+  const handlePickup = (booking: Booking) => {
+    setPickupBooking(booking);
+    setPickupForm({
+      mileage: 0,
+      fuel_level: 100,
+      damage_notes: ''
+    });
+    setPickupModalOpen(true);
+  };
+
+  // 픽업 처리 제출
+  const handleSubmitPickup = async () => {
+    if (!pickupBooking) {
+      toast.error('예약 정보가 없습니다.');
+      return;
+    }
+
+    if (pickupForm.mileage <= 0) {
+      toast.error('주행거리를 입력해주세요.');
+      return;
+    }
+
+    setIsProcessingPickup(true);
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      if (!token) {
+        toast.error('인증 토큰이 없습니다. 다시 로그인해주세요.');
+        navigate('/login');
+        return;
+      }
+
+      const response = await fetch('/api/rentcar/check-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          booking_number: pickupBooking.booking_number || pickupBooking.id,
+          mileage: pickupForm.mileage,
+          fuel_level: pickupForm.fuel_level,
+          damage_notes: pickupForm.damage_notes || undefined,
+          checked_in_by: user?.name || user?.email
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('픽업 처리가 완료되었습니다.');
+        setPickupModalOpen(false);
+        setPickupBooking(null);
+        loadVendorData();
+      } else {
+        toast.error(result.error || '픽업 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('픽업 처리 오류:', error);
+      toast.error('픽업 처리 중 오류가 발생했습니다.');
+    } finally {
+      setIsProcessingPickup(false);
+    }
+  };
 
   // 반납 처리 모달 열기
   const handleProcessReturn = (booking: Booking) => {
     setSelectedBooking(booking);
-    // 현재 시간을 기본값으로 설정 (ISO 8601 형식: YYYY-MM-DDTHH:mm)
-    const now = new Date();
-    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
-    setActualReturnDateTime(localDateTime);
-    setVendorNote('');
+    setReturnForm({
+      mileage: 0,
+      fuel_level: 100,
+      damage_notes: '',
+      additional_charges: 0
+    });
     setReturnModalOpen(true);
   };
 
   // 반납 처리 제출
   const handleSubmitReturn = async () => {
-    if (!selectedBooking || !actualReturnDateTime) {
-      toast.error('반납 시간을 입력해주세요.');
+    if (!selectedBooking) {
+      toast.error('예약 정보가 없습니다.');
+      return;
+    }
+
+    if (returnForm.mileage <= 0) {
+      toast.error('반납 시 주행거리를 입력해주세요.');
       return;
     }
 
@@ -266,44 +356,26 @@ export function VendorDashboardPageEnhanced() {
         return;
       }
 
-      const response = await fetch('/api/rentcar/process-return', {
+      const response = await fetch('/api/rentcar/check-out', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          booking_id: selectedBooking.id,
-          actual_dropoff_time: actualReturnDateTime,
-          vendor_note: vendorNote || undefined
+          booking_number: selectedBooking.booking_number || selectedBooking.id,
+          mileage: returnForm.mileage,
+          fuel_level: returnForm.fuel_level,
+          damage_notes: returnForm.damage_notes || undefined,
+          additional_charges: returnForm.additional_charges || 0,
+          checked_out_by: user?.name || user?.email
         })
       });
 
       const result = await response.json();
 
       if (result.success) {
-        const data = result.data;
-
-        // 지연 수수료가 있으면 특별히 표시
-        if (data.is_late && data.late_fee > 0) {
-          toast.success(
-            `반납 처리 완료!\n지연 시간: ${data.late_minutes}분\n지연 수수료: ₩${data.late_fee.toLocaleString()}\n최종 금액: ₩${data.new_total.toLocaleString()}`,
-            { duration: 8000 }
-          );
-        } else {
-          toast.success('반납 처리가 완료되었습니다.');
-        }
-
-        // 다음 예약 알림이 있으면 경고 표시
-        if (data.next_booking_alert) {
-          const alert = data.next_booking_alert;
-          toast.warning(
-            `⚠️ 다음 예약자 알림 필요\n예약번호: ${alert.booking_number}\n고객: ${alert.customer_name}\n지연: ${alert.delay_minutes}분`,
-            { duration: 10000 }
-          );
-        }
-
-        // 모달 닫고 데이터 새로고침
+        toast.success('반납 처리가 완료되었습니다.');
         setReturnModalOpen(false);
         setSelectedBooking(null);
         loadVendorData();
@@ -2085,7 +2157,16 @@ export function VendorDashboardPageEnhanced() {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              {['confirmed', 'in_progress'].includes(booking.status) && (
+                              {booking.status === 'confirmed' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handlePickup(booking)}
+                                >
+                                  픽업 처리
+                                </Button>
+                              )}
+                              {booking.status === 'picked_up' && (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -2568,7 +2649,7 @@ export function VendorDashboardPageEnhanced() {
                   <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label className="text-sm">3일 전 예약 취소</Label>
+                        <Label className="text-sm">72시간 이상 전 취소 (≥3일)</Label>
                         <div className="flex items-center gap-2">
                           <Input
                             type="number"
@@ -2589,18 +2670,18 @@ export function VendorDashboardPageEnhanced() {
                         </div>
                       </div>
                       <div>
-                        <Label className="text-sm">1-2일 전 예약 취소</Label>
+                        <Label className="text-sm">48-72시간 전 취소 (2-3일)</Label>
                         <div className="flex items-center gap-2">
                           <Input
                             type="number"
                             min="0"
                             max="100"
-                            value={isEditingInfo ? (editedInfo.cancellation_rules?.['1_2_days_before'] ?? 50) : (vendorInfo.cancellation_rules?.['1_2_days_before'] ?? 50)}
+                            value={isEditingInfo ? (editedInfo.cancellation_rules?.['2_days_before'] ?? 80) : (vendorInfo.cancellation_rules?.['2_days_before'] ?? 80)}
                             onChange={(e) => setEditedInfo({
                               ...editedInfo,
                               cancellation_rules: {
                                 ...(editedInfo.cancellation_rules || {}),
-                                '1_2_days_before': parseInt(e.target.value) || 0
+                                '2_days_before': parseInt(e.target.value) || 0
                               }
                             })}
                             disabled={!isEditingInfo}
@@ -2610,7 +2691,28 @@ export function VendorDashboardPageEnhanced() {
                         </div>
                       </div>
                       <div>
-                        <Label className="text-sm">당일 예약 취소</Label>
+                        <Label className="text-sm">24-48시간 전 취소 (1-2일)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={isEditingInfo ? (editedInfo.cancellation_rules?.['1_day_before'] ?? 50) : (vendorInfo.cancellation_rules?.['1_day_before'] ?? 50)}
+                            onChange={(e) => setEditedInfo({
+                              ...editedInfo,
+                              cancellation_rules: {
+                                ...(editedInfo.cancellation_rules || {}),
+                                '1_day_before': parseInt(e.target.value) || 0
+                              }
+                            })}
+                            disabled={!isEditingInfo}
+                            className="w-24"
+                          />
+                          <span className="text-sm text-gray-600">% 환불</span>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm">24시간 이내 취소 (당일)</Label>
                         <div className="flex items-center gap-2">
                           <Input
                             type="number"
@@ -2632,7 +2734,7 @@ export function VendorDashboardPageEnhanced() {
                       </div>
                     </div>
                     <p className="text-xs text-gray-500">
-                      💡 환불 요청 시 이 비율에 따라 자동 계산됩니다.
+                      💡 환불 요청 시 이 비율에 따라 자동 계산됩니다. (권장: 72h+ → 100%, 48-72h → 80%, 24-48h → 50%, 24h 이내 → 0%)
                     </p>
                   </div>
                 </div>
@@ -2674,17 +2776,112 @@ export function VendorDashboardPageEnhanced() {
         </Tabs>
       </div>
 
+      {/* 픽업 처리 모달 */}
+      <Dialog open={pickupModalOpen} onOpenChange={setPickupModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>차량 픽업 처리</DialogTitle>
+            <DialogDescription>
+              {pickupBooking && `예약번호: #${pickupBooking.booking_number || pickupBooking.id} | ${pickupBooking.vehicle_name}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {pickupBooking && (
+            <div className="space-y-4">
+              {/* 예약 정보 */}
+              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">고객명:</span>
+                  <span className="font-medium">{pickupBooking.customer_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">픽업 예정일시:</span>
+                  <span className="font-medium">
+                    {new Date(pickupBooking.pickup_date).toLocaleDateString('ko-KR')} {pickupBooking.pickup_time || ''}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">예약 금액:</span>
+                  <span className="font-medium">₩{pickupBooking.total_amount.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* 차량 상태 입력 */}
+              <div>
+                <Label>현재 주행거리 (km) *</Label>
+                <Input
+                  type="number"
+                  value={pickupForm.mileage}
+                  onChange={(e) => setPickupForm({ ...pickupForm, mileage: Number(e.target.value) })}
+                  placeholder="예: 12345"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <Label>연료 상태 (%) *</Label>
+                <Input
+                  type="number"
+                  value={pickupForm.fuel_level}
+                  onChange={(e) => setPickupForm({ ...pickupForm, fuel_level: Number(e.target.value) })}
+                  placeholder="0-100"
+                  min="0"
+                  max="100"
+                />
+              </div>
+
+              <div>
+                <Label>차량 상태 / 파손 여부</Label>
+                <Textarea
+                  value={pickupForm.damage_notes}
+                  onChange={(e) => setPickupForm({ ...pickupForm, damage_notes: e.target.value })}
+                  placeholder="차량 외관/내부 상태, 기존 파손 사항 등을 기록하세요..."
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPickupModalOpen(false);
+                setPickupBooking(null);
+              }}
+              disabled={isProcessingPickup}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleSubmitPickup}
+              disabled={isProcessingPickup}
+            >
+              {isProcessingPickup ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  처리 중...
+                </>
+              ) : (
+                '픽업 완료'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* 반납 처리 모달 */}
-      {returnModalOpen && selectedBooking && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>차량 반납 처리</CardTitle>
-              <CardDescription>
-                예약번호: #{selectedBooking.id} | {selectedBooking.vehicle_name}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+      <Dialog open={returnModalOpen} onOpenChange={setReturnModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>차량 반납 처리</DialogTitle>
+            <DialogDescription>
+              {selectedBooking && `예약번호: #${selectedBooking.booking_number || selectedBooking.id} | ${selectedBooking.vehicle_name}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedBooking && (
+            <div className="space-y-4">
               {/* 예약 정보 */}
               <div className="p-4 bg-gray-50 rounded-lg space-y-2">
                 <div className="flex justify-between">
@@ -2703,99 +2900,83 @@ export function VendorDashboardPageEnhanced() {
                 </div>
               </div>
 
-              {/* 실제 반납 시간 입력 */}
+              {/* 차량 상태 입력 */}
               <div>
-                <Label>실제 반납 일시 *</Label>
+                <Label>반납 시 주행거리 (km) *</Label>
                 <Input
-                  type="datetime-local"
-                  value={actualReturnDateTime}
-                  onChange={(e) => setActualReturnDateTime(e.target.value)}
-                  className="text-base"
+                  type="number"
+                  value={returnForm.mileage}
+                  onChange={(e) => setReturnForm({ ...returnForm, mileage: Number(e.target.value) })}
+                  placeholder="예: 12567"
+                  min="0"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  * 현재 시간이 기본값으로 설정됩니다
-                </p>
               </div>
 
-              {/* 지연 시간 미리보기 */}
-              {actualReturnDateTime && selectedBooking.dropoff_date && selectedBooking.dropoff_time && (() => {
-                const scheduledDropoff = new Date(`${selectedBooking.dropoff_date}T${selectedBooking.dropoff_time}`);
-                const actualDropoff = new Date(actualReturnDateTime);
-                const diffMs = actualDropoff.getTime() - scheduledDropoff.getTime();
-                const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-                if (diffMinutes > 0) {
-                  return (
-                    <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-yellow-800">
-                        <span className="text-sm font-medium">⚠️ 반납 지연 감지</span>
-                      </div>
-                      <div className="text-sm text-yellow-700 mt-1">
-                        지연 시간: {Math.floor(diffMinutes / 60)}시간 {diffMinutes % 60}분
-                      </div>
-                      <div className="text-xs text-yellow-600 mt-1">
-                        {diffMinutes <= 15 ? '15분 이내 - 수수료 없음 (관용)' :
-                         diffMinutes <= 60 ? '지연 수수료: ₩10,000' :
-                         diffMinutes <= 120 ? '지연 수수료: ₩20,000' :
-                         '지연 수수료: 시간당 요금 × 1.5배'}
-                      </div>
-                    </div>
-                  );
-                } else if (diffMinutes < -30) {
-                  return (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <div className="text-sm text-blue-700">
-                        ✓ 조기 반납 ({Math.abs(diffMinutes)}분 일찍)
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              {/* 벤더 메모 */}
               <div>
-                <Label>메모 (선택사항)</Label>
+                <Label>연료 상태 (%) *</Label>
+                <Input
+                  type="number"
+                  value={returnForm.fuel_level}
+                  onChange={(e) => setReturnForm({ ...returnForm, fuel_level: Number(e.target.value) })}
+                  placeholder="0-100"
+                  min="0"
+                  max="100"
+                />
+              </div>
+
+              <div>
+                <Label>차량 상태 / 파손 여부</Label>
                 <Textarea
-                  value={vendorNote}
-                  onChange={(e) => setVendorNote(e.target.value)}
-                  placeholder="지연 사유, 차량 상태 등을 기록하세요..."
+                  value={returnForm.damage_notes}
+                  onChange={(e) => setReturnForm({ ...returnForm, damage_notes: e.target.value })}
+                  placeholder="반납 시 차량 외관/내부 상태, 신규 파손 사항 등을 기록하세요..."
                   rows={3}
                 />
               </div>
 
-              {/* 버튼 */}
-              <div className="flex gap-2 pt-4">
-                <Button
-                  onClick={handleSubmitReturn}
-                  disabled={isProcessingReturn}
-                  className="flex-1"
-                >
-                  {isProcessingReturn ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      처리 중...
-                    </>
-                  ) : (
-                    '반납 완료'
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setReturnModalOpen(false);
-                    setSelectedBooking(null);
-                  }}
-                  disabled={isProcessingReturn}
-                  className="flex-1"
-                >
-                  취소
-                </Button>
+              <div>
+                <Label>추가 요금 (원)</Label>
+                <Input
+                  type="number"
+                  value={returnForm.additional_charges}
+                  onChange={(e) => setReturnForm({ ...returnForm, additional_charges: Number(e.target.value) })}
+                  placeholder="0"
+                  min="0"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  * 지연 수수료, 파손 수수료, 초과 주행거리 수수료 등
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReturnModalOpen(false);
+                setSelectedBooking(null);
+              }}
+              disabled={isProcessingReturn}
+            >
+              취소
+            </Button>
+            <Button
+              onClick={handleSubmitReturn}
+              disabled={isProcessingReturn}
+            >
+              {isProcessingReturn ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  처리 중...
+                </>
+              ) : (
+                '반납 완료'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -266,11 +266,13 @@ module.exports = async function handler(req, res) {
     // extras는 [{extra_id, quantity}] 형식
     // 실제 구현 시 각 extra의 가격을 조회하여 합산
 
-    // 총 요금
-    const totalPriceKrw = pricing.base_amount + insurancePriceKrw + extrasPriceKrw;
+    // 보증금
     const depositAmountKrw = vehicle.deposit_amount_krw || 0;
 
-    console.log(`   💰 Pricing calculated: base=${pricing.base_amount}, insurance=${insurancePriceKrw}, total=${totalPriceKrw}, deposit=${depositAmountKrw}`);
+    // 총 요금 (렌탈 요금 + 보험 + 부가서비스 + 보증금)
+    const totalPriceKrw = pricing.base_amount + insurancePriceKrw + extrasPriceKrw + depositAmountKrw;
+
+    console.log(`   💰 Pricing calculated: base=${pricing.base_amount}, insurance=${insurancePriceKrw}, extras=${extrasPriceKrw}, deposit=${depositAmountKrw}, total=${totalPriceKrw}`);
 
     // 9. booking_number 생성
     const bookingNumber = generateBookingNumber();

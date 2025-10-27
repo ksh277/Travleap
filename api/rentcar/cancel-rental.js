@@ -137,11 +137,13 @@ module.exports = async function handler(req, res) {
           : vendorPolicies[0].cancellation_rules;
 
         // 시간 기준으로 환불율 결정
-        if (hoursUntilPickup >= 72) { // 3일 = 72시간
+        if (hoursUntilPickup >= 72) { // 3일 = 72시간 이상
           refundRate = rules['3_days_before'] || 100;
-        } else if (hoursUntilPickup >= 24) { // 1-2일
-          refundRate = rules['1_2_days_before'] || 50;
-        } else {
+        } else if (hoursUntilPickup >= 48) { // 2-3일 (48-72시간)
+          refundRate = rules['2_days_before'] || 80;
+        } else if (hoursUntilPickup >= 24) { // 1-2일 (24-48시간)
+          refundRate = rules['1_day_before'] || 50;
+        } else { // 24시간 이내
           refundRate = rules['same_day'] || 0;
         }
 

@@ -11,7 +11,7 @@
  * 권한: 벤더, 관리자
  */
 
-import db from '../../utils/db.js';
+import { db } from '../../utils/database';
 import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
