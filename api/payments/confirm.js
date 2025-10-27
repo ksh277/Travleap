@@ -305,7 +305,12 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         if (userResult.length > 0) {
           const user = userResult[0];
 
-          // 배송비 조회 (bookings 테이블에서)
+          // ✅ notes에서 원래 상품 금액(subtotal) 가져오기
+          // 포인트 적립은 쿠폰/포인트 사용 전 원래 상품 금액 기준
+          const notes = order.notes ? JSON.parse(order.notes) : null;
+          const originalSubtotal = notes?.subtotal || 0;
+
+          // 배송비 조회 (bookings 테이블에서) - 알림 발송용
           const bookingsResult = await db.query(`
             SELECT SUM(IFNULL(shipping_fee, 0)) as total_shipping_fee
             FROM bookings
@@ -313,10 +318,9 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           `, [orderId]);
 
           const shippingFee = (bookingsResult.length > 0 && bookingsResult[0].total_shipping_fee) || 0;
-          const productAmount = paymentResult.totalAmount - shippingFee;
 
-          // 포인트 적립 (2%, 배송비 제외)
-          const pointsToEarn = Math.floor(productAmount * 0.02);
+          // 포인트 적립 (2%, 원래 상품 금액 기준)
+          const pointsToEarn = Math.floor(originalSubtotal * 0.02);
 
           if (pointsToEarn > 0) {
             const { earnPoints } = require('../../utils/points-system');
