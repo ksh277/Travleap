@@ -173,6 +173,15 @@ export function AdminPage({}: AdminPageProps) {
     setPartnerCurrentPage(1);
   }, [partnerSearchQuery]);
 
+  // 사용자 페이지네이션 state
+  const [userCurrentPage, setUserCurrentPage] = useState(1);
+  const usersPerPage = 15;
+
+  // 사용자 검색 시 페이지 리셋
+  useEffect(() => {
+    setUserCurrentPage(1);
+  }, [userSearchQuery]);
+
   // 블로그 카테고리 매핑
   const blogCategoryNames: Record<string, string> = {
     'travel': '여행기',
@@ -240,7 +249,11 @@ export function AdminPage({}: AdminPageProps) {
           maxPurchase: '',
           stockEnabled: false,
           stock: '0',
-          shippingFee: ''
+          shippingFee: '',
+          isRefundable: true,
+          availableStartTimes: [],
+          itinerary: [],
+          packages: []
         });
         setIsAddModalOpen(true);
       };
@@ -629,7 +642,9 @@ export function AdminPage({}: AdminPageProps) {
     rating: '',
     visit_date: '',
     title: '',
-    comment: ''
+    comment: '',
+    review_type: 'listing' as 'listing' | 'rentcar',
+    rentcar_booking_id: ''
   });
 
   // 블로그 관리 상태
@@ -729,7 +744,10 @@ export function AdminPage({}: AdminPageProps) {
     stockEnabled: false, // 재고 관리 사용 여부
     stock: '0', // 재고 수량
     shippingFee: '', // 상품별 배송비 (빈 값 = 정책 사용)
-    isRefundable: true // 환불 가능 여부 (기본값: 환불 가능)
+    isRefundable: true, // 환불 가능 여부 (기본값: 환불 가능)
+    availableStartTimes: [] as string[], // 투어 시작 시간 옵션
+    itinerary: [] as any[], // 투어 일정
+    packages: [] as any[] // 패키지 옵션
   });
 
   // 렌트카, 숙박은 별도 관리 탭에서 추가하므로 제외
@@ -1221,7 +1239,11 @@ export function AdminPage({}: AdminPageProps) {
             maxPurchase: '',
             stockEnabled: false,
             stock: '0',
-            shippingFee: ''
+            shippingFee: '',
+            isRefundable: true,
+            availableStartTimes: [],
+            itinerary: [],
+            packages: []
           });
 
           setIsLoading(false);
@@ -1319,7 +1341,11 @@ export function AdminPage({}: AdminPageProps) {
           maxPurchase: '',
           stockEnabled: false,
           stock: '0',
-          shippingFee: ''
+          shippingFee: '',
+          isRefundable: true,
+          availableStartTimes: [],
+          itinerary: [],
+          packages: []
         });
         setIsAddModalOpen(false);
         toast.success('상품이 추가되었습니다.');
@@ -1823,7 +1849,9 @@ export function AdminPage({}: AdminPageProps) {
         rating: review.rating?.toString() || '',
         visit_date: review.visit_date || '',
         title: review.title || '',
-        comment: review.comment_md || review.comment || ''
+        comment: review.comment_md || review.comment || '',
+        review_type: review.review_type || 'listing',
+        rentcar_booking_id: review.rentcar_booking_id || ''
       });
     } else {
       // 생성 모드: 빈 폼으로 초기화
@@ -1833,7 +1861,9 @@ export function AdminPage({}: AdminPageProps) {
         rating: '',
         visit_date: '',
         title: '',
-        comment: ''
+        comment: '',
+        review_type: 'listing',
+        rentcar_booking_id: ''
       });
     }
 
@@ -1930,8 +1960,6 @@ export function AdminPage({}: AdminPageProps) {
         if (result.success) {
           setUsers(prev => prev.filter(u => u.id !== id));
           toast.success(`사용자 "${email}"이(가) 삭제되었습니다.`);
-          // 실시간 데이터 업데이트 알림
-          notifyDataChange('users');
         } else {
           toast.error(result.error || '사용자 삭제에 실패했습니다.');
         }
@@ -1961,6 +1989,24 @@ export function AdminPage({}: AdminPageProps) {
     } catch (error) {
       console.error('Update user status failed:', error);
       toast.error('사용자 상태 변경 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 문의 삭제
+  const handleDeleteContact = async (id: number, name: string) => {
+    if (confirm(`정말 이 문의를 삭제하시겠습니까?\n\n이름: ${name}\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) {
+      try {
+        const result = await api.admin.deleteContact(id);
+        if (result.success) {
+          setContacts(prev => prev.filter(c => c.id !== id));
+          toast.success(`문의 "${name}"이(가) 삭제되었습니다.`);
+        } else {
+          toast.error(result.error || '문의 삭제에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error('Delete contact failed:', error);
+        toast.error('문의 삭제 중 오류가 발생했습니다.');
+      }
     }
   };
 
@@ -4063,7 +4109,7 @@ export function AdminPage({}: AdminPageProps) {
                             <label className="text-sm font-medium mb-1 block">리뷰 타입</label>
                             <Select
                               value={newReview.review_type || 'listing'}
-                              onValueChange={(value) => setNewReview({ ...newReview, review_type: value, listing_id: '', rentcar_booking_id: '' })}
+                              onValueChange={(value) => setNewReview({ ...newReview, review_type: value as 'listing' | 'rentcar', listing_id: '', rentcar_booking_id: '' })}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="리뷰 타입 선택" />
@@ -4171,7 +4217,9 @@ export function AdminPage({}: AdminPageProps) {
                                 rating: '',
                                 visit_date: '',
                                 title: '',
-                                comment: ''
+                                comment: '',
+                                review_type: 'listing',
+                                rentcar_booking_id: ''
                               });
                             }}
                           >
@@ -4363,14 +4411,20 @@ export function AdminPage({}: AdminPageProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users
-                      .filter(user => user.role !== 'admin') // 관리자 계정 제외
-                      .filter(user =>
-                        user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                        user.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
-                      )
-                      .slice(0, 10)
-                      .map((user) => (
+                    {(() => {
+                      const filteredUsers = users
+                        .filter(user => user.role !== 'admin') // 관리자 계정 제외
+                        .filter(user =>
+                          user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                          user.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                        );
+
+                      const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+                      const startIndex = (userCurrentPage - 1) * usersPerPage;
+                      const endIndex = startIndex + usersPerPage;
+                      const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+                      return paginatedUsers.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">{user.name}</TableCell>
                         <TableCell>{user.email}</TableCell>
@@ -4405,7 +4459,8 @@ export function AdminPage({}: AdminPageProps) {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      ));
+                    })()}
                   </TableBody>
                 </Table>
 
@@ -4414,6 +4469,55 @@ export function AdminPage({}: AdminPageProps) {
                     <p className="text-gray-500">등록된 사용자가 없습니다.</p>
                   </div>
                 )}
+
+                {/* 페이지네이션 */}
+                {(() => {
+                  const filteredUsers = users
+                    .filter(user => user.role !== 'admin')
+                    .filter(user =>
+                      user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                      user.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                    );
+                  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+                  if (totalPages <= 1) return null;
+
+                  return (
+                    <div className="flex justify-center items-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUserCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={userCurrentPage === 1}
+                      >
+                        이전
+                      </Button>
+
+                      <div className="flex gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <Button
+                            key={page}
+                            variant={userCurrentPage === page ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setUserCurrentPage(page)}
+                            className={userCurrentPage === page ? "bg-[#8B5FBF] hover:bg-[#7A4FB5]" : ""}
+                          >
+                            {page}
+                          </Button>
+                        ))}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setUserCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={userCurrentPage === totalPages}
+                      >
+                        다음
+                      </Button>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -4622,6 +4726,7 @@ export function AdminPage({}: AdminPageProps) {
                         const matchesStatus = contactStatusFilter === 'all' || contact.status === contactStatusFilter;
                         return matchesSearch && matchesStatus;
                       })
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                       .slice(0, 20)
                       .map((contact) => (
                         <TableRow key={contact.id}>
@@ -4653,6 +4758,13 @@ export function AdminPage({}: AdminPageProps) {
                                 }}
                               >
                                 <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeleteContact(contact.id, contact.name)}
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>

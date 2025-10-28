@@ -1450,7 +1450,7 @@ export function DetailPage() {
                               </li>
                               <li className="flex items-start gap-2">
                                 <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                <span><strong>배송 후 7일 이내:</strong> 반품 가능 (단순 변심 시 왕복 배송비 고객 부담)</span>
+                                <span><strong>배송 후 7일 이내:</strong> 반품 가능 (단순 변심 시 반품 배송비 고객 부담)</span>
                               </li>
                               <li className="flex items-start gap-2">
                                 <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
@@ -1465,7 +1465,9 @@ export function DetailPage() {
                           <div>
                             <h4 className="font-semibold mb-2">교환/반품 주소</h4>
                             <p className="text-sm text-gray-600">전라남도 목포시 원산중앙로 44 2층 (58636)</p>
-                            <p className="text-sm text-gray-500 mt-1">* 반품 배송비: 편도 3,000원 (왕복 6,000원)</p>
+                            <p className="text-sm text-gray-500 mt-1">배송비: 3,000원 </p>
+                            <p className="text-sm text-gray-500 mt-1">반품 배송비: 3,000원 </p>
+
                           </div>
                         )}
                       </>
@@ -1688,8 +1690,8 @@ export function DetailPage() {
                       <h4 className="font-semibold mb-2">반품 배송비</h4>
                       <p className="text-gray-700">
                         {item?.category === '팝업'
-                          ? '제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 왕복 배송비(3,000원 + 3,000원 = 6,000원)가 부과됩니다.'
-                          : '제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 왕복 배송비(6,000원)가 부과됩니다.'
+                          ? '제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 반품 배송비(3,000원)가 부과됩니다.'
+                          : '제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 반품 배송비(3,000원)가 부과됩니다.'
                         }
                       </p>
                     </div>
@@ -1705,31 +1707,31 @@ export function DetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
                         <span className="font-semibold text-gray-700">상호명:</span>
-                        <span className="ml-2 text-gray-600">{(item as any).partner?.business_name || '트래블립'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.business_name || 'travleap'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">대표자:</span>
-                        <span className="ml-2 text-gray-600">{(item as any).partner?.representative_name || '김대표'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.representative_name || '함은비'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">사업자등록번호:</span>
-                        <span className="ml-2 text-gray-600">{(item as any).partner?.business_registration_number || '000-00-00000'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.business_registration_number || '268-87-01436'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">통신판매업 신고번호:</span>
-                        <span className="ml-2 text-gray-600">{(item as any).partner?.online_business_registration_number || '제2024-전남신안-0000호'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.online_business_registration_number || '2020-전남목포-0368'}</span>
                       </div>
                       <div className="md:col-span-2">
                         <span className="font-semibold text-gray-700">사업장 소재지:</span>
-                        <span className="ml-2 text-gray-600">{(item as any).partner?.address || '전라남도 신안군'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.address || '전라남도 목포시 원산중앙로 44 2층 (우: 58636)'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">대표 전화:</span>
-                        <span className="ml-2 text-gray-600">{(item as any).partner?.contact_phone || '1588-0000'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.contact_phone || '0504-0811-1330'}</span>
                       </div>
                       <div>
                         <span className="font-semibold text-gray-700">이메일:</span>
-                        <span className="ml-2 text-gray-600">{(item as any).partner?.contact_email || 'info@travleap.com'}</span>
+                        <span className="ml-2 text-gray-600">{(item as any).partner?.contact_email || 'awesomeplan4606@naver.com'}</span>
                       </div>
                     </div>
                   </CardContent>

@@ -26,6 +26,9 @@ module.exports = async function handler(req, res) {
       console.log('🎟️ [Coupons] Fetching available coupons, userId:', userId);
       console.log('🎟️ [Coupons] DATABASE_URL exists:', !!process.env.DATABASE_URL);
 
+      // 임시로 쿠폰 목록 비활성화 (나중에 활성화 예정)
+      // TODO: 쿠폰 배포 시 아래 주석을 제거하고 return [] 부분 삭제
+      /*
       // 현재 유효한 쿠폰 조회 (기본 컬럼만)
       const result = await connection.execute(`
         SELECT
@@ -57,10 +60,14 @@ module.exports = async function handler(req, res) {
       }));
 
       console.log(`✅ [Coupons] Found ${couponList.length} active coupons`);
+      */
+
+      // 임시: 빈 쿠폰 목록 반환
+      console.log(`⚠️  [Coupons] 쿠폰 목록 임시 비활성화됨`);
 
       return res.status(200).json({
         success: true,
-        data: couponList
+        data: []
       });
     }
 

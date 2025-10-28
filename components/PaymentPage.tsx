@@ -603,13 +603,13 @@ export function PaymentPage() {
                   <div className="flex items-center space-x-2">
                     <input
                       type="radio"
-                      id="kakaopay"
+                      id="tosspay"
                       name="paymentMethod"
-                      value="kakaopay"
-                      checked={paymentMethod === 'kakaopay'}
+                      value="tosspay"
+                      checked={paymentMethod === 'tosspay'}
                       onChange={(e) => setPaymentMethod(e.target.value)}
                     />
-                    <label htmlFor="kakaopay" className="text-sm font-medium">카카오페이</label>
+                    <label htmlFor="tosspay" className="text-sm font-medium">토스페이</label>
                   </div>
                 </div>
 
@@ -775,7 +775,8 @@ export function PaymentPage() {
                   )}
                 </div>
 
-                {booking && (
+                {/* 팝업 상품이 아닐 때만 예약 세부 정보 표시 */}
+                {booking && orderData?.items?.[0]?.category !== '팝업' && (
                   <div className="space-y-2 text-sm text-gray-600">
                     {/* 날짜 정보 - 여러 형식 지원 */}
                     <div className="flex items-center gap-2">

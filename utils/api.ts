@@ -3223,6 +3223,36 @@ export const api = {
       }
     },
 
+    // 문의 삭제
+    deleteContact: async (contactId: number): Promise<ApiResponse<null>> => {
+      try {
+        const response = await fetch(`/api/contacts?id=${contactId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '문의 삭제에 실패했습니다.');
+        }
+
+        return {
+          success: true,
+          data: null,
+          message: result.message || '문의가 삭제되었습니다.'
+        };
+      } catch (error) {
+        console.error('Failed to delete contact:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : '문의 삭제에 실패했습니다.'
+        };
+      }
+    },
+
     // 사용자 상태 변경
     updateUserStatus: async (userId: number, status: string): Promise<ApiResponse<User>> => {
       try {
