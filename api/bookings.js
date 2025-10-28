@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
       SELECT
         b.*,
         l.title as listing_title,
-        l.image as listing_image,
+        l.image_url as listing_image,
         l.category,
         p.notes as payment_notes
       FROM bookings b

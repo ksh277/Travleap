@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
       console.log('📖 [Profile] 프로필 조회 요청:', userId);
 
       const result = await sql`
-        SELECT id, email, name, phone, avatar,
+        SELECT id, email, name, phone,
                postal_code, address, detail_address,
                provider, created_at, updated_at
         FROM users
@@ -64,7 +64,6 @@ module.exports = async function handler(req, res) {
           email: user.email,
           name: user.name,
           phone: user.phone || '',
-          avatar: user.avatar || '',
           postalCode: user.postal_code || '',
           address: user.address || '',
           detailAddress: user.detail_address || '',
@@ -75,7 +74,7 @@ module.exports = async function handler(req, res) {
 
     // PUT - 프로필 업데이트
     if (req.method === 'PUT') {
-      const { name, phone, birth_date, bio, avatar } = req.body;
+      const { name, phone } = req.body;
 
       console.log('✏️ [Profile] 프로필 업데이트 요청:', userId, '| name:', name);
 
@@ -91,11 +90,6 @@ module.exports = async function handler(req, res) {
       if (phone !== undefined) {
         updateFields.push('phone');
         updateValues.push(phone);
-      }
-
-      if (avatar !== undefined) {
-        updateFields.push('avatar');
-        updateValues.push(avatar);
       }
 
       if (updateFields.length === 0) {
@@ -114,7 +108,7 @@ module.exports = async function handler(req, res) {
         UPDATE users
         SET ${setClause}, updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
-        RETURNING id, email, name, phone, avatar
+        RETURNING id, email, name, phone
       `;
 
       const result = await sql.unsafe(query, [userId, ...updateValues]);
@@ -136,8 +130,7 @@ module.exports = async function handler(req, res) {
           id: updatedUser.id,
           email: updatedUser.email,
           name: updatedUser.name,
-          phone: updatedUser.phone || '',
-          avatar: updatedUser.avatar || ''
+          phone: updatedUser.phone || ''
         }
       });
     }
