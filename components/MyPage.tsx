@@ -515,41 +515,18 @@ export function MyPage() {
     }
   };
 
-  // 주소 저장 핸들러
-  const handleAddressSave = async (addressData: {
+  // 주소 선택 핸들러 (마이페이지용 - 입력 필드만 업데이트)
+  const handleAddressSelect = (addressData: {
     postalCode: string;
     address: string;
     detailAddress: string;
   }) => {
-    try {
-      const response = await fetch('/api/user/address', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'x-user-id': user?.id?.toString() || ''
-        },
-        body: JSON.stringify(addressData)
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setEditProfile(prev => ({
-            ...prev,
-            postalCode: addressData.postalCode,
-            address: addressData.address,
-            detailAddress: addressData.detailAddress
-          }));
-          toast.success('주소가 저장되었습니다.');
-        }
-      } else {
-        throw new Error('주소 저장에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to save address:', error);
-      toast.error('주소 저장 중 오류가 발생했습니다.');
-    }
+    setEditProfile(prev => ({
+      ...prev,
+      postalCode: addressData.postalCode,
+      address: addressData.address,
+      detailAddress: addressData.detailAddress
+    }));
   };
 
   // 프로필 저장
@@ -988,7 +965,7 @@ export function MyPage() {
         <AddressSearchModal
           isOpen={isAddressModalOpen}
           onClose={() => setIsAddressModalOpen(false)}
-          onAddressSelected={handleAddressSave}
+          onAddressSelected={handleAddressSelect}
           initialAddress={{
             postalCode: editProfile.postalCode,
             address: editProfile.address,

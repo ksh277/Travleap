@@ -21,8 +21,10 @@ module.exports = async function handler(req, res) {
           title, description_md, short_description, price_from, child_price, infant_price,
           location, address, meeting_point, category_id, category, partner_id,
           images, max_capacity, highlights, included, excluded,
-          is_active, is_featured, is_published, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          is_active, is_featured, is_published,
+          has_options, min_purchase, max_purchase, stock_enabled, stock, shipping_fee, is_refundable,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           listingData.title,
           listingData.longDescription || listingData.description || '',
@@ -43,7 +45,15 @@ module.exports = async function handler(req, res) {
           listingData.excluded ? JSON.stringify(listingData.excluded.filter(e => e.trim())) : '[]',
           listingData.is_active !== false ? 1 : 0,
           listingData.featured ? 1 : 0,
-          1 // is_published
+          1, // is_published
+          // 팝업 상품 전용 필드
+          listingData.hasOptions ? 1 : 0,
+          listingData.minPurchase || null,
+          listingData.maxPurchase || null,
+          listingData.stockEnabled ? 1 : 0,
+          listingData.stock || null,
+          listingData.shippingFee || null,
+          listingData.isRefundable !== undefined ? (listingData.isRefundable ? 1 : 0) : null
         ]
       );
 

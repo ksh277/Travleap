@@ -246,6 +246,36 @@ module.exports = async function handler(req, res) {
         values.push(listingData.featured ? 1 : 0);
       }
 
+      // 팝업 상품 전용 필드
+      if (listingData.hasOptions !== undefined) {
+        updates.push('has_options = ?');
+        values.push(listingData.hasOptions ? 1 : 0);
+      }
+      if (listingData.minPurchase !== undefined) {
+        updates.push('min_purchase = ?');
+        values.push(listingData.minPurchase || null);
+      }
+      if (listingData.maxPurchase !== undefined) {
+        updates.push('max_purchase = ?');
+        values.push(listingData.maxPurchase || null);
+      }
+      if (listingData.stockEnabled !== undefined) {
+        updates.push('stock_enabled = ?');
+        values.push(listingData.stockEnabled ? 1 : 0);
+      }
+      if (listingData.stock !== undefined) {
+        updates.push('stock = ?');
+        values.push(listingData.stock || null);
+      }
+      if (listingData.shippingFee !== undefined) {
+        updates.push('shipping_fee = ?');
+        values.push(listingData.shippingFee || null);
+      }
+      if (listingData.isRefundable !== undefined) {
+        updates.push('is_refundable = ?');
+        values.push(listingData.isRefundable !== undefined ? (listingData.isRefundable ? 1 : 0) : null);
+      }
+
       if (updates.length === 0) {
         return res.status(400).json({
           success: false,

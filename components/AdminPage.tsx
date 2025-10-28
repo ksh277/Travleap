@@ -5612,6 +5612,159 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </div>
 
+              {/* 팝업 카테고리 전용 필드 */}
+              {editingProduct.category === '팝업' && (
+                <div>
+                  <h3 className="text-lg font-medium mb-3">팝업 상품 옵션</h3>
+                  <div className="space-y-4">
+                    {/* 옵션 사용 여부 */}
+                    <div>
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editingProduct.hasOptions || false}
+                          onChange={(e) => setEditingProduct(prev =>
+                            prev ? { ...prev, hasOptions: e.target.checked } : null
+                          )}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm font-medium">옵션 사용 (사이즈, 색상 등)</span>
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1 ml-6">
+                        체크 시 상품 등록 후 옵션을 추가할 수 있습니다
+                      </p>
+                    </div>
+
+                    {/* 구매 수량 제한 */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">최소 구매 수량</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={editingProduct.minPurchase || ''}
+                          onChange={(e) => setEditingProduct(prev =>
+                            prev ? { ...prev, minPurchase: e.target.value } : null
+                          )}
+                          placeholder="1"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          기본값: 1개
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">최대 구매 수량</label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={editingProduct.maxPurchase || ''}
+                          onChange={(e) => setEditingProduct(prev =>
+                            prev ? { ...prev, maxPurchase: e.target.value } : null
+                          )}
+                          placeholder="무제한"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          빈 값 = 무제한
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 재고 관리 */}
+                    <div>
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editingProduct.stockEnabled || false}
+                          onChange={(e) => setEditingProduct(prev =>
+                            prev ? { ...prev, stockEnabled: e.target.checked } : null
+                          )}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm font-medium">재고 관리 활성화</span>
+                      </label>
+                      <p className="text-xs text-gray-500 mt-1 ml-6">
+                        {editingProduct.hasOptions
+                          ? '옵션별 재고를 별도 관리합니다'
+                          : '상품 재고를 관리합니다'}
+                      </p>
+                    </div>
+
+                    {/* 재고 수량 (옵션 없고 재고 관리 활성화 시에만 표시) */}
+                    {editingProduct.stockEnabled && !editingProduct.hasOptions && (
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">재고 수량</label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editingProduct.stock || ''}
+                          onChange={(e) => setEditingProduct(prev =>
+                            prev ? { ...prev, stock: e.target.value } : null
+                          )}
+                          placeholder="0"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          0 = 품절 상태
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 배송비 설정 */}
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">상품별 배송비</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={editingProduct.shippingFee || ''}
+                        onChange={(e) => setEditingProduct(prev =>
+                          prev ? { ...prev, shippingFee: e.target.value } : null
+                        )}
+                        placeholder="기본 정책 사용 (3,000원)"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        빈 값 = 기본 정책 사용 (30,000원 이상 무료)
+                      </p>
+                    </div>
+
+                    {/* 환불 정책 */}
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">환불 정책</label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="editRefundPolicy"
+                            checked={editingProduct.isRefundable === true}
+                            onChange={() => setEditingProduct(prev =>
+                              prev ? { ...prev, isRefundable: true } : null
+                            )}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm">환불 가능</span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="editRefundPolicy"
+                            checked={editingProduct.isRefundable === false}
+                            onChange={() => setEditingProduct(prev =>
+                              prev ? { ...prev, isRefundable: false } : null
+                            )}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm text-red-600 font-medium">환불 불가</span>
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {editingProduct.isRefundable
+                          ? '배송 전 무료 취소 가능, 반품/교환 정책 적용'
+                          : '고객이 구매 시 환불이 불가능한 상품으로 표시됩니다'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* 출발 시간 - 여행/체험 카테고리에만 표시 */}
               {['여행', '체험'].includes(editingProduct.category) && (
                 <div>

@@ -1252,9 +1252,24 @@ export const api = {
 
   getBookings: async (userId?: number): Promise<Booking[]> => {
     try {
-      const query = userId ? { user_id: userId } : undefined;
-      const response = await db.select('bookings', query);
-      return response || [];
+      if (!userId) {
+        return [];
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/bookings?user_id=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+
+      const result = await response.json();
+      return result.data || [];
     } catch (error) {
       console.error('Failed to fetch bookings:', error);
       return [];
