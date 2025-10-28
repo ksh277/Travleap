@@ -26,7 +26,6 @@ module.exports = async function handler(req, res) {
             id,
             image_url,
             title,
-            subtitle,
             link_url,
             is_active,
             display_order,
@@ -53,7 +52,7 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST') {
       // 이미지 등록
-      const { image_url, title, subtitle, link_url, display_order } = req.body;
+      const { image_url, title, link_url, display_order } = req.body;
 
       if (!image_url) {
         return res.status(400).json({
@@ -64,12 +63,11 @@ module.exports = async function handler(req, res) {
 
       const result = await connection.execute(
         `INSERT INTO home_banners (
-          image_url, title, subtitle, link_url, is_active, display_order, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 1, ?, NOW(), NOW())`,
+          image_url, title, link_url, is_active, display_order, created_at, updated_at
+        ) VALUES (?, ?, ?, 1, ?, NOW(), NOW())`,
         [
           image_url,
           title || '',
-          subtitle || '',
           link_url || '',
           display_order || 0
         ]

@@ -1,5 +1,4 @@
 const { Pool } = require('@neondatabase/serverless');
-const { maskForLog } = require('../../utils/pii-masking');
 
 // Neon PostgreSQL connection (users 테이블은 Neon에 있음)
 let pool;
@@ -58,7 +57,7 @@ module.exports = async function handler(req, res) {
     });
   } catch (error) {
     console.error('❌ [Admin Users] Error fetching users:', error);
-    console.error('❌ Error details:', maskForLog(error));
+    console.error('❌ Error message:', error.message);
     console.error('❌ Error stack:', error.stack);
 
     // 에러 시 빈 배열 반환 (200 상태로)
