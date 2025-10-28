@@ -3196,17 +3196,29 @@ export const api = {
     // 사용자 삭제
     deleteUser: async (userId: number): Promise<ApiResponse<null>> => {
       try {
-        await db.delete('users', userId);
+        const response = await fetch(`/api/admin/delete-user?userId=${userId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || '사용자 삭제에 실패했습니다.');
+        }
+
         return {
           success: true,
           data: null,
-          message: '사용자가 삭제되었습니다.'
+          message: result.message || '사용자가 삭제되었습니다.'
         };
       } catch (error) {
         console.error('Failed to delete user:', error);
         return {
           success: false,
-          error: '사용자 삭제에 실패했습니다.'
+          error: error instanceof Error ? error.message : '사용자 삭제에 실패했습니다.'
         };
       }
     },

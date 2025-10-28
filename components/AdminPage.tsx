@@ -4364,6 +4364,7 @@ export function AdminPage({}: AdminPageProps) {
                   </TableHeader>
                   <TableBody>
                     {users
+                      .filter(user => user.role !== 'admin') // 관리자 계정 제외
                       .filter(user =>
                         user.name?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
                         user.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
@@ -4376,7 +4377,8 @@ export function AdminPage({}: AdminPageProps) {
                         <TableCell>
                           <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
                             {user.role === 'admin' ? '관리자' :
-                             user.role === 'partner' ? '파트너' : '일반 사용자'}
+                             user.role === 'partner' ? '파트너' :
+                             user.role === 'vendor' ? '벤더' : '일반 사용자'}
                           </Badge>
                         </TableCell>
                         <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
