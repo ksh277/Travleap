@@ -78,6 +78,7 @@ interface OrderSummary {
   subtotal: number;
   couponDiscount: number;
   couponCode: string | null;
+  deliveryFee: number;
   total: number;
 }
 
@@ -441,6 +442,7 @@ export function CartPage() {
         subtotal,
         couponDiscount,
         couponCode: appliedCoupon?.code || null,
+        deliveryFee: shippingFee,
         total
       };
 

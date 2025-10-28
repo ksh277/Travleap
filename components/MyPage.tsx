@@ -33,7 +33,8 @@ import {
   EyeOff,
   Receipt,
   Coins,
-  Ticket
+  Ticket,
+  Key
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, type TravelItem } from '../utils/api';
@@ -161,6 +162,13 @@ export function MyPage() {
   const [editProfile, setEditProfile] = useState(userProfile);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   // 설정 상태
   const [settings, setSettings] = useState({
@@ -173,19 +181,6 @@ export function MyPage() {
     }
   });
 
-  // 비밀번호 변경 다이얼로그
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [showPassword, setShowPassword] = useState({
-    current: false,
-    new: false,
-    confirm: false
-  });
-  const [passwordLoading, setPasswordLoading] = useState(false);
 
   // 계정 탈퇴 다이얼로그
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -556,6 +551,7 @@ export function MyPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'x-user-id': user.id.toString()
         },
         body: JSON.stringify({
@@ -589,6 +585,57 @@ export function MyPage() {
   const handleCancelEdit = () => {
     setEditProfile(userProfile);
     setIsEditingProfile(false);
+  };
+
+  // 비밀번호 변경
+  const handleChangePassword = async () => {
+    if (!user) return;
+
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      toast.error('모든 항목을 입력해주세요.');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast.error('새 비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const response = await fetch('/api/user/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user.id.toString()
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('비밀번호가 변경되었습니다.');
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setIsChangingPassword(false);
+      } else {
+        toast.error(result.error || '비밀번호 변경에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('비밀번호 변경 오류:', error);
+      toast.error(error instanceof Error ? error.message : '비밀번호 변경에 실패했습니다.');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   // 찜하기 토글
@@ -644,42 +691,6 @@ export function MyPage() {
     }
   };
 
-  // 비밀번호 변경
-  const handleChangePassword = async () => {
-    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
-      toast.error('모든 필드를 입력해주세요.');
-      return;
-    }
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error('새 비밀번호가 일치하지 않습니다.');
-      return;
-    }
-
-    if (passwordForm.newPassword.length < 8) {
-      toast.error('비밀번호는 최소 8자 이상이어야 합니다.');
-      return;
-    }
-
-    setPasswordLoading(true);
-    try {
-      // TODO: 실제 API 호출로 변경
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 시뮬레이션
-
-      setShowPasswordDialog(false);
-      setPasswordForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-      toast.success('비밀번호가 변경되었습니다.');
-    } catch (error) {
-      console.error('비밀번호 변경 오류:', error);
-      toast.error('비밀번호 변경에 실패했습니다.');
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
 
   // 계정 탈퇴
   const handleDeleteAccount = async () => {
@@ -873,10 +884,23 @@ export function MyPage() {
                         />
                       </div>
                       <div>
+                        <label className="text-sm font-medium mb-1 block">이메일</label>
+                        <Input
+                          value={editProfile.email}
+                          readOnly
+                          disabled
+                          className="bg-gray-100"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">이메일은 변경할 수 없습니다</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
                         <label className="text-sm font-medium mb-1 block">전화번호</label>
                         <Input
                           value={editProfile.phone}
                           onChange={(e) => setEditProfile(prev => ({ ...prev, phone: e.target.value }))}
+                          placeholder="010-0000-0000"
                         />
                       </div>
                     </div>
@@ -919,7 +943,7 @@ export function MyPage() {
                         />
                       </div>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button onClick={handleSaveProfile} size="sm" className="bg-[#8B5FBF] hover:bg-[#7A4FB5]">
                         <Save className="w-4 h-4 mr-1" />
                         저장
@@ -927,6 +951,15 @@ export function MyPage() {
                       <Button onClick={handleCancelEdit} variant="outline" size="sm">
                         <X className="w-4 h-4 mr-1" />
                         취소
+                      </Button>
+                      <Button
+                        onClick={() => setIsChangingPassword(true)}
+                        variant="outline"
+                        size="sm"
+                        className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                      >
+                        <Key className="w-4 h-4 mr-1" />
+                        비밀번호 변경
                       </Button>
                     </div>
                   </div>
@@ -940,7 +973,7 @@ export function MyPage() {
                         size="sm"
                       >
                         <Edit className="w-4 h-4 mr-1" />
-                        편집
+                        개인정보수정
                       </Button>
                     </div>
                     <p className="text-gray-600 mb-2">{userProfile.email}</p>
@@ -972,6 +1005,70 @@ export function MyPage() {
             detailAddress: editProfile.detailAddress
           }}
         />
+
+        {/* 비밀번호 변경 Dialog */}
+        <Dialog open={isChangingPassword} onOpenChange={setIsChangingPassword}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>비밀번호 변경</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">현재 비밀번호</label>
+                <Input
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                  placeholder="현재 비밀번호를 입력하세요"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">새 비밀번호</label>
+                <Input
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                  placeholder="새 비밀번호 (최소 6자)"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">새 비밀번호 확인</label>
+                <Input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  placeholder="새 비밀번호를 다시 입력하세요"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => {
+                  setIsChangingPassword(false);
+                  setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                }}
+                variant="outline"
+                disabled={passwordLoading}
+              >
+                취소
+              </Button>
+              <Button
+                onClick={handleChangePassword}
+                className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
+                disabled={passwordLoading}
+              >
+                {passwordLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    변경 중...
+                  </>
+                ) : (
+                  '변경'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* 탭 메뉴 - 모바일 최적화 */}
         <Tabs defaultValue="bookings" className="space-y-6">
@@ -1856,9 +1953,9 @@ export function MyPage() {
                     <Button
                       variant="outline"
                       className="w-full justify-start"
-                      onClick={() => setShowPasswordDialog(true)}
+                      onClick={() => setIsChangingPassword(true)}
                     >
-                      <User className="w-4 h-4 mr-2" />
+                      <Key className="w-4 h-4 mr-2" />
                       비밀번호 변경
                     </Button>
                     <Button
@@ -1875,108 +1972,6 @@ export function MyPage() {
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* 비밀번호 변경 다이얼로그 */}
-        <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>비밀번호 변경</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              {/* 현재 비밀번호 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">현재 비밀번호</label>
-                <div className="relative">
-                  <Input
-                    type={showPassword.current ? 'text' : 'password'}
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-                    placeholder="현재 비밀번호를 입력하세요"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPassword({...showPassword, current: !showPassword.current})}
-                  >
-                    {showPassword.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-
-              {/* 새 비밀번호 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">새 비밀번호</label>
-                <div className="relative">
-                  <Input
-                    type={showPassword.new ? 'text' : 'password'}
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                    placeholder="새 비밀번호 (최소 8자)"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPassword({...showPassword, new: !showPassword.new})}
-                  >
-                    {showPassword.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-
-              {/* 비밀번호 확인 */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">새 비밀번호 확인</label>
-                <div className="relative">
-                  <Input
-                    type={showPassword.confirm ? 'text' : 'password'}
-                    value={passwordForm.confirmPassword}
-                    onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                    placeholder="새 비밀번호를 다시 입력하세요"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                    onClick={() => setShowPassword({...showPassword, confirm: !showPassword.confirm})}
-                  >
-                    {showPassword.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowPasswordDialog(false);
-                  setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-                }}
-                disabled={passwordLoading}
-              >
-                취소
-              </Button>
-              <Button
-                onClick={handleChangePassword}
-                disabled={passwordLoading}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {passwordLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    변경 중...
-                  </>
-                ) : (
-                  '변경하기'
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* 계정 탈퇴 다이얼로그 */}
         <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

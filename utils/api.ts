@@ -176,9 +176,9 @@ const getAuthHeaders = () => {
     if (typeof localStorage !== 'undefined') {
       const tokenFromStorage = localStorage.getItem('auth_token');
       if (tokenFromStorage) {
-        const token = JSON.parse(tokenFromStorage);
+        // JWT 토큰은 이미 문자열이므로 JSON.parse 하지 않음
         return {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${tokenFromStorage}`,
           'Content-Type': 'application/json'
         };
       }
@@ -594,6 +594,7 @@ export const api = {
     deliveryFee: number;
     couponDiscount: number;
     couponCode?: string | null;
+    pointsUsed?: number;
     total: number;
     status: 'pending' | 'confirmed' | 'cancelled';
     paymentMethod: string;

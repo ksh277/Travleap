@@ -17,27 +17,55 @@ module.exports = async function handler(req, res) {
       const result = await connection.execute(`
         SELECT
           b.*,
-          l.title as listing_title
+          l.title as listing_title,
+          l.category,
+          p.notes as payment_notes
         FROM bookings b
         LEFT JOIN listings l ON b.listing_id = l.id
+        LEFT JOIN payments p ON b.order_number = p.gateway_transaction_id
         ORDER BY b.created_at DESC
       `);
 
-      // customer_info에서 사용자 정보 추출
+      // customer_info와 shipping 정보 추출
       const bookings = (result.rows || []).map(booking => {
         let customerInfo = {};
+        let shippingInfo = null;
+
+        // customer_info 파싱
         try {
           if (booking.customer_info) {
             customerInfo = typeof booking.customer_info === 'string'
               ? JSON.parse(booking.customer_info)
               : booking.customer_info;
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('customer_info 파싱 오류:', e);
+        }
+
+        // payment_notes에서 shippingInfo 추출
+        try {
+          if (booking.payment_notes) {
+            const notes = typeof booking.payment_notes === 'string'
+              ? JSON.parse(booking.payment_notes)
+              : booking.payment_notes;
+            shippingInfo = notes.shippingInfo || null;
+          }
+        } catch (e) {
+          console.error('payment_notes 파싱 오류:', e);
+        }
 
         return {
           ...booking,
           user_name: customerInfo.name || customerInfo.customer_name || 'Unknown',
-          user_email: customerInfo.email || customerInfo.customer_email || ''
+          user_email: customerInfo.email || customerInfo.customer_email || '',
+          // 배송 정보 추가
+          shipping_name: shippingInfo?.name || null,
+          shipping_phone: shippingInfo?.phone || null,
+          shipping_zipcode: shippingInfo?.zipcode || null,
+          shipping_address: shippingInfo?.address || null,
+          shipping_address_detail: shippingInfo?.addressDetail || null,
+          // payment_notes는 클라이언트에 노출하지 않음
+          payment_notes: undefined
         };
       });
 

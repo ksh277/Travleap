@@ -12,7 +12,7 @@ export interface User {
   birth_date?: string;
   bio?: string;
   avatar?: string;
-  role: 'user' | 'partner' | 'admin';
+  role: 'user' | 'partner' | 'admin' | 'vendor';
   preferred_language: string;
   preferred_currency: string;
   marketing_consent: boolean;

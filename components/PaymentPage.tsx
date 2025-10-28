@@ -99,9 +99,25 @@ export function PaymentPage() {
 
   // 최종 결제 금액 계산 (배송비 + 쿠폰 할인 + 포인트 차감 후)
   const orderTotal = orderData ? orderData.total : parseInt(booking?.totalPrice || amount || totalAmount || '0');
-  const totalWithDelivery = orderTotal + deliveryFee;
+  // orderData.deliveryFee가 있으면 이미 orderData.total에 배송비 포함됨 (장바구니에서 온 경우)
+  const totalWithDelivery = orderData?.deliveryFee !== undefined ? orderTotal : orderTotal + deliveryFee;
   const totalWithCoupon = Math.max(0, totalWithDelivery - couponDiscount);
   const finalAmount = Math.max(0, totalWithCoupon - pointsToUse);
+
+  // 🐛 디버깅 로그
+  useEffect(() => {
+    if (orderData) {
+      console.log('💰 [PaymentPage] 금액 계산 디버깅:', {
+        'orderData.subtotal': orderData.subtotal,
+        'orderData.deliveryFee': orderData.deliveryFee,
+        'orderData.total': orderData.total,
+        'deliveryFee (state)': deliveryFee,
+        'orderTotal': orderTotal,
+        'totalWithDelivery': totalWithDelivery,
+        'hasPopupProducts': hasPopupProducts
+      });
+    }
+  }, [orderData, deliveryFee, totalWithDelivery, orderTotal, hasPopupProducts]);
 
   // 사용자 프로필 데이터 가져오기
   useEffect(() => {
@@ -201,52 +217,51 @@ export function PaymentPage() {
     loadBookingDetails();
   }, [bookingId, orderData, isLoggedIn]);
 
-  // 배송비 계산 (팝업 상품이 있을 때)
+  // 배송비 설정 (장바구니에서 이미 계산된 값 사용)
   useEffect(() => {
-    const calculateDeliveryFee = async () => {
+    if (orderData?.deliveryFee !== undefined) {
+      // 장바구니에서 전달된 배송비 사용 (표시용, orderData.total에 이미 포함됨)
+      setDeliveryFee(orderData.deliveryFee);
+      setDeliveryFeeLoading(false);
+    } else if (!hasPopupProducts) {
       // 팝업 상품이 없으면 배송비 0
-      if (!hasPopupProducts) {
-        setDeliveryFee(0);
-        return;
-      }
+      setDeliveryFee(0);
+      setDeliveryFeeLoading(false);
+    } else {
+      // 직접 결제 페이지 접근 시 (장바구니 거치지 않은 경우)
+      const calculateDeliveryFee = async () => {
+        try {
+          setDeliveryFeeLoading(true);
+          const response = await fetch('/api/calculate-shipping', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              items: orderData?.items || [],
+              shippingAddress: billingInfo.address
+            })
+          });
 
-      // 주문 데이터가 없으면 배송비 0
-      if (!orderData?.items) {
-        setDeliveryFee(0);
-        return;
-      }
-
-      try {
-        setDeliveryFeeLoading(true);
-        const response = await fetch('/api/calculate-shipping', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            items: orderData.items,
-            shippingAddress: billingInfo.address
-          })
-        });
-
-        const result = await response.json();
-        if (result.success) {
-          setDeliveryFee(result.data.total_fee);
-          console.log('✅ [PaymentPage] 배송비 계산:', result.data);
-        } else {
-          console.error('❌ [PaymentPage] 배송비 계산 실패:', result.error);
+          const result = await response.json();
+          if (result.success) {
+            setDeliveryFee(result.data.total_fee);
+            console.log('✅ [PaymentPage] 배송비 계산:', result.data);
+          } else {
+            console.error('❌ [PaymentPage] 배송비 계산 실패:', result.error);
+            setDeliveryFee(3000); // 기본 배송비
+          }
+        } catch (error) {
+          console.error('❌ [PaymentPage] 배송비 계산 오류:', error);
           setDeliveryFee(3000); // 기본 배송비
+        } finally {
+          setDeliveryFeeLoading(false);
         }
-      } catch (error) {
-        console.error('❌ [PaymentPage] 배송비 계산 오류:', error);
-        setDeliveryFee(3000); // 기본 배송비
-      } finally {
-        setDeliveryFeeLoading(false);
-      }
-    };
+      };
 
-    calculateDeliveryFee();
-  }, [hasPopupProducts, orderData?.items, billingInfo.address]);
+      calculateDeliveryFee();
+    }
+  }, [hasPopupProducts, orderData?.deliveryFee, orderData?.items, billingInfo.address]);
 
   // 쿠폰 조회
   useEffect(() => {
@@ -467,6 +482,25 @@ export function PaymentPage() {
         });
 
         if (orderResponse.success) {
+          // 청구 정보 저장 (이름, 전화번호)
+          try {
+            await fetch('/api/user/profile', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'x-user-id': user?.id?.toString() || ''
+              },
+              body: JSON.stringify({
+                name: billingInfo.name,
+                phone: billingInfo.phone
+              })
+            });
+          } catch (profileError) {
+            console.error('프로필 저장 실패:', profileError);
+            // 프로필 저장 실패해도 주문은 계속 진행
+          }
+
           // 주문 생성 성공 - PaymentWidget에 필요한 정보 설정 (포인트 차감 후 금액)
           setPreparedOrderNumber(orderResponse.data.orderNumber);
           setPreparedAmount(finalAmount);
@@ -495,12 +529,13 @@ export function PaymentPage() {
     // PaymentWidget 사용 시 카드 정보는 Toss가 받으므로 검증 불필요
     // 청구/배송 정보만 검증
     if (!billingInfo.name || !billingInfo.email || !billingInfo.phone) {
-      toast.error('청구 정보를 모두 입력해주세요.');
+      toast.error('이름, 이메일, 전화번호를 입력해주세요.');
       return false;
     }
 
-    if (!billingInfo.postalCode || !billingInfo.address) {
-      toast.error('배송지 주소를 입력해주세요.');
+    // 팝업 상품이 있을 때만 주소 필수 (이미 handlePreparePayment에서 체크했지만 이중 검증)
+    if (hasPopupProducts && (!billingInfo.postalCode || !billingInfo.address)) {
+      toast.error('팝업 상품 배송을 위해 배송지 주소를 입력해주세요.');
       return false;
     }
 
@@ -864,19 +899,19 @@ export function PaymentPage() {
                           <span>-{orderData.couponDiscount.toLocaleString()}원</span>
                         </div>
                       )}
-                      {hasPopupProducts && (
+                      {hasPopupProducts && orderData.deliveryFee !== undefined && (
                         <div className="flex justify-between">
                           <span className="flex items-center gap-1">
                             배송비
                             {deliveryFeeLoading && <span className="text-xs text-gray-400">(계산 중...)</span>}
                           </span>
-                          <span>{deliveryFee.toLocaleString()}원</span>
+                          <span>{orderData.deliveryFee.toLocaleString()}원</span>
                         </div>
                       )}
                       <Separator />
                       <div className="flex justify-between font-medium text-lg">
                         <span>주문 금액</span>
-                        <span className="text-gray-700">{totalWithDelivery.toLocaleString()}원</span>
+                        <span className="text-gray-700">{orderData.total.toLocaleString()}원</span>
                       </div>
                     </>
                   ) : (

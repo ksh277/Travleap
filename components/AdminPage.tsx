@@ -84,6 +84,7 @@ interface Product {
   stockEnabled?: boolean;
   stock?: number;
   shippingFee?: number;
+  isRefundable?: boolean;
 }
 
 
@@ -3928,6 +3929,25 @@ export function AdminPage({}: AdminPageProps) {
                             <div className="text-xs text-gray-400">
                               {order.customer_info?.email || order.user_email || '이메일 없음'}
                             </div>
+                            {/* 팝업 상품인 경우 배송 주소 표시 */}
+                            {order.category === '팝업' && order.shipping_address && (
+                              <div className="mt-2 pt-2 border-t border-gray-200">
+                                <div className="text-xs font-medium text-blue-700 mb-1">📦 배송지</div>
+                                <div className="text-xs text-gray-600">
+                                  [{order.shipping_zipcode}] {order.shipping_address}
+                                </div>
+                                {order.shipping_address_detail && (
+                                  <div className="text-xs text-gray-600">
+                                    {order.shipping_address_detail}
+                                  </div>
+                                )}
+                                {order.shipping_name && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    수령인: {order.shipping_name} / {order.shipping_phone}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -5644,7 +5664,7 @@ export function AdminPage({}: AdminPageProps) {
                           min="1"
                           value={editingProduct.minPurchase || ''}
                           onChange={(e) => setEditingProduct(prev =>
-                            prev ? { ...prev, minPurchase: e.target.value } : null
+                            prev ? { ...prev, minPurchase: parseInt(e.target.value) || 1 } : null
                           )}
                           placeholder="1"
                         />
@@ -5660,7 +5680,7 @@ export function AdminPage({}: AdminPageProps) {
                           min="1"
                           value={editingProduct.maxPurchase || ''}
                           onChange={(e) => setEditingProduct(prev =>
-                            prev ? { ...prev, maxPurchase: e.target.value } : null
+                            prev ? { ...prev, maxPurchase: parseInt(e.target.value) || 0 } : null
                           )}
                           placeholder="무제한"
                         />
@@ -5699,7 +5719,7 @@ export function AdminPage({}: AdminPageProps) {
                           min="0"
                           value={editingProduct.stock || ''}
                           onChange={(e) => setEditingProduct(prev =>
-                            prev ? { ...prev, stock: e.target.value } : null
+                            prev ? { ...prev, stock: parseInt(e.target.value) || 0 } : null
                           )}
                           placeholder="0"
                         />
@@ -5717,7 +5737,7 @@ export function AdminPage({}: AdminPageProps) {
                         min="0"
                         value={editingProduct.shippingFee || ''}
                         onChange={(e) => setEditingProduct(prev =>
-                          prev ? { ...prev, shippingFee: e.target.value } : null
+                          prev ? { ...prev, shippingFee: parseInt(e.target.value) || 0 } : null
                         )}
                         placeholder="기본 정책 사용 (3,000원)"
                       />
