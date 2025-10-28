@@ -131,6 +131,14 @@ module.exports = async function handler(req, res) {
         hasEmail: !!email, hasPassword: !!password
       });
 
+      // 필수 필드 검증
+      if (!name || !contact_person || !contact_email || !contact_phone) {
+        return res.status(400).json({
+          success: false,
+          message: '필수 정보(업체명, 담당자, 이메일, 전화번호)를 모두 입력해주세요.'
+        });
+      }
+
       // rentcar_vendors 테이블 업데이트
       await connection.execute(
         `UPDATE rentcar_vendors
@@ -158,7 +166,7 @@ module.exports = async function handler(req, res) {
           contact_person,
           contact_email,
           contact_phone,
-          address,
+          address || null,
           address_detail || null,
           latitude || null,
           longitude || null,
