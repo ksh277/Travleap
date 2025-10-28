@@ -4859,11 +4859,11 @@ function setupRoutes() {
       const updateValues: any[] = [];
 
       if (name !== undefined) {
-        updateFields.push('name = ?');
+        updateFields.push('business_name = ?');
         updateValues.push(name);
       }
       if (contact_person !== undefined) {
-        updateFields.push('contact_person = ?');
+        updateFields.push('contact_name = ?');
         updateValues.push(contact_person);
       }
       if (contact_email !== undefined) {
