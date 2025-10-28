@@ -130,10 +130,9 @@ module.exports = async function handler(req, res) {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // 사용자 생성
-      const userId = `user_${Date.now()}`;
       const result = await sql`
-        INSERT INTO users (user_id, email, password_hash, name, phone, role, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
-        VALUES (${userId}, ${email}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO users (email, password_hash, name, phone, role, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
+        VALUES (${email}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING id
       `;
 
@@ -201,20 +200,21 @@ module.exports = async function handler(req, res) {
       }
 
       // 새 사용자 생성
-      const userId = `${provider}_${Date.now()}`;
+      console.log('🆕 [Social Login] Creating new user...');
       const result = await sql`
-        INSERT INTO users (user_id, email, name, avatar, provider, provider_id, role, password_hash, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
-        VALUES (${userId}, ${email}, ${name}, ${avatar || ''}, ${provider}, ${providerId}, 'user', '', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING id
+        INSERT INTO users (email, name, avatar, provider, provider_id, role, password_hash, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
+        VALUES (${email}, ${name}, ${avatar || ''}, ${provider}, ${providerId}, 'user', '', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id, email, name, role, avatar
       `;
 
-      const newUserId = result[0].id;
+      const newUser = result[0];
+      console.log('✅ [Social Login] New user created:', newUser.id);
 
       const token = Buffer.from(JSON.stringify({
-        userId: newUserId,
-        email,
-        name,
-        role: 'user',
+        userId: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
         iat: Date.now(),
         exp: Date.now() + (7 * 24 * 60 * 60 * 1000)
       })).toString('base64');
@@ -223,11 +223,11 @@ module.exports = async function handler(req, res) {
         success: true,
         data: {
           user: {
-            id: newUserId,
-            email,
-            name,
-            role: 'user',
-            avatar
+            id: newUser.id,
+            email: newUser.email,
+            name: newUser.name,
+            role: newUser.role,
+            avatar: newUser.avatar
           },
           token
         }
