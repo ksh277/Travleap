@@ -1,6 +1,28 @@
 const { neon } = require('@neondatabase/serverless');
 const bcrypt = require('bcryptjs');
 
+// 수동 body parser (Vercel에서 자동 파싱이 안 될 경우)
+async function parseBody(req) {
+  return new Promise((resolve) => {
+    if (req.body) {
+      resolve(req.body);
+      return;
+    }
+
+    let buffer = '';
+    req.on('data', chunk => {
+      buffer += chunk.toString();
+    });
+    req.on('end', () => {
+      try {
+        resolve(buffer ? JSON.parse(buffer) : {});
+      } catch (error) {
+        resolve({});
+      }
+    });
+  });
+}
+
 module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -16,6 +38,9 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  // 수동으로 body 파싱
+  req.body = await parseBody(req);
+
   const databaseUrl = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
   const sql = neon(databaseUrl);
 
@@ -27,7 +52,8 @@ module.exports = async function handler(req, res) {
     action,
     hasBody: !!req.body,
     bodyKeys: req.body ? Object.keys(req.body) : 'no body',
-    contentType: req.headers['content-type']
+    contentType: req.headers['content-type'],
+    bodyContent: req.body
   });
 
   try {
