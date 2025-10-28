@@ -167,8 +167,12 @@ module.exports = async function handler(req, res) {
     if (action === 'social-login') {
       const { provider, providerId, email, name, avatar } = req.body;
 
+      console.log('🔑 [Social Login] Request data:', { provider, providerId, email, name, hasAvatar: !!avatar });
+
       // 기존 사용자 확인
+      console.log('🔍 [Social Login] Checking existing user...');
       const existing = await sql`SELECT * FROM users WHERE provider = ${provider} AND provider_id = ${providerId}`;
+      console.log('✅ [Social Login] Existing user found:', existing.length);
 
       if (existing.length > 0) {
         const user = existing[0];
@@ -235,12 +239,12 @@ module.exports = async function handler(req, res) {
     console.error('❌ Auth error:', error);
     console.error('Stack:', error.stack);
 
-    // 프로덕션에서는 자세한 에러 메시지 숨기기
-    const isDevelopment = process.env.NODE_ENV !== 'production';
-
+    // 임시로 모든 에러 메시지 노출 (디버깅용)
     return res.status(500).json({
       success: false,
-      error: isDevelopment ? error.message : '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+      error: error.message || '서버 오류가 발생했습니다.',
+      details: error.toString(),
+      stack: error.stack
     });
   }
 }
