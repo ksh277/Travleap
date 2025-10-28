@@ -1,4 +1,5 @@
 const { connect } = require('@planetscale/database');
+const { neon } = require('@neondatabase/serverless');
 const jwt = require('jsonwebtoken');
 
 module.exports = async function handler(req, res) {
@@ -62,12 +63,17 @@ module.exports = async function handler(req, res) {
           contact_email,
           contact_phone,
           address,
+          address_detail,
+          latitude,
+          longitude,
           description,
           logo_url,
           images,
           cancellation_policy,
           cancellation_rules,
           rental_guide,
+          check_in_time,
+          check_out_time,
           status,
           is_verified,
           total_vehicles as vehicle_count
@@ -105,14 +111,27 @@ module.exports = async function handler(req, res) {
         contact_email,
         contact_phone,
         address,
+        address_detail,
+        latitude,
+        longitude,
         cancellation_policy,
         cancellation_rules,
         rental_guide,
         description,
         logo_url,
-        images
+        images,
+        check_in_time,
+        check_out_time,
+        email,
+        password
       } = req.body;
 
+      console.log('📝 [Vendor Info Update] 받은 데이터:', {
+        name, contact_person, contact_email, address, address_detail,
+        hasEmail: !!email, hasPassword: !!password
+      });
+
+      // rentcar_vendors 테이블 업데이트
       await connection.execute(
         `UPDATE rentcar_vendors
         SET
@@ -121,12 +140,17 @@ module.exports = async function handler(req, res) {
           contact_email = ?,
           contact_phone = ?,
           address = ?,
+          address_detail = ?,
+          latitude = ?,
+          longitude = ?,
           cancellation_policy = ?,
           cancellation_rules = ?,
           rental_guide = ?,
           description = ?,
           logo_url = ?,
           images = ?,
+          check_in_time = ?,
+          check_out_time = ?,
           updated_at = NOW()
         WHERE id = ?`,
         [
@@ -135,15 +159,86 @@ module.exports = async function handler(req, res) {
           contact_email,
           contact_phone,
           address,
-          cancellation_policy,
+          address_detail || null,
+          latitude || null,
+          longitude || null,
+          cancellation_policy || null,
           cancellation_rules ? JSON.stringify(cancellation_rules) : null,
           rental_guide || null,
           description || null,
           logo_url || null,
           images ? JSON.stringify(images) : null,
+          check_in_time || null,
+          check_out_time || null,
           vendorId
         ]
       );
+
+      // 이메일 또는 비밀번호 변경 시 Neon DB의 users 테이블 업데이트
+      if (email || password) {
+        const bcrypt = require('bcryptjs');
+        const sql = neon(process.env.POSTGRES_DATABASE_URL);
+
+        try {
+          // 현재 사용자 정보 조회 (Neon)
+          const userResult = await sql`
+            SELECT id, email FROM users WHERE id = ${decoded.userId}
+          `;
+
+          if (userResult && userResult.length > 0) {
+            const currentUser = userResult[0];
+
+            if (email && email !== currentUser.email) {
+              // 이메일 중복 체크 (Neon)
+              const emailCheck = await sql`
+                SELECT id FROM users WHERE email = ${email} AND id != ${decoded.userId}
+              `;
+
+              if (emailCheck && emailCheck.length > 0) {
+                return res.status(400).json({
+                  success: false,
+                  message: '이미 사용 중인 이메일입니다.'
+                });
+              }
+
+              // 이메일만 변경
+              if (!password) {
+                await sql`
+                  UPDATE users
+                  SET email = ${email}, updated_at = NOW()
+                  WHERE id = ${decoded.userId}
+                `;
+                console.log('✅ [Vendor Info Update] 이메일 업데이트 완료 (Neon)');
+              }
+            }
+
+            if (password) {
+              const hashedPassword = await bcrypt.hash(password, 10);
+
+              // 비밀번호만 변경하거나 이메일과 함께 변경
+              if (email && email !== currentUser.email) {
+                await sql`
+                  UPDATE users
+                  SET email = ${email}, password_hash = ${hashedPassword}, updated_at = NOW()
+                  WHERE id = ${decoded.userId}
+                `;
+                console.log('✅ [Vendor Info Update] 이메일 + 비밀번호 업데이트 완료 (Neon)');
+              } else {
+                await sql`
+                  UPDATE users
+                  SET password_hash = ${hashedPassword}, updated_at = NOW()
+                  WHERE id = ${decoded.userId}
+                `;
+                console.log('✅ [Vendor Info Update] 비밀번호 업데이트 완료 (Neon)');
+              }
+            }
+          }
+        } catch (neonError) {
+          console.error('❌ [Vendor Info Update] Neon DB 업데이트 오류:', neonError);
+          // Neon DB 오류가 발생해도 rentcar_vendors 업데이트는 성공했으므로 warning만 표시
+          console.warn('⚠️  업체 정보는 업데이트되었으나 계정 정보 업데이트 실패');
+        }
+      }
 
       return res.status(200).json({
         success: true,

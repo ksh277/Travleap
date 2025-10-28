@@ -45,7 +45,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ImageUploader } from './ui/ImageUploader';
 import { getGoogleMapsApiKey } from '../utils/env';
 import { MapPin } from 'lucide-react';
-import { VendorRentcarCalendar } from './VendorRentcarCalendar';
 
 interface Vehicle {
   id: number;
@@ -1438,7 +1437,6 @@ export function VendorDashboardPageEnhanced() {
           <TabsList className="mb-6">
             <TabsTrigger value="vehicles">차량 관리</TabsTrigger>
             <TabsTrigger value="bookings">예약 관리</TabsTrigger>
-            <TabsTrigger value="calendar">예약 캘린더</TabsTrigger>
             <TabsTrigger value="insurance">보험 관리</TabsTrigger>
             <TabsTrigger value="settings">업체 정보</TabsTrigger>
           </TabsList>
@@ -1855,11 +1853,6 @@ export function VendorDashboardPageEnhanced() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-
-          {/* 예약 캘린더 */}
-          <TabsContent value="calendar">
-            <VendorRentcarCalendar />
           </TabsContent>
 
           {/* 보험 관리 */}
