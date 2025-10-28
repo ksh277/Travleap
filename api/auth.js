@@ -227,7 +227,7 @@ module.exports = async function handler(req, res) {
               email: user.email,
               name: user.name,
               role: user.role,
-              avatar: user.avatar
+              avatar: null
             },
             token
           }
@@ -237,9 +237,9 @@ module.exports = async function handler(req, res) {
       // 새 사용자 생성
       console.log('🆕 [Social Login] Creating new user...');
       const result = await sql`
-        INSERT INTO users (email, name, avatar, provider, provider_id, role, password_hash, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
-        VALUES (${email}, ${name}, ${avatar || ''}, ${provider}, ${providerId}, 'user', '', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING id, email, name, role, avatar
+        INSERT INTO users (email, name, provider, provider_id, role, password_hash, created_at, updated_at)
+        VALUES (${email}, ${name}, ${provider}, ${providerId}, 'user', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING id, email, name, role
       `;
 
       const newUser = result[0];
@@ -262,7 +262,7 @@ module.exports = async function handler(req, res) {
             email: newUser.email,
             name: newUser.name,
             role: newUser.role,
-            avatar: newUser.avatar
+            avatar: avatar || null
           },
           token
         }
