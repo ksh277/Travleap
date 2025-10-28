@@ -87,6 +87,7 @@ module.exports = async function handler(req, res) {
     console.log('✅ [Neon] 로그인 성공:', email, 'role:', user.role);
 
     // 5. 응답
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.status(200).json({
       success: true,
       data: {

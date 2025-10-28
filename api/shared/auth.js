@@ -78,6 +78,7 @@ module.exports = async function handler(req, res) {
         exp: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7일
       })).toString('base64');
 
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       return res.status(200).json({
         success: true,
         data: {
@@ -148,6 +149,7 @@ module.exports = async function handler(req, res) {
         exp: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7일
       })).toString('base64');
 
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       return res.status(200).json({
         success: true,
         data: {
@@ -181,6 +183,7 @@ module.exports = async function handler(req, res) {
           exp: Date.now() + (7 * 24 * 60 * 60 * 1000)
         })).toString('base64');
 
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
         return res.status(200).json({
           success: true,
           data: {
@@ -215,6 +218,7 @@ module.exports = async function handler(req, res) {
         exp: Date.now() + (7 * 24 * 60 * 60 * 1000)
       })).toString('base64');
 
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       return res.status(200).json({
         success: true,
         data: {

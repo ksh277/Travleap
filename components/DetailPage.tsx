@@ -132,6 +132,7 @@ interface DetailItem {
   stockEnabled?: boolean;
   stock?: number;
   shippingFee?: number;
+  is_refundable?: boolean;
 }
 
 interface BookingFormData {
@@ -1147,23 +1148,26 @@ export function DetailPage() {
               <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-4 space-y-4 md:space-y-0">
                 <div className="flex-1">
                   <h1 className="text-xl md:text-2xl lg:text-3xl mb-2 font-semibold">{item.title}</h1>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 text-sm md:text-base text-gray-600">
-                    <div className="flex items-center space-x-1">
-                      <MapPin className="h-4 w-4 flex-shrink-0" />
-                      <span>{item.location}</span>
-                    </div>
-                    {item.duration && (
+                  {/* 팝업 상품이 아닐 때만 위치, 시간, 리뷰 정보 표시 */}
+                  {item?.category !== '팝업' && (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 text-sm md:text-base text-gray-600">
                       <div className="flex items-center space-x-1">
-                        <Clock className="h-4 w-4 flex-shrink-0" />
-                        <span>{item.duration}</span>
+                        <MapPin className="h-4 w-4 flex-shrink-0" />
+                        <span>{item.location}</span>
                       </div>
-                    )}
-                    <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
-                      <span>{averageRating.toFixed(1)}</span>
-                      <span className="text-gray-400">({reviews.length}개 리뷰)</span>
+                      {item.duration && (
+                        <div className="flex items-center space-x-1">
+                          <Clock className="h-4 w-4 flex-shrink-0" />
+                          <span>{item.duration}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center space-x-1">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                        <span>{averageRating.toFixed(1)}</span>
+                        <span className="text-gray-400">({reviews.length}개 리뷰)</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 <div className="text-left md:text-right flex-shrink-0">
                   {item?.category !== '팝업' && (

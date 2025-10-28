@@ -140,6 +140,7 @@ module.exports = async function handler(req, res) {
       responseUser.vendorType = vendorType;
     }
 
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.status(200).json({
       success: true,
       data: {
