@@ -21,6 +21,15 @@ module.exports = async function handler(req, res) {
 
   const { action } = req.query;
 
+  // req.body 디버깅
+  console.log('📨 [Auth API] Request:', {
+    method: req.method,
+    action,
+    hasBody: !!req.body,
+    bodyKeys: req.body ? Object.keys(req.body) : 'no body',
+    contentType: req.headers['content-type']
+  });
+
   try {
     // 로그인
     if (action === 'login') {
