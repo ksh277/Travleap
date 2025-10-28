@@ -44,12 +44,22 @@ export class JWTClientUtils {
       }
 
       const parts = token.split('.');
-      if (parts.length !== 3) {
-        return null;
+
+      // 표준 JWT 형식 (header.payload.signature - 3부분)
+      if (parts.length === 3) {
+        const payload = base64UrlDecode(parts[1]);
+        return JSON.parse(payload) as JWTPayload;
       }
 
-      const payload = base64UrlDecode(parts[1]);
-      return JSON.parse(payload) as JWTPayload;
+      // 단순 Base64 형식 (점이 없는 경우 - 서버에서 사용 중)
+      if (parts.length === 1) {
+        // 일반 atob 사용 (Base64 URL이 아닌 표준 Base64)
+        const decoded = atob(token);
+        return JSON.parse(decoded) as JWTPayload;
+      }
+
+      console.error('❌ 지원하지 않는 토큰 형식:', { parts: parts.length });
+      return null;
     } catch (error) {
       console.error('❌ JWT 토큰 디코딩 실패:', error);
       return null;
@@ -62,7 +72,9 @@ export class JWTClientUtils {
       const payload = this.decodeToken(token);
       if (!payload || !payload.exp) return null;
 
-      return new Date(payload.exp * 1000);
+      // exp가 초 단위면 밀리초로 변환, 이미 밀리초면 그대로 사용
+      const expMs = payload.exp < 10000000000 ? payload.exp * 1000 : payload.exp;
+      return new Date(expMs);
     } catch {
       return null;
     }
@@ -74,8 +86,10 @@ export class JWTClientUtils {
       const payload = this.decodeToken(token);
       if (!payload || !payload.exp) return true;
 
-      const now = Math.floor(Date.now() / 1000);
-      return payload.exp < now;
+      const now = Date.now(); // 밀리초 단위
+      // exp가 초 단위면 밀리초로 변환, 이미 밀리초면 그대로 사용
+      const expMs = payload.exp < 10000000000 ? payload.exp * 1000 : payload.exp;
+      return expMs < now;
     } catch {
       return true;
     }
@@ -87,11 +101,13 @@ export class JWTClientUtils {
       const payload = this.decodeToken(token);
       if (!payload || !payload.exp) return false;
 
-      const now = Math.floor(Date.now() / 1000);
-      const timeUntilExp = payload.exp - now;
-      const oneHour = 60 * 60;
+      const now = Date.now(); // 밀리초 단위
+      // exp가 초 단위면 밀리초로 변환, 이미 밀리초면 그대로 사용
+      const expMs = payload.exp < 10000000000 ? payload.exp * 1000 : payload.exp;
+      const timeUntilExpMs = expMs - now;
+      const oneHourMs = 60 * 60 * 1000;
 
-      return timeUntilExp < oneHour && timeUntilExp > 0;
+      return timeUntilExpMs < oneHourMs && timeUntilExpMs > 0;
     } catch {
       return false;
     }
