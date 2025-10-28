@@ -2215,7 +2215,7 @@ export function VendorDashboardPageEnhanced() {
                       </div>
                       {editedInfo.latitude && editedInfo.longitude && (
                         <p className="text-xs text-gray-500">
-                          좌표: {editedInfo.latitude.toFixed(6)}, {editedInfo.longitude.toFixed(6)}
+                          좌표: {typeof editedInfo.latitude === 'number' ? editedInfo.latitude.toFixed(6) : editedInfo.latitude}, {typeof editedInfo.longitude === 'number' ? editedInfo.longitude.toFixed(6) : editedInfo.longitude}
                         </p>
                       )}
                     </div>
@@ -2224,7 +2224,7 @@ export function VendorDashboardPageEnhanced() {
                       <p className="text-sm">{vendorInfo.address || '미등록'}</p>
                       {vendorInfo.latitude && vendorInfo.longitude && (
                         <p className="text-xs text-gray-500">
-                          좌표: {vendorInfo.latitude.toFixed(6)}, {vendorInfo.longitude.toFixed(6)}
+                          좌표: {typeof vendorInfo.latitude === 'number' ? vendorInfo.latitude.toFixed(6) : vendorInfo.latitude}, {typeof vendorInfo.longitude === 'number' ? vendorInfo.longitude.toFixed(6) : vendorInfo.longitude}
                         </p>
                       )}
                     </div>

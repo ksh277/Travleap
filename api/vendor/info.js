@@ -93,6 +93,8 @@ module.exports = async function handler(req, res) {
         data: {
           ...vendor,
           is_verified: vendor.is_verified === 1,
+          latitude: vendor.latitude ? parseFloat(vendor.latitude) : null,
+          longitude: vendor.longitude ? parseFloat(vendor.longitude) : null,
           images: vendor.images ? JSON.parse(vendor.images) : [],
           cancellation_rules: vendor.cancellation_rules ? JSON.parse(vendor.cancellation_rules) : {
             '3_days_before': 100,
