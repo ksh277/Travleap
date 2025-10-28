@@ -51,30 +51,16 @@ interface Vehicle {
   id: number;
   vendor_id: number;
   display_name: string;
-  vehicle_class: string;
-  seating_capacity: number;
-  transmission_type: string;
-  fuel_type: string;
   daily_rate_krw: number;
   hourly_rate_krw?: number;
-  weekly_rate_krw: number;
-  monthly_rate_krw: number;
-  mileage_limit_km: number;
-  excess_mileage_fee_krw: number;
-  deposit_krw?: number;
   images: string[];
   is_available: boolean;
   created_at: string;
-  // 추가 정보
+  // Optional fields (kept for backward compatibility, not displayed in UI)
+  deposit_krw?: number;
   insurance_included?: boolean;
   insurance_options?: string;
   available_options?: string;
-  // 새로운 필드
-  pickup_location?: string;
-  dropoff_location?: string;
-  min_rental_days?: number;
-  max_rental_days?: number;
-  instant_booking?: boolean;
 }
 
 interface Booking {
@@ -137,28 +123,10 @@ interface VendorInfo {
 
 interface VehicleFormData {
   display_name: string;
-  vehicle_class: string;
-  seating_capacity: number;
-  transmission_type: string;
-  fuel_type: string;
   daily_rate_krw: number;
   hourly_rate_krw: number;
-  weekly_rate_krw: number;
-  monthly_rate_krw: number;
-  mileage_limit_km: number;
-  excess_mileage_fee_krw: number;
-  deposit_krw: number;
   is_available: boolean;
   image_urls: string[];
-  insurance_included: boolean;
-  insurance_options: string;
-  available_options: string;
-  // 새로운 필드
-  pickup_location: string;
-  dropoff_location: string;
-  min_rental_days: number;
-  max_rental_days: number;
-  instant_booking: boolean;
 }
 
 export function VendorDashboardPageEnhanced() {
@@ -195,27 +163,10 @@ export function VendorDashboardPageEnhanced() {
   const [editingVehicleId, setEditingVehicleId] = useState<number | null>(null);
   const [vehicleForm, setVehicleForm] = useState<VehicleFormData>({
     display_name: '',
-    vehicle_class: '중형',
-    seating_capacity: 5,
-    transmission_type: '자동',
-    fuel_type: '가솔린',
     daily_rate_krw: 50000,
-    hourly_rate_krw: 3000,
-    weekly_rate_krw: 300000,
-    monthly_rate_krw: 1000000,
-    mileage_limit_km: 200,
-    excess_mileage_fee_krw: 100,
-    deposit_krw: 0,
+    hourly_rate_krw: 0, // Will be auto-calculated if 0
     is_available: true,
-    image_urls: [],
-    insurance_included: true,
-    insurance_options: '자차보험, 대인배상, 대물배상',
-    available_options: 'GPS, 블랙박스, 하이패스, 휴대폰 거치대',
-    pickup_location: '신안군 렌트카 본점',
-    dropoff_location: '신안군 렌트카 본점',
-    min_rental_days: 1,
-    max_rental_days: 30,
-    instant_booking: true
+    image_urls: []
   });
 
   // 이미지 URL 입력용
@@ -614,27 +565,10 @@ export function VendorDashboardPageEnhanced() {
   const resetVehicleForm = () => {
     setVehicleForm({
       display_name: '',
-      vehicle_class: '중형',
-      seating_capacity: 5,
-      transmission_type: '자동',
-      fuel_type: '가솔린',
       daily_rate_krw: 50000,
-      hourly_rate_krw: 3000,
-      weekly_rate_krw: 300000,
-      monthly_rate_krw: 1000000,
-      mileage_limit_km: 200,
-      excess_mileage_fee_krw: 100,
-      deposit_krw: 0,
+      hourly_rate_krw: 0, // Will be auto-calculated if 0
       is_available: true,
-      image_urls: [],
-      insurance_included: true,
-      insurance_options: '자차보험, 대인배상, 대물배상',
-      available_options: 'GPS, 블랙박스, 하이패스, 휴대폰 거치대',
-      pickup_location: '신안군 렌트카 본점',
-      dropoff_location: '신안군 렌트카 본점',
-      min_rental_days: 1,
-      max_rental_days: 30,
-      instant_booking: true
+      image_urls: []
     });
     setCurrentImageUrl('');
   };
@@ -649,27 +583,10 @@ export function VendorDashboardPageEnhanced() {
   const handleEditVehicle = (vehicle: Vehicle) => {
     setVehicleForm({
       display_name: vehicle.display_name,
-      vehicle_class: vehicle.vehicle_class,
-      seating_capacity: vehicle.seating_capacity,
-      transmission_type: vehicle.transmission_type,
-      fuel_type: vehicle.fuel_type,
       daily_rate_krw: vehicle.daily_rate_krw,
-      hourly_rate_krw: vehicle.hourly_rate_krw || Math.round(((vehicle.daily_rate_krw / 24) * 1.2) / 1000) * 1000,
-      weekly_rate_krw: vehicle.weekly_rate_krw,
-      monthly_rate_krw: vehicle.monthly_rate_krw,
-      mileage_limit_km: vehicle.mileage_limit_km,
-      excess_mileage_fee_krw: vehicle.excess_mileage_fee_krw,
-      deposit_krw: vehicle.deposit_krw || 0,
+      hourly_rate_krw: vehicle.hourly_rate_krw || Math.ceil(vehicle.daily_rate_krw / 24),
       is_available: vehicle.is_available,
-      image_urls: Array.isArray(vehicle.images) ? vehicle.images : [],
-      insurance_included: vehicle.insurance_included || true,
-      insurance_options: vehicle.insurance_options || '자차보험, 대인배상, 대물배상',
-      available_options: vehicle.available_options || 'GPS, 블랙박스',
-      pickup_location: vehicle.pickup_location || '신안군 렌트카 본점',
-      dropoff_location: vehicle.dropoff_location || '신안군 렌트카 본점',
-      min_rental_days: vehicle.min_rental_days || 1,
-      max_rental_days: vehicle.max_rental_days || 30,
-      instant_booking: vehicle.instant_booking !== undefined ? vehicle.instant_booking : true
+      image_urls: Array.isArray(vehicle.images) ? vehicle.images : []
     });
     setEditingVehicleId(vehicle.id);
     setIsEditingVehicle(true);
@@ -1023,20 +940,9 @@ export function VendorDashboardPageEnhanced() {
 
       // 컬럼 이름 매핑 (여러 가지 가능한 이름 허용)
       const columnMap = {
-        display_name: ['차량명', '차량이름', '모델명', '차종명', 'name', 'vehicle_name', 'model'],
-        brand: ['제조사', '브랜드', 'brand', 'manufacturer', '메이커'],
-        model: ['모델', 'model', '차량모델'],
-        year: ['연식', '년식', 'year', '제조년도', '제조연도'],
-        vehicle_class: ['차량등급', '등급', '차종', 'class', 'type', '클래스'],
-        seating_capacity: ['승차인원', '인승', '좌석수', 'seats', 'capacity', '탑승인원'],
-        transmission_type: ['변속기', '기어', 'transmission', '트랜스미션'],
-        fuel_type: ['연료', '연료타입', 'fuel', '연료종류'],
-        daily_rate_krw: ['일일요금', '1일요금', '일요금', 'daily_rate', 'price', '하루요금', '데일리요금'],
-        weekly_rate_krw: ['주간요금', '주요금', 'weekly_rate', '주중요금', '7일요금'],
-        monthly_rate_krw: ['월간요금', '월요금', 'monthly_rate', '한달요금', '30일요금'],
-        mileage_limit_km: ['주행제한', '주행거리제한', '주행제한(km)', '주행제한km', 'mileage_limit', 'mileage'],
-        excess_mileage_fee_krw: ['초과요금', '초과비용', 'excess_fee', 'overage_fee', '초과주행요금'],
-        deposit_krw: ['보증금', '보증금액', 'deposit', '예치금', '보증비']
+        display_name: ['차량명', '차량이름', '모델명', '차종명', 'name', 'vehicle_name', 'model', '차량'],
+        daily_rate_krw: ['일일요금', '1일요금', '일요금', 'daily_rate', 'price', '하루요금', '데일리요금', '일당'],
+        hourly_rate_krw: ['시간당요금', '시간요금', '시간당', 'hourly_rate', '시급', '1시간요금']
       };
 
       // 헤더에서 각 필드의 인덱스 찾기
@@ -1047,19 +953,8 @@ export function VendorDashboardPageEnhanced() {
 
       const colIndexes = {
         display_name: findColumnIndex('display_name'),
-        brand: findColumnIndex('brand'),
-        model: findColumnIndex('model'),
-        year: findColumnIndex('year'),
-        vehicle_class: findColumnIndex('vehicle_class'),
-        seating_capacity: findColumnIndex('seating_capacity'),
-        transmission_type: findColumnIndex('transmission_type'),
-        fuel_type: findColumnIndex('fuel_type'),
         daily_rate_krw: findColumnIndex('daily_rate_krw'),
-        weekly_rate_krw: findColumnIndex('weekly_rate_krw'),
-        monthly_rate_krw: findColumnIndex('monthly_rate_krw'),
-        mileage_limit_km: findColumnIndex('mileage_limit_km'),
-        excess_mileage_fee_krw: findColumnIndex('excess_mileage_fee_krw'),
-        deposit_krw: findColumnIndex('deposit_krw')
+        hourly_rate_krw: findColumnIndex('hourly_rate_krw')
       };
 
       // 필수 컬럼 체크
@@ -1073,9 +968,6 @@ export function VendorDashboardPageEnhanced() {
       let successCount = 0;
       let errorCount = 0;
       const errors: string[] = [];
-      const validVehicleClasses = ['소형', '중형', '대형', '럭셔리', 'SUV', '밴'];
-      const validTransmissions = ['자동', '수동'];
-      const validFuelTypes = ['가솔린', '디젤', '하이브리드', '전기'];
 
       toast.info(`CSV 분석 중... (총 ${dataLines.length}건)`);
 
@@ -1094,30 +986,6 @@ export function VendorDashboardPageEnhanced() {
             continue;
           }
 
-          // 차량등급 검증
-          const vehicleClass = colIndexes.vehicle_class >= 0 ? (values[colIndexes.vehicle_class]?.trim() || '중형') : '중형';
-          if (!validVehicleClasses.includes(vehicleClass)) {
-            errors.push(`${rowNumber}행: 잘못된 차량등급 "${vehicleClass}" (허용: ${validVehicleClasses.join(', ')})`);
-            errorCount++;
-            continue;
-          }
-
-          // 변속기 검증
-          const transmission = colIndexes.transmission_type >= 0 ? (values[colIndexes.transmission_type]?.trim() || '자동') : '자동';
-          if (!validTransmissions.includes(transmission)) {
-            errors.push(`${rowNumber}행: 잘못된 변속기 "${transmission}" (허용: ${validTransmissions.join(', ')})`);
-            errorCount++;
-            continue;
-          }
-
-          // 연료 검증
-          const fuelType = colIndexes.fuel_type >= 0 ? (values[colIndexes.fuel_type]?.trim() || '가솔린') : '가솔린';
-          if (!validFuelTypes.includes(fuelType)) {
-            errors.push(`${rowNumber}행: 잘못된 연료 "${fuelType}" (허용: ${validFuelTypes.join(', ')})`);
-            errorCount++;
-            continue;
-          }
-
           // 일일요금 검증
           const dailyRate = parseInt(values[colIndexes.daily_rate_krw]);
           if (isNaN(dailyRate) || dailyRate < 10000) {
@@ -1126,45 +994,19 @@ export function VendorDashboardPageEnhanced() {
             continue;
           }
 
-          // 선택적 컬럼들
-          const brand = colIndexes.brand >= 0 ? values[colIndexes.brand]?.trim() : (displayName.split(' ')[0] || '기타');
-          const model = colIndexes.model >= 0 ? values[colIndexes.model]?.trim() : (displayName.split(' ')[1] || displayName);
-          const year = colIndexes.year >= 0 ? parseInt(values[colIndexes.year]) : new Date().getFullYear();
-          const seatingCapacity = colIndexes.seating_capacity >= 0 ? parseInt(values[colIndexes.seating_capacity]) : 5;
-          const weeklyRate = colIndexes.weekly_rate_krw >= 0 ? parseInt(values[colIndexes.weekly_rate_krw]) : dailyRate * 6;
-          const monthlyRate = colIndexes.monthly_rate_krw >= 0 ? parseInt(values[colIndexes.monthly_rate_krw]) : dailyRate * 25;
-          const mileageLimit = colIndexes.mileage_limit_km >= 0 ? parseInt(values[colIndexes.mileage_limit_km]) : 200;
-          const excessFee = colIndexes.excess_mileage_fee_krw >= 0 ? parseInt(values[colIndexes.excess_mileage_fee_krw]) : 100;
-          const depositKrw = colIndexes.deposit_krw >= 0 ? parseInt(values[colIndexes.deposit_krw]) : 0;
+          // 시간당 요금 (선택적, 없으면 자동 계산)
+          const hourlyRate = colIndexes.hourly_rate_krw >= 0 && values[colIndexes.hourly_rate_krw]
+            ? parseInt(values[colIndexes.hourly_rate_krw])
+            : Math.ceil(dailyRate / 24);
 
           const vehicleData = {
             display_name: displayName,
-            brand: brand,
-            model: model,
-            year: year || new Date().getFullYear(),
-            vehicle_class: vehicleClass,
-            seating_capacity: seatingCapacity || 5,
-            transmission_type: transmission,
-            fuel_type: fuelType,
             daily_rate_krw: dailyRate,
-            weekly_rate_krw: weeklyRate || dailyRate * 6,
-            monthly_rate_krw: monthlyRate || dailyRate * 25,
-            mileage_limit_km: mileageLimit || 200,
-            excess_mileage_fee_krw: excessFee || 100,
-            deposit_krw: depositKrw || 0,
+            hourly_rate_krw: hourlyRate,
             is_available: true,
             image_urls: [
-              'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
-              'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop'
-            ],
-            insurance_included: true,
-            insurance_options: '자차보험, 대인배상, 대물배상',
-            available_options: 'GPS, 블랙박스',
-            pickup_location: '신안군 렌트카 본점',
-            dropoff_location: '신안군 렌트카 본점',
-            min_rental_days: 1,
-            max_rental_days: 30,
-            instant_booking: true
+              'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop'
+            ]
           };
 
           // POST API로 차량 등록
@@ -1232,11 +1074,12 @@ export function VendorDashboardPageEnhanced() {
   };
 
   const downloadCSVTemplate = () => {
-    const csv = `차량명,제조사,모델,연식,차량등급,승차인원,변속기,연료,일일요금,주간요금,월간요금,주행제한(km),초과요금,보증금
-아반떼 2024,현대,아반떼,2024,중형,5,자동,가솔린,50000,300000,1000000,200,100,500000
-쏘나타 2024,현대,쏘나타,2024,중형,5,자동,가솔린,70000,420000,1400000,200,100,500000
-그랜저 2024,현대,그랜저,2024,대형,5,자동,가솔린,100000,600000,2000000,200,150,1000000
-싼타페 2024,현대,싼타페,2024,SUV,7,자동,디젤,90000,540000,1800000,200,150,1000000`;
+    const csv = `차량명,일일요금,시간당요금
+아반떼 2024,50000,3000
+쏘나타 2024,70000,4000
+그랜저 2024,100000,5000
+싼타페 2024,90000,4500
+카니발 2024,120000,6000`;
 
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8;' });
@@ -1244,7 +1087,7 @@ export function VendorDashboardPageEnhanced() {
     link.href = URL.createObjectURL(blob);
     link.download = 'vehicles_template.csv';
     link.click();
-    toast.success('CSV 템플릿이 다운로드되었습니다!');
+    toast.success('CSV 템플릿이 다운로드되었습니다! (시간당요금은 선택사항, 없으면 자동 계산됩니다)');
   };
 
   // 예약 필터 적용
@@ -1621,58 +1464,22 @@ export function VendorDashboardPageEnhanced() {
                     </div>
 
                     <div>
-                      <Label>차량 등급</Label>
-                      <select
-                        className="w-full p-2 border rounded"
-                        value={vehicleForm.vehicle_class}
-                        onChange={(e) => setVehicleForm({...vehicleForm, vehicle_class: e.target.value})}
-                      >
-                        <option value="경형">경형</option>
-                        <option value="소형">소형</option>
-                        <option value="준중형">준중형</option>
-                        <option value="중형">중형</option>
-                        <option value="대형">대형</option>
-                        <option value="SUV">SUV</option>
-                        <option value="승합">승합</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label>인승</Label>
+                      <Label>일일 요금 (원) *</Label>
                       <Input
                         type="number"
-                        min="2"
-                        max="15"
-                        value={vehicleForm.seating_capacity}
-                        onChange={(e) => setVehicleForm({...vehicleForm, seating_capacity: parseInt(e.target.value)})}
+                        min="10000"
+                        step="5000"
+                        value={vehicleForm.daily_rate_krw}
+                        onChange={(e) => {
+                          const dailyRate = parseInt(e.target.value);
+                          const calculatedHourly = Math.ceil(dailyRate / 24);
+                          setVehicleForm({
+                            ...vehicleForm,
+                            daily_rate_krw: dailyRate,
+                            hourly_rate_krw: calculatedHourly
+                          });
+                        }}
                       />
-                    </div>
-
-                    <div>
-                      <Label>변속기</Label>
-                      <select
-                        className="w-full p-2 border rounded"
-                        value={vehicleForm.transmission_type}
-                        onChange={(e) => setVehicleForm({...vehicleForm, transmission_type: e.target.value})}
-                      >
-                        <option value="자동">자동</option>
-                        <option value="수동">수동</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label>연료</Label>
-                      <select
-                        className="w-full p-2 border rounded"
-                        value={vehicleForm.fuel_type}
-                        onChange={(e) => setVehicleForm({...vehicleForm, fuel_type: e.target.value})}
-                      >
-                        <option value="가솔린">가솔린</option>
-                        <option value="디젤">디젤</option>
-                        <option value="LPG">LPG</option>
-                        <option value="하이브리드">하이브리드</option>
-                        <option value="전기">전기</option>
-                      </select>
                     </div>
 
                     <div>
@@ -1685,109 +1492,7 @@ export function VendorDashboardPageEnhanced() {
                         onChange={(e) => setVehicleForm({...vehicleForm, hourly_rate_krw: parseInt(e.target.value)})}
                         placeholder="자동 계산됨"
                       />
-                      <p className="text-xs text-gray-500 mt-1">권장: 일일 요금 기준 자동 계산 (일일 / 24 * 1.2)</p>
-                    </div>
-
-                    <div>
-                      <Label>일일 요금 (원)</Label>
-                      <Input
-                        type="number"
-                        min="10000"
-                        step="5000"
-                        value={vehicleForm.daily_rate_krw}
-                        onChange={(e) => {
-                          const dailyRate = parseInt(e.target.value);
-                          const calculatedHourly = Math.round(((dailyRate / 24) * 1.2) / 1000) * 1000;
-                          setVehicleForm({
-                            ...vehicleForm,
-                            daily_rate_krw: dailyRate,
-                            hourly_rate_krw: calculatedHourly
-                          });
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>주간 요금 (원)</Label>
-                      <Input
-                        type="number"
-                        min="50000"
-                        step="10000"
-                        value={vehicleForm.weekly_rate_krw}
-                        onChange={(e) => setVehicleForm({...vehicleForm, weekly_rate_krw: parseInt(e.target.value)})}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>월간 요금 (원)</Label>
-                      <Input
-                        type="number"
-                        min="100000"
-                        step="50000"
-                        value={vehicleForm.monthly_rate_krw}
-                        onChange={(e) => setVehicleForm({...vehicleForm, monthly_rate_krw: parseInt(e.target.value)})}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>주행거리 제한 (km/일)</Label>
-                      <Input
-                        type="number"
-                        min="50"
-                        step="10"
-                        value={vehicleForm.mileage_limit_km}
-                        onChange={(e) => setVehicleForm({...vehicleForm, mileage_limit_km: parseInt(e.target.value)})}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>초과 주행료 (원/km)</Label>
-                      <Input
-                        type="number"
-                        min="10"
-                        step="10"
-                        value={vehicleForm.excess_mileage_fee_krw}
-                        onChange={(e) => setVehicleForm({...vehicleForm, excess_mileage_fee_krw: parseInt(e.target.value)})}
-                      />
-                    </div>
-
-                    <div>
-                      <Label>보증금 (원) - 선택사항</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="10000"
-                        placeholder="0 (없음)"
-                        value={vehicleForm.deposit_krw}
-                        onChange={(e) => setVehicleForm({...vehicleForm, deposit_krw: parseInt(e.target.value) || 0})}
-                      />
-                    </div>
-
-                    <div className="md:col-span-2 flex items-center gap-2">
-                      <Switch
-                        checked={vehicleForm.insurance_included}
-                        onCheckedChange={(checked) => setVehicleForm({...vehicleForm, insurance_included: checked})}
-                      />
-                      <Label>보험 포함</Label>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <Label>보험 옵션</Label>
-                      <Input
-                        placeholder="예: 자차보험, 대인배상, 대물배상"
-                        value={vehicleForm.insurance_options}
-                        onChange={(e) => setVehicleForm({...vehicleForm, insurance_options: e.target.value})}
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <Label>차량 옵션</Label>
-                      <Textarea
-                        placeholder="예: GPS, 블랙박스, 하이패스, 휴대폰 거치대"
-                        value={vehicleForm.available_options}
-                        onChange={(e) => setVehicleForm({...vehicleForm, available_options: e.target.value})}
-                        rows={2}
-                      />
+                      <p className="text-xs text-gray-500 mt-1">입력하지 않으면 일일 요금을 기준으로 자동 계산됩니다 (일일 / 24)</p>
                     </div>
 
                     <div className="md:col-span-2 flex items-center gap-2">
@@ -1796,72 +1501,6 @@ export function VendorDashboardPageEnhanced() {
                         onCheckedChange={(checked) => setVehicleForm({...vehicleForm, is_available: checked})}
                       />
                       <Label>예약 가능</Label>
-                    </div>
-
-                    {/* 픽업/반납 위치 */}
-                    <div className="md:col-span-2 border-t pt-4">
-                      <Label className="mb-2 font-semibold">픽업/반납 위치</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>픽업 위치</Label>
-                          <Input
-                            placeholder="예: 신안군 렌트카 본점"
-                            value={vehicleForm.pickup_location}
-                            onChange={(e) => setVehicleForm({...vehicleForm, pickup_location: e.target.value})}
-                          />
-                        </div>
-                        <div>
-                          <Label>반납 위치</Label>
-                          <Input
-                            placeholder="예: 신안군 렌트카 본점"
-                            value={vehicleForm.dropoff_location}
-                            onChange={(e) => setVehicleForm({...vehicleForm, dropoff_location: e.target.value})}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 렌탈 기간 제한 */}
-                    <div className="md:col-span-2 border-t pt-4">
-                      <Label className="mb-2 font-semibold">렌탈 기간 제한</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>최소 렌탈 기간 (일)</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={vehicleForm.min_rental_days}
-                            onChange={(e) => setVehicleForm({...vehicleForm, min_rental_days: parseInt(e.target.value)})}
-                          />
-                        </div>
-                        <div>
-                          <Label>최대 렌탈 기간 (일)</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={vehicleForm.max_rental_days}
-                            onChange={(e) => setVehicleForm({...vehicleForm, max_rental_days: parseInt(e.target.value)})}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 즉시 예약 설정 */}
-                    <div className="md:col-span-2 border-t pt-4">
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={vehicleForm.instant_booking}
-                          onCheckedChange={(checked) => setVehicleForm({...vehicleForm, instant_booking: checked})}
-                        />
-                        <div>
-                          <Label>즉시 예약 가능</Label>
-                          <p className="text-sm text-gray-500">
-                            {vehicleForm.instant_booking
-                              ? '예약 즉시 자동 확정됩니다'
-                              : '예약 후 수동 승인이 필요합니다'}
-                          </p>
-                        </div>
-                      </div>
                     </div>
 
                     {/* 이미지 업로드 */}
@@ -1959,10 +1598,6 @@ export function VendorDashboardPageEnhanced() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>차량명</TableHead>
-                        <TableHead>등급</TableHead>
-                        <TableHead>인승</TableHead>
-                        <TableHead>변속기</TableHead>
-                        <TableHead>연료</TableHead>
                         <TableHead>시간/일일 요금</TableHead>
                         <TableHead>상태</TableHead>
                         <TableHead>관리</TableHead>
@@ -1974,17 +1609,10 @@ export function VendorDashboardPageEnhanced() {
                           <TableCell className="font-medium">
                             {vehicle.display_name}
                           </TableCell>
-                          <TableCell>{vehicle.vehicle_class}</TableCell>
-                          <TableCell>{vehicle.seating_capacity}인승</TableCell>
-                          <TableCell>{vehicle.transmission_type}</TableCell>
-                          <TableCell>{vehicle.fuel_type}</TableCell>
                           <TableCell>
                             <div className="text-sm">
                               <div className="text-gray-600">시간: ₩{vehicle.hourly_rate_krw?.toLocaleString() || 'N/A'}</div>
                               <div className="font-medium">일일: ₩{vehicle.daily_rate_krw.toLocaleString()}</div>
-                              {vehicle.deposit_krw && vehicle.deposit_krw > 0 && (
-                                <div className="text-blue-600 text-xs mt-1">보증금: ₩{vehicle.deposit_krw.toLocaleString()}</div>
-                              )}
                             </div>
                           </TableCell>
                           <TableCell>

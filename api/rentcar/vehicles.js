@@ -54,48 +54,53 @@ module.exports = async function handler(req, res) {
       const {
         vendor_id,
         vehicle_code,
+        display_name,
+        daily_rate_krw,
+        hourly_rate_krw,
+        // 선택적 필드들
         brand,
         model,
         year,
-        display_name,
         vehicle_class,
         fuel_type,
         transmission,
         seating_capacity,
-        door_count,
-        large_bags,
-        small_bags,
         thumbnail_url,
-        images,
-        features,
-        daily_rate_krw
+        images
       } = req.body;
+
+      // 필수 필드 검증
+      if (!vendor_id || !display_name || !daily_rate_krw) {
+        return res.status(400).json({
+          success: false,
+          error: '필수 필드: vendor_id, display_name, daily_rate_krw'
+        });
+      }
+
+      // hourly_rate_krw가 없으면 자동 계산 (daily_rate / 24)
+      const hourlyRate = hourly_rate_krw || Math.ceil(daily_rate_krw / 24);
 
       const result = await connection.execute(`
         INSERT INTO rentcar_vehicles (
-          vendor_id, vehicle_code, brand, model, year, display_name,
-          vehicle_class, fuel_type, transmission,
-          seating_capacity, door_count, large_bags, small_bags,
-          thumbnail_url, images, features, daily_rate_krw
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          vendor_id, vehicle_code, display_name, daily_rate_krw, hourly_rate_krw,
+          brand, model, year, vehicle_class, fuel_type, transmission,
+          seating_capacity, thumbnail_url, images
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         vendor_id,
-        vehicle_code,
-        brand,
-        model,
-        year,
+        vehicle_code || `V${Date.now()}`,
         display_name,
-        vehicle_class,
-        fuel_type,
-        transmission,
-        seating_capacity,
-        door_count || 4,
-        large_bags || 2,
-        small_bags || 2,
+        daily_rate_krw,
+        hourlyRate,
+        brand || null,
+        model || null,
+        year || null,
+        vehicle_class || null,
+        fuel_type || null,
+        transmission || null,
+        seating_capacity || null,
         thumbnail_url || null,
-        JSON.stringify(images || []),
-        JSON.stringify(features || []),
-        daily_rate_krw
+        JSON.stringify(images || [])
       ]);
 
       return res.status(200).json({
