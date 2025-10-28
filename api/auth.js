@@ -164,10 +164,13 @@ module.exports = async function handler(req, res) {
       // 비밀번호 해시화
       const hashedPassword = await bcrypt.hash(password, 10);
 
+      // username 생성 (이메일 @ 앞부분 + timestamp)
+      const username = email.split('@')[0] + '_' + Date.now().toString().substring(8);
+
       // 사용자 생성
       const result = await sql`
-        INSERT INTO users (email, password_hash, name, phone, role, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
-        VALUES (${email}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO users (email, username, password_hash, name, phone, role, created_at, updated_at)
+        VALUES (${email}, ${username}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING id
       `;
 
@@ -236,9 +239,13 @@ module.exports = async function handler(req, res) {
 
       // 새 사용자 생성
       console.log('🆕 [Social Login] Creating new user...');
+
+      // username 생성 (이메일 @ 앞부분 사용)
+      const username = email.split('@')[0] + '_' + providerId.substring(0, 6);
+
       const result = await sql`
-        INSERT INTO users (email, name, provider, provider_id, role, password_hash, created_at, updated_at)
-        VALUES (${email}, ${name}, ${provider}, ${providerId}, 'user', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO users (email, username, name, provider, provider_id, role, password_hash, created_at, updated_at)
+        VALUES (${email}, ${username}, ${name}, ${provider}, ${providerId}, 'user', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING id, email, name, role
       `;
 
