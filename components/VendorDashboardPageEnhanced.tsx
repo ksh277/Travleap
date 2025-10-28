@@ -2327,13 +2327,21 @@ export function VendorDashboardPageEnhanced() {
                             min="0"
                             max="100"
                             value={isEditingInfo ? (editedInfo.cancellation_rules?.['3_days_before'] ?? 100) : (vendorInfo.cancellation_rules?.['3_days_before'] ?? 100)}
-                            onChange={(e) => setEditedInfo({
-                              ...editedInfo,
-                              cancellation_rules: {
-                                ...(editedInfo.cancellation_rules || {}),
-                                '3_days_before': parseInt(e.target.value) || 0
-                              }
-                            })}
+                            onChange={(e) => {
+                              const currentRules = editedInfo.cancellation_rules || vendorInfo?.cancellation_rules || {
+                                '3_days_before': 90,
+                                '1_2_days_before': 80,
+                                'same_day': 0
+                              };
+                              setEditedInfo({
+                                ...editedInfo,
+                                cancellation_rules: {
+                                  '3_days_before': parseInt(e.target.value) || 0,
+                                  '1_2_days_before': currentRules['1_2_days_before'],
+                                  'same_day': currentRules['same_day']
+                                }
+                              });
+                            }}
                             disabled={!isEditingInfo}
                             className="w-24"
                           />
@@ -2341,41 +2349,28 @@ export function VendorDashboardPageEnhanced() {
                         </div>
                       </div>
                       <div>
-                        <Label className="text-sm">48-72시간 전 취소 (2-3일)</Label>
+                        <Label className="text-sm">24-72시간 전 취소 (1-3일)</Label>
                         <div className="flex items-center gap-2">
                           <Input
                             type="number"
                             min="0"
                             max="100"
-                            value={isEditingInfo ? (editedInfo.cancellation_rules?.['2_days_before'] ?? 80) : (vendorInfo.cancellation_rules?.['2_days_before'] ?? 80)}
-                            onChange={(e) => setEditedInfo({
-                              ...editedInfo,
-                              cancellation_rules: {
-                                ...(editedInfo.cancellation_rules || {}),
-                                '2_days_before': parseInt(e.target.value) || 0
-                              }
-                            })}
-                            disabled={!isEditingInfo}
-                            className="w-24"
-                          />
-                          <span className="text-sm text-gray-600">% 환불</span>
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-sm">24-48시간 전 취소 (1-2일)</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={isEditingInfo ? (editedInfo.cancellation_rules?.['1_day_before'] ?? 50) : (vendorInfo.cancellation_rules?.['1_day_before'] ?? 50)}
-                            onChange={(e) => setEditedInfo({
-                              ...editedInfo,
-                              cancellation_rules: {
-                                ...(editedInfo.cancellation_rules || {}),
-                                '1_day_before': parseInt(e.target.value) || 0
-                              }
-                            })}
+                            value={isEditingInfo ? (editedInfo.cancellation_rules?.['1_2_days_before'] ?? 80) : (vendorInfo.cancellation_rules?.['1_2_days_before'] ?? 80)}
+                            onChange={(e) => {
+                              const currentRules = editedInfo.cancellation_rules || vendorInfo?.cancellation_rules || {
+                                '3_days_before': 90,
+                                '1_2_days_before': 80,
+                                'same_day': 0
+                              };
+                              setEditedInfo({
+                                ...editedInfo,
+                                cancellation_rules: {
+                                  '3_days_before': currentRules['3_days_before'],
+                                  '1_2_days_before': parseInt(e.target.value) || 0,
+                                  'same_day': currentRules['same_day']
+                                }
+                              });
+                            }}
                             disabled={!isEditingInfo}
                             className="w-24"
                           />
@@ -2390,13 +2385,21 @@ export function VendorDashboardPageEnhanced() {
                             min="0"
                             max="100"
                             value={isEditingInfo ? (editedInfo.cancellation_rules?.['same_day'] ?? 0) : (vendorInfo.cancellation_rules?.['same_day'] ?? 0)}
-                            onChange={(e) => setEditedInfo({
-                              ...editedInfo,
-                              cancellation_rules: {
-                                ...(editedInfo.cancellation_rules || {}),
-                                'same_day': parseInt(e.target.value) || 0
-                              }
-                            })}
+                            onChange={(e) => {
+                              const currentRules = editedInfo.cancellation_rules || vendorInfo?.cancellation_rules || {
+                                '3_days_before': 90,
+                                '1_2_days_before': 80,
+                                'same_day': 0
+                              };
+                              setEditedInfo({
+                                ...editedInfo,
+                                cancellation_rules: {
+                                  '3_days_before': currentRules['3_days_before'],
+                                  '1_2_days_before': currentRules['1_2_days_before'],
+                                  'same_day': parseInt(e.target.value) || 0
+                                }
+                              });
+                            }}
                             disabled={!isEditingInfo}
                             className="w-24"
                           />

@@ -27,58 +27,47 @@ export default async function handler(req, res) {
     }
 
     if (method === 'PUT') {
-      // 차량 정보 수정
+      // 차량 정보 수정 (단순화: 필수 필드만)
       const {
         display_name,
-        vehicle_class,
-        seating_capacity,
-        transmission_type,
-        fuel_type,
         daily_rate_krw,
-        weekly_rate_krw,
-        monthly_rate_krw,
-        mileage_limit_km,
-        excess_mileage_fee_krw,
+        hourly_rate_krw,
         is_available,
-        image_urls,
-        insurance_included,
-        insurance_options,
-        available_options
+        image_urls
       } = req.body;
+
+      // 필수 필드 검증
+      if (!display_name || !daily_rate_krw) {
+        return res.status(400).json({
+          success: false,
+          message: '필수 항목을 입력해주세요. (차량명, 일일 요금)'
+        });
+      }
 
       // 이미지 배열을 JSON 문자열로 변환
       const imagesJson = JSON.stringify(image_urls || []);
+
+      // 시간당 요금 자동 계산 (입력하지 않은 경우)
+      const calculatedHourlyRate = hourly_rate_krw || Math.ceil(daily_rate_krw / 24);
 
       await connection.execute(
         `UPDATE rentcar_vehicles
         SET
           display_name = ?,
-          brand = ?,
-          model = ?,
-          vehicle_class = ?,
-          fuel_type = ?,
-          transmission = ?,
-          seating_capacity = ?,
+          daily_rate_krw = ?,
+          hourly_rate_krw = ?,
           thumbnail_url = ?,
           images = ?,
-          mileage_limit_per_day = ?,
-          daily_rate_krw = ?,
           is_active = ?,
           updated_at = NOW()
         WHERE id = ? AND vendor_id = ?`,
         [
           display_name,
-          display_name.split(' ')[0] || '기타',
-          display_name.split(' ')[1] || display_name,
-          vehicle_class || '중형',
-          fuel_type || '가솔린',
-          transmission_type || '자동',
-          seating_capacity || 5,
+          daily_rate_krw,
+          calculatedHourlyRate,
           image_urls && image_urls.length > 0 ? image_urls[0] : null,
           imagesJson,
-          mileage_limit_km || 200,
-          daily_rate_krw,
-          is_available ? 1 : 0,
+          is_available !== undefined ? (is_available ? 1 : 0) : 1,
           id,
           userId
         ]
@@ -86,7 +75,13 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        message: '차량 정보가 수정되었습니다.'
+        message: '차량 정보가 수정되었습니다.',
+        data: {
+          id,
+          display_name,
+          daily_rate_krw,
+          hourly_rate_krw: calculatedHourlyRate
+        }
       });
     }
 

@@ -81,29 +81,11 @@ export const RentcarManagement: React.FC = () => {
   const [vehicleCurrentPage, setVehicleCurrentPage] = useState(1);
   const [vehicleItemsPerPage] = useState(10);
   const [vehicleFormData, setVehicleFormData] = useState<RentcarVehicleFormData>({
-    vehicle_code: '',
-    brand: '',
-    model: '',
-    year: new Date().getFullYear(),
     display_name: '',
-    vehicle_class: 'compact',
-    vehicle_type: '',
-    fuel_type: 'gasoline',
-    transmission: 'automatic',
-    seating_capacity: 5,
-    door_count: 4,
-    large_bags: 2,
-    small_bags: 2,
+    daily_rate_krw: 0,
+    hourly_rate_krw: 0,
     thumbnail_url: '',
-    images: [],
-    features: [],
-    age_requirement: 21,
-    license_requirement: '1년 이상',
-    mileage_limit_per_day: 200,
-    unlimited_mileage: false,
-    deposit_amount_krw: 500000,
-    smoking_allowed: false,
-    daily_rate_krw: 0
+    images: []
   });
 
   // State for locations
@@ -366,56 +348,20 @@ export const RentcarManagement: React.FC = () => {
     if (vehicle) {
       setSelectedVehicle(vehicle);
       setVehicleFormData({
-        vehicle_code: vehicle.vehicle_code,
-        brand: vehicle.brand,
-        model: vehicle.model,
-        year: vehicle.year,
         display_name: vehicle.display_name,
-        vehicle_class: vehicle.vehicle_class,
-        vehicle_type: vehicle.vehicle_type,
-        fuel_type: vehicle.fuel_type,
-        transmission: vehicle.transmission,
-        seating_capacity: vehicle.seating_capacity,
-        door_count: vehicle.door_count,
-        large_bags: vehicle.large_bags,
-        small_bags: vehicle.small_bags,
+        daily_rate_krw: vehicle.daily_rate_krw,
+        hourly_rate_krw: vehicle.hourly_rate_krw || Math.ceil(vehicle.daily_rate_krw / 24),
         thumbnail_url: vehicle.thumbnail_url,
-        images: vehicle.images,
-        features: vehicle.features,
-        age_requirement: vehicle.age_requirement,
-        license_requirement: vehicle.license_requirement,
-        mileage_limit_per_day: vehicle.mileage_limit_per_day,
-        unlimited_mileage: vehicle.unlimited_mileage,
-        deposit_amount_krw: vehicle.deposit_amount_krw,
-        smoking_allowed: vehicle.smoking_allowed,
-        daily_rate_krw: vehicle.daily_rate_krw
+        images: vehicle.images || []
       });
     } else {
       setSelectedVehicle(null);
       setVehicleFormData({
-        vehicle_code: '',
-        brand: '',
-        model: '',
-        year: new Date().getFullYear(),
         display_name: '',
-        vehicle_class: 'compact',
-        vehicle_type: '',
-        fuel_type: 'gasoline',
-        transmission: 'automatic',
-        seating_capacity: 5,
-        door_count: 4,
-        large_bags: 2,
-        small_bags: 2,
+        daily_rate_krw: 0,
+        hourly_rate_krw: 0,
         thumbnail_url: '',
-        images: [],
-        features: [],
-        age_requirement: 21,
-        license_requirement: '1년 이상',
-        mileage_limit_per_day: 200,
-        unlimited_mileage: false,
-        deposit_amount_krw: 500000,
-        smoking_allowed: false,
-        daily_rate_krw: 0
+        images: []
       });
     }
     setIsVehicleDialogOpen(true);
@@ -518,30 +464,21 @@ export const RentcarManagement: React.FC = () => {
 
       for (const row of csvPreview) {
         try {
+          const displayName = row['display_name'] || row['차량명'] || '';
+          const dailyRate = parseInt(row['daily_rate_krw'] || row['일일요금']) || 0;
+          const hourlyRate = parseInt(row['hourly_rate_krw'] || row['시간당요금']) || Math.ceil(dailyRate / 24);
+
+          if (!displayName || !dailyRate) {
+            errorCount++;
+            continue;
+          }
+
           const vehicleData: RentcarVehicleFormData = {
-            vehicle_code: row['vehicle_code'] || row['차량코드'] || `AUTO-${Date.now()}`,
-            brand: row['brand'] || row['브랜드'] || '',
-            model: row['model'] || row['모델'] || '',
-            year: parseInt(row['year'] || row['연식']) || new Date().getFullYear(),
-            display_name: row['display_name'] || row['차량명'] || `${row['brand']} ${row['model']}`,
-            vehicle_class: (row['vehicle_class'] || row['차량클래스'] || 'compact') as VehicleClass,
-            vehicle_type: row['vehicle_type'] || row['차량타입'] || '',
-            fuel_type: (row['fuel_type'] || row['연료타입'] || 'gasoline') as FuelType,
-            transmission: (row['transmission'] || row['변속기'] || 'automatic') as TransmissionType,
-            seating_capacity: parseInt(row['seating_capacity'] || row['승차인원']) || 5,
-            door_count: parseInt(row['door_count'] || row['문수']) || 4,
-            large_bags: parseInt(row['large_bags'] || row['대형수하물']) || 2,
-            small_bags: parseInt(row['small_bags'] || row['소형수하물']) || 2,
-            daily_rate_krw: parseInt(row['daily_rate_krw'] || row['일일요금']) || 50000,
-            deposit_amount_krw: parseInt(row['deposit_amount_krw'] || row['보증금']) || 100000,
-            license_requirement: row['license_requirement'] || row['면허조건'] || '',
-            age_requirement: parseInt(row['age_requirement'] || row['최소나이']) || 21,
-            mileage_limit_per_day: parseInt(row['mileage_limit_per_day'] || row['주행제한']) || 200,
-            unlimited_mileage: (row['unlimited_mileage'] || row['무제한주행']) === 'true' || (row['unlimited_mileage'] || row['무제한주행']) === '1',
-            smoking_allowed: (row['smoking_allowed'] || row['흡연허용']) === 'true' || (row['smoking_allowed'] || row['흡연허용']) === '1',
+            display_name: displayName,
+            daily_rate_krw: dailyRate,
+            hourly_rate_krw: hourlyRate,
             thumbnail_url: row['thumbnail_url'] || row['썸네일'] || '',
-            images: row['images'] ? row['images'].split('|').map((s: string) => s.trim()) : [],
-            features: row['features'] || row['특징'] ? (row['features'] || row['특징']).split('|').map((s: string) => s.trim()) : []
+            images: row['images'] ? row['images'].split('|').map((s: string) => s.trim()) : []
           };
 
           const response = await rentcarApi.vehicles.create(vendorFilter, vehicleData);
@@ -567,65 +504,29 @@ export const RentcarManagement: React.FC = () => {
 
   const downloadCsvTemplate = () => {
     const headers = [
-      'vehicle_code', 'brand', 'model', 'year', 'display_name',
-      'vehicle_class', 'vehicle_type', 'fuel_type', 'transmission',
-      'seating_capacity', 'door_count', 'large_bags', 'small_bags',
-      'daily_rate_krw', 'deposit_amount_krw',
-      'license_requirement', 'age_requirement', 'mileage_limit_per_day',
-      'unlimited_mileage', 'smoking_allowed',
-      'thumbnail_url', 'images', 'features'
+      '차량명',
+      '일일요금',
+      '시간당요금'
     ];
 
     const examples = [
-      // 예시 1: 소형 세단
+      // 예시 1
       [
-        'AVANTE2024', '현대', '아반떼', '2024', '현대 아반떼 2024',
-        'compact', '세단', 'gasoline', 'automatic',
-        '5', '4', '2', '2',
-        '50000', '100000',
-        '1종 보통 1년 이상', '21', '200',
-        'false', 'false',
-        'https://example.com/avante.jpg', 'https://img1.jpg|https://img2.jpg', '블루투스|후방카메라|크루즈컨트롤|열선시트'
+        '아반떼 2024',
+        '50000',
+        '3000'
       ],
-      // 예시 2: 중형 SUV
+      // 예시 2
       [
-        'TUCSON2024', '현대', '투싼', '2024', '현대 투싼 하이브리드',
-        'suv', 'SUV', 'hybrid', 'automatic',
-        '5', '4', '3', '2',
-        '80000', '150000',
-        '2종 보통', '23', '250',
-        'false', 'false',
-        'https://example.com/tucson.jpg', '', '사각지대경고|스마트크루즈|파노라마선루프|전동시트'
+        '쏘나타 2024',
+        '70000',
+        '4000'
       ],
-      // 예시 3: 고급 세단
+      // 예시 3
       [
-        'GENESIS2024', '제네시스', 'G80', '2024', '제네시스 G80 3.5',
-        'luxury', '세단', 'gasoline', 'automatic',
-        '5', '4', '3', '2',
-        '150000', '300000',
-        '1종 보통 3년 이상', '26', '',
-        'true', 'false',
-        'https://example.com/g80.jpg', '', '어댑티브크루즈|HUD|마사지시트|Bang&Olufsen|자율주행2단계'
-      ],
-      // 예시 4: 전기차
-      [
-        'IONIQ5', '현대', '아이오닉5', '2024', '현대 아이오닉5 롱레인지',
-        'electric', 'SUV', 'electric', 'automatic',
-        '5', '4', '2', '1',
-        '90000', '200000',
-        '2종 보통', '21', '',
-        'true', 'false',
-        'https://example.com/ioniq5.jpg', '', 'V2L|급속충전|열펌프시스템|원격주차'
-      ],
-      // 예시 5: 승합차
-      [
-        'CARNIVAL2024', '기아', '카니발', '2024', '기아 카니발 11인승',
-        'van', '승합', 'diesel', 'automatic',
-        '11', '4', '4', '3',
-        '120000', '200000',
-        '1종 보통', '26', '300',
-        'false', 'false',
-        'https://example.com/carnival.jpg', '', '듀얼선루프|전좌석통풍|후석모니터|빌트인캠'
+        '그랜저 2024',
+        '100000',
+        '5000'
       ]
     ];
 

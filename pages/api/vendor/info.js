@@ -66,6 +66,8 @@ module.exports = async function handler(req, res) {
           logo_url,
           images,
           cancellation_policy,
+          cancellation_rules,
+          rental_guide,
           status,
           is_verified,
           total_vehicles as vehicle_count
@@ -85,7 +87,12 @@ module.exports = async function handler(req, res) {
         data: {
           ...vendor,
           is_verified: vendor.is_verified === 1,
-          images: vendor.images ? JSON.parse(vendor.images) : []
+          images: vendor.images ? JSON.parse(vendor.images) : [],
+          cancellation_rules: vendor.cancellation_rules ? JSON.parse(vendor.cancellation_rules) : {
+            '3_days_before': 100,
+            '1_2_days_before': 50,
+            'same_day': 0
+          }
         }
       });
     }
@@ -99,6 +106,8 @@ module.exports = async function handler(req, res) {
         contact_phone,
         address,
         cancellation_policy,
+        cancellation_rules,
+        rental_guide,
         description,
         logo_url,
         images
@@ -113,6 +122,8 @@ module.exports = async function handler(req, res) {
           contact_phone = ?,
           address = ?,
           cancellation_policy = ?,
+          cancellation_rules = ?,
+          rental_guide = ?,
           description = ?,
           logo_url = ?,
           images = ?,
@@ -125,6 +136,8 @@ module.exports = async function handler(req, res) {
           contact_phone,
           address,
           cancellation_policy,
+          cancellation_rules ? JSON.stringify(cancellation_rules) : null,
+          rental_guide || null,
           description || null,
           logo_url || null,
           images ? JSON.stringify(images) : null,

@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
       let sql = `
         SELECT
           b.*,
-          v.brand, v.model, v.display_name, v.vehicle_class, v.thumbnail_url,
+          v.display_name, v.thumbnail_url,
           ve.business_name as vendor_business_name, ve.brand_name as vendor_brand_name,
           i.name as insurance_name, i.description as insurance_description,
           i.hourly_rate_krw as insurance_hourly_rate
@@ -48,10 +48,7 @@ module.exports = async function handler(req, res) {
         customer_phone: decryptPhone(row.customer_phone),
         driver_name: row.driver_name ? decrypt(row.driver_name) : null,
         vehicle: {
-          brand: row.brand,
-          model: row.model,
           display_name: row.display_name,
-          vehicle_class: row.vehicle_class,
           thumbnail_url: row.thumbnail_url
         },
         vendor: {

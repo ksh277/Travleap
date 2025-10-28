@@ -101,48 +101,17 @@ export type TransmissionType = 'manual' | 'automatic';
 export interface RentcarVehicle {
   id: number;
   vendor_id: number;
-  vehicle_code: string;
-  brand: string;
-  model: string;
-  year: number;
+  vehicle_code?: string;
+  brand?: string;
+  model?: string;
+  year?: number;
   display_name: string;
-  vehicle_class: VehicleClass;
+  // 단순화: 다음 필드들은 선택적 (NULL 가능)
+  vehicle_class?: VehicleClass;
   vehicle_type?: string;
-  fuel_type: FuelType;
-  transmission: TransmissionType;
-  seating_capacity: number;
-  door_count: number;
-  large_bags: number;
-  small_bags: number;
-  thumbnail_url?: string;
-  images?: string[];
-  features?: string[];
-  age_requirement: number;
-  license_requirement?: string;
-  mileage_limit_per_day: number;
-  unlimited_mileage: boolean;
-  deposit_amount_krw: number;
-  smoking_allowed: boolean;
-  daily_rate_krw: number;
-  is_active: boolean;
-  is_featured: boolean;
-  total_bookings: number;
-  average_rating: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface RentcarVehicleFormData {
-  vehicle_code: string;
-  brand: string;
-  model: string;
-  year: number;
-  display_name: string;
-  vehicle_class: VehicleClass;
-  vehicle_type?: string;
-  fuel_type: FuelType;
-  transmission: TransmissionType;
-  seating_capacity: number;
+  fuel_type?: FuelType;
+  transmission?: TransmissionType;
+  seating_capacity?: number;
   door_count?: number;
   large_bags?: number;
   small_bags?: number;
@@ -155,20 +124,37 @@ export interface RentcarVehicleFormData {
   unlimited_mileage?: boolean;
   deposit_amount_krw?: number;
   smoking_allowed?: boolean;
+  // 필수 필드
   daily_rate_krw: number;
+  hourly_rate_krw?: number;
+  weekly_rate_krw?: number;
+  monthly_rate_krw?: number;
+  is_active: boolean;
+  is_featured?: boolean;
+  total_bookings?: number;
+  average_rating?: number;
+  created_at: string;
+  updated_at: string;
 }
 
-// 차량 검색 필터
+// 단순화된 차량 등록 폼 데이터 - 필수 필드만
+export interface RentcarVehicleFormData {
+  display_name: string;        // 필수: 차량명
+  daily_rate_krw: number;      // 필수: 일일 요금
+  hourly_rate_krw?: number;    // 선택: 시간당 요금 (자동 계산 가능)
+  thumbnail_url?: string;
+  images?: string[];
+  is_active?: boolean;
+}
+
+// 단순화된 차량 검색 필터
 export interface RentcarVehicleFilters {
   vendor_id?: number;
-  vehicle_class?: VehicleClass[];
-  fuel_type?: FuelType[];
-  transmission?: TransmissionType[];
-  seating_capacity?: number;
   min_price?: number;
   max_price?: number;
   is_featured?: boolean;
   is_active?: boolean;
+  search_query?: string;  // 차량명 검색
 }
 
 // ============================================

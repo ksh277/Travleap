@@ -34,32 +34,12 @@ import { useAuth } from '../../hooks/useAuth';
 
 interface Vehicle {
   id: number;
-  vehicle_class: string;
-  brand: string;
-  model: string;
-  year: number;
   display_name: string;
-  transmission: string;
-  fuel_type: string;
-  seating_capacity: number;
-  large_bags: number;
-  small_bags: number;
   daily_rate_krw: number;
   hourly_rate_krw?: number;
   images: string[];
-  features: string[];
   is_active: boolean;
-  is_featured: boolean;
-  average_rating: number;
-  total_bookings: number;
-  stock: number;
   description?: string;
-  insurance_options?: string;
-  available_options?: string;
-  mileage_limit_per_day?: number;
-  excess_mileage_fee_krw?: number;
-  fuel_efficiency?: number;
-  self_insurance_krw?: number;
   // MVP API 추가 필드
   is_available?: boolean;
   pricing?: {
@@ -566,7 +546,7 @@ export function RentcarVendorDetailPage() {
                           {vehicle.images && vehicle.images.length > 0 ? (
                             <img
                               src={vehicle.images[0]}
-                              alt={`${vehicle.display_name || vehicle.model} - ${vehicle.brand} ${vehicle.year}년식`}
+                              alt={vehicle.display_name}
                               className="w-full h-full object-cover"
                               loading="lazy"
                               sizes="(max-width: 768px) 100vw, 50vw"
@@ -581,9 +561,6 @@ export function RentcarVendorDetailPage() {
                             <Car className="h-16 w-16 text-gray-400 mb-2" />
                             <span className="text-sm text-gray-500">이미지 준비 중</span>
                           </div>
-                          {vehicle.is_featured && (
-                            <Badge className="absolute top-2 left-2 bg-blue-500">인기</Badge>
-                          )}
                           {!isAvailable && (
                             <Badge variant="destructive" className="absolute top-2 right-2">예약 불가</Badge>
                           )}
@@ -591,33 +568,13 @@ export function RentcarVendorDetailPage() {
 
                         {/* 차량 정보 */}
                         <div className="p-4">
-                          <div className="mb-2">
+                          <div className="mb-3">
                             <h3 className="font-semibold text-lg mb-1">
-                              {vehicle.display_name || `${vehicle.brand} ${vehicle.model}`}
+                              {vehicle.display_name}
                             </h3>
-                            <p className="text-sm text-gray-600">
-                              {vehicle.year}년식 · {vehicle.vehicle_class}
-                            </p>
-                          </div>
-
-                          {/* 차량 스펙 */}
-                          <div className="grid grid-cols-2 gap-2 mb-3">
-                            <div className="flex items-center gap-1 text-sm text-gray-600">
-                              <Users className="h-4 w-4 flex-shrink-0" />
-                              <span>{vehicle.seating_capacity}인승</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-sm text-gray-600">
-                              <Settings className="h-4 w-4 flex-shrink-0" />
-                              <span>{vehicle.transmission}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-sm text-gray-600">
-                              <Fuel className="h-4 w-4 flex-shrink-0" />
-                              <span>{vehicle.fuel_type}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-sm text-gray-600">
-                              <Car className="h-4 w-4 flex-shrink-0" />
-                              <span>짐 {vehicle.large_bags}/{vehicle.small_bags}</span>
-                            </div>
+                            {vehicle.description && (
+                              <p className="text-sm text-gray-600">{vehicle.description}</p>
+                            )}
                           </div>
 
                           {/* 가격 및 재고 */}
@@ -844,7 +801,7 @@ export function RentcarVendorDetailPage() {
                 <div className="mb-6">
                   <div className="text-sm text-gray-600 mb-1">
                     {selectedVehicle
-                      ? `${selectedVehicle.display_name || selectedVehicle.model} - 1일 기준`
+                      ? `${selectedVehicle.display_name} - 1일 기준`
                       : '1일 기준'}
                   </div>
                   <div className="text-3xl font-bold text-blue-600">
@@ -874,11 +831,11 @@ export function RentcarVendorDetailPage() {
                       <span className="text-sm font-semibold text-blue-900">선택된 차량</span>
                     </div>
                     <p className="text-sm font-medium text-gray-900">
-                      {selectedVehicle.display_name || `${selectedVehicle.brand} ${selectedVehicle.model}`}
+                      {selectedVehicle.display_name}
                     </p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      {selectedVehicle.seating_capacity}인승 · {selectedVehicle.transmission} · {selectedVehicle.fuel_type}
-                    </p>
+                    {selectedVehicle.description && (
+                      <p className="text-xs text-gray-600 mt-1">{selectedVehicle.description}</p>
+                    )}
                   </div>
                 )}
 

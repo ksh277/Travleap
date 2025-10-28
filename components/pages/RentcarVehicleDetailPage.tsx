@@ -39,30 +39,13 @@ interface VehicleDetail {
   vendor_name: string;
   vendor_phone?: string;
   vendor_address?: string;
-  brand: string;
-  model: string;
-  year: number;
   display_name: string;
-  vehicle_class: string;
-  transmission: string;
-  fuel_type: string;
-  seating_capacity: number;
-  door_count: number;
-  large_bags: number;
-  small_bags: number;
   daily_rate_krw: number;
   hourly_rate_krw?: number;
   images: string[];
-  features: string[];
+  thumbnail_url?: string;
   is_active: boolean;
-  is_featured: boolean;
   description?: string;
-  insurance_options?: string;
-  available_options?: string;
-  mileage_limit_per_day?: number;
-  excess_mileage_fee_krw?: number;
-  fuel_efficiency?: number;
-  deposit_amount_krw?: number;
 }
 
 interface Insurance {
@@ -235,9 +218,8 @@ export function RentcarVehicleDetailPage() {
     }
 
     const insuranceFee = calculateInsuranceFee();
-    const depositFee = vehicle.deposit_amount_krw || 0;
 
-    return rentalFee + insuranceFee + depositFee;
+    return rentalFee + insuranceFee;
   };
 
   // 예약 처리 (새 MVP API 사용)
@@ -476,15 +458,7 @@ export function RentcarVehicleDetailPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <h1 className="text-3xl font-bold mb-2">{vehicle.display_name}</h1>
-                    <p className="text-gray-600 mb-2">
-                      {vehicle.brand} {vehicle.model} · {vehicle.year}년식
-                    </p>
-                    <div className="flex gap-2">
-                      {vehicle.is_featured && (
-                        <Badge className="bg-blue-500">인기</Badge>
-                      )}
-                      <Badge variant="outline">{vehicle.vehicle_class}</Badge>
-                    </div>
+                    <p className="text-gray-600 mb-2">{vehicle.vendor_name}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -505,94 +479,24 @@ export function RentcarVehicleDetailPage() {
                   <p className="text-gray-700 mb-4">{vehicle.description}</p>
                 )}
 
-                {/* 차량 스펙 */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-gray-600" />
+                {/* 요금 정보 */}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500">승차 인원</p>
-                      <p className="font-semibold">{vehicle.seating_capacity}인승</p>
+                      <p className="text-sm text-gray-600">일일 요금</p>
+                      <p className="text-2xl font-bold text-blue-600">₩{vehicle.daily_rate_krw.toLocaleString()}</p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Settings className="h-5 w-5 text-gray-600" />
-                    <div>
-                      <p className="text-xs text-gray-500">변속기</p>
-                      <p className="font-semibold">{vehicle.transmission}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Fuel className="h-5 w-5 text-gray-600" />
-                    <div>
-                      <p className="text-xs text-gray-500">연료</p>
-                      <p className="font-semibold">{vehicle.fuel_type}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Car className="h-5 w-5 text-gray-600" />
-                    <div>
-                      <p className="text-xs text-gray-500">짐 공간</p>
-                      <p className="font-semibold">{vehicle.large_bags}대 / {vehicle.small_bags}소</p>
-                    </div>
+                    {vehicle.hourly_rate_krw && (
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">시간당 요금</p>
+                        <p className="text-xl font-semibold text-gray-700">₩{vehicle.hourly_rate_krw.toLocaleString()}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* 포함 옵션 */}
-            {vehicle.features && vehicle.features.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>포함 옵션</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {vehicle.features.map((feature, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="text-sm">{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 대여 조건 */}
-            <Card>
-              <CardHeader>
-                <CardTitle>대여 조건</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                {/* 주행거리 제한 - 0이 아닐 때만 표시 */}
-                {vehicle.mileage_limit_per_day && vehicle.mileage_limit_per_day > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">주행거리 제한</span>
-                    <span className="font-medium">
-                      1일 {vehicle.mileage_limit_per_day}km
-                    </span>
-                  </div>
-                )}
-                {vehicle.excess_mileage_fee_krw && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">초과 요금</span>
-                    <span className="font-medium">km당 ₩{vehicle.excess_mileage_fee_krw.toLocaleString()}</span>
-                  </div>
-                )}
-                {vehicle.deposit_amount_krw && vehicle.deposit_amount_krw > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">보증금</span>
-                    <span className="font-medium">₩{vehicle.deposit_amount_krw.toLocaleString()}</span>
-                  </div>
-                )}
-                {vehicle.fuel_efficiency && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">연비</span>
-                    <span className="font-medium">{vehicle.fuel_efficiency}km/L</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
             {/* 업체 정보 */}
             <Card>
@@ -906,7 +810,7 @@ export function RentcarVehicleDetailPage() {
                               )}
                             </span>
                             <span className="font-medium">
-                              ₩{(calculateTotalPrice() - calculateInsuranceFee() - (vehicle.deposit_amount_krw || 0)).toLocaleString()}
+                              ₩{(calculateTotalPrice() - calculateInsuranceFee()).toLocaleString()}
                             </span>
                           </div>
                           {calculateInsuranceFee() > 0 && (
@@ -914,14 +818,6 @@ export function RentcarVehicleDetailPage() {
                               <span className="text-gray-600">보험료</span>
                               <span className="font-medium text-green-600">
                                 +₩{calculateInsuranceFee().toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                          {vehicle.deposit_amount_krw && vehicle.deposit_amount_krw > 0 && (
-                            <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">보증금</span>
-                              <span className="font-medium text-orange-600">
-                                +₩{vehicle.deposit_amount_krw.toLocaleString()}
                               </span>
                             </div>
                           )}

@@ -77,7 +77,6 @@ module.exports = async function handler(req, res) {
       return_at,
       location_id,
       driver_age,
-      vehicle_class,
       vendor_id
     } = req.query;
 
@@ -109,38 +108,17 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 4. 차량 목록 조회 (기본 정보 + 요금제)
+    // 4. 차량 목록 조회 (단순화: 필수 정보만)
     let vehicleQuery = `
       SELECT
         v.id,
         v.vendor_id,
-        v.vehicle_code,
-        v.brand,
-        v.model,
-        v.year,
         v.display_name,
-        v.vehicle_class,
-        v.fuel_type,
-        v.transmission,
-        v.seating_capacity,
-        v.door_count,
         v.thumbnail_url,
         v.images,
-        v.age_requirement,
-        v.deposit_amount_krw,
-        v.mileage_limit_per_day,
-        v.unlimited_mileage,
-        rp.id as rate_plan_id,
-        rp.rate_code,
-        rp.name as rate_plan_name,
-        rp.daily_rate_krw,
-        rp.hourly_rate_krw,
-        rp.weekend_markup_pct,
-        rp.holiday_markup_pct,
-        rp.one_way_fee_krw,
-        rp.cancellation_policy_json
+        v.daily_rate_krw,
+        v.hourly_rate_krw
       FROM rentcar_vehicles v
-      LEFT JOIN rentcar_rate_plans rp ON rp.vehicle_id = v.id AND rp.is_active = 1
       WHERE v.is_active = 1
     `;
 
@@ -151,12 +129,7 @@ module.exports = async function handler(req, res) {
       queryParams.push(vendor_id);
     }
 
-    if (vehicle_class) {
-      vehicleQuery += ' AND v.vehicle_class = ?';
-      queryParams.push(vehicle_class);
-    }
-
-    vehicleQuery += ' ORDER BY v.display_order ASC, rp.priority DESC';
+    vehicleQuery += ' ORDER BY v.created_at DESC';
 
     const vehicles = await db.query(vehicleQuery, queryParams);
 
@@ -228,40 +201,17 @@ module.exports = async function handler(req, res) {
         hourly_rate_krw: vehicle.hourly_rate_krw
       });
 
-      // 5-6. 가용 차량으로 추가
+      // 5-6. 가용 차량으로 추가 (단순화)
       availableVehicles.push({
         vehicle_id: vehicle.id,
         vendor_id: vehicle.vendor_id,
-        vehicle_code: vehicle.vehicle_code,
-        brand: vehicle.brand,
-        model: vehicle.model,
-        year: vehicle.year,
         display_name: vehicle.display_name,
-        vehicle_class: vehicle.vehicle_class,
-        fuel_type: vehicle.fuel_type,
-        transmission: vehicle.transmission,
-        seating_capacity: vehicle.seating_capacity,
-        door_count: vehicle.door_count,
         thumbnail_url: vehicle.thumbnail_url,
-        images: vehicle.images,
-        specs: {
-          age_requirement: vehicle.age_requirement,
-          mileage_limit_per_day: vehicle.mileage_limit_per_day,
-          unlimited_mileage: vehicle.unlimited_mileage
-        },
-        rate_plan: {
-          id: vehicle.rate_plan_id,
-          code: vehicle.rate_code,
-          name: vehicle.rate_plan_name,
-          daily_rate: vehicle.daily_rate_krw,
-          hourly_rate: vehicle.hourly_rate_krw,
-          weekend_markup_pct: vehicle.weekend_markup_pct,
-          one_way_fee: vehicle.one_way_fee_krw
-        },
+        images: vehicle.images ? JSON.parse(vehicle.images) : [],
+        daily_rate_krw: vehicle.daily_rate_krw,
+        hourly_rate_krw: vehicle.hourly_rate_krw,
         pricing: {
-          ...pricing,
-          deposit_amount: vehicle.deposit_amount_krw || 0,
-          total_before_insurance: pricing.base_amount + (vehicle.deposit_amount_krw || 0)
+          ...pricing
         },
         availability: {
           pickup_at,
@@ -281,8 +231,7 @@ module.exports = async function handler(req, res) {
           pickup_at,
           return_at,
           location_id: parseInt(location_id),
-          driver_age: driver_age ? parseInt(driver_age) : null,
-          vehicle_class: vehicle_class || null
+          driver_age: driver_age ? parseInt(driver_age) : null
         },
         available_vehicles: availableVehicles,
         total_count: availableVehicles.length

@@ -68,10 +68,7 @@ module.exports = async function handler(req, res) {
         r.late_return_hours,
         r.late_return_fee_krw,
         r.total_additional_fee_krw,
-        v.brand,
-        v.model,
         v.display_name,
-        v.vehicle_class,
         v.thumbnail_url,
         vn.business_name as vendor_business_name,
         vn.brand_name as vendor_brand_name,
@@ -181,10 +178,7 @@ module.exports = async function handler(req, res) {
         payment_status: rental.payment_status,
         vehicle: {
           id: rental.vehicle_id,
-          brand: rental.brand,
-          model: rental.model,
           display_name: rental.display_name,
-          vehicle_class: rental.vehicle_class,
           image: rental.thumbnail_url
         },
         vendor: {
