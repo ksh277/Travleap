@@ -1177,8 +1177,7 @@ function setupRoutes() {
           COUNT(rv.id) as vehicle_count,
           MIN(rv.daily_rate_krw) as min_price,
           MAX(rv.daily_rate_krw) as max_price,
-          MIN(rv.images) as sample_images,
-          GROUP_CONCAT(DISTINCT rv.vehicle_class SEPARATOR ', ') as vehicle_classes
+          MIN(rv.images) as sample_images
         FROM rentcar_vendors v
         LEFT JOIN rentcar_vehicles rv ON v.id = rv.vendor_id AND rv.is_active = 1
         WHERE v.status = 'active'
@@ -1208,8 +1207,7 @@ function setupRoutes() {
           vehicle_count: vendor.vehicle_count,
           min_price: vendor.min_price,
           max_price: vendor.max_price,
-          images: images,
-          vehicle_classes: vendor.vehicle_classes,
+          images: images
         };
       });
 
@@ -4775,9 +4773,40 @@ function setupRoutes() {
         return res.status(404).json({ success: false, message: '업체 정보를 찾을 수 없습니다.' });
       }
 
+      const vendor = vendors[0];
+
+      // JSON 필드 파싱
+      let images = [];
+      try {
+        if (vendor.images) {
+          images = typeof vendor.images === 'string' ? JSON.parse(vendor.images) : vendor.images;
+        }
+      } catch (e) {
+        console.error('Failed to parse vendor images:', e);
+      }
+
+      let cancellation_rules = null;
+      try {
+        if (vendor.cancellation_rules) {
+          cancellation_rules = typeof vendor.cancellation_rules === 'string'
+            ? JSON.parse(vendor.cancellation_rules)
+            : vendor.cancellation_rules;
+        }
+      } catch (e) {
+        console.error('Failed to parse cancellation_rules:', e);
+      }
+
       res.json({
         success: true,
-        data: vendors[0]
+        data: {
+          ...vendor,
+          images: Array.isArray(images) ? images : [],
+          cancellation_rules: cancellation_rules || {
+            '3_days_before': 100,
+            '1_2_days_before': 50,
+            'same_day': 0
+          }
+        }
       });
     } catch (error) {
       console.error('❌ [API] Get vendor info error:', error);
@@ -4910,31 +4939,73 @@ function setupRoutes() {
 
       console.log('✅ [API] Vendor info updated:', { vendorId, fields: updateFields });
 
-      // users 테이블 업데이트 (이메일 또는 비밀번호 변경 시)
-      const userUpdateFields: string[] = [];
-      const userUpdateValues: any[] = [];
+      // users 테이블 업데이트 (이메일 또는 비밀번호 변경 시) - Neon DB 사용
+      if ((email !== undefined && email) || (password !== undefined && password)) {
+        try {
+          const { neon } = await import('@neondatabase/serverless');
+          const sql = neon(process.env.POSTGRES_DATABASE_URL!);
 
-      if (email !== undefined && email) {
-        userUpdateFields.push('email = ?');
-        userUpdateValues.push(email);
-      }
+          // 현재 사용자 정보 조회
+          const userResult = await sql`
+            SELECT id, email FROM users WHERE id = ${userId}
+          `;
 
-      if (password !== undefined && password) {
-        // 비밀번호 해시화
-        const bcrypt = await import('bcryptjs');
-        const hashedPassword = await bcrypt.hash(password, 10);
-        userUpdateFields.push('password = ?');
-        userUpdateValues.push(hashedPassword);
-      }
+          if (userResult && userResult.length > 0) {
+            const currentUser = userResult[0];
 
-      if (userUpdateFields.length > 0) {
-        userUpdateValues.push(userId);
-        await db.execute(`
-          UPDATE users
-          SET ${userUpdateFields.join(', ')}
-          WHERE id = ?
-        `, userUpdateValues);
-        console.log('✅ [API] User account updated:', { userId, fields: userUpdateFields });
+            // 이메일 변경 시 중복 체크
+            if (email && email !== currentUser.email) {
+              const emailCheck = await sql`
+                SELECT id FROM users WHERE email = ${email} AND id != ${userId}
+              `;
+
+              if (emailCheck && emailCheck.length > 0) {
+                return res.status(400).json({
+                  success: false,
+                  message: '이미 사용 중인 이메일입니다.'
+                });
+              }
+            }
+
+            // 비밀번호 해시화
+            let hashedPassword: string | null = null;
+            if (password) {
+              const bcrypt = await import('bcryptjs');
+              hashedPassword = await bcrypt.hash(password, 10);
+            }
+
+            // Neon DB 업데이트
+            if (email && email !== currentUser.email && hashedPassword) {
+              // 이메일 + 비밀번호 변경
+              await sql`
+                UPDATE users
+                SET email = ${email}, password_hash = ${hashedPassword}, updated_at = NOW()
+                WHERE id = ${userId}
+              `;
+              console.log('✅ [API] User email + password updated (Neon)');
+            } else if (email && email !== currentUser.email) {
+              // 이메일만 변경
+              await sql`
+                UPDATE users
+                SET email = ${email}, updated_at = NOW()
+                WHERE id = ${userId}
+              `;
+              console.log('✅ [API] User email updated (Neon)');
+            } else if (hashedPassword) {
+              // 비밀번호만 변경
+              await sql`
+                UPDATE users
+                SET password_hash = ${hashedPassword}, updated_at = NOW()
+                WHERE id = ${userId}
+              `;
+              console.log('✅ [API] User password updated (Neon)');
+            }
+          }
+        } catch (neonError) {
+          console.error('❌ [API] Neon DB update error:', neonError);
+          // Neon 오류가 발생해도 업체 정보는 업데이트되었으므로 경고만 표시
+          console.warn('⚠️  업체 정보는 업데이트되었으나 계정 정보 업데이트 실패');
+        }
       }
 
       res.json({
@@ -5004,26 +5075,22 @@ function setupRoutes() {
 
       const {
         display_name,
-        vehicle_class,
-        seating_capacity,
-        transmission_type,
-        fuel_type,
         daily_rate_krw,
-        weekly_rate_krw,
-        monthly_rate_krw,
-        mileage_limit_km,
-        excess_mileage_fee_krw,
+        hourly_rate_krw,
         is_available,
-        image_urls,
-        insurance_included,
-        insurance_options,
-        available_options,
-        pickup_location,
-        dropoff_location,
-        min_rental_days,
-        max_rental_days,
-        instant_booking
+        image_urls
       } = req.body;
+
+      // 필수 필드 검증
+      if (!display_name || !daily_rate_krw) {
+        return res.status(400).json({
+          success: false,
+          message: '필수 항목을 입력해주세요. (차량명, 일일 요금)'
+        });
+      }
+
+      // 시간당 요금 자동 계산 (입력하지 않은 경우 일일 요금 / 24)
+      const calculatedHourlyRate = hourly_rate_krw || Math.ceil(daily_rate_krw / 24);
 
       const imagesJson = JSON.stringify(image_urls && image_urls.length > 0
         ? image_urls
@@ -5036,35 +5103,17 @@ function setupRoutes() {
       // rentcar_vehicles 테이블에 삽입
       await db.execute(`
         INSERT INTO rentcar_vehicles (
-          vendor_id, display_name, vehicle_class, seating_capacity,
-          transmission_type, fuel_type, daily_rate_krw, weekly_rate_krw,
-          monthly_rate_krw, mileage_limit_km, excess_mileage_fee_krw,
-          is_available, images, insurance_included, insurance_options,
-          available_options, pickup_location, dropoff_location, min_rental_days,
-          max_rental_days, instant_booking, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          vendor_id, display_name, daily_rate_krw, hourly_rate_krw,
+          thumbnail_url, images, is_active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         vendorId,
         display_name,
-        vehicle_class,
-        seating_capacity,
-        transmission_type,
-        fuel_type,
         daily_rate_krw,
-        weekly_rate_krw,
-        monthly_rate_krw,
-        mileage_limit_km,
-        excess_mileage_fee_krw,
-        is_available ? 1 : 0,
+        calculatedHourlyRate,
+        image_urls && image_urls.length > 0 ? image_urls[0] : null,
         imagesJson,
-        insurance_included ? 1 : 0,
-        insurance_options || '',
-        available_options || '',
-        pickup_location || '',
-        dropoff_location || '',
-        min_rental_days || 1,
-        max_rental_days || 30,
-        instant_booking ? 1 : 0
+        is_available !== undefined ? (is_available ? 1 : 0) : 1
       ]);
 
       // listings 테이블에도 삽입
@@ -5081,13 +5130,13 @@ function setupRoutes() {
         vendorId,
         categoryId,
         display_name,
-        `${vehicle_class} / ${transmission_type} / ${fuel_type} / ${seating_capacity}인승`,
-        `### 차량 정보\n- 차종: ${vehicle_class}\n- 변속기: ${transmission_type}\n- 연료: ${fuel_type}\n- 정원: ${seating_capacity}명\n- 주행거리 제한: ${mileage_limit_km}km/일\n\n### 요금 정보\n- 1일: ₩${daily_rate_krw?.toLocaleString()}\n- 주간: ₩${weekly_rate_krw?.toLocaleString()}\n- 월간: ₩${monthly_rate_krw?.toLocaleString()}\n- 초과 주행료: ₩${excess_mileage_fee_krw}/km\n\n### 보험 정보\n- 보험 포함: ${insurance_included ? '포함' : '별도'}\n- 보험 옵션: ${insurance_options}\n\n### 차량 옵션\n${available_options}`,
+        `렌트카 - 일일 ₩${daily_rate_krw?.toLocaleString()} / 시간당 ₩${calculatedHourlyRate?.toLocaleString()}`,
+        `### 차량 정보\n- 차량명: ${display_name}\n\n### 요금 정보\n- 일일: ₩${daily_rate_krw?.toLocaleString()}\n- 시간당: ₩${calculatedHourlyRate?.toLocaleString()}`,
         daily_rate_krw,
-        monthly_rate_krw,
+        daily_rate_krw,
         '신안군, 전라남도',
         '1일~',
-        seating_capacity,
+        4,
         imagesJson
       ]);
 
@@ -5123,26 +5172,22 @@ function setupRoutes() {
 
       const {
         display_name,
-        vehicle_class,
-        seating_capacity,
-        transmission_type,
-        fuel_type,
         daily_rate_krw,
-        weekly_rate_krw,
-        monthly_rate_krw,
-        mileage_limit_km,
-        excess_mileage_fee_krw,
+        hourly_rate_krw,
         is_available,
-        image_urls,
-        insurance_included,
-        insurance_options,
-        available_options,
-        pickup_location,
-        dropoff_location,
-        min_rental_days,
-        max_rental_days,
-        instant_booking
+        image_urls
       } = req.body;
+
+      // 필수 필드 검증
+      if (!display_name || !daily_rate_krw) {
+        return res.status(400).json({
+          success: false,
+          message: '필수 항목을 입력해주세요. (차량명, 일일 요금)'
+        });
+      }
+
+      // 시간당 요금 자동 계산 (입력하지 않은 경우 일일 요금 / 24)
+      const calculatedHourlyRate = hourly_rate_krw || Math.ceil(daily_rate_krw / 24);
 
       const imagesJson = JSON.stringify(image_urls && image_urls.length > 0
         ? image_urls
@@ -5155,36 +5200,17 @@ function setupRoutes() {
       // rentcar_vehicles 업데이트
       await db.execute(`
         UPDATE rentcar_vehicles
-        SET display_name = ?, vehicle_class = ?, seating_capacity = ?,
-            transmission_type = ?, fuel_type = ?, daily_rate_krw = ?,
-            weekly_rate_krw = ?, monthly_rate_krw = ?, mileage_limit_km = ?,
-            excess_mileage_fee_krw = ?, is_available = ?, images = ?,
-            insurance_included = ?, insurance_options = ?, available_options = ?,
-            pickup_location = ?, dropoff_location = ?, min_rental_days = ?,
-            max_rental_days = ?, instant_booking = ?,
+        SET display_name = ?, daily_rate_krw = ?, hourly_rate_krw = ?,
+            thumbnail_url = ?, images = ?, is_active = ?,
             updated_at = NOW()
         WHERE id = ? AND vendor_id = ?
       `, [
         display_name,
-        vehicle_class,
-        seating_capacity,
-        transmission_type,
-        fuel_type,
         daily_rate_krw,
-        weekly_rate_krw,
-        monthly_rate_krw,
-        mileage_limit_km,
-        excess_mileage_fee_krw,
-        is_available ? 1 : 0,
+        calculatedHourlyRate,
+        image_urls && image_urls.length > 0 ? image_urls[0] : null,
         imagesJson,
-        insurance_included ? 1 : 0,
-        insurance_options || '',
-        available_options || '',
-        pickup_location || '',
-        dropoff_location || '',
-        min_rental_days || 1,
-        max_rental_days || 30,
-        instant_booking ? 1 : 0,
+        is_available !== undefined ? (is_available ? 1 : 0) : 1,
         vehicleId,
         vendorId
       ]);
@@ -5208,13 +5234,13 @@ function setupRoutes() {
           AND title = (SELECT display_name FROM rentcar_vehicles WHERE id = ?)
       `, [
         display_name,
-        `${vehicle_class} / ${transmission_type} / ${fuel_type} / ${seating_capacity}인승`,
-        `### 차량 정보\n- 차종: ${vehicle_class}\n- 변속기: ${transmission_type}\n- 연료: ${fuel_type}\n- 정원: ${seating_capacity}명\n- 주행거리 제한: ${mileage_limit_km}km/일\n\n### 요금 정보\n- 1일: ₩${daily_rate_krw?.toLocaleString()}\n- 주간: ₩${weekly_rate_krw?.toLocaleString()}\n- 월간: ₩${monthly_rate_krw?.toLocaleString()}\n- 초과 주행료: ₩${excess_mileage_fee_krw}/km\n\n### 보험 정보\n- 보험 포함: ${insurance_included ? '포함' : '별도'}\n- 보험 옵션: ${insurance_options}\n\n### 차량 옵션\n${available_options}`,
+        `렌트카 - 일일 ₩${daily_rate_krw?.toLocaleString()} / 시간당 ₩${calculatedHourlyRate?.toLocaleString()}`,
+        `### 차량 정보\n- 차량명: ${display_name}\n\n### 요금 정보\n- 일일: ₩${daily_rate_krw?.toLocaleString()}\n- 시간당: ₩${calculatedHourlyRate?.toLocaleString()}`,
         daily_rate_krw,
-        monthly_rate_krw,
-        seating_capacity,
+        daily_rate_krw,
+        4,
         imagesJson,
-        is_available ? 1 : 0,
+        is_available !== undefined ? (is_available ? 1 : 0) : 1,
         vendorId,
         categoryId,
         vehicleId
@@ -5917,43 +5943,30 @@ function setupRoutes() {
       const vendorId = parseInt(req.params.vendorId);
       const vehicleData = req.body;
 
+      // 필수 필드 검증
+      if (!vehicleData.display_name || !vehicleData.daily_rate_krw) {
+        return res.status(400).json({
+          success: false,
+          message: '필수 항목을 입력해주세요. (차량명, 일일 요금)'
+        });
+      }
+
+      // 시간당 요금 자동 계산 (입력하지 않은 경우 일일 요금 / 24)
+      const calculatedHourlyRate = vehicleData.hourly_rate_krw || Math.ceil(vehicleData.daily_rate_krw / 24);
+
       const result = await db.execute(`
         INSERT INTO rentcar_vehicles (
-          vendor_id, vehicle_code, brand, model, year, display_name,
-          vehicle_class, vehicle_type, fuel_type, transmission,
-          seating_capacity, door_count, large_bags, small_bags,
-          daily_rate_krw, deposit_amount_krw,
-          thumbnail_url, images, features,
-          age_requirement, license_requirement, mileage_limit_per_day,
-          unlimited_mileage, smoking_allowed, is_active,
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          vendor_id, display_name, daily_rate_krw, hourly_rate_krw,
+          thumbnail_url, images, is_active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         vendorId,
-        vehicleData.vehicle_code,
-        vehicleData.brand,
-        vehicleData.model,
-        vehicleData.year,
         vehicleData.display_name,
-        vehicleData.vehicle_class,
-        vehicleData.vehicle_type || '',
-        vehicleData.fuel_type,
-        vehicleData.transmission,
-        vehicleData.seating_capacity,
-        vehicleData.door_count,
-        vehicleData.large_bags || 2,
-        vehicleData.small_bags || 2,
         vehicleData.daily_rate_krw,
-        vehicleData.deposit_amount_krw,
-        vehicleData.thumbnail_url || '',
+        calculatedHourlyRate,
+        vehicleData.thumbnail_url || null,
         JSON.stringify(vehicleData.images || []),
-        JSON.stringify(vehicleData.features || []),
-        vehicleData.age_requirement || 21,
-        vehicleData.license_requirement || '1년 이상',
-        vehicleData.mileage_limit_per_day || 200,
-        vehicleData.unlimited_mileage ? 1 : 0,
-        vehicleData.smoking_allowed ? 1 : 0,
-        1
+        vehicleData.is_active !== undefined ? (vehicleData.is_active ? 1 : 0) : 1
       ]);
 
       // 업체의 total_vehicles 업데이트
@@ -6151,95 +6164,61 @@ function setupRoutes() {
 
       for (const vehicleData of result.vehicles) {
         try {
-          // 중복 확인 (vehicle_code로)
+          // 중복 확인 (display_name으로)
           const existing = await db.query(`
             SELECT id FROM rentcar_vehicles
-            WHERE vendor_id = ? AND vehicle_code = ?
-          `, [vendorId, vehicleData.vehicle_code]);
+            WHERE vendor_id = ? AND display_name = ?
+          `, [vendorId, vehicleData.display_name]);
+
+          // 시간당 요금 자동 계산 (입력하지 않은 경우 일일 요금 / 24)
+          const calculatedHourlyRate = vehicleData.hourly_rate_krw || Math.ceil(vehicleData.daily_rate_krw / 24);
 
           if (existing && existing.length > 0) {
             // 업데이트
             await db.execute(`
               UPDATE rentcar_vehicles SET
-                brand = ?,
-                model = ?,
-                year = ?,
                 display_name = ?,
-                vehicle_class = ?,
-                fuel_type = ?,
-                transmission = ?,
-                seating_capacity = ?,
-                door_count = ?,
                 daily_rate_krw = ?,
-                deposit_amount_krw = ?,
+                hourly_rate_krw = ?,
                 thumbnail_url = ?,
                 images = ?,
-                features = ?,
+                is_active = ?,
                 updated_at = NOW()
-              WHERE vendor_id = ? AND vehicle_code = ?
+              WHERE vendor_id = ? AND display_name = ?
             `, [
-              vehicleData.brand,
-              vehicleData.model,
-              vehicleData.year,
               vehicleData.display_name,
-              vehicleData.vehicle_class,
-              vehicleData.fuel_type,
-              vehicleData.transmission,
-              vehicleData.seating_capacity,
-              vehicleData.door_count,
               vehicleData.daily_rate_krw,
-              vehicleData.deposit_amount_krw,
-              vehicleData.thumbnail_url || '',
+              calculatedHourlyRate,
+              vehicleData.thumbnail_url || null,
               JSON.stringify(vehicleData.images || []),
-              JSON.stringify(vehicleData.features || []),
+              vehicleData.is_active !== undefined ? (vehicleData.is_active ? 1 : 0) : 1,
               vendorId,
-              vehicleData.vehicle_code
+              vehicleData.display_name
             ]);
           } else {
             // 새로 추가
             await db.execute(`
               INSERT INTO rentcar_vehicles (
-                vendor_id, vehicle_code, brand, model, year, display_name,
-                vehicle_class, vehicle_type, fuel_type, transmission,
-                seating_capacity, door_count, large_bags, small_bags,
-                daily_rate_krw, deposit_amount_krw, thumbnail_url, images, features,
-                age_requirement, license_requirement, mileage_limit_per_day,
-                unlimited_mileage, smoking_allowed, is_active, created_at, updated_at
+                vendor_id, display_name, daily_rate_krw, hourly_rate_krw,
+                thumbnail_url, images, is_active, created_at, updated_at
               ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW()
+                ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
               )
             `, [
               vendorId,
-              vehicleData.vehicle_code,
-              vehicleData.brand,
-              vehicleData.model,
-              vehicleData.year,
               vehicleData.display_name,
-              vehicleData.vehicle_class,
-              vehicleData.vehicle_type || '',
-              vehicleData.fuel_type,
-              vehicleData.transmission,
-              vehicleData.seating_capacity,
-              vehicleData.door_count,
-              vehicleData.large_bags || 2,
-              vehicleData.small_bags || 2,
               vehicleData.daily_rate_krw,
-              vehicleData.deposit_amount_krw,
-              vehicleData.thumbnail_url || '',
+              calculatedHourlyRate,
+              vehicleData.thumbnail_url || null,
               JSON.stringify(vehicleData.images || []),
-              JSON.stringify(vehicleData.features || []),
-              vehicleData.age_requirement || 21,
-              vehicleData.license_requirement || '1년 이상',
-              vehicleData.mileage_limit_per_day || 200,
-              vehicleData.unlimited_mileage ? 1 : 0,
-              vehicleData.smoking_allowed ? 1 : 0
+              vehicleData.is_active !== undefined ? (vehicleData.is_active ? 1 : 0) : 1
             ]);
           }
 
           successCount++;
         } catch (error) {
           errorCount++;
-          errors.push(`${vehicleData.vehicle_code}: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+          errors.push(`${vehicleData.display_name}: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
         }
       }
 
@@ -8380,39 +8359,12 @@ function setupRoutes() {
         `SELECT
           v.id,
           v.vendor_id,
-          v.vehicle_code,
-          v.brand,
-          v.model,
-          v.year,
           v.display_name,
-          v.vehicle_class,
-          v.vehicle_type,
-          v.fuel_type,
-          v.transmission,
-          v.seating_capacity,
-          v.door_count,
-          v.large_bags,
-          v.small_bags,
-          v.thumbnail_url,
-          v.images,
-          v.features,
-          v.age_requirement,
-          v.license_requirement,
-          v.mileage_limit_per_day,
-          v.unlimited_mileage,
-          v.deposit_amount_krw,
-          v.smoking_allowed,
           v.daily_rate_krw,
           v.hourly_rate_krw,
-          v.excess_mileage_fee_krw,
-          v.fuel_efficiency,
-          v.self_insurance_krw,
-          v.insurance_options,
-          v.available_options,
+          v.thumbnail_url,
+          v.images,
           v.is_active,
-          v.is_featured,
-          v.total_bookings,
-          v.average_rating,
           v.created_at,
           v.updated_at,
           vendor.business_name as vendor_name,
@@ -8439,11 +8391,7 @@ function setupRoutes() {
       const vehicleData = {
         ...vehicle,
         images: vehicle.images ? (typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images) : [],
-        features: vehicle.features ? (typeof vehicle.features === 'string' ? JSON.parse(vehicle.features) : vehicle.features) : [],
-        is_active: vehicle.is_active === 1,
-        is_featured: vehicle.is_featured === 1,
-        unlimited_mileage: vehicle.unlimited_mileage === 1,
-        smoking_allowed: vehicle.smoking_allowed === 1
+        is_active: vehicle.is_active === 1
       };
 
       res.json({
