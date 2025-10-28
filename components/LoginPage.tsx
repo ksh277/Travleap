@@ -109,10 +109,12 @@ export function LoginPage() {
 
       if (result.success && result.data) {
         toast.success('Google 로그인 성공!');
-        localStorage.setItem('token', result.data.token);
-        localStorage.setItem('user', JSON.stringify(result.data.user));
-        navigate('/', { replace: true });
-        window.location.reload();
+        // useAuth가 사용하는 키 이름으로 저장
+        localStorage.setItem('auth_token', result.data.token);
+        localStorage.setItem('user_info', JSON.stringify(result.data.user));
+
+        // 페이지 새로고침으로 세션 복원
+        window.location.href = '/';
       } else {
         toast.error(result.error || 'Google 로그인에 실패했습니다.');
       }
@@ -145,10 +147,12 @@ export function LoginPage() {
 
       if (result.success && result.data) {
         toast.success('카카오 로그인 성공!');
-        localStorage.setItem('token', result.data.token);
-        localStorage.setItem('user', JSON.stringify(result.data.user));
-        navigate('/', { replace: true });
-        window.location.reload();
+        // useAuth가 사용하는 키 이름으로 저장
+        localStorage.setItem('auth_token', result.data.token);
+        localStorage.setItem('user_info', JSON.stringify(result.data.user));
+
+        // 페이지 새로고침으로 세션 복원
+        window.location.href = '/';
       } else {
         toast.error(result.error || '카카오 로그인에 실패했습니다.');
       }
@@ -181,10 +185,12 @@ export function LoginPage() {
 
       if (result.success && result.data) {
         toast.success('네이버 로그인 성공!');
-        localStorage.setItem('token', result.data.token);
-        localStorage.setItem('user', JSON.stringify(result.data.user));
-        navigate('/', { replace: true });
-        window.location.reload();
+        // useAuth가 사용하는 키 이름으로 저장
+        localStorage.setItem('auth_token', result.data.token);
+        localStorage.setItem('user_info', JSON.stringify(result.data.user));
+
+        // 페이지 새로고침으로 세션 복원
+        window.location.href = '/';
       } else {
         toast.error(result.error || '네이버 로그인에 실패했습니다.');
       }
