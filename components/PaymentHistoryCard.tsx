@@ -155,6 +155,17 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                 <div className="text-xl font-bold text-purple-600">
                   {Math.floor(payment.amount).toLocaleString()}원
                 </div>
+                {/* 가격 분해 표시 */}
+                {notesData && (notesData.subtotal || notesData.deliveryFee) && (
+                  <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                    {notesData.subtotal > 0 && (
+                      <div>상품 {Math.floor(notesData.subtotal).toLocaleString()}원</div>
+                    )}
+                    {notesData.deliveryFee > 0 && (
+                      <div>배송비 {Math.floor(notesData.deliveryFee).toLocaleString()}원</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

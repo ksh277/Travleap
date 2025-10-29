@@ -142,7 +142,7 @@ function calculateRefundPolicy(booking, policy, now = new Date()) {
   }
 
   // 2. 예약 시작일 확인
-  const startDate = new Date(booking.start_date || booking.booking_date);
+  const startDate = new Date(booking.start_date);
   const daysUntilStart = Math.floor((startDate - now) / (1000 * 60 * 60 * 24));
 
   // 3. 예약일 지났는지 확인
@@ -431,7 +431,6 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         p.*,
         b.id as booking_id,
         b.start_date,
-        b.booking_date,
         b.total_amount as booking_amount,
         b.listing_id,
         b.selected_option_id,
@@ -665,7 +664,7 @@ async function getRefundPolicy(paymentKey) {
     const paymentResult = await connection.execute(`
       SELECT
         p.*,
-        b.start_date, b.booking_date, b.total_amount as booking_amount,
+        b.start_date, b.total_amount as booking_amount,
         l.id as listing_id, l.category, l.vendor_id
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
