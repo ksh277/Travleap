@@ -65,13 +65,45 @@ export function PaymentPage() {
     cvv: '',
     name: ''
   });
-  const [billingInfo, setBillingInfo] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-    postalCode: user?.postal_code || '',
-    address: user?.address || '',
-    detailAddress: user?.detail_address || ''
+  // ✅ localStorage에서 저장된 청구정보 불러오기 (있으면 우선 사용)
+  const [billingInfo, setBillingInfo] = useState(() => {
+    if (typeof window === 'undefined') {
+      return {
+        name: user?.name || '',
+        email: user?.email || '',
+        phone: user?.phone || '',
+        postalCode: user?.postal_code || '',
+        address: user?.address || '',
+        detailAddress: user?.detail_address || ''
+      };
+    }
+
+    try {
+      const saved = localStorage.getItem('billingInfo');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        console.log('✅ [청구정보] localStorage에서 불러옴:', parsed);
+        return {
+          name: parsed.name || user?.name || '',
+          email: parsed.email || user?.email || '',
+          phone: parsed.phone || user?.phone || '',
+          postalCode: parsed.postalCode || user?.postal_code || '',
+          address: parsed.address || user?.address || '',
+          detailAddress: parsed.detailAddress || user?.detail_address || ''
+        };
+      }
+    } catch (e) {
+      console.warn('⚠️ [청구정보] localStorage 불러오기 실패:', e);
+    }
+
+    return {
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      postalCode: user?.postal_code || '',
+      address: user?.address || '',
+      detailAddress: user?.detail_address || ''
+    };
   });
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [preparedOrderNumber, setPreparedOrderNumber] = useState<string | null>(null);
@@ -118,6 +150,18 @@ export function PaymentPage() {
       });
     }
   }, [orderData, deliveryFee, totalWithDelivery, orderTotal, hasPopupProducts]);
+
+  // ✅ 청구정보 변경 시 localStorage에 자동 저장
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      localStorage.setItem('billingInfo', JSON.stringify(billingInfo));
+      console.log('💾 [청구정보] localStorage에 저장:', billingInfo);
+    } catch (e) {
+      console.warn('⚠️ [청구정보] localStorage 저장 실패:', e);
+    }
+  }, [billingInfo]);
 
   // 사용자 프로필 데이터 가져오기
   useEffect(() => {
@@ -618,32 +662,39 @@ export function PaymentPage() {
                 <div>
                   <label className="block text-sm font-medium mb-2">이름</label>
                   <Input
+                    autoComplete="name"
                     value={billingInfo.name}
                     onChange={(e) => setBillingInfo(prev => ({
                       ...prev,
                       name: e.target.value
                     }))}
+                    placeholder="홍길동"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">이메일</label>
                   <Input
                     type="email"
+                    autoComplete="email"
                     value={billingInfo.email}
                     onChange={(e) => setBillingInfo(prev => ({
                       ...prev,
                       email: e.target.value
                     }))}
+                    placeholder="example@email.com"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">전화번호</label>
                   <Input
+                    type="tel"
+                    autoComplete="tel"
                     value={billingInfo.phone}
                     onChange={(e) => setBillingInfo(prev => ({
                       ...prev,
                       phone: e.target.value
                     }))}
+                    placeholder="010-0000-0000"
                   />
                 </div>
                 {/* 팝업 상품이 있을 때만 배송지 입력 표시 */}
