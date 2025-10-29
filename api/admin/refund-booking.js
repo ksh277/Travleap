@@ -9,7 +9,7 @@
  * - 관리자는 환불 정책 무시하고 전액 환불 가능
  */
 
-const { db } = require('../../utils/database');
+const { connect } = require('@planetscale/database');
 const { refundPayment } = require('../payments/refund');
 
 module.exports = async function handler(req, res) {
@@ -40,27 +40,30 @@ module.exports = async function handler(req, res) {
 
     console.log(`💼 [Admin Refund] 환불 요청: booking_id=${bookingId}, reason=${cancelReason}`);
 
-    // 1. booking_id로 payment_key 조회
-    const payments = await db.query(`
+    // 1. PlanetScale 연결
+    const connection = connect({ url: process.env.DATABASE_URL });
+
+    // 2. booking_id로 payment_key 조회
+    const result = await connection.execute(`
       SELECT p.payment_key, p.amount, p.payment_status
       FROM payments p
       WHERE p.booking_id = ?
-        AND p.payment_status = 'paid'
+        AND (p.payment_status = 'paid' OR p.payment_status = 'completed')
       LIMIT 1
     `, [bookingId]);
 
-    if (!payments || payments.length === 0) {
+    if (!result.rows || result.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: '결제 정보를 찾을 수 없습니다. 이미 환불되었거나 결제되지 않은 주문입니다.'
       });
     }
 
-    const { payment_key: paymentKey, amount } = payments[0];
+    const { payment_key: paymentKey, amount } = result.rows[0];
 
     console.log(`✅ [Admin Refund] payment_key 조회 완료: ${paymentKey}, amount: ${amount}원`);
 
-    // 2. Toss Payments 환불 API 호출 (전액 환불, 정책 무시)
+    // 3. Toss Payments 환불 API 호출 (전액 환불, 정책 무시)
     const refundResult = await refundPayment({
       paymentKey,
       cancelReason,
