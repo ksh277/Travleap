@@ -219,8 +219,8 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               </div>
             )}
 
-            {/* 예약 상세 정보 (숙박/렌트카) */}
-            {payment.start_date && payment.end_date && (
+            {/* 예약 상세 정보 (숙박/렌트카/음식 등 - 팝업 제외) */}
+            {payment.start_date && payment.end_date && payment.category !== 'popup' && (
               <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm">
                 <div className="space-y-2">
                   <div className="flex items-center">
