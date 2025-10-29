@@ -424,7 +424,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
   try {
     console.log(`💰 [Refund] 환불 요청 시작: paymentKey=${paymentKey}, reason=${cancelReason}`);
 
-    // 1. DB에서 결제 정보 조회
+    // 1. DB에서 결제 정보 조회 (delivery_status 포함)
     const paymentResult = await connection.execute(`
       SELECT
         p.*,
@@ -436,6 +436,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         b.guests,
         b.order_number,
         b.booking_number,
+        b.delivery_status,
         l.category
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
@@ -482,6 +483,48 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       }
 
       console.log(`📋 [Refund] 환불 정책 적용: ${policyInfo.policyName} - ${policyInfo.appliedRule}, 수수료 ${policyInfo.cancellationFeeRate}, ${policyInfo.daysUntilStart}일 전 취소`);
+    }
+
+    // 3-3. 팝업 카테고리 배송 기반 환불 정책 적용 (skipPolicy=false일 때만)
+    if (!skipPolicy && payment.category === '팝업' && payment.delivery_status) {
+      console.log(`📦 [Refund] 팝업 상품 배송 기반 환불 정책 적용 (delivery_status: ${payment.delivery_status})`);
+
+      // 배송비 추출
+      let deliveryFee = 0;
+      if (payment.notes) {
+        try {
+          const notesData = typeof payment.notes === 'string' ? JSON.parse(payment.notes) : payment.notes;
+          deliveryFee = notesData.deliveryFee || 0;
+          console.log(`💰 [Refund] 배송비: ${deliveryFee}원`);
+        } catch (e) {
+          console.error('⚠️ [Refund] notes 파싱 실패:', e);
+        }
+      }
+
+      const RETURN_FEE = 3000; // 반품비 3,000원
+      const isDefectOrWrongItem = cancelReason.includes('하자') || cancelReason.includes('오배송');
+
+      if (isDefectOrWrongItem) {
+        // 판매자 귀책사유 → 전액 환불
+        actualRefundAmount = payment.amount;
+        console.log(`💰 [Refund] 상품 하자/오배송 → 전액 환불: ${actualRefundAmount}원`);
+      } else if (payment.delivery_status === 'shipped' || payment.delivery_status === 'delivered') {
+        // 배송 중 or 배송 완료 → 배송비 + 반품비 차감
+        const deduction = deliveryFee + RETURN_FEE;
+        actualRefundAmount = Math.max(0, payment.amount - deduction);
+        console.log(`💰 [Refund] 배송 중/완료 → 배송비(${deliveryFee}원) + 반품비(${RETURN_FEE}원) 차감 = ${actualRefundAmount}원 환불`);
+      } else {
+        // 배송 전 (pending or null) → 전액 환불
+        actualRefundAmount = payment.amount;
+        console.log(`💰 [Refund] 배송 전 → 전액 환불: ${actualRefundAmount}원`);
+      }
+    } else if (!skipPolicy && payment.category === '팝업' && !payment.delivery_status) {
+      // 배송 상태가 없는 경우 (배송 전) → 전액 환불
+      actualRefundAmount = payment.amount;
+      console.log(`💰 [Refund] 팝업 상품 배송 전 → 전액 환불: ${actualRefundAmount}원`);
+    } else if (payment.category !== '팝업') {
+      // 팝업이 아닌 상품은 기존 환불 정책 적용 (위에서 계산된 actualRefundAmount 사용)
+      console.log(`💰 [Refund] 비팝업 카테고리 → 기존 정책 적용: ${actualRefundAmount}원`);
     }
 
     // 🔒 4. DB 트랜잭션 시작 (Problem #37, #39 해결: Toss 환불 전에 DB 작업 먼저 수행)
