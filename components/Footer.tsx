@@ -125,11 +125,6 @@ export function Footer({
               <h3 className="text-base font-bold text-gray-900 mb-4">COMPANY</h3>
               <ul className="space-y-2.5 text-sm text-gray-600">
                 <li>
-                  <a href="/about" className="hover:text-purple-600 transition-colors">
-                    회사 소개
-                  </a>
-                </li>
-                <li>
                   <a href="/blog" className="hover:text-purple-600 transition-colors">
                     커뮤니티 블로그
                   </a>
@@ -234,12 +229,6 @@ export function Footer({
               © {new Date().getFullYear()} 어썸플랜. All rights reserved.
             </div>
             <div className="flex gap-4 text-xs text-gray-500">
-              <button
-                onClick={() => onCategorySelect?.('company')}
-                className="hover:text-purple-600"
-              >
-                회사소개
-              </button>
               <button
                 onClick={() => onCategorySelect?.('blog')}
                 className="hover:text-purple-600"
