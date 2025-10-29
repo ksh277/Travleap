@@ -337,6 +337,45 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       );
 
       console.log('✅ [결제 기록] payments 테이블에 저장 완료');
+
+      // ✅ 단일 예약에서도 청구 정보를 사용자 프로필에 저장
+      try {
+        const { Pool } = require('@neondatabase/serverless');
+        const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+        // bookings 테이블에서 shipping 정보 가져오기
+        const bookingResult = await connection.query(
+          'SELECT guest_phone, shipping_zipcode, shipping_address, shipping_address_detail FROM bookings WHERE id = ?',
+          [bookingId]
+        );
+
+        if (bookingResult && bookingResult.length > 0) {
+          const bookingData = bookingResult[0];
+
+          // 청구 정보가 있으면 사용자 프로필에 저장
+          if (bookingData.guest_phone || bookingData.shipping_address) {
+            await poolNeon.query(`
+              UPDATE users
+              SET phone = COALESCE(NULLIF($1, ''), phone),
+                  postal_code = COALESCE(NULLIF($2, ''), postal_code),
+                  address = COALESCE(NULLIF($3, ''), address),
+                  detail_address = COALESCE(NULLIF($4, ''), detail_address),
+                  updated_at = NOW()
+              WHERE id = $5
+            `, [
+              bookingData.guest_phone,
+              bookingData.shipping_zipcode,
+              bookingData.shipping_address,
+              bookingData.shipping_address_detail,
+              userId
+            ]);
+            console.log(`✅ [사용자 정보] 단일 예약 청구 정보 업데이트 완료 (user_id: ${userId})`);
+          }
+        }
+      } catch (updateError) {
+        console.warn('⚠️  [사용자 정보] 업데이트 실패 (계속 진행):', updateError);
+      }
+
     } else if (isOrder) {
       // 장바구니 주문: 이미 UPDATE로 payment_key 등 저장했으므로 추가 UPDATE만 수행
       const normalizedMethod = normalizePaymentMethod(

@@ -529,24 +529,7 @@ export function MyPage() {
     if (!user) return;
 
     try {
-      // 주소 정보 먼저 저장 (주소가 변경된 경우)
-      if (editProfile.postalCode && editProfile.address) {
-        await fetch('/api/user/address', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'x-user-id': user.id.toString()
-          },
-          body: JSON.stringify({
-            postalCode: editProfile.postalCode,
-            address: editProfile.address,
-            detailAddress: editProfile.detailAddress || ''
-          })
-        });
-      }
-
-      // 프로필 정보 저장
+      // 프로필 정보 저장 (이름, 전화번호, 주소 모두 포함)
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: {
@@ -555,12 +538,11 @@ export function MyPage() {
           'x-user-id': user.id.toString()
         },
         body: JSON.stringify({
-          userId: user.id,
           name: editProfile.name,
           phone: editProfile.phone,
-          birth_date: editProfile.birthDate || null,
-          bio: editProfile.bio || null,
-          avatar: editProfile.avatar || null
+          postalCode: editProfile.postalCode || '',
+          address: editProfile.address || '',
+          detailAddress: editProfile.detailAddress || ''
         })
       });
 
@@ -574,7 +556,7 @@ export function MyPage() {
         setIsEditingProfile(false);
         toast.success('프로필이 업데이트되었습니다.');
       } else {
-        throw new Error(result.message || '프로필 저장 실패');
+        throw new Error(result.error || '프로필 저장 실패');
       }
     } catch (error) {
       console.error('프로필 저장 오류:', error);

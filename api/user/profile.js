@@ -74,9 +74,9 @@ module.exports = async function handler(req, res) {
 
     // PUT - 프로필 업데이트
     if (req.method === 'PUT') {
-      const { name, phone } = req.body;
+      const { name, phone, postalCode, address, detailAddress } = req.body;
 
-      console.log('✏️ [Profile] 프로필 업데이트 요청:', userId, '| name:', name);
+      console.log('✏️ [Profile] 프로필 업데이트 요청:', userId, '| name:', name, '| phone:', phone);
 
       // 업데이트할 필드만 처리
       const updateFields = [];
@@ -90,6 +90,21 @@ module.exports = async function handler(req, res) {
       if (phone !== undefined) {
         updateFields.push('phone');
         updateValues.push(phone);
+      }
+
+      if (postalCode !== undefined) {
+        updateFields.push('postal_code');
+        updateValues.push(postalCode);
+      }
+
+      if (address !== undefined) {
+        updateFields.push('address');
+        updateValues.push(address);
+      }
+
+      if (detailAddress !== undefined) {
+        updateFields.push('detail_address');
+        updateValues.push(detailAddress);
       }
 
       if (updateFields.length === 0) {
@@ -108,7 +123,7 @@ module.exports = async function handler(req, res) {
         UPDATE users
         SET ${setClause}, updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
-        RETURNING id, email, name, phone
+        RETURNING id, email, name, phone, postal_code, address, detail_address
       `;
 
       const result = await sql.unsafe(query, [userId, ...updateValues]);
@@ -130,7 +145,10 @@ module.exports = async function handler(req, res) {
           id: updatedUser.id,
           email: updatedUser.email,
           name: updatedUser.name,
-          phone: updatedUser.phone || ''
+          phone: updatedUser.phone || '',
+          postalCode: updatedUser.postal_code || '',
+          address: updatedUser.address || '',
+          detailAddress: updatedUser.detail_address || ''
         }
       });
     }
