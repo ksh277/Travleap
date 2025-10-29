@@ -504,7 +504,14 @@ export function PaymentPage() {
           // 주문 생성 성공 - PaymentWidget에 필요한 정보 설정 (포인트 차감 후 금액)
           setPreparedOrderNumber(orderResponse.data.orderNumber);
           setPreparedAmount(finalAmount);
-          setPreparedOrderName(`장바구니 주문 (${orderData.items.length}개 상품)`);
+
+          // 주문명: 첫 번째 상품명 + 나머지 개수
+          const firstProductName = orderData.items[0]?.name || '상품';
+          const remainingCount = orderData.items.length - 1;
+          const orderName = remainingCount > 0
+            ? `${firstProductName} 외 ${remainingCount}개`
+            : firstProductName;
+          setPreparedOrderName(orderName);
 
           if (pointsToUse > 0) {
             toast.success(`${pointsToUse.toLocaleString()}P가 차감되었습니다. 결제를 진행해주세요.`);
