@@ -360,6 +360,39 @@ module.exports = async function handler(req, res) {
 
       console.log(`✅ [Orders] 금액 검증 통과: ${total.toLocaleString()}원`);
 
+      // 🔍 주문 생성 전 모든 상품 유효성 검증
+      for (const item of items) {
+        const itemName = item.title || item.name || `상품 ID ${item.listingId}`;
+
+        const listingCheck = await connection.execute(`
+          SELECT id, title, is_active FROM listings
+          WHERE id = ?
+        `, [item.listingId]);
+
+        if (!listingCheck.rows || listingCheck.rows.length === 0) {
+          console.error(`❌ [Orders] 상품을 찾을 수 없음: ${itemName} (listing_id: ${item.listingId})`);
+          return res.status(400).json({
+            success: false,
+            error: 'LISTING_NOT_FOUND',
+            message: `장바구니에 삭제된 상품이 포함되어 있습니다: ${itemName}\n장바구니를 새로고침해주세요.`,
+            invalidListing: itemName
+          });
+        }
+
+        const listing = listingCheck.rows[0];
+        if (!listing.is_active) {
+          console.error(`❌ [Orders] 판매 중단된 상품: ${itemName}`);
+          return res.status(400).json({
+            success: false,
+            error: 'LISTING_INACTIVE',
+            message: `판매가 중단된 상품이 포함되어 있습니다: ${itemName}\n장바구니를 새로고침해주세요.`,
+            invalidListing: itemName
+          });
+        }
+
+        console.log(`✅ [Orders] 상품 유효성 확인: ${listing.title}`);
+      }
+
       const orderNumber = generateOrderNumber();
 
       // ✅ 트랜잭션 시작 (데이터 일관성 보장)
