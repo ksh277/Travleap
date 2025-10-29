@@ -42,6 +42,7 @@ module.exports = async function handler(req, res) {
         p.booking_id,
         p.order_id,
         p.order_id_str,
+        p.gateway_transaction_id,
         p.amount,
         p.payment_method,
         p.payment_status,
@@ -51,10 +52,22 @@ module.exports = async function handler(req, res) {
         p.card_company,
         p.card_number,
         p.created_at,
+        p.notes,
+        p.refund_amount,
+        p.refund_reason,
+        p.refunded_at,
         b.booking_number,
         b.listing_id,
+        b.start_date,
+        b.end_date,
+        b.selected_option_id,
+        b.guests,
+        b.adults,
+        b.children,
+        b.infants,
         l.title as listing_title,
-        l.category
+        l.category,
+        l.images as listing_images
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
