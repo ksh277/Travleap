@@ -765,7 +765,7 @@ async function handlePaymentFailure(orderId, reason) {
  * Vercel Serverless Function Handler
  * HTTP POST /api/payments/confirm
  */
-async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -814,9 +814,8 @@ async function handler(req, res) {
       message: error.message || '서버 오류가 발생했습니다.'
     });
   }
-}
+};
 
-// Export functions
-module.exports = handler;
+// Export helper functions for internal use
 module.exports.confirmPayment = confirmPayment;
 module.exports.handlePaymentFailure = handlePaymentFailure;
