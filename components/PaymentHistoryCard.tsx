@@ -124,12 +124,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
   return (
     <>
       <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-        <div className="flex space-x-4">
-          <img
-            src={displayImage}
-            alt={displayTitle}
-            className="w-24 h-24 rounded-lg object-cover flex-shrink-0"
-          />
+        <div className="flex flex-col space-y-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">

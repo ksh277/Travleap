@@ -63,9 +63,9 @@ async function cancelTossPayment(paymentKey, cancelReason, cancelAmount = null) 
  * @param {number} vendorId - 벤더 ID
  * @returns {Object} 환불 정책
  */
-async function getRefundPolicyFromDB(connection, listingId, category, vendorId) {
+async function getRefundPolicyFromDB(connection, listingId, category) {
   try {
-    // 우선순위: 1) 특정 상품 정책 > 2) 카테고리 정책 > 3) 벤더 정책 > 4) 기본 정책
+    // 우선순위: 1) 특정 상품 정책 > 2) 카테고리 정책 > 3) 기본 정책
     const policies = await connection.execute(`
       SELECT *
       FROM refund_policies
@@ -73,12 +73,11 @@ async function getRefundPolicyFromDB(connection, listingId, category, vendorId) 
         AND (
           listing_id = ? OR
           category = ? OR
-          vendor_id = ? OR
-          (listing_id IS NULL AND category IS NULL AND vendor_id IS NULL)
+          (listing_id IS NULL AND category IS NULL)
         )
       ORDER BY priority DESC, id DESC
       LIMIT 1
-    `, [listingId, category, vendorId]);
+    `, [listingId, category]);
 
     if (policies.rows && policies.rows.length > 0) {
       return policies.rows[0];
@@ -437,8 +436,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         b.guests,
         b.order_number,
         b.booking_number,
-        l.category,
-        l.vendor_id
+        l.category
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
@@ -466,8 +464,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       const policyFromDB = await getRefundPolicyFromDB(
         connection,
         payment.listing_id,
-        payment.category,
-        payment.vendor_id
+        payment.category
       );
 
       console.log(`📋 [Refund] 적용 정책: ${policyFromDB.policy_name}`);
@@ -665,7 +662,7 @@ async function getRefundPolicy(paymentKey) {
       SELECT
         p.*,
         b.start_date, b.total_amount as booking_amount,
-        l.id as listing_id, l.category, l.vendor_id
+        l.id as listing_id, l.category
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
@@ -692,8 +689,7 @@ async function getRefundPolicy(paymentKey) {
     const policyFromDB = await getRefundPolicyFromDB(
       connection,
       payment.listing_id,
-      payment.category,
-      payment.vendor_id
+      payment.category
     );
 
     // 정책 기반 환불 계산
