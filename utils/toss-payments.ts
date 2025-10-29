@@ -262,7 +262,18 @@ export async function loadTossPaymentsWidget() {
 
   // Payment Widget 초기화 (신버전 API - ANONYMOUS 고객)
   const PaymentWidget = (window as any).PaymentWidget;
-  return PaymentWidget(tossPayments.getClientKey(), PaymentWidget.ANONYMOUS);
+
+  // 프론트엔드에서 직접 환경 변수 읽기
+  const env = (import.meta as any).env;
+  const clientKey = env.VITE_TOSS_CLIENT_KEY_TEST || env.VITE_TOSS_CLIENT_KEY || 'test_ck_pP2YxJ4K87YxByjJDaX0VRGZwXLO';
+
+  console.log('🔑 [Widget] Client Key 전달:', clientKey);
+
+  if (!clientKey || clientKey.includes('undefined')) {
+    throw new Error('Client Key가 올바르게 로드되지 않았습니다. .env 파일을 확인하세요.');
+  }
+
+  return PaymentWidget(clientKey, PaymentWidget.ANONYMOUS);
 }
 
 /**
