@@ -492,36 +492,46 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       const pointsUsed = notes?.pointsUsed || 0;
 
       if (pointsUsed > 0 && userId) {
-        console.log(`💰 [Points] 포인트 차감 시작: ${pointsUsed}P (user_id: ${userId})`);
+        try {
+          console.log(`💰 [Points] 포인트 차감 시작: ${pointsUsed}P (user_id: ${userId})`);
 
-        // 1. 현재 포인트 조회 (동시성 제어를 위해 FOR UPDATE)
-        const userResult = await connection.execute(`
-          SELECT total_points FROM users WHERE id = ? FOR UPDATE
-        `, [userId]);
+          // ✅ Neon PostgreSQL Pool (users 테이블용)
+          const { Pool } = require('@neondatabase/serverless');
+          const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
 
-        if (userResult && userResult.rows && userResult.rows.length > 0) {
-          const currentPoints = userResult.rows[0].total_points || 0;
+          // 1. 현재 포인트 조회 (동시성 제어를 위해 FOR UPDATE)
+          const userResult = await poolNeon.query(`
+            SELECT total_points FROM users WHERE id = $1 FOR UPDATE
+          `, [userId]);
 
-          // 2. 포인트 부족 체크 (동시 사용으로 인한 부족 가능)
-          if (currentPoints < pointsUsed) {
-            console.error(`❌ [Points] 포인트 부족: 현재 ${currentPoints}P, 필요 ${pointsUsed}P`);
-            throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용: ${pointsUsed}P)`);
+          if (userResult && userResult.rows && userResult.rows.length > 0) {
+            const currentPoints = userResult.rows[0].total_points || 0;
+
+            // 2. 포인트 부족 체크 (동시 사용으로 인한 부족 가능)
+            if (currentPoints < pointsUsed) {
+              console.error(`❌ [Points] 포인트 부족: 현재 ${currentPoints}P, 필요 ${pointsUsed}P`);
+              throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용: ${pointsUsed}P)`);
+            }
+
+            const newBalance = currentPoints - pointsUsed;
+
+            // 3. 포인트 내역 추가 (PlanetScale - user_points 테이블)
+            await connection.execute(`
+              INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+              VALUES (?, ?, 'use', ?, ?, ?, NOW())
+            `, [userId, -pointsUsed, `주문 결제 (주문번호: ${orderId})`, orderId, newBalance]);
+
+            // 4. 사용자 포인트 업데이트 (Neon - users 테이블)
+            await poolNeon.query(`
+              UPDATE users SET total_points = $1 WHERE id = $2
+            `, [newBalance, userId]);
+
+            console.log(`✅ [Points] 포인트 차감 완료: -${pointsUsed}P (잔액: ${newBalance}P)`);
           }
-
-          const newBalance = currentPoints - pointsUsed;
-
-          // 3. 포인트 내역 추가
-          await connection.execute(`
-            INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-            VALUES (?, ?, 'use', ?, ?, ?, NOW())
-          `, [userId, -pointsUsed, `주문 결제 (주문번호: ${orderId})`, orderId, newBalance]);
-
-          // 4. 사용자 포인트 업데이트
-          await connection.execute(`
-            UPDATE users SET total_points = ? WHERE id = ?
-          `, [newBalance, userId]);
-
-          console.log(`✅ [Points] 포인트 차감 완료: -${pointsUsed}P (잔액: ${newBalance}P)`);
+        } catch (pointsError) {
+          console.error('❌ [Points] 포인트 차감 실패:', pointsError);
+          // 포인트 차감 실패는 결제 실패로 처리
+          throw new Error(`포인트 차감 실패: ${pointsError.message}`);
         }
       }
     }
@@ -529,8 +539,12 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     // 4.6. 포인트 적립 (팝업 상품 주문인 경우)
     if (isOrder) {
       try {
-        // 사용자 정보 조회
-        const userResult = await connection.execute('SELECT name, email, phone FROM users WHERE id = ?', [userId]);
+        // ✅ Neon PostgreSQL Pool (users 테이블용)
+        const { Pool } = require('@neondatabase/serverless');
+        const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+        // 사용자 정보 조회 (Neon - users 테이블)
+        const userResult = await poolNeon.query('SELECT name, email, phone, total_points FROM users WHERE id = $1', [userId]);
 
         if (userResult.rows && userResult.rows.length > 0) {
           const user = userResult.rows[0];
@@ -540,7 +554,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           const notes = order.notes ? JSON.parse(order.notes) : null;
           const originalSubtotal = notes?.subtotal || 0;
 
-          // 배송비 조회 (bookings 테이블에서) - 알림 발송용
+          // 배송비 조회 (PlanetScale - bookings 테이블)
           const bookingsResult = await connection.execute(`
             SELECT SUM(IFNULL(shipping_fee, 0)) as total_shipping_fee
             FROM bookings
@@ -549,28 +563,51 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
           const shippingFee = (bookingsResult.rows && bookingsResult.rows.length > 0 && bookingsResult.rows[0].total_shipping_fee) || 0;
 
-          // 포인트 적립 (2%, 원래 상품 금액 기준)
-          // ⚠️ 포인트 시스템이 아직 구현되지 않았으므로 전체를 try-catch로 감쌈
+          // 💰 포인트 적립 (2%, 원래 상품 금액 기준, 배송비 제외)
           try {
             const pointsToEarn = Math.floor(originalSubtotal * 0.02);
             if (pointsToEarn > 0) {
-              console.log(`ℹ️  [포인트] TODO: 포인트 시스템 구현 후 ${pointsToEarn}P 적립 예정 (사용자 ${userId})`);
-              // TODO: 포인트 시스템 구현 필요
-              // - users 테이블에 total_points 컬럼 추가
-              // - user_points 테이블 생성
-              // - 포인트 적립/사용/만료 로직 구현
+              console.log(`💰 [포인트] 포인트 적립 시작: ${pointsToEarn}P (user_id: ${userId})`);
+
+              const currentPoints = user.total_points || 0;
+              const newBalance = currentPoints + pointsToEarn;
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
+
+              // 1. 포인트 내역 추가 (PlanetScale - user_points 테이블)
+              await connection.execute(`
+                INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
+                VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+              `, [userId, pointsToEarn, `주문 적립 (주문번호: ${orderId})`, orderId, newBalance, expiresAt]);
+
+              // 2. 사용자 포인트 업데이트 (Neon - users 테이블)
+              await poolNeon.query(`
+                UPDATE users SET total_points = $1 WHERE id = $2
+              `, [newBalance, userId]);
+
+              console.log(`✅ [포인트] ${pointsToEarn}P 적립 완료 (사용자 ${userId}, 잔액: ${newBalance}P)`);
+
+              // 3. bookings 테이블에 적립 포인트 기록 (선택사항)
+              try {
+                await connection.execute(`
+                  UPDATE bookings
+                  SET points_earned = ?
+                  WHERE order_number = ?
+                `, [pointsToEarn, orderId]);
+              } catch (bookingUpdateError) {
+                console.warn('⚠️  [포인트] bookings 테이블 업데이트 실패 (계속 진행)');
+              }
             }
           } catch (pointsError) {
-            console.warn('⚠️  [포인트] 포인트 처리 스킵 (시스템 미구현):', pointsError);
+            console.error('❌ [포인트] 포인트 적립 실패 (계속 진행):', pointsError);
+            // 포인트 적립 실패해도 결제는 성공 처리
           }
 
-          // 결제 완료 알림 발송 (TypeScript utils 사용 불가 - TODO 구현 필요)
-          console.log(`📧 [알림] TODO: 결제 완료 알림 발송 (${user.email}, 주문: ${orderId})`);
+          // 📧 결제 완료 알림 발송
+          console.log(`📧 [알림] 결제 완료 알림: ${user.email} (주문: ${orderId}, 금액: ${originalSubtotal}원, 배송비: ${shippingFee}원)`);
+          // TODO: 실제 이메일/SMS 발송 구현
 
           // ✅ 청구 정보를 사용자 프로필에 저장 (shippingInfo가 있을 경우)
-          const { Pool } = require('@neondatabase/serverless');
-          const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
-
           if (notes && notes.shippingInfo) {
             try {
               await poolNeon.query(`
@@ -595,7 +632,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           }
         }
       } catch (pointsError) {
-        console.warn('⚠️  [포인트/알림] 처리 실패 (계속 진행):', pointsError);
+        console.error('❌ [포인트/알림] 처리 실패 (계속 진행):', pointsError);
+        // 포인트/알림 처리 실패해도 결제는 성공 처리
       }
     }
 
