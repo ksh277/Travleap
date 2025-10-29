@@ -8,7 +8,13 @@
  * 롤백 방법: TOSS_MODE=test로 변경 후 서버 재시작
  */
 
-const TOSS_MODE = process.env.TOSS_MODE || 'test';
+// Vite 환경 변수 처리 (프론트엔드)
+const isBrowser = typeof window !== 'undefined';
+const envVars = isBrowser
+  ? (import.meta as any).env // 프론트엔드: import.meta.env
+  : process.env; // 백엔드: process.env
+
+const TOSS_MODE = envVars.TOSS_MODE || envVars.VITE_TOSS_MODE || 'test';
 
 // 현재 모드 로그 출력
 if (TOSS_MODE === 'live') {
@@ -22,14 +28,15 @@ if (TOSS_MODE === 'live') {
  */
 export function getTossClientKey(): string {
   if (TOSS_MODE === 'live') {
-    const key = process.env.VITE_TOSS_CLIENT_KEY_LIVE || process.env.VITE_TOSS_CLIENT_KEY;
+    const key = envVars.VITE_TOSS_CLIENT_KEY_LIVE || envVars.VITE_TOSS_CLIENT_KEY;
     if (!key || key.startsWith('live_ck_REPLACE')) {
       console.error('❌ [Toss] LIVE 모드이지만 VITE_TOSS_CLIENT_KEY_LIVE가 설정되지 않았습니다!');
       throw new Error('LIVE Toss Client Key가 설정되지 않았습니다. .env 파일을 확인하세요.');
     }
     return key;
   } else {
-    const key = process.env.VITE_TOSS_CLIENT_KEY_TEST || process.env.VITE_TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+    const key = envVars.VITE_TOSS_CLIENT_KEY_TEST || envVars.VITE_TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+    console.log('🔑 [Toss] Client Key:', key.substring(0, 20) + '...');
     return key;
   }
 }
@@ -39,14 +46,14 @@ export function getTossClientKey(): string {
  */
 export function getTossSecretKey(): string {
   if (TOSS_MODE === 'live') {
-    const key = process.env.TOSS_SECRET_KEY_LIVE || process.env.TOSS_SECRET_KEY;
+    const key = envVars.TOSS_SECRET_KEY_LIVE || envVars.TOSS_SECRET_KEY;
     if (!key || key.startsWith('live_sk_REPLACE')) {
       console.error('❌ [Toss] LIVE 모드이지만 TOSS_SECRET_KEY_LIVE가 설정되지 않았습니다!');
       throw new Error('LIVE Toss Secret Key가 설정되지 않았습니다. .env 파일을 확인하세요.');
     }
     return key;
   } else {
-    const key = process.env.TOSS_SECRET_KEY_TEST || process.env.TOSS_SECRET_KEY || 'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R';
+    const key = envVars.TOSS_SECRET_KEY_TEST || envVars.TOSS_SECRET_KEY || 'test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R';
     return key;
   }
 }
@@ -56,14 +63,14 @@ export function getTossSecretKey(): string {
  */
 export function getTossWebhookSecret(): string {
   if (TOSS_MODE === 'live') {
-    const secret = process.env.TOSS_WEBHOOK_SECRET_LIVE || process.env.TOSS_WEBHOOK_SECRET;
+    const secret = envVars.TOSS_WEBHOOK_SECRET_LIVE || envVars.TOSS_WEBHOOK_SECRET;
     if (!secret || secret === 'your_webhook_secret_live_here_change_in_production') {
       console.warn('⚠️  [Toss] LIVE 모드이지만 TOSS_WEBHOOK_SECRET_LIVE가 설정되지 않았습니다!');
       // Webhook secret은 없어도 일단 진행 가능 (서명 검증만 안됨)
     }
     return secret || '';
   } else {
-    const secret = process.env.TOSS_WEBHOOK_SECRET_TEST || process.env.TOSS_WEBHOOK_SECRET || '';
+    const secret = envVars.TOSS_WEBHOOK_SECRET_TEST || envVars.TOSS_WEBHOOK_SECRET || '';
     return secret;
   }
 }
