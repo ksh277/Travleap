@@ -80,7 +80,7 @@ export function ContactPage({ onBack }: ContactPageProps) {
         }}
       >
         <div className="absolute inset-0 flex items-center justify-center">
-          <h1 className="text-4xl font-bold text-white">Contact</h1>
+          <h1 className="text-4xl font-bold text-white">문의하기</h1>
         </div>
       </div>
 
@@ -93,10 +93,10 @@ export function ContactPage({ onBack }: ContactPageProps) {
             <div>
               <div className="mb-8">
                 <h2 className="text-3xl mb-4 text-gray-800">
-                  We'd love to hear from you
+                  문의하기
                 </h2>
                 <p className="text-gray-600 text-lg">
-                  Send us a message and we'll respond as soon as possible.
+                  궁금하신 점을 남겨주시면 빠르게 답변드리겠습니다.
                 </p>
               </div>
 
@@ -107,9 +107,9 @@ export function ContactPage({ onBack }: ContactPageProps) {
                     type="text"
                     value={contactData.name}
                     onChange={(e) => setContactData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Name"
+                    placeholder="이름"
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                 </div>
 
@@ -119,9 +119,9 @@ export function ContactPage({ onBack }: ContactPageProps) {
                     type="email"
                     value={contactData.email}
                     onChange={(e) => setContactData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Email"
+                    placeholder="이메일"
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                 </div>
 
@@ -130,48 +130,58 @@ export function ContactPage({ onBack }: ContactPageProps) {
                   <Textarea
                     value={contactData.message}
                     onChange={(e) => setContactData(prev => ({ ...prev, message: e.target.value }))}
-                    placeholder="Message"
+                    placeholder="문의 내용"
                     rows={6}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                   />
                 </div>
 
                 {/* 전송 버튼 */}
                 <Button
                   type="submit"
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-base font-medium transition-colors"
+                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-base font-medium transition-colors"
                 >
-                  Send Message
+                  문의 보내기
                 </Button>
               </form>
             </div>
 
             {/* 오른쪽: 회사 정보 카드 */}
             <div className="flex items-start justify-center lg:justify-end">
-              <Card className="w-full max-w-md bg-[#ff6a3d] text-white overflow-hidden">
+              <Card className="w-full max-w-md bg-purple-600 text-white overflow-hidden">
                 <CardContent className="p-8">
-                  <h3 className="text-2xl font-bold mb-6">Traveler Ltd</h3>
-                  
+                  <h3 className="text-2xl font-bold mb-6">㈜어썸플랜</h3>
+
                   <div className="space-y-4">
                     {/* 전화번호 */}
                     <div>
-                      <p className="text-sm opacity-90">Tel</p>
-                      <p className="text-lg font-medium">+ 09 222 444 33</p>
+                      <p className="text-sm opacity-90">전화번호</p>
+                      <p className="text-lg font-medium">0504-0811-1330</p>
+                      <p className="text-xs opacity-75 mt-1">평일 09:00 - 18:00 (주말/공휴일 휴무)</p>
                     </div>
 
                     {/* 이메일 */}
                     <div>
-                      <p className="text-sm opacity-90">Email</p>
-                      <p className="text-lg font-medium">hello@yourtable.com</p>
+                      <p className="text-sm opacity-90">이메일</p>
+                      <p className="text-lg font-medium">awesomeplan4606@naver.com</p>
                     </div>
 
                     {/* 주소 */}
                     <div>
-                      <p className="text-sm opacity-90">Address</p>
+                      <p className="text-sm opacity-90">주소</p>
                       <p className="text-lg font-medium leading-relaxed">
-                        1355 Market St, Suite 900San Francisco, CA 94103<br />
-                        United States
+                        전라남도 목포시 원산중앙로 44 2층<br />
+                        (우: 58636)
+                      </p>
+                    </div>
+
+                    {/* 사업자 정보 */}
+                    <div className="pt-4 border-t border-purple-400">
+                      <p className="text-xs opacity-75">
+                        <span className="font-medium">대표:</span> 함은비<br />
+                        <span className="font-medium">사업자등록번호:</span> 268-87-01436<br />
+                        <span className="font-medium">통신판매업:</span> 2020-전남목포-0368
                       </p>
                     </div>
                   </div>

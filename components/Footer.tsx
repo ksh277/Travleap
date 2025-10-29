@@ -212,21 +212,17 @@ export function Footer({
         <div className="py-4 border-t border-gray-200">
           <div className="space-y-2 text-xs text-gray-500 leading-relaxed">
             <p>
-              어썸플랜은 통신판매업자로서 일부 상품은 직접 판매하며, 일부 상품은 통신판매중개 서비스를 제공합니다.
-              중개 상품의 경우 상품의 예약, 이용 및 환불 등과 관련한 의무와 책임은 각 판매자에게 있습니다.
+              ㈜어썸플랜은 팝업 스토어 상품을 직접 판매하는 통신판매업자입니다.
             </p>
             <p>
-              <strong className="text-gray-700">전자상거래 소비자보호:</strong> 상품 구매 시 개인정보는 배송업체 및 결제대행업체(토스페이먼츠)에 제공되며,
-              거래 완료 후 관계 법령에 따라 일정 기간 보관됩니다.
+              상품 구매 시 개인정보는 배송업체 및 결제대행업체(토스페이먼츠)에 제공되며, 관계 법령에 따라 일정 기간 보관 후 파기됩니다.
             </p>
             <p>
-              <strong className="text-gray-700">취소/환불:</strong> 일반 상품은 수령 후 7일 이내 청약철회 가능합니다.
-              다만, 여행/숙박/렌트카 등 날짜가 정해진 서비스 상품은 각 상품의 취소 정책에 따르며,
-              일부 상품은 취소 수수료가 부과되거나 취소가 불가능할 수 있습니다.
-              자세한 사항은 <a href="/refund-policy" className="text-purple-600 hover:underline">취소/환불 정책</a>을 확인하세요.
+              취소·환불은 「전자상거래법」 및 개별 상품의 정책에 따르며, 자세한 내용은{' '}
+              <a href="/refund-policy" className="text-purple-600 hover:underline">취소/환불 정책</a> 페이지를 참고해 주세요.
             </p>
             <p>
-              <strong className="text-gray-700">소비자 피해 보상:</strong> 공정거래위원회 고시 소비자분쟁해결기준에 따라 피해 보상을 받을 수 있습니다.
+              소비자 피해는 공정거래위원회 고시 소비자분쟁해결기준에 따라 보상받을 수 있습니다.
             </p>
           </div>
         </div>
