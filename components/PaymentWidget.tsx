@@ -86,16 +86,27 @@ export default function PaymentWidget({
         : `${window.location.origin}/payment/fail?bookingId=${bookingId}`;
 
       // 결제 요청 (method는 '카드'로 통일 - Toss 창에서 모든 결제 수단 선택 가능)
-      await tossPayments.requestPayment('카드', {
+      // ✅ 전화번호 형식 검증 (Toss 요구사항: 10~11자리 숫자)
+      const sanitizedPhone = customerMobilePhone?.replace(/[^0-9]/g, '') || '';
+      const isValidPhone = sanitizedPhone.length >= 10 && sanitizedPhone.length <= 11;
+
+      // ✅ 결제 요청 객체 생성 (유효한 전화번호만 포함)
+      const paymentRequest: any = {
         amount,
         orderId: bookingNumber,
         orderName,
         customerName: customerName || '고객',
         customerEmail: customerEmail || '',
-        customerMobilePhone: customerMobilePhone || '',
         successUrl,
         failUrl
-      });
+      };
+
+      // 전화번호가 유효한 경우에만 추가
+      if (isValidPhone) {
+        paymentRequest.customerMobilePhone = sanitizedPhone;
+      }
+
+      await tossPayments.requestPayment('카드', paymentRequest);
 
       // Toss 결제창으로 리다이렉트됨
 
