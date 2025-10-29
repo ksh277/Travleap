@@ -40,6 +40,7 @@ import { toast } from 'sonner';
 import { api, type TravelItem } from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
 import { AddressSearchModal } from './AddressSearchModal';
+import { PaymentHistoryCard } from './PaymentHistoryCard';
 
 interface Booking {
   id: string;
