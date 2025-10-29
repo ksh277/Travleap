@@ -51,17 +51,24 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
   };
 
   let displayImage = getDefaultImage(payment.category || 'tour');
-  let displayTitle = payment.listing_title || payment.product_name || '주문';
+  let displayTitle = payment.listing_title || payment.product_name || '';
   let itemCount = 1;
 
   // 장바구니 주문인 경우
-  if (notesData?.items && Array.isArray(notesData.items)) {
+  if (notesData?.items && Array.isArray(notesData.items) && notesData.items.length > 0) {
     itemCount = notesData.items.length;
+
+    // 첫 번째 상품명 가져오기 (title 또는 name 필드)
+    const firstItemTitle = notesData.items[0].title || notesData.items[0].name || '';
+
     if (itemCount > 1) {
-      displayTitle = `${notesData.items[0].title || payment.listing_title || payment.product_name || '상품'} 외 ${itemCount - 1}개`;
-    } else if (itemCount === 1) {
-      displayTitle = notesData.items[0].title || payment.listing_title || payment.product_name || '상품';
+      displayTitle = firstItemTitle ? `${firstItemTitle} 외 ${itemCount - 1}개` : (payment.listing_title || payment.product_name || '주문');
+    } else {
+      displayTitle = firstItemTitle || payment.listing_title || payment.product_name || '주문';
     }
+  } else if (!displayTitle) {
+    // notes.items도 없고 listing_title/product_name도 없으면
+    displayTitle = '주문';
   }
 
   // listing 이미지
@@ -130,9 +137,11 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-lg truncate">{displayTitle}</h3>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge variant="outline" className="text-xs">
-                    {payment.category || '일반'}
-                  </Badge>
+                  {payment.category && (
+                    <Badge variant="outline" className="text-xs">
+                      {payment.category === '팝업' ? '팝업' : payment.category}
+                    </Badge>
+                  )}
                   <Badge
                     className={
                       isPaid
@@ -175,14 +184,19 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               <div>
                 <span className="text-gray-600">결제일:</span>
                 <p className="mt-1">
-                  {new Date(payment.approved_at || payment.created_at).toLocaleString('ko-KR', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    timeZone: 'Asia/Seoul'
-                  })}
+                  {(() => {
+                    const dateStr = payment.approved_at || payment.created_at;
+                    const date = new Date(dateStr);
+                    // UTC로 저장된 시간을 한국 시간으로 변환
+                    return date.toLocaleString('ko-KR', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      timeZone: 'Asia/Seoul'
+                    });
+                  })()}
                 </p>
               </div>
             </div>
