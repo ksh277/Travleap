@@ -59,15 +59,27 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
     itemCount = notesData.items.length;
 
     // 첫 번째 상품명 가져오기 (title 또는 name 필드)
-    const firstItemTitle = notesData.items[0].title || notesData.items[0].name || '';
+    const firstItem = notesData.items[0];
+    console.log('🔍 [PaymentHistoryCard] 첫 번째 아이템:', firstItem);
+    console.log('🔍 [PaymentHistoryCard] payment.listing_title:', payment.listing_title);
+    console.log('🔍 [PaymentHistoryCard] payment.product_name:', payment.product_name);
+
+    const firstItemTitle = firstItem?.title || firstItem?.name || firstItem?.productTitle || '';
 
     if (itemCount > 1) {
       displayTitle = firstItemTitle ? `${firstItemTitle} 외 ${itemCount - 1}개` : (payment.listing_title || payment.product_name || '주문');
     } else {
       displayTitle = firstItemTitle || payment.listing_title || payment.product_name || '주문';
     }
+
+    console.log('🔍 [PaymentHistoryCard] 최종 displayTitle:', displayTitle);
   } else if (!displayTitle) {
     // notes.items도 없고 listing_title/product_name도 없으면
+    console.log('⚠️ [PaymentHistoryCard] notes.items가 없거나 비어있음, payment:', {
+      listing_title: payment.listing_title,
+      product_name: payment.product_name,
+      notes: payment.notes
+    });
     displayTitle = '주문';
   }
 
