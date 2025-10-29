@@ -595,10 +595,11 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     console.log(`✅ [Refund] payments 테이블 업데이트 완료`);
 
     // 10. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불)
-    // ✅ 장바구니 주문은 order_number, 단일 예약은 booking_number, 없으면 booking_id 사용
-    const refundOrderId = payment.order_number || payment.booking_number || `BOOKING_${payment.booking_id}`;
+    // ✅ 장바구니 주문은 order_number, 단일 예약은 booking_number, gateway_transaction_id, 없으면 booking_id 사용
+    const refundOrderId = payment.order_number || payment.booking_number || payment.gateway_transaction_id || `BOOKING_${payment.booking_id}`;
 
     console.log(`💰 [Refund] 포인트 처리 시작 - user_id: ${payment.user_id}, refundOrderId: ${refundOrderId}`);
+    console.log(`💰 [Refund] Debug - order_number: ${payment.order_number}, booking_number: ${payment.booking_number}, gateway_transaction_id: ${payment.gateway_transaction_id}, booking_id: ${payment.booking_id}`);
 
     if (payment.user_id && refundOrderId) {
       // 10-1. 적립된 포인트 회수
