@@ -1019,9 +1019,9 @@ export function PaymentPage() {
                       bookingNumber={preparedOrderNumber || bookingNumber || ''}
                       amount={preparedAmount || parseInt(amount || totalAmount || '0')}
                       orderName={preparedOrderName || title || '예약 결제'}
-                      customerEmail={customerEmail || user?.email || ''}
-                      customerName={customerName || user?.name || '고객'}
-                      customerMobilePhone={billingInfo.phone}
+                      customerEmail={billingInfo.email || user?.email || ''}
+                      customerName={billingInfo.name || user?.name || '고객'}
+                      customerMobilePhone={billingInfo.phone || ''}
                       shippingInfo={hasPopupProducts ? {
                         name: billingInfo.name,
                         phone: billingInfo.phone,
