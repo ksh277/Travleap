@@ -77,6 +77,10 @@ function normalizePaymentMethod(tossMethod, easyPayProvider = null) {
  * @param {number} params.amount - 결제 금액
  */
 async function confirmPayment({ paymentKey, orderId, amount }) {
+  // ⚠️ 트랜잭션 외부 변수 (롤백 시 필요)
+  let tossApproved = false;
+  let connection = null;
+
   try {
     console.log('💳 [결제 승인] 시작:', { paymentKey, orderId, amount });
 
@@ -103,14 +107,20 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
     console.log('✅ [Idempotency] 신규 결제 요청 확인');
 
-    // 1. Toss Payments API로 결제 승인 요청
+    // 1. Toss Payments API로 결제 승인 요청 (트랜잭션 외부)
     const paymentResult = await tossPayments.approvePayment({
       paymentKey,
       orderId,
       amount
     });
 
+    tossApproved = true; // 승인 완료 플래그
     console.log('✅ [Toss Payments] 결제 승인 완료:', paymentResult);
+
+    // 🔒 트랜잭션 시작 - 모든 DB 작업을 원자적으로 처리
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    console.log('🔒 [Transaction] DB 트랜잭션 시작');
 
     // 2. orderId로 예약 또는 주문 찾기
     // orderId는 booking_number (BK-...) 또는 ORDER_... 형식
@@ -123,7 +133,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
     if (isBooking) {
       // 예약 (단일 상품 결제)
-      const bookings = await db.query(
+      const bookings = await connection.query(
         'SELECT * FROM bookings WHERE booking_number = ?',
         [orderId]
       );
@@ -147,7 +157,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
       // 3. 예약 상태 변경 (HOLD → CONFIRMED)
       // ✅ 배송 상태도 PENDING → READY로 변경 (결제 완료 = 배송 준비)
-      await db.query(
+      await connection.query(
         `UPDATE bookings
          SET status = 'confirmed',
              payment_status = 'paid',
@@ -172,7 +182,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     } else if (isOrder) {
       // 주문 (장바구니 결제)
       // 장바구니 주문은 payments 테이블의 gateway_transaction_id로 저장됨
-      const orders = await db.query(
+      const orders = await connection.query(
         'SELECT * FROM payments WHERE gateway_transaction_id = ?',
         [orderId]
       );
@@ -195,7 +205,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       console.log(`✅ [금액 검증] ${amount.toLocaleString()}원 일치 확인`);
 
       // 3. 주문 상태 변경 (pending → paid)
-      await db.query(
+      await connection.query(
         `UPDATE payments
          SET payment_status = 'paid',
              updated_at = NOW()
@@ -205,50 +215,6 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
       console.log(`✅ [주문] 상태 변경: pending → paid (payment_id: ${orderId_num})`);
 
-      // 💰 포인트 차감 처리 (결제 확정 후)
-      try {
-        const notes = order.notes ? JSON.parse(order.notes) : null;
-        const pointsUsed = notes?.pointsUsed || 0;
-
-        if (pointsUsed > 0 && userId) {
-          console.log(`💰 [Points] 포인트 차감 시작: ${pointsUsed}P (user_id: ${userId})`);
-
-          // 1. 현재 포인트 조회 (동시성 제어를 위해 FOR UPDATE)
-          const userResult = await db.execute(`
-            SELECT total_points FROM users WHERE id = ? FOR UPDATE
-          `, [userId]);
-
-          if (userResult && userResult.length > 0) {
-            const currentPoints = userResult[0].total_points || 0;
-
-            // 2. 포인트 부족 체크 (동시 사용으로 인한 부족 가능)
-            if (currentPoints < pointsUsed) {
-              console.error(`❌ [Points] 포인트 부족: 현재 ${currentPoints}P, 필요 ${pointsUsed}P`);
-              throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용: ${pointsUsed}P)`);
-            }
-
-            const newBalance = currentPoints - pointsUsed;
-
-            // 3. 포인트 내역 추가
-            await db.execute(`
-              INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-              VALUES (?, ?, 'use', ?, ?, ?, NOW())
-            `, [userId, -pointsUsed, `주문 결제 (주문번호: ${orderId})`, orderId, newBalance]);
-
-            // 4. 사용자 포인트 업데이트
-            await db.execute(`
-              UPDATE users SET total_points = ? WHERE id = ?
-            `, [newBalance, userId]);
-
-            console.log(`✅ [Points] 포인트 차감 완료: -${pointsUsed}P (잔액: ${newBalance}P)`);
-          }
-        }
-      } catch (pointsError) {
-        console.error('❌ [Points] 포인트 차감 실패:', pointsError);
-        // 포인트 차감 실패 시 전체 결제를 실패 처리해야 함
-        throw pointsError;
-      }
-
       // ✅ 쿠폰 사용 처리 (동시성 제어 포함)
       try {
         const notes = order.notes ? JSON.parse(order.notes) : null;
@@ -256,7 +222,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           console.log(`🎟️ [쿠폰] 쿠폰 사용 처리: ${notes.couponCode}`);
 
           // 🔒 FOR UPDATE 락으로 동시성 제어
-          const couponCheck = await db.execute(`
+          const couponCheck = await connection.execute(`
             SELECT usage_limit, used_count
             FROM coupons
             WHERE code = ? AND is_active = TRUE
@@ -272,7 +238,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
               // 한도 초과해도 결제는 성공 처리 (쿠폰만 미적용)
             } else {
               // 🔒 쿠폰 사용 횟수 증가 (동시성 제어: used_count < usage_limit 조건 추가)
-              const updateResult = await db.execute(`
+              const updateResult = await connection.execute(`
                 UPDATE coupons
                 SET used_count = used_count + 1,
                     updated_at = NOW()
@@ -287,7 +253,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
               } else {
                 // 쿠폰 사용 기록 저장
                 try {
-                  await db.execute(`
+                  await connection.execute(`
                     INSERT INTO coupon_usage (
                       coupon_code, user_id, order_id, used_at
                     ) VALUES (?, ?, ?, NOW())
@@ -313,7 +279,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           console.log(`📦 [주문] ${notes.items.length}개 상품의 파트너에게 알림 전송 중...`);
           for (const item of notes.items) {
             if (item.listingId) {
-              const listings = await db.query(
+              const listings = await connection.query(
                 'SELECT partner_id FROM listings WHERE id = ?',
                 [item.listingId]
               );
@@ -342,7 +308,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         paymentResult.easyPay?.provider
       );
 
-      await db.execute(
+      await connection.execute(
         `INSERT INTO payments (
           user_id, booking_id, order_id, payment_key, order_id_str, amount,
           payment_method, payment_status, approved_at, receipt_url,
@@ -378,7 +344,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         paymentResult.easyPay?.provider
       );
 
-      await db.execute(
+      await connection.execute(
         `UPDATE payments
          SET payment_key = ?,
              payment_method = ?,
@@ -410,11 +376,51 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       console.log('✅ [결제 기록] payments 테이블 업데이트 완료 (장바구니 주문)');
     }
 
-    // 4.5. 포인트 적립 (팝업 상품 주문인 경우)
+    // 4.5. 💰 포인트 차감 처리 (payment record 저장 완료 후)
+    if (isOrder) {
+      const notes = order.notes ? JSON.parse(order.notes) : null;
+      const pointsUsed = notes?.pointsUsed || 0;
+
+      if (pointsUsed > 0 && userId) {
+        console.log(`💰 [Points] 포인트 차감 시작: ${pointsUsed}P (user_id: ${userId})`);
+
+        // 1. 현재 포인트 조회 (동시성 제어를 위해 FOR UPDATE)
+        const userResult = await connection.execute(`
+          SELECT total_points FROM users WHERE id = ? FOR UPDATE
+        `, [userId]);
+
+        if (userResult && userResult.length > 0) {
+          const currentPoints = userResult[0].total_points || 0;
+
+          // 2. 포인트 부족 체크 (동시 사용으로 인한 부족 가능)
+          if (currentPoints < pointsUsed) {
+            console.error(`❌ [Points] 포인트 부족: 현재 ${currentPoints}P, 필요 ${pointsUsed}P`);
+            throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용: ${pointsUsed}P)`);
+          }
+
+          const newBalance = currentPoints - pointsUsed;
+
+          // 3. 포인트 내역 추가
+          await connection.execute(`
+            INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+            VALUES (?, ?, 'use', ?, ?, ?, NOW())
+          `, [userId, -pointsUsed, `주문 결제 (주문번호: ${orderId})`, orderId, newBalance]);
+
+          // 4. 사용자 포인트 업데이트
+          await connection.execute(`
+            UPDATE users SET total_points = ? WHERE id = ?
+          `, [newBalance, userId]);
+
+          console.log(`✅ [Points] 포인트 차감 완료: -${pointsUsed}P (잔액: ${newBalance}P)`);
+        }
+      }
+    }
+
+    // 4.6. 포인트 적립 (팝업 상품 주문인 경우)
     if (isOrder) {
       try {
         // 사용자 정보 조회
-        const userResult = await db.query('SELECT name, email, phone FROM users WHERE id = ?', [userId]);
+        const userResult = await connection.query('SELECT name, email, phone FROM users WHERE id = ?', [userId]);
 
         if (userResult.length > 0) {
           const user = userResult[0];
@@ -425,7 +431,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           const originalSubtotal = notes?.subtotal || 0;
 
           // 배송비 조회 (bookings 테이블에서) - 알림 발송용
-          const bookingsResult = await db.query(`
+          const bookingsResult = await connection.query(`
             SELECT SUM(IFNULL(shipping_fee, 0)) as total_shipping_fee
             FROM bookings
             WHERE order_number = ?
@@ -449,7 +455,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
             console.log(`✅ [포인트] ${pointsToEarn}P 적립 완료 (사용자 ${userId})`);
 
             // bookings 테이블에 적립 포인트 기록
-            await db.execute(`
+            await connection.execute(`
               UPDATE bookings
               SET points_earned = ?
               WHERE order_number = ?
@@ -504,7 +510,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     // 5. 로그 기록 (예약일 경우만)
     if (bookingId) {
       try {
-        await db.execute(
+        await connection.execute(
           `INSERT INTO booking_logs (booking_id, action, details, created_at)
            VALUES (?, ?, ?, NOW())`,
           [
@@ -523,6 +529,10 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       }
     }
 
+    // 🔒 트랜잭션 커밋 - 모든 DB 작업 성공
+    await connection.commit();
+    console.log('✅ [Transaction] DB 트랜잭션 커밋 완료');
+
     // 성공 응답
     return {
       success: true,
@@ -536,6 +546,32 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
   } catch (error) {
     console.error('❌ [결제 승인] 실패:', error);
+
+    // 🔒 트랜잭션 롤백 (connection이 존재하면)
+    if (connection) {
+      try {
+        await connection.rollback();
+        console.log('🔄 [Transaction] DB 트랜잭션 롤백 완료');
+      } catch (rollbackError) {
+        console.error('❌ [Transaction] 롤백 실패:', rollbackError);
+      }
+    }
+
+    // 🔒 Toss Payments 취소 (Toss API 승인은 되었지만 DB 작업 실패)
+    if (tossApproved && paymentKey) {
+      try {
+        console.log('🔄 [Toss Payments] 자동 취소 시도:', paymentKey);
+        await tossPayments.cancelPayment(
+          paymentKey,
+          '시스템 오류로 인한 자동 취소'
+        );
+        console.log('✅ [Toss Payments] 자동 취소 완료');
+      } catch (cancelError) {
+        console.error('❌ [Toss Payments] 자동 취소 실패:', cancelError);
+        console.error('⚠️  [긴급] 수동 환불 필요! paymentKey:', paymentKey);
+        // TODO: 관리자에게 알림 전송 (이메일/슬랙 등)
+      }
+    }
 
     // Toss Payments API 에러의 경우 더 자세한 정보 반환
     if (error.message) {
@@ -551,6 +587,16 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       message: '결제 승인 중 오류가 발생했습니다.',
       code: 'PAYMENT_CONFIRM_ERROR'
     };
+  } finally {
+    // 🔒 Connection 해제 (반드시 실행)
+    if (connection) {
+      try {
+        connection.release();
+        console.log('✅ [Connection] DB 커넥션 해제 완료');
+      } catch (releaseError) {
+        console.error('❌ [Connection] 커넥션 해제 실패:', releaseError);
+      }
+    }
   }
 }
 
