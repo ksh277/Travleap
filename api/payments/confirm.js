@@ -200,6 +200,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     let bookingId = null;
     let orderId_num = null;
     let userId = null;
+    let order = null; // 장바구니 주문 정보 (isOrder일 때 사용)
 
     if (isBooking) {
       // 예약 (단일 상품 결제)
@@ -257,11 +258,11 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         [orderId]
       );
 
-      if (!orders || orders.length === 0) {
+      if (!orders || !orders.rows || orders.rows.length === 0) {
         throw new Error('주문을 찾을 수 없습니다.');
       }
 
-      const order = orders.rows[0];
+      order = orders.rows[0]; // 외부 스코프 변수에 할당
       orderId_num = order.id;
       userId = order.user_id;
 
@@ -299,8 +300,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
             FOR UPDATE
           `, [notes.couponCode.toUpperCase()]);
 
-          if (couponCheck && couponCheck.length > 0) {
-            const coupon = couponCheck[0];
+          if (couponCheck && couponCheck.rows && couponCheck.rows.length > 0) {
+            const coupon = couponCheck.rows[0];
 
             // 사용 한도 재확인 (FOR UPDATE 락 획득 후)
             if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
@@ -353,8 +354,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
                 'SELECT partner_id FROM listings WHERE id = ?',
                 [item.listingId]
               );
-              if (listings && listings.length > 0 && listings[0].partner_id) {
-                console.log(`📧 [알림] 파트너 ${listings[0].partner_id}에게 주문 알림: 상품 ${item.listingId}, 수량 ${item.quantity}`);
+              if (listings && listings.rows && listings.rows.length > 0 && listings.rows[0].partner_id) {
+                console.log(`📧 [알림] 파트너 ${listings.rows[0].partner_id}에게 주문 알림: 상품 ${item.listingId}, 수량 ${item.quantity}`);
                 // TODO: 실제 알림 전송 (이메일/SMS/푸시)
               }
             }
@@ -528,8 +529,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     // 4.6. 포인트 적립 (팝업 상품 주문인 경우)
     if (isOrder) {
       try {
-        // 사용자 정보 조회
-        const userResult = await connection.execute('SELECT name, email, phone FROM users WHERE id = ?', [userId]);
+        // 사용자 정보 조회 (포인트 적립을 위해 total_points도 조회)
+        const userResult = await connection.execute('SELECT name, email, phone, total_points FROM users WHERE id = ?', [userId]);
 
         if (userResult.rows && userResult.rows.length > 0) {
           const user = userResult.rows[0];
@@ -552,37 +553,37 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           const pointsToEarn = Math.floor(originalSubtotal * 0.02);
 
           if (pointsToEarn > 0) {
-            const { earnPoints } = require('../../utils/points-system');
-            await earnPoints(
-              userId,
-              pointsToEarn,
-              `주문 적립 (주문번호: ${orderId})`,
-              orderId,
-              null,
-              365 // 1년 후 만료
-            );
-            console.log(`✅ [포인트] ${pointsToEarn}P 적립 완료 (사용자 ${userId})`);
+            try {
+              // ✅ 포인트 적립 수동 구현 (TypeScript utils 사용 불가)
+              const currentPoints = userResult.rows[0].total_points || 0;
+              const newBalance = currentPoints + pointsToEarn;
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + 365);
 
-            // bookings 테이블에 적립 포인트 기록
-            await connection.execute(`
-              UPDATE bookings
-              SET points_earned = ?
-              WHERE order_number = ?
-            `, [pointsToEarn, orderId]);
+              await connection.execute(`
+                INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
+                VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+              `, [userId, pointsToEarn, `주문 적립 (주문번호: ${orderId})`, orderId, newBalance, expiresAt]);
+
+              await connection.execute(`
+                UPDATE users SET total_points = ? WHERE id = ?
+              `, [newBalance, userId]);
+
+              console.log(`✅ [포인트] ${pointsToEarn}P 적립 완료 (사용자 ${userId}, 잔액: ${newBalance}P)`);
+
+              // bookings 테이블에 적립 포인트 기록
+              await connection.execute(`
+                UPDATE bookings
+                SET points_earned = ?
+                WHERE order_number = ?
+              `, [pointsToEarn, orderId]);
+            } catch (earnPointsError) {
+              console.error('❌ [포인트] 적립 실패:', earnPointsError);
+            }
           }
 
-          // 결제 완료 알림 발송
-          const { notifyPaymentCompleted } = require('../../utils/popup-notification');
-          await notifyPaymentCompleted({
-            orderId,
-            userId,
-            userEmail: user.email,
-            userName: user.name,
-            userPhone: user.phone,
-            orderAmount: originalSubtotal,
-            shippingFee
-          });
-          console.log(`✅ [알림] 결제 완료 알림 발송 (${user.email})`);
+          // 결제 완료 알림 발송 (TypeScript utils 사용 불가 - TODO 구현 필요)
+          console.log(`📧 [알림] TODO: 결제 완료 알림 발송 (${user.email}, 주문: ${orderId})`);
 
           // ✅ 청구 정보를 사용자 프로필에 저장 (shippingInfo가 있을 경우)
           const { Pool } = require('@neondatabase/serverless');
@@ -695,15 +696,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       code: 'PAYMENT_CONFIRM_ERROR'
     };
   } finally {
-    // 🔒 Connection 해제 (반드시 실행)
-    if (connection) {
-      try {
-        connection.release();
-        console.log('✅ [Connection] DB 커넥션 해제 완료');
-      } catch (releaseError) {
-        console.error('❌ [Connection] 커넥션 해제 실패:', releaseError);
-      }
-    }
+    // ℹ️ PlanetScale connection은 자동으로 관리되므로 명시적 해제 불필요
+    console.log('✅ [Connection] 결제 처리 완료');
   }
 }
 
@@ -791,7 +785,7 @@ async function handlePaymentFailure(orderId, reason) {
       console.log(`📦 [주문 실패] ${bookings.rows.length}개 예약 롤백 중...`);
 
       // 3. 각 booking에 대해 재고 복구
-      for (const booking of bookings) {
+      for (const booking of bookings.rows) {
         try {
           // 3-1. 옵션 재고 복구
           if (booking.selected_option_id) {
