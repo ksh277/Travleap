@@ -824,14 +824,16 @@ export function PaymentPage() {
                         <span>상품 금액</span>
                         <span>{parseInt(booking?.totalPrice || amount || totalAmount || '0').toLocaleString()}원</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>수수료</span>
-                        <span>0원</span>
-                      </div>
+                      {deliveryFee > 0 && (
+                        <div className="flex justify-between">
+                          <span>배송비</span>
+                          <span>{deliveryFee.toLocaleString()}원</span>
+                        </div>
+                      )}
                       <Separator />
                       <div className="flex justify-between font-medium text-lg">
                         <span>주문 금액</span>
-                        <span className="text-gray-700">{parseInt(booking?.totalPrice || amount || totalAmount || '0').toLocaleString()}원</span>
+                        <span className="text-gray-700">{(parseInt(booking?.totalPrice || amount || totalAmount || '0') + deliveryFee).toLocaleString()}원</span>
                       </div>
                     </>
                   )}
