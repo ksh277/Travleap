@@ -60,8 +60,20 @@ module.exports = async function handler(req, res) {
 
     const payment = paymentResult.rows[0];
 
-    // 2. 본인 확인
-    if (payment.user_id !== parseInt(userId)) {
+    // 2. 본인 확인 (타입 안전성을 위해 양쪽 모두 숫자로 변환)
+    const paymentUserId = parseInt(payment.user_id);
+    const requestUserId = parseInt(userId);
+
+    console.log(`🔍 [Delete] User ID check: payment.user_id=${paymentUserId} (type: ${typeof payment.user_id}), request.userId=${requestUserId} (type: ${typeof userId})`);
+
+    if (isNaN(paymentUserId) || isNaN(requestUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID'
+      });
+    }
+
+    if (paymentUserId !== requestUserId) {
       return res.status(403).json({
         success: false,
         message: '본인의 결제 내역만 삭제할 수 있습니다.'

@@ -169,10 +169,13 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               <div>
                 <span className="text-gray-600">결제일:</span>
                 <p className="mt-1">
-                  {new Date(payment.approved_at || payment.created_at).toLocaleDateString('ko-KR', {
+                  {new Date(payment.approved_at || payment.created_at).toLocaleString('ko-KR', {
                     year: 'numeric',
                     month: 'long',
-                    day: 'numeric'
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZoneName: 'short'
                   })}
                 </p>
               </div>

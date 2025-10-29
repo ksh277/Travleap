@@ -720,10 +720,59 @@ async function getRefundPolicy(paymentKey) {
   }
 }
 
-// Export functions
-module.exports = {
-  refundPayment,
-  getRefundPolicy,
-  getRefundPolicyFromDB,
-  calculateRefundPolicy
+/**
+ * API 핸들러
+ */
+module.exports = async function handler(req, res) {
+  // CORS 헤더
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      success: false,
+      message: 'Method not allowed'
+    });
+  }
+
+  try {
+    const { paymentKey, cancelReason, cancelAmount, skipPolicy } = req.body;
+
+    if (!paymentKey) {
+      return res.status(400).json({
+        success: false,
+        message: 'paymentKey is required'
+      });
+    }
+
+    if (!cancelReason) {
+      return res.status(400).json({
+        success: false,
+        message: 'cancelReason is required'
+      });
+    }
+
+    console.log(`📥 [Refund API] Request: paymentKey=${paymentKey}, reason=${cancelReason}`);
+
+    const result = await refundPayment({
+      paymentKey,
+      cancelReason,
+      cancelAmount,
+      skipPolicy: skipPolicy || false
+    });
+
+    return res.status(200).json(result);
+
+  } catch (error) {
+    console.error('❌ [Refund API] Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || '환불 처리 중 오류가 발생했습니다.'
+    });
+  }
 };
