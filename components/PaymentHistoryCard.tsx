@@ -51,16 +51,16 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
   };
 
   let displayImage = getDefaultImage(payment.category || 'tour');
-  let displayTitle = payment.listing_title || '주문';
+  let displayTitle = payment.listing_title || payment.product_name || '주문';
   let itemCount = 1;
 
   // 장바구니 주문인 경우
   if (notesData?.items && Array.isArray(notesData.items)) {
     itemCount = notesData.items.length;
     if (itemCount > 1) {
-      displayTitle = `${notesData.items[0].title || '상품'} 외 ${itemCount - 1}개`;
+      displayTitle = `${notesData.items[0].title || payment.listing_title || payment.product_name || '상품'} 외 ${itemCount - 1}개`;
     } else if (itemCount === 1) {
-      displayTitle = notesData.items[0].title || '상품';
+      displayTitle = notesData.items[0].title || payment.listing_title || payment.product_name || '상품';
     }
   }
 
@@ -181,8 +181,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                     day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
-                    timeZone: 'Asia/Seoul',
-                    timeZoneName: 'short'
+                    timeZone: 'Asia/Seoul'
                   })}
                 </p>
               </div>
@@ -278,7 +277,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                 </Button>
               )}
 
-              {!isPaid && !isRefunded && onDelete && (
+              {(!isPaid || isRefunded) && onDelete && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -302,7 +301,14 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
 
               {isRefunded && payment.refunded_at && (
                 <span className="text-xs text-gray-500">
-                  환불일: {new Date(payment.refunded_at).toLocaleDateString('ko-KR')}
+                  환불일: {new Date(payment.refunded_at).toLocaleString('ko-KR', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Seoul'
+                  })}
                 </span>
               )}
             </div>

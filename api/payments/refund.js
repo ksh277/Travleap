@@ -552,12 +552,15 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     console.log(`✅ [Refund] payments 테이블 업데이트 완료`);
 
     // 10. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불)
-    // ✅ 장바구니 주문은 order_number, 단일 예약은 booking_number 사용
-    const refundOrderId = payment.order_number || payment.booking_number;
+    // ✅ 장바구니 주문은 order_number, 단일 예약은 booking_number, 없으면 booking_id 사용
+    const refundOrderId = payment.order_number || payment.booking_number || `BOOKING_${payment.booking_id}`;
+
+    console.log(`💰 [Refund] 포인트 처리 시작 - user_id: ${payment.user_id}, refundOrderId: ${refundOrderId}`);
 
     if (payment.user_id && refundOrderId) {
       // 10-1. 적립된 포인트 회수
       const deductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
+      console.log(`✅ [Refund] 포인트 회수 완료: ${deductedPoints}P`);
 
       // 10-2. 사용한 포인트 환불 (notes에서 추출)
       if (payment.notes) {
@@ -567,11 +570,14 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
 
           if (pointsUsed > 0) {
             await refundUsedPoints(connection, payment.user_id, pointsUsed, refundOrderId);
+            console.log(`✅ [Refund] 사용 포인트 환불 완료: ${pointsUsed}P`);
           }
         } catch (notesError) {
           console.error('⚠️ [Refund] notes 파싱 실패:', notesError);
         }
       }
+    } else {
+      console.warn(`⚠️ [Refund] 포인트 처리 스킵 - user_id: ${payment.user_id}, refundOrderId: ${refundOrderId}`);
     }
 
     // 11. 예약 로그 기록
