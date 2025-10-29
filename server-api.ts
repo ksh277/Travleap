@@ -311,7 +311,15 @@ async function startServer() {
       const { startCronJobs } = await import('./api/rentcar/cron/index.js');
       startCronJobs();
     } catch (error) {
-      console.error('❌ Failed to start cron jobs:', error);
+      console.error('❌ Failed to start rentcar cron jobs:', error);
+    }
+
+    // 결제 크론잡 시작
+    try {
+      const { startPaymentCronJobs } = await import('./api/payments/cron/index.js');
+      startPaymentCronJobs();
+    } catch (error) {
+      console.error('❌ Failed to start payment cron jobs:', error);
     }
 
     console.log('=========================================\n');
