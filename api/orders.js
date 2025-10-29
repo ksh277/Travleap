@@ -120,7 +120,13 @@ module.exports = async function handler(req, res) {
 
       const serverDeliveryFee = deliveryFee || 0;
       const serverCouponDiscount = couponDiscount || 0;
-      const serverPointsUsed = pointsUsed || 0;
+
+      // 🔒 포인트 사용 검증 (음수/NaN 방지)
+      let serverPointsUsed = parseInt(pointsUsed) || 0;
+      if (isNaN(serverPointsUsed) || serverPointsUsed < 0) {
+        console.warn(`⚠️ [Orders] 잘못된 pointsUsed 값 감지: ${pointsUsed}, 0으로 처리`);
+        serverPointsUsed = 0;
+      }
 
       // 서버 측 최종 금액 계산 (서버가 재계산한 subtotal 사용)
       const expectedTotal = serverCalculatedSubtotal - serverCouponDiscount + serverDeliveryFee - serverPointsUsed;
