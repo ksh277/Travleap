@@ -18,7 +18,7 @@ export function RefundPolicyPage() {
         </button>
 
         <h1 className="text-3xl font-bold text-gray-900 mb-2">취소/환불 정책</h1>
-        <p className="text-gray-600 mb-8">시행일: 2024년 1월 1일</p>
+        <p className="text-gray-600 mb-8">시행일: 2025년 10월 28일</p>
 
         <Card>
           <CardContent className="p-8 space-y-6">
@@ -239,7 +239,7 @@ export function RefundPolicyPage() {
                   <Mail className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="font-semibold text-gray-900">이메일 상담</p>
-                    <p className="text-blue-600">support@awesomeplan.co.kr</p>
+                    <p className="text-blue-600">awesomeplan4606@naver.com</p>
                     <p className="text-sm text-gray-600">24시간 접수 가능 (영업일 기준 24시간 내 답변)</p>
                   </div>
                 </div>
@@ -247,12 +247,12 @@ export function RefundPolicyPage() {
             </section>
 
             <section className="text-sm text-gray-500 pt-4 border-t border-gray-200">
-              <p>본 취소/환불 정책은 2024년 1월 1일부터 시행됩니다.</p>
+              <p>본 취소/환불 정책은 2025년 10월 28일부터 시행됩니다.</p>
               <p className="mt-2">
                 ㈜어썸플랜<br />
-                대표: 홍길동 | 사업자등록번호: 123-45-67890<br />
-                주소: 전라남도 신안군 안좌면 예술길 10<br />
-                통신판매업신고: 2024-전남신안-0001
+                대표: 함은비 | 사업자등록번호: 268-87-01436<br />
+                주소: 전라남도 목포시 원산중앙로44 2층<br />
+                통신판매업신고: 2020-전남목포-0368
               </p>
             </section>
           </CardContent>

@@ -262,16 +262,49 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
   try {
     console.log(`💰 [포인트 회수] user_id=${userId}, order_number=${orderNumber}`);
 
-    // 1. PlanetScale에서 해당 주문으로 적립된 포인트 조회 (모든 적립 내역)
-    const earnedPointsResult = await connection.execute(`
-      SELECT points, id
+    // 1. PlanetScale에서 해당 주문으로 적립된 포인트 조회 (정확한 매칭)
+    let earnedPointsResult = await connection.execute(`
+      SELECT points, id, related_order_id
       FROM user_points
       WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
       ORDER BY created_at DESC
     `, [userId, orderNumber]);
 
+    // 정확한 매칭이 안되면 LIKE 검색 시도
+    if (!earnedPointsResult.rows || earnedPointsResult.rows.length === 0) {
+      console.log(`⚠️ [포인트 회수] 정확한 매칭 실패, LIKE 검색 시도...`);
+
+      // ORDER_로 시작하는 경우, 숫자 부분만 추출해서 LIKE 검색
+      const orderPattern = orderNumber.replace(/^ORDER_/, '').split('_')[0]; // 타임스탬프 부분 추출
+
+      earnedPointsResult = await connection.execute(`
+        SELECT points, id, related_order_id
+        FROM user_points
+        WHERE user_id = ?
+          AND point_type = 'earn'
+          AND points > 0
+          AND related_order_id LIKE ?
+        ORDER BY created_at DESC
+        LIMIT 10
+      `, [userId, `%${orderPattern}%`]);
+
+      console.log(`💰 [포인트 회수] LIKE 검색 결과: ${earnedPointsResult.rows?.length || 0}건`);
+    }
+
     if (!earnedPointsResult.rows || earnedPointsResult.rows.length === 0) {
       console.log(`ℹ️ [포인트 회수] 적립된 포인트가 없음 (order_number=${orderNumber})`);
+
+      // 디버그: 최근 적립 내역 5개 조회
+      const debugResult = await connection.execute(`
+        SELECT related_order_id, points, created_at
+        FROM user_points
+        WHERE user_id = ? AND point_type = 'earn' AND points > 0
+        ORDER BY created_at DESC
+        LIMIT 5
+      `, [userId]);
+
+      console.log(`🔍 [포인트 회수] 최근 적립 내역 (디버그):`, debugResult.rows);
+
       return 0;
     }
 
