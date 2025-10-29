@@ -2145,6 +2145,46 @@ export function AdminPage({}: AdminPageProps) {
     }
   };
 
+  // 주문 환불 (팝업 카테고리)
+  const handleRefundOrder = async (order: any) => {
+    const reason = prompt('환불 사유를 입력해주세요:');
+    if (!reason || reason.trim() === '') {
+      toast.error('환불 사유를 입력해주세요');
+      return;
+    }
+
+    if (!confirm(`이 주문을 환불하시겠습니까?\n\n주문번호: ${order.order_number}\n금액: ₩${order.total_amount?.toLocaleString() || '0'}\n\n이 작업은 즉시 토스 페이먼츠로 환불을 요청합니다.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/refund-booking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          bookingId: order.id,
+          cancelReason: `[관리자 환불] ${reason}`,
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(`환불이 완료되었습니다 (${data.refundAmount?.toLocaleString() || order.total_amount?.toLocaleString()}원)`);
+        // 주문 목록 새로고침
+        loadOrders();
+      } else {
+        toast.error(data.message || '환불 처리에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('Refund request failed:', error);
+      toast.error('환불 요청 중 오류가 발생했습니다');
+    }
+  };
+
   // ================== 이미지 관리 핸들러 ==================
 
   // 이미지 업로드/수정
@@ -3920,15 +3960,21 @@ export function AdminPage({}: AdminPageProps) {
                         <TableCell className="font-medium text-blue-600">{order.order_number}</TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <div className="font-medium">
-                              {order.customer_info?.name || order.user_name || '이름 없음'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {order.customer_info?.phone || order.user_phone || '전화번호 없음'}
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              {order.customer_info?.email || order.user_email || '이메일 없음'}
-                            </div>
+                            {(order.customer_info?.name || order.user_name) && (
+                              <div className="font-medium">
+                                {order.customer_info?.name || order.user_name}
+                              </div>
+                            )}
+                            {(order.customer_info?.phone || order.user_phone) && (
+                              <div className="text-sm text-gray-500">
+                                {order.customer_info?.phone || order.user_phone}
+                              </div>
+                            )}
+                            {(order.customer_info?.email || order.user_email) && (
+                              <div className="text-xs text-gray-400">
+                                {order.customer_info?.email || order.user_email}
+                              </div>
+                            )}
                             {/* 팝업 상품인 경우 배송 주소 표시 */}
                             {order.category === '팝업' && order.shipping_address && (
                               <div className="mt-2 pt-2 border-t border-gray-200">
@@ -3952,7 +3998,7 @@ export function AdminPage({}: AdminPageProps) {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <div className="font-medium">{order.product_name || '상품명 없음'}</div>
+                            {order.product_name && <div className="font-medium">{order.product_name}</div>}
                             <div className="text-xs text-gray-500">
                               {order.category ? `카테고리: ${order.category}` : ''}
                             </div>
@@ -3977,38 +4023,46 @@ export function AdminPage({}: AdminPageProps) {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            <div>
-                              {order.start_date ? new Date(order.start_date).toLocaleDateString('ko-KR') : '-'}
-                              {order.end_date && order.end_date !== order.start_date && (
-                                <span> ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}</span>
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              성인 {order.num_adults}명
-                              {order.num_children > 0 ? `, 아동 ${order.num_children}명` : ''}
-                              {order.num_seniors > 0 ? `, 경로 ${order.num_seniors}명` : ''}
-                            </div>
+                            {order.category !== '팝업' && order.start_date && (
+                              <div>
+                                {new Date(order.start_date).toLocaleDateString('ko-KR')}
+                                {order.end_date && order.end_date !== order.start_date && (
+                                  <span> ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}</span>
+                                )}
+                              </div>
+                            )}
+                            {order.category === '팝업' ? (
+                              <div className="text-xs text-gray-500">
+                                수량 {order.num_adults || 1}개
+                              </div>
+                            ) : (
+                              <div className="text-xs text-gray-500">
+                                성인 {order.num_adults}명
+                                {order.num_children > 0 ? `, 아동 ${order.num_children}명` : ''}
+                                {order.num_seniors > 0 ? `, 경로 ${order.num_seniors}명` : ''}
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="font-semibold">₩{order.total_amount?.toLocaleString() || '0'}</TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             <Badge variant={
-                              order.payment_status === 'completed' ? 'default' :
-                              order.payment_status === 'pending' ? 'secondary' :
+                              order.payment_status === 'completed' || order.payment_status === 'pending' ? 'default' :
+                              order.payment_status === 'refunded' ? 'secondary' :
                               order.payment_status === 'failed' ? 'destructive' : 'outline'
                             }>
-                              {order.payment_status === 'pending' ? '대기중' :
-                               order.payment_status === 'completed' ? '결제완료' :
+                              {order.payment_status === 'pending' || order.payment_status === 'completed' ? '결제됨' :
+                               order.payment_status === 'refunded' ? '환불됨' :
                                order.payment_status === 'failed' ? '실패' : order.payment_status || '미정'}
                             </Badge>
                             <Badge variant={
                               order.status === 'confirmed' ? 'default' :
-                              order.status === 'pending' ? 'secondary' :
+                              order.status === 'pending' ? 'default' :
                               order.status === 'cancelled' ? 'destructive' :
                               order.status === 'completed' ? 'default' : 'outline'
                             }>
-                              {order.status === 'pending' ? '대기' :
+                              {order.status === 'pending' ? '결제됨' :
                                order.status === 'confirmed' ? '확정' :
                                order.status === 'completed' ? '완료' :
                                order.status === 'cancelled' ? '취소' : order.status}
@@ -4017,9 +4071,9 @@ export function AdminPage({}: AdminPageProps) {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
-                            <div>{order.created_at ? new Date(order.created_at).toLocaleDateString('ko-KR') : '-'}</div>
+                            <div>{order.created_at ? new Date(order.created_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : '-'}</div>
                             <div className="text-xs text-gray-500">
-                              {order.created_at ? new Date(order.created_at).toLocaleTimeString('ko-KR') : ''}
+                              {order.created_at ? new Date(order.created_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' }) : ''}
                             </div>
                           </div>
                         </TableCell>
@@ -4028,7 +4082,7 @@ export function AdminPage({}: AdminPageProps) {
                             <Button size="sm" variant="outline">
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {order.status === 'pending' && (
+                            {order.status === 'pending' && order.category !== '팝업' && (
                               <Button
                                 size="sm"
                                 className="bg-green-600 hover:bg-green-700 text-white"
@@ -4049,6 +4103,16 @@ export function AdminPage({}: AdminPageProps) {
                               >
                                 <Truck className="h-4 w-4 mr-1" />
                                 배송 관리
+                              </Button>
+                            )}
+                            {order.category === '팝업' && (order.payment_status === 'pending' || order.payment_status === 'completed') && order.payment_status !== 'refunded' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-red-50 hover:bg-red-100 text-red-700"
+                                onClick={() => handleRefundOrder(order)}
+                              >
+                                환불
                               </Button>
                             )}
                             <Button
