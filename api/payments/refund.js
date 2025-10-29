@@ -488,16 +488,9 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       console.log(`📋 [Refund] 환불 정책 적용: ${policyInfo.policyName} - ${policyInfo.appliedRule}, 수수료 ${policyInfo.cancellationFeeRate}, ${policyInfo.daysUntilStart}일 전 취소`);
     }
 
-    // 4. Toss Payments API로 환불 요청
-    console.log(`🔄 [Refund] Toss Payments API 호출 중... (금액: ${actualRefundAmount.toLocaleString()}원)`);
-
-    const refundResult = await cancelTossPayment(
-      paymentKey,
-      cancelReason,
-      actualRefundAmount > 0 ? actualRefundAmount : undefined
-    );
-
-    console.log(`✅ [Refund] Toss Payments 환불 완료:`, refundResult);
+    // 🔒 4. DB 트랜잭션 시작 (Problem #37, #39 해결: Toss 환불 전에 DB 작업 먼저 수행)
+    console.log(`🔒 [Refund] DB 트랜잭션 시작 - 재고/포인트/상태 변경 처리`);
+    await connection.execute('START TRANSACTION');
 
     // 5. 장바구니 주문 여부 확인
     const isCartOrder = payment.order_number && payment.order_number.startsWith('ORDER_');
@@ -606,7 +599,22 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       }
     }
 
-    // 12. 성공 응답
+    // 12. 트랜잭션 커밋 (DB 작업 완료)
+    await connection.execute('COMMIT');
+    console.log(`✅ [Refund] DB 트랜잭션 커밋 완료 - 재고/포인트/상태 변경 성공`);
+
+    // 13. 🔄 Toss Payments API로 환불 요청 (DB 작업 성공 후 실행 - Problem #37 해결)
+    console.log(`🔄 [Refund] Toss Payments API 호출 중... (금액: ${actualRefundAmount.toLocaleString()}원)`);
+
+    const refundResult = await cancelTossPayment(
+      paymentKey,
+      cancelReason,
+      actualRefundAmount > 0 ? actualRefundAmount : undefined
+    );
+
+    console.log(`✅ [Refund] Toss Payments 환불 완료:`, refundResult);
+
+    // 14. 성공 응답
     return {
       success: true,
       message: '환불이 완료되었습니다.',
@@ -619,6 +627,14 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
 
   } catch (error) {
     console.error(`❌ [Refund] 환불 처리 실패:`, error);
+
+    // 트랜잭션 롤백
+    try {
+      await connection.execute('ROLLBACK');
+      console.log(`🔙 [Refund] DB 트랜잭션 롤백 완료`);
+    } catch (rollbackError) {
+      console.error(`❌ [Refund] 롤백 실패:`, rollbackError);
+    }
 
     // Toss Payments API 에러 처리
     if (error.message) {
