@@ -296,9 +296,72 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
       console.log(`✅ [주문] 상태 변경: pending → paid (payment_id: ${orderId_num})`);
 
-      // ✅ 쿠폰 사용 처리 (동시성 제어 포함)
+      // ✅ 포인트 차감을 쿠폰 사용보다 먼저 처리 (Problem #33 해결)
+      // 포인트 차감 실패 시 쿠폰이 소진되지 않도록 순서 변경
+      const notes = order.notes ? JSON.parse(order.notes) : null;
+      const pointsUsed = notes?.pointsUsed || 0;
+
+      if (pointsUsed > 0 && userId) {
+        // ✅ Neon PostgreSQL Pool (users 테이블용)
+        const { Pool } = require('@neondatabase/serverless');
+        const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+        try {
+          console.log(`💰 [Points] 포인트 차감 시작: ${pointsUsed}P (user_id: ${userId})`);
+
+          // 1. 트랜잭션 시작 (FOR UPDATE를 위해 필수)
+          await poolNeon.query('BEGIN');
+
+          // 2. 현재 포인트 조회 (동시성 제어를 위해 FOR UPDATE)
+          const userResult = await poolNeon.query(`
+            SELECT total_points FROM users WHERE id = $1 FOR UPDATE
+          `, [userId]);
+
+          if (userResult && userResult.rows && userResult.rows.length > 0) {
+            const currentPoints = userResult.rows[0].total_points || 0;
+
+            // 3. 포인트 부족 체크 (동시 사용으로 인한 부족 가능)
+            if (currentPoints < pointsUsed) {
+              console.error(`❌ [Points] 포인트 부족: 현재 ${currentPoints}P, 필요 ${pointsUsed}P`);
+              throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용: ${pointsUsed}P)`);
+            }
+
+            const newBalance = currentPoints - pointsUsed;
+
+            // 4. 포인트 내역 추가 (PlanetScale - user_points 테이블)
+            await connection.execute(`
+              INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+              VALUES (?, ?, 'use', ?, ?, ?, NOW())
+            `, [userId, -pointsUsed, `주문 결제 (주문번호: ${orderId})`, orderId, newBalance]);
+
+            // 5. 사용자 포인트 업데이트 (Neon - users 테이블)
+            await poolNeon.query(`
+              UPDATE users SET total_points = $1 WHERE id = $2
+            `, [newBalance, userId]);
+
+            // 6. 트랜잭션 커밋
+            await poolNeon.query('COMMIT');
+
+            console.log(`✅ [Points] 포인트 차감 완료: -${pointsUsed}P (잔액: ${newBalance}P)`);
+          }
+        } catch (pointsError) {
+          console.error('❌ [Points] 포인트 차감 실패:', pointsError);
+          // 롤백
+          try {
+            await poolNeon.query('ROLLBACK');
+          } catch (rollbackError) {
+            console.error('❌ [Points] 롤백 실패:', rollbackError);
+          }
+          // 포인트 차감 실패는 결제 실패로 처리
+          throw new Error(`포인트 차감 실패: ${pointsError.message}`);
+        } finally {
+          // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
+          await poolNeon.end();
+        }
+      }
+
+      // ✅ 쿠폰 사용 처리 (포인트 차감 성공 후 실행 - Problem #33 해결)
       try {
-        const notes = order.notes ? JSON.parse(order.notes) : null;
         if (notes && notes.couponCode) {
           console.log(`🎟️ [쿠폰] 쿠폰 사용 처리: ${notes.couponCode}`);
 
@@ -496,72 +559,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       console.log('✅ [결제 기록] payments 테이블 업데이트 완료 (장바구니 주문)');
     }
 
-    // 4.5. 💰 포인트 차감 처리 (payment record 저장 완료 후)
-    if (isOrder) {
-      const notes = order.notes ? JSON.parse(order.notes) : null;
-      const pointsUsed = notes?.pointsUsed || 0;
-
-      if (pointsUsed > 0 && userId) {
-        // ✅ Neon PostgreSQL Pool (users 테이블용)
-        const { Pool } = require('@neondatabase/serverless');
-        const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
-
-        try {
-          console.log(`💰 [Points] 포인트 차감 시작: ${pointsUsed}P (user_id: ${userId})`);
-
-          // 1. 트랜잭션 시작 (FOR UPDATE를 위해 필수)
-          await poolNeon.query('BEGIN');
-
-          // 2. 현재 포인트 조회 (동시성 제어를 위해 FOR UPDATE)
-          const userResult = await poolNeon.query(`
-            SELECT total_points FROM users WHERE id = $1 FOR UPDATE
-          `, [userId]);
-
-          if (userResult && userResult.rows && userResult.rows.length > 0) {
-            const currentPoints = userResult.rows[0].total_points || 0;
-
-            // 3. 포인트 부족 체크 (동시 사용으로 인한 부족 가능)
-            if (currentPoints < pointsUsed) {
-              console.error(`❌ [Points] 포인트 부족: 현재 ${currentPoints}P, 필요 ${pointsUsed}P`);
-              throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용: ${pointsUsed}P)`);
-            }
-
-            const newBalance = currentPoints - pointsUsed;
-
-            // 4. 포인트 내역 추가 (PlanetScale - user_points 테이블)
-            await connection.execute(`
-              INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-              VALUES (?, ?, 'use', ?, ?, ?, NOW())
-            `, [userId, -pointsUsed, `주문 결제 (주문번호: ${orderId})`, orderId, newBalance]);
-
-            // 5. 사용자 포인트 업데이트 (Neon - users 테이블)
-            await poolNeon.query(`
-              UPDATE users SET total_points = $1 WHERE id = $2
-            `, [newBalance, userId]);
-
-            // 6. 트랜잭션 커밋
-            await poolNeon.query('COMMIT');
-
-            console.log(`✅ [Points] 포인트 차감 완료: -${pointsUsed}P (잔액: ${newBalance}P)`);
-          }
-        } catch (pointsError) {
-          console.error('❌ [Points] 포인트 차감 실패:', pointsError);
-          // 롤백
-          try {
-            await poolNeon.query('ROLLBACK');
-          } catch (rollbackError) {
-            console.error('❌ [Points] 롤백 실패:', rollbackError);
-          }
-          // 포인트 차감 실패는 결제 실패로 처리
-          throw new Error(`포인트 차감 실패: ${pointsError.message}`);
-        } finally {
-          // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
-          await poolNeon.end();
-        }
-      }
-    }
-
-    // 4.6. 포인트 적립 (팝업 상품 주문인 경우)
+    // 4.5. 포인트 적립 (팝업 상품 주문인 경우)
     if (isOrder) {
       // ✅ Neon PostgreSQL Pool (users 테이블용)
       const { Pool } = require('@neondatabase/serverless');
