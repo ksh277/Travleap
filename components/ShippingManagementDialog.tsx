@@ -153,6 +153,14 @@ export function ShippingManagementDialog({
     }
   }, [booking]);
 
+  // 송장번호 입력 시 자동으로 배송중 상태로 변경
+  useEffect(() => {
+    if (trackingNumber && courierCompany && deliveryStatus === 'READY') {
+      setDeliveryStatus('SHIPPING');
+      toast.info('송장번호 입력으로 배송 상태가 "배송중"으로 변경되었습니다.');
+    }
+  }, [trackingNumber, courierCompany]);
+
   const handleSubmit = async () => {
     if (!booking) return;
 
