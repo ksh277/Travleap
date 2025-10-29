@@ -5,25 +5,68 @@
  * - Toss Payments를 통한 결제 취소/환불 처리
  * - 전액 환불 및 부분 환불 지원
  * - 환불 정책에 따른 수수료 계산
+ * - ✅ 재고 복구 (옵션 + 상품)
+ * - ✅ 적립 포인트 회수 (Dual DB)
+ * - ✅ 장바구니 주문 환불 지원
  *
  * 라우트: POST /api/payments/refund
  */
 
-const { db } = require('../../utils/database');
-const { tossPayments } = require('../../utils/toss-payments');
+const { connect } = require('@planetscale/database');
+
+// Toss Payments 설정
+const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY;
+const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
+
+/**
+ * Toss Payments API - 결제 취소
+ */
+async function cancelTossPayment(paymentKey, cancelReason, cancelAmount = null) {
+  try {
+    console.log(`🚫 결제 취소 요청: ${paymentKey} (사유: ${cancelReason})`);
+
+    const body = { cancelReason };
+    if (cancelAmount) {
+      body.cancelAmount = cancelAmount;
+    }
+
+    const response = await fetch(`${TOSS_API_BASE}/payments/${paymentKey}/cancel`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(TOSS_SECRET_KEY + ':').toString('base64')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`결제 취소 실패: ${error.message || response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ 결제 취소 성공:', result);
+    return result;
+
+  } catch (error) {
+    console.error('❌ 결제 취소 중 오류:', error);
+    throw error;
+  }
+}
 
 /**
  * 환불 정책 조회 (DB에서 가져오기)
  *
+ * @param {Object} connection - PlanetScale connection
  * @param {number} listingId - 상품 ID
  * @param {string} category - 카테고리
  * @param {number} vendorId - 벤더 ID
  * @returns {Object} 환불 정책
  */
-async function getRefundPolicyFromDB(listingId, category, vendorId) {
+async function getRefundPolicyFromDB(connection, listingId, category, vendorId) {
   try {
     // 우선순위: 1) 특정 상품 정책 > 2) 카테고리 정책 > 3) 벤더 정책 > 4) 기본 정책
-    const policies = await db.query(`
+    const policies = await connection.execute(`
       SELECT *
       FROM refund_policies
       WHERE is_active = TRUE
@@ -37,8 +80,8 @@ async function getRefundPolicyFromDB(listingId, category, vendorId) {
       LIMIT 1
     `, [listingId, category, vendorId]);
 
-    if (policies.length > 0) {
-      return policies[0];
+    if (policies.rows && policies.rows.length > 0) {
+      return policies.rows[0];
     }
 
     // 기본 정책 (fallback - 하드코딩)
@@ -149,7 +192,189 @@ function calculateRefundPolicy(booking, policy, now = new Date()) {
 }
 
 /**
- * 환불 처리
+ * 재고 복구 처리
+ *
+ * @param {Object} connection - PlanetScale connection
+ * @param {number} bookingId - 예약 ID
+ */
+async function restoreStock(connection, bookingId) {
+  try {
+    console.log(`📦 [재고 복구] booking_id=${bookingId} 재고 복구 시작`);
+
+    // 1. booking 정보 조회
+    const bookingResult = await connection.execute(`
+      SELECT listing_id, selected_option_id, guests
+      FROM bookings
+      WHERE id = ?
+    `, [bookingId]);
+
+    if (!bookingResult.rows || bookingResult.rows.length === 0) {
+      console.warn(`⚠️ [재고 복구] booking을 찾을 수 없음: ${bookingId}`);
+      return;
+    }
+
+    const booking = bookingResult.rows[0];
+    const quantity = booking.guests || 1;
+
+    // 2. 옵션 재고 복구
+    if (booking.selected_option_id) {
+      const optionResult = await connection.execute(`
+        UPDATE product_options
+        SET stock = stock + ?
+        WHERE id = ? AND stock IS NOT NULL
+      `, [quantity, booking.selected_option_id]);
+
+      if (optionResult.affectedRows > 0) {
+        console.log(`✅ [재고 복구] 옵션 재고 복구 완료: option_id=${booking.selected_option_id}, +${quantity}개`);
+      } else {
+        console.log(`ℹ️ [재고 복구] 옵션 재고 관리 비활성화 (option_id=${booking.selected_option_id})`);
+      }
+    }
+
+    // 3. 상품 재고 복구
+    if (booking.listing_id) {
+      const listingResult = await connection.execute(`
+        UPDATE listings
+        SET stock = stock + ?
+        WHERE id = ? AND stock IS NOT NULL AND stock_enabled = 1
+      `, [quantity, booking.listing_id]);
+
+      if (listingResult.affectedRows > 0) {
+        console.log(`✅ [재고 복구] 상품 재고 복구 완료: listing_id=${booking.listing_id}, +${quantity}개`);
+      } else {
+        console.log(`ℹ️ [재고 복구] 상품 재고 관리 비활성화 (listing_id=${booking.listing_id})`);
+      }
+    }
+
+  } catch (error) {
+    console.error(`❌ [재고 복구] 실패 (booking_id=${bookingId}):`, error);
+    // 재고 복구 실패해도 환불은 계속 진행 (수동 처리 필요)
+  }
+}
+
+/**
+ * 적립 포인트 회수 처리 (Dual DB)
+ *
+ * @param {Object} connection - PlanetScale connection
+ * @param {number} userId - 사용자 ID
+ * @param {string} orderNumber - 주문 번호
+ */
+async function deductEarnedPoints(connection, userId, orderNumber) {
+  try {
+    console.log(`💰 [포인트 회수] user_id=${userId}, order_number=${orderNumber}`);
+
+    // 1. PlanetScale에서 해당 주문으로 적립된 포인트 조회
+    const earnedPointsResult = await connection.execute(`
+      SELECT points, id
+      FROM user_points
+      WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, [userId, orderNumber]);
+
+    if (!earnedPointsResult.rows || earnedPointsResult.rows.length === 0) {
+      console.log(`ℹ️ [포인트 회수] 적립된 포인트가 없음 (order_number=${orderNumber})`);
+      return 0;
+    }
+
+    const pointsToDeduct = earnedPointsResult.rows[0].points;
+
+    // 2. Neon PostgreSQL에서 현재 포인트 조회 및 차감
+    const { Pool } = require('@neondatabase/serverless');
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
+
+    const userResult = await poolNeon.query(`
+      SELECT total_points FROM users WHERE id = $1 FOR UPDATE
+    `, [userId]);
+
+    if (!userResult.rows || userResult.rows.length === 0) {
+      console.error(`❌ [포인트 회수] 사용자를 찾을 수 없음: user_id=${userId}`);
+      await poolNeon.end();
+      return 0;
+    }
+
+    const currentPoints = userResult.rows[0].total_points || 0;
+    const newBalance = Math.max(0, currentPoints - pointsToDeduct); // 음수 방지
+
+    // 3. Neon - users 테이블 포인트 차감
+    await poolNeon.query(`
+      UPDATE users SET total_points = $1 WHERE id = $2
+    `, [newBalance, userId]);
+
+    // 4. PlanetScale - user_points 테이블에 회수 내역 추가
+    await connection.execute(`
+      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+      VALUES (?, ?, 'admin', ?, ?, ?, NOW())
+    `, [userId, -pointsToDeduct, `환불로 인한 포인트 회수 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
+
+    console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
+
+    await poolNeon.end();
+    return pointsToDeduct;
+
+  } catch (error) {
+    console.error(`❌ [포인트 회수] 실패 (user_id=${userId}):`, error);
+    return 0;
+  }
+}
+
+/**
+ * 사용된 포인트 환불 처리 (Dual DB)
+ *
+ * @param {Object} connection - PlanetScale connection
+ * @param {number} userId - 사용자 ID
+ * @param {number} pointsUsed - 사용한 포인트
+ * @param {string} orderNumber - 주문 번호
+ */
+async function refundUsedPoints(connection, userId, pointsUsed, orderNumber) {
+  try {
+    console.log(`💰 [포인트 환불] user_id=${userId}, points=${pointsUsed}P`);
+
+    // 1. Neon PostgreSQL에서 현재 포인트 조회
+    const { Pool } = require('@neondatabase/serverless');
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
+
+    const userResult = await poolNeon.query(`
+      SELECT total_points FROM users WHERE id = $1 FOR UPDATE
+    `, [userId]);
+
+    if (!userResult.rows || userResult.rows.length === 0) {
+      console.error(`❌ [포인트 환불] 사용자를 찾을 수 없음: user_id=${userId}`);
+      await poolNeon.end();
+      return false;
+    }
+
+    const currentPoints = userResult.rows[0].total_points || 0;
+    const newBalance = currentPoints + pointsUsed;
+
+    // 2. Neon - users 테이블 포인트 환불
+    await poolNeon.query(`
+      UPDATE users SET total_points = $1 WHERE id = $2
+    `, [newBalance, userId]);
+
+    // 3. PlanetScale - user_points 테이블에 환불 내역 추가
+    await connection.execute(`
+      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+      VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+    `, [userId, pointsUsed, `주문 취소로 인한 포인트 환불 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
+
+    console.log(`✅ [포인트 환불] ${pointsUsed}P 환불 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
+
+    await poolNeon.end();
+    return true;
+
+  } catch (error) {
+    console.error(`❌ [포인트 환불] 실패 (user_id=${userId}):`, error);
+    return false;
+  }
+}
+
+/**
+ * 환불 처리 (완전 재작성)
  *
  * @param {Object} params
  * @param {string} params.paymentKey - Toss Payments 결제 키
@@ -158,15 +383,25 @@ function calculateRefundPolicy(booking, policy, now = new Date()) {
  * @param {boolean} [params.skipPolicy] - 환불 정책 무시 (관리자 전용)
  */
 async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolicy = false }) {
+  const connection = connect({ url: process.env.DATABASE_URL });
+
   try {
     console.log(`💰 [Refund] 환불 요청 시작: paymentKey=${paymentKey}, reason=${cancelReason}`);
 
-    // 1. DB에서 결제 정보 + 상품 정보 조회
-    const payments = await db.query(`
+    // 1. DB에서 결제 정보 조회
+    const paymentResult = await connection.execute(`
       SELECT
         p.*,
-        b.start_date, b.booking_date, b.total_amount as booking_amount, b.id as booking_id,
-        l.id as listing_id, l.category, l.vendor_id
+        b.id as booking_id,
+        b.start_date,
+        b.booking_date,
+        b.total_amount as booking_amount,
+        b.listing_id,
+        b.selected_option_id,
+        b.guests,
+        b.order_number,
+        l.category,
+        l.vendor_id
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
@@ -174,14 +409,14 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       LIMIT 1
     `, [paymentKey]);
 
-    if (payments.length === 0) {
+    if (!paymentResult.rows || paymentResult.rows.length === 0) {
       throw new Error('PAYMENT_NOT_FOUND: 결제 정보를 찾을 수 없습니다.');
     }
 
-    const payment = payments[0];
+    const payment = paymentResult.rows[0];
 
     // 2. 이미 환불된 결제인지 확인
-    if (payment.payment_status === 'refunded' || payment.status === 'refunded') {
+    if (payment.payment_status === 'refunded') {
       throw new Error('ALREADY_REFUNDED: 이미 환불된 결제입니다.');
     }
 
@@ -192,6 +427,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     if (!skipPolicy && payment.booking_id) {
       // 3-1. DB에서 환불 정책 조회
       const policyFromDB = await getRefundPolicyFromDB(
+        connection,
         payment.listing_id,
         payment.category,
         payment.vendor_id
@@ -217,92 +453,126 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     // 4. Toss Payments API로 환불 요청
     console.log(`🔄 [Refund] Toss Payments API 호출 중... (금액: ${actualRefundAmount.toLocaleString()}원)`);
 
-    const refundResult = await tossPayments.cancelPayment({
+    const refundResult = await cancelTossPayment(
       paymentKey,
       cancelReason,
-      cancelAmount: actualRefundAmount > 0 ? actualRefundAmount : undefined
-    });
+      actualRefundAmount > 0 ? actualRefundAmount : undefined
+    );
 
     console.log(`✅ [Refund] Toss Payments 환불 완료:`, refundResult);
 
-    // 5. DB 업데이트 - payments 테이블
-    await db.execute(`
+    // 5. 장바구니 주문 여부 확인
+    const isCartOrder = payment.order_number && payment.order_number.startsWith('ORDER_');
+
+    // 6. 장바구니 주문이면 모든 bookings 조회
+    let bookingsToRefund = [];
+
+    if (isCartOrder) {
+      const bookingsResult = await connection.execute(`
+        SELECT id, listing_id, selected_option_id, guests
+        FROM bookings
+        WHERE order_number = ? AND status != 'cancelled'
+      `, [payment.order_number]);
+
+      bookingsToRefund = bookingsResult.rows || [];
+      console.log(`📦 [Refund] 장바구니 주문: ${bookingsToRefund.length}개 예약 환불 처리`);
+    } else if (payment.booking_id) {
+      // 단일 예약
+      bookingsToRefund = [{ id: payment.booking_id, listing_id: payment.listing_id, selected_option_id: payment.selected_option_id, guests: payment.guests }];
+    }
+
+    // 7. 각 booking에 대해 재고 복구
+    for (const booking of bookingsToRefund) {
+      await restoreStock(connection, booking.id);
+    }
+
+    // 8. bookings 상태 변경
+    if (isCartOrder) {
+      await connection.execute(`
+        UPDATE bookings
+        SET status = 'cancelled',
+            payment_status = 'refunded',
+            cancellation_reason = ?,
+            updated_at = NOW()
+        WHERE order_number = ?
+      `, [cancelReason, payment.order_number]);
+
+      console.log(`✅ [Refund] ${bookingsToRefund.length}개 예약 취소 완료`);
+    } else if (payment.booking_id) {
+      await connection.execute(`
+        UPDATE bookings
+        SET status = 'cancelled',
+            payment_status = 'refunded',
+            cancellation_reason = ?,
+            updated_at = NOW()
+        WHERE id = ?
+      `, [cancelReason, payment.booking_id]);
+
+      console.log(`✅ [Refund] 예약 취소 완료 (booking_id: ${payment.booking_id})`);
+    }
+
+    // 9. payments 테이블 업데이트
+    await connection.execute(`
       UPDATE payments
-      SET
-        payment_status = 'refunded',
-        refund_amount = ?,
-        refund_reason = ?,
-        refunded_at = NOW(),
-        updated_at = NOW()
+      SET payment_status = 'refunded',
+          refund_amount = ?,
+          refund_reason = ?,
+          refunded_at = NOW(),
+          updated_at = NOW()
       WHERE payment_key = ?
     `, [actualRefundAmount, cancelReason, paymentKey]);
 
     console.log(`✅ [Refund] payments 테이블 업데이트 완료`);
 
-    // 6. DB 업데이트 - bookings 테이블 (있는 경우)
-    if (payment.booking_id) {
-      // ✅ cancelled_at 컬럼이 bookings 테이블에 없으므로 제외
-      await db.execute(`
-        UPDATE bookings
-        SET
-          status = 'cancelled',
-          payment_status = 'refunded',
-          cancellation_reason = ?,
-          updated_at = NOW()
-        WHERE id = ?
-      `, [cancelReason, payment.booking_id]);
+    // 10. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불)
+    if (payment.user_id && payment.order_number) {
+      // 10-1. 적립된 포인트 회수
+      const deductedPoints = await deductEarnedPoints(connection, payment.user_id, payment.order_number);
 
-      console.log(`✅ [Refund] bookings 테이블 업데이트 완료 (booking_id: ${payment.booking_id})`);
-
-      // 7. 포인트 환불 처리 (사용된 포인트가 있는 경우)
-      if (payment.points_used && payment.points_used > 0 && payment.user_id) {
+      // 10-2. 사용한 포인트 환불 (notes에서 추출)
+      if (payment.notes) {
         try {
-          const { refundPoints } = require('../../utils/points-system.js');
+          const notes = typeof payment.notes === 'string' ? JSON.parse(payment.notes) : payment.notes;
+          const pointsUsed = notes.pointsUsed || 0;
 
-          const pointsRefundResult = await refundPoints(
-            payment.user_id,
-            payment.points_used,
-            `주문 취소로 인한 포인트 환불 (주문번호: ${payment.order_number || payment.booking_id})`,
-            payment.order_number || payment.booking_id
-          );
-
-          if (pointsRefundResult.success) {
-            console.log(`✅ [Refund] 포인트 환불 완료: ${payment.points_used}P → user_id: ${payment.user_id}`);
-          } else {
-            console.error(`❌ [Refund] 포인트 환불 실패:`, pointsRefundResult.message);
-            // 포인트 환불 실패해도 전체 환불은 계속 진행 (수동 처리 필요)
+          if (pointsUsed > 0) {
+            await refundUsedPoints(connection, payment.user_id, pointsUsed, payment.order_number);
           }
-        } catch (pointsError) {
-          console.error(`❌ [Refund] 포인트 환불 오류:`, pointsError);
-          // 포인트 시스템 에러가 있어도 환불은 계속 진행
+        } catch (notesError) {
+          console.error('⚠️ [Refund] notes 파싱 실패:', notesError);
         }
       }
-
-      // 8. 예약 로그 기록
-      await db.execute(`
-        INSERT INTO booking_logs (booking_id, action, details, created_at)
-        VALUES (?, 'REFUND_PROCESSED', ?, NOW())
-      `, [
-        payment.booking_id,
-        JSON.stringify({
-          paymentKey,
-          refundAmount: actualRefundAmount,
-          pointsRefunded: payment.points_used || 0,
-          cancelReason,
-          refundedAt: new Date().toISOString()
-        })
-      ]);
-
-      console.log(`📝 [Refund] booking_logs 기록 완료`);
     }
 
-    // 8. 성공 응답
+    // 11. 예약 로그 기록
+    if (payment.booking_id) {
+      try {
+        await connection.execute(`
+          INSERT INTO booking_logs (booking_id, action, details, created_at)
+          VALUES (?, 'REFUND_PROCESSED', ?, NOW())
+        `, [
+          payment.booking_id,
+          JSON.stringify({
+            paymentKey,
+            refundAmount: actualRefundAmount,
+            cancelReason,
+            refundedAt: new Date().toISOString()
+          })
+        ]);
+        console.log(`📝 [Refund] booking_logs 기록 완료`);
+      } catch (logError) {
+        console.warn('⚠️ [Refund] booking_logs 기록 실패 (계속 진행):', logError);
+      }
+    }
+
+    // 12. 성공 응답
     return {
       success: true,
       message: '환불이 완료되었습니다.',
       refundAmount: actualRefundAmount,
       paymentKey,
       bookingId: payment.booking_id,
+      orderNumber: payment.order_number,
       refundedAt: new Date().toISOString()
     };
 
@@ -332,8 +602,10 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
  * @param {string} paymentKey - Toss Payments 결제 키
  */
 async function getRefundPolicy(paymentKey) {
+  const connection = connect({ url: process.env.DATABASE_URL });
+
   try {
-    const payments = await db.query(`
+    const paymentResult = await connection.execute(`
       SELECT
         p.*,
         b.start_date, b.booking_date, b.total_amount as booking_amount,
@@ -345,11 +617,11 @@ async function getRefundPolicy(paymentKey) {
       LIMIT 1
     `, [paymentKey]);
 
-    if (payments.length === 0) {
+    if (!paymentResult.rows || paymentResult.rows.length === 0) {
       throw new Error('결제 정보를 찾을 수 없습니다.');
     }
 
-    const payment = payments[0];
+    const payment = paymentResult.rows[0];
 
     if (payment.payment_status === 'refunded') {
       return {
@@ -362,6 +634,7 @@ async function getRefundPolicy(paymentKey) {
 
     // DB에서 환불 정책 조회
     const policyFromDB = await getRefundPolicyFromDB(
+      connection,
       payment.listing_id,
       payment.category,
       payment.vendor_id

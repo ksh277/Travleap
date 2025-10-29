@@ -320,9 +320,15 @@ module.exports = async function handler(req, res) {
       // 🔒 포인트 사용 검증 (차감은 결제 확정 후 confirmPayment에서 수행)
       if (pointsUsed && pointsUsed > 0) {
         try {
-          // 현재 포인트 조회 및 충분한지 검증만 수행
-          const userResult = await connection.execute(
-            'SELECT total_points FROM users WHERE id = ?',
+          // ✅ Neon PostgreSQL Pool 사용 (users 테이블은 Neon에 있음)
+          const { Pool } = require('@neondatabase/serverless');
+          const poolNeon = new Pool({
+            connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+          });
+
+          // 현재 포인트 조회 및 충분한지 검증만 수행 (Neon - users 테이블)
+          const userResult = await poolNeon.query(
+            'SELECT total_points FROM users WHERE id = $1',
             [userId]
           );
 
@@ -338,6 +344,8 @@ module.exports = async function handler(req, res) {
           } else {
             throw new Error('사용자를 찾을 수 없습니다.');
           }
+
+          await poolNeon.end(); // Connection pool 정리
         } catch (pointsError) {
           console.error('❌ [Orders] 포인트 검증 실패:', pointsError);
           throw pointsError;

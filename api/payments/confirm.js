@@ -554,7 +554,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
 
         // 사용자 정보 조회 (Neon - users 테이블)
-        const userResult = await poolNeon.query('SELECT name, email, phone, total_points FROM users WHERE id = $1', [userId]);
+        // ✅ FOR UPDATE 추가: 동시성 제어 (포인트 적립 중 다른 트랜잭션 차단)
+        const userResult = await poolNeon.query('SELECT name, email, phone, total_points FROM users WHERE id = $1 FOR UPDATE', [userId]);
 
         if (userResult.rows && userResult.rows.length > 0) {
           const user = userResult.rows[0];
