@@ -9,11 +9,13 @@ import { toast } from 'sonner';
 
 interface Order {
   id: number;
+  booking_id: number | null; // ✅ 단일 예약 환불용
   user_name: string;
   user_email: string;
   product_title: string;
   listing_id: number;
   amount: number;
+  total_amount?: number; // ✅ API에서 사용
   status: string;
   payment_status: string;
   created_at: string;
@@ -64,17 +66,28 @@ export function AdminOrders() {
     }
 
     try {
-      // booking_id로 payment_key 조회 (서버에서 처리)
+      // ✅ booking_id가 있으면 단일 예약, 없으면 장바구니 주문
+      const requestBody: any = {
+        cancelReason: `[관리자 환불] ${reason}`,
+      };
+
+      if (order.booking_id) {
+        // 단일 예약 환불
+        requestBody.bookingId = order.booking_id;
+        console.log('🔍 [Admin Refund] 단일 예약 환불:', { bookingId: order.booking_id });
+      } else {
+        // 장바구니 주문 환불 (order.id는 payments 테이블의 id)
+        requestBody.orderId = order.id;
+        console.log('🔍 [Admin Refund] 장바구니 주문 환불:', { orderId: order.id });
+      }
+
       const response = await fetch('/api/admin/refund-booking', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({
-          bookingId: order.id,
-          cancelReason: `[관리자 환불] ${reason}`,
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();

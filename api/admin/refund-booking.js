@@ -29,37 +29,62 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { bookingId, cancelReason } = req.body;
+    const { bookingId, orderId, cancelReason } = req.body;
 
-    if (!bookingId || !cancelReason) {
+    if ((!bookingId && !orderId) || !cancelReason) {
       return res.status(400).json({
         success: false,
-        message: 'bookingId와 cancelReason은 필수입니다.'
+        message: 'bookingId 또는 orderId와 cancelReason은 필수입니다.'
       });
     }
 
-    console.log(`💼 [Admin Refund] 환불 요청: booking_id=${bookingId}, reason=${cancelReason}`);
+    console.log(`💼 [Admin Refund] 환불 요청: booking_id=${bookingId}, order_id=${orderId}, reason=${cancelReason}`);
 
     // 1. PlanetScale 연결
     const connection = connect({ url: process.env.DATABASE_URL });
 
-    // 2. booking_id로 payment, booking, delivery 정보 조회
-    const result = await connection.execute(`
-      SELECT
-        p.payment_key,
-        p.amount,
-        p.payment_status,
-        p.notes,
-        b.delivery_status,
-        b.category
-      FROM payments p
-      LEFT JOIN bookings b ON p.booking_id = b.id
-      WHERE p.booking_id = ?
-        AND (p.payment_status = 'paid' OR p.payment_status = 'completed')
-      LIMIT 1
-    `, [bookingId]);
+    // 2. booking_id 또는 order_id로 payment, booking, delivery 정보 조회
+    let result;
+
+    if (bookingId) {
+      // 단일 예약 환불 (기존 로직)
+      result = await connection.execute(`
+        SELECT
+          p.id as payment_id,
+          p.payment_key,
+          p.amount,
+          p.payment_status,
+          p.notes,
+          b.delivery_status,
+          b.category,
+          b.order_number
+        FROM payments p
+        LEFT JOIN bookings b ON p.booking_id = b.id
+        WHERE p.booking_id = ?
+          AND (p.payment_status = 'paid' OR p.payment_status = 'completed')
+        LIMIT 1
+      `, [bookingId]);
+    } else {
+      // 장바구니 주문 환불 (order_id 사용)
+      result = await connection.execute(`
+        SELECT
+          p.id as payment_id,
+          p.payment_key,
+          p.amount,
+          p.payment_status,
+          p.notes,
+          NULL as delivery_status,
+          NULL as category,
+          NULL as order_number
+        FROM payments p
+        WHERE p.order_id = ?
+          AND (p.payment_status = 'paid' OR p.payment_status = 'completed')
+        LIMIT 1
+      `, [orderId]);
+    }
 
     if (!result.rows || result.rows.length === 0) {
+      console.error(`❌ [Admin Refund] 결제 정보 없음: booking_id=${bookingId}, order_id=${orderId}`);
       return res.status(404).json({
         success: false,
         message: '결제 정보를 찾을 수 없습니다. 이미 환불되었거나 결제되지 않은 주문입니다.'
