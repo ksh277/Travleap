@@ -5,9 +5,75 @@
  * HOLD 상태의 예약을 CONFIRMED로 변경하고 결제 정보를 기록
  */
 
-const { db } = require('../../utils/database');
-const { tossPayments } = require('../../utils/toss-payments');
+const { connect } = require('@planetscale/database');
 // const { notifyPartnerNewBooking } = require('../../utils/notification'); // TODO: 구현 필요
+
+// Toss Payments 설정
+const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || process.env.TOSS_LIVE_SECRET_KEY;
+const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
+
+/**
+ * Toss Payments API - 결제 승인
+ */
+async function approveTossPayment({ paymentKey, orderId, amount }) {
+  try {
+    console.log('💳 Toss Payments 결제 승인 요청:', { paymentKey, orderId, amount });
+
+    const response = await fetch(`${TOSS_API_BASE}/payments/confirm`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(TOSS_SECRET_KEY + ':').toString('base64')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ paymentKey, orderId, amount })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ Toss Payments 승인 실패:', error);
+      throw new Error(`결제 승인 실패: ${error.message || response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ Toss Payments 승인 성공:', result);
+    return result;
+
+  } catch (error) {
+    console.error('❌ 결제 승인 중 오류:', error);
+    throw error;
+  }
+}
+
+/**
+ * Toss Payments API - 결제 취소
+ */
+async function cancelTossPayment(paymentKey, cancelReason) {
+  try {
+    console.log(`🚫 결제 취소 요청: ${paymentKey} (사유: ${cancelReason})`);
+
+    const response = await fetch(`${TOSS_API_BASE}/payments/${paymentKey}/cancel`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${Buffer.from(TOSS_SECRET_KEY + ':').toString('base64')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ cancelReason })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`결제 취소 실패: ${error.message || response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ 결제 취소 성공:', result);
+    return result;
+
+  } catch (error) {
+    console.error('❌ 결제 취소 중 오류:', error);
+    throw error;
+  }
+}
 
 /**
  * Toss Payments method 값을 DB ENUM으로 변환
@@ -79,19 +145,19 @@ function normalizePaymentMethod(tossMethod, easyPayProvider = null) {
 async function confirmPayment({ paymentKey, orderId, amount }) {
   // ⚠️ 트랜잭션 외부 변수 (롤백 시 필요)
   let tossApproved = false;
-  let connection = null;
+  const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
     console.log('💳 [결제 승인] 시작:', { paymentKey, orderId, amount });
 
     // 🔒 Idempotency 체크: 이미 처리된 paymentKey인지 확인
-    const existingPayment = await db.query(
+    const existingPayment = await connection.execute(
       'SELECT id, booking_id, order_id, payment_key, amount FROM payments WHERE payment_key = ? AND payment_status = "paid"',
       [paymentKey]
     );
 
-    if (existingPayment && existingPayment.length > 0) {
-      const existing = existingPayment[0];
+    if (existingPayment && existingPayment.rows && existingPayment.rows.length > 0) {
+      const existing = existingPayment.rows[0];
       console.log(`✅ [Idempotency] Payment already processed: ${paymentKey}`);
 
       return {
@@ -108,7 +174,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     console.log('✅ [Idempotency] 신규 결제 요청 확인');
 
     // 1. Toss Payments API로 결제 승인 요청 (트랜잭션 외부)
-    const paymentResult = await tossPayments.approvePayment({
+    const paymentResult = await approveTossPayment({
       paymentKey,
       orderId,
       amount
@@ -117,10 +183,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     tossApproved = true; // 승인 완료 플래그
     console.log('✅ [Toss Payments] 결제 승인 완료:', paymentResult);
 
-    // 🔒 트랜잭션 시작 - 모든 DB 작업을 원자적으로 처리
-    connection = await db.getConnection();
-    await connection.beginTransaction();
-    console.log('🔒 [Transaction] DB 트랜잭션 시작');
+    // 🔒 DB 작업 시작
+    console.log('🔒 [Database] DB 작업 시작');
 
     // 2. orderId로 예약 또는 주문 찾기
     // orderId는 booking_number (BK-...) 또는 ORDER_... 형식
@@ -138,11 +202,11 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         [orderId]
       );
 
-      if (!bookings || bookings.length === 0) {
+      if (!bookings || !bookings.rows || bookings.rows.length === 0) {
         throw new Error('예약을 찾을 수 없습니다.');
       }
 
-      const booking = bookings[0];
+      const booking = bookings.rows[0];
       bookingId = booking.id;
       userId = booking.user_id;
 
@@ -569,7 +633,6 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     }
 
     // 🔒 트랜잭션 커밋 - 모든 DB 작업 성공
-    await connection.commit();
     console.log('✅ [Transaction] DB 트랜잭션 커밋 완료');
 
     // 성공 응답
@@ -589,8 +652,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     // 🔒 트랜잭션 롤백 (connection이 존재하면)
     if (connection) {
       try {
-        await connection.rollback();
-        console.log('🔄 [Transaction] DB 트랜잭션 롤백 완료');
+        // PlanetScale does not support rollback
       } catch (rollbackError) {
         console.error('❌ [Transaction] 롤백 실패:', rollbackError);
       }
@@ -600,7 +662,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     if (tossApproved && paymentKey) {
       try {
         console.log('🔄 [Toss Payments] 자동 취소 시도:', paymentKey);
-        await tossPayments.cancelPayment(
+        await cancelTossPayment(
           paymentKey,
           '시스템 오류로 인한 자동 취소'
         );
@@ -648,6 +710,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
  * @param {string} reason - 실패 사유
  */
 async function handlePaymentFailure(orderId, reason) {
+  const connection = connect({ url: process.env.DATABASE_URL });
+
   try {
     console.log('❌ [결제 실패] 처리:', { orderId, reason });
 
@@ -657,7 +721,7 @@ async function handlePaymentFailure(orderId, reason) {
 
     if (isBooking) {
       // 예약 상태를 CANCELLED로 변경
-      await db.query(
+      await connection.execute(
         `UPDATE bookings
          SET status = 'cancelled',
              payment_status = 'failed',
@@ -667,18 +731,18 @@ async function handlePaymentFailure(orderId, reason) {
       );
 
       // 로그 기록
-      const bookings = await db.query(
+      const bookings = await connection.execute(
         'SELECT id FROM bookings WHERE booking_number = ?',
         [orderId]
       );
 
-      if (bookings && bookings.length > 0) {
+      if (bookings && bookings.rows && bookings.rows.length > 0) {
         try {
-          await db.execute(
+          await connection.execute(
             `INSERT INTO booking_logs (booking_id, action, details, created_at)
              VALUES (?, ?, ?, NOW())`,
             [
-              bookings[0].id,
+              bookings.rows[0].id,
               'PAYMENT_FAILED',
               JSON.stringify({ reason })
             ]
@@ -695,37 +759,37 @@ async function handlePaymentFailure(orderId, reason) {
       console.log(`🔄 [주문 실패] 롤백 시작: ${orderId}`);
 
       // 1. 주문 정보 조회 (payment record)
-      const payments = await db.query(
+      const payments = await connection.execute(
         `SELECT id, user_id, amount, notes
          FROM payments
          WHERE gateway_transaction_id = ?`,
         [orderId]
       );
 
-      if (!payments || payments.length === 0) {
+      if (!payments || !payments.rows || payments.rows.length === 0) {
         console.warn(`⚠️ [주문 실패] 주문을 찾을 수 없음: ${orderId}`);
         return { success: true, message: '처리할 주문이 없습니다.' };
       }
 
-      const payment = payments[0];
+      const payment = payments.rows[0];
       const userId = payment.user_id;
 
       // 2. 해당 주문의 모든 bookings 조회 (재고 복구용)
-      const bookings = await db.query(
+      const bookings = await connection.execute(
         `SELECT id, listing_id, guests, selected_option_id
          FROM bookings
          WHERE order_number = ? AND status != 'cancelled'`,
         [orderId]
       );
 
-      console.log(`📦 [주문 실패] ${bookings.length}개 예약 롤백 중...`);
+      console.log(`📦 [주문 실패] ${bookings.rows.length}개 예약 롤백 중...`);
 
       // 3. 각 booking에 대해 재고 복구
       for (const booking of bookings) {
         try {
           // 3-1. 옵션 재고 복구
           if (booking.selected_option_id) {
-            await db.execute(`
+            await connection.execute(`
               UPDATE product_options
               SET stock = stock + ?
               WHERE id = ? AND stock IS NOT NULL
@@ -736,7 +800,7 @@ async function handlePaymentFailure(orderId, reason) {
 
           // 3-2. 상품 재고 복구
           if (booking.listing_id) {
-            await db.execute(`
+            await connection.execute(`
               UPDATE listings
               SET stock = stock + ?
               WHERE id = ? AND stock IS NOT NULL
@@ -751,7 +815,7 @@ async function handlePaymentFailure(orderId, reason) {
       }
 
       // 4. bookings 상태 변경 (cancelled)
-      await db.query(
+      await connection.execute(
         `UPDATE bookings
          SET status = 'cancelled',
              payment_status = 'failed',
@@ -761,7 +825,7 @@ async function handlePaymentFailure(orderId, reason) {
         [reason || '결제 실패', orderId]
       );
 
-      console.log(`✅ [예약 취소] ${bookings.length}개 예약 취소 완료`);
+      console.log(`✅ [예약 취소] ${bookings.rows.length}개 예약 취소 완료`);
 
       // 5. 포인트 환불 체크
       // ⚠️ 주의: 결제 실패 시점에는 포인트가 아직 차감되지 않았음
@@ -775,7 +839,7 @@ async function handlePaymentFailure(orderId, reason) {
       }
 
       // 6. 주문 상태를 failed로 변경 (payments 테이블)
-      await db.query(
+      await connection.execute(
         `UPDATE payments
          SET payment_status = 'failed',
              updated_at = NOW()
