@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
     const connection = connect({ url: process.env.DATABASE_URL });
 
     if (req.method === 'POST') {
-      // 도움됨 추가
+      // 좋아요 토글 (추가/취소)
       const { user_id } = req.body;
 
       if (!user_id) {
@@ -35,31 +35,36 @@ module.exports = async function handler(req, res) {
         [reviewId]
       );
 
-      if (!reviewCheck || reviewCheck.length === 0) {
+      if (!reviewCheck || reviewCheck.rows.length === 0) {
         return res.status(404).json({
           success: false,
           error: '리뷰를 찾을 수 없습니다.'
         });
       }
 
-      // 이미 도움됨을 눌렀는지 확인
+      // 이미 좋아요를 눌렀는지 확인
       const existingHelpful = await connection.execute(
         'SELECT id FROM review_helpful WHERE review_id = ? AND user_id = ?',
         [reviewId, user_id]
       );
 
-      if (existingHelpful && existingHelpful.length > 0) {
-        return res.status(400).json({
-          success: false,
-          error: '이미 이 리뷰에 도움됨을 표시하셨습니다.'
-        });
-      }
+      let message = '';
 
-      // 도움됨 추가
-      await connection.execute(`
-        INSERT INTO review_helpful (review_id, user_id, created_at)
-        VALUES (?, ?, NOW())
-      `, [reviewId, user_id]);
+      if (existingHelpful && existingHelpful.rows && existingHelpful.rows.length > 0) {
+        // 이미 존재하면 삭제 (좋아요 취소)
+        await connection.execute(
+          'DELETE FROM review_helpful WHERE review_id = ? AND user_id = ?',
+          [reviewId, user_id]
+        );
+        message = '좋아요를 취소했습니다.';
+      } else {
+        // 존재하지 않으면 추가 (좋아요)
+        await connection.execute(`
+          INSERT INTO review_helpful (review_id, user_id, created_at)
+          VALUES (?, ?, NOW())
+        `, [reviewId, user_id]);
+        message = '좋아요를 눌렀습니다.';
+      }
 
       // reviews 테이블의 helpful_count 업데이트
       await connection.execute(`
@@ -68,14 +73,14 @@ module.exports = async function handler(req, res) {
         WHERE id = ?
       `, [reviewId, reviewId]);
 
-      return res.status(201).json({
+      return res.status(200).json({
         success: true,
-        message: '도움됨이 추가되었습니다.'
+        message
       });
     }
 
     if (req.method === 'DELETE') {
-      // 도움됨 취소
+      // 좋아요 취소
       const { user_id } = req.query;
 
       if (!user_id) {
@@ -85,7 +90,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 도움됨 삭제
+      // 좋아요 삭제
       await connection.execute(
         'DELETE FROM review_helpful WHERE review_id = ? AND user_id = ?',
         [reviewId, user_id]
@@ -100,7 +105,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        message: '도움됨이 취소되었습니다.'
+        message: '좋아요를 취소했습니다.'
       });
     }
 

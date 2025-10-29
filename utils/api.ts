@@ -3168,7 +3168,7 @@ export const api = {
       }
     },
 
-    // 리뷰 도움됨 버튼
+    // 리뷰 좋아요 버튼 (토글)
     markReviewHelpful: async (reviewId: number, userId: number): Promise<ApiResponse<{ helpful_count: number }>> => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/reviews/helpful/${reviewId}`, {
@@ -3182,19 +3182,19 @@ export const api = {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          throw new Error(result.error || '도움됨 처리 실패');
+          throw new Error(result.error || '좋아요 처리 실패');
         }
 
         return {
           success: true,
           data: { helpful_count: 0 }, // API에서 카운트를 반환하지 않으므로 리프레시 필요
-          message: result.message || '도움이 되었습니다.'
+          message: result.message || '좋아요'
         };
       } catch (error) {
         console.error('Failed to mark review helpful:', error);
         return {
           success: false,
-          error: error instanceof Error ? error.message : '도움됨 처리에 실패했습니다.'
+          error: error instanceof Error ? error.message : '좋아요 처리에 실패했습니다.'
         };
       }
     },

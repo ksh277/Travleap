@@ -736,14 +736,14 @@ export function DetailPage() {
     try {
       const response = await api.admin.markReviewHelpful(Number(reviewId), user.id);
       if (response.success) {
-        toast.success(response.message || '도움이 되었습니다.');
+        toast.success(response.message || '좋아요');
         fetchReviews(); // 리뷰 목록 갱신
       } else {
-        throw new Error(response.error || '도움됨 처리 중 오류가 발생했습니다.');
+        throw new Error(response.error || '좋아요 처리 중 오류가 발생했습니다.');
       }
     } catch (error) {
       console.error('Error marking review helpful:', error);
-      const errorMessage = error instanceof Error ? error.message : '도움됨 처리 중 오류가 발생했습니다.';
+      const errorMessage = error instanceof Error ? error.message : '좋아요 처리 중 오류가 발생했습니다.';
       toast.error(errorMessage);
     }
   }, [user?.id, fetchReviews]);
@@ -1920,7 +1920,7 @@ export function DetailPage() {
                                 onClick={() => handleMarkHelpful(review.id)}
                               >
                                 <ThumbsUp className="h-4 w-4 mr-1" />
-                                도움됨 {review.helpful}
+                                좋아요 {review.helpful}
                               </Button>
                               {user?.id === review.user_id && (
                                 <Button
