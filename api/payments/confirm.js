@@ -218,13 +218,18 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       userId = booking.user_id;
 
       // ✅ 금액 검증 추가 (보안 강화)
-      const expectedAmount = booking.total_amount || 0;
-      if (amount !== expectedAmount) {
-        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${amount}원`);
-        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${expectedAmount.toLocaleString()}원, 실제: ${amount.toLocaleString()}원)`);
+      // ⚠️ DECIMAL 타입과 INT 타입 비교 문제 해결: 숫자로 변환 후 오차 허용
+      const expectedAmount = parseFloat(booking.total_amount || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      // 1원 이하 오차 허용 (부동소수점 연산 및 타입 변환 오차)
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원, 차이: ${difference}원`);
+        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${expectedAmount}원, 실제: ${actualAmount}원)`);
       }
 
-      console.log(`✅ [금액 검증] ${amount.toLocaleString()}원 일치 확인`);
+      console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (차이: ${difference}원)`);
 
       // 3. 예약 상태 변경 (HOLD → CONFIRMED)
       // ✅ 배송 상태도 PENDING → READY로 변경 (결제 완료 = 배송 준비)
@@ -267,13 +272,18 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       userId = order.user_id;
 
       // ✅ 금액 검증 추가 (보안 강화)
-      const expectedAmount = order.amount || 0;
-      if (amount !== expectedAmount) {
-        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${amount}원`);
-        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${expectedAmount.toLocaleString()}원, 실제: ${amount.toLocaleString()}원)`);
+      // ⚠️ DECIMAL 타입과 INT 타입 비교 문제 해결: 숫자로 변환 후 오차 허용
+      const expectedAmount = parseFloat(order.amount || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      // 1원 이하 오차 허용 (부동소수점 연산 및 타입 변환 오차)
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원, 차이: ${difference}원`);
+        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${expectedAmount}원, 실제: ${actualAmount}원)`);
       }
 
-      console.log(`✅ [금액 검증] ${amount.toLocaleString()}원 일치 확인`);
+      console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (차이: ${difference}원)`);
 
       // 3. 주문 상태 변경 (pending → paid)
       await connection.execute(

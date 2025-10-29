@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
       SELECT
         b.*,
         l.title as listing_title,
-        l.image_url as listing_image,
+        l.images as listing_images,
         l.category,
         p.notes as payment_notes
       FROM bookings b
@@ -62,15 +62,31 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // listing_images에서 첫 번째 이미지 추출
+      let listing_image = null;
+      if (booking.listing_images) {
+        try {
+          const images = typeof booking.listing_images === 'string'
+            ? JSON.parse(booking.listing_images)
+            : booking.listing_images;
+          listing_image = Array.isArray(images) && images.length > 0 ? images[0] : null;
+        } catch (e) {
+          console.error('Failed to parse listing images:', e);
+        }
+      }
+
       return {
         ...booking,
+        // listing 이미지 추가
+        listing_image,
         // shipping 정보 추가
         shipping_name: shippingInfo?.name || null,
         shipping_phone: shippingInfo?.phone || null,
         shipping_zipcode: shippingInfo?.zipcode || null,
         shipping_address: shippingInfo?.address || null,
         shipping_address_detail: shippingInfo?.addressDetail || null,
-        // payment_notes는 클라이언트에 노출하지 않음
+        // 내부 데이터는 클라이언트에 노출하지 않음
+        listing_images: undefined,
         payment_notes: undefined
       };
     });

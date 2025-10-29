@@ -33,18 +33,26 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // ✅ Dual Database 아키텍처
+    // 1. Neon PostgreSQL: users.total_points 조회
+    const { Pool } = require('@neondatabase/serverless');
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
+
+    // 2. PlanetScale MySQL: user_points 내역 조회
     const connection = connect({ url: process.env.DATABASE_URL });
 
-    // 사용자 총 포인트 조회
-    const userResult = await connection.execute(`
+    // 사용자 총 포인트 조회 (Neon PostgreSQL)
+    const userResult = await poolNeon.query(`
       SELECT total_points
       FROM users
-      WHERE id = ?
+      WHERE id = $1
     `, [parseInt(userId)]);
 
     const totalPoints = userResult.rows?.[0]?.total_points || 0;
 
-    // 포인트 내역 조회 (최신순)
+    // 포인트 내역 조회 (PlanetScale MySQL)
     const pointsResult = await connection.execute(`
       SELECT
         id,
@@ -52,7 +60,7 @@ module.exports = async function handler(req, res) {
         point_type,
         reason,
         related_order_id,
-        related_booking_id,
+        related_payment_id,
         balance_after,
         expires_at,
         created_at
