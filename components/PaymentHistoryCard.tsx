@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Receipt, MapPin, Calendar, Clock, Users, Package, Coins, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatKoreanDateTime } from '../utils/date-utils';
 
 interface PaymentHistoryCardProps {
   payment: any;
@@ -196,29 +197,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               <div>
                 <span className="text-gray-600">결제일:</span>
                 <p className="mt-1">
-                  {(() => {
-                    const dateStr = payment.approved_at || payment.created_at;
-                    console.log('🕐 [결제일] 원본 dateStr:', dateStr);
-
-                    // DB에서 온 시간을 UTC로 파싱하고 한국 시간(+9시간)으로 변환
-                    const date = new Date(dateStr);
-                    console.log('🕐 [결제일] Date 객체:', date.toString());
-                    console.log('🕐 [결제일] UTC:', date.toUTCString());
-                    console.log('🕐 [결제일] ISO:', date.toISOString());
-
-                    // 한국 시간으로 명시적 변환
-                    const koreaTime = date.toLocaleString('ko-KR', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      timeZone: 'Asia/Seoul'
-                    });
-                    console.log('🕐 [결제일] 한국 시간:', koreaTime);
-
-                    return koreaTime;
-                  })()}
+                  {formatKoreanDateTime(payment.approved_at || payment.created_at)}
                 </p>
               </div>
             </div>
@@ -337,27 +316,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
 
               {isRefunded && payment.refunded_at && (
                 <span className="text-xs text-gray-500">
-                  환불일: {(() => {
-                    const dateStr = payment.refunded_at;
-                    console.log('🕐 [환불일] 원본 dateStr:', dateStr);
-
-                    const date = new Date(dateStr);
-                    console.log('🕐 [환불일] Date 객체:', date.toString());
-                    console.log('🕐 [환불일] UTC:', date.toUTCString());
-                    console.log('🕐 [환불일] ISO:', date.toISOString());
-
-                    const koreaTime = date.toLocaleString('ko-KR', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      timeZone: 'Asia/Seoul'
-                    });
-                    console.log('🕐 [환불일] 한국 시간:', koreaTime);
-
-                    return koreaTime;
-                  })()}
+                  환불일: {formatKoreanDateTime(payment.refunded_at)}
                 </span>
               )}
             </div>
