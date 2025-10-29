@@ -180,11 +180,11 @@ module.exports = async function handler(req, res) {
         orderNumber,
         JSON.stringify({
           items,
-          subtotal,
-          deliveryFee: deliveryFee || 0,
-          couponDiscount: couponDiscount || 0,
+          subtotal: serverCalculatedSubtotal,  // ✅ 서버 계산값 저장
+          deliveryFee: serverDeliveryFee,      // ✅ 서버 검증값 저장
+          couponDiscount: serverCouponDiscount, // ✅ 서버 계산값 저장
           couponCode: couponCode || null,
-          pointsUsed: pointsUsed || 0,
+          pointsUsed: serverPointsUsed,        // ✅ 서버 검증값 저장
           shippingInfo: shippingInfo || null
         })
       ]);
