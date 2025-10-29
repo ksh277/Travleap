@@ -736,7 +736,39 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       } catch (cancelError) {
         console.error('❌ [Toss Payments] 자동 취소 실패:', cancelError);
         console.error('⚠️  [긴급] 수동 환불 필요! paymentKey:', paymentKey);
-        // TODO: 관리자에게 알림 전송 (이메일/슬랙 등)
+
+        // ✅ 관리자 알림 저장 (Problem #32 해결)
+        try {
+          await connection.execute(`
+            INSERT INTO admin_notifications (
+              type,
+              priority,
+              title,
+              message,
+              metadata,
+              created_at
+            ) VALUES (?, ?, ?, ?, ?, NOW())
+          `, [
+            'PAYMENT_CANCEL_FAILED',
+            'CRITICAL',
+            '🚨 Toss 결제 자동 취소 실패 - 긴급 조치 필요',
+            `결제 승인은 완료되었으나 DB 작업 실패로 자동 취소를 시도했지만 실패했습니다. 고객에게 결제 금액이 청구되었으나 시스템에는 주문이 생성되지 않았습니다. 즉시 수동 환불 처리가 필요합니다.`,
+            JSON.stringify({
+              paymentKey,
+              orderId,
+              amount,
+              orderName,
+              error: cancelError.message,
+              timestamp: new Date().toISOString(),
+              actionRequired: '관리자 페이지에서 해당 paymentKey로 수동 환불 처리 필요'
+            })
+          ]);
+          console.log('✅ [Admin Alert] 관리자 알림 저장 완료');
+        } catch (alertError) {
+          // admin_notifications 테이블이 없으면 무시
+          console.error('⚠️  [Admin Alert] 알림 저장 실패 (계속 진행):', alertError.message);
+          console.error('⚠️  ⚠️  ⚠️  [CRITICAL] 수동 환불 필요! paymentKey:', paymentKey, 'orderId:', orderId, 'amount:', amount);
+        }
       }
     }
 
