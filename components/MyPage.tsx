@@ -1410,24 +1410,24 @@ export function MyPage() {
                                       className={
                                         payment.payment_status === 'paid' || payment.payment_status === 'completed'
                                           ? 'bg-green-100 text-green-800'
-                                          : payment.payment_status === 'pending'
-                                          ? 'bg-yellow-100 text-yellow-800'
+                                          : payment.payment_status === 'refunded'
+                                          ? 'bg-blue-100 text-blue-800'
                                           : 'bg-red-100 text-red-800'
                                       }
                                     >
                                       {payment.payment_status === 'paid' || payment.payment_status === 'completed'
                                         ? '결제 완료'
-                                        : payment.payment_status === 'pending'
-                                        ? '결제 대기'
                                         : payment.payment_status === 'refunded'
                                         ? '환불 완료'
+                                        : payment.payment_status === 'pending' || payment.payment_status === 'failed'
+                                        ? '결제 실패'
                                         : payment.payment_status}
                                     </Badge>
                                   </div>
                                 </div>
                                 <div className="text-right">
                                   <div className="text-xl font-bold text-purple-600">
-                                    ₩{payment.amount.toLocaleString()}
+                                    {Math.floor(payment.amount).toLocaleString()}원
                                   </div>
                                 </div>
                               </div>
