@@ -1,6 +1,6 @@
 /**
  * 개인정보처리방침 페이지
- * 개인정보보호법 제30조에 따른 필수 고지사항
+ * 개인정보보호법 제30조 및 전자상거래법 관련 고지사항 반영
  */
 
 import React from 'react';
@@ -24,256 +24,281 @@ export function PrivacyPage() {
             뒤로가기
           </button>
           <h1 className="text-3xl font-bold text-gray-900">개인정보처리방침</h1>
-          <p className="text-sm text-gray-500 mt-2">시행일자: 2024년 1월 1일</p>
+          <p className="text-sm text-gray-500 mt-2">시행일자: 2025년 10월 28일</p>
         </div>
 
         <Card>
           <CardContent className="p-8 space-y-6">
-
             {/* 전문 */}
             <section>
               <p className="text-gray-700 leading-relaxed">
-                어썸플랜(이하 "회사")은 이용자의 개인정보를 중요시하며, "개인정보보호법", "정보통신망 이용촉진 및 정보보호 등에 관한 법률" 등 관련 법령을 준수하고 있습니다.
-                회사는 개인정보처리방침을 통하여 이용자가 제공하는 개인정보가 어떠한 용도와 방식으로 이용되고 있으며, 개인정보보호를 위해 어떠한 조치가 취해지고 있는지 알려드립니다.
+                ㈜어썸플랜(이하 “회사”)은 이용자의 개인정보를 소중히 여기며
+                「개인정보보호법」, 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」,
+                「전자상거래 등에서의 소비자보호에 관한 법률」 등 관련 법령을 준수합니다.
+                본 방침은 회사가 어떤 정보를 어떤 목적으로 수집·이용하고, 어떻게 보호·파기하는지 설명합니다.
               </p>
             </section>
 
-            {/* 제1조 */}
+            {/* 제1조 수집 항목/방법 */}
             <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">제1조 (개인정보의 수집 항목 및 방법)</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">제1조 (수집하는 개인정보의 항목 및 방법)</h2>
               <div className="space-y-4 text-gray-700">
                 <div>
-                  <p className="font-semibold mb-2">1. 수집하는 개인정보의 항목</p>
+                  <p className="font-semibold mb-2">1. 수집 항목</p>
                   <div className="ml-4 space-y-2">
-                    <p><strong>가. 회원가입 시</strong></p>
+                    <p><strong>가. 회원가입/소셜로그인</strong></p>
                     <ul className="list-disc list-inside ml-4">
-                      <li>필수항목: 이름, 이메일, 비밀번호, 전화번호</li>
-                      <li>선택항목: 생년월일, 성별</li>
+                      <li>일반 가입: 이름, 이메일, 비밀번호, 휴대전화번호</li>
+                      <li>소셜 로그인(네이버/카카오/구글 등): 프로필 닉네임/이름, 이메일(선택 시), 프로필 이미지, 소셜 고유식별자, 휴대전화번호(동의 시)</li>
                     </ul>
-                    <p className="mt-2"><strong>나. 상품 구매 시</strong></p>
+                    <p className="mt-2"><strong>나. 주문/결제 및 배송</strong></p>
                     <ul className="list-disc list-inside ml-4">
-                      <li>배송정보: 수령인 이름, 주소, 전화번호</li>
-                      <li>결제정보: 신용카드 정보, 계좌정보 (결제대행사에서 처리)</li>
+                      <li>수령인 정보: 이름, 주소, 휴대전화번호</li>
+                      <li>결제 정보: 결제수단 식별자, 승인/거래키, 결제금액(※ 카드번호 등 민감 정보는 결제대행사에서 처리·보관)</li>
                     </ul>
                     <p className="mt-2"><strong>다. 서비스 이용 과정에서 자동 수집</strong></p>
                     <ul className="list-disc list-inside ml-4">
-                      <li>IP 주소, 쿠키, 접속 로그, 서비스 이용 기록</li>
-                      <li>기기정보 (OS, 화면크기, 기기식별번호)</li>
+                      <li>접속기록(접속 일시/IP), 기기정보(OS/브라우저/화면크기), 쿠키/유사기술, 서비스 이용기록, 오류로그</li>
                     </ul>
                   </div>
                 </div>
 
                 <div>
-                  <p className="font-semibold mb-2">2. 개인정보 수집방법</p>
+                  <p className="font-semibold mb-2">2. 수집 방법</p>
                   <ul className="list-disc list-inside ml-4">
-                    <li>웹사이트 및 모바일 애플리케이션을 통한 회원가입 및 서비스 이용</li>
-                    <li>고객센터를 통한 상담 과정</li>
-                    <li>이벤트 응모 및 참여</li>
-                    <li>제휴사로부터의 제공</li>
+                    <li>회원가입/로그인, 주문/결제, 고객센터 문의, 이벤트 응모</li>
+                    <li>제휴사(소셜로그인, 결제/배송 등)를 통한 제공</li>
+                    <li>자동 생성 정보(쿠키·로그 등)의 수집</li>
                   </ul>
                 </div>
               </div>
             </section>
 
-            {/* 제2조 */}
+            {/* 제2조 이용 목적 */}
             <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">제2조 (개인정보의 수집 및 이용목적)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>회사는 수집한 개인정보를 다음의 목적을 위해 활용합니다:</p>
-                <ol className="list-decimal list-inside space-y-2 ml-4">
-                  <li><strong>서비스 제공에 관한 계약 이행 및 요금정산</strong>
-                    <ul className="list-disc list-inside ml-4 mt-1">
-                      <li>콘텐츠 제공, 특정 맞춤 서비스 제공</li>
-                      <li>물품배송 또는 청구서 등 발송, 본인인증, 구매 및 요금 결제</li>
-                    </ul>
-                  </li>
-                  <li><strong>회원관리</strong>
-                    <ul className="list-disc list-inside ml-4 mt-1">
-                      <li>회원제 서비스 이용에 따른 본인확인, 개인식별</li>
-                      <li>불량회원의 부정 이용 방지와 비인가 사용 방지</li>
-                      <li>가입의사 확인, 연령확인, 분쟁 조정을 위한 기록보존</li>
-                      <li>불만처리 등 민원처리, 고지사항 전달</li>
-                    </ul>
-                  </li>
-                  <li><strong>마케팅 및 광고에 활용</strong>
-                    <ul className="list-disc list-inside ml-4 mt-1">
-                      <li>신규 서비스 개발 및 맞춤 서비스 제공</li>
-                      <li>이벤트 및 광고성 정보 제공 및 참여기회 제공</li>
-                      <li>인구통계학적 특성에 따른 서비스 제공 및 광고 게재</li>
-                      <li>서비스의 유효성 확인, 접속빈도 파악</li>
-                    </ul>
-                  </li>
-                </ol>
-              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">제2조 (개인정보의 이용 목적)</h2>
+              <ol className="list-decimal list-inside space-y-2 ml-4 text-gray-700">
+                <li><strong>계약의 이행 및 요금정산</strong>: 주문 처리, 결제 승인/취소/환불, 배송/회수, 본인확인</li>
+                <li><strong>회원관리</strong>: 가입의사 확인, 본인확인, 부정이용·비인가 사용 방지, 민원처리/공지</li>
+                <li><strong>서비스 제공·운영</strong>: 팝업 스토어 카테고리 상품 판매/상담/AS, 오류 대응/품질 개선, 이용 통계</li>
+                <li><strong>마케팅(선택)</strong>: 이벤트/혜택 안내, 맞춤형 추천·광고(수신 동의 시)</li>
+              </ol>
             </section>
 
-            {/* 제3조 */}
+            {/* 제3조 보유기간 */}
             <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">제3조 (개인정보의 보유 및 이용기간)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>원칙적으로 개인정보 수집 및 이용목적이 달성된 후에는 해당 정보를 지체 없이 파기합니다. 단, 다음의 정보에 대해서는 아래의 이유로 명시한 기간 동안 보존합니다:</p>
-
-                <div className="mt-4">
-                  <p className="font-semibold mb-2">1. 회사 내부 방침에 의한 정보보유 사유</p>
-                  <ul className="list-disc list-inside ml-4">
-                    <li>부정이용기록: 1년</li>
-                  </ul>
-                </div>
-
-                <div className="mt-4">
-                  <p className="font-semibold mb-2">2. 관련 법령에 의한 정보보유 사유</p>
-                  <p className="mb-2">상법, 전자상거래 등에서의 소비자보호에 관한 법률 등 관계법령의 규정에 의하여 보존할 필요가 있는 경우 회사는 관계법령에서 정한 일정한 기간 동안 회원정보를 보관합니다:</p>
-                  <ul className="list-disc list-inside ml-4 space-y-1">
-                    <li>계약 또는 청약철회 등에 관한 기록: 5년</li>
-                    <li>대금결제 및 재화 등의 공급에 관한 기록: 5년</li>
-                    <li>소비자의 불만 또는 분쟁처리에 관한 기록: 3년</li>
-                    <li>표시·광고에 관한 기록: 6개월</li>
-                    <li>웹사이트 방문기록 (로그인 기록, 접속 기록): 3개월</li>
-                  </ul>
-                </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">제3조 (보유 및 이용 기간)</h2>
+              <p className="text-gray-700">
+                원칙적으로 목적 달성 후 지체 없이 파기합니다. 단, 아래 기간 동안 보관합니다.
+              </p>
+              <div className="overflow-x-auto mt-3">
+                <table className="min-w-full border border-gray-200 text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-3 py-2 border text-left">항목/기록</th>
+                      <th className="px-3 py-2 border text-left">보유기간</th>
+                      <th className="px-3 py-2 border text-left">근거</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="px-3 py-2 border">계약/청약철회 기록</td>
+                      <td className="px-3 py-2 border">5년</td>
+                      <td className="px-3 py-2 border">전자상거래법</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">대금결제/재화공급 기록</td>
+                      <td className="px-3 py-2 border">5년</td>
+                      <td className="px-3 py-2 border">전자상거래법</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">소비자 불만/분쟁처리 기록</td>
+                      <td className="px-3 py-2 border">3년</td>
+                      <td className="px-3 py-2 border">전자상거래법</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">표시·광고 기록</td>
+                      <td className="px-3 py-2 border">6개월</td>
+                      <td className="px-3 py-2 border">전자상거래법</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">접속기록(로그/로그인)</td>
+                      <td className="px-3 py-2 border">3개월</td>
+                      <td className="px-3 py-2 border">통신비밀보호법</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">부정이용 방지 기록(내부)</td>
+                      <td className="px-3 py-2 border">1년</td>
+                      <td className="px-3 py-2 border">내부 정책</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </section>
 
-            {/* 제4조 */}
+            {/* 제4조 제3자 제공 */}
             <section>
               <h2 className="text-xl font-bold text-gray-900 mb-3">제4조 (개인정보의 제3자 제공)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>회사는 이용자의 개인정보를 원칙적으로 외부에 제공하지 않습니다. 다만, 아래의 경우에는 예외로 합니다:</p>
-                <ol className="list-decimal list-inside space-y-1 ml-4">
-                  <li>이용자가 사전에 동의한 경우</li>
-                  <li>법령의 규정에 의거하거나, 수사 목적으로 법령에 정해진 절차와 방법에 따라 수사기관의 요구가 있는 경우</li>
-                  <li>배송업무 수행을 위해 배송업체에 필요한 최소한의 정보(성명, 주소, 전화번호)를 제공하는 경우</li>
-                  <li>결제 처리를 위해 결제대행업체(토스페이먼츠)에 필요한 결제정보를 제공하는 경우</li>
-                </ol>
-              </div>
+              <p className="text-gray-700">
+                회사는 원칙적으로 동의 없이 제3자에게 제공하지 않습니다. 다만 다음의 경우 예외적으로 제공할 수 있습니다.
+              </p>
+              <ul className="list-disc list-inside ml-4 text-gray-700 space-y-1 mt-2">
+                <li>이용자가 사전에 동의한 경우</li>
+                <li>법령에 의한 요청 또는 수사기관의 적법한 절차에 따른 요구</li>
+                <li>배송을 위한 택배사에 최소 정보 제공(성명, 주소, 연락처)</li>
+                <li>결제를 위한 결제대행사에 결제 관련 정보 제공</li>
+              </ul>
             </section>
 
-            {/* 제5조 */}
+            {/* 제5조 위탁 처리 */}
             <section>
               <h2 className="text-xl font-bold text-gray-900 mb-3">제5조 (개인정보 처리의 위탁)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>회사는 서비스 향상을 위해서 아래와 같이 개인정보를 위탁하고 있으며, 관계 법령에 따라 위탁계약 시 개인정보가 안전하게 관리될 수 있도록 필요한 사항을 규정하고 있습니다:</p>
+              <p className="text-gray-700">
+                회사는 서비스 제공을 위해 아래 업체에 업무를 위탁하며, 위탁계약 시 개인정보가 안전하게 관리되도록 필요한 사항을 규정합니다.
+              </p>
+              <div className="overflow-x-auto mt-3">
+                <table className="min-w-full border border-gray-200 text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-3 py-2 border text-left">수탁업체</th>
+                      <th className="px-3 py-2 border text-left">위탁업무</th>
+                      <th className="px-3 py-2 border text-left">보유/이용기간</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="px-3 py-2 border">토스페이먼츠㈜</td>
+                      <td className="px-3 py-2 border">결제 처리, 승인/취소/환불 정산</td>
+                      <td className="px-3 py-2 border">법정 보관기간 내</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">택배사(상품별 상이)</td>
+                      <td className="px-3 py-2 border">상품 배송/회수</td>
+                      <td className="px-3 py-2 border">배송 완료 후 3개월(분쟁 발생 시 해결 시까지)</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">Vercel Inc.</td>
+                      <td className="px-3 py-2 border">웹 호스팅/배포 인프라</td>
+                      <td className="px-3 py-2 border">위탁계약 종료 시까지</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">Google Cloud (Cloud Run 등)</td>
+                      <td className="px-3 py-2 border">애플리케이션/데이터 인프라 운영</td>
+                      <td className="px-3 py-2 border">위탁계약 종료 시까지</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">네이버/카카오/구글</td>
+                      <td className="px-3 py-2 border">소셜 로그인 인증</td>
+                      <td className="px-3 py-2 border">회원 연동 유지 기간</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                ※ 수탁사 변동 시 본 방침 또는 공지사항을 통해 고지합니다.
+              </p>
+            </section>
 
-                <div className="overflow-x-auto mt-4">
-                  <table className="min-w-full border border-gray-300">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="border border-gray-300 px-4 py-2 text-left">수탁업체</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">위탁업무 내용</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="border border-gray-300 px-4 py-2">토스페이먼츠</td>
-                        <td className="border border-gray-300 px-4 py-2">결제처리 및 결제대금 정산</td>
-                      </tr>
-                      <tr>
-                        <td className="border border-gray-300 px-4 py-2">Vercel Inc.</td>
-                        <td className="border border-gray-300 px-4 py-2">서버 호스팅 및 데이터 보관</td>
-                      </tr>
-                    </tbody>
-                  </table>
+            {/* 제6조 국외 이전 고지 */}
+            <section>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">제6조 (개인정보의 국외 이전)</h2>
+              <p className="text-gray-700">
+                회사는 클라우드/호스팅 서비스 이용에 따라 개인정보가 국외 서버로 이전·보관될 수 있습니다.
+              </p>
+              <div className="overflow-x-auto mt-3">
+                <table className="min-w-full border border-gray-200 text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-3 py-2 border text-left">이전받는 자</th>
+                      <th className="px-3 py-2 border text-left">이전 국가</th>
+                      <th className="px-3 py-2 border text-left">이전 시점/방법</th>
+                      <th className="px-3 py-2 border text-left">이용 목적/항목</th>
+                      <th className="px-3 py-2 border text-left">보유기간</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="px-3 py-2 border">Vercel Inc.</td>
+                      <td className="px-3 py-2 border">미국 등</td>
+                      <td className="px-3 py-2 border">서비스 이용 시 네트워크 전송(수시)</td>
+                      <td className="px-3 py-2 border">호스팅/배포(접속기록·로그·필요 메타데이터)</td>
+                      <td className="px-3 py-2 border">위탁계약 종료 또는 법정기간까지</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2 border">Google Cloud</td>
+                      <td className="px-3 py-2 border">미국 등</td>
+                      <td className="px-3 py-2 border">서비스 이용 시 네트워크 전송(수시)</td>
+                      <td className="px-3 py-2 border">애플리케이션 운영(로그·오류정보·필요 메타데이터)</td>
+                      <td className="px-3 py-2 border">위탁계약 종료 또는 법정기간까지</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                ※ 데이터센터/리전은 서비스 품질·안정성 사유로 변경될 수 있으며, 변경 시 공지합니다.
+              </p>
+            </section>
+
+            {/* 제7조 권리 행사 */}
+            <section>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">제7조 (이용자 및 법정대리인의 권리와 행사방법)</h2>
+              <ul className="list-disc list-inside ml-4 text-gray-700 space-y-1">
+                <li>개인정보 열람·정정·삭제·처리정지·동의철회는 마이페이지 또는 고객센터를 통해 요청할 수 있습니다.</li>
+                <li>만 14세 미만 아동의 경우 법정대리인이 권리행사를 할 수 있습니다.</li>
+                <li>회사는 본인확인 후 지체 없이 조치하며, 법령에 따라 거절/제한 사유가 있는 경우 그 사유를 안내합니다.</li>
+              </ul>
+            </section>
+
+            {/* 제8조 쿠키 */}
+            <section>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">제8조 (쿠키 등 자동수집 장치)</h2>
+              <p className="text-gray-700">
+                회사는 맞춤형 서비스 제공 및 접속 통계 분석을 위해 쿠키를 사용할 수 있습니다.
+                브라우저 설정에서 쿠키 저장을 거부할 수 있으나, 일부 서비스 이용에 제한이 있을 수 있습니다.
+              </p>
+            </section>
+
+            {/* 제9조 보호대책/파기 */}
+            <section>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">제9조 (개인정보의 안전성 확보조치 및 파기)</h2>
+              <div className="space-y-2 text-gray-700">
+                <p><strong>1) 기술적·관리적 보호조치</strong>: 접근권한 최소화, 전송구간 암호화(HTTPS), 저장암호화(중요정보), 침입차단·모니터링, 정기 교육 등</p>
+                <p><strong>2) 파기 절차/방법</strong>: 보유기간 경과 또는 처리 목적 달성 시 지체 없이 파기하며, 전자파일은 복구 불가능한 방법으로, 인쇄물은 분쇄/소각합니다. 법령상 보관 의무가 있는 경우 해당 기간 동안 분리 보관합니다.</p>
+              </div>
+            </section>
+
+            {/* 제10조 책임자 */}
+            <section>
+              <h2 className="text-xl font-bold text-gray-900 mb-3">제10조 (개인정보보호 책임자)</h2>
+              <div className="bg-purple-50 p-6 rounded-lg">
+                <p className="font-bold text-gray-900 mb-3">개인정보보호책임자</p>
+                <div className="space-y-1 text-sm">
+                  <p>성명: 함은비</p>
+                  <p>직책: 대표</p>
+                  <p>이메일: awesomeplan4606@naver.com</p>
+                  <p>전화: 0504-0811-1330</p>
+                  <p>주소: 전라남도 목포시 원산중앙로 44 2층 (58636)</p>
                 </div>
               </div>
+              <p className="text-sm text-gray-600 mt-3">
+                또한 개인정보 침해에 대한 신고·상담은 개인정보침해신고센터(국번없이 118), 개인정보분쟁조정위원회 등을 통해 도움을 받으실 수 있습니다.
+              </p>
             </section>
 
-            {/* 제6조 */}
-            <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">제6조 (이용자 및 법정대리인의 권리와 그 행사방법)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>이용자 및 법정 대리인은 언제든지 등록되어 있는 자신 혹은 당해 만 14세 미만 아동의 개인정보를 조회하거나 수정할 수 있으며 가입해지를 요청할 수도 있습니다.</p>
-                <p>개인정보 조회·수정을 위해서는 '개인정보변경'(또는 '회원정보수정' 등)을 가입해지(동의철회)를 위해서는 "회원탈퇴"를 클릭하여 본인 확인 절차를 거치신 후 직접 열람, 정정 또는 탈퇴가 가능합니다.</p>
-                <p>혹은 개인정보보호책임자에게 서면, 전화 또는 이메일로 연락하시면 지체 없이 조치하겠습니다.</p>
-              </div>
-            </section>
-
-            {/* 제7조 */}
-            <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">제7조 (개인정보 자동 수집 장치의 설치·운영 및 거부에 관한 사항)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>회사는 이용자에게 개별적인 맞춤서비스를 제공하기 위해 이용 정보를 저장하고 수시로 불러오는 '쿠키(cookie)'를 사용합니다.</p>
-                <p className="mt-2"><strong>쿠키의 사용 목적:</strong></p>
-                <ul className="list-disc list-inside ml-4">
-                  <li>회원과 비회원의 접속 빈도나 방문 시간 등을 분석</li>
-                  <li>이용자의 취향과 관심분야를 파악 및 자취 추적</li>
-                  <li>각종 이벤트 참여 정도 및 방문 회수 파악 등을 통한 타겟 마케팅 및 개인 맞춤 서비스 제공</li>
-                </ul>
-                <p className="mt-2"><strong>쿠키 설정 거부 방법:</strong></p>
-                <p>이용자는 쿠키 설치에 대한 선택권을 가지고 있습니다. 웹브라우저에서 옵션을 설정함으로써 모든 쿠키를 허용하거나, 쿠키가 저장될 때마다 확인을 거치거나, 아니면 모든 쿠키의 저장을 거부할 수도 있습니다.</p>
-                <p className="text-sm text-gray-600 mt-2">* 단, 쿠키의 저장을 거부할 경우 로그인이 필요한 일부 서비스는 이용에 어려움이 있을 수 있습니다.</p>
-              </div>
-            </section>
-
-            {/* 제8조 */}
-            <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">제8조 (개인정보의 기술적·관리적 보호 대책)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>회사는 이용자의 개인정보를 처리함에 있어 개인정보가 분실, 도난, 유출, 변조 또는 훼손되지 않도록 안전성 확보를 위하여 다음과 같은 기술적·관리적 대책을 강구하고 있습니다:</p>
-
-                <div className="mt-4">
-                  <p className="font-semibold mb-2">1. 기술적 대책</p>
-                  <ul className="list-disc list-inside ml-4">
-                    <li>개인정보는 비밀번호에 의해 보호되며, 파일 및 전송 데이터를 암호화</li>
-                    <li>백신프로그램을 이용하여 컴퓨터바이러스에 의한 피해를 방지</li>
-                    <li>해킹 등에 의해 회원의 개인정보가 유출되는 것을 방지하기 위해 침입차단시스템을 이용</li>
-                  </ul>
-                </div>
-
-                <div className="mt-4">
-                  <p className="font-semibold mb-2">2. 관리적 대책</p>
-                  <ul className="list-disc list-inside ml-4">
-                    <li>개인정보에 대한 접근권한을 최소한의 인원으로 제한</li>
-                    <li>개인정보를 처리하는 직원에 대한 정기적인 교육 실시</li>
-                    <li>개인정보 보호 전담기구를 운영하여 개인정보처리방침 이행사항 및 담당자의 준수여부 확인</li>
-                  </ul>
-                </div>
-              </div>
-            </section>
-
-            {/* 제9조 */}
-            <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">제9조 (개인정보보호책임자 및 담당자)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>회사는 이용자의 개인정보를 보호하고 개인정보와 관련한 불만을 처리하기 위하여 아래와 같이 개인정보보호책임자를 지정하고 있습니다:</p>
-
-                <div className="bg-purple-50 p-6 rounded-lg mt-4">
-                  <p className="font-bold text-gray-900 mb-3">개인정보보호책임자</p>
-                  <div className="space-y-1 text-sm">
-                    <p>이름: 함은비</p>
-                    <p>직책: 대표</p>
-                    <p>이메일: awesomeplan4606@naver.com</p>
-                    <p>전화: 0504-0811-1330</p>
-                  </div>
-                </div>
-
-                <p className="mt-4">이용자는 회사의 서비스를 이용하시며 발생하는 모든 개인정보보호 관련 민원을 개인정보보호책임자 혹은 담당부서로 신고하실 수 있습니다. 회사는 이용자들의 신고사항에 대해 신속하게 충분한 답변을 드릴 것입니다.</p>
-              </div>
-            </section>
-
-            {/* 제10조 */}
-            <section>
-              <h2 className="text-xl font-bold text-gray-900 mb-3">제10조 (기타)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>회사가 운영하는 웹사이트에 링크되어 있는 다른 웹사이트들이 개인정보를 수집하는 행위에 대해서는 본 "개인정보처리방침"이 적용되지 않음을 알려 드립니다.</p>
-              </div>
-            </section>
-
-            {/* 제11조 */}
+            {/* 제11조 고지의무 */}
             <section>
               <h2 className="text-xl font-bold text-gray-900 mb-3">제11조 (고지의 의무)</h2>
-              <div className="space-y-2 text-gray-700">
-                <p>현 개인정보처리방침의 내용 추가, 삭제 및 수정이 있을 경우에는 개정 최소 7일 전부터 홈페이지의 '공지사항'을 통해 고지할 것입니다. 다만, 개인정보의 수집 및 활용, 제3자 제공 등과 같이 이용자 권리의 중요한 변경이 있을 경우에는 최소 30일 전에 고지합니다.</p>
-              </div>
+              <p className="text-gray-700">
+                본 방침의 내용 추가·삭제·수정이 있을 경우 개정 최소 <strong>7일 전</strong>부터 공지하며,
+                이용자 권리에 중대한 변경(제3자 제공 범위 확대, 국외 이전 변경 등)은 최소 <strong>30일 전</strong> 고지합니다.
+              </p>
             </section>
 
             {/* 부칙 */}
             <section className="border-t pt-6 mt-8">
               <h2 className="text-xl font-bold text-gray-900 mb-3">부칙</h2>
-              <p className="text-gray-700">
-                본 방침은 2024년 1월 1일부터 시행됩니다.
-              </p>
+              <p className="text-gray-700">본 방침은 2025년 10월 28일부터 적용됩니다.</p>
             </section>
-
           </CardContent>
         </Card>
       </div>

@@ -28,12 +28,14 @@ import {
 } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { api } from '../utils/api';
+import { usePageBanner } from '../hooks/usePageBanner';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 
 export function PartnerApplyPage() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
+  const bannerImage = usePageBanner('partner_apply');
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [addressSearchOpen, setAddressSearchOpen] = useState(false);
@@ -356,10 +358,10 @@ export function PartnerApplyPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 히어로 섹션 */}
-      <div 
+      <div
         className="relative h-[60vh] bg-cover bg-center"
         style={{
-          backgroundImage: `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1730720426620-9b96001122f0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwdXJwbGUlMjBpc2xhbmQlMjBrb3JlYSUyMHRvdXJpc3QlMjBkZXN0aW5hdGlvbnxlbnwxfHx8fDE3NTc2MDIxMzl8MA&ixlib=rb-4.1.0&q=80&w=1080')`
+          backgroundImage: `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('${bannerImage || 'https://images.unsplash.com/photo-1730720426620-9b96001122f0?w=1080&h=300&fit=crop'}')`
         }}
       >
         <div className="absolute inset-0 flex items-center justify-center text-center text-white">

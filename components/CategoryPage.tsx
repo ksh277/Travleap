@@ -25,6 +25,7 @@ import { api, type TravelItem } from '../utils/api';
 import { toast } from 'sonner';
 import { HotelCard } from './cards/HotelCard';
 import { RentcarVendorCard } from './cards/RentcarVendorCard';
+import { usePageBanner } from '../hooks/usePageBanner';
 import React from 'react';
 
 interface CategoryPageProps {
@@ -59,6 +60,7 @@ interface VendorData {
 export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
   const { category } = useParams<{ category: string }>();
   const navigate = useNavigate();
+  const bannerImage = usePageBanner('category_detail');
   const [listings, setListings] = useState<TravelItem[]>([]);
   const [filteredListings, setFilteredListings] = useState<TravelItem[]>([]);
   const [hotels, setHotels] = useState<HotelData[]>([]);
@@ -355,7 +357,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
       <div
         className="relative h-[200px] bg-cover bg-center"
         style={{
-          backgroundImage: 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=300&fit=crop")'
+          backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("${bannerImage || 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=300&fit=crop'}")`
         }}
       >
         <div className="absolute inset-0 flex items-center justify-center">
@@ -682,14 +684,16 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                         <p className="text-xs text-gray-600 line-clamp-3">{item.short_description || item.description_md || ''}</p>
                       </div>
 
-                      <div className="flex items-center justify-between pt-4 mt-4 border-t">
-                        {Number(item.rating_avg || 0) > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span className="text-xs">{Number(item.rating_avg || 0).toFixed(1)}</span>
-                            <span className="text-xs text-gray-500">({item.rating_count || 0})</span>
-                          </div>
-                        )}
+                      <div className="flex items-center pt-4 mt-4 border-t">
+                        <div className="flex items-center gap-1 flex-1">
+                          {Number(item.rating_avg || 0) > 0 && (
+                            <>
+                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                              <span className="text-xs">{Number(item.rating_avg || 0).toFixed(1)}</span>
+                              <span className="text-xs text-gray-500">({item.rating_count || 0})</span>
+                            </>
+                          )}
+                        </div>
                         <div className="text-base font-bold text-[#ff6a3d]">
                           {formatPrice(item.price_from || 0, selectedCurrency)}
                         </div>

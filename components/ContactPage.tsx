@@ -6,12 +6,14 @@ import { Textarea } from './ui/textarea';
 import { CheckCircle } from 'lucide-react';
 import { api } from '../utils/api';
 import { toast } from 'sonner';
+import { usePageBanner } from '../hooks/usePageBanner';
 
 interface ContactPageProps {
   onBack: () => void;
 }
 
 export function ContactPage({ onBack }: ContactPageProps) {
+  const bannerImage = usePageBanner('contact');
   const [contactData, setContactData] = useState({
     name: '',
     email: '',
@@ -73,10 +75,10 @@ export function ContactPage({ onBack }: ContactPageProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 배너 섹션 */}
-      <div 
+      <div
         className="relative h-[300px] bg-cover bg-center"
         style={{
-          backgroundImage: 'linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url("https://images.unsplash.com/photo-1423666639041-f56000c27a9a?w=1200&h=300&fit=crop")'
+          backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url("${bannerImage || 'https://images.unsplash.com/photo-1423666639041-f56000c27a9a?w=1200&h=300&fit=crop'}")`
         }}
       >
         <div className="absolute inset-0 flex items-center justify-center">

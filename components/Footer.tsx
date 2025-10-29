@@ -106,7 +106,7 @@ export function Footer({
                 </div>
 
                 <div>
-                  <span className="text-gray-900 font-medium">주소</span> 전라남도 목포시 원산중앙로 44 2층 (우: 58636)
+                  <span className="text-gray-900 font-medium">주소</span> 전라남도 목포시 원산중앙로 44 2층 <br />(우: 58636)
                 </div>
 
                 <div className="flex items-center gap-1">

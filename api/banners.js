@@ -18,7 +18,7 @@ module.exports = async function handler(req, res) {
     const connection = connect({ url: process.env.DATABASE_URL });
 
     const result = await connection.execute(`
-      SELECT * FROM home_banners
+      SELECT * FROM banners
       WHERE is_active = 1
       ORDER BY display_order ASC
     `);

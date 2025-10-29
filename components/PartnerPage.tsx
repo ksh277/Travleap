@@ -19,6 +19,7 @@ import {
 import { getGoogleMapsApiKey } from '../utils/env';
 import { api } from '../utils/api';
 import { formatPartnerPrice } from '../utils/price-formatter';
+import { usePageBanner } from '../hooks/usePageBanner';
 
 interface Partner {
   id: string;
@@ -131,6 +132,7 @@ const loadPartners = async (): Promise<Partner[]> => {
 
 export function PartnerPage() {
   const navigate = useNavigate();
+  const bannerImage = usePageBanner('partner');
   const [searchQuery, setSearchQuery] = useState('');
   const [fromDate, setFromDate] = useState<Date | undefined>();
   const [toDate, setToDate] = useState<Date | undefined>();
@@ -533,7 +535,7 @@ export function PartnerPage() {
       <div
         className="relative h-[200px] bg-cover bg-center"
         style={{
-          backgroundImage: 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=300&fit=crop")'
+          backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("${bannerImage || 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1200&h=300&fit=crop'}")`
         }}
       >
         <div className="absolute inset-0 flex items-center justify-center">

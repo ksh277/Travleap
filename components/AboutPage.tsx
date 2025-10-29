@@ -1,28 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { MapPin, Phone, Mail, Users, Target, Award } from 'lucide-react';
+import { usePageBanner } from '../hooks/usePageBanner';
 
 export function AboutPage() {
-  const [bannerImage, setBannerImage] = useState<string>('https://images.unsplash.com/photo-1590523278191-995cbcda646b?w=1920&h=600&fit=crop&q=80');
-
-  useEffect(() => {
-    // 배너 이미지 로드
-    const loadBannerImage = async () => {
-      try {
-        const response = await fetch('/api/banners?page=about');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data?.image_url) {
-            setBannerImage(data.data.image_url);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load banner:', error);
-      }
-    };
-    loadBannerImage();
-  }, []);
+  const bannerImage = usePageBanner('about');
 
   return (
     <div className="min-h-screen bg-gray-50">

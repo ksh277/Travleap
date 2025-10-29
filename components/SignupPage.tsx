@@ -8,10 +8,12 @@ import { t } from '../utils/translations';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../utils/api';
 import { initGoogleAuth, initKakaoAuth, initNaverAuth } from '../utils/socialAuth';
+import { usePageBanner } from '../hooks/usePageBanner';
 
 export function SignupPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const bannerImage = usePageBanner('signup');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -274,7 +276,7 @@ export function SignupPage() {
       {/* 배너 섹션 */}
       <div
         className="relative w-full h-[200px] md:h-[300px] bg-cover bg-center flex items-center justify-center overflow-hidden"
-        style={{ backgroundImage: 'url("https://placehold.co/1366x300")' }}
+        style={{ backgroundImage: `url("${bannerImage || 'https://images.unsplash.com/photo-1527004013197-933c4bb611b3?w=1366&h=300&fit=crop'}")` }}
       >
         <div className="relative z-10 max-w-[1200px] mx-auto px-4 text-center">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-white m-0">

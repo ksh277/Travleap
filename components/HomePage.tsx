@@ -768,14 +768,16 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                       <p className="text-xs text-gray-600 line-clamp-3">{listing.short_description || listing.description_md || ''}</p>
                     </div>
 
-                    <div className="flex items-center justify-between pt-4 mt-4 border-t">
-                      {Number(listing.rating_avg || 0) > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <span className="text-xs">{Number(listing.rating_avg || 0).toFixed(1)}</span>
-                          <span className="text-xs text-gray-500">({listing.rating_count || 0})</span>
-                        </div>
-                      )}
+                    <div className="flex items-center pt-4 mt-4 border-t">
+                      <div className="flex items-center gap-1 flex-1">
+                        {Number(listing.rating_avg || 0) > 0 && (
+                          <>
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            <span className="text-xs">{Number(listing.rating_avg || 0).toFixed(1)}</span>
+                            <span className="text-xs text-gray-500">({listing.rating_count || 0})</span>
+                          </>
+                        )}
+                      </div>
                       <div className="text-base font-bold text-[#ff6a3d]">
                         {formatPrice(listing.price_from || 0, selectedCurrency)}
                       </div>
