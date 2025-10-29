@@ -64,7 +64,8 @@ export function useCartStore() {
             }
 
             return {
-              id: item.id,
+              id: item.id,                    // cart_items 테이블의 id
+              listingId: item.listing_id,     // ✅ 실제 상품 ID 추가
               title: item.title || '상품',
               price: item.price_from || 0,
               quantity: item.quantity || 1,
@@ -164,7 +165,8 @@ export function useCartStore() {
             }
 
             return {
-              id: item.id,
+              id: item.id,                    // cart_items 테이블의 id
+              listingId: item.listing_id,     // ✅ 실제 상품 ID 추가
               title: item.title || '상품',
               price: item.price_from || 0,
               quantity: item.quantity || 1,
@@ -205,6 +207,7 @@ export function useCartStore() {
         } else {
           const newCartItem: CartItem = {
             id: item.id!,
+            listingId: item.id!,  // ✅ 비로그인 사용자의 경우 id가 곧 listingId
             title: item.title || '상품',
             price: item.price || 0,
             quantity: 1,

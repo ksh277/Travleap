@@ -24,7 +24,8 @@ export interface User {
 }
 
 export interface CartItem {
-  id: number;
+  id: number;          // cart_items 테이블의 id
+  listingId?: number;  // ✅ 실제 상품 ID (listings 테이블)
   title: string;
   name?: string; // For backward compatibility
   price: number;
