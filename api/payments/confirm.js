@@ -917,11 +917,18 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // ✅ 금액 파싱: 쉼표 제거 후 숫자로 변환
+    const parsedAmount = typeof amount === 'string'
+      ? parseInt(amount.replace(/,/g, ''))  // 쉼표 제거
+      : parseInt(amount);
+
+    console.log(`💳 [Request] 결제 승인 요청: ${orderId}, 금액: ${amount} → ${parsedAmount}원`);
+
     // 결제 승인 처리
     const result = await confirmPayment({
       paymentKey,
       orderId,
-      amount: parseInt(amount)
+      amount: parsedAmount
     });
 
     if (result.success) {
