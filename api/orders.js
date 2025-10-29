@@ -93,10 +93,24 @@ module.exports = async function handler(req, res) {
           let itemsInfo = null;
           let itemCount = 1;
           let displayTitle = order.product_title || '주문';
+          let deliveryFee = 0;
+          let subtotal = 0;
+          let actualOrderNumber = order.order_number;
 
           if (order.notes) {
             try {
               const notesData = JSON.parse(order.notes);
+
+              // 주문번호 추출
+              if (notesData.orderNumber) {
+                actualOrderNumber = notesData.orderNumber;
+              }
+
+              // 배송비 및 상품 금액 추출
+              deliveryFee = notesData.deliveryFee || 0;
+              subtotal = notesData.subtotal || 0;
+
+              // 상품 정보 추출
               if (notesData.items && Array.isArray(notesData.items)) {
                 itemsInfo = notesData.items;
                 itemCount = notesData.items.length;
@@ -113,20 +127,25 @@ module.exports = async function handler(req, res) {
 
           return {
             id: order.id,
-            user_name: user?.name || '알 수 없음',
+            user_name: user?.name || '',
             user_email: user?.email || '',
+            product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,
-            amount: order.amount,
+            total_amount: order.amount,
+            subtotal: subtotal || (order.amount - deliveryFee),
+            delivery_fee: deliveryFee,
             status: order.booking_status || 'pending',
             payment_status: order.payment_status,
             created_at: order.created_at,
             start_date: order.start_date,
             end_date: order.end_date,
-            guests: order.category === 'popup' ? itemCount : order.guests || 0,
+            num_adults: order.category === '팝업' ? itemCount : (order.adults || order.guests || 0),
+            num_children: order.children || 0,
+            num_seniors: 0,
             category: order.category,
-            is_popup: order.category === 'popup',
-            order_number: order.order_number
+            is_popup: order.category === '팝업',
+            order_number: actualOrderNumber
           };
         });
       } finally {

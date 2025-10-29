@@ -2174,8 +2174,12 @@ export function AdminPage({}: AdminPageProps) {
 
       if (data.success) {
         toast.success(`환불이 완료되었습니다 (${data.refundAmount?.toLocaleString() || order.total_amount?.toLocaleString()}원)`);
+
         // 주문 목록 새로고침
-        loadOrders();
+        api.admin.getOrders().then(res => {
+          const updatedOrders = res?.success ? res.data || [] : [];
+          setOrders(updatedOrders);
+        });
       } else {
         toast.error(data.message || '환불 처리에 실패했습니다');
       }
@@ -3960,19 +3964,9 @@ export function AdminPage({}: AdminPageProps) {
                         <TableCell className="font-medium text-blue-600">{order.order_number}</TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            {(order.customer_info?.name || order.user_name) && (
-                              <div className="font-medium">
-                                {order.customer_info?.name || order.user_name}
-                              </div>
-                            )}
-                            {(order.customer_info?.phone || order.user_phone) && (
-                              <div className="text-sm text-gray-500">
-                                {order.customer_info?.phone || order.user_phone}
-                              </div>
-                            )}
-                            {(order.customer_info?.email || order.user_email) && (
-                              <div className="text-xs text-gray-400">
-                                {order.customer_info?.email || order.user_email}
+                            {order.user_email && (
+                              <div className="text-sm text-blue-600">
+                                {order.user_email}
                               </div>
                             )}
                             {/* 팝업 상품인 경우 배송 주소 표시 */}
@@ -4044,7 +4038,16 @@ export function AdminPage({}: AdminPageProps) {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="font-semibold">₩{order.total_amount?.toLocaleString() || '0'}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-semibold">₩{order.total_amount?.toLocaleString() || '0'}</div>
+                            {order.delivery_fee > 0 && (
+                              <div className="text-xs text-gray-500">
+                                배송비 {order.delivery_fee.toLocaleString()}원
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={
                             order.payment_status === 'completed' || order.payment_status === 'pending' ? 'default' :
@@ -4061,11 +4064,15 @@ export function AdminPage({}: AdminPageProps) {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="space-y-1 text-sm">
-                            <div>{order.created_at ? new Date(order.created_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : '-'}</div>
-                            <div className="text-xs text-gray-500">
-                              {order.created_at ? new Date(order.created_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' }) : ''}
-                            </div>
+                          <div className="text-sm">
+                            {order.created_at ? new Date(order.created_at).toLocaleString('ko-KR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              timeZone: 'Asia/Seoul'
+                            }) : '-'}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -4096,7 +4103,7 @@ export function AdminPage({}: AdminPageProps) {
                                 배송 관리
                               </Button>
                             )}
-                            {order.category === '팝업' && (order.payment_status === 'pending' || order.payment_status === 'completed') && order.payment_status !== 'refunded' && (
+                            {order.category === '팝업' && order.payment_status !== 'refunded' && order.payment_status !== 'failed' && (
                               <Button
                                 size="sm"
                                 variant="outline"
