@@ -149,6 +149,7 @@ export function MyPage() {
   const [pointHistory, setPointHistory] = useState<any[]>([]);
   const [coupons, setCoupons] = useState<any[]>([]);
   const [couponsLoading, setCouponsLoading] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
   const [userProfile, setUserProfile] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -527,6 +528,47 @@ export function MyPage() {
     } catch (error) {
       console.error('쿠폰 불러오기 오류:', error);
       setCoupons([]);
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
+  // 쿠폰 등록
+  const handleRegisterCoupon = async () => {
+    if (!user) return;
+
+    if (!couponCode.trim()) {
+      toast.error('쿠폰 코드를 입력해주세요');
+      return;
+    }
+
+    setCouponsLoading(true);
+    try {
+      const response = await fetch('/api/coupons/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user.id.toString()
+        },
+        body: JSON.stringify({
+          code: couponCode.toUpperCase(),
+          userId: user.id
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(data.message || '쿠폰이 등록되었습니다');
+        setCouponCode(''); // 입력 필드 초기화
+        fetchCoupons(); // 쿠폰 목록 새로고침
+      } else {
+        toast.error(data.message || '쿠폰 등록에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('쿠폰 등록 오류:', error);
+      toast.error('쿠폰 등록 중 오류가 발생했습니다');
     } finally {
       setCouponsLoading(false);
     }
@@ -1323,7 +1365,47 @@ export function MyPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {couponsLoading ? (
+                {/* 쿠폰 등록 입력 */}
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Ticket className="w-5 h-5 text-purple-600" />
+                    쿠폰 등록
+                  </h3>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="쿠폰 코드를 입력하세요"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleRegisterCoupon();
+                        }
+                      }}
+                      className="flex-1"
+                      disabled={couponsLoading}
+                    />
+                    <Button
+                      onClick={handleRegisterCoupon}
+                      disabled={couponsLoading || !couponCode.trim()}
+                      className="bg-[#8B5FBF] hover:bg-[#7A4FB5] whitespace-nowrap"
+                    >
+                      {couponsLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          등록 중...
+                        </>
+                      ) : (
+                        '등록'
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    쿠폰 코드를 입력하여 보유 쿠폰에 추가하세요
+                  </p>
+                </div>
+
+                {/* 보유 쿠폰 목록 */}
+                {couponsLoading && coupons.length === 0 ? (
                   <div className="text-center py-8">
                     <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600" />
                     <p className="mt-2 text-gray-500">쿠폰을 불러오는 중...</p>
@@ -1332,7 +1414,7 @@ export function MyPage() {
                   <div className="text-center py-12">
                     <Ticket className="w-16 h-16 mx-auto text-gray-300 mb-4" />
                     <p className="text-gray-500">보유한 쿠폰이 없습니다</p>
-                    <p className="text-sm text-gray-400 mt-2">쇼핑하고 쿠폰을 받아보세요!</p>
+                    <p className="text-sm text-gray-400 mt-2">위에서 쿠폰 코드를 입력하여 등록해보세요!</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1350,11 +1432,18 @@ export function MyPage() {
                               <h3 className="font-semibold">{coupon.title}</h3>
                             </div>
                             <p className="text-sm text-gray-600 mb-2">{coupon.description}</p>
-                            {coupon.min_amount > 0 && (
-                              <p className="text-xs text-gray-500">
-                                최소 주문금액: {coupon.min_amount.toLocaleString()}원
-                              </p>
-                            )}
+                            <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                              {coupon.min_amount > 0 && (
+                                <span className="bg-gray-100 px-2 py-1 rounded">
+                                  최소 주문금액: {coupon.min_amount.toLocaleString()}원
+                                </span>
+                              )}
+                              {coupon.valid_until && (
+                                <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                                  {new Date(coupon.valid_until).toLocaleDateString('ko-KR')}까지
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <Button
                             variant="outline"

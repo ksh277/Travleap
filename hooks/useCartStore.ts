@@ -49,6 +49,12 @@ export function useCartStore() {
         if (result.success) {
           console.log('🛒 [장바구니] API에서 가져온 항목:', result.data);
 
+          // 🔍 디버그: 첫 번째 item의 listing_id 확인
+          if (result.data.length > 0) {
+            console.log('🛒 [장바구니] 첫 번째 item raw data:', result.data[0]);
+            console.log('🛒 [장바구니] 첫 번째 item listing_id:', result.data[0].listing_id);
+          }
+
           // API 응답을 프론트엔드 형식으로 변환
           const transformedItems = result.data.map((item: any) => {
             let images = [];
@@ -63,7 +69,7 @@ export function useCartStore() {
               images = [];
             }
 
-            return {
+            const transformed = {
               id: item.id,                    // cart_items 테이블의 id
               listingId: item.listing_id,     // ✅ 실제 상품 ID 추가
               title: item.title || '상품',
@@ -78,12 +84,29 @@ export function useCartStore() {
               validationStatus: item.validationStatus,
               validationMessage: item.validationMessage
             };
+
+            // 🔍 디버그: listing_id 누락 경고
+            if (!transformed.listingId) {
+              console.error('❌ [장바구니] listingId 누락!', {
+                item_id: item.id,
+                listing_id: item.listing_id,
+                raw_item: item
+              });
+            }
+
+            return transformed;
           });
 
           setCartState({
             cartItems: transformedItems
           });
           console.log('✅ [장바구니] 데이터 변환 완료:', transformedItems.length, '개');
+
+          // 🔍 디버그: 변환된 첫 번째 item 확인
+          if (transformedItems.length > 0) {
+            console.log('🛒 [장바구니] 변환된 첫 번째 item:', transformedItems[0]);
+            console.log('🛒 [장바구니] 변환된 첫 번째 item listingId:', transformedItems[0].listingId);
+          }
         } else {
           throw new Error(result.message || '장바구니 로드 실패');
         }

@@ -361,13 +361,29 @@ module.exports = async function handler(req, res) {
       console.log(`✅ [Orders] 금액 검증 통과: ${total.toLocaleString()}원`);
 
       // 🔍 주문 생성 전 모든 상품 유효성 검증
+      console.log('🔍 [Orders] 받은 items 배열:', JSON.stringify(items, null, 2));
+
       for (const item of items) {
         const itemName = item.title || item.name || `상품 ID ${item.listingId}`;
+
+        console.log(`🔍 [Orders] 상품 검증 중:`, {
+          itemName,
+          'item.listingId': item.listingId,
+          'item.id': item.id,
+          'typeof listingId': typeof item.listingId,
+          'item keys': Object.keys(item)
+        });
 
         const listingCheck = await connection.execute(`
           SELECT id, title, is_active FROM listings
           WHERE id = ?
         `, [item.listingId]);
+
+        console.log(`🔍 [Orders] DB 쿼리 결과:`, {
+          listingId: item.listingId,
+          found: listingCheck.rows?.length > 0,
+          rows: listingCheck.rows
+        });
 
         if (!listingCheck.rows || listingCheck.rows.length === 0) {
           console.error(`❌ [Orders] 상품을 찾을 수 없음: ${itemName} (listing_id: ${item.listingId})`);

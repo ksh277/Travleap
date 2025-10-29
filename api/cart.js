@@ -48,6 +48,11 @@ module.exports = async function handler(req, res) {
 
       console.log('🛒 [Cart] Query executed, rows:', result.rows?.length || 0);
 
+      // 🔍 디버그: 첫 번째 row 출력
+      if (result.rows && result.rows.length > 0) {
+        console.log('🛒 [Cart] Sample row data:', JSON.stringify(result.rows[0], null, 2));
+      }
+
       const invalidItemIds = [];
       const items = (result.rows || []).map(item => {
         let images = [];
@@ -91,6 +96,12 @@ module.exports = async function handler(req, res) {
         // await connection.execute(`
         //   DELETE FROM cart_items WHERE id IN (${invalidItemIds.join(',')})
         // `);
+      }
+
+      // 🔍 디버그: 첫 번째 item의 listing_id 확인
+      if (items.length > 0) {
+        console.log('🛒 [Cart] First item listing_id:', items[0].listing_id);
+        console.log('🛒 [Cart] First item keys:', Object.keys(items[0]));
       }
 
       return res.status(200).json({

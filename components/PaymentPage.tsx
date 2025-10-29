@@ -488,11 +488,20 @@ export function PaymentPage() {
 
         // 장바구니 주문 생성 (Toss Payments로 넘기기 전 준비)
         // ✅ 팝업 상품이 있을 때만 배송 정보 포함 (PG사 심사 필수)
-        const orderResponse = await api.createOrder({
-          userId: Number(user?.id) || 1,
-          items: orderData.items.map((item: any) => ({
-            listingId: Number(item.id),
-            name: item.name, // ✅ 상품명 추가
+
+        // 🔍 디버그: 주문 생성 전 item 데이터 확인
+        console.log('📦 [주문 생성] orderData.items:', orderData.items);
+        const mappedItems = orderData.items.map((item: any) => {
+          const listingId = Number(item.listingId || item.id);
+          console.log(`📦 [주문 생성] item mapping:`, {
+            'item.id': item.id,
+            'item.listingId': item.listingId,
+            '→ listingId': listingId,
+            name: item.name || item.title
+          });
+          return {
+            listingId, // ✅ 실제 상품 ID 사용
+            name: item.name || item.title, // ✅ 상품명 추가
             quantity: item.quantity,
             price: item.price,
             // ✅ 옵션 가격 포함한 subtotal 계산
@@ -504,7 +513,12 @@ export function PaymentPage() {
             adults: item.adults,
             children: item.children,
             infants: item.infants
-          })),
+          };
+        });
+
+        const orderResponse = await api.createOrder({
+          userId: Number(user?.id) || 1,
+          items: mappedItems,
           subtotal: orderData.subtotal,
           deliveryFee: deliveryFee,
           couponDiscount: orderData.couponDiscount || 0,

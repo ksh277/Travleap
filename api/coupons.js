@@ -19,55 +19,85 @@ module.exports = async function handler(req, res) {
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
 
-    // GET: 사용 가능한 쿠폰 목록 조회
+    // GET: 사용자 보유 쿠폰 목록 조회
     if (req.method === 'GET') {
       const userId = req.query.userId ? parseInt(req.query.userId) : null;
 
-      console.log('🎟️ [Coupons] Fetching available coupons, userId:', userId);
-      console.log('🎟️ [Coupons] DATABASE_URL exists:', !!process.env.DATABASE_URL);
+      console.log('🎟️ [Coupons] Fetching user coupons, userId:', userId);
 
-      // 임시로 쿠폰 목록 비활성화 (나중에 활성화 예정)
-      // TODO: 쿠폰 배포 시 아래 주석을 제거하고 return [] 부분 삭제
-      /*
-      // 현재 유효한 쿠폰 조회 (기본 컬럼만)
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          error: 'MISSING_USER_ID',
+          message: '사용자 ID가 필요합니다'
+        });
+      }
+
+      // user_coupons 테이블이 없으면 생성
+      try {
+        await connection.execute(`
+          CREATE TABLE IF NOT EXISTS user_coupons (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            coupon_id INT NOT NULL,
+            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_used BOOLEAN DEFAULT FALSE,
+            used_at TIMESTAMP NULL,
+            order_number VARCHAR(100) NULL,
+            UNIQUE KEY unique_user_coupon (user_id, coupon_id),
+            INDEX idx_user_id (user_id),
+            INDEX idx_coupon_id (coupon_id),
+            INDEX idx_is_used (is_used)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+      } catch (tableError) {
+        console.warn('⚠️ [Coupons] 테이블 생성 오류 (무시):', tableError.message);
+      }
+
+      // 사용자가 등록한 쿠폰 조회 (미사용 쿠폰만)
       const result = await connection.execute(`
         SELECT
-          id,
-          code,
-          discount_type,
-          discount_value,
-          min_amount,
-          description
-        FROM coupons
-        WHERE is_active = 1
-        ORDER BY discount_value DESC
-      `);
+          c.id,
+          c.code,
+          c.title,
+          c.description,
+          c.discount_type,
+          c.discount_value,
+          c.min_amount,
+          c.valid_from,
+          c.valid_until,
+          uc.registered_at,
+          uc.is_used
+        FROM user_coupons uc
+        JOIN coupons c ON uc.coupon_id = c.id
+        WHERE uc.user_id = ?
+          AND uc.is_used = FALSE
+          AND c.is_active = 1
+        ORDER BY uc.registered_at DESC
+      `, [userId]);
 
-      const coupons = result.rows || [];
-      const couponList = coupons.map(coupon => ({
+      const coupons = (result.rows || []).map(coupon => ({
         id: coupon.id,
         code: coupon.code,
-        title: coupon.description || coupon.code,
+        title: coupon.title || coupon.description || coupon.code,
         description: coupon.description || '',
-        // MyPage 형식
         discount_type: coupon.discount_type,
         discount_value: coupon.discount_value,
         min_amount: coupon.min_amount || 0,
-        // CartPage 형식 (호환성)
+        valid_from: coupon.valid_from,
+        valid_until: coupon.valid_until,
+        registered_at: coupon.registered_at,
+        // PaymentPage 호환성
         type: coupon.discount_type,
         discount: coupon.discount_value,
         minAmount: coupon.min_amount || 0
       }));
 
-      console.log(`✅ [Coupons] Found ${couponList.length} active coupons`);
-      */
-
-      // 임시: 빈 쿠폰 목록 반환
-      console.log(`⚠️  [Coupons] 쿠폰 목록 임시 비활성화됨`);
+      console.log(`✅ [Coupons] Found ${coupons.length} user coupons`);
 
       return res.status(200).json({
         success: true,
-        data: []
+        data: coupons
       });
     }
 
@@ -223,7 +253,22 @@ module.exports = async function handler(req, res) {
 
       const coupon = couponCheck.rows[0];
 
-      // 쿠폰 사용 기록 저장
+      // ✅ user_coupons 테이블에서 사용 처리
+      if (userId) {
+        try {
+          await connection.execute(`
+            UPDATE user_coupons
+            SET is_used = TRUE, used_at = NOW(), order_number = ?
+            WHERE user_id = ? AND coupon_id = ?
+          `, [orderId || paymentId, userId, coupon.id]);
+
+          console.log(`✅ [Coupons] user_coupons 업데이트 완료`);
+        } catch (error) {
+          console.error('⚠️ [Coupons] Error updating user_coupons:', error);
+        }
+      }
+
+      // 쿠폰 사용 기록 저장 (coupon_usage 테이블)
       try {
         await connection.execute(`
           INSERT INTO coupon_usage (
