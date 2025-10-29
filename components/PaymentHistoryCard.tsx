@@ -330,10 +330,22 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                 <div className="text-sm text-yellow-800">
                   <p className="font-semibold mb-1">환불 전 확인사항</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
-                    <li>환불 정책에 따라 수수료가 차감될 수 있습니다</li>
-                    <li>배송 완료된 상품은 반송 택배비가 차감됩니다</li>
-                    <li>사용한 포인트는 환불 후 복구됩니다</li>
-                    <li>환불은 영업일 기준 3-5일 소요됩니다</li>
+                    {payment.category === '팝업' ? (
+                      <>
+                        <li>배송 시작 전: 전액 환불 (배송비 포함)</li>
+                        <li>배송 중/완료: 배송비(3,000원) + 반품비(3,000원) 차감 후 환불</li>
+                        <li>상품 하자/오배송: 전액 환불 (판매자 부담)</li>
+                        <li>사용한 포인트는 환불 후 복구됩니다</li>
+                        <li>환불은 영업일 기준 3-5일 소요됩니다</li>
+                      </>
+                    ) : (
+                      <>
+                        <li>환불 정책에 따라 수수료가 차감될 수 있습니다</li>
+                        <li>예약 시작일까지 남은 기간에 따라 환불 금액이 결정됩니다</li>
+                        <li>사용한 포인트는 환불 후 복구됩니다</li>
+                        <li>환불은 영업일 기준 3-5일 소요됩니다</li>
+                      </>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -364,7 +376,28 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               </div>
               <div className="flex justify-between text-xs text-gray-500">
                 <span>환불 예상 금액:</span>
-                <span className="text-gray-700">환불 정책에 따라 결정됩니다</span>
+                {payment.category === '팝업' && notesData?.deliveryFee ? (
+                  <>
+                    {refundReason.includes('상품 불량/하자') || refundReason.includes('상품 오배송') ? (
+                      <span className="text-green-700 font-medium">
+                        {Math.floor(payment.amount).toLocaleString()}원 (전액)
+                      </span>
+                    ) : payment.delivery_status === 'shipped' || payment.delivery_status === 'delivered' ? (
+                      <span className="text-orange-700 font-medium">
+                        {Math.max(0, Math.floor(payment.amount - notesData.deliveryFee - 3000)).toLocaleString()}원
+                        <span className="text-xs text-gray-500 block">
+                          (배송비 {notesData.deliveryFee.toLocaleString()}원 + 반품비 3,000원 차감)
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-green-700 font-medium">
+                        {Math.floor(payment.amount).toLocaleString()}원 (전액)
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-700">환불 정책에 따라 결정됩니다</span>
+                )}
               </div>
             </div>
           </div>
