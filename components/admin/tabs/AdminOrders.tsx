@@ -20,6 +20,9 @@ interface Order {
   start_date: string;
   end_date: string;
   guests: number;
+  category: string;
+  is_popup: boolean;
+  order_number: string;
 }
 
 export function AdminOrders() {
@@ -199,19 +202,29 @@ export function AdminOrders() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-sm">
-                          {order.start_date && order.end_date ? (
+                          {order.is_popup ? (
+                            // 팝업 상품: 상품 갯수만 표시
+                            <div className="text-gray-700">
+                              상품 {order.guests}개
+                            </div>
+                          ) : (
+                            // 예약 상품: 날짜와 인원
                             <>
-                              <div>{new Date(order.start_date).toLocaleDateString('ko-KR')}</div>
-                              <div className="text-xs text-gray-500">
-                                ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}
+                              {order.start_date && order.end_date ? (
+                                <>
+                                  <div>{new Date(order.start_date).toLocaleDateString('ko-KR')}</div>
+                                  <div className="text-xs text-gray-500">
+                                    ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="text-gray-400">-</div>
+                              )}
+                              <div className="text-xs text-gray-500 mt-1">
+                                {order.guests ? `${order.guests}명` : '-'}
                               </div>
                             </>
-                          ) : (
-                            <div className="text-gray-400">-</div>
                           )}
-                          <div className="text-xs text-gray-500 mt-1">
-                            {order.guests ? `성인 ${order.guests}명` : '-'}
-                          </div>
                         </div>
                       </td>
                       <td className="py-3 px-4 font-semibold">

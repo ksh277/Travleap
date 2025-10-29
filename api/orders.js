@@ -23,22 +23,126 @@ module.exports = async function handler(req, res) {
 
   const connection = connect({ url: process.env.DATABASE_URL });
 
-  // GET: 주문 목록 조회
+  // GET: 관리자 주문 목록 조회 (payments 기반)
   if (req.method === 'GET') {
     try {
-      const result = await connection.execute(
-        `SELECT * FROM orders ORDER BY created_at DESC`
-      );
+      // payments 테이블 기반으로 주문 정보 조회
+      const result = await connection.execute(`
+        SELECT
+          p.id,
+          p.user_id,
+          p.amount,
+          p.payment_status,
+          p.payment_key,
+          p.gateway_transaction_id as order_number,
+          p.notes,
+          p.created_at,
+          p.approved_at,
+          p.refund_amount,
+          p.refunded_at,
+          b.id as booking_id,
+          b.status as booking_status,
+          b.start_date,
+          b.end_date,
+          b.guests,
+          b.adults,
+          b.children,
+          b.infants,
+          b.listing_id,
+          l.title as product_title,
+          l.category,
+          l.images
+        FROM payments p
+        LEFT JOIN bookings b ON p.booking_id = b.id
+        LEFT JOIN listings l ON b.listing_id = l.id
+        WHERE p.payment_status IN ('paid', 'completed', 'refunded')
+        ORDER BY p.created_at DESC
+      `);
+
+      // Neon PostgreSQL에서 사용자 정보 조회
+      const { Pool } = require('@neondatabase/serverless');
+      const poolNeon = new Pool({
+        connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+      });
+
+      let ordersWithUserInfo = [];
+
+      try {
+        // 모든 주문의 user_id 수집
+        const userIds = [...new Set((result.rows || []).map(order => order.user_id).filter(Boolean))];
+
+        let userMap = new Map();
+        if (userIds.length > 0) {
+          // IN 쿼리로 사용자 정보 한번에 조회
+          const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+          const usersResult = await poolNeon.query(
+            `SELECT id, name, email FROM users WHERE id IN (${placeholders})`,
+            userIds
+          );
+
+          usersResult.rows.forEach(user => {
+            userMap.set(user.id, user);
+          });
+        }
+
+        // 주문 데이터와 사용자 정보 병합
+        ordersWithUserInfo = (result.rows || []).map(order => {
+          const user = userMap.get(order.user_id);
+
+          // notes 파싱하여 상품 정보 추출
+          let itemsInfo = null;
+          let itemCount = 1;
+          let displayTitle = order.product_title || '주문';
+
+          if (order.notes) {
+            try {
+              const notesData = JSON.parse(order.notes);
+              if (notesData.items && Array.isArray(notesData.items)) {
+                itemsInfo = notesData.items;
+                itemCount = notesData.items.length;
+                if (itemCount > 1) {
+                  displayTitle = `${notesData.items[0].title || '상품'} 외 ${itemCount - 1}개`;
+                } else if (itemCount === 1) {
+                  displayTitle = notesData.items[0].title || displayTitle;
+                }
+              }
+            } catch (e) {
+              console.error('notes 파싱 오류:', e);
+            }
+          }
+
+          return {
+            id: order.id,
+            user_name: user?.name || '알 수 없음',
+            user_email: user?.email || '',
+            product_title: displayTitle,
+            listing_id: order.listing_id,
+            amount: order.amount,
+            status: order.booking_status || 'pending',
+            payment_status: order.payment_status,
+            created_at: order.created_at,
+            start_date: order.start_date,
+            end_date: order.end_date,
+            guests: order.category === 'popup' ? itemCount : order.guests || 0,
+            category: order.category,
+            is_popup: order.category === 'popup',
+            order_number: order.order_number
+          };
+        });
+      } finally {
+        await poolNeon.end();
+      }
 
       return res.status(200).json({
         success: true,
-        data: result.rows || []
+        orders: ordersWithUserInfo
       });
     } catch (error) {
       console.error('Orders GET API error:', error);
-      return res.status(200).json({
-        success: true,
-        data: []
+      return res.status(500).json({
+        success: false,
+        message: error.message || '주문 목록 조회 실패',
+        orders: []
       });
     }
   }
