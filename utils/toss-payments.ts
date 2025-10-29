@@ -238,36 +238,33 @@ export class TossPaymentsClient {
 export const tossPayments = new TossPaymentsClient();
 
 /**
- * 결제 위젯 초기화 헬퍼
+ * 결제창 SDK 로드 헬퍼 (API 개별 연동 키 사용)
  *
  * 브라우저에서 사용
  */
-export async function loadTossPaymentsWidget() {
+export async function loadTossPaymentsSDK() {
   if (typeof window === 'undefined') {
     throw new Error('이 함수는 브라우저 환경에서만 사용할 수 있습니다.');
   }
 
-  // Toss Payments Widget SDK 로드 (신버전)
-  if (!(window as any).PaymentWidget) {
+  // Toss Payments SDK 로드 (결제창 방식)
+  if (!(window as any).TossPayments) {
     const script = document.createElement('script');
-    script.src = 'https://js.tosspayments.com/v1/payment-widget';
+    script.src = 'https://js.tosspayments.com/v1/payment';
     script.async = true;
 
     await new Promise<void>((resolve, reject) => {
       script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Toss Payments Widget SDK 로드 실패'));
+      script.onerror = () => reject(new Error('Toss Payments SDK 로드 실패'));
       document.head.appendChild(script);
     });
   }
-
-  // Payment Widget 초기화 (신버전 API - ANONYMOUS 고객)
-  const PaymentWidget = (window as any).PaymentWidget;
 
   // 프론트엔드에서 직접 환경 변수 읽기
   const env = (import.meta as any).env;
   const clientKey = env.VITE_TOSS_CLIENT_KEY_TEST || env.VITE_TOSS_CLIENT_KEY || 'test_ck_pP2YxJ4K87YxByjJDaX0VRGZwXLO';
 
-  console.log('🔑 [Widget] Client Key 전달:', clientKey);
+  console.log('🔑 [SDK] Client Key 전달:', clientKey);
   console.log('🔍 [Debug] 환경 변수:', {
     VITE_TOSS_CLIENT_KEY_TEST: env.VITE_TOSS_CLIENT_KEY_TEST,
     VITE_TOSS_CLIENT_KEY: env.VITE_TOSS_CLIENT_KEY
@@ -277,12 +274,20 @@ export async function loadTossPaymentsWidget() {
     throw new Error('Client Key가 올바르게 로드되지 않았습니다. .env 파일을 확인하세요.');
   }
 
-  // 고객 ID 생성 (익명 사용자도 고유 ID 필요)
-  const customerId = `GUEST_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  // TossPayments 객체 생성
+  const TossPayments = (window as any).TossPayments;
+  return TossPayments(clientKey);
+}
 
-  console.log('👤 [Widget] Customer ID:', customerId);
-
-  return PaymentWidget(clientKey, customerId);
+/**
+ * 결제 위젯 초기화 헬퍼 (레거시 - 사용 안 함)
+ *
+ * 브라우저에서 사용
+ */
+export async function loadTossPaymentsWidget() {
+  // 결제창 SDK로 대체됨
+  console.warn('⚠️ loadTossPaymentsWidget()은 더 이상 사용되지 않습니다. loadTossPaymentsSDK()를 사용하세요.');
+  return loadTossPaymentsSDK();
 }
 
 /**

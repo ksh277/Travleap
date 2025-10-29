@@ -1,11 +1,12 @@
 /**
- * Toss Payments 결제 위젯 컴포넌트
+ * Toss Payments 결제창 컴포넌트 (API 개별 연동 방식)
  *
  * 예약 페이지에서 사용하는 결제 UI
  */
 
 import { useState, useEffect } from 'react';
-import { loadTossPaymentsWidget, generateOrderId } from '../utils/toss-payments';
+import { loadTossPaymentsSDK } from '../utils/toss-payments';
+import { CreditCard, Smartphone } from 'lucide-react';
 
 export interface PaymentWidgetProps {
   bookingId: number;
@@ -40,57 +41,43 @@ export default function PaymentWidget({
 }: PaymentWidgetProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [paymentWidget, setPaymentWidget] = useState<any>(null);
+  const [tossPayments, setTossPayments] = useState<any>(null);
 
   useEffect(() => {
-    initializePaymentWidget();
+    initializeTossPayments();
   }, []);
 
-  async function initializePaymentWidget() {
+  async function initializeTossPayments() {
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('💳 Toss Payments 위젯 초기화 중...');
+      console.log('💳 Toss Payments SDK 초기화 중...');
 
-      // Payment Widget 로드
-      const widget = await loadTossPaymentsWidget();
-
-      // 결제 UI 렌더링
-      await widget.renderPaymentMethods('#payment-method', {
-        value: amount
-      });
-
-      // 약관 동의 UI 렌더링
-      await widget.renderAgreement('#agreement');
-
-      // DOM 렌더링 완료 대기 (Toss Widget 내부 렌더링 시간)
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      setPaymentWidget(widget);
+      // Toss Payments SDK 로드
+      const sdk = await loadTossPaymentsSDK();
+      setTossPayments(sdk);
       setIsLoading(false);
 
-      console.log('✅ Toss Payments 위젯 초기화 완료');
+      console.log('✅ Toss Payments SDK 초기화 완료');
 
     } catch (err: any) {
-      console.error('❌ 위젯 초기화 실패:', err);
-      setError('결제 위젯을 불러오는 중 오류가 발생했습니다.');
+      console.error('❌ SDK 초기화 실패:', err);
+      setError('결제 SDK를 불러오는 중 오류가 발생했습니다.');
       setIsLoading(false);
     }
   }
 
-  async function handlePayment() {
-    if (!paymentWidget) {
-      alert('결제 위젯이 초기화되지 않았습니다.');
+  async function handlePayment(method: string) {
+    if (!tossPayments) {
+      alert('결제 SDK가 초기화되지 않았습니다.');
       return;
     }
 
     try {
-      console.log('💳 결제 요청:', { bookingNumber, amount, orderName });
+      console.log('💳 결제 요청:', { method, bookingNumber, amount, orderName });
 
       // successUrl 조건부 설정
-      // bookingId가 0이면 장바구니 주문 → PaymentSuccessPage2 사용
-      // bookingId가 있으면 단일 예약 → PaymentSuccessPage 사용
       const isCartOrder = bookingId === 0 || bookingNumber.startsWith('ORDER_');
       const successUrl = isCartOrder
         ? `${window.location.origin}/payment/success2`
@@ -99,35 +86,19 @@ export default function PaymentWidget({
         ? `${window.location.origin}/payment/fail2`
         : `${window.location.origin}/payment/fail?bookingId=${bookingId}`;
 
-      // 결제 요청 (배송 정보 포함)
-      const paymentRequest: any = {
-        orderId: bookingNumber,  // 우리 시스템의 booking_number 또는 ORDER_xxx
+      // 결제 요청
+      await tossPayments.requestPayment(method, {
+        amount,
+        orderId: bookingNumber,
         orderName,
-        customerEmail,
-        customerName,
+        customerName: customerName || '고객',
+        customerEmail: customerEmail || '',
+        customerMobilePhone: customerMobilePhone || '',
         successUrl,
         failUrl
-      };
+      });
 
-      // 고객 전화번호 추가 (있으면)
-      if (customerMobilePhone) {
-        paymentRequest.customerMobilePhone = customerMobilePhone;
-      }
-
-      // 배송 정보 추가 (있으면)
-      if (shippingInfo) {
-        paymentRequest.deliveryInformation = {
-          receiverName: shippingInfo.name,
-          receiverPhoneNumber: shippingInfo.phone,
-          addressLine1: shippingInfo.address,
-          addressLine2: shippingInfo.addressDetail,
-          zipCode: shippingInfo.zipcode
-        };
-      }
-
-      await paymentWidget.requestPayment(paymentRequest);
-
-      // Toss Payments로 리다이렉트됨 (successUrl 또는 failUrl로 돌아옴)
+      // Toss 결제창으로 리다이렉트됨
 
     } catch (err: any) {
       console.error('❌ 결제 요청 실패:', err);
@@ -144,7 +115,7 @@ export default function PaymentWidget({
       <div className="bg-white rounded-lg shadow-sm p-8">
         <div className="flex flex-col items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">결제 위젯을 불러오는 중...</p>
+          <p className="text-gray-600">결제 SDK를 불러오는 중...</p>
         </div>
       </div>
     );
@@ -155,10 +126,10 @@ export default function PaymentWidget({
       <div className="bg-white rounded-lg shadow-sm p-8">
         <div className="text-center">
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <p className="text-gray-800 font-semibold mb-2">결제 위젯 로드 실패</p>
+          <p className="text-gray-800 font-semibold mb-2">결제 SDK 로드 실패</p>
           <p className="text-gray-600 text-sm mb-4">{error}</p>
           <button
-            onClick={initializePaymentWidget}
+            onClick={initializeTossPayments}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             다시 시도
@@ -194,26 +165,31 @@ export default function PaymentWidget({
       {/* 결제 수단 선택 */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">결제 수단</h3>
-        <div id="payment-method" className="min-h-[200px]"></div>
-      </div>
+        <div className="grid grid-cols-2 gap-3">
+          {/* 카드 결제 */}
+          <button
+            onClick={() => handlePayment('카드')}
+            className="flex items-center justify-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            <CreditCard className="w-5 h-5" />
+            <span className="font-medium">신용/체크카드</span>
+          </button>
 
-      {/* 약관 동의 */}
-      <div className="mb-6">
-        <div id="agreement" className="min-h-[100px]"></div>
+          {/* 간편결제 */}
+          <button
+            onClick={() => handlePayment('간편결제')}
+            className="flex items-center justify-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+          >
+            <Smartphone className="w-5 h-5" />
+            <span className="font-medium">간편결제</span>
+          </button>
+        </div>
       </div>
-
-      {/* 결제 버튼 */}
-      <button
-        onClick={handlePayment}
-        className="w-full py-4 bg-blue-600 text-white text-lg font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        {amount.toLocaleString()}원 결제하기
-      </button>
 
       {/* 안내 문구 */}
-      <div className="mt-4 text-center text-sm text-gray-500">
+      <div className="text-center text-sm text-gray-500">
         <p>결제는 안전하게 Toss Payments를 통해 처리됩니다.</p>
-        <p className="mt-1">결제 후 10분 이내에 완료해주세요.</p>
+        <p className="mt-1">결제 수단을 선택하면 결제창이 열립니다.</p>
       </div>
     </div>
   );
