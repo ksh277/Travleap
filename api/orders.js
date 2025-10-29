@@ -119,7 +119,63 @@ module.exports = async function handler(req, res) {
       }
 
       const serverDeliveryFee = deliveryFee || 0;
-      const serverCouponDiscount = couponDiscount || 0;
+
+      // 🔒 쿠폰 서버 검증 (트랜잭션 밖 - 빠른 검증)
+      let serverCouponDiscount = 0;
+      let couponInfo = null;
+
+      if (couponCode) {
+        const couponResult = await connection.execute(`
+          SELECT * FROM coupons
+          WHERE code = ? AND is_active = 1
+          LIMIT 1
+        `, [couponCode.toUpperCase()]);
+
+        if (!couponResult.rows || couponResult.rows.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'INVALID_COUPON',
+            message: '유효하지 않은 쿠폰 코드입니다.'
+          });
+        }
+
+        couponInfo = couponResult.rows[0];
+
+        // 유효 기간 체크
+        const now = new Date();
+        if (couponInfo.valid_from && new Date(couponInfo.valid_from) > now) {
+          return res.status(400).json({
+            success: false,
+            error: 'COUPON_NOT_YET_VALID',
+            message: '아직 사용할 수 없는 쿠폰입니다.'
+          });
+        }
+        if (couponInfo.valid_until && new Date(couponInfo.valid_until) < now) {
+          return res.status(400).json({
+            success: false,
+            error: 'COUPON_EXPIRED',
+            message: '만료된 쿠폰입니다.'
+          });
+        }
+
+        // 최소 주문 금액 확인
+        if (couponInfo.min_amount && serverCalculatedSubtotal < couponInfo.min_amount) {
+          return res.status(400).json({
+            success: false,
+            error: 'MIN_AMOUNT_NOT_MET',
+            message: `최소 주문 금액 ${couponInfo.min_amount.toLocaleString()}원 이상이어야 사용 가능합니다.`
+          });
+        }
+
+        // 할인 금액 서버 계산
+        if (couponInfo.discount_type === 'percentage') {
+          serverCouponDiscount = Math.floor(serverCalculatedSubtotal * couponInfo.discount_value / 100);
+        } else {
+          serverCouponDiscount = couponInfo.discount_value;
+        }
+
+        console.log(`🎟️ [Orders] 쿠폰 검증 통과: ${couponCode}, 할인액: ${serverCouponDiscount}원`);
+      }
 
       // 🔒 포인트 사용 검증 (음수/NaN 방지)
       let serverPointsUsed = parseInt(pointsUsed) || 0;
@@ -159,6 +215,29 @@ module.exports = async function handler(req, res) {
       await connection.execute('START TRANSACTION');
 
       try {
+        // 🔒 쿠폰 재검증 (트랜잭션 안 - FOR UPDATE로 동시성 제어)
+        if (couponCode && couponInfo) {
+          const couponLockResult = await connection.execute(`
+            SELECT current_usage, max_usage
+            FROM coupons
+            WHERE code = ? AND is_active = 1
+            FOR UPDATE
+          `, [couponCode.toUpperCase()]);
+
+          if (!couponLockResult.rows || couponLockResult.rows.length === 0) {
+            throw new Error('쿠폰이 비활성화되었습니다.');
+          }
+
+          const lockedCoupon = couponLockResult.rows[0];
+
+          // 최대 사용 횟수 재확인 (Race Condition 방지)
+          if (lockedCoupon.max_usage !== null && lockedCoupon.current_usage >= lockedCoupon.max_usage) {
+            throw new Error('쿠폰 사용 가능 횟수가 초과되었습니다.');
+          }
+
+          console.log(`🔒 [Orders] 쿠폰 락 획득: ${couponCode}, current_usage=${lockedCoupon.current_usage}, max_usage=${lockedCoupon.max_usage}`);
+        }
+
         // payments 테이블에 주문 생성 (장바구니 주문)
         // ✅ gateway_transaction_id에 ORDER_xxx 저장
         const insertResult = await connection.execute(`
