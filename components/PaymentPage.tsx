@@ -469,17 +469,15 @@ export function PaymentPage() {
           total: finalAmount,
           status: 'pending' as const,
           paymentMethod,
-          // ✅ 팝업 상품이 있을 때만 배송 정보 전달
-          ...(hasPopupProducts && {
-            shippingInfo: {
-              name: billingInfo.name,
-              phone: billingInfo.phone,
-              zipcode: billingInfo.postalCode,
-              address: billingInfo.address,
-              addressDetail: billingInfo.detailAddress,
-              memo: '' // 추후 배송 메모 필드 추가 시 사용
-            }
-          })
+          // ✅ 모든 주문에 청구 정보 전달 (프로필 저장용)
+          shippingInfo: {
+            name: billingInfo.name,
+            phone: billingInfo.phone,
+            zipcode: billingInfo.postalCode,
+            address: billingInfo.address,
+            addressDetail: billingInfo.detailAddress,
+            memo: '' // 추후 배송 메모 필드 추가 시 사용
+          }
         });
 
         if (orderResponse.success) {

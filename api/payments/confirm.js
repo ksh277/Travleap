@@ -9,8 +9,13 @@ const { connect } = require('@planetscale/database');
 // const { notifyPartnerNewBooking } = require('../../utils/notification'); // TODO: 구현 필요
 
 // Toss Payments 설정
-const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY || process.env.TOSS_LIVE_SECRET_KEY;
+const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY_TEST || process.env.TOSS_SECRET_KEY_LIVE;
 const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
+
+// 환경변수 확인
+if (!TOSS_SECRET_KEY) {
+  console.error('❌ TOSS_SECRET_KEY_TEST or TOSS_SECRET_KEY_LIVE not found in environment variables');
+}
 
 /**
  * Toss Payments API - 결제 승인
