@@ -263,13 +263,12 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
   try {
     console.log(`💰 [포인트 회수] user_id=${userId}, order_number=${orderNumber}`);
 
-    // 1. PlanetScale에서 해당 주문으로 적립된 포인트 조회
+    // 1. PlanetScale에서 해당 주문으로 적립된 포인트 조회 (모든 적립 내역)
     const earnedPointsResult = await connection.execute(`
       SELECT points, id
       FROM user_points
       WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
       ORDER BY created_at DESC
-      LIMIT 1
     `, [userId, orderNumber]);
 
     if (!earnedPointsResult.rows || earnedPointsResult.rows.length === 0) {
@@ -277,7 +276,9 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
       return 0;
     }
 
-    const pointsToDeduct = earnedPointsResult.rows[0].points;
+    // ✅ 모든 적립 포인트 합산 (여러 적립 내역이 있을 경우 대비)
+    const pointsToDeduct = earnedPointsResult.rows.reduce((sum, row) => sum + (row.points || 0), 0);
+    console.log(`💰 [포인트 회수] 총 ${earnedPointsResult.rows.length}건의 적립 내역, 합계: ${pointsToDeduct}P`);
 
     // 2. Neon PostgreSQL에서 현재 포인트 조회 및 차감
     const { Pool } = require('@neondatabase/serverless');
