@@ -2165,7 +2165,7 @@ export function AdminPage({}: AdminPageProps) {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({
-          bookingId: order.id,
+          bookingId: order.booking_id, // ✅ booking_id 사용
           cancelReason: `[관리자 환불] ${reason}`,
         })
       });

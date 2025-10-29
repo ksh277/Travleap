@@ -41,6 +41,7 @@ module.exports = async function handler(req, res) {
           p.refund_amount,
           p.refunded_at,
           b.id as booking_id,
+          b.booking_number,
           b.status as booking_status,
           b.start_date,
           b.end_date,
@@ -49,6 +50,12 @@ module.exports = async function handler(req, res) {
           b.children,
           b.infants,
           b.listing_id,
+          b.delivery_status,
+          b.shipping_name,
+          b.shipping_phone,
+          b.shipping_address,
+          b.shipping_address_detail,
+          b.shipping_zipcode,
           l.title as product_title,
           l.category,
           l.images
@@ -92,7 +99,7 @@ module.exports = async function handler(req, res) {
           // notes 파싱하여 상품 정보 추출
           let itemsInfo = null;
           let itemCount = 1;
-          let displayTitle = order.product_title || '주문';
+          let displayTitle = order.product_title || '';
           let deliveryFee = 0;
           let subtotal = 0;
           let actualOrderNumber = order.order_number;
@@ -110,23 +117,37 @@ module.exports = async function handler(req, res) {
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
 
-              // 상품 정보 추출
-              if (notesData.items && Array.isArray(notesData.items)) {
+              // 상품 정보 추출 (우선순위: notes.items > product_title)
+              if (notesData.items && Array.isArray(notesData.items) && notesData.items.length > 0) {
                 itemsInfo = notesData.items;
                 itemCount = notesData.items.length;
+
+                // 첫 번째 아이템의 상품명 가져오기 (title 또는 name 필드)
+                const firstItemTitle = notesData.items[0].title || notesData.items[0].name || '';
+
                 if (itemCount > 1) {
-                  displayTitle = `${notesData.items[0].title || '상품'} 외 ${itemCount - 1}개`;
-                } else if (itemCount === 1) {
-                  displayTitle = notesData.items[0].title || displayTitle;
+                  displayTitle = firstItemTitle ? `${firstItemTitle} 외 ${itemCount - 1}개` : (order.product_title || '주문');
+                } else {
+                  displayTitle = firstItemTitle || order.product_title || '주문';
                 }
+              } else if (!displayTitle) {
+                // notes.items도 없고 product_title도 없으면
+                displayTitle = '주문';
               }
             } catch (e) {
-              console.error('notes 파싱 오류:', e);
+              console.error('❌ [Orders] notes 파싱 오류:', e, 'order_id:', order.id);
+              // 파싱 실패 시 product_title 사용
+              displayTitle = order.product_title || '주문';
             }
+          } else if (!displayTitle) {
+            // notes도 없고 product_title도 없으면
+            displayTitle = '주문';
           }
 
           return {
             id: order.id,
+            booking_id: order.booking_id, // ✅ 환불 시 필요
+            booking_number: order.booking_number,
             user_name: user?.name || '',
             user_email: user?.email || '',
             product_name: displayTitle,
@@ -145,7 +166,14 @@ module.exports = async function handler(req, res) {
             num_seniors: 0,
             category: order.category,
             is_popup: order.category === '팝업',
-            order_number: actualOrderNumber
+            order_number: actualOrderNumber,
+            // ✅ 배송 정보 (배송 관리 다이얼로그용)
+            delivery_status: order.delivery_status,
+            shipping_name: order.shipping_name,
+            shipping_phone: order.shipping_phone,
+            shipping_address: order.shipping_address,
+            shipping_address_detail: order.shipping_address_detail,
+            shipping_zipcode: order.shipping_zipcode
           };
         });
       } finally {
