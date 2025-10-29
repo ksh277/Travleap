@@ -82,9 +82,13 @@ module.exports = async function handler(req, res) {
 
       const orderNumber = generateOrderNumber();
 
-      // payments 테이블에 주문 생성 (장바구니 주문)
-      // ✅ gateway_transaction_id에 ORDER_xxx 저장
-      const insertResult = await connection.execute(`
+      // ✅ 트랜잭션 시작 (데이터 일관성 보장)
+      await connection.execute('START TRANSACTION');
+
+      try {
+        // payments 테이블에 주문 생성 (장바구니 주문)
+        // ✅ gateway_transaction_id에 ORDER_xxx 저장
+        const insertResult = await connection.execute(`
         INSERT INTO payments (
           user_id,
           amount,
@@ -155,6 +159,35 @@ module.exports = async function handler(req, res) {
         ]);
 
         console.log(`✅ [Orders] bookings 생성: ${bookingNumber}, listing ${item.listingId}`);
+
+        // ✅ 재고 차감 (옵션 또는 상품 레벨)
+        try {
+          const stockQuantity = item.quantity || 1;
+
+          if (item.selectedOption && item.selectedOption.id) {
+            // 옵션 재고 차감
+            await connection.execute(`
+              UPDATE product_options
+              SET stock = stock - ?
+              WHERE id = ? AND stock IS NOT NULL AND stock >= ?
+            `, [stockQuantity, item.selectedOption.id, stockQuantity]);
+
+            console.log(`✅ [Orders] 옵션 재고 차감: option_id=${item.selectedOption.id}, -${stockQuantity}개`);
+          } else {
+            // 상품 레벨 재고 차감 (stock_enabled=1인 경우만)
+            await connection.execute(`
+              UPDATE listings
+              SET stock = stock - ?
+              WHERE id = ? AND stock_enabled = 1 AND stock IS NOT NULL AND stock >= ?
+            `, [stockQuantity, item.listingId, stockQuantity]);
+
+            console.log(`✅ [Orders] 상품 재고 차감: listing_id=${item.listingId}, -${stockQuantity}개`);
+          }
+        } catch (stockError) {
+          console.error(`❌ [Orders] 재고 차감 실패:`, stockError);
+          // 재고 차감 실패 시 트랜잭션 롤백
+          throw stockError;
+        }
       }
 
       // 포인트 차감 처리
@@ -187,9 +220,14 @@ module.exports = async function handler(req, res) {
           }
         } catch (pointsError) {
           console.error('❌ [Orders] 포인트 차감 실패:', pointsError);
-          // 포인트 차감 실패해도 주문은 계속 진행
+          // 포인트 차감 실패 시 롤백
+          throw pointsError;
         }
       }
+
+      // ✅ 트랜잭션 커밋
+      await connection.execute('COMMIT');
+      console.log('✅ [Orders] 트랜잭션 커밋 완료');
 
       return res.status(200).json({
         success: true,
@@ -200,6 +238,13 @@ module.exports = async function handler(req, res) {
         },
         message: '주문이 생성되었습니다.'
       });
+
+    } catch (transactionError) {
+      // ✅ 트랜잭션 롤백
+      await connection.execute('ROLLBACK');
+      console.error('❌ [Orders] 트랜잭션 롤백:', transactionError);
+      throw transactionError;
+    }
 
     } catch (error) {
       console.error('❌ [Orders] POST API error:', error);

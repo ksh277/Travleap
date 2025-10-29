@@ -259,42 +259,82 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     }
 
     // 4. 결제 정보 기록 (payments 테이블)
-    // ✅ created_at, updated_at은 NOW()를 사용하여 DB에서 직접 생성 (타임존 문제 방지)
-    // ✅ payment_method는 Toss API 값을 DB ENUM과 호환되도록 변환
-    const normalizedMethod = normalizePaymentMethod(
-      paymentResult.method,
-      paymentResult.easyPay?.provider
-    );
+    // ✅ 단일 예약(BK-)만 INSERT, 장바구니(ORDER_)는 이미 UPDATE 완료
+    if (isBooking) {
+      // ✅ created_at, updated_at은 NOW()를 사용하여 DB에서 직접 생성 (타임존 문제 방지)
+      // ✅ payment_method는 Toss API 값을 DB ENUM과 호환되도록 변환
+      const normalizedMethod = normalizePaymentMethod(
+        paymentResult.method,
+        paymentResult.easyPay?.provider
+      );
 
-    await db.execute(
-      `INSERT INTO payments (
-        user_id, booking_id, order_id, payment_key, order_id_str, amount,
-        payment_method, payment_status, approved_at, receipt_url,
-        card_company, card_number, card_installment,
-        virtual_account_number, virtual_account_bank, virtual_account_due_date,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-      [
-        userId,
-        bookingId,
-        orderId_num,
-        paymentKey,
-        orderId,
-        paymentResult.totalAmount,
-        normalizedMethod,  // ✅ 변환된 payment_method 사용
-        'paid',  // ✅ payment_status ENUM: 'pending', 'paid', 'failed', 'refunded'
-        paymentResult.approvedAt || null,
-        paymentResult.receipt?.url || null,
-        paymentResult.card?.company || null,
-        paymentResult.card?.number || null,
-        paymentResult.card?.installmentPlanMonths || 0,
-        paymentResult.virtualAccount?.accountNumber || null,
-        paymentResult.virtualAccount?.bank || null,
-        paymentResult.virtualAccount?.dueDate || null
-      ]
-    );
+      await db.execute(
+        `INSERT INTO payments (
+          user_id, booking_id, order_id, payment_key, order_id_str, amount,
+          payment_method, payment_status, approved_at, receipt_url,
+          card_company, card_number, card_installment,
+          virtual_account_number, virtual_account_bank, virtual_account_due_date,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          userId,
+          bookingId,
+          orderId_num,
+          paymentKey,
+          orderId,
+          paymentResult.totalAmount,
+          normalizedMethod,  // ✅ 변환된 payment_method 사용
+          'paid',  // ✅ payment_status ENUM: 'pending', 'paid', 'failed', 'refunded'
+          paymentResult.approvedAt || null,
+          paymentResult.receipt?.url || null,
+          paymentResult.card?.company || null,
+          paymentResult.card?.number || null,
+          paymentResult.card?.installmentPlanMonths || 0,
+          paymentResult.virtualAccount?.accountNumber || null,
+          paymentResult.virtualAccount?.bank || null,
+          paymentResult.virtualAccount?.dueDate || null
+        ]
+      );
 
-    console.log('✅ [결제 기록] payments 테이블에 저장 완료');
+      console.log('✅ [결제 기록] payments 테이블에 저장 완료');
+    } else if (isOrder) {
+      // 장바구니 주문: 이미 UPDATE로 payment_key 등 저장했으므로 추가 UPDATE만 수행
+      const normalizedMethod = normalizePaymentMethod(
+        paymentResult.method,
+        paymentResult.easyPay?.provider
+      );
+
+      await db.execute(
+        `UPDATE payments
+         SET payment_key = ?,
+             payment_method = ?,
+             approved_at = ?,
+             receipt_url = ?,
+             card_company = ?,
+             card_number = ?,
+             card_installment = ?,
+             virtual_account_number = ?,
+             virtual_account_bank = ?,
+             virtual_account_due_date = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [
+          paymentKey,
+          normalizedMethod,
+          paymentResult.approvedAt || null,
+          paymentResult.receipt?.url || null,
+          paymentResult.card?.company || null,
+          paymentResult.card?.number || null,
+          paymentResult.card?.installmentPlanMonths || 0,
+          paymentResult.virtualAccount?.accountNumber || null,
+          paymentResult.virtualAccount?.bank || null,
+          paymentResult.virtualAccount?.dueDate || null,
+          orderId_num
+        ]
+      );
+
+      console.log('✅ [결제 기록] payments 테이블 업데이트 완료 (장바구니 주문)');
+    }
 
     // 4.5. 포인트 적립 (팝업 상품 주문인 경우)
     if (isOrder) {

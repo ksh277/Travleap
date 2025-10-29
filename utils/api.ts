@@ -553,6 +553,57 @@ export const api = {
     reason: string;
   }): Promise<ApiResponse<Booking>> => {
     try {
+      // 1. booking_id로 payment_key 조회
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const booking = await db.select('bookings', { id: parseInt(bookingId) });
+      if (!booking || booking.length === 0) {
+        throw new Error('예약을 찾을 수 없습니다.');
+      }
+
+      // 2. payment_key 조회 (payments 테이블에서)
+      const payments = await db.query(
+        'SELECT payment_key FROM payments WHERE booking_id = ? AND payment_status = "paid" LIMIT 1',
+        [parseInt(bookingId)]
+      );
+
+      let refundResult = null;
+
+      // 3. payment_key가 있으면 실제 토스 환불 API 호출
+      if (payments && payments.length > 0 && payments[0].payment_key) {
+        const paymentKey = payments[0].payment_key;
+
+        console.log(`💰 [Cancel] 토스 환불 API 호출: paymentKey=${paymentKey}, refund=${cancellationData.refundAmount}원`);
+
+        const refundResponse = await fetch('/api/payments/refund', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            paymentKey,
+            cancelReason: cancellationData.reason,
+            cancelAmount: cancellationData.refundAmount > 0 ? cancellationData.refundAmount : undefined,
+            skipPolicy: true // 이미 frontend에서 정책 계산함
+          })
+        });
+
+        refundResult = await refundResponse.json();
+
+        if (!refundResult.success) {
+          throw new Error(refundResult.message || '환불 처리에 실패했습니다.');
+        }
+
+        console.log(`✅ [Cancel] 토스 환불 완료: ${cancellationData.refundAmount.toLocaleString()}원`);
+      } else {
+        console.warn('⚠️ [Cancel] payment_key가 없어 DB만 업데이트합니다.');
+      }
+
+      // 4. DB 업데이트 (refund API에서 payments는 업데이트했지만 bookings도 업데이트 필요)
       const updateData = {
         status: 'cancelled' as const,
         cancellation_reason: cancellationData.reason,
@@ -564,7 +615,7 @@ export const api = {
 
       await db.update('bookings', parseInt(bookingId), updateData);
 
-      // 취소된 예약 정보 조회
+      // 5. 취소된 예약 정보 조회
       const cancelledBooking = await db.select('bookings', { id: parseInt(bookingId) });
 
       return {
@@ -576,7 +627,7 @@ export const api = {
       console.error('Failed to cancel booking:', error);
       return {
         success: false,
-        error: '예약 취소에 실패했습니다.'
+        error: error instanceof Error ? error.message : '예약 취소에 실패했습니다.'
       };
     }
   },

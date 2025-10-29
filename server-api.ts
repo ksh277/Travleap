@@ -1871,6 +1871,17 @@ function setupRoutes() {
     }
   });
 
+  // Admin 예약 환불 처리 (관리자 전용)
+  app.post('/api/admin/refund-booking', async (req, res) => {
+    try {
+      const adminRefundAPI = await import('./api/admin/refund-booking.js');
+      await adminRefundAPI.default(req as any, res as any);
+    } catch (error) {
+      console.error('❌ [API] Admin refund error:', error);
+      res.status(500).json({ success: false, message: '환불 처리 중 오류가 발생했습니다' });
+    }
+  });
+
   // 현재 사용자 프로필 조회 - 인증 필수
   app.get('/api/user/profile', authenticate, async (req, res) => {
     try {

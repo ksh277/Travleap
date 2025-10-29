@@ -800,8 +800,8 @@ export function MyPage() {
     setCancellingBookingId(bookingId);
     try {
       const response = await api.cancelBooking(bookingId.toString(), {
-        cancellationFee: 0,
-        refundAmount: 0,
+        cancellationFee: cancellationInfo.cancellationFee,
+        refundAmount: cancellationInfo.refundAmount,
         reason: '사용자 요청'
       });
 

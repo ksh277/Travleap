@@ -48,22 +48,39 @@ export function AdminOrders() {
     }
   };
 
-  const handleRefund = async (orderId: number) => {
-    if (!confirm('이 주문의 환불을 요청하시겠습니까?')) {
+  const handleRefund = async (order: Order) => {
+    if (!confirm(`이 주문을 환불하시겠습니까?\n\n주문번호: #${order.id}\n고객: ${order.user_name}\n금액: ₩${order.amount.toLocaleString()}\n\n이 작업은 즉시 토스 페이먼츠로 환불을 요청합니다.`)) {
+      return;
+    }
+
+    // 환불 사유 입력
+    const reason = prompt('환불 사유를 입력해주세요:');
+    if (!reason || reason.trim() === '') {
+      toast.error('환불 사유를 입력해주세요');
       return;
     }
 
     try {
-      const response = await fetch(`/api/orders/${orderId}/refund`, {
+      // booking_id로 payment_key 조회 (서버에서 처리)
+      const response = await fetch('/api/admin/refund-booking', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          bookingId: order.id,
+          cancelReason: `[관리자 환불] ${reason}`,
+        })
       });
+
       const data = await response.json();
 
       if (data.success) {
-        toast.success('환불 요청이 접수되었습니다');
+        toast.success(`환불이 완료되었습니다 (${data.refundAmount?.toLocaleString() || order.amount.toLocaleString()}원)`);
         loadOrders();
       } else {
-        toast.error(data.error || '환불 요청에 실패했습니다');
+        toast.error(data.message || '환불 처리에 실패했습니다');
       }
     } catch (error) {
       console.error('Refund request failed:', error);
@@ -229,11 +246,11 @@ export function AdminOrders() {
                             <Eye className="h-3 w-3 mr-1" />
                             확인
                           </Button>
-                          {order.status !== 'refund_requested' && order.status !== 'cancelled' && (
+                          {order.status !== 'refund_requested' && order.status !== 'cancelled' && order.payment_status === 'paid' && (
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleRefund(order.id)}
+                              onClick={() => handleRefund(order)}
                             >
                               <DollarSign className="h-3 w-3 mr-1" />
                               환불
