@@ -68,10 +68,10 @@ export function PaymentPage() {
   const [billingInfo, setBillingInfo] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: '',
-    postalCode: '',
-    address: '',
-    detailAddress: ''
+    phone: user?.phone || '',
+    postalCode: user?.postal_code || '',
+    address: user?.address || '',
+    detailAddress: user?.detail_address || ''
   });
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [preparedOrderNumber, setPreparedOrderNumber] = useState<string | null>(null);
