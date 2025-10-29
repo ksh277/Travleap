@@ -408,13 +408,13 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
 
         // bookings 테이블에서 shipping 정보 가져오기
-        const bookingResult = await connection.query(
+        const bookingResult = await connection.execute(
           'SELECT guest_phone, shipping_zipcode, shipping_address, shipping_address_detail FROM bookings WHERE id = ?',
           [bookingId]
         );
 
-        if (bookingResult && bookingResult.length > 0) {
-          const bookingData = bookingResult[0];
+        if (bookingResult && bookingResult.rows && bookingResult.rows.length > 0) {
+          const bookingData = bookingResult.rows[0];
 
           // 청구 정보가 있으면 사용자 프로필에 저장
           if (bookingData.guest_phone || bookingData.shipping_address) {

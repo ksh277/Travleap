@@ -507,11 +507,12 @@ export function PaymentPage() {
           setPreparedAmount(finalAmount);
 
           // 주문명: 첫 번째 상품명 + 나머지 개수
-          const firstProductName = orderData.items[0]?.name || '상품';
+          const firstProductName = orderData.items[0]?.name || orderData.items[0]?.title || '상품';
           const remainingCount = orderData.items.length - 1;
           const orderName = remainingCount > 0
             ? `${firstProductName} 외 ${remainingCount}개`
             : firstProductName;
+          console.log('🏷️ [주문명 설정]', { firstProductName, orderName, firstItem: orderData.items[0] });
           setPreparedOrderName(orderName);
 
           if (pointsToUse > 0) {
@@ -804,7 +805,7 @@ export function PaymentPage() {
                           <span>-{orderData.couponDiscount.toLocaleString()}원</span>
                         </div>
                       )}
-                      {hasPopupProducts && orderData.deliveryFee !== undefined && (
+                      {orderData.deliveryFee !== undefined && orderData.deliveryFee > 0 && (
                         <div className="flex justify-between">
                           <span className="flex items-center gap-1">
                             배송비
@@ -1022,13 +1023,13 @@ export function PaymentPage() {
                       customerEmail={billingInfo.email || user?.email || ''}
                       customerName={billingInfo.name || user?.name || '고객'}
                       customerMobilePhone={billingInfo.phone || ''}
-                      shippingInfo={hasPopupProducts ? {
+                      shippingInfo={{
                         name: billingInfo.name,
                         phone: billingInfo.phone,
                         zipcode: billingInfo.postalCode,
                         address: billingInfo.address,
                         addressDetail: billingInfo.detailAddress
-                      } : undefined}
+                      }}
                     />
                   </div>
                 ) : (
