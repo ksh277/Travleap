@@ -137,7 +137,7 @@ module.exports = async function handler(req, res) {
 
       const updatedUser = result[0];
 
-      console.log('✅ [Profile] 프로필 업데이트 성공:', updatedUser.email, '| name:', updatedUser.name);
+      console.log('✅ [Profile] 프로필 업데이트 성공:', updatedUser?.email || 'unknown', '| name:', updatedUser?.name || 'unknown');
 
       return res.status(200).json({
         success: true,
