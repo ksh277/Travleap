@@ -119,8 +119,8 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 최대 사용 횟수 체크 (전체)
-      if (coupon.max_usage !== null && coupon.current_usage >= coupon.max_usage) {
+      // 최대 사용 횟수 체크 (전체) - usage_limit 사용
+      if (coupon.usage_limit !== null && coupon.current_usage >= coupon.usage_limit) {
         return res.status(400).json({
           success: false,
           error: 'MAX_USAGE_EXCEEDED',
