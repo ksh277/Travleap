@@ -81,21 +81,57 @@ module.exports = async function handler(req, res) {
       }
 
       // 🔒 금액 검증 (보안: 클라이언트 조작 방지)
-      const serverSubtotal = subtotal || 0;
+      // ⚠️ CRITICAL: 클라이언트가 보낸 subtotal을 절대 믿지 말 것!
+      // items 배열에서 서버가 직접 재계산
+      let serverCalculatedSubtotal = 0;
+
+      for (const item of items) {
+        if (!item.price || !item.quantity || item.price < 0 || item.quantity <= 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'INVALID_ITEM',
+            message: '잘못된 상품 정보입니다.'
+          });
+        }
+
+        // 옵션 가격이 있으면 포함
+        const itemPrice = item.price || 0;
+        const optionPrice = item.selectedOption?.price || 0;
+        const totalItemPrice = (itemPrice + optionPrice) * item.quantity;
+
+        serverCalculatedSubtotal += totalItemPrice;
+      }
+
+      console.log(`🔒 [Orders] 서버 측 subtotal 재계산: ${serverCalculatedSubtotal}원 (클라이언트: ${subtotal}원)`);
+
+      // 클라이언트가 보낸 subtotal과 서버 계산이 다르면 거부
+      if (Math.abs(serverCalculatedSubtotal - (subtotal || 0)) > 1) {
+        console.error(`❌ [Orders] Subtotal 조작 감지!
+          - 클라이언트 subtotal: ${subtotal}원
+          - 서버 계산 subtotal: ${serverCalculatedSubtotal}원
+          - 차이: ${Math.abs(serverCalculatedSubtotal - (subtotal || 0))}원`);
+
+        return res.status(400).json({
+          success: false,
+          error: 'SUBTOTAL_TAMPERED',
+          message: '상품 금액이 조작되었습니다. 페이지를 새로고침해주세요.'
+        });
+      }
+
       const serverDeliveryFee = deliveryFee || 0;
       const serverCouponDiscount = couponDiscount || 0;
       const serverPointsUsed = pointsUsed || 0;
 
-      // 서버 측 예상 금액 계산
-      const expectedTotal = serverSubtotal - serverCouponDiscount + serverDeliveryFee - serverPointsUsed;
+      // 서버 측 최종 금액 계산 (서버가 재계산한 subtotal 사용)
+      const expectedTotal = serverCalculatedSubtotal - serverCouponDiscount + serverDeliveryFee - serverPointsUsed;
 
       // 1원 이하 오차 허용 (부동소수점 연산 오차)
       if (Math.abs(expectedTotal - total) > 1) {
-        console.error(`❌ [Orders] 금액 불일치 감지:
+        console.error(`❌ [Orders] 최종 금액 불일치 감지:
           - 클라이언트 total: ${total}원
           - 서버 계산: ${expectedTotal}원
           - 차이: ${Math.abs(expectedTotal - total)}원
-          - subtotal: ${serverSubtotal}
+          - serverSubtotal: ${serverCalculatedSubtotal}
           - deliveryFee: ${serverDeliveryFee}
           - couponDiscount: ${serverCouponDiscount}
           - pointsUsed: ${serverPointsUsed}`);
@@ -153,8 +189,10 @@ module.exports = async function handler(req, res) {
       for (const item of items) {
         const bookingNumber = `BK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-        // ✅ 실제 주문 수량 계산 (재고 복구를 위해 정확한 수량 저장 필요)
-        const actualQuantity = item.quantity || item.adults || 1;
+        // ✅ 실제 주문 수량 계산
+        // 🔒 CRITICAL: 재고 차감 로직(line 202)과 정확히 동일한 계산식 사용!
+        // 재고 복구 시 이 값을 사용하므로 일치해야 함
+        const actualQuantity = item.quantity || 1;
 
         await connection.execute(`
           INSERT INTO bookings (
