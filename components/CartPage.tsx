@@ -661,26 +661,6 @@ export function CartPage() {
                         )}
 
                         <div className="flex gap-4">
-                          {/* Enhanced product image */}
-                          <div className="flex-shrink-0 relative group">
-                            <ImageWithFallback
-                              src={item.image}
-                              alt={itemName}
-                              className="w-24 h-24 object-cover rounded-lg transition-transform duration-200 group-hover:scale-105"
-                              loading="lazy"
-                            />
-                            {item.discount && (
-                              <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                                -{item.discount}%
-                              </div>
-                            )}
-                            {item.inStock === false && (
-                              <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-                                <span className="text-white text-xs font-medium">품절</span>
-                              </div>
-                            )}
-                          </div>
-
                           {/* Enhanced product info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between mb-2">
