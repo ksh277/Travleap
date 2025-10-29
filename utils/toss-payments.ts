@@ -265,9 +265,13 @@ export async function loadTossPaymentsWidget() {
 
   // 프론트엔드에서 직접 환경 변수 읽기
   const env = (import.meta as any).env;
-  const clientKey = env.VITE_TOSS_CLIENT_KEY_TEST || env.VITE_TOSS_CLIENT_KEY || 'test_ck_pP2YxJ4K87YxByjJDaX0VRGZwXLO';
+  const clientKey = env.VITE_TOSS_CLIENT_KEY_TEST || env.VITE_TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
 
   console.log('🔑 [Widget] Client Key 전달:', clientKey);
+  console.log('🔍 [Debug] 환경 변수:', {
+    VITE_TOSS_CLIENT_KEY_TEST: env.VITE_TOSS_CLIENT_KEY_TEST,
+    VITE_TOSS_CLIENT_KEY: env.VITE_TOSS_CLIENT_KEY
+  });
 
   if (!clientKey || clientKey.includes('undefined')) {
     throw new Error('Client Key가 올바르게 로드되지 않았습니다. .env 파일을 확인하세요.');
