@@ -674,6 +674,21 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
         await poolNeon.end();
       }
+
+      // ✅ 결제 완료 후 장바구니 비우기
+      try {
+        console.log(`🛒 [장바구니] 결제 완료, 장바구니 삭제 중... (user_id: ${userId})`);
+
+        await connection.execute(`
+          DELETE FROM cart_items
+          WHERE user_id = ?
+        `, [userId]);
+
+        console.log(`✅ [장바구니] 장바구니 삭제 완료`);
+      } catch (cartError) {
+        console.error('❌ [장바구니] 삭제 실패 (계속 진행):', cartError);
+        // 장바구니 삭제 실패해도 결제는 성공 처리
+      }
     }
 
     // 5. 로그 기록 (예약일 경우만)
