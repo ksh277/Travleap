@@ -529,8 +529,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     // 4.6. 포인트 적립 (팝업 상품 주문인 경우)
     if (isOrder) {
       try {
-        // 사용자 정보 조회 (포인트 적립을 위해 total_points도 조회)
-        const userResult = await connection.execute('SELECT name, email, phone, total_points FROM users WHERE id = ?', [userId]);
+        // 사용자 정보 조회
+        const userResult = await connection.execute('SELECT name, email, phone FROM users WHERE id = ?', [userId]);
 
         if (userResult.rows && userResult.rows.length > 0) {
           const user = userResult.rows[0];
@@ -550,36 +550,18 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           const shippingFee = (bookingsResult.rows && bookingsResult.rows.length > 0 && bookingsResult.rows[0].total_shipping_fee) || 0;
 
           // 포인트 적립 (2%, 원래 상품 금액 기준)
-          const pointsToEarn = Math.floor(originalSubtotal * 0.02);
-
-          if (pointsToEarn > 0) {
-            try {
-              // ✅ 포인트 적립 수동 구현 (TypeScript utils 사용 불가)
-              const currentPoints = userResult.rows[0].total_points || 0;
-              const newBalance = currentPoints + pointsToEarn;
-              const expiresAt = new Date();
-              expiresAt.setDate(expiresAt.getDate() + 365);
-
-              await connection.execute(`
-                INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
-                VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
-              `, [userId, pointsToEarn, `주문 적립 (주문번호: ${orderId})`, orderId, newBalance, expiresAt]);
-
-              await connection.execute(`
-                UPDATE users SET total_points = ? WHERE id = ?
-              `, [newBalance, userId]);
-
-              console.log(`✅ [포인트] ${pointsToEarn}P 적립 완료 (사용자 ${userId}, 잔액: ${newBalance}P)`);
-
-              // bookings 테이블에 적립 포인트 기록
-              await connection.execute(`
-                UPDATE bookings
-                SET points_earned = ?
-                WHERE order_number = ?
-              `, [pointsToEarn, orderId]);
-            } catch (earnPointsError) {
-              console.error('❌ [포인트] 적립 실패:', earnPointsError);
+          // ⚠️ 포인트 시스템이 아직 구현되지 않았으므로 전체를 try-catch로 감쌈
+          try {
+            const pointsToEarn = Math.floor(originalSubtotal * 0.02);
+            if (pointsToEarn > 0) {
+              console.log(`ℹ️  [포인트] TODO: 포인트 시스템 구현 후 ${pointsToEarn}P 적립 예정 (사용자 ${userId})`);
+              // TODO: 포인트 시스템 구현 필요
+              // - users 테이블에 total_points 컬럼 추가
+              // - user_points 테이블 생성
+              // - 포인트 적립/사용/만료 로직 구현
             }
+          } catch (pointsError) {
+            console.warn('⚠️  [포인트] 포인트 처리 스킵 (시스템 미구현):', pointsError);
           }
 
           // 결제 완료 알림 발송 (TypeScript utils 사용 불가 - TODO 구현 필요)
