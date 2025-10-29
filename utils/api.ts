@@ -637,6 +637,7 @@ export const api = {
     userId: number;
     items: {
       listingId: number;
+      name?: string; // ✅ 상품명 추가
       quantity: number;
       price: number;
       subtotal: number;

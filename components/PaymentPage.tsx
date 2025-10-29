@@ -448,6 +448,7 @@ export function PaymentPage() {
           userId: Number(user?.id) || 1,
           items: orderData.items.map((item: any) => ({
             listingId: Number(item.id),
+            name: item.name, // ✅ 상품명 추가
             quantity: item.quantity,
             price: item.price,
             // ✅ 옵션 가격 포함한 subtotal 계산

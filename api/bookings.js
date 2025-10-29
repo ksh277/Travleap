@@ -45,7 +45,9 @@ module.exports = async function handler(req, res) {
       LEFT JOIN payments p ON b.order_number = p.gateway_transaction_id
       WHERE b.user_id = ?
       ORDER BY b.created_at DESC
-    `, [user_id]);
+    `, [parseInt(user_id)]);
+
+    console.log(`📊 [Bookings] Query result:`, { rowsLength: result.rows?.length, resultKeys: Object.keys(result) });
 
     // shipping 정보를 payment notes에서 추출해서 booking 객체에 추가
     const bookings = (result.rows || []).map(booking => {
