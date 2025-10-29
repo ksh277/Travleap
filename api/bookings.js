@@ -33,6 +33,7 @@ module.exports = async function handler(req, res) {
     console.log('📖 [Bookings] 예약 조회 요청:', user_id);
 
     // bookings 테이블 조회 + payments 테이블에서 shipping 정보 가져오기
+    // ✅ 팝업 카테고리 제외 (팝업은 배송 상품이라 예약이 아님)
     const result = await connection.execute(`
       SELECT
         b.*,
@@ -44,6 +45,7 @@ module.exports = async function handler(req, res) {
       LEFT JOIN listings l ON b.listing_id = l.id
       LEFT JOIN payments p ON b.order_number = p.gateway_transaction_id
       WHERE b.user_id = ?
+        AND (l.category IS NULL OR l.category != 'popup')
       ORDER BY b.created_at DESC
     `, [parseInt(user_id)]);
 
