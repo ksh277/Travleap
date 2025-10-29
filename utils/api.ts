@@ -1567,6 +1567,16 @@ export const api = {
   // 사용자의 리뷰 가져오기
   getUserReviews: async (userId: number): Promise<any[]> => {
     try {
+      // 브라우저에서는 API 호출로 처리
+      if (typeof window !== 'undefined') {
+        return []; // 마이페이지 리뷰는 일단 빈 배열 반환 (TODO: API 구현 필요)
+      }
+
+      // 서버에서만 DB 직접 조회
+      if (!db) {
+        return [];
+      }
+
       const response = await db.query(`
         SELECT r.*, l.title as listing_title, l.category, l.images as listing_images
         FROM reviews r
