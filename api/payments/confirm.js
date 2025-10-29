@@ -9,12 +9,13 @@ const { connect } = require('@planetscale/database');
 // const { notifyPartnerNewBooking } = require('../../utils/notification'); // TODO: 구현 필요
 
 // Toss Payments 설정
-const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY_TEST || process.env.TOSS_SECRET_KEY_LIVE;
+const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY;
 const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
 
-// 환경변수 확인
+// 환경변수 확인 및 디버깅
+console.log('🔑 [Toss] Secret Key exists:', !!TOSS_SECRET_KEY);
 if (!TOSS_SECRET_KEY) {
-  console.error('❌ TOSS_SECRET_KEY_TEST or TOSS_SECRET_KEY_LIVE not found in environment variables');
+  console.error('❌ TOSS_SECRET_KEY not found in environment variables');
 }
 
 /**
@@ -202,7 +203,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
     if (isBooking) {
       // 예약 (단일 상품 결제)
-      const bookings = await connection.query(
+      const bookings = await connection.execute(
         'SELECT * FROM bookings WHERE booking_number = ?',
         [orderId]
       );
@@ -226,7 +227,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
       // 3. 예약 상태 변경 (HOLD → CONFIRMED)
       // ✅ 배송 상태도 PENDING → READY로 변경 (결제 완료 = 배송 준비)
-      await connection.query(
+      await connection.execute(
         `UPDATE bookings
          SET status = 'confirmed',
              payment_status = 'paid',
@@ -251,7 +252,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     } else if (isOrder) {
       // 주문 (장바구니 결제)
       // 장바구니 주문은 payments 테이블의 gateway_transaction_id로 저장됨
-      const orders = await connection.query(
+      const orders = await connection.execute(
         'SELECT * FROM payments WHERE gateway_transaction_id = ?',
         [orderId]
       );
@@ -260,7 +261,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         throw new Error('주문을 찾을 수 없습니다.');
       }
 
-      const order = orders[0];
+      const order = orders.rows[0];
       orderId_num = order.id;
       userId = order.user_id;
 
@@ -274,7 +275,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       console.log(`✅ [금액 검증] ${amount.toLocaleString()}원 일치 확인`);
 
       // 3. 주문 상태 변경 (pending → paid)
-      await connection.query(
+      await connection.execute(
         `UPDATE payments
          SET payment_status = 'paid',
              updated_at = NOW()
@@ -348,7 +349,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           console.log(`📦 [주문] ${notes.items.length}개 상품의 파트너에게 알림 전송 중...`);
           for (const item of notes.items) {
             if (item.listingId) {
-              const listings = await connection.query(
+              const listings = await connection.execute(
                 'SELECT partner_id FROM listings WHERE id = ?',
                 [item.listingId]
               );
@@ -497,8 +498,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           SELECT total_points FROM users WHERE id = ? FOR UPDATE
         `, [userId]);
 
-        if (userResult && userResult.length > 0) {
-          const currentPoints = userResult[0].total_points || 0;
+        if (userResult && userResult.rows && userResult.rows.length > 0) {
+          const currentPoints = userResult.rows[0].total_points || 0;
 
           // 2. 포인트 부족 체크 (동시 사용으로 인한 부족 가능)
           if (currentPoints < pointsUsed) {
@@ -528,10 +529,10 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     if (isOrder) {
       try {
         // 사용자 정보 조회
-        const userResult = await connection.query('SELECT name, email, phone FROM users WHERE id = ?', [userId]);
+        const userResult = await connection.execute('SELECT name, email, phone FROM users WHERE id = ?', [userId]);
 
-        if (userResult.length > 0) {
-          const user = userResult[0];
+        if (userResult.rows && userResult.rows.length > 0) {
+          const user = userResult.rows[0];
 
           // ✅ notes에서 원래 상품 금액(subtotal) 가져오기
           // 포인트 적립은 쿠폰/포인트 사용 전 원래 상품 금액 기준
@@ -539,13 +540,13 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           const originalSubtotal = notes?.subtotal || 0;
 
           // 배송비 조회 (bookings 테이블에서) - 알림 발송용
-          const bookingsResult = await connection.query(`
+          const bookingsResult = await connection.execute(`
             SELECT SUM(IFNULL(shipping_fee, 0)) as total_shipping_fee
             FROM bookings
             WHERE order_number = ?
           `, [orderId]);
 
-          const shippingFee = (bookingsResult.length > 0 && bookingsResult[0].total_shipping_fee) || 0;
+          const shippingFee = (bookingsResult.rows && bookingsResult.rows.length > 0 && bookingsResult.rows[0].total_shipping_fee) || 0;
 
           // 포인트 적립 (2%, 원래 상품 금액 기준)
           const pointsToEarn = Math.floor(originalSubtotal * 0.02);
