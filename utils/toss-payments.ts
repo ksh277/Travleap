@@ -277,7 +277,12 @@ export async function loadTossPaymentsWidget() {
     throw new Error('Client Key가 올바르게 로드되지 않았습니다. .env 파일을 확인하세요.');
   }
 
-  return PaymentWidget(clientKey, PaymentWidget.ANONYMOUS);
+  // 고객 ID 생성 (익명 사용자도 고유 ID 필요)
+  const customerId = `GUEST_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  console.log('👤 [Widget] Customer ID:', customerId);
+
+  return PaymentWidget(clientKey, customerId);
 }
 
 /**

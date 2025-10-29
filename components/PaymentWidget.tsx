@@ -64,6 +64,9 @@ export default function PaymentWidget({
       // 약관 동의 UI 렌더링
       await widget.renderAgreement('#agreement');
 
+      // DOM 렌더링 완료 대기 (Toss Widget 내부 렌더링 시간)
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       setPaymentWidget(widget);
       setIsLoading(false);
 
