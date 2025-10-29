@@ -23,12 +23,13 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { userId } = req.query;
+    // x-user-id 헤더에서 userId 읽기 (쿼리 파라미터도 fallback)
+    const userId = req.headers['x-user-id'] || req.query.userId;
 
     if (!userId) {
       return res.status(400).json({
         success: false,
-        message: 'userId is required'
+        message: 'userId is required (x-user-id header or userId query param)'
       });
     }
 
