@@ -77,9 +77,47 @@ module.exports = async function handler(req, res) {
       LIMIT 50
     `, [parseInt(userId)]);
 
+    // notes.items에서 listingId를 추출하여 상품명 조회
+    const payments = result.rows || [];
+
+    for (const payment of payments) {
+      if (payment.notes) {
+        try {
+          const notes = typeof payment.notes === 'string' ? JSON.parse(payment.notes) : payment.notes;
+
+          // items 배열에 listingId가 있는 경우, 실제 상품명 조회
+          if (notes.items && Array.isArray(notes.items)) {
+            for (const item of notes.items) {
+              if (item.listingId && !item.title && !item.name) {
+                // listing 조회
+                const listingResult = await connection.execute(`
+                  SELECT id, title, category
+                  FROM listings
+                  WHERE id = ?
+                  LIMIT 1
+                `, [item.listingId]);
+
+                if (listingResult.rows && listingResult.rows.length > 0) {
+                  const listing = listingResult.rows[0];
+                  item.title = listing.title; // title 추가
+                  item.category = listing.category; // category도 추가
+                  console.log(`✅ [User Payments] listingId ${item.listingId}의 title 조회: ${listing.title}`);
+                }
+              }
+            }
+
+            // 업데이트된 notes를 다시 문자열로 변환
+            payment.notes = JSON.stringify(notes);
+          }
+        } catch (e) {
+          console.error(`❌ [User Payments] notes 처리 실패 (payment_id: ${payment.id}):`, e);
+        }
+      }
+    }
+
     return res.status(200).json({
       success: true,
-      data: result.rows || []
+      data: payments
     });
 
   } catch (error) {
