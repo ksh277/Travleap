@@ -4046,28 +4046,19 @@ export function AdminPage({}: AdminPageProps) {
                         </TableCell>
                         <TableCell className="font-semibold">₩{order.total_amount?.toLocaleString() || '0'}</TableCell>
                         <TableCell>
-                          <div className="space-y-1">
-                            <Badge variant={
-                              order.payment_status === 'completed' || order.payment_status === 'pending' ? 'default' :
-                              order.payment_status === 'refunded' ? 'secondary' :
-                              order.payment_status === 'failed' ? 'destructive' : 'outline'
-                            }>
-                              {order.payment_status === 'pending' || order.payment_status === 'completed' ? '결제됨' :
-                               order.payment_status === 'refunded' ? '환불됨' :
-                               order.payment_status === 'failed' ? '실패' : order.payment_status || '미정'}
-                            </Badge>
-                            <Badge variant={
-                              order.status === 'confirmed' ? 'default' :
-                              order.status === 'pending' ? 'default' :
-                              order.status === 'cancelled' ? 'destructive' :
-                              order.status === 'completed' ? 'default' : 'outline'
-                            }>
-                              {order.status === 'pending' ? '결제됨' :
-                               order.status === 'confirmed' ? '확정' :
-                               order.status === 'completed' ? '완료' :
-                               order.status === 'cancelled' ? '취소' : order.status}
-                            </Badge>
-                          </div>
+                          <Badge variant={
+                            order.payment_status === 'completed' || order.payment_status === 'pending' ? 'default' :
+                            order.payment_status === 'refunded' ? 'secondary' :
+                            order.payment_status === 'failed' ? 'destructive' :
+                            order.status === 'confirmed' ? 'default' :
+                            order.status === 'cancelled' ? 'destructive' : 'outline'
+                          }>
+                            {order.payment_status === 'refunded' ? '환불됨' :
+                             order.payment_status === 'failed' ? '결제실패' :
+                             order.status === 'confirmed' ? '확정' :
+                             order.status === 'completed' ? '완료' :
+                             order.status === 'cancelled' ? '취소' : '결제됨'}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1 text-sm">
