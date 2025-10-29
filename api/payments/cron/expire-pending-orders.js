@@ -118,30 +118,15 @@ async function expirePendingOrders() {
 
         console.log(`   ✅ [Bookings] ${bookings.length} booking(s) cancelled`);
 
-        // 2-4. 포인트 환불 (사용된 포인트가 있는 경우)
-        try {
-          const notes = payment.notes ? JSON.parse(payment.notes) : null;
-          const pointsUsed = notes?.pointsUsed || 0;
+        // 2-4. 포인트 환불 체크
+        // ⚠️ 주의: pending 상태 주문은 결제 확정 전이므로 포인트가 차감되지 않았음
+        //    (포인트는 confirmPayment에서 결제 확정 후에만 차감됨)
+        //    따라서 만료 시 포인트 환불이 불필요
+        const notes = payment.notes ? JSON.parse(payment.notes) : null;
+        const pointsUsed = notes?.pointsUsed || 0;
 
-          if (pointsUsed > 0 && payment.user_id) {
-            const { refundPoints } = require('../../../utils/points-system.js');
-
-            const pointsRefundResult = await refundPoints(
-              payment.user_id,
-              pointsUsed,
-              `결제 시간 만료로 인한 포인트 환불 (주문번호: ${orderId})`,
-              orderId
-            );
-
-            if (pointsRefundResult.success) {
-              console.log(`   ✅ [Points] ${pointsUsed}P refunded to user_id=${payment.user_id}`);
-            } else {
-              console.error(`   ❌ [Points] Refund failed:`, pointsRefundResult.message);
-            }
-          }
-        } catch (pointsError) {
-          console.error(`   ❌ [Points] Error during refund:`, pointsError.message);
-          // 포인트 환불 실패해도 계속 진행
+        if (pointsUsed > 0) {
+          console.log(`   ℹ️  [Points] 사용 예정이었던 포인트: ${pointsUsed}P (차감되지 않았으므로 환불 불필요)`);
         }
 
         // 2-5. 주문 상태를 failed로 변경

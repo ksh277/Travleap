@@ -80,6 +80,37 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // 🔒 금액 검증 (보안: 클라이언트 조작 방지)
+      const serverSubtotal = subtotal || 0;
+      const serverDeliveryFee = deliveryFee || 0;
+      const serverCouponDiscount = couponDiscount || 0;
+      const serverPointsUsed = pointsUsed || 0;
+
+      // 서버 측 예상 금액 계산
+      const expectedTotal = serverSubtotal - serverCouponDiscount + serverDeliveryFee - serverPointsUsed;
+
+      // 1원 이하 오차 허용 (부동소수점 연산 오차)
+      if (Math.abs(expectedTotal - total) > 1) {
+        console.error(`❌ [Orders] 금액 불일치 감지:
+          - 클라이언트 total: ${total}원
+          - 서버 계산: ${expectedTotal}원
+          - 차이: ${Math.abs(expectedTotal - total)}원
+          - subtotal: ${serverSubtotal}
+          - deliveryFee: ${serverDeliveryFee}
+          - couponDiscount: ${serverCouponDiscount}
+          - pointsUsed: ${serverPointsUsed}`);
+
+        return res.status(400).json({
+          success: false,
+          error: 'AMOUNT_MISMATCH',
+          message: `금액이 일치하지 않습니다. 페이지를 새로고침해주세요.`,
+          expected: expectedTotal,
+          received: total
+        });
+      }
+
+      console.log(`✅ [Orders] 금액 검증 통과: ${total.toLocaleString()}원`);
+
       const orderNumber = generateOrderNumber();
 
       // ✅ 트랜잭션 시작 (데이터 일관성 보장)
@@ -122,6 +153,9 @@ module.exports = async function handler(req, res) {
       for (const item of items) {
         const bookingNumber = `BK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
+        // ✅ 실제 주문 수량 계산 (재고 복구를 위해 정확한 수량 저장 필요)
+        const actualQuantity = item.quantity || item.adults || 1;
+
         await connection.execute(`
           INSERT INTO bookings (
             user_id,
@@ -136,11 +170,13 @@ module.exports = async function handler(req, res) {
             adults,
             children,
             infants,
+            guests,
+            selected_option_id,
             special_requests,
             shipping_fee,
             created_at,
             updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `, [
           userId,
           item.listingId,
@@ -151,50 +187,102 @@ module.exports = async function handler(req, res) {
           'pending',
           item.selectedDate || null,
           item.selectedDate || null,
-          item.adults || 1,
+          item.adults || 0,
           item.children || 0,
           item.infants || 0,
+          actualQuantity, // ✅ 실제 주문 수량 (재고 차감/복구에 사용)
+          item.selectedOption?.id || null, // ✅ 옵션 ID 저장 (재고 복구에 사용)
           JSON.stringify(item.selectedOption || {}),
           item.category === '팝업' ? (deliveryFee || 0) / items.length : 0
         ]);
 
         console.log(`✅ [Orders] bookings 생성: ${bookingNumber}, listing ${item.listingId}`);
 
-        // ✅ 재고 차감 (옵션 또는 상품 레벨)
-        try {
-          const stockQuantity = item.quantity || 1;
+        // ✅ 재고 차감 (옵션 또는 상품 레벨) - 재고 부족 시 명확한 에러
+        const stockQuantity = item.quantity || 1;
+        const itemName = item.title || item.name || `상품 ID ${item.listingId}`;
 
-          if (item.selectedOption && item.selectedOption.id) {
-            // 옵션 재고 차감
-            await connection.execute(`
-              UPDATE product_options
-              SET stock = stock - ?
-              WHERE id = ? AND stock IS NOT NULL AND stock >= ?
-            `, [stockQuantity, item.selectedOption.id, stockQuantity]);
+        if (item.selectedOption && item.selectedOption.id) {
+          // 옵션 재고 확인 (FOR UPDATE로 락 획득)
+          const stockCheck = await connection.execute(`
+            SELECT stock, option_name FROM product_options
+            WHERE id = ?
+            FOR UPDATE
+          `, [item.selectedOption.id]);
 
-            console.log(`✅ [Orders] 옵션 재고 차감: option_id=${item.selectedOption.id}, -${stockQuantity}개`);
-          } else {
-            // 상품 레벨 재고 차감 (stock_enabled=1인 경우만)
-            await connection.execute(`
+          if (!stockCheck.rows || stockCheck.rows.length === 0) {
+            throw new Error(`옵션을 찾을 수 없습니다: ${itemName} - ${item.selectedOption.name || 'Unknown'}`);
+          }
+
+          const currentStock = stockCheck.rows[0].stock;
+          const optionName = stockCheck.rows[0].option_name || item.selectedOption.name;
+
+          // 재고 NULL이면 무제한 재고로 간주
+          if (currentStock !== null && currentStock < stockQuantity) {
+            throw new Error(`재고 부족: ${itemName} (${optionName}) - 현재 재고 ${currentStock}개, 주문 수량 ${stockQuantity}개`);
+          }
+
+          // 재고 차감 (동시성 제어: stock >= ? 조건 추가)
+          const updateResult = await connection.execute(`
+            UPDATE product_options
+            SET stock = stock - ?
+            WHERE id = ? AND stock IS NOT NULL AND stock >= ?
+          `, [stockQuantity, item.selectedOption.id, stockQuantity]);
+
+          // affectedRows 확인으로 동시성 충돌 감지
+          if (updateResult.affectedRows === 0) {
+            throw new Error(`재고 차감 실패 (동시성 충돌 또는 재고 부족): ${itemName} (${optionName}) - 다른 사용자가 먼저 구매했을 수 있습니다.`);
+          }
+
+          console.log(`✅ [Orders] 옵션 재고 차감: ${itemName} (${optionName}), -${stockQuantity}개 (남은 재고: ${currentStock - stockQuantity}개)`);
+
+        } else {
+          // 상품 레벨 재고 확인 (stock_enabled=1인 경우만)
+          const stockCheck = await connection.execute(`
+            SELECT stock, stock_enabled, title FROM listings
+            WHERE id = ?
+            FOR UPDATE
+          `, [item.listingId]);
+
+          if (!stockCheck.rows || stockCheck.rows.length === 0) {
+            throw new Error(`상품을 찾을 수 없습니다: ${itemName}`);
+          }
+
+          const listing = stockCheck.rows[0];
+          const currentStock = listing.stock;
+          const stockEnabled = listing.stock_enabled;
+          const title = listing.title || itemName;
+
+          // 재고 관리가 활성화되어 있고, 재고가 부족한 경우
+          if (stockEnabled && currentStock !== null && currentStock < stockQuantity) {
+            throw new Error(`재고 부족: ${title} - 현재 재고 ${currentStock}개, 주문 수량 ${stockQuantity}개`);
+          }
+
+          // 재고 차감 (stock_enabled=1이고 stock이 NOT NULL인 경우만)
+          if (stockEnabled && currentStock !== null) {
+            // 동시성 제어: stock >= ? 조건 추가
+            const updateResult = await connection.execute(`
               UPDATE listings
               SET stock = stock - ?
-              WHERE id = ? AND stock_enabled = 1 AND stock IS NOT NULL AND stock >= ?
+              WHERE id = ? AND stock >= ?
             `, [stockQuantity, item.listingId, stockQuantity]);
 
-            console.log(`✅ [Orders] 상품 재고 차감: listing_id=${item.listingId}, -${stockQuantity}개`);
+            // affectedRows 확인으로 동시성 충돌 감지
+            if (updateResult.affectedRows === 0) {
+              throw new Error(`재고 차감 실패 (동시성 충돌 또는 재고 부족): ${title} - 다른 사용자가 먼저 구매했을 수 있습니다.`);
+            }
+
+            console.log(`✅ [Orders] 상품 재고 차감: ${title}, -${stockQuantity}개 (남은 재고: ${currentStock - stockQuantity}개)`);
+          } else {
+            console.log(`ℹ️ [Orders] 재고 관리 비활성화: ${title} (재고 차감 스킵)`);
           }
-        } catch (stockError) {
-          console.error(`❌ [Orders] 재고 차감 실패:`, stockError);
-          // 재고 차감 실패 시 트랜잭션 롤백
-          throw stockError;
         }
       }
 
-      // 포인트 차감 처리
+      // 🔒 포인트 사용 검증 (차감은 결제 확정 후 confirmPayment에서 수행)
       if (pointsUsed && pointsUsed > 0) {
         try {
-          // ✅ 직접 DB 쿼리로 포인트 차감 (TypeScript import 문제 회피)
-          // 1. 현재 포인트 조회
+          // 현재 포인트 조회 및 충분한지 검증만 수행
           const userResult = await connection.execute(
             'SELECT total_points FROM users WHERE id = ?',
             [userId]
@@ -202,25 +290,18 @@ module.exports = async function handler(req, res) {
 
           if (userResult.rows && userResult.rows.length > 0) {
             const currentPoints = userResult.rows[0].total_points || 0;
-            const newBalance = currentPoints - pointsUsed;
 
-            // 2. 포인트 내역 추가
-            await connection.execute(`
-              INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-              VALUES (?, ?, 'use', ?, ?, ?, NOW())
-            `, [userId, -pointsUsed, `주문 결제 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
+            if (currentPoints < pointsUsed) {
+              throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용 요청: ${pointsUsed}P)`);
+            }
 
-            // 3. 사용자 포인트 업데이트
-            await connection.execute(
-              'UPDATE users SET total_points = ? WHERE id = ?',
-              [newBalance, userId]
-            );
-
-            console.log(`✅ [Orders] 포인트 차감 완료: ${pointsUsed}P (잔액: ${newBalance}P)`);
+            console.log(`✅ [Orders] 포인트 사용 가능 확인: ${pointsUsed}P (현재 잔액: ${currentPoints}P)`);
+            console.log(`ℹ️ [Orders] 포인트 차감은 결제 확정 후 수행됩니다.`);
+          } else {
+            throw new Error('사용자를 찾을 수 없습니다.');
           }
         } catch (pointsError) {
-          console.error('❌ [Orders] 포인트 차감 실패:', pointsError);
-          // 포인트 차감 실패 시 롤백
+          console.error('❌ [Orders] 포인트 검증 실패:', pointsError);
           throw pointsError;
         }
       }

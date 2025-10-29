@@ -143,7 +143,51 @@ export async function earnPointsFromPayment(
 }
 
 /**
- * 환불 시 포인트 차감
+ * 사용된 포인트 환불 (결제 실패/취소 시)
+ *
+ * @param userId - 사용자 ID
+ * @param points - 환불할 포인트
+ * @param reason - 환불 사유
+ * @param relatedOrderId - 관련 주문 번호
+ */
+export async function refundPoints(
+  userId: number,
+  points: number,
+  reason: string,
+  relatedOrderId?: string
+): Promise<{ success: boolean; message?: string }> {
+  const db = getDatabase();
+
+  try {
+    // 1. 현재 포인트 조회
+    const users = await db.query('SELECT total_points FROM users WHERE id = ?', [userId]);
+    if (users.length === 0) {
+      return { success: false, message: '사용자를 찾을 수 없습니다.' };
+    }
+
+    const currentPoints = users[0].total_points || 0;
+    const newBalance = currentPoints + points;
+
+    // 2. 포인트 내역 추가 (환불로 다시 적립)
+    await db.execute(`
+      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after)
+      VALUES (?, ?, 'refund', ?, ?, ?)
+    `, [userId, points, reason, relatedOrderId, newBalance]);
+
+    // 3. 사용자 포인트 업데이트
+    await db.execute('UPDATE users SET total_points = ? WHERE id = ?', [newBalance, userId]);
+
+    console.log(`✅ [Points] User ${userId} refunded ${points} points. New balance: ${newBalance}`);
+    return { success: true };
+
+  } catch (error) {
+    console.error('❌ [Points] Failed to refund points:', error);
+    return { success: false, message: '포인트 환불 중 오류가 발생했습니다.' };
+  }
+}
+
+/**
+ * 환불 시 포인트 차감 (적립된 포인트 회수)
  *
  * @param userId - 사용자 ID
  * @param orderId - 주문 번호
