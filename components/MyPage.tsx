@@ -1249,7 +1249,7 @@ export function MyPage() {
                       {pointHistory.map((point) => {
                         const isEarn = point.point_type === 'earn';
                         const isExpire = point.point_type === 'expire';
-                        const isDeduct = point.point_type === 'deduct';
+                        const isRefund = point.point_type === 'refund';
 
                         return (
                           <div key={point.id} className="border rounded-lg p-4 hover:shadow-sm transition-shadow">
@@ -1260,13 +1260,13 @@ export function MyPage() {
                                     className={
                                       isEarn ? 'bg-green-100 text-green-800' :
                                       isExpire ? 'bg-gray-100 text-gray-800' :
-                                      isDeduct ? 'bg-orange-100 text-orange-800' :
+                                      isRefund ? 'bg-orange-100 text-orange-800' :
                                       'bg-red-100 text-red-800'
                                     }
                                   >
                                     {point.point_type === 'earn' ? '적립' :
                                      point.point_type === 'use' ? '사용' :
-                                     point.point_type === 'deduct' ? '회수' :
+                                     point.point_type === 'refund' ? '회수' :
                                      point.point_type === 'expire' ? '만료' : '관리자'}
                                   </Badge>
                                   <span className="text-sm text-gray-600">
@@ -1293,7 +1293,7 @@ export function MyPage() {
                                 <div className={`text-lg font-bold ${
                                   isEarn ? 'text-green-600' :
                                   isExpire ? 'text-gray-500' :
-                                  isDeduct ? 'text-orange-600' :
+                                  isRefund ? 'text-orange-600' :
                                   'text-red-600'
                                 }`}>
                                   {isEarn ? '+' : ''}{point.points.toLocaleString()}P

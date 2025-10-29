@@ -342,7 +342,7 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
       // 4. PlanetScale - user_points 테이블에 회수 내역 추가
       await connection.execute(`
         INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-        VALUES (?, ?, 'deduct', ?, ?, ?, NOW())
+        VALUES (?, ?, 'refund', ?, ?, ?, NOW())
       `, [userId, -pointsToDeduct, `환불로 인한 포인트 회수 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
 
       // 트랜잭션 커밋
