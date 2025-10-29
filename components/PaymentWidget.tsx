@@ -6,7 +6,6 @@
 
 import { useState, useEffect } from 'react';
 import { loadTossPaymentsSDK } from '../utils/toss-payments';
-import { CreditCard, Smartphone } from 'lucide-react';
 
 export interface PaymentWidgetProps {
   bookingId: number;
@@ -68,14 +67,14 @@ export default function PaymentWidget({
     }
   }
 
-  async function handlePayment(method: string) {
+  async function handlePayment() {
     if (!tossPayments) {
       alert('결제 SDK가 초기화되지 않았습니다.');
       return;
     }
 
     try {
-      console.log('💳 결제 요청:', { method, bookingNumber, amount, orderName });
+      console.log('💳 결제 요청:', { bookingNumber, amount, orderName });
 
       // successUrl 조건부 설정
       const isCartOrder = bookingId === 0 || bookingNumber.startsWith('ORDER_');
@@ -86,8 +85,8 @@ export default function PaymentWidget({
         ? `${window.location.origin}/payment/fail2`
         : `${window.location.origin}/payment/fail?bookingId=${bookingId}`;
 
-      // 결제 요청
-      await tossPayments.requestPayment(method, {
+      // 결제 요청 (method는 '카드'로 통일 - Toss 창에서 모든 결제 수단 선택 가능)
+      await tossPayments.requestPayment('카드', {
         amount,
         orderId: bookingNumber,
         orderName,
@@ -162,34 +161,18 @@ export default function PaymentWidget({
         </div>
       </div>
 
-      {/* 결제 수단 선택 */}
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">결제 수단</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {/* 카드 결제 */}
-          <button
-            onClick={() => handlePayment('카드')}
-            className="flex items-center justify-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
-          >
-            <CreditCard className="w-5 h-5" />
-            <span className="font-medium">신용/체크카드</span>
-          </button>
-
-          {/* 간편결제 */}
-          <button
-            onClick={() => handlePayment('간편결제')}
-            className="flex items-center justify-center gap-2 p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
-          >
-            <Smartphone className="w-5 h-5" />
-            <span className="font-medium">간편결제</span>
-          </button>
-        </div>
-      </div>
+      {/* 결제 버튼 */}
+      <button
+        onClick={handlePayment}
+        className="w-full py-4 bg-blue-600 text-white text-lg font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+      >
+        {amount.toLocaleString()}원 결제하기
+      </button>
 
       {/* 안내 문구 */}
-      <div className="text-center text-sm text-gray-500">
+      <div className="mt-4 text-center text-sm text-gray-500">
         <p>결제는 안전하게 Toss Payments를 통해 처리됩니다.</p>
-        <p className="mt-1">결제 수단을 선택하면 결제창이 열립니다.</p>
+        <p className="mt-1">결제창에서 카드, 간편결제 등 다양한 결제 수단을 선택할 수 있습니다.</p>
       </div>
     </div>
   );

@@ -761,8 +761,62 @@ async function handlePaymentFailure(orderId, reason) {
   }
 }
 
+/**
+ * Vercel Serverless Function Handler
+ * HTTP POST /api/payments/confirm
+ */
+async function handler(req, res) {
+  // CORS 헤더 설정
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // OPTIONS 요청 처리 (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // POST 요청만 허용
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      success: false,
+      message: 'Method Not Allowed. Use POST.'
+    });
+  }
+
+  try {
+    const { paymentKey, orderId, amount } = req.body;
+
+    if (!paymentKey || !orderId || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: '필수 파라미터가 누락되었습니다. (paymentKey, orderId, amount)'
+      });
+    }
+
+    // 결제 승인 처리
+    const result = await confirmPayment({
+      paymentKey,
+      orderId,
+      amount: parseInt(amount)
+    });
+
+    if (result.success) {
+      return res.status(200).json(result);
+    } else {
+      return res.status(400).json(result);
+    }
+
+  } catch (error) {
+    console.error('❌ [API Handler] 결제 확인 실패:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || '서버 오류가 발생했습니다.'
+    });
+  }
+}
+
 // Export functions
-module.exports = {
-  confirmPayment,
-  handlePaymentFailure
-};
+module.exports = handler;
+module.exports.confirmPayment = confirmPayment;
+module.exports.handlePaymentFailure = handlePaymentFailure;
