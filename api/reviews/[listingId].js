@@ -30,18 +30,51 @@ module.exports = async function handler(req, res) {
       if (sortBy === 'rating_low') orderBy = 'r.rating ASC, r.created_at DESC';
       if (sortBy === 'helpful') orderBy = 'r.helpful_count DESC, r.created_at DESC';
 
+      // PlanetScale에서 리뷰 조회 (users 테이블 없음)
       const result = await connection.execute(
-        `SELECT
-          r.*,
-          u.name as user_name,
-          u.email as user_email
+        `SELECT r.*
         FROM reviews r
-        LEFT JOIN users u ON r.user_id = u.id
         WHERE r.listing_id = ? AND (r.is_hidden IS NULL OR r.is_hidden = FALSE)
         ORDER BY ${orderBy}
         LIMIT ? OFFSET ?`,
         [listingId, limitNum, offset]
       );
+
+      const reviews = result.rows || [];
+
+      // Neon PostgreSQL에서 user 정보 가져오기
+      if (reviews.length > 0) {
+        const { Pool } = require('@neondatabase/serverless');
+        const poolNeon = new Pool({
+          connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+        });
+
+        try {
+          const userIds = [...new Set(reviews.map(r => r.user_id))];
+          const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+
+          const usersResult = await poolNeon.query(
+            `SELECT id, name, email FROM users WHERE id IN (${placeholders})`,
+            userIds
+          );
+
+          const userMap = new Map();
+          usersResult.rows.forEach(user => {
+            userMap.set(user.id, user);
+          });
+
+          // 리뷰에 user 정보 추가
+          reviews.forEach(review => {
+            const user = userMap.get(review.user_id);
+            review.user_name = user?.name || '익명';
+            review.user_email = user?.email || null;
+          });
+        } catch (error) {
+          console.error('Failed to fetch user info:', error);
+        } finally {
+          await poolNeon.end();
+        }
+      }
 
       // 총 리뷰 수 및 평균 평점 (숨겨진 리뷰 제외)
       const statsResult = await connection.execute(`
@@ -56,8 +89,6 @@ module.exports = async function handler(req, res) {
         FROM reviews
         WHERE listing_id = ? AND (is_hidden IS NULL OR is_hidden = FALSE)
       `, [listingId]);
-
-      const reviews = result.rows || [];
 
       const stats = statsResult.rows?.[0] || {
         total_count: 0,
