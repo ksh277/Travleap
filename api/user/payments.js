@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
 
     const connection = connect({ url: process.env.DATABASE_URL });
 
-    // 결제 내역 조회 (최신순)
+    // 결제 내역 조회 (최신순, 숨김 처리된 내역 제외)
     const result = await connection.execute(`
       SELECT
         p.id,
@@ -72,6 +72,7 @@ module.exports = async function handler(req, res) {
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
       WHERE p.user_id = ?
+        AND (p.hidden_from_user IS NULL OR p.hidden_from_user = 0)
       ORDER BY p.created_at DESC
       LIMIT 50
     `, [parseInt(userId)]);

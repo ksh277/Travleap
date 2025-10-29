@@ -444,6 +444,32 @@ export function MyPage() {
     }
   };
 
+  // 결제 내역 삭제 함수 (사용자 화면에서만 숨김)
+  const handleDeletePayment = async (paymentId: number) => {
+    try {
+      const response = await fetch('/api/payments/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user?.id.toString() || ''
+        },
+        body: JSON.stringify({ paymentId })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // 성공 시 목록 새로고침
+        fetchPayments();
+      } else {
+        throw new Error(data.message || '삭제에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('결제 내역 삭제 실패:', error);
+      throw error;
+    }
+  };
+
   // 사용자 포인트 내역 가져오기
   const fetchPoints = async () => {
     if (!user) return;
@@ -1147,6 +1173,7 @@ export function MyPage() {
                         key={payment.id}
                         payment={payment}
                         onRefund={handleRefund}
+                        onDelete={handleDeletePayment}
                       />
                     ))}
                   </div>

@@ -14,18 +14,20 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Receipt, MapPin, Calendar, Clock, Users, Package, Coins, AlertTriangle, Loader2 } from 'lucide-react';
+import { Receipt, MapPin, Calendar, Clock, Users, Package, Coins, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PaymentHistoryCardProps {
   payment: any;
   onRefund: (paymentKey: string, reason: string) => Promise<void>;
+  onDelete?: (paymentId: number) => Promise<void>;
 }
 
-export function PaymentHistoryCard({ payment, onRefund }: PaymentHistoryCardProps) {
+export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHistoryCardProps) {
   const [showRefundDialog, setShowRefundDialog] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [isRefunding, setIsRefunding] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // notes 파싱
   let notesData: any = null;
@@ -97,6 +99,25 @@ export function PaymentHistoryCard({ payment, onRefund }: PaymentHistoryCardProp
       toast.error(error.message || '환불 처리 중 오류가 발생했습니다.');
     } finally {
       setIsRefunding(false);
+    }
+  };
+
+  // 결제 내역 삭제 (사용자 화면에서만 숨김)
+  const handleDelete = async () => {
+    if (!onDelete) return;
+
+    if (!confirm('이 결제 내역을 삭제하시겠습니까?\n(관리자는 계속 볼 수 있습니다)')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await onDelete(payment.id);
+      toast.success('결제 내역이 삭제되었습니다.');
+    } catch (error: any) {
+      toast.error(error.message || '삭제 중 오류가 발생했습니다.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -244,6 +265,28 @@ export function PaymentHistoryCard({ payment, onRefund }: PaymentHistoryCardProp
                   className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
                 >
                   환불 신청
+                </Button>
+              )}
+
+              {!isPaid && !isRefunded && onDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="text-gray-600 hover:text-gray-700 border-gray-200 hover:border-gray-300"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      삭제 중...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      삭제
+                    </>
+                  )}
                 </Button>
               )}
 
