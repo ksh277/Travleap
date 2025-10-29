@@ -532,7 +532,105 @@ async function handlePaymentFailure(orderId, reason) {
       console.log('✅ [예약] 결제 실패 처리 완료');
 
     } else if (isOrder) {
-      // 주문 상태를 failed로 변경 (payments 테이블)
+      // 장바구니 주문 실패 처리: 재고 복구 + 포인트 환불 + 예약 취소
+      console.log(`🔄 [주문 실패] 롤백 시작: ${orderId}`);
+
+      // 1. 주문 정보 조회 (payment record)
+      const payments = await db.query(
+        `SELECT id, user_id, amount, notes
+         FROM payments
+         WHERE gateway_transaction_id = ?`,
+        [orderId]
+      );
+
+      if (!payments || payments.length === 0) {
+        console.warn(`⚠️ [주문 실패] 주문을 찾을 수 없음: ${orderId}`);
+        return { success: true, message: '처리할 주문이 없습니다.' };
+      }
+
+      const payment = payments[0];
+      const userId = payment.user_id;
+
+      // 2. 해당 주문의 모든 bookings 조회 (재고 복구용)
+      const bookings = await db.query(
+        `SELECT id, listing_id, guests, selected_option_id
+         FROM bookings
+         WHERE order_number = ? AND status != 'cancelled'`,
+        [orderId]
+      );
+
+      console.log(`📦 [주문 실패] ${bookings.length}개 예약 롤백 중...`);
+
+      // 3. 각 booking에 대해 재고 복구
+      for (const booking of bookings) {
+        try {
+          // 3-1. 옵션 재고 복구
+          if (booking.selected_option_id) {
+            await db.execute(`
+              UPDATE product_options
+              SET stock = stock + ?
+              WHERE id = ? AND stock IS NOT NULL
+            `, [booking.guests || 1, booking.selected_option_id]);
+
+            console.log(`✅ [재고 복구] 옵션 재고 복구: option_id=${booking.selected_option_id}, +${booking.guests || 1}개`);
+          }
+
+          // 3-2. 상품 재고 복구
+          if (booking.listing_id) {
+            await db.execute(`
+              UPDATE listings
+              SET stock = stock + ?
+              WHERE id = ? AND stock IS NOT NULL
+            `, [booking.guests || 1, booking.listing_id]);
+
+            console.log(`✅ [재고 복구] 상품 재고 복구: listing_id=${booking.listing_id}, +${booking.guests || 1}개`);
+          }
+        } catch (stockError) {
+          console.error(`❌ [재고 복구] 실패 (booking_id=${booking.id}):`, stockError);
+          // 재고 복구 실패해도 계속 진행
+        }
+      }
+
+      // 4. bookings 상태 변경 (cancelled)
+      await db.query(
+        `UPDATE bookings
+         SET status = 'cancelled',
+             payment_status = 'failed',
+             cancellation_reason = ?,
+             updated_at = NOW()
+         WHERE order_number = ?`,
+        [reason || '결제 실패', orderId]
+      );
+
+      console.log(`✅ [예약 취소] ${bookings.length}개 예약 취소 완료`);
+
+      // 5. 포인트 환불 (사용된 포인트가 있는 경우)
+      try {
+        const notes = payment.notes ? JSON.parse(payment.notes) : null;
+        const pointsUsed = notes?.pointsUsed || 0;
+
+        if (pointsUsed > 0 && userId) {
+          const { refundPoints } = require('../../utils/points-system.js');
+
+          const pointsRefundResult = await refundPoints(
+            userId,
+            pointsUsed,
+            `결제 실패로 인한 포인트 환불 (주문번호: ${orderId})`,
+            orderId
+          );
+
+          if (pointsRefundResult.success) {
+            console.log(`✅ [포인트 환불] ${pointsUsed}P 환불 완료 (user_id: ${userId})`);
+          } else {
+            console.error(`❌ [포인트 환불] 실패:`, pointsRefundResult.message);
+          }
+        }
+      } catch (pointsError) {
+        console.error(`❌ [포인트 환불] 오류:`, pointsError);
+        // 포인트 환불 실패해도 계속 진행
+      }
+
+      // 6. 주문 상태를 failed로 변경 (payments 테이블)
       await db.query(
         `UPDATE payments
          SET payment_status = 'failed',
@@ -541,7 +639,7 @@ async function handlePaymentFailure(orderId, reason) {
         [orderId]
       );
 
-      console.log('✅ [주문] 결제 실패 처리 완료');
+      console.log('✅ [주문] 결제 실패 처리 완료 (재고 복구 + 포인트 환불)');
     }
 
     return {
