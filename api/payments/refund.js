@@ -285,34 +285,52 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
       connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
     });
 
-    const userResult = await poolNeon.query(`
-      SELECT total_points FROM users WHERE id = $1 FOR UPDATE
-    `, [userId]);
+    try {
+      // 트랜잭션 시작
+      await poolNeon.query('BEGIN');
 
-    if (!userResult.rows || userResult.rows.length === 0) {
-      console.error(`❌ [포인트 회수] 사용자를 찾을 수 없음: user_id=${userId}`);
+      const userResult = await poolNeon.query(`
+        SELECT total_points FROM users WHERE id = $1 FOR UPDATE
+      `, [userId]);
+
+      if (!userResult.rows || userResult.rows.length === 0) {
+        console.error(`❌ [포인트 회수] 사용자를 찾을 수 없음: user_id=${userId}`);
+        return 0;
+      }
+
+      const currentPoints = userResult.rows[0].total_points || 0;
+      const newBalance = Math.max(0, currentPoints - pointsToDeduct); // 음수 방지
+
+      // 3. Neon - users 테이블 포인트 차감
+      await poolNeon.query(`
+        UPDATE users SET total_points = $1 WHERE id = $2
+      `, [newBalance, userId]);
+
+      // 4. PlanetScale - user_points 테이블에 회수 내역 추가
+      await connection.execute(`
+        INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+        VALUES (?, ?, 'admin', ?, ?, ?, NOW())
+      `, [userId, -pointsToDeduct, `환불로 인한 포인트 회수 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
+
+      // 트랜잭션 커밋
+      await poolNeon.query('COMMIT');
+
+      console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
+
+      return pointsToDeduct;
+
+    } catch (error) {
+      // 롤백
+      try {
+        await poolNeon.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('❌ [포인트 회수] 롤백 실패:', rollbackError);
+      }
+      throw error;
+    } finally {
+      // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
       await poolNeon.end();
-      return 0;
     }
-
-    const currentPoints = userResult.rows[0].total_points || 0;
-    const newBalance = Math.max(0, currentPoints - pointsToDeduct); // 음수 방지
-
-    // 3. Neon - users 테이블 포인트 차감
-    await poolNeon.query(`
-      UPDATE users SET total_points = $1 WHERE id = $2
-    `, [newBalance, userId]);
-
-    // 4. PlanetScale - user_points 테이블에 회수 내역 추가
-    await connection.execute(`
-      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-      VALUES (?, ?, 'admin', ?, ?, ?, NOW())
-    `, [userId, -pointsToDeduct, `환불로 인한 포인트 회수 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
-
-    console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
-
-    await poolNeon.end();
-    return pointsToDeduct;
 
   } catch (error) {
     console.error(`❌ [포인트 회수] 실패 (user_id=${userId}):`, error);
@@ -338,34 +356,52 @@ async function refundUsedPoints(connection, userId, pointsUsed, orderNumber) {
       connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
     });
 
-    const userResult = await poolNeon.query(`
-      SELECT total_points FROM users WHERE id = $1 FOR UPDATE
-    `, [userId]);
+    try {
+      // 트랜잭션 시작
+      await poolNeon.query('BEGIN');
 
-    if (!userResult.rows || userResult.rows.length === 0) {
-      console.error(`❌ [포인트 환불] 사용자를 찾을 수 없음: user_id=${userId}`);
+      const userResult = await poolNeon.query(`
+        SELECT total_points FROM users WHERE id = $1 FOR UPDATE
+      `, [userId]);
+
+      if (!userResult.rows || userResult.rows.length === 0) {
+        console.error(`❌ [포인트 환불] 사용자를 찾을 수 없음: user_id=${userId}`);
+        return false;
+      }
+
+      const currentPoints = userResult.rows[0].total_points || 0;
+      const newBalance = currentPoints + pointsUsed;
+
+      // 2. Neon - users 테이블 포인트 환불
+      await poolNeon.query(`
+        UPDATE users SET total_points = $1 WHERE id = $2
+      `, [newBalance, userId]);
+
+      // 3. PlanetScale - user_points 테이블에 환불 내역 추가
+      await connection.execute(`
+        INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+        VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+      `, [userId, pointsUsed, `주문 취소로 인한 포인트 환불 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
+
+      // 트랜잭션 커밋
+      await poolNeon.query('COMMIT');
+
+      console.log(`✅ [포인트 환불] ${pointsUsed}P 환불 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
+
+      return true;
+
+    } catch (error) {
+      // 롤백
+      try {
+        await poolNeon.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('❌ [포인트 환불] 롤백 실패:', rollbackError);
+      }
+      throw error;
+    } finally {
+      // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
       await poolNeon.end();
-      return false;
     }
-
-    const currentPoints = userResult.rows[0].total_points || 0;
-    const newBalance = currentPoints + pointsUsed;
-
-    // 2. Neon - users 테이블 포인트 환불
-    await poolNeon.query(`
-      UPDATE users SET total_points = $1 WHERE id = $2
-    `, [newBalance, userId]);
-
-    // 3. PlanetScale - user_points 테이블에 환불 내역 추가
-    await connection.execute(`
-      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-      VALUES (?, ?, 'refund', ?, ?, ?, NOW())
-    `, [userId, pointsUsed, `주문 취소로 인한 포인트 환불 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
-
-    console.log(`✅ [포인트 환불] ${pointsUsed}P 환불 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
-
-    await poolNeon.end();
-    return true;
 
   } catch (error) {
     console.error(`❌ [포인트 환불] 실패 (user_id=${userId}):`, error);
@@ -400,6 +436,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         b.selected_option_id,
         b.guests,
         b.order_number,
+        b.booking_number,
         l.category,
         l.vendor_id
       FROM payments p
@@ -525,9 +562,12 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     console.log(`✅ [Refund] payments 테이블 업데이트 완료`);
 
     // 10. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불)
-    if (payment.user_id && payment.order_number) {
+    // ✅ 장바구니 주문은 order_number, 단일 예약은 booking_number 사용
+    const refundOrderId = payment.order_number || payment.booking_number;
+
+    if (payment.user_id && refundOrderId) {
       // 10-1. 적립된 포인트 회수
-      const deductedPoints = await deductEarnedPoints(connection, payment.user_id, payment.order_number);
+      const deductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
 
       // 10-2. 사용한 포인트 환불 (notes에서 추출)
       if (payment.notes) {
@@ -536,7 +576,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
           const pointsUsed = notes.pointsUsed || 0;
 
           if (pointsUsed > 0) {
-            await refundUsedPoints(connection, payment.user_id, pointsUsed, payment.order_number);
+            await refundUsedPoints(connection, payment.user_id, pointsUsed, refundOrderId);
           }
         } catch (notesError) {
           console.error('⚠️ [Refund] notes 파싱 실패:', notesError);
