@@ -254,13 +254,19 @@ export function AdminOrders() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-sm">
-                        {order.created_at ? new Date(order.created_at).toLocaleString('ko-KR', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }).replace(/\. /g, '. ').replace(/\.$/, '') : '-'}
+                        {order.created_at ? (() => {
+                          // ✅ UTC 시간을 한국 시간(KST, UTC+9)으로 변환
+                          const utcDate = new Date(order.created_at);
+                          const kstDate = new Date(utcDate.getTime() + (9 * 60 * 60 * 1000));
+                          return kstDate.toLocaleString('ko-KR', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            timeZone: 'Asia/Seoul'
+                          }).replace(/\. /g, '. ').replace(/\.$/, '');
+                        })() : '-'}
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex justify-end gap-2">
@@ -272,7 +278,10 @@ export function AdminOrders() {
                             <Eye className="h-3 w-3 mr-1" />
                             확인
                           </Button>
-                          {order.status !== 'refund_requested' && order.status !== 'cancelled' && order.payment_status === 'paid' && (
+                          {order.status !== 'refund_requested' &&
+                           order.status !== 'cancelled' &&
+                           order.payment_status === 'paid' &&
+                           order.payment_status !== 'refunded' && (
                             <Button
                               variant="destructive"
                               size="sm"
