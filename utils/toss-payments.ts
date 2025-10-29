@@ -247,22 +247,22 @@ export async function loadTossPaymentsWidget() {
     throw new Error('이 함수는 브라우저 환경에서만 사용할 수 있습니다.');
   }
 
-  // Toss Payments SDK 로드
-  if (!(window as any).TossPayments) {
+  // Toss Payments Widget SDK 로드 (신버전)
+  if (!(window as any).PaymentWidget) {
     const script = document.createElement('script');
     script.src = 'https://js.tosspayments.com/v1/payment-widget';
     script.async = true;
 
     await new Promise<void>((resolve, reject) => {
       script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Toss Payments SDK 로드 실패'));
+      script.onerror = () => reject(new Error('Toss Payments Widget SDK 로드 실패'));
       document.head.appendChild(script);
     });
   }
 
-  // Payment Widget 초기화
-  const TossPayments = (window as any).TossPayments;
-  return TossPayments(tossPayments.getClientKey());
+  // Payment Widget 초기화 (신버전 API - ANONYMOUS 고객)
+  const PaymentWidget = (window as any).PaymentWidget;
+  return PaymentWidget(tossPayments.getClientKey(), PaymentWidget.ANONYMOUS);
 }
 
 /**
