@@ -422,6 +422,28 @@ export function MyPage() {
     }
   };
 
+  // 환불 처리 함수
+  const handleRefund = async (paymentKey: string, reason: string) => {
+    try {
+      const response = await fetch('/api/payments/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentKey, cancelReason: reason })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('환불이 완료되었습니다.');
+        fetchPayments();
+      } else {
+        throw new Error(data.message || '환불 처리에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('환불 실패:', error);
+      throw error;
+    }
+  };
+
   // 사용자 포인트 내역 가져오기
   const fetchPoints = async () => {
     if (!user) return;
@@ -1120,124 +1142,13 @@ export function MyPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {payments.map((payment) => {
-                      // 이미지 처리: notes에 items가 있으면 첫 번째 상품 이미지, 아니면 listing 이미지
-                      let displayImage = getDefaultImage(payment.category || 'tour');
-                      let displayTitle = payment.listing_title || '주문';
-                      let itemCount = 1;
-
-                      // 장바구니 주문인 경우 notes에서 정보 추출
-                      if (payment.notes) {
-                        try {
-                          const notesData = JSON.parse(payment.notes);
-                          if (notesData.items && Array.isArray(notesData.items) && notesData.items.length > 0) {
-                            itemCount = notesData.items.length;
-                            displayTitle = `장바구니 주문 (${itemCount}개 상품)`;
-                          }
-                        } catch (e) {
-                          console.error('notes 파싱 오류:', e);
-                        }
-                      }
-
-                      // listing 이미지가 있으면 사용
-                      if (payment.images && Array.isArray(payment.images) && payment.images.length > 0) {
-                        displayImage = payment.images[0];
-                      }
-
-                      return (
-                        <div key={payment.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                          <div className="flex space-x-4">
-                            <img
-                              src={displayImage}
-                              alt={displayTitle}
-                              className="w-24 h-24 rounded-lg object-cover"
-                            />
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-lg">{displayTitle}</h3>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Badge variant="outline" className="text-xs">
-                                      {payment.category || '일반'}
-                                    </Badge>
-                                    <Badge
-                                      className={
-                                        payment.payment_status === 'paid' || payment.payment_status === 'completed'
-                                          ? 'bg-green-100 text-green-800'
-                                          : payment.payment_status === 'refunded'
-                                          ? 'bg-blue-100 text-blue-800'
-                                          : 'bg-red-100 text-red-800'
-                                      }
-                                    >
-                                      {payment.payment_status === 'paid' || payment.payment_status === 'completed'
-                                        ? '결제 완료'
-                                        : payment.payment_status === 'refunded'
-                                        ? '환불 완료'
-                                        : payment.payment_status === 'pending' || payment.payment_status === 'failed'
-                                        ? '결제 실패'
-                                        : payment.payment_status}
-                                    </Badge>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-xl font-bold text-purple-600">
-                                    {Math.floor(payment.amount).toLocaleString()}원
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                                <div>
-                                  <span className="text-gray-600">주문번호:</span>
-                                  <p className="font-mono text-xs mt-1">{payment.order_id_str}</p>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">결제일:</span>
-                                  <p className="mt-1">
-                                    {new Date(payment.approved_at || payment.created_at).toLocaleDateString('ko-KR', {
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric'
-                                    })}
-                                  </p>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">결제수단:</span>
-                                  <p className="mt-1">
-                                    {payment.payment_method === 'card' && payment.card_company
-                                      ? `${payment.card_company} ${payment.card_number || ''}`
-                                      : payment.payment_method === 'transfer'
-                                      ? '계좌이체'
-                                      : payment.payment_method || '기타'}
-                                  </p>
-                                </div>
-                                {payment.booking_number && (
-                                  <div>
-                                    <span className="text-gray-600">예약번호:</span>
-                                    <p className="font-mono text-xs mt-1">{payment.booking_number}</p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* 영수증 버튼 */}
-                              {payment.receipt_url && (
-                                <div className="mt-3">
-                                  <a
-                                    href={payment.receipt_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700 font-medium"
-                                  >
-                                    <Receipt className="w-4 h-4 mr-1" />
-                                    영수증 보기
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {payments.map((payment) => (
+                      <PaymentHistoryCard
+                        key={payment.id}
+                        payment={payment}
+                        onRefund={handleRefund}
+                      />
+                    ))}
                   </div>
                 )}
               </CardContent>
