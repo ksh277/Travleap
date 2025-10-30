@@ -1430,11 +1430,10 @@ export function DetailPage() {
                   <CardContent className="space-y-4">
                     {item?.category === '팝업' ? (
                       <>
-                        {/* 팝업 스토어 상품 - 환불 정책 */}
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                          <h4 className="font-semibold text-purple-900 mb-2">팝업 스토어 상품</h4>
+                        {/* 팝업 스토어 상품 (배송형) */}
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-3">
+                          <h4 className="font-semibold text-purple-900 mb-2">팝업 스토어 상품 (배송형)</h4>
 
-                          {/* is_refundable 값에 따라 표시 */}
                           {item.is_refundable === false ? (
                             /* 환불 불가 */
                             <div className="flex items-start gap-2 text-sm text-red-700">
@@ -1442,7 +1441,7 @@ export function DetailPage() {
                               <span><strong>환불 불가:</strong> 이 상품은 환불이 불가능합니다</span>
                             </div>
                           ) : (
-                            /* 환불 가능 (기본) */
+                            /* 환불 가능 */
                             <ul className="space-y-2 text-sm text-gray-700">
                               <li className="flex items-start gap-2">
                                 <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
@@ -1450,26 +1449,70 @@ export function DetailPage() {
                               </li>
                               <li className="flex items-start gap-2">
                                 <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                                <span><strong>배송 후 7일 이내:</strong> 반품 가능 (단순 변심 시 반품 배송비 고객 부담)</span>
+                                <span><strong>배송 후:</strong> 상품 수령일로부터 7일 이내 반품 가능</span>
                               </li>
                               <li className="flex items-start gap-2">
                                 <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                                <span><strong>단순 변심:</strong> 반품 배송비(3,000원) 고객 부담</span>
+                              </li>
+                              <li className="flex items-start gap-2">
+                                <X className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
                                 <span><strong>환불 불가:</strong> 상품 훼손, 포장 개봉, 사용 흔적이 있는 경우</span>
                               </li>
                             </ul>
                           )}
                         </div>
 
-                        {/* 교환/반품 주소는 환불 가능일 때만 표시 */}
+                        {/* 교환/반품 주소 */}
                         {item.is_refundable !== false && (
-                          <div>
-                            <h4 className="font-semibold mb-2">교환/반품 주소</h4>
-                            <p className="text-sm text-gray-600">전라남도 목포시 원산중앙로 44 2층 (58636)</p>
-                            <p className="text-sm text-gray-500 mt-1">배송비: 3,000원 </p>
-                            <p className="text-sm text-gray-500 mt-1">반품 배송비: 3,000원 </p>
-
+                          <div className="space-y-2">
+                            <h4 className="font-semibold">교환/반품 주소</h4>
+                            <p className="text-sm text-gray-600">전라남도 목포시 원산중앙로 44, 2층 (58636)</p>
                           </div>
                         )}
+
+                        {/* 배송 및 반품비 정책 */}
+                        <div className="border-t pt-3 space-y-2">
+                          <h4 className="font-semibold">배송 및 반품비 정책</h4>
+                          <ul className="space-y-1 text-sm text-gray-700">
+                            <li>• 기본 배송비: 3,000원</li>
+                            <li>• 50,000원 이상 구매 시: 무료 배송</li>
+                            <li>• 반품 배송비: 3,000원 (단순 변심 시 고객 부담)</li>
+                          </ul>
+                        </div>
+
+                        {/* 환불 처리 안내 */}
+                        <div className="border-t pt-3 space-y-2">
+                          <h4 className="font-semibold">환불 처리 안내</h4>
+                          <ul className="space-y-1 text-sm text-gray-700">
+                            <li>• 환불 요청 후 영업일 기준 3~5일 이내 처리</li>
+                            <li>• 결제 수단별 처리 시점 상이</li>
+                            <li className="ml-4">- 카드 결제: 카드사 정책에 따라 영업일 기준 3~7일</li>
+                            <li className="ml-4">- 계좌 이체: 영업일 기준 1~3일</li>
+                            <li>• 환불은 결제 시 사용한 동일 수단으로 진행됩니다</li>
+                          </ul>
+                        </div>
+
+                        {/* 취소·환불 문의 */}
+                        <div className="bg-blue-50 rounded-lg p-4">
+                          <div className="flex items-start gap-3">
+                            <Phone className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <h4 className="font-semibold text-blue-900 mb-1">취소·환불 문의</h4>
+                              <p className="text-sm text-gray-700">고객센터: 0504-0811-1330</p>
+                              <p className="text-sm text-gray-600">운영시간: 평일 09:00~18:00 (주말/공휴일 휴무)</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 환불 지연 시 지연배상금 */}
+                        <div className="border-t pt-3">
+                          <h4 className="font-semibold mb-2">환불 지연 시 지연배상금</h4>
+                          <p className="text-sm text-gray-700">
+                            청약철회 후 판매자가 재화 등을 반환받은 날로부터 3영업일 이내 환급이 이루어지지 않을 경우,
+                            지연 기간에 대해 연 15%의 지연배상금을 청구할 수 있습니다.
+                          </p>
+                        </div>
                       </>
                     ) : item?.category === '여행' ? (
                       <>
