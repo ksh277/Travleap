@@ -333,7 +333,7 @@ export const AccommodationManagement: React.FC = () => {
   };
 
   // 벤더 로고 이미지 업로드
-  const handleLogoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -351,18 +351,43 @@ export const AccommodationManagement: React.FC = () => {
 
     setLogoImageFile(file);
 
-    // 미리보기 생성
+    // 미리보기 생성 (로컬)
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64 = reader.result as string;
-      setLogoImagePreview(base64);
-      setNewPartnerForm({ ...newPartnerForm, logo_url: base64 });
+      setLogoImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
+
+    // Vercel Blob에 업로드
+    try {
+      toast.info('로고 이미지를 업로드하는 중...');
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', 'accommodation/logos');
+
+      const uploadResponse = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      });
+
+      const uploadResult = await uploadResponse.json();
+
+      if (uploadResult.success && uploadResult.url) {
+        setNewPartnerForm({ ...newPartnerForm, logo_url: uploadResult.url });
+        toast.success('로고 이미지가 업로드되었습니다.');
+      } else {
+        toast.error('로고 이미지 업로드에 실패했습니다.');
+        console.error('Upload error:', uploadResult.error);
+      }
+    } catch (error) {
+      console.error('Logo upload error:', error);
+      toast.error('로고 이미지 업로드 중 오류가 발생했습니다.');
+    }
   };
 
   // 객실 이미지 업로드 (다중)
-  const handleRoomImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRoomImagesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
@@ -382,7 +407,7 @@ export const AccommodationManagement: React.FC = () => {
 
     setRoomImageFiles(files);
 
-    // 미리보기 생성
+    // 미리보기 생성 (로컬)
     const previews: string[] = [];
     let loadedCount = 0;
 
@@ -394,11 +419,46 @@ export const AccommodationManagement: React.FC = () => {
 
         if (loadedCount === files.length) {
           setRoomImagePreviews(previews);
-          setNewRoomForm({ ...newRoomForm, images: JSON.stringify(previews) });
         }
       };
       reader.readAsDataURL(file);
     });
+
+    // Vercel Blob에 업로드
+    try {
+      toast.info(`${files.length}개의 객실 이미지를 업로드하는 중...`);
+
+      const imageUrls: string[] = [];
+
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('category', 'accommodation/rooms');
+
+        const uploadResponse = await fetch('/api/upload-image', {
+          method: 'POST',
+          body: formData
+        });
+
+        const uploadResult = await uploadResponse.json();
+
+        if (uploadResult.success && uploadResult.url) {
+          imageUrls.push(uploadResult.url);
+        } else {
+          console.error('Upload error:', uploadResult.error);
+        }
+      }
+
+      if (imageUrls.length > 0) {
+        setNewRoomForm({ ...newRoomForm, images: JSON.stringify(imageUrls) });
+        toast.success(`${imageUrls.length}개의 이미지가 업로드되었습니다.`);
+      } else {
+        toast.error('이미지 업로드에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Room images upload error:', error);
+      toast.error('이미지 업로드 중 오류가 발생했습니다.');
+    }
   };
 
   const handleOpenVendorDialog = (vendor?: any) => {
