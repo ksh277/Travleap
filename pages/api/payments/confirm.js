@@ -288,20 +288,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
       console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (${allPayments.length}개 카테고리, 차이: ${difference}원)`);
 
-      // 3. 모든 카테고리 payments의 상태 변경 (pending → paid)
-      for (const payment of allPayments) {
-        await connection.execute(
-          `UPDATE payments
-           SET payment_status = 'paid',
-               updated_at = NOW()
-           WHERE id = ?`,
-          [payment.id]
-        );
-        console.log(`✅ [주문] payment_id=${payment.id} 상태 변경: pending → paid`);
-      }
-
-      // ✅ 포인트 차감을 쿠폰 사용보다 먼저 처리 (Problem #33 해결)
-      // 포인트 차감 실패 시 쿠폰이 소진되지 않도록 순서 변경
+      // 🔧 CRITICAL FIX: 포인트 차감을 payment 상태 변경보다 먼저 처리
+      // 포인트 차감 실패 시 payments가 'paid'로 변경되지 않아야 DB 일관성 유지
       const notes = order.notes ? JSON.parse(order.notes) : null;
       const pointsUsed = notes?.pointsUsed || 0;
 
@@ -362,6 +350,19 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
           await poolNeon.end();
         }
+      }
+
+      // 3. 모든 카테고리 payments의 상태 변경 (pending → paid)
+      // 🔧 포인트 차감 성공 후에만 실행 (DB 일관성 보장)
+      for (const payment of allPayments) {
+        await connection.execute(
+          `UPDATE payments
+           SET payment_status = 'paid',
+               updated_at = NOW()
+           WHERE id = ?`,
+          [payment.id]
+        );
+        console.log(`✅ [주문] payment_id=${payment.id} 상태 변경: pending → paid`);
       }
 
       // ✅ 쿠폰 사용 처리 (포인트 차감 성공 후 실행 - Problem #33 해결)
