@@ -527,37 +527,80 @@ module.exports = async function handler(req, res) {
           console.log(`🔒 [Orders] 쿠폰 락 획득: ${couponCode}, used_count=${lockedCoupon.used_count}, usage_limit=${lockedCoupon.usage_limit}`);
         }
 
-        // payments 테이블에 주문 생성 (장바구니 주문)
-        // ✅ gateway_transaction_id에 ORDER_xxx 저장
-        const insertResult = await connection.execute(`
-        INSERT INTO payments (
-          user_id,
-          amount,
-          payment_status,
-          payment_method,
-          gateway_transaction_id,
-          notes,
-          created_at,
-          updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-      `, [
-        userId,
-        total,
-        'pending',
-        paymentMethod || 'card',
-        orderNumber,
-        JSON.stringify({
-          items,
-          subtotal: serverCalculatedSubtotal,  // ✅ 서버 계산값 저장
-          deliveryFee: serverDeliveryFee,      // ✅ 서버 검증값 저장
-          couponDiscount: serverCouponDiscount, // ✅ 서버 계산값 저장
-          couponCode: couponCode || null,
-          pointsUsed: serverPointsUsed,        // ✅ 서버 검증값 저장
-          shippingInfo: shippingInfo || null
-        })
-      ]);
+        // 🔧 카테고리별로 주문 분리 (개별 환불 지원)
+        // items를 category로 그룹화
+        const itemsByCategory = items.reduce((acc, item) => {
+          const category = item.category || '기타';
+          if (!acc[category]) {
+            acc[category] = [];
+          }
+          acc[category].push(item);
+          return acc;
+        }, {});
 
-      console.log('✅ [Orders] payments 테이블 저장 완료, insertId:', insertResult.insertId);
+        const categoryKeys = Object.keys(itemsByCategory);
+        console.log(`📦 [Orders] ${categoryKeys.length}개 카테고리로 주문 분리: ${categoryKeys.join(', ')}`);
+
+        const paymentIds = [];
+        let isFirstCategory = true;
+
+        // 각 카테고리마다 별도의 payment 생성
+        for (const category of categoryKeys) {
+          const categoryItems = itemsByCategory[category];
+
+          // 카테고리별 상품 금액 계산
+          const categorySubtotal = categoryItems.reduce((sum, item) => {
+            const itemPrice = item.price || 0;
+            const optionPrice = item.selectedOption?.price || 0;
+            return sum + (itemPrice + optionPrice) * item.quantity;
+          }, 0);
+
+          // 배송비는 팝업 카테고리에만 적용
+          const categoryDeliveryFee = category === '팝업' ? serverDeliveryFee : 0;
+
+          // 쿠폰/포인트는 첫 번째 카테고리에만 적용
+          const categoryCouponDiscount = isFirstCategory ? serverCouponDiscount : 0;
+          const categoryPointsUsed = isFirstCategory ? serverPointsUsed : 0;
+          const categoryCouponCode = isFirstCategory ? (couponCode || null) : null;
+
+          const categoryTotal = categorySubtotal + categoryDeliveryFee - categoryCouponDiscount - categoryPointsUsed;
+
+          const insertResult = await connection.execute(`
+            INSERT INTO payments (
+              user_id,
+              amount,
+              payment_status,
+              payment_method,
+              gateway_transaction_id,
+              notes,
+              created_at,
+              updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+          `, [
+            userId,
+            categoryTotal,
+            'pending',
+            paymentMethod || 'card',
+            orderNumber, // ✅ 모든 카테고리가 같은 orderNumber 사용
+            JSON.stringify({
+              category: category,
+              items: categoryItems,
+              subtotal: categorySubtotal,
+              deliveryFee: categoryDeliveryFee,
+              couponDiscount: categoryCouponDiscount,
+              couponCode: categoryCouponCode,
+              pointsUsed: categoryPointsUsed,
+              shippingInfo: category === '팝업' ? shippingInfo : null
+            })
+          ]);
+
+          paymentIds.push(insertResult.insertId);
+          console.log(`✅ [Orders] ${category} payment 생성: payment_id=${insertResult.insertId}, amount=${categoryTotal}원`);
+
+          isFirstCategory = false;
+        }
+
+        console.log(`✅ [Orders] ${paymentIds.length}개 payments 생성 완료:`, paymentIds);
 
       // bookings 테이블에 각 상품별 예약 생성
       for (const item of items) {

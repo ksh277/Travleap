@@ -257,9 +257,9 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
     } else if (isOrder) {
       // 주문 (장바구니 결제)
-      // 장바구니 주문은 payments 테이블의 gateway_transaction_id로 저장됨
+      // 🔧 카테고리별로 분리된 payments를 모두 조회
       const orders = await connection.execute(
-        'SELECT * FROM payments WHERE gateway_transaction_id = ?',
+        'SELECT * FROM payments WHERE gateway_transaction_id = ? ORDER BY id ASC',
         [orderId]
       );
 
@@ -267,34 +267,38 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         throw new Error('주문을 찾을 수 없습니다.');
       }
 
-      order = orders.rows[0]; // 외부 스코프 변수에 할당
+      const allPayments = orders.rows; // 모든 카테고리 payments
+      console.log(`📦 [Orders] ${allPayments.length}개 카테고리 payments 조회됨`);
+
+      // 첫 번째 payment를 기준으로 사용 (쿠폰/포인트 정보 포함)
+      order = allPayments[0];
       orderId_num = order.id;
       userId = order.user_id;
 
-      // ✅ 금액 검증 추가 (보안 강화)
-      // ⚠️ DECIMAL 타입과 INT 타입 비교 문제 해결: 숫자로 변환 후 오차 허용
-      const expectedAmount = parseFloat(order.amount || 0);
+      // ✅ 금액 검증: 모든 payments의 합계가 Toss 결제 금액과 일치하는지 확인
+      const totalExpectedAmount = allPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
       const actualAmount = parseFloat(amount);
-      const difference = Math.abs(expectedAmount - actualAmount);
+      const difference = Math.abs(totalExpectedAmount - actualAmount);
 
       // 1원 이하 오차 허용 (부동소수점 연산 및 타입 변환 오차)
       if (difference > 1) {
-        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원, 차이: ${difference}원`);
-        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${expectedAmount}원, 실제: ${actualAmount}원)`);
+        console.error(`❌ [금액 검증 실패] 예상: ${totalExpectedAmount}원 (${allPayments.length}개 카테고리), 실제: ${actualAmount}원, 차이: ${difference}원`);
+        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${totalExpectedAmount}원, 실제: ${actualAmount}원)`);
       }
 
-      console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (차이: ${difference}원)`);
+      console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (${allPayments.length}개 카테고리, 차이: ${difference}원)`);
 
-      // 3. 주문 상태 변경 (pending → paid)
-      await connection.execute(
-        `UPDATE payments
-         SET payment_status = 'paid',
-             updated_at = NOW()
-         WHERE id = ?`,
-        [orderId_num]
-      );
-
-      console.log(`✅ [주문] 상태 변경: pending → paid (payment_id: ${orderId_num})`);
+      // 3. 모든 카테고리 payments의 상태 변경 (pending → paid)
+      for (const payment of allPayments) {
+        await connection.execute(
+          `UPDATE payments
+           SET payment_status = 'paid',
+               updated_at = NOW()
+           WHERE id = ?`,
+          [payment.id]
+        );
+        console.log(`✅ [주문] payment_id=${payment.id} 상태 변경: pending → paid`);
+      }
 
       // ✅ 포인트 차감을 쿠폰 사용보다 먼저 처리 (Problem #33 해결)
       // 포인트 차감 실패 시 쿠폰이 소진되지 않도록 순서 변경
