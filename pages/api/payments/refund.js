@@ -947,3 +947,6 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+// ✅ Export refundPayment function for use by admin APIs
+module.exports.refundPayment = refundPayment;

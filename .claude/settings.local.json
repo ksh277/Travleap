@@ -6,7 +6,17 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(node scripts/manual-deduct-points.cjs:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(for file in HomePage.tsx BlogListPage.tsx BlogDetailPage.tsx MyPage.tsx pages/HotelDetailPage.tsx pages/RentcarVendorDetailPage.tsx)",
+      "Bash(do if [ -f \"$file\" ])",
+      "Bash(then echo \"=== $file ===\")",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(timeout 10 bash:*)",
+      "Bash(xargs:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(node -c:*)"
     ],
     "deny": [],
     "ask": []
