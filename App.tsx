@@ -21,13 +21,18 @@ import { AdminPage } from './components/AdminPage';
 import { MyPage } from './components/MyPage';
 import { ReviewsPage } from './components/ReviewsPage';
 import { PaymentPage } from './components/PaymentPage';
-import { CommunityBlogPage } from './components/CommunityBlogPage';
+import { CommunityBlogPage as OldCommunityBlogPage } from './components/CommunityBlogPage';
 import BlogListPage from './components/BlogListPage';
 import BlogDetailPage from './components/BlogDetailPage';
 import CommunityBlogDetailPage from './components/CommunityBlogDetailPage';
 import CommunityBlogWritePage from './components/CommunityBlogWritePage';
-import { RewardsPage } from './components/RewardsPage';
+import { RewardsPage as OldRewardsPage } from './components/RewardsPage';
 import { WorkWithUsPage } from './components/WorkWithUsPage';
+
+// New redesigned pages
+import { CommunityBlogPage } from './components/pages/CommunityBlogPage';
+import { RewardsPage } from './components/pages/RewardsPage';
+import { CareersPage } from './components/pages/CareersPage';
 import { PlaceGoodsPage } from './components/PlaceGoodsPage';
 import { PartnersDiscountPage } from './components/PartnersDiscountPage';
 import { PartnerDetailPage } from './components/PartnerDetailPage';
@@ -257,13 +262,23 @@ function AppContent() {
           <Route path="/about" element={<ShinanPage />} />
           <Route path="/contact" element={<ContactPage onBack={() => navigate(-1)} />} />
           <Route path="/reviews" element={<ReviewsPage />} />
-          <Route path="/blog" element={<BlogListPage />} />
+
+          {/* 블로그 - 새 디자인 */}
+          <Route path="/blog" element={<CommunityBlogPage />} />
           <Route path="/blog/:slug" element={<BlogDetailPage />} />
-          <Route path="/community-blog" element={<CommunityBlogPage />} />
+
+          {/* 커뮤니티 블로그 (기존) */}
+          <Route path="/community-blog" element={<OldCommunityBlogPage />} />
           <Route path="/community-blog/write" element={<CommunityBlogWritePage />} />
           <Route path="/community-blog/:id" element={<CommunityBlogDetailPage />} />
+
+          {/* 포인트 제도 - 새 디자인 */}
           <Route path="/rewards" element={<RewardsPage />} />
-          <Route path="/work-with-us" element={<WorkWithUsPage />} />
+
+          {/* 채용 페이지 - 새 디자인 */}
+          <Route path="/careers" element={<CareersPage />} />
+          <Route path="/work-with-us" element={<CareersPage />} />
+
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/refund-policy" element={<RefundPolicyPage />} />
