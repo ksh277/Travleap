@@ -172,7 +172,8 @@ module.exports = async function handler(req, res) {
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,
-            total_amount: order.amount,
+            amount: order.amount, // ✅ AdminOrders.tsx amount 필드 (필수)
+            total_amount: order.amount, // ✅ 하위 호환성
             subtotal: subtotal || (order.amount - deliveryFee),
             delivery_fee: deliveryFee,
             status: order.booking_status || 'pending',
