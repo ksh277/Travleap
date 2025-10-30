@@ -469,7 +469,7 @@ module.exports = async function handler(req, res) {
         // 🔒 쿠폰 재검증 (트랜잭션 안 - FOR UPDATE로 동시성 제어)
         if (couponCode && couponInfo) {
           const couponLockResult = await connection.execute(`
-            SELECT current_usage, max_usage
+            SELECT used_count, usage_limit
             FROM coupons
             WHERE code = ? AND is_active = 1
             FOR UPDATE
@@ -482,11 +482,11 @@ module.exports = async function handler(req, res) {
           const lockedCoupon = couponLockResult.rows[0];
 
           // 최대 사용 횟수 재확인 (Race Condition 방지)
-          if (lockedCoupon.max_usage !== null && lockedCoupon.current_usage >= lockedCoupon.max_usage) {
+          if (lockedCoupon.usage_limit !== null && lockedCoupon.used_count >= lockedCoupon.usage_limit) {
             throw new Error('쿠폰 사용 가능 횟수가 초과되었습니다.');
           }
 
-          console.log(`🔒 [Orders] 쿠폰 락 획득: ${couponCode}, current_usage=${lockedCoupon.current_usage}, max_usage=${lockedCoupon.max_usage}`);
+          console.log(`🔒 [Orders] 쿠폰 락 획득: ${couponCode}, used_count=${lockedCoupon.used_count}, usage_limit=${lockedCoupon.usage_limit}`);
         }
 
         // payments 테이블에 주문 생성 (장바구니 주문)
