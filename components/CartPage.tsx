@@ -223,7 +223,12 @@ export function CartPage() {
 
   // Memoized calculations
   const calculations = useMemo(() => {
-    const subtotal = cartItems.reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0);
+    // 🔧 CRITICAL FIX: 옵션 가격 포함 (백엔드와 일치)
+    const subtotal = cartItems.reduce((sum, item) => {
+      const itemPrice = item.price || 0;
+      const optionPrice = item.selectedOption?.priceAdjustment || 0;
+      return sum + (itemPrice + optionPrice) * item.quantity;
+    }, 0);
 
     // 🔧 팝업 상품만의 합계 계산 (배송비 판단용 - 포인트/쿠폰 차감 전 금액)
     const popupSubtotal = cartItems
