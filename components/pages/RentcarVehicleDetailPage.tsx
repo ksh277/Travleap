@@ -399,6 +399,12 @@ export function RentcarVehicleDetailPage() {
                   src={vehicle.images[currentImageIndex]}
                   alt={vehicle.display_name}
                   className="w-full h-full object-cover"
+                  style={{
+                    imageRendering: '-webkit-optimize-contrast',
+                    transform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden',
+                    WebkitFontSmoothing: 'antialiased'
+                  }}
                 />
                 {vehicle.images.length > 1 && (
                   <>

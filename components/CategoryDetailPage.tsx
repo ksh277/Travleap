@@ -20,6 +20,7 @@ import {
 import { api, type TravelItem } from '../utils/api';
 import { toast } from 'sonner';
 import { getGoogleMapsApiKey } from '../utils/env';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface CategoryDetailPageProps {}
 
@@ -312,7 +313,7 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
             {filteredItems.map((item) => (
               <Card key={item.id} className="hover:shadow-lg transition-shadow cursor-pointer h-[420px] flex flex-col" onClick={() => navigate(`/detail/${item.id}`)}>
                 <div className="relative flex-shrink-0">
-                  <img
+                  <ImageWithFallback
                     src={item.images?.[0] || 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=300&fit=crop'}
                     alt={item.title}
                     className="w-full h-48 object-cover rounded-t-lg"
