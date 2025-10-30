@@ -294,14 +294,24 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 🔒 배송비 서버 검증 (팝업 상품일 경우 자동 계산)
+      // 🔒 배송비 서버 검증 (팝업 상품만의 금액으로 계산)
       let serverDeliveryFee = 0;
       const hasPopupProduct = items.some(item => item.category === '팝업');
 
       if (hasPopupProduct) {
-        // 팝업 상품이 있으면 배송비 계산 (50,000원 이상 무료)
-        serverDeliveryFee = serverCalculatedSubtotal >= 50000 ? 0 : 3000;
-        console.log(`📦 [Orders] 팝업 상품 배송비 계산: ${serverCalculatedSubtotal}원 → 배송비 ${serverDeliveryFee}원`);
+        // 팝업 상품만의 금액 계산 (혼합 주문 대응)
+        let popupSubtotal = 0;
+        for (const item of items) {
+          if (item.category === '팝업') {
+            const itemPrice = item.price || 0;
+            const optionPrice = item.selectedOption?.price || 0;
+            popupSubtotal += (itemPrice + optionPrice) * item.quantity;
+          }
+        }
+
+        // 팝업 상품 금액이 50,000원 이상이면 배송비 무료
+        serverDeliveryFee = popupSubtotal >= 50000 ? 0 : 3000;
+        console.log(`📦 [Orders] 팝업 상품 배송비 계산: 팝업=${popupSubtotal}원, 전체=${serverCalculatedSubtotal}원 → 배송비 ${serverDeliveryFee}원`);
 
         // 클라이언트가 보낸 배송비와 다르면 경고
         if (deliveryFee !== serverDeliveryFee) {
