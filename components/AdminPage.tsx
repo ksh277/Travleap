@@ -2613,12 +2613,6 @@ export function AdminPage({}: AdminPageProps) {
                     <span className="text-sm">오늘 주문</span>
                     <span className="font-medium text-blue-600">{dashboardStats?.bookings_today || 0}건</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm">수수료 수익</span>
-                    <span className="font-medium text-purple-600">
-                      ₩{(dashboardStats?.commission_earned || 0).toLocaleString()}
-                    </span>
-                  </div>
                 </CardContent>
               </Card>
 

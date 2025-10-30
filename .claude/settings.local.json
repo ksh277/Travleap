@@ -16,7 +16,8 @@
       "Bash(xargs:*)",
       "Bash(find:*)",
       "Bash(cat:*)",
-      "Bash(node -c:*)"
+      "Bash(node -c:*)",
+      "Bash(comm:*)"
     ],
     "deny": [],
     "ask": []
