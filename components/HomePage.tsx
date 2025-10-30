@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -55,9 +55,10 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [backgroundVideo, setBackgroundVideo] = useState({
-    url: 'https://www.youtube.com/watch?v=kroXVig0QRc',
+    videoId: 'kroXVig0QRc', // YouTube 영상 ID
     overlayOpacity: 0.4
   });
+  const playerRef = useRef<any>(null);
 
   // Enhanced data loading with retry mechanism - 모든 API 호출을 통일
   const loadData = useCallback(async (isRetry = false) => {
@@ -101,7 +102,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       setRecentReviews(reviewsResult);
       setActivityImages(activitiesResult);
       setBackgroundVideo({
-        url: homepageSettings.background_video_url || 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
+        videoId: homepageSettings.background_video_id || 'kroXVig0QRc',
         overlayOpacity: homepageSettings.background_overlay_opacity || 0.4
       });
       setRetryCount(0);
@@ -236,28 +237,26 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
 
   return (
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="홈페이지 메인 콘텐츠">
-      {/* Hero Section - Mobile Optimized with Video Background */}
+      {/* Hero Section - Mobile Optimized with YouTube Background */}
       <div className="relative h-[600px] overflow-hidden mobile-safe-top">
-        {/* Background Video */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-          key={backgroundVideo.url}
-        >
-          <source
-            src={backgroundVideo.url}
-            type="video/mp4"
+        {/* YouTube Background Video */}
+        <div className="absolute inset-0 w-full h-full overflow-hidden">
+          <iframe
+            ref={playerRef}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{
+              width: '100vw',
+              height: '56.25vw', // 16:9 비율
+              minHeight: '100vh',
+              minWidth: '177.77vh', // 16:9 비율
+              pointerEvents: 'none'
+            }}
+            src={`https://www.youtube.com/embed/${backgroundVideo.videoId}?autoplay=1&mute=1&loop=1&playlist=${backgroundVideo.videoId}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`}
+            title="Background video"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
-          {/* Fallback 이미지 (비디오 로딩 실패 시) */}
-          <img
-            src="https://www.youtube.com/watch?v=kroXVig0QRc"
-            alt="Beach background"
-            className="w-full h-full object-cover"
-          />
-        </video>
+        </div>
         <div
           className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/50"
           style={{ opacity: backgroundVideo.overlayOpacity }}
