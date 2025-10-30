@@ -563,7 +563,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       console.log('✅ [결제 기록] payments 테이블 업데이트 완료 (장바구니 주문)');
     }
 
-    // 4.5. 포인트 적립 (팝업 상품 주문인 경우)
+    // 4.5. 포인트 적립 (카테고리별 주문마다 개별 적립)
     if (isOrder) {
       // ✅ Neon PostgreSQL Pool (users 테이블용)
       const { Pool } = require('@neondatabase/serverless');
@@ -580,58 +580,51 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         if (userResult.rows && userResult.rows.length > 0) {
           const user = userResult.rows[0];
 
-          // ✅ notes에서 원래 상품 금액(subtotal) 가져오기
-          // 포인트 적립은 쿠폰/포인트 사용 전 원래 상품 금액 기준
-          const notes = order.notes ? JSON.parse(order.notes) : null;
-          const originalSubtotal = notes?.subtotal || 0;
+          // 🔧 각 카테고리 payment마다 개별적으로 포인트 적립
+          let currentBalance = user.total_points || 0;
+          let totalPointsToEarn = 0;
 
-          // 배송비 조회 (PlanetScale - bookings 테이블)
-          const bookingsResult = await connection.execute(`
-            SELECT SUM(IFNULL(shipping_fee, 0)) as total_shipping_fee
-            FROM bookings
-            WHERE order_number = ?
-          `, [orderId]);
+          for (const categoryPayment of allPayments) {
+            try {
+              const notes = categoryPayment.notes ? JSON.parse(categoryPayment.notes) : null;
+              const originalSubtotal = notes?.subtotal || 0;
 
-          const shippingFee = (bookingsResult.rows && bookingsResult.rows.length > 0 && bookingsResult.rows[0].total_shipping_fee) || 0;
+              // 💰 포인트 적립 (2%, 원래 상품 금액 기준, 배송비 제외)
+              const pointsToEarn = Math.floor(originalSubtotal * 0.02);
+              if (pointsToEarn > 0) {
+                currentBalance += pointsToEarn;
+                totalPointsToEarn += pointsToEarn;
 
-          // 💰 포인트 적립 (2%, 원래 상품 금액 기준, 배송비 제외)
-          try {
-            const pointsToEarn = Math.floor(originalSubtotal * 0.02);
-            if (pointsToEarn > 0) {
-              console.log(`💰 [포인트] 포인트 적립 시작: ${pointsToEarn}P (user_id: ${userId})`);
+                const expiresAt = new Date();
+                expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
 
-              const currentPoints = user.total_points || 0;
-              const newBalance = currentPoints + pointsToEarn;
-              const expiresAt = new Date();
-              expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
-
-              // 1. 포인트 내역 추가 (PlanetScale - user_points 테이블)
-              await connection.execute(`
-                INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
-                VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
-              `, [userId, pointsToEarn, `주문 적립 (주문번호: ${orderId})`, orderId, newBalance, expiresAt]);
-
-              // 2. 사용자 포인트 업데이트 (Neon - users 테이블)
-              await poolNeon.query(`
-                UPDATE users SET total_points = $1 WHERE id = $2
-              `, [newBalance, userId]);
-
-              console.log(`✅ [포인트] ${pointsToEarn}P 적립 완료 (사용자 ${userId}, 잔액: ${newBalance}P)`);
-
-              // 3. bookings 테이블에 적립 포인트 기록 (선택사항)
-              try {
+                // 포인트 내역 추가 (각 payment_id별로 개별 레코드)
                 await connection.execute(`
-                  UPDATE bookings
-                  SET points_earned = ?
-                  WHERE order_number = ?
-                `, [pointsToEarn, orderId]);
-              } catch (bookingUpdateError) {
-                console.warn('⚠️  [포인트] bookings 테이블 업데이트 실패 (계속 진행)');
+                  INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
+                  VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+                `, [
+                  userId,
+                  pointsToEarn,
+                  `주문 적립 (payment_id: ${categoryPayment.id}, 카테고리: ${notes?.category || '주문'})`,
+                  String(categoryPayment.id), // ✅ payment_id를 related_order_id로 저장 (환불 시 개별 회수)
+                  currentBalance,
+                  expiresAt
+                ]);
+
+                console.log(`✅ [포인트] payment_id=${categoryPayment.id} ${pointsToEarn}P 적립 (카테고리: ${notes?.category})`);
               }
+            } catch (categoryPointsError) {
+              console.error(`❌ [포인트] payment_id=${categoryPayment.id} 적립 실패 (계속 진행):`, categoryPointsError);
             }
-          } catch (pointsError) {
-            console.error('❌ [포인트] 포인트 적립 실패 (계속 진행):', pointsError);
-            // 포인트 적립 실패해도 결제는 성공 처리
+          }
+
+          // 사용자 포인트 총합 업데이트 (Neon - users 테이블)
+          if (totalPointsToEarn > 0) {
+            await poolNeon.query(`
+              UPDATE users SET total_points = $1 WHERE id = $2
+            `, [currentBalance, userId]);
+
+            console.log(`✅ [포인트] 총 ${totalPointsToEarn}P 적립 완료 (사용자 ${userId}, 최종 잔액: ${currentBalance}P)`);
           }
 
           // 📧 결제 완료 알림 발송
