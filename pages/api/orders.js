@@ -92,6 +92,39 @@ module.exports = async function handler(req, res) {
           });
         }
 
+        // 🔧 혼합 주문의 모든 bookings 조회 (부분 환불 지원)
+        const orderNumbersForCart = (result.rows || [])
+          .filter(order => !order.booking_id && order.gateway_transaction_id)
+          .map(order => order.gateway_transaction_id);
+
+        let bookingsMap = new Map(); // order_number → [bookings]
+
+        if (orderNumbersForCart.length > 0) {
+          console.log(`📦 [Orders] 혼합 주문 ${orderNumbersForCart.length}건의 bookings 조회 중...`);
+
+          for (const orderNumber of orderNumbersForCart) {
+            const bookingsResult = await connection.execute(`
+              SELECT
+                b.id as booking_id,
+                b.listing_id,
+                b.status,
+                b.delivery_status,
+                b.guests,
+                l.title as product_title,
+                l.category
+              FROM bookings b
+              LEFT JOIN listings l ON b.listing_id = l.id
+              WHERE b.order_number = ? AND b.status != 'cancelled'
+              ORDER BY b.created_at ASC
+            `, [orderNumber]);
+
+            if (bookingsResult.rows && bookingsResult.rows.length > 0) {
+              bookingsMap.set(orderNumber, bookingsResult.rows);
+              console.log(`📦 [Orders] order_number=${orderNumber}: ${bookingsResult.rows.length}개 booking 발견`);
+            }
+          }
+        }
+
         // 주문 데이터와 사용자 정보 병합
         ordersWithUserInfo = (result.rows || []).map(order => {
           const user = userMap.get(order.user_id);
@@ -163,6 +196,10 @@ module.exports = async function handler(req, res) {
             console.warn(`⚠️ [Orders] order_id=${order.id}: notes가 없음`);
           }
 
+          // 🔧 혼합 주문의 경우 모든 bookings 정보 추가
+          const orderNumber = order.gateway_transaction_id;
+          const bookingsList = bookingsMap.get(orderNumber) || null;
+
           return {
             id: order.id,
             booking_id: order.booking_id, // ✅ 환불 시 필요
@@ -177,6 +214,7 @@ module.exports = async function handler(req, res) {
             subtotal: subtotal || (order.amount - deliveryFee),
             delivery_fee: deliveryFee,
             items_info: itemsInfo, // ✅ 주문 상품 상세 정보 (배송 관리용)
+            bookings_list: bookingsList, // 🔧 혼합 주문의 모든 bookings (부분 환불용)
             item_count: itemCount, // ✅ 상품 종류 수
             total_quantity: totalQuantity, // ✅ 총 수량
             status: order.booking_status || 'pending',

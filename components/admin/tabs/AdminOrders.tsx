@@ -14,6 +14,16 @@ interface OrderItem {
   price?: number;
 }
 
+interface BookingItem {
+  booking_id: number;
+  listing_id: number;
+  status: string;
+  delivery_status: string | null;
+  guests: number;
+  product_title: string;
+  category: string;
+}
+
 interface Order {
   id: number;
   booking_id: number | null; // ✅ 단일 예약 환불용
@@ -27,6 +37,7 @@ interface Order {
   subtotal?: number; // ✅ 상품 금액
   delivery_fee?: number; // ✅ 배송비
   items_info?: OrderItem[]; // ✅ 주문 상품 상세 정보
+  bookings_list?: BookingItem[]; // 🔧 혼합 주문의 모든 bookings (부분 환불용)
   item_count?: number; // ✅ 상품 종류 수
   total_quantity?: number; // ✅ 총 수량
   status: string;
@@ -66,8 +77,17 @@ export function AdminOrders() {
     }
   };
 
-  const handleRefund = async (order: Order) => {
-    if (!confirm(`이 주문을 환불하시겠습니까?\n\n주문번호: #${order.id}\n고객: ${order.user_name}\n금액: ₩${order.amount.toLocaleString()}\n\n이 작업은 즉시 토스 페이먼츠로 환불을 요청합니다.`)) {
+  const handleRefund = async (order: Order, bookingId?: number, bookingTitle?: string) => {
+    // 혼합 주문에서 특정 booking 환불
+    const isPartialRefund = bookingId !== undefined;
+    const targetBookingId = bookingId || order.booking_id;
+    const targetOrderId = !targetBookingId ? order.id : undefined;
+
+    const confirmMsg = isPartialRefund
+      ? `이 상품을 환불하시겠습니까?\n\n상품: ${bookingTitle}\n주문번호: #${order.id}\n고객: ${order.user_name}\n\n⚠️ 이 상품만 환불됩니다 (다른 상품은 유지됨)`
+      : `이 주문을 환불하시겠습니까?\n\n주문번호: #${order.id}\n고객: ${order.user_name}\n금액: ₩${order.amount.toLocaleString()}\n\n이 작업은 즉시 토스 페이먼츠로 환불을 요청합니다.`;
+
+    if (!confirm(confirmMsg)) {
       return;
     }
 
@@ -79,19 +99,19 @@ export function AdminOrders() {
     }
 
     try {
-      // ✅ booking_id가 있으면 단일 예약, 없으면 장바구니 주문
+      // ✅ booking_id가 있으면 단일/부분 예약, 없으면 장바구니 주문 전체
       const requestBody: any = {
         cancelReason: `[관리자 환불] ${reason}`,
       };
 
-      if (order.booking_id) {
-        // 단일 예약 환불
-        requestBody.bookingId = order.booking_id;
-        console.log('🔍 [Admin Refund] 단일 예약 환불:', { bookingId: order.booking_id });
+      if (targetBookingId) {
+        // 단일 예약 또는 혼합 주문의 특정 상품 환불
+        requestBody.bookingId = targetBookingId;
+        console.log('🔍 [Admin Refund] 특정 booking 환불:', { bookingId: targetBookingId, isPartial: isPartialRefund });
       } else {
-        // 장바구니 주문 환불 (order.id는 payments 테이블의 id)
+        // 장바구니 주문 전체 환불 (order.id는 payments 테이블의 id)
         requestBody.orderId = order.id;
-        console.log('🔍 [Admin Refund] 장바구니 주문 환불:', { orderId: order.id });
+        console.log('🔍 [Admin Refund] 장바구니 주문 전체 환불:', { orderId: order.id });
       }
 
       const response = await fetch('/api/admin/refund-booking', {
@@ -326,7 +346,7 @@ export function AdminOrders() {
                         })() : '-'}
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-2 flex-col items-end">
                           <Button
                             variant="outline"
                             size="sm"
@@ -339,14 +359,44 @@ export function AdminOrders() {
                            order.status !== 'cancelled' &&
                            order.payment_status === 'paid' &&
                            order.payment_status !== 'refunded' && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleRefund(order)}
-                            >
-                              <DollarSign className="h-3 w-3 mr-1" />
-                              환불
-                            </Button>
+                            <>
+                              {/* 🔧 혼합 주문: 각 상품마다 개별 환불 버튼 */}
+                              {order.bookings_list && order.bookings_list.length > 1 ? (
+                                <div className="space-y-1 w-full">
+                                  <div className="text-xs text-gray-500 mb-1">개별 환불:</div>
+                                  {order.bookings_list.map((booking) => (
+                                    <Button
+                                      key={booking.booking_id}
+                                      variant="destructive"
+                                      size="sm"
+                                      className="w-full text-xs"
+                                      onClick={() => handleRefund(order, booking.booking_id, booking.product_title)}
+                                    >
+                                      <DollarSign className="h-3 w-3 mr-1" />
+                                      {booking.product_title.substring(0, 15)}
+                                      {booking.product_title.length > 15 ? '...' : ''}
+                                    </Button>
+                                  ))}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full text-xs border-red-300 text-red-600 hover:bg-red-50"
+                                    onClick={() => handleRefund(order)}
+                                  >
+                                    전체 환불
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleRefund(order)}
+                                >
+                                  <DollarSign className="h-3 w-3 mr-1" />
+                                  환불
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
