@@ -51,6 +51,7 @@ module.exports = async function handler(req, res) {
           b.infants,
           b.listing_id,
           b.delivery_status,
+          b.special_requests,
           b.shipping_name,
           b.shipping_phone,
           b.shipping_address,
@@ -235,6 +236,8 @@ module.exports = async function handler(req, res) {
             category: order.category,
             is_popup: order.category === '팝업',
             order_number: actualOrderNumber,
+            // ✅ 옵션 정보 (AdminPage 표시용)
+            selected_options: order.special_requests || null,
             // ✅ 배송 정보 (배송 관리 다이얼로그용)
             delivery_status: order.delivery_status,
             shipping_name: order.shipping_name,
