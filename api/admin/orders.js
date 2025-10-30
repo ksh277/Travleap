@@ -245,7 +245,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        orders: ordersWithUserInfo
+        data: ordersWithUserInfo
       });
     } catch (error) {
       console.error('Orders GET API error:', error);

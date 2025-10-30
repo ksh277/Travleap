@@ -224,12 +224,26 @@ export function CartPage() {
   // Memoized calculations
   const calculations = useMemo(() => {
     const subtotal = cartItems.reduce((sum, item) => sum + ((item.price || 0) * item.quantity), 0);
+
+    // 🔧 팝업 상품만의 합계 계산 (배송비 판단용 - 포인트/쿠폰 차감 전 금액)
+    const popupSubtotal = cartItems
+      .filter(item => item.category === '팝업')
+      .reduce((sum, item) => {
+        const itemPrice = item.price || 0;
+        const optionPrice = item.selectedOption?.priceAdjustment || 0;
+        return sum + (itemPrice + optionPrice) * item.quantity;
+      }, 0);
+
     const couponDiscount = appliedCoupon
       ? appliedCoupon.type === 'fixed'
         ? appliedCoupon.discount
         : Math.floor(subtotal * appliedCoupon.discount / 100)
       : 0;
-    const shippingFee = subtotal >= 50000 ? 0 : 3000;
+
+    // 🔧 팝업 상품만의 합계가 50,000원 이상이면 배송비 무료 (혼합 주문 대응)
+    const hasPopupProduct = cartItems.some(item => item.category === '팝업');
+    const shippingFee = hasPopupProduct && popupSubtotal >= 50000 ? 0 : (hasPopupProduct ? 3000 : 0);
+
     const total = Math.max(0, subtotal - couponDiscount + shippingFee);
     const savings = cartItems.reduce((sum, item) => {
       if (item.originalPrice && item.originalPrice > (item.price || 0)) {
