@@ -5,7 +5,8 @@
       "Bash(sed:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(node scripts/manual-deduct-points.cjs:*)"
+      "Bash(node scripts/manual-deduct-points.cjs:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

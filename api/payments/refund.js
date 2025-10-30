@@ -696,7 +696,61 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
 
     console.log(`✅ [Refund] Toss Payments 환불 완료:`, refundResult);
 
-    // 14. 성공 응답
+    // 14. 환불 완료 알림 발송
+    try {
+      console.log(`📧 [알림] 환불 완료 알림 발송 시작 (user_id: ${payment.user_id})`);
+
+      // Neon PostgreSQL에서 사용자 정보 조회
+      const { Pool } = require('@neondatabase/serverless');
+      const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+      try {
+        const userResult = await poolNeon.query('SELECT name, email, phone FROM users WHERE id = $1', [payment.user_id]);
+
+        if (userResult && userResult.rows && userResult.rows.length > 0) {
+          const user = userResult.rows[0];
+
+          // 알림 데이터 준비
+          const notificationData = {
+            customerName: user.name || '고객',
+            customerEmail: user.email,
+            customerPhone: user.phone || null,
+            orderNumber: payment.order_number || payment.order_id_str || payment.booking_number,
+            refundProcessedDate: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
+            originalAmount: payment.amount,
+            cancellationFee: policyInfo ? payment.amount - actualRefundAmount : 0,
+            refundAmount: actualRefundAmount,
+            pointsDeducted: earnedPointsDeducted || 0,
+            pointsRefunded: pointsUsedRefunded || 0
+          };
+
+          // 알림 API 호출
+          const notificationResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/notifications/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'refund_processed',
+              data: notificationData
+            })
+          });
+
+          const notificationResult = await notificationResponse.json();
+
+          if (notificationResult.success) {
+            console.log(`✅ [알림] 환불 완료 알림 발송 완료: ${user.email}`);
+          } else {
+            console.error(`⚠️ [알림] 알림 발송 일부 실패:`, notificationResult);
+          }
+        }
+      } finally {
+        await poolNeon.end();
+      }
+    } catch (notifyError) {
+      console.error('❌ [알림] 환불 완료 알림 발송 실패 (계속 진행):', notifyError);
+      // 알림 실패해도 환불은 성공 처리
+    }
+
+    // 15. 성공 응답
     return {
       success: true,
       message: '환불이 완료되었습니다.',

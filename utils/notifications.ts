@@ -12,6 +12,12 @@
 
 import { logger } from './logger';
 import { db } from './database.js';
+import sgMail from '@sendgrid/mail';
+
+// SendGrid API 키 설정
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 // ============================================
 // 알림 타입 정의
@@ -161,10 +167,154 @@ const EMAIL_TEMPLATES: Record<NotificationType, string> = {
 </html>
   `,
 
-  // 다른 타입들도 동일하게...
-  [NotificationType.PAYMENT_SUCCESS]: '',
-  [NotificationType.PAYMENT_FAILED]: '',
-  [NotificationType.REFUND_PROCESSED]: '',
+  [NotificationType.PAYMENT_SUCCESS]: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body>
+  <h2>💳 결제가 완료되었습니다</h2>
+  <p>안녕하세요 {{customerName}}님,</p>
+  <p>주문하신 상품의 결제가 정상적으로 완료되었습니다.</p>
+
+  <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
+    <h3>주문 정보</h3>
+    <p><strong>주문번호:</strong> {{orderNumber}}</p>
+    <p><strong>주문일시:</strong> {{orderDate}}</p>
+    <p><strong>상품명:</strong> {{productName}}</p>
+    {{#if quantity}}
+    <p><strong>수량:</strong> {{quantity}}개</p>
+    {{/if}}
+  </div>
+
+  <div style="background: #e8f5e9; padding: 20px; margin: 20px 0;">
+    <h3>결제 정보</h3>
+    <p><strong>상품 금액:</strong> ₩{{subtotal}}</p>
+    {{#if deliveryFee}}
+    <p><strong>배송비:</strong> ₩{{deliveryFee}}</p>
+    {{/if}}
+    {{#if couponDiscount}}
+    <p><strong>쿠폰 할인:</strong> -₩{{couponDiscount}}</p>
+    {{/if}}
+    {{#if pointsUsed}}
+    <p><strong>포인트 사용:</strong> -{{pointsUsed}}P</p>
+    {{/if}}
+    <p style="font-size: 18px; font-weight: bold; margin-top: 10px;">
+      <strong>최종 결제 금액:</strong> ₩{{totalAmount}}
+    </p>
+    {{#if pointsEarned}}
+    <p style="color: #4caf50;">
+      <strong>적립 포인트:</strong> +{{pointsEarned}}P
+    </p>
+    {{/if}}
+  </div>
+
+  {{#if shippingAddress}}
+  <div style="background: #fff3e0; padding: 20px; margin: 20px 0;">
+    <h3>배송 정보</h3>
+    <p><strong>받는 분:</strong> {{shippingName}}</p>
+    <p><strong>연락처:</strong> {{shippingPhone}}</p>
+    <p><strong>주소:</strong> {{shippingAddress}}</p>
+    <p style="color: #666; margin-top: 10px;">상품은 영업일 기준 2-3일 내 배송될 예정입니다.</p>
+  </div>
+  {{/if}}
+
+  <div style="margin: 30px 0;">
+    <a href="{{orderDetailUrl}}" style="background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+      주문 상세 확인
+    </a>
+  </div>
+
+  <p style="color: #666; font-size: 14px; margin-top: 30px;">
+    문의사항이 있으시면 고객센터(1234-5678)로 연락주시기 바랍니다.
+  </p>
+
+  <p>감사합니다,<br>Travleap 팀</p>
+</body>
+</html>
+  `,
+
+  [NotificationType.PAYMENT_FAILED]: `
+<!DOCTYPE html>
+<html>
+<body>
+  <h2>❌ 결제에 실패했습니다</h2>
+  <p>안녕하세요 {{customerName}}님,</p>
+  <p>주문하신 상품의 결제 처리 중 문제가 발생했습니다.</p>
+
+  <div style="background: #ffebee; padding: 20px; margin: 20px 0;">
+    <p><strong>주문번호:</strong> {{orderNumber}}</p>
+    <p><strong>실패 사유:</strong> {{failureReason}}</p>
+  </div>
+
+  <p>다시 시도하시려면 아래 버튼을 눌러주세요.</p>
+
+  <div style="margin: 30px 0;">
+    <a href="{{retryUrl}}" style="background: #f44336; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+      다시 결제하기
+    </a>
+  </div>
+
+  <p style="color: #666; font-size: 14px;">
+    문제가 계속될 경우 고객센터(1234-5678)로 문의해주세요.
+  </p>
+
+  <p>감사합니다,<br>Travleap 팀</p>
+</body>
+</html>
+  `,
+
+  [NotificationType.REFUND_PROCESSED]: `
+<!DOCTYPE html>
+<html>
+<body>
+  <h2>💰 환불이 완료되었습니다</h2>
+  <p>안녕하세요 {{customerName}}님,</p>
+  <p>요청하신 환불이 정상적으로 처리되었습니다.</p>
+
+  <div style="background: #f5f5f5; padding: 20px; margin: 20px 0;">
+    <h3>환불 정보</h3>
+    <p><strong>주문번호:</strong> {{orderNumber}}</p>
+    <p><strong>환불 요청일:</strong> {{refundRequestDate}}</p>
+    <p><strong>환불 처리일:</strong> {{refundProcessedDate}}</p>
+  </div>
+
+  <div style="background: #e3f2fd; padding: 20px; margin: 20px 0;">
+    <h3>환불 금액</h3>
+    <p><strong>원 결제 금액:</strong> ₩{{originalAmount}}</p>
+    {{#if cancellationFee}}
+    <p><strong>취소 수수료:</strong> -₩{{cancellationFee}}</p>
+    {{/if}}
+    {{#if returnShippingFee}}
+    <p><strong>반송 배송비:</strong> -₩{{returnShippingFee}}</p>
+    {{/if}}
+    {{#if pointsDeducted}}
+    <p><strong>포인트 회수:</strong> -{{pointsDeducted}}P</p>
+    {{/if}}
+    <p style="font-size: 18px; font-weight: bold; margin-top: 10px; color: #1976d2;">
+      <strong>최종 환불 금액:</strong> ₩{{refundAmount}}
+    </p>
+    {{#if pointsRefunded}}
+    <p style="color: #4caf50;">
+      <strong>포인트 환불:</strong> +{{pointsRefunded}}P
+    </p>
+    {{/if}}
+  </div>
+
+  <p style="color: #666;">
+    환불 금액은 결제하신 수단으로 {{refundDays}}일 이내에 입금됩니다.<br>
+    (카드 결제: 3-7 영업일, 계좌이체: 1-3 영업일)
+  </p>
+
+  <p style="color: #666; font-size: 14px; margin-top: 30px;">
+    문의사항이 있으시면 고객센터(1234-5678)로 연락주시기 바랍니다.
+  </p>
+
+  <p>감사합니다,<br>Travleap 팀</p>
+</body>
+</html>
+  `,
   [NotificationType.BOOKING_REMINDER]: '',
   [NotificationType.RETURN_REMINDER]: '',
   [NotificationType.VENDOR_APPROVED]: '',
@@ -186,10 +336,11 @@ const SMS_TEMPLATES: Record<NotificationType, string> = {
 
   [NotificationType.REVIEW_REQUEST]: `[Travleap] 이용해주셔서 감사합니다. 후기 작성: {{reviewUrl}}`,
 
-  // 다른 타입들...
-  [NotificationType.PAYMENT_SUCCESS]: '',
-  [NotificationType.PAYMENT_FAILED]: '',
-  [NotificationType.REFUND_PROCESSED]: '',
+  [NotificationType.PAYMENT_SUCCESS]: `[Travleap] {{customerName}}님, 결제가 완료되었습니다. 주문번호: {{orderNumber}}, 결제금액: ₩{{totalAmount}} (포인트 {{pointsEarned}}P 적립)`,
+
+  [NotificationType.PAYMENT_FAILED]: `[Travleap] 결제 실패: {{orderNumber}}. 사유: {{failureReason}}. 다시 시도해주세요.`,
+
+  [NotificationType.REFUND_PROCESSED]: `[Travleap] {{customerName}}님, 환불이 완료되었습니다. 주문번호: {{orderNumber}}, 환불금액: ₩{{refundAmount}}. 영업일 기준 {{refundDays}}일 내 입금됩니다.`,
   [NotificationType.BOOKING_REMINDER]: '',
   [NotificationType.VENDOR_APPROVED]: '',
   [NotificationType.VENDOR_REJECTED]: ''
@@ -251,29 +402,51 @@ async function sendEmail(notification: NotificationData): Promise<boolean> {
   const htmlContent = renderTemplate(template, data);
   const subject = getEmailSubject(type, data);
 
-  // TODO: 실제 이메일 서비스 연동 (SendGrid, AWS SES, etc.)
-  // 현재는 로그만 출력
-  console.log('📧 Email:', {
-    to: recipient.email,
-    subject,
-    html: htmlContent.substring(0, 100) + '...'
-  });
+  // ✅ SendGrid를 사용한 실제 이메일 발송
+  try {
+    // SendGrid API 키가 설정되어 있지 않으면 로그만 출력
+    if (!process.env.SENDGRID_API_KEY) {
+      console.log('⚠️ [Email] SENDGRID_API_KEY not configured. Email not sent.');
+      console.log('📧 [Email - DRY RUN]:', {
+        to: recipient.email,
+        from: process.env.EMAIL_FROM || 'noreply@travleap.com',
+        subject,
+        html: htmlContent.substring(0, 150) + '...'
+      });
 
-  // 개발 환경: 항상 성공
-  if (process.env.NODE_ENV === 'development') {
-    logger.debug('Email sent (development mode)', { to: recipient.email, type });
+      // 개발 환경에서는 성공으로 간주
+      return process.env.NODE_ENV === 'development';
+    }
+
+    // SendGrid로 이메일 발송
+    const msg = {
+      to: recipient.email,
+      from: process.env.EMAIL_FROM || 'noreply@travleap.com', // 발송자 이메일 (SendGrid에서 인증 필요)
+      subject,
+      html: htmlContent,
+      // 텍스트 버전 (HTML을 지원하지 않는 이메일 클라이언트용)
+      text: htmlContent.replace(/<[^>]*>/g, '').replace(/\n\s*\n/g, '\n')
+    };
+
+    await sgMail.send(msg);
+    console.log(`✅ [Email] 이메일 발송 성공: ${recipient.email} (${type})`);
+    logger.info('Email sent successfully', { to: recipient.email, type });
+
     return true;
+  } catch (error: any) {
+    console.error(`❌ [Email] 이메일 발송 실패: ${recipient.email}`, error);
+    logger.error('Email sending failed', error as Error, { to: recipient.email, type });
+
+    // SendGrid 에러 처리
+    if (error.response) {
+      console.error('SendGrid Error Response:', {
+        statusCode: error.response.statusCode,
+        body: error.response.body
+      });
+    }
+
+    return false;
   }
-
-  // TODO: 실제 전송 로직
-  // const result = await emailProvider.send({
-  //   to: recipient.email,
-  //   subject,
-  //   html: htmlContent
-  // });
-  // return result.success;
-
-  return true;
 }
 
 /**
@@ -291,26 +464,60 @@ async function sendSMS(notification: NotificationData): Promise<boolean> {
   const template = SMS_TEMPLATES[type];
   const message = renderTemplate(template, data);
 
-  // TODO: 실제 SMS 서비스 연동 (Twilio, AWS SNS, etc.)
-  console.log('📱 SMS:', {
-    to: recipient.phone,
-    message
-  });
+  // 전화번호 포맷팅 (010-1234-5678 → 01012345678)
+  const formattedPhone = recipient.phone.replace(/[^0-9]/g, '');
 
-  // 개발 환경: 항상 성공
-  if (process.env.NODE_ENV === 'development') {
-    logger.debug('SMS sent (development mode)', { to: recipient.phone, type });
-    return true;
+  // ✅ Aligo SMS API를 사용한 실제 SMS 발송
+  try {
+    // SMS API 키가 설정되어 있지 않으면 로그만 출력
+    if (!process.env.ALIGO_API_KEY || !process.env.ALIGO_USER_ID || !process.env.SMS_SENDER) {
+      console.log('⚠️ [SMS] Aligo SMS not configured (ALIGO_API_KEY, ALIGO_USER_ID, SMS_SENDER required).');
+      console.log('📱 [SMS - DRY RUN]:', {
+        to: formattedPhone,
+        from: process.env.SMS_SENDER || '1234567890',
+        message: message.substring(0, 100) + (message.length > 100 ? '...' : '')
+      });
+
+      // 개발 환경에서는 성공으로 간주
+      return process.env.NODE_ENV === 'development';
+    }
+
+    // Aligo SMS API 호출
+    const params = new URLSearchParams({
+      key: process.env.ALIGO_API_KEY,
+      user_id: process.env.ALIGO_USER_ID,
+      sender: process.env.SMS_SENDER, // 발신번호 (Aligo에서 등록 필요)
+      receiver: formattedPhone,
+      msg: message,
+      msg_type: message.length > 90 ? 'LMS' : 'SMS', // 90자 초과 시 LMS (장문)
+      title: message.length > 90 ? '[Travleap]' : '' // LMS인 경우 제목
+    });
+
+    const response = await fetch('https://apis.aligo.in/send/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params.toString()
+    });
+
+    const result = await response.json();
+
+    // Aligo API 응답 체크
+    if (result.result_code === '1') {
+      console.log(`✅ [SMS] SMS 발송 성공: ${formattedPhone} (${type})`);
+      logger.info('SMS sent successfully', { to: formattedPhone, type, msgId: result.msg_id });
+      return true;
+    } else {
+      console.error(`❌ [SMS] SMS 발송 실패: ${result.message} (code: ${result.result_code})`);
+      logger.error('SMS sending failed', new Error(result.message), { to: formattedPhone, type, code: result.result_code });
+      return false;
+    }
+  } catch (error: any) {
+    console.error(`❌ [SMS] SMS 발송 실패: ${formattedPhone}`, error);
+    logger.error('SMS sending failed', error as Error, { to: formattedPhone, type });
+    return false;
   }
-
-  // TODO: 실제 전송 로직
-  // const result = await smsProvider.send({
-  //   to: recipient.phone,
-  //   message
-  // });
-  // return result.success;
-
-  return true;
 }
 
 /**
@@ -335,14 +542,26 @@ async function sendPushNotification(notification: NotificationData): Promise<boo
 // ============================================
 
 /**
- * 템플릿 렌더링 (간단한 {{variable}} 치환)
+ * 템플릿 렌더링 ({{variable}} 치환 + {{#if}} 조건문 지원)
  */
 function renderTemplate(template: string, data: Record<string, any>): string {
   let rendered = template;
 
+  // 1. {{#if variable}}...{{/if}} 조건문 처리
+  const ifBlockRegex = /\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g;
+  rendered = rendered.replace(ifBlockRegex, (match, variable, content) => {
+    // 변수가 존재하고, truthy한 값이면 content 표시
+    const value = data[variable];
+    if (value !== undefined && value !== null && value !== '' && value !== 0 && value !== false) {
+      return content;
+    }
+    return ''; // 조건 미충족 시 빈 문자열
+  });
+
+  // 2. {{variable}} 치환
   for (const [key, value] of Object.entries(data)) {
     const placeholder = `{{${key}}}`;
-    rendered = rendered.replace(new RegExp(placeholder, 'g'), String(value || ''));
+    rendered = rendered.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), String(value || ''));
   }
 
   return rendered;
@@ -473,11 +692,119 @@ export async function sendReviewRequest(booking: any, reviewUrl: string): Promis
   });
 }
 
+/**
+ * 결제 완료 알림
+ */
+export async function sendPaymentSuccess(paymentData: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  orderNumber: string;
+  orderDate: string;
+  productName: string;
+  quantity?: number;
+  subtotal: number;
+  deliveryFee?: number;
+  couponDiscount?: number;
+  pointsUsed?: number;
+  totalAmount: number;
+  pointsEarned?: number;
+  shippingName?: string;
+  shippingPhone?: string;
+  shippingAddress?: string;
+  orderDetailUrl?: string;
+}): Promise<void> {
+  const data = {
+    ...paymentData,
+    subtotal: paymentData.subtotal.toLocaleString(),
+    deliveryFee: paymentData.deliveryFee?.toLocaleString() || '0',
+    couponDiscount: paymentData.couponDiscount?.toLocaleString() || '0',
+    totalAmount: paymentData.totalAmount.toLocaleString(),
+    orderDetailUrl: paymentData.orderDetailUrl || `${process.env.NEXT_PUBLIC_BASE_URL || 'https://travleap.com'}/mypage?tab=orders`
+  };
+
+  // 이메일 + SMS 동시 전송 (SMS는 전화번호가 있을 경우만)
+  const notifications = [
+    sendNotification({
+      type: NotificationType.PAYMENT_SUCCESS,
+      channel: NotificationChannel.EMAIL,
+      recipient: { email: paymentData.customerEmail },
+      data
+    })
+  ];
+
+  if (paymentData.customerPhone) {
+    notifications.push(
+      sendNotification({
+        type: NotificationType.PAYMENT_SUCCESS,
+        channel: NotificationChannel.SMS,
+        recipient: { phone: paymentData.customerPhone },
+        data
+      })
+    );
+  }
+
+  await Promise.all(notifications);
+}
+
+/**
+ * 환불 완료 알림
+ */
+export async function sendRefundProcessed(refundData: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  orderNumber: string;
+  refundRequestDate: string;
+  refundProcessedDate: string;
+  originalAmount: number;
+  cancellationFee?: number;
+  returnShippingFee?: number;
+  pointsDeducted?: number;
+  refundAmount: number;
+  pointsRefunded?: number;
+  refundDays?: number;
+}): Promise<void> {
+  const data = {
+    ...refundData,
+    originalAmount: refundData.originalAmount.toLocaleString(),
+    cancellationFee: refundData.cancellationFee?.toLocaleString(),
+    returnShippingFee: refundData.returnShippingFee?.toLocaleString(),
+    refundAmount: refundData.refundAmount.toLocaleString(),
+    refundDays: refundData.refundDays || 7
+  };
+
+  // 이메일 + SMS 동시 전송
+  const notifications = [
+    sendNotification({
+      type: NotificationType.REFUND_PROCESSED,
+      channel: NotificationChannel.EMAIL,
+      recipient: { email: refundData.customerEmail },
+      data
+    })
+  ];
+
+  if (refundData.customerPhone) {
+    notifications.push(
+      sendNotification({
+        type: NotificationType.REFUND_PROCESSED,
+        channel: NotificationChannel.SMS,
+        recipient: { phone: refundData.customerPhone },
+        data
+      })
+    );
+  }
+
+  await Promise.all(notifications);
+}
+
 export default {
   NotificationType,
   NotificationChannel,
   sendNotification,
   sendBookingConfirmation,
   sendPickupReminder,
-  sendReviewRequest
+  sendReviewRequest,
+  sendPaymentSuccess,
+  sendRefundProcessed
 };

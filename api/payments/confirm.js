@@ -631,8 +631,64 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           }
 
           // 📧 결제 완료 알림 발송
-          console.log(`📧 [알림] 결제 완료 알림: ${user.email} (주문: ${orderId}, 금액: ${originalSubtotal}원, 배송비: ${shippingFee}원)`);
-          // TODO: 실제 이메일/SMS 발송 구현
+          try {
+            console.log(`📧 [알림] 결제 완료 알림 발송 시작: ${user.email}`);
+
+            // items 정보 파싱
+            let productName = '상품';
+            let itemCount = 0;
+            if (notes && notes.items && Array.isArray(notes.items)) {
+              itemCount = notes.items.length;
+              const firstItem = notes.items[0];
+              const firstItemName = firstItem.title || firstItem.name || '';
+              productName = itemCount > 1
+                ? `${firstItemName} 외 ${itemCount - 1}개`
+                : firstItemName;
+            }
+
+            // 알림 데이터 준비
+            const notificationData = {
+              customerName: user.name || '고객',
+              customerEmail: user.email,
+              customerPhone: user.phone || notes?.shippingInfo?.phone || null,
+              orderNumber: orderId,
+              orderDate: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
+              productName: productName,
+              quantity: itemCount,
+              subtotal: originalSubtotal,
+              deliveryFee: shippingFee,
+              couponDiscount: notes?.couponDiscount || 0,
+              pointsUsed: notes?.pointsUsed || 0,
+              totalAmount: order.amount,
+              pointsEarned: Math.floor(originalSubtotal * 0.02), // 2% 적립
+              shippingName: notes?.shippingInfo?.name || null,
+              shippingPhone: notes?.shippingInfo?.phone || null,
+              shippingAddress: notes?.shippingInfo
+                ? `${notes.shippingInfo.address} ${notes.shippingInfo.addressDetail || ''}`
+                : null
+            };
+
+            // 알림 API 호출
+            const notificationResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/notifications/send`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'payment_success',
+                data: notificationData
+              })
+            });
+
+            const notificationResult = await notificationResponse.json();
+
+            if (notificationResult.success) {
+              console.log(`✅ [알림] 결제 완료 알림 발송 완료: ${user.email}`);
+            } else {
+              console.error(`⚠️ [알림] 알림 발송 일부 실패:`, notificationResult);
+            }
+          } catch (notifyError) {
+            console.error('❌ [알림] 결제 완료 알림 발송 실패 (계속 진행):', notifyError);
+            // 알림 실패해도 결제는 성공 처리
+          }
 
           // ✅ 청구 정보를 사용자 프로필에 저장 (shippingInfo가 있을 경우)
           if (notes && notes.shippingInfo) {
