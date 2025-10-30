@@ -2165,7 +2165,8 @@ export function AdminPage({}: AdminPageProps) {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({
-          bookingId: order.booking_id, // ✅ booking_id 사용
+          bookingId: order.booking_id || undefined, // booking_id가 있으면 사용
+          orderId: !order.booking_id ? order.id : undefined, // booking_id 없으면 orderId 사용 (장바구니 주문)
           cancelReason: `[관리자 환불] ${reason}`,
         })
       });
@@ -4034,11 +4035,18 @@ export function AdminPage({}: AdminPageProps) {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <div className="font-semibold">₩{order.total_amount?.toLocaleString() || '0'}</div>
-                            {order.delivery_fee > 0 && (
-                              <div className="text-xs text-gray-500">
-                                배송비 {order.delivery_fee.toLocaleString()}원
-                              </div>
+                            {order.subtotal && order.delivery_fee !== undefined ? (
+                              <>
+                                <div className="text-xs text-gray-600">상품 {order.subtotal.toLocaleString()}원</div>
+                                <div className="text-xs text-gray-600">
+                                  배송비 {order.delivery_fee > 0 ? order.delivery_fee.toLocaleString() : '0'}원
+                                </div>
+                                <div className="border-t pt-1 mt-1">
+                                  <div className="font-semibold">₩{order.amount?.toLocaleString() || order.total_amount?.toLocaleString() || '0'}</div>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="font-semibold">₩{order.amount?.toLocaleString() || order.total_amount?.toLocaleString() || '0'}</div>
                             )}
                           </div>
                         </TableCell>
