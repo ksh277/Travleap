@@ -611,6 +611,16 @@ module.exports = async function handler(req, res) {
         // 재고 복구 시 이 값을 사용하므로 일치해야 함
         const actualQuantity = item.quantity || 1;
 
+        // 🔧 팝업 상품인 경우 배송지 정보 추가
+        const isPopup = item.category === '팝업';
+        const shippingData = isPopup && shippingInfo ? {
+          name: shippingInfo.name || null,
+          phone: shippingInfo.phone || null,
+          address: shippingInfo.address || null,
+          addressDetail: shippingInfo.addressDetail || null,
+          zipcode: shippingInfo.zipcode || null
+        } : null;
+
         await connection.execute(`
           INSERT INTO bookings (
             user_id,
@@ -629,9 +639,14 @@ module.exports = async function handler(req, res) {
             selected_option_id,
             special_requests,
             shipping_fee,
+            shipping_name,
+            shipping_phone,
+            shipping_address,
+            shipping_address_detail,
+            shipping_zipcode,
             created_at,
             updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `, [
           userId,
           item.listingId,
@@ -648,7 +663,12 @@ module.exports = async function handler(req, res) {
           actualQuantity, // ✅ 실제 주문 수량 (재고 차감/복구에 사용)
           item.selectedOption?.id || null, // ✅ 옵션 ID 저장 (재고 복구에 사용)
           JSON.stringify(item.selectedOption || {}),
-          item.category === '팝업' ? (deliveryFee || 0) / items.length : 0
+          item.category === '팝업' ? (deliveryFee || 0) / items.length : 0,
+          shippingData?.name,
+          shippingData?.phone,
+          shippingData?.address,
+          shippingData?.addressDetail,
+          shippingData?.zipcode
         ]);
 
         console.log(`✅ [Orders] bookings 생성: ${bookingNumber}, listing ${item.listingId}`);

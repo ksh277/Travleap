@@ -4052,16 +4052,16 @@ export function AdminPage({}: AdminPageProps) {
                           <div className="space-y-1">
                             {order.subtotal && order.delivery_fee !== undefined ? (
                               <>
-                                <div className="text-xs text-gray-600">상품 {order.subtotal.toLocaleString()}원</div>
+                                <div className="text-xs text-gray-600">상품 {Math.floor(order.subtotal).toLocaleString()}원</div>
                                 <div className="text-xs text-gray-600">
-                                  배송비 {order.delivery_fee > 0 ? order.delivery_fee.toLocaleString() : '0'}원
+                                  배송비 {order.delivery_fee > 0 ? Math.floor(order.delivery_fee).toLocaleString() : '0'}원
                                 </div>
                                 <div className="border-t pt-1 mt-1">
-                                  <div className="font-semibold">₩{order.amount?.toLocaleString() || order.total_amount?.toLocaleString() || '0'}</div>
+                                  <div className="font-semibold">₩{Math.floor(order.amount || order.total_amount || 0).toLocaleString()}</div>
                                 </div>
                               </>
                             ) : (
-                              <div className="font-semibold">₩{order.amount?.toLocaleString() || order.total_amount?.toLocaleString() || '0'}</div>
+                              <div className="font-semibold">₩{Math.floor(order.amount || order.total_amount || 0).toLocaleString()}</div>
                             )}
                           </div>
                         </TableCell>
@@ -4106,7 +4106,7 @@ export function AdminPage({}: AdminPageProps) {
                                 확정
                               </Button>
                             )}
-                            {order.category === '팝업' && order.delivery_status && (
+                            {order.category === '팝업' && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -4120,7 +4120,7 @@ export function AdminPage({}: AdminPageProps) {
                                 배송 관리
                               </Button>
                             )}
-                            {order.category === '팝업' && order.payment_status !== 'refunded' && order.payment_status !== 'failed' && (
+                            {order.payment_status !== 'refunded' && order.payment_status !== 'failed' && (
                               <Button
                                 size="sm"
                                 variant="outline"
