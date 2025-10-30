@@ -176,6 +176,9 @@ module.exports = async function handler(req, res) {
             total_amount: order.amount, // ✅ 하위 호환성
             subtotal: subtotal || (order.amount - deliveryFee),
             delivery_fee: deliveryFee,
+            items_info: itemsInfo, // ✅ 주문 상품 상세 정보 (배송 관리용)
+            item_count: itemCount, // ✅ 상품 종류 수
+            total_quantity: totalQuantity, // ✅ 총 수량
             status: order.booking_status || 'pending',
             payment_status: order.payment_status,
             created_at: order.created_at,

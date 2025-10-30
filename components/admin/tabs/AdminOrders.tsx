@@ -7,17 +7,28 @@ import { Badge } from '../../ui/badge';
 import { Search, RefreshCw, DollarSign, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface OrderItem {
+  title?: string;
+  name?: string;
+  quantity: number;
+  price?: number;
+}
+
 interface Order {
   id: number;
   booking_id: number | null; // ✅ 단일 예약 환불용
   user_name: string;
   user_email: string;
   product_title: string;
+  product_name?: string; // ✅ 실제 상품명
   listing_id: number;
   amount: number;
   total_amount?: number; // ✅ API에서 사용
   subtotal?: number; // ✅ 상품 금액
   delivery_fee?: number; // ✅ 배송비
+  items_info?: OrderItem[]; // ✅ 주문 상품 상세 정보
+  item_count?: number; // ✅ 상품 종류 수
+  total_quantity?: number; // ✅ 총 수량
   status: string;
   payment_status: string;
   created_at: string;
@@ -233,14 +244,32 @@ export function AdminOrders() {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="max-w-xs truncate">{order.product_title}</div>
+                        <div className="max-w-xs">
+                          {order.items_info && order.items_info.length > 0 ? (
+                            <div className="space-y-1">
+                              {order.items_info.map((item, idx) => (
+                                <div key={idx} className="text-sm">
+                                  <span className="font-medium">{item.title || item.name}</span>
+                                  <span className="text-gray-500 ml-1">x {item.quantity}</span>
+                                </div>
+                              ))}
+                              {order.item_count && order.item_count > 3 && (
+                                <div className="text-xs text-gray-400">
+                                  외 {order.item_count - 3}개 상품
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="truncate">{order.product_title}</div>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="text-sm">
                           {order.is_popup ? (
-                            // 팝업 상품: 상품 갯수만 표시
-                            <div className="text-gray-700">
-                              상품 {order.guests}개
+                            // 팝업 상품: 총 수량 표시
+                            <div className="text-gray-700 font-medium">
+                              총 {order.total_quantity || order.guests}개
                             </div>
                           ) : (
                             // 예약 상품: 날짜와 인원
