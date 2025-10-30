@@ -11,6 +11,7 @@ const AdminContacts = lazy(() => import('./admin/tabs/AdminContacts').then(m => 
 // Import existing external components (already optimized)
 import { RentcarManagement } from './admin/RentcarManagement';
 import { MediaManagement } from './admin/MediaManagement';
+import { NotificationBell } from './admin/NotificationBell';
 
 interface AdminPageOptimizedProps {
   selectedCurrency?: string;
@@ -32,9 +33,13 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">관리자 대시보드</h1>
-          <p className="text-gray-600 mt-2">시스템을 관리하고 모니터링하세요</p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">관리자 대시보드</h1>
+            <p className="text-gray-600 mt-2">시스템을 관리하고 모니터링하세요</p>
+          </div>
+          {/* ✅ 알림 벨 */}
+          <NotificationBell />
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
