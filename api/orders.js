@@ -310,7 +310,7 @@ module.exports = async function handler(req, res) {
 
         // 옵션 가격이 있으면 포함
         const itemPrice = item.price || 0;
-        const optionPrice = item.selectedOption?.price || 0;
+        const optionPrice = item.selectedOption?.priceAdjustment || 0;  // ✅ priceAdjustment 사용
         const totalItemPrice = (itemPrice + optionPrice) * item.quantity;
 
         serverCalculatedSubtotal += totalItemPrice;
@@ -342,7 +342,7 @@ module.exports = async function handler(req, res) {
         for (const item of items) {
           if (item.category === '팝업') {
             const itemPrice = item.price || 0;
-            const optionPrice = item.selectedOption?.price || 0;
+            const optionPrice = item.selectedOption?.priceAdjustment || 0;  // ✅ priceAdjustment 사용 (price가 아님!)
             popupSubtotal += (itemPrice + optionPrice) * item.quantity;
           }
         }
@@ -551,7 +551,7 @@ module.exports = async function handler(req, res) {
           // 카테고리별 상품 금액 계산
           const categorySubtotal = categoryItems.reduce((sum, item) => {
             const itemPrice = item.price || 0;
-            const optionPrice = item.selectedOption?.price || 0;
+            const optionPrice = item.selectedOption?.priceAdjustment || 0;  // ✅ priceAdjustment 사용
             return sum + (itemPrice + optionPrice) * item.quantity;
           }, 0);
 
