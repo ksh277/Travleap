@@ -616,7 +616,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     }
 
     // 9. payments 테이블 업데이트
-    await connection.execute(`
+    const updateResult = await connection.execute(`
       UPDATE payments
       SET payment_status = 'refunded',
           refund_amount = ?,
@@ -626,7 +626,20 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       WHERE payment_key = ?
     `, [actualRefundAmount, cancelReason, paymentKey]);
 
-    console.log(`✅ [Refund] payments 테이블 업데이트 완료`);
+    console.log(`✅ [Refund] payments 테이블 업데이트 완료 (affected rows: ${updateResult.rowsAffected || updateResult.affectedRows || 'unknown'})`);
+
+    // ✅ 업데이트 검증: payment_status가 제대로 바뀌었는지 확인
+    const verifyResult = await connection.execute(`
+      SELECT id, payment_status, refund_amount, refunded_at
+      FROM payments
+      WHERE payment_key = ?
+    `, [paymentKey]);
+
+    if (verifyResult.rows && verifyResult.rows.length > 0) {
+      console.log(`🔍 [Refund] 업데이트 검증:`, verifyResult.rows[0]);
+    } else {
+      console.warn(`⚠️ [Refund] 업데이트 검증 실패: payment를 찾을 수 없음`);
+    }
 
     // 10. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불)
     // ✅ 장바구니 주문: order_id_str (payments 테이블)
@@ -688,13 +701,26 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     // 13. 🔄 Toss Payments API로 환불 요청 (DB 작업 성공 후 실행 - Problem #37 해결)
     console.log(`🔄 [Refund] Toss Payments API 호출 중... (금액: ${actualRefundAmount.toLocaleString()}원)`);
 
-    const refundResult = await cancelTossPayment(
-      paymentKey,
-      cancelReason,
-      actualRefundAmount > 0 ? actualRefundAmount : undefined
-    );
+    let tossRefundSuccess = false;
+    let tossRefundError = null;
 
-    console.log(`✅ [Refund] Toss Payments 환불 완료:`, refundResult);
+    try {
+      const refundResult = await cancelTossPayment(
+        paymentKey,
+        cancelReason,
+        actualRefundAmount > 0 ? actualRefundAmount : undefined
+      );
+
+      console.log(`✅ [Refund] Toss Payments 환불 완료:`, refundResult);
+      tossRefundSuccess = true;
+    } catch (tossError) {
+      console.error(`❌ [Refund] Toss Payments API 호출 실패:`, tossError);
+      tossRefundError = tossError;
+
+      // ⚠️ Toss API 실패해도 DB는 이미 커밋됨
+      // 관리자가 수동으로 Toss 대시보드에서 환불 처리 필요
+      console.warn(`⚠️ [Refund] DB는 환불 완료 처리되었으나, Toss API 실패. 수동 처리 필요.`);
+    }
 
     // 14. 환불 완료 알림 발송
     try {
@@ -751,15 +777,25 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     }
 
     // 15. 성공 응답
-    return {
+    const response = {
       success: true,
-      message: '환불이 완료되었습니다.',
+      message: tossRefundSuccess
+        ? '환불이 완료되었습니다.'
+        : '⚠️ DB 환불 처리 완료. Toss API 실패 - 수동 처리 필요',
       refundAmount: actualRefundAmount,
       paymentKey,
       bookingId: payment.booking_id,
       orderNumber: payment.order_number,
-      refundedAt: new Date().toISOString()
+      refundedAt: new Date().toISOString(),
+      tossRefundSuccess,
+      warning: tossRefundSuccess ? null : 'Toss Payments API 호출 실패. Toss 대시보드에서 수동 환불 필요.'
     };
+
+    if (tossRefundError) {
+      response.tossError = tossRefundError.message || String(tossRefundError);
+    }
+
+    return response;
 
   } catch (error) {
     console.error(`❌ [Refund] 환불 처리 실패:`, error);

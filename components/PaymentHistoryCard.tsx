@@ -382,30 +382,18 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                 <span className="text-gray-600">결제 금액:</span>
                 <span className="font-semibold">{Math.floor(payment.amount).toLocaleString()}원</span>
               </div>
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>환불 예상 금액:</span>
-                {payment.category === '팝업' && notesData?.deliveryFee ? (
-                  <>
-                    {refundReason.includes('상품 불량/하자') || refundReason.includes('상품 오배송') ? (
-                      <span className="text-green-700 font-medium">
-                        {Math.floor(payment.amount).toLocaleString()}원 (전액)
-                      </span>
-                    ) : payment.delivery_status === 'shipped' || payment.delivery_status === 'delivered' ? (
-                      <span className="text-orange-700 font-medium">
-                        {Math.max(0, Math.floor(payment.amount - notesData.deliveryFee - 3000)).toLocaleString()}원
-                        <span className="text-xs text-gray-500 block">
-                          (배송비 {notesData.deliveryFee.toLocaleString()}원 + 반품비 3,000원 차감)
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-green-700 font-medium">
-                        {Math.floor(payment.amount).toLocaleString()}원 (전액)
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-gray-700">환불 정책에 따라 결정됩니다</span>
-                )}
+              <div className="text-xs text-gray-600 mt-2">
+                <p className="font-medium mb-1">💡 환불 금액 안내</p>
+                <p className="text-gray-500">
+                  {payment.category === '팝업' ? (
+                    <>배송 상태 및 환불 정책에 따라 자동 계산됩니다.</>
+                  ) : (
+                    <>예약 시작일까지 남은 기간 및 환불 정책에 따라 자동 계산됩니다.</>
+                  )}
+                </p>
+                <p className="text-gray-500 mt-1">
+                  실제 환불 금액은 환불 완료 후 확인하실 수 있습니다.
+                </p>
               </div>
             </div>
           </div>

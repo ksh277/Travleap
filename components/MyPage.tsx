@@ -826,46 +826,11 @@ export function MyPage() {
     ));
   };
 
-  // 취소 수수료 계산 함수
-  const calculateCancellationFee = (bookingDate: string, originalPrice: number) => {
-    const today = new Date();
-    const booking = new Date(bookingDate);
-    const daysDifference = Math.ceil((booking.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (daysDifference >= 3) {
-      // 3일 전: 무료 취소
-      return {
-        refundAmount: originalPrice,
-        cancellationFee: 0,
-        refundRate: 100,
-        description: '무료 취소'
-      };
-    } else if (daysDifference >= 1) {
-      // 1-2일 전: 50% 환불
-      const refundAmount = Math.floor(originalPrice * 0.5);
-      const cancellationFee = originalPrice - refundAmount;
-      return {
-        refundAmount,
-        cancellationFee,
-        refundRate: 50,
-        description: '50% 환불'
-      };
-    } else {
-      // 당일: 환불 불가
-      return {
-        refundAmount: 0,
-        cancellationFee: originalPrice,
-        refundRate: 0,
-        description: '환불 불가'
-      };
-    }
-  };
-
   // 예약 취소 함수
   const handleCancelBooking = async (bookingId: string, bookingDate: string, originalPrice: number) => {
-    const cancellationInfo = calculateCancellationFee(bookingDate, originalPrice);
-
-    const confirmMessage = `정말로 예약을 취소하시겠습니까?\n\n취소 수수료: ${cancellationInfo.cancellationFee.toLocaleString()}원\n환불 금액: ${cancellationInfo.refundAmount.toLocaleString()}원 (${cancellationInfo.refundRate}%)\n\n취소하시려면 확인을 눌러주세요.`;
+    // ✅ 환불 정책은 백엔드 DB에서 계산하도록 변경
+    // 사용자에게는 환불 정책 확인 후 진행하도록 안내
+    const confirmMessage = `정말로 예약을 취소하시겠습니까?\n\n예약일: ${new Date(bookingDate).toLocaleDateString('ko-KR')}\n결제 금액: ${originalPrice.toLocaleString()}원\n\n⚠️ 환불 금액은 환불 정책에 따라 자동 계산됩니다.\n취소 시점에 따라 취소 수수료가 부과될 수 있습니다.\n\n계속하시려면 확인을 눌러주세요.`;
 
     if (!confirm(confirmMessage)) {
       return;
@@ -873,16 +838,22 @@ export function MyPage() {
 
     setCancellingBookingId(bookingId);
     try {
+      // ✅ 더미 데이터 제거, 백엔드에서 모두 계산
       const response = await api.cancelBooking(bookingId.toString(), {
-        cancellationFee: cancellationInfo.cancellationFee,
-        refundAmount: cancellationInfo.refundAmount,
+        cancellationFee: 0, // 백엔드에서 계산
+        refundAmount: 0, // 백엔드에서 계산
         reason: '사용자 요청'
       });
 
       if (response.success) {
         // 예약 목록 새로고침
         await fetchUserData();
-        toast.success(`예약이 취소되었습니다. ${cancellationInfo.refundAmount.toLocaleString()}원이 환불됩니다.`);
+
+        // ✅ 백엔드에서 반환한 실제 환불 금액 표시
+        const refundedBooking = response.data;
+        const actualRefundAmount = refundedBooking?.refund_amount || 0;
+
+        toast.success(`예약이 취소되었습니다. ${actualRefundAmount.toLocaleString()}원이 환불됩니다.`);
       } else {
         throw new Error(response.error || '취소 처리 중 오류가 발생했습니다.');
       }

@@ -31,7 +31,19 @@ module.exports = async function handler(req, res) {
   try {
     const { bookingId, orderId, cancelReason } = req.body;
 
+    console.log(`📥 [Admin Refund] 요청 받음:`, {
+      bookingId,
+      orderId,
+      cancelReason,
+      body: req.body
+    });
+
     if ((!bookingId && !orderId) || !cancelReason) {
+      console.error(`❌ [Admin Refund] 필수 파라미터 누락:`, {
+        hasBookingId: !!bookingId,
+        hasOrderId: !!orderId,
+        hasCancelReason: !!cancelReason
+      });
       return res.status(400).json({
         success: false,
         message: 'bookingId 또는 orderId와 cancelReason은 필수입니다.'
@@ -135,6 +147,13 @@ module.exports = async function handler(req, res) {
     }
 
     // 4. Toss Payments 환불 API 호출
+    console.log(`🔄 [Admin Refund] refundPayment 호출:`, {
+      paymentKey,
+      cancelReason,
+      cancelAmount: refundAmount,
+      skipPolicy: true
+    });
+
     const refundResult = await refundPayment({
       paymentKey,
       cancelReason,
@@ -142,21 +161,41 @@ module.exports = async function handler(req, res) {
       skipPolicy: true // 관리자는 정책 무시
     });
 
+    console.log(`📊 [Admin Refund] refundPayment 결과:`, refundResult);
+
     if (refundResult.success) {
       console.log(`✅ [Admin Refund] 환불 완료: ${refundResult.refundAmount || amount}원`);
 
-      return res.status(200).json({
+      const responseData = {
         success: true,
-        message: '환불이 완료되었습니다.',
+        message: refundResult.message || '환불이 완료되었습니다.',
         refundAmount: refundResult.refundAmount || amount,
         paymentKey
-      });
+      };
+
+      // ⚠️ Toss API 실패 경고 추가
+      if (refundResult.warning) {
+        responseData.warning = refundResult.warning;
+      }
+      if (refundResult.tossError) {
+        responseData.tossError = refundResult.tossError;
+      }
+      if (!refundResult.tossRefundSuccess) {
+        responseData.requiresManualTossRefund = true;
+      }
+
+      return res.status(200).json(responseData);
     } else {
-      console.error(`❌ [Admin Refund] 환불 실패:`, refundResult.message);
+      console.error(`❌ [Admin Refund] 환불 실패:`, {
+        message: refundResult.message,
+        code: refundResult.code,
+        fullResult: refundResult
+      });
 
       return res.status(400).json({
         success: false,
-        message: refundResult.message || '환불 처리에 실패했습니다.'
+        message: refundResult.message || '환불 처리에 실패했습니다.',
+        code: refundResult.code
       });
     }
 

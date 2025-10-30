@@ -92,15 +92,35 @@ export function AdminOrders() {
 
       const data = await response.json();
 
+      console.log('🔍 [Admin] 환불 응답:', data);
+
       if (data.success) {
-        toast.success(`환불이 완료되었습니다 (${data.refundAmount?.toLocaleString() || order.amount.toLocaleString()}원)`);
+        // ✅ 환불 성공
+        let message = `환불이 완료되었습니다 (${data.refundAmount?.toLocaleString() || order.amount.toLocaleString()}원)`;
+
+        // ⚠️ Toss API 실패 경고 표시
+        if (data.warning || data.requiresManualTossRefund) {
+          toast.warning(
+            `${message}\n\n⚠️ 주의: ${data.warning || 'Toss Payments 수동 처리 필요'}\n${data.tossError ? `\n에러: ${data.tossError}` : ''}`,
+            { duration: 10000 }
+          );
+        } else {
+          toast.success(message);
+        }
+
         loadOrders();
       } else {
+        console.error('❌ [Admin] 환불 실패:', data);
         toast.error(data.message || '환불 처리에 실패했습니다');
       }
     } catch (error) {
-      console.error('Refund request failed:', error);
-      toast.error('환불 요청 중 오류가 발생했습니다');
+      console.error('❌ [Admin] Refund request failed:', error);
+      console.error('❌ [Admin] Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      toast.error(`환불 요청 중 오류가 발생했습니다: ${error.message || '알 수 없는 오류'}`);
     }
   };
 

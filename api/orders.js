@@ -99,6 +99,7 @@ module.exports = async function handler(req, res) {
           // notes 파싱하여 상품 정보 추출
           let itemsInfo = null;
           let itemCount = 1;
+          let totalQuantity = 1; // ✅ 실제 총 수량 (각 아이템의 quantity 합산)
           let displayTitle = order.product_title || '';
           let deliveryFee = 0;
           let subtotal = 0;
@@ -120,7 +121,14 @@ module.exports = async function handler(req, res) {
               // 상품 정보 추출 (우선순위: notes.items > product_title)
               if (notesData.items && Array.isArray(notesData.items) && notesData.items.length > 0) {
                 itemsInfo = notesData.items;
-                itemCount = notesData.items.length;
+                itemCount = notesData.items.length; // 아이템 종류 수
+
+                // ✅ 총 수량 계산: 각 아이템의 quantity 합산
+                totalQuantity = notesData.items.reduce((sum, item) => {
+                  return sum + (item.quantity || 1);
+                }, 0);
+
+                console.log(`📊 [Orders] order_id=${order.id}: ${itemCount}개 종류, 총 ${totalQuantity}개 수량`);
 
                 // 첫 번째 아이템의 상품명 가져오기 (title 또는 name 필드)
                 const firstItemTitle = notesData.items[0].title || notesData.items[0].name || '';
@@ -130,9 +138,19 @@ module.exports = async function handler(req, res) {
                 } else {
                   displayTitle = firstItemTitle || order.product_title || '주문';
                 }
+
+                // ✅ 디버깅: 상품명이 비어있거나 이상한 경우 로깅
+                if (!firstItemTitle || firstItemTitle.includes('배송지') || firstItemTitle.includes('undefined')) {
+                  console.warn(`⚠️ [Orders] order_id=${order.id}: 이상한 상품명 감지:`, {
+                    firstItemTitle,
+                    item: notesData.items[0],
+                    product_title: order.product_title
+                  });
+                }
               } else if (!displayTitle) {
                 // notes.items도 없고 product_title도 없으면
                 displayTitle = '주문';
+                console.warn(`⚠️ [Orders] order_id=${order.id}: notes.items가 없음, product_title=${order.product_title}`);
               }
             } catch (e) {
               console.error('❌ [Orders] notes 파싱 오류:', e, 'order_id:', order.id);
@@ -142,6 +160,7 @@ module.exports = async function handler(req, res) {
           } else if (!displayTitle) {
             // notes도 없고 product_title도 없으면
             displayTitle = '주문';
+            console.warn(`⚠️ [Orders] order_id=${order.id}: notes가 없음`);
           }
 
           return {
@@ -161,7 +180,9 @@ module.exports = async function handler(req, res) {
             created_at: order.created_at,
             start_date: order.start_date,
             end_date: order.end_date,
-            num_adults: order.category === '팝업' ? itemCount : (order.adults || order.guests || 0),
+            // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
+            num_adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
+            guests: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
             num_children: order.children || 0,
             num_seniors: 0,
             category: order.category,
