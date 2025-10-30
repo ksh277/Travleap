@@ -26,12 +26,16 @@ import {
   Share2,
   ChevronLeft,
   ChevronRight,
-  Clock
+  Clock,
+  Star,
+  MessageCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useAuth } from '../../hooks/useAuth';
+import { Textarea } from '../ui/textarea';
+import { api } from '../../utils/api';
 
 interface VehicleDetail {
   id: number;
@@ -56,6 +60,16 @@ interface Insurance {
   hourly_rate_krw: number;
   is_required?: boolean;
   display_order: number;
+}
+
+interface Review {
+  id: string;
+  user_id: number;
+  user_name?: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  helpful_count?: number;
 }
 
 export function RentcarVehicleDetailPage() {
@@ -89,6 +103,11 @@ export function RentcarVehicleDetailPage() {
   // 보험 상태
   const [insurances, setInsurances] = useState<Insurance[]>([]);
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<number | null>(null);
+
+  // 리뷰 관련 상태
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
 
   // 업체 페이지에서 전달받은 날짜/가격 정보 초기화
   useEffect(() => {
@@ -152,6 +171,80 @@ export function RentcarVehicleDetailPage() {
     };
 
     fetchVehicleDetail();
+  }, [vehicleId]);
+
+  // 리뷰 조회
+  const fetchReviews = async () => {
+    if (!vehicleId) return;
+
+    try {
+      setReviewsLoading(true);
+      const dbReviews = await api.getReviews(Number(vehicleId));
+
+      if (Array.isArray(dbReviews) && dbReviews.length > 0) {
+        const formattedReviews: Review[] = dbReviews.map((review: any) => ({
+          id: review.id.toString(),
+          user_id: review.user_id,
+          user_name: review.user_name || '익명',
+          rating: review.rating,
+          comment: review.comment_md || review.title || '',
+          created_at: review.created_at,
+          helpful_count: review.helpful_count || 0
+        }));
+        setReviews(formattedReviews);
+      }
+    } catch (error) {
+      console.error('리뷰 로드 오류:', error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  // 리뷰 작성
+  const handleReviewSubmit = async () => {
+    if (!newReview.comment.trim()) {
+      toast.error('리뷰 내용을 입력해주세요.');
+      return;
+    }
+
+    if (!isLoggedIn) {
+      toast.error('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    if (!vehicle) return;
+
+    try {
+      const reviewData = {
+        listing_id: Number(vehicleId),
+        user_id: user?.id || 1,
+        rating: newReview.rating,
+        title: `${vehicle.display_name} 리뷰`,
+        content: newReview.comment.trim(),
+        images: []
+      };
+
+      const response = await api.createReview(reviewData);
+      if (response.success) {
+        toast.success('리뷰가 성공적으로 등록되었습니다.');
+        setNewReview({ rating: 5, comment: '' });
+        fetchReviews();
+      } else {
+        throw new Error(response.error || '리뷰 등록 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('리뷰 제출 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : '리뷰 등록 중 오류가 발생했습니다.';
+      toast.error(errorMessage);
+    }
+  };
+
+  // 리뷰 로드
+  useEffect(() => {
+    if (vehicleId) {
+      fetchReviews();
+    }
   }, [vehicleId]);
 
   // 이미지 네비게이션
@@ -893,6 +986,93 @@ export function RentcarVehicleDetailPage() {
               </Card>
             </div>
           </div>
+        </div>
+
+        {/* 리뷰 섹션 */}
+        <div className="mt-6 grid grid-cols-1 gap-6">
+          {/* 리뷰 작성 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <MessageCircle className="h-5 w-5 mr-2" />
+                리뷰 작성
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm mb-2">평점</label>
+                <div className="flex items-center space-x-1">
+                  {[1, 2, 3, 4, 5].map(rating => (
+                    <button
+                      key={rating}
+                      onClick={() => setNewReview(prev => ({ ...prev, rating }))}
+                      className="p-1"
+                    >
+                      <Star
+                        className={`h-6 w-6 ${rating <= newReview.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm mb-2">리뷰 내용</label>
+                <Textarea
+                  placeholder="차량 이용 후기를 남겨주세요..."
+                  value={newReview.comment}
+                  onChange={(e) => setNewReview(prev => ({ ...prev, comment: e.target.value }))}
+                  rows={4}
+                />
+              </div>
+              <Button onClick={handleReviewSubmit} className="w-full">
+                리뷰 등록
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* 리뷰 목록 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>이용 후기 ({reviews.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {reviewsLoading ? (
+                <div className="text-center py-8 text-gray-500">
+                  리뷰를 불러오는 중...
+                </div>
+              ) : reviews.length > 0 ? (
+                <div className="space-y-4">
+                  {reviews.map((review) => (
+                    <div key={review.id} className="border-b pb-4 last:border-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <div className="flex items-center mb-1">
+                            <div className="flex items-center">
+                              {[1, 2, 3, 4, 5].map(star => (
+                                <Star
+                                  key={star}
+                                  className={`h-4 w-4 ${star <= review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                                />
+                              ))}
+                            </div>
+                            <span className="ml-2 text-sm font-medium">{review.user_name}</span>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {new Date(review.created_at).toLocaleDateString('ko-KR')}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-gray-700">{review.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  아직 작성된 리뷰가 없습니다. 첫 번째 리뷰를 작성해보세요!
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
