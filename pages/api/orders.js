@@ -798,7 +798,8 @@ module.exports = async function handler(req, res) {
         success: true,
         data: {
           orderNumber,
-          orderId: Number(insertResult.insertId) || 0,
+          orderId: paymentIds[0] || 0, // 🔧 첫 번째 payment id 사용
+          paymentIds, // 🔧 모든 payment ids 반환 (디버깅용)
           total
         },
         message: '주문이 생성되었습니다.'

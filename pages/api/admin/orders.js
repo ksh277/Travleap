@@ -153,8 +153,11 @@ module.exports = async function handler(req, res) {
               subtotal = notesData.subtotal || 0;
 
               // 🔧 카테고리 추출 (카테고리별 주문 분리 대응)
+              // notes.category 우선, 없으면 items[0].category, 없으면 listings.category
               if (notesData.category) {
                 order.category = notesData.category;
+              } else if (notesData.items && notesData.items[0]?.category) {
+                order.category = notesData.items[0].category;
               }
 
               // 상품 정보 추출 (우선순위: notes.items > product_title)
@@ -239,12 +242,13 @@ module.exports = async function handler(req, res) {
             // ✅ 옵션 정보 (AdminPage 표시용)
             selected_options: order.special_requests || null,
             // ✅ 배송 정보 (배송 관리 다이얼로그용)
+            // 🔧 장바구니 주문은 notes.shippingInfo에서, 단일 예약은 bookings에서
             delivery_status: order.delivery_status,
-            shipping_name: order.shipping_name,
-            shipping_phone: order.shipping_phone,
-            shipping_address: order.shipping_address,
-            shipping_address_detail: order.shipping_address_detail,
-            shipping_zipcode: order.shipping_zipcode
+            shipping_name: order.shipping_name || notesData?.shippingInfo?.name || null,
+            shipping_phone: order.shipping_phone || notesData?.shippingInfo?.phone || null,
+            shipping_address: order.shipping_address || notesData?.shippingInfo?.address || null,
+            shipping_address_detail: order.shipping_address_detail || notesData?.shippingInfo?.addressDetail || null,
+            shipping_zipcode: order.shipping_zipcode || notesData?.shippingInfo?.zipcode || null
           };
         });
       } finally {
