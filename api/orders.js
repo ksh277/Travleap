@@ -291,7 +291,23 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      const serverDeliveryFee = deliveryFee || 0;
+      // 🔒 배송비 서버 검증 (팝업 상품일 경우 자동 계산)
+      let serverDeliveryFee = 0;
+      const hasPopupProduct = items.some(item => item.category === '팝업');
+
+      if (hasPopupProduct) {
+        // 팝업 상품이 있으면 배송비 계산 (50,000원 이상 무료)
+        serverDeliveryFee = serverCalculatedSubtotal >= 50000 ? 0 : 3000;
+        console.log(`📦 [Orders] 팝업 상품 배송비 계산: ${serverCalculatedSubtotal}원 → 배송비 ${serverDeliveryFee}원`);
+
+        // 클라이언트가 보낸 배송비와 다르면 경고
+        if (deliveryFee !== serverDeliveryFee) {
+          console.warn(`⚠️ [Orders] 배송비 불일치: 클라이언트=${deliveryFee}원, 서버=${serverDeliveryFee}원`);
+        }
+      } else {
+        // 팝업이 아니면 배송비 0
+        serverDeliveryFee = 0;
+      }
 
       // 🔒 쿠폰 서버 검증 (트랜잭션 밖 - 빠른 검증)
       let serverCouponDiscount = 0;

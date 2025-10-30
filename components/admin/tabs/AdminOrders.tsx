@@ -16,6 +16,8 @@ interface Order {
   listing_id: number;
   amount: number;
   total_amount?: number; // ✅ API에서 사용
+  subtotal?: number; // ✅ 상품 금액
+  delivery_fee?: number; // ✅ 배송비
   status: string;
   payment_status: string;
   created_at: string;
@@ -260,8 +262,14 @@ export function AdminOrders() {
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4 font-semibold">
-                        ₩{order.amount?.toLocaleString() || '0'}
+                      <td className="py-3 px-4">
+                        <div className="font-semibold">₩{order.amount?.toLocaleString() || '0'}</div>
+                        {order.subtotal && order.delivery_fee !== undefined && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            상품 {order.subtotal.toLocaleString()}원
+                            {order.delivery_fee > 0 && ` + 배송비 ${order.delivery_fee.toLocaleString()}원`}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <div className="space-y-1">

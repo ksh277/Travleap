@@ -77,7 +77,7 @@ module.exports = async function handler(req, res) {
         LIMIT 1
       `, [bookingId]);
     } else {
-      // 장바구니 주문 환불 (order_id 사용)
+      // 장바구니 주문 환불 (payments.id 사용)
       result = await connection.execute(`
         SELECT
           p.id as payment_id,
@@ -87,9 +87,9 @@ module.exports = async function handler(req, res) {
           p.notes,
           NULL as delivery_status,
           NULL as category,
-          NULL as order_number
+          p.gateway_transaction_id as order_number
         FROM payments p
-        WHERE p.order_id = ?
+        WHERE p.id = ?
           AND (p.payment_status = 'paid' OR p.payment_status = 'completed')
         LIMIT 1
       `, [orderId]);
