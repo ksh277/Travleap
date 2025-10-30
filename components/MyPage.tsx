@@ -1274,13 +1274,13 @@ export function MyPage() {
                                     className={
                                       isEarn ? 'bg-green-100 text-green-800' :
                                       isExpire ? 'bg-gray-100 text-gray-800' :
-                                      isRefund ? 'bg-orange-100 text-orange-800' :
+                                      isRefund ? (point.points > 0 ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800') :
                                       'bg-red-100 text-red-800'
                                     }
                                   >
                                     {point.point_type === 'earn' ? '적립' :
                                      point.point_type === 'use' ? '사용' :
-                                     point.point_type === 'refund' ? '회수' :
+                                     point.point_type === 'refund' ? (point.points > 0 ? '환불' : '회수') :
                                      point.point_type === 'expire' ? '만료' : '관리자'}
                                   </Badge>
                                   <span className="text-sm text-gray-600">
@@ -1307,10 +1307,10 @@ export function MyPage() {
                                 <div className={`text-lg font-bold ${
                                   isEarn ? 'text-green-600' :
                                   isExpire ? 'text-gray-500' :
-                                  isRefund ? 'text-orange-600' :
+                                  isRefund ? (point.points > 0 ? 'text-blue-600' : 'text-orange-600') :
                                   'text-red-600'
                                 }`}>
-                                  {isEarn ? '+' : ''}{point.points.toLocaleString()}P
+                                  {(isEarn || (isRefund && point.points > 0)) ? '+' : ''}{point.points.toLocaleString()}P
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1">
                                   잔액: {point.balance_after.toLocaleString()}P
