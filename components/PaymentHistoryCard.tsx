@@ -51,7 +51,10 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
     return defaults[category] || defaults.tour;
   };
 
-  let displayImage = getDefaultImage(payment.category || 'tour');
+  // 🔧 카테고리 결정 (notes.category 우선, payment.category fallback)
+  const category = notesData?.category || payment.category || 'tour';
+
+  let displayImage = getDefaultImage(category);
   let displayTitle = payment.listing_title || payment.product_name || '';
   let itemCount = 1;
 
@@ -61,10 +64,6 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
 
     // 첫 번째 상품명 가져오기 (title 또는 name 필드)
     const firstItem = notesData.items[0];
-    console.log('🔍 [PaymentHistoryCard] 첫 번째 아이템:', firstItem);
-    console.log('🔍 [PaymentHistoryCard] payment.listing_title:', payment.listing_title);
-    console.log('🔍 [PaymentHistoryCard] payment.product_name:', payment.product_name);
-
     const firstItemTitle = firstItem?.title || firstItem?.name || firstItem?.productTitle || '';
 
     if (itemCount > 1) {
@@ -72,15 +71,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
     } else {
       displayTitle = firstItemTitle || payment.listing_title || payment.product_name || '주문';
     }
-
-    console.log('🔍 [PaymentHistoryCard] 최종 displayTitle:', displayTitle);
   } else if (!displayTitle) {
-    // notes.items도 없고 listing_title/product_name도 없으면
-    console.log('⚠️ [PaymentHistoryCard] notes.items가 없거나 비어있음, payment:', {
-      listing_title: payment.listing_title,
-      product_name: payment.product_name,
-      notes: payment.notes
-    });
     displayTitle = '주문';
   }
 
@@ -150,11 +141,16 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-lg truncate">{displayTitle}</h3>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {payment.category && (
+                  {/* 카테고리 배지 */}
+                  {category && (
                     <Badge variant="outline" className="text-xs">
-                      {payment.category === '팝업' ? '팝업' : payment.category}
+                      {category === '팝업' ? '🎪 팝업' :
+                       category === '렌트카' ? '🚗 렌트카' :
+                       category === '숙박' ? '🏨 숙박' :
+                       category === '여행' ? '✈️ 여행' : category}
                     </Badge>
                   )}
+                  {/* 결제 상태 배지 */}
                   <Badge
                     className={
                       isPaid
@@ -166,6 +162,12 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                   >
                     {isPaid ? '결제 완료' : isRefunded ? '환불 완료' : '결제 실패'}
                   </Badge>
+                  {/* 쿠폰 사용 배지 */}
+                  {notesData?.couponCode && (
+                    <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
+                      🎟️ 쿠폰 적용
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
@@ -202,25 +204,42 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               </div>
             </div>
 
-            {/* 포인트 정보 */}
-            {notesData && (notesData.pointsUsed > 0 || notesData.pointsEarned > 0) && (
-              <div className="mt-3 p-2 bg-purple-50 rounded-lg">
-                <div className="flex items-center text-sm">
-                  <Coins className="w-4 h-4 mr-2 text-purple-600" />
-                  <div className="flex-1">
-                    {notesData.pointsUsed > 0 && (
-                      <span className="text-gray-700">
-                        사용: <strong className="text-purple-700">-{notesData.pointsUsed.toLocaleString()}P</strong>
-                      </span>
-                    )}
-                    {notesData.pointsUsed > 0 && notesData.pointsEarned > 0 && ' | '}
-                    {notesData.pointsEarned > 0 && (
-                      <span className="text-gray-700">
-                        적립: <strong className="text-green-700">+{notesData.pointsEarned.toLocaleString()}P</strong>
-                      </span>
-                    )}
+            {/* 포인트 & 쿠폰 정보 */}
+            {notesData && (notesData.pointsUsed > 0 || notesData.pointsEarned > 0 || notesData.couponDiscount > 0) && (
+              <div className="mt-3 p-2 bg-purple-50 rounded-lg space-y-1">
+                {/* 포인트 정보 */}
+                {(notesData.pointsUsed > 0 || notesData.pointsEarned > 0) && (
+                  <div className="flex items-center text-sm">
+                    <Coins className="w-4 h-4 mr-2 text-purple-600" />
+                    <div className="flex-1">
+                      {notesData.pointsUsed > 0 && (
+                        <span className="text-gray-700">
+                          사용: <strong className="text-purple-700">-{notesData.pointsUsed.toLocaleString()}P</strong>
+                        </span>
+                      )}
+                      {notesData.pointsUsed > 0 && notesData.pointsEarned > 0 && ' | '}
+                      {notesData.pointsEarned > 0 && (
+                        <span className="text-gray-700">
+                          적립: <strong className="text-green-700">+{notesData.pointsEarned.toLocaleString()}P</strong>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
+                {/* 쿠폰 할인 정보 */}
+                {notesData.couponDiscount > 0 && (
+                  <div className="flex items-center text-sm">
+                    <span className="text-orange-600 mr-2">🎟️</span>
+                    <div className="flex-1">
+                      <span className="text-gray-700">
+                        쿠폰 할인: <strong className="text-orange-700">-{notesData.couponDiscount.toLocaleString()}원</strong>
+                      </span>
+                      {notesData.couponCode && (
+                        <span className="ml-2 text-xs text-gray-500">({notesData.couponCode})</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

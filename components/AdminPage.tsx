@@ -3959,28 +3959,14 @@ export function AdminPage({}: AdminPageProps) {
                         <TableCell className="font-medium text-blue-600">{order.order_number}</TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            {order.user_email && (
-                              <div className="text-sm text-blue-600">
-                                {order.user_email}
+                            {order.user_name && (
+                              <div className="text-sm font-medium">
+                                {order.user_name}
                               </div>
                             )}
-                            {/* 팝업 상품인 경우 배송 주소 표시 */}
-                            {order.category === '팝업' && order.shipping_address && (
-                              <div className="mt-2 pt-2 border-t border-gray-200">
-                                <div className="text-xs font-medium text-blue-700 mb-1">📦 배송지</div>
-                                <div className="text-xs text-gray-600">
-                                  [{order.shipping_zipcode}] {order.shipping_address}
-                                </div>
-                                {order.shipping_address_detail && (
-                                  <div className="text-xs text-gray-600">
-                                    {order.shipping_address_detail}
-                                  </div>
-                                )}
-                                {order.shipping_name && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    수령인: {order.shipping_name} / {order.shipping_phone}
-                                  </div>
-                                )}
+                            {order.user_email && (
+                              <div className="text-xs text-gray-600">
+                                {order.user_email}
                               </div>
                             )}
                           </div>
@@ -3988,8 +3974,18 @@ export function AdminPage({}: AdminPageProps) {
                         <TableCell>
                           <div className="space-y-1">
                             {order.product_name && <div className="font-medium">{order.product_name}</div>}
-                            <div className="text-xs text-gray-500">
-                              {order.category ? `카테고리: ${order.category}` : ''}
+                            <div className="flex items-center gap-1 mt-1">
+                              {order.category && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                  {order.category === '팝업' ? '🎪 팝업' :
+                                   order.category === '렌트카' ? '🚗 렌트카' :
+                                   order.category === '숙박' ? '🏨 숙박' :
+                                   order.category === '여행' ? '✈️ 여행' : order.category}
+                                </span>
+                              )}
+                              {order.total_quantity > 1 && (
+                                <span className="text-xs text-gray-500">x{order.total_quantity}</span>
+                              )}
                             </div>
                             {order.selected_options && (() => {
                               try {

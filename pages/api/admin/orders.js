@@ -151,6 +151,11 @@ module.exports = async function handler(req, res) {
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
 
+              // 🔧 카테고리 추출 (카테고리별 주문 분리 대응)
+              if (notesData.category) {
+                order.category = notesData.category;
+              }
+
               // 상품 정보 추출 (우선순위: notes.items > product_title)
               if (notesData.items && Array.isArray(notesData.items) && notesData.items.length > 0) {
                 itemsInfo = notesData.items;
