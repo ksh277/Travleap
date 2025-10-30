@@ -400,17 +400,11 @@ export function HotelDetailPage() {
                       {/* 객실 이미지 */}
                       <div className="relative w-full aspect-video">
                         {room.images && room.images.length > 0 ? (
-                          <img
+                          <ImageWithFallback
                             src={room.images[0]}
                             alt={`${room.name} - ${room.room_type}`}
                             className="w-full h-full object-cover"
                             loading="lazy"
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              const fallback = e.currentTarget.nextElementSibling;
-                              if (fallback) fallback.classList.remove('hidden');
-                            }}
                           />
                         ) : null}
                         <div className={`w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 flex flex-col items-center justify-center ${room.images && room.images.length > 0 ? 'hidden' : ''}`}>

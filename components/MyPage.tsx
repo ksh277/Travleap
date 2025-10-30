@@ -9,6 +9,7 @@ import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 import {
   User,
   Calendar,
@@ -1502,7 +1503,7 @@ export function MyPage() {
                           className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer"
                           onClick={() => navigate(`/detail/${item.id}`)}
                         >
-                          <img
+                          <ImageWithFallback
                             src={item.images?.[0] || 'https://via.placeholder.com/100'}
                             alt={item.title}
                             className="w-full h-full object-cover hover:scale-105 transition-transform"
@@ -1577,7 +1578,7 @@ export function MyPage() {
                     {reviews.map((review) => (
                     <div key={review.id} className="border rounded-lg p-4">
                       <div className="flex space-x-4">
-                        <img
+                        <ImageWithFallback
                           src={review.image}
                           alt={review.title}
                           className="w-16 h-16 rounded-lg object-cover"

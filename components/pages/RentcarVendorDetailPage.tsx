@@ -544,17 +544,11 @@ export function RentcarVendorDetailPage() {
                         {/* 차량 이미지 */}
                         <div className="relative w-full aspect-video">
                           {vehicle.images && vehicle.images.length > 0 ? (
-                            <img
+                            <ImageWithFallback
                               src={vehicle.images[0]}
                               alt={vehicle.display_name}
                               className="w-full h-full object-cover"
                               loading="lazy"
-                              sizes="(max-width: 768px) 100vw, 50vw"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const fallback = e.currentTarget.nextElementSibling;
-                                if (fallback) fallback.classList.remove('hidden');
-                              }}
                             />
                           ) : null}
                           <div className={`w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col items-center justify-center ${vehicle.images && vehicle.images.length > 0 ? 'hidden' : ''}`}>

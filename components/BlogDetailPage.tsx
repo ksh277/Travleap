@@ -5,6 +5,7 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { api } from '../utils/api';
 import { toast } from 'sonner';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface BlogPost {
   id: number;
@@ -248,7 +249,7 @@ export default function BlogDetailPage() {
 
       {/* Featured Image */}
       <div className="relative h-96 md:h-[500px]">
-        <img
+        <ImageWithFallback
           src={post.featured_image}
           alt={post.title}
           className="w-full h-full object-cover"
@@ -377,7 +378,7 @@ export default function BlogDetailPage() {
                         onClick={() => navigate(`/blog/${relatedPost.id}`)}
                       >
                         <div className="relative h-32 rounded overflow-hidden mb-2">
-                          <img
+                          <ImageWithFallback
                             src={relatedPost.featured_image}
                             alt={relatedPost.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"

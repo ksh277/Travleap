@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Calendar, User } from 'lucide-react';
 import { api } from '../utils/api';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface BlogPost {
   id: number;
@@ -138,7 +139,7 @@ export default function BlogListPage() {
                   >
                     {/* Featured Image */}
                     <div className="mb-4 overflow-hidden">
-                      <img
+                      <ImageWithFallback
                         src={post.featured_image}
                         alt={post.title}
                         className="w-full h-auto object-cover group-hover:opacity-90 transition-opacity"
