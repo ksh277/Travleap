@@ -7,7 +7,7 @@ import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, MoveUp, MoveDown, Image as ImageIcon, ExternalLink, Video } from 'lucide-react';
-import { ImageUploadComponent } from './ImageUploadComponent';
+import { BannerImageUpload } from './BannerImageUpload';
 import { useAuth } from '../../hooks/useAuth';
 
 interface Banner {
@@ -123,12 +123,12 @@ export function BannerManagement() {
   // 배너 저장 (생성/수정)
   const handleSave = async () => {
     // 유효성 검사
-    if (formData.media_type === 'image' && !formData.image_url.trim()) {
+    if (formData.media_type === 'image' && (!formData.image_url || !formData.image_url.trim())) {
       toast.error('배너 이미지를 선택해주세요.');
       return;
     }
 
-    if (formData.media_type === 'video' && !formData.video_url?.trim()) {
+    if (formData.media_type === 'video' && (!formData.video_url || !formData.video_url.trim())) {
       toast.error('동영상 URL을 입력해주세요.');
       return;
     }
@@ -233,7 +233,7 @@ export function BannerManagement() {
 
   // 페이지 배너 저장
   const handleSavePageBanner = async () => {
-    if (!formData.image_url.trim()) {
+    if (!formData.image_url || !formData.image_url.trim()) {
       toast.error('배너 이미지를 선택해주세요.');
       return;
     }
@@ -553,19 +553,11 @@ export function BannerManagement() {
             {formData.media_type === 'image' && (
               <div className="space-y-2">
                 <Label>배너 이미지 *</Label>
-                <ImageUploadComponent
+                <BannerImageUpload
                   onUploadComplete={handleImageUpload}
                   existingImageUrl={formData.image_url}
+                  category="banners"
                 />
-                {formData.image_url && (
-                  <div className="mt-2 border rounded-lg overflow-hidden">
-                    <img
-                      src={formData.image_url}
-                      alt="미리보기"
-                      className="w-full h-48 object-cover"
-                    />
-                  </div>
-                )}
               </div>
             )}
 
