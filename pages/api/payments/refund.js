@@ -702,12 +702,13 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
               console.log(`✅ [쿠폰 복구] 쿠폰 사용 횟수 복구 완료: ${couponCode} (${coupon.used_count} → ${Math.max(0, coupon.used_count - 1)})`);
 
               // coupon_usage 테이블에서 사용 기록 삭제
+              // 🔧 CRITICAL FIX: confirm.js에서 gateway_transaction_id를 order_id로 저장했으므로 동일하게 사용
               try {
                 await connection.execute(`
                   DELETE FROM coupon_usage
                   WHERE coupon_code = ? AND order_id = ?
                   LIMIT 1
-                `, [couponCode.toUpperCase(), payment.id]);
+                `, [couponCode.toUpperCase(), payment.gateway_transaction_id]);
                 console.log(`✅ [쿠폰 복구] coupon_usage 기록 삭제 완료`);
               } catch (usageError) {
                 console.log('⚠️ [쿠폰 복구] coupon_usage 테이블 없음 또는 삭제 실패 (계속 진행)');
