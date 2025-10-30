@@ -25,7 +25,6 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { AccommodationAdvancedFeatures } from './AccommodationAdvancedFeatures';
 import type {
   AccommodationVendor,
   AccommodationRoom,
@@ -70,12 +69,12 @@ export const AccommodationManagement: React.FC = () => {
   const [bookingItemsPerPage] = useState(10);
 
   const [selectedVendor, setSelectedVendor] = useState<AccommodationVendor | null>(null);
-  const [newPartnerForm, setNewPartnerForm] = useState<Omit<AccommodationVendorFormData, 'tier'> & { tier: 'basic' | 'premium' | 'enterprise' }>({
+  const [newPartnerForm, setNewPartnerForm] = useState<Omit<AccommodationVendorFormData, 'tier'> & { password?: string }>({
     business_name: '',
     contact_name: '',
     phone: '',
     email: '',
-    tier: 'basic',
+    password: '',
     logo_url: '',
     pms_provider: '',
     pms_api_key: '',
@@ -410,7 +409,7 @@ export const AccommodationManagement: React.FC = () => {
         contact_name: vendor.contact_name || '',
         phone: vendor.contact_phone || vendor.phone || '',
         email: vendor.contact_email || vendor.email || '',
-        tier: vendor.tier || 'basic',
+        password: '',
         logo_url: vendor.logo_url || '',
         pms_provider: vendor.pms_provider || '',
         pms_api_key: vendor.pms_api_key || '',
@@ -424,7 +423,7 @@ export const AccommodationManagement: React.FC = () => {
         contact_name: '',
         phone: '',
         email: '',
-        tier: 'basic',
+        password: '',
         logo_url: '',
         pms_provider: '',
         pms_api_key: '',
@@ -460,7 +459,7 @@ export const AccommodationManagement: React.FC = () => {
           contact_name: '',
           phone: '',
           email: '',
-          tier: 'basic',
+          password: '',
           logo_url: '',
           pms_provider: '',
           pms_api_key: '',
@@ -699,11 +698,10 @@ export const AccommodationManagement: React.FC = () => {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-      <TabsList className="grid grid-cols-4 w-full max-w-3xl">
+      <TabsList className="grid grid-cols-3 w-full max-w-3xl">
         <TabsTrigger value="partners">업체 관리</TabsTrigger>
         <TabsTrigger value="rooms">객실 관리</TabsTrigger>
         <TabsTrigger value="bookings">예약 관리</TabsTrigger>
-        <TabsTrigger value="advanced">고급 기능</TabsTrigger>
       </TabsList>
 
       {/* 업체 관리 */}
@@ -1226,17 +1224,13 @@ export const AccommodationManagement: React.FC = () => {
                 />
               </div>
               <div>
-                <Label>등급</Label>
-                <Select value={newPartnerForm.tier} onValueChange={(value) => setNewPartnerForm({...newPartnerForm, tier: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Basic</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="enterprise">Enterprise</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>비밀번호 *</Label>
+                <Input
+                  type="password"
+                  value={newPartnerForm.password}
+                  onChange={(e) => setNewPartnerForm({...newPartnerForm, password: e.target.value})}
+                  placeholder="임시 비밀번호 입력"
+                />
               </div>
               <div className="col-span-2">
                 <Label>로고 이미지</Label>
@@ -1574,13 +1568,6 @@ export const AccommodationManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* 고급 기능 */}
-      <TabsContent value="advanced">
-        <AccommodationAdvancedFeatures
-          vendors={partners}
-          selectedVendorId={selectedPartnerId}
-        />
-      </TabsContent>
     </Tabs>
   );
 };

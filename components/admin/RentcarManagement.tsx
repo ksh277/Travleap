@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { rentcarApi } from '../../utils/rentcar-api';
-import { RentcarAdvancedFeatures } from './RentcarAdvancedFeatures';
 import type {
   RentcarVendor,
   RentcarVehicle,
@@ -706,12 +705,10 @@ export const RentcarManagement: React.FC = () => {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-      <TabsList className="grid grid-cols-5 w-full max-w-3xl">
+      <TabsList className="grid grid-cols-3 w-full max-w-3xl">
         <TabsTrigger value="vendors">벤더 관리</TabsTrigger>
         <TabsTrigger value="vehicles">차량 관리</TabsTrigger>
-        <TabsTrigger value="locations">지점 관리</TabsTrigger>
         <TabsTrigger value="bookings">예약 관리</TabsTrigger>
-        <TabsTrigger value="advanced">고급 기능</TabsTrigger>
       </TabsList>
 
       {/* 벤더 관리 */}
@@ -1098,153 +1095,6 @@ export const RentcarManagement: React.FC = () => {
                     >
                       다음
                     </Button>
-                  </div>
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      {/* 지점 관리 */}
-      <TabsContent value="locations" className="space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>지점 관리</CardTitle>
-              <div className="flex gap-2">
-                <Select
-                  value={vendorFilter?.toString() || 'none'}
-                  onValueChange={(value) => setVendorFilter(value === 'none' ? null : parseInt(value))}
-                >
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="벤더 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">벤더 선택 (필수)</SelectItem>
-                    {vendors.map((vendor) => (
-                      <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                        {vendor.business_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  className="bg-[#8B5FBF] hover:bg-[#7A4FB5]"
-                  onClick={() => handleOpenLocationDialog()}
-                  disabled={!vendorFilter}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  지점 추가
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="지점명, 도시, 주소 검색..."
-                  className="pl-10"
-                  value={locationSearchQuery}
-                  onChange={(e) => {
-                    setLocationSearchQuery(e.target.value);
-                    setLocationCurrentPage(1);
-                  }}
-                />
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>지점 코드</TableHead>
-                    <TableHead>지점명</TableHead>
-                    <TableHead>타입</TableHead>
-                    <TableHead>주소</TableHead>
-                    <TableHead>도시</TableHead>
-                    <TableHead>전화번호</TableHead>
-                    <TableHead>픽업 수수료</TableHead>
-                    <TableHead>반납 수수료</TableHead>
-                    <TableHead>상태</TableHead>
-                    <TableHead>작업</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(() => {
-                    const filtered = locations.filter(location =>
-                      location.name?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
-                      location.city?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
-                      location.address?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
-                      location.location_code?.toLowerCase().includes(locationSearchQuery.toLowerCase())
-                    );
-                    const startIndex = (locationCurrentPage - 1) * locationItemsPerPage;
-                    const paginatedLocations = filtered.slice(startIndex, startIndex + locationItemsPerPage);
-
-                    return paginatedLocations.map((location) => (
-                    <TableRow key={location.id}>
-                      <TableCell className="font-medium">{location.location_code}</TableCell>
-                      <TableCell>{location.name}</TableCell>
-                      <TableCell>{location.location_type}</TableCell>
-                      <TableCell>{location.address}</TableCell>
-                      <TableCell>{location.city || '-'}</TableCell>
-                      <TableCell>{location.phone || '-'}</TableCell>
-                      <TableCell>₩{location.pickup_fee_krw.toLocaleString()}</TableCell>
-                      <TableCell>₩{location.dropoff_fee_krw.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge className={location.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                          {location.is_active ? '활성' : '비활성'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenLocationDialog(location)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteLocation(location.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    ));
-                  })()}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* 페이지네이션 */}
-            {(() => {
-              const filtered = locations.filter(location =>
-                location.name?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
-                location.city?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
-                location.address?.toLowerCase().includes(locationSearchQuery.toLowerCase()) ||
-                location.location_code?.toLowerCase().includes(locationSearchQuery.toLowerCase())
-              );
-              const totalPages = Math.ceil(filtered.length / locationItemsPerPage);
-              if (totalPages <= 1) return null;
-
-              return (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-gray-600">
-                    총 {filtered.length}개 지점 (페이지 {locationCurrentPage} / {totalPages})
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setLocationCurrentPage(prev => Math.max(1, prev - 1))} disabled={locationCurrentPage === 1}>이전</Button>
-                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                      let pageNum = totalPages <= 5 ? i + 1 : locationCurrentPage <= 3 ? i + 1 : locationCurrentPage >= totalPages - 2 ? totalPages - 4 + i : locationCurrentPage - 2 + i;
-                      return <Button key={pageNum} variant={locationCurrentPage === pageNum ? "default" : "outline"} size="sm" onClick={() => setLocationCurrentPage(pageNum)} className={locationCurrentPage === pageNum ? "bg-[#8B5FBF] hover:bg-[#7A4FB5]" : ""}>{pageNum}</Button>;
-                    })}
-                    <Button variant="outline" size="sm" onClick={() => setLocationCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={locationCurrentPage === totalPages}>다음</Button>
                   </div>
                 </div>
               );
@@ -2063,10 +1913,6 @@ export const RentcarManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* 고급 기능 탭 */}
-      <TabsContent value="advanced" className="space-y-6">
-        <RentcarAdvancedFeatures vendors={vendors} selectedVendorId={vendorFilter} />
-      </TabsContent>
     </Tabs>
   );
 };
