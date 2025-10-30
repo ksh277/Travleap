@@ -35,7 +35,11 @@ module.exports = async function handler(req, res) {
       activeListings: 0,
       totalUsers: 0,
       totalPartners: 0,
-      totalOrders: 0
+      totalOrders: 0,
+      todayOrders: 0,
+      revenue: 0,
+      commission: 0,
+      totalReviews: 0
     };
 
     // 간단한 통계만 반환
@@ -60,6 +64,47 @@ module.exports = async function handler(req, res) {
       stats.totalPartners = partners.rows?.[0]?.count || 0;
     } catch (e) {}
 
+    // ✅ 주문 통계 (payments 테이블)
+    try {
+      // 총 주문 수 (결제 완료된 건만)
+      const ordersResult = await connection.execute(`
+        SELECT COUNT(*) as count
+        FROM payments
+        WHERE payment_status IN ('paid', 'completed', 'refunded')
+      `);
+      stats.totalOrders = parseInt(ordersResult.rows?.[0]?.count) || 0;
+
+      // 오늘 주문 수
+      const todayResult = await connection.execute(`
+        SELECT COUNT(*) as count
+        FROM payments
+        WHERE payment_status IN ('paid', 'completed', 'refunded')
+          AND DATE(created_at) = CURDATE()
+      `);
+      stats.todayOrders = parseInt(todayResult.rows?.[0]?.count) || 0;
+
+      // 총 매출 (환불 제외)
+      const revenueResult = await connection.execute(`
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM payments
+        WHERE payment_status IN ('paid', 'completed')
+      `);
+      stats.revenue = parseInt(revenueResult.rows?.[0]?.total) || 0;
+
+      // 수수료 (매출의 10% 가정)
+      stats.commission = Math.floor(stats.revenue * 0.1);
+
+      console.log('✅ [주문 통계] 총:', stats.totalOrders, '오늘:', stats.todayOrders, '매출:', stats.revenue);
+    } catch (e) {
+      console.error('❌ [주문 통계] 조회 실패:', e);
+    }
+
+    // ✅ 리뷰 통계
+    try {
+      const reviewsResult = await connection.execute('SELECT COUNT(*) as count FROM reviews');
+      stats.totalReviews = parseInt(reviewsResult.rows?.[0]?.count) || 0;
+    } catch (e) {}
+
     return res.status(200).json({
       success: true,
       data: stats
@@ -73,7 +118,11 @@ module.exports = async function handler(req, res) {
         activeListings: 0,
         totalUsers: 0,
         totalPartners: 0,
-        totalOrders: 0
+        totalOrders: 0,
+        todayOrders: 0,
+        revenue: 0,
+        commission: 0,
+        totalReviews: 0
       }
     });
   }
