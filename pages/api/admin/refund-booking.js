@@ -105,23 +105,52 @@ module.exports = async function handler(req, res) {
 
     const { payment_key: paymentKey, amount, notes, delivery_status, category } = result.rows[0];
 
-    console.log(`✅ [Admin Refund] payment_key 조회 완료: ${paymentKey}, amount: ${amount}원, delivery_status: ${delivery_status}`);
+    console.log(`✅ [Admin Refund] payment_key 조회 완료: ${paymentKey}, amount: ${amount}원, delivery_status: ${delivery_status}, category: ${category}`);
 
-    // 3. 배송비 추출 및 환불 금액 계산
+    // 3. notes에서 배송비 및 카테고리 정보 추출
     let deliveryFee = 0;
     let refundAmount = amount; // 기본은 전액 환불
+    let hasPopupProduct = false;
+    let actualDeliveryStatus = delivery_status;
 
     if (notes) {
       try {
         const notesData = typeof notes === 'string' ? JSON.parse(notes) : notes;
         deliveryFee = notesData.deliveryFee || 0;
+
+        // 장바구니 주문인 경우 items에서 팝업 상품 확인
+        if (notesData.items && Array.isArray(notesData.items)) {
+          hasPopupProduct = notesData.items.some(item => item.category === '팝업');
+          console.log(`📦 [Admin Refund] 장바구니 주문 분석: 팝업 상품 ${hasPopupProduct ? '있음' : '없음'}`);
+
+          // 장바구니 주문이면 bookings 테이블에서 delivery_status 조회
+          if (!bookingId && hasPopupProduct) {
+            // notes의 첫 번째 아이템의 listing_id로 bookings 테이블 조회
+            const firstListingId = notesData.items[0]?.listingId;
+            if (firstListingId) {
+              const bookingResult = await connection.execute(`
+                SELECT delivery_status FROM bookings
+                WHERE listing_id = ? AND user_id = (SELECT user_id FROM payments WHERE id = ?)
+                ORDER BY created_at DESC
+                LIMIT 1
+              `, [firstListingId, result.rows[0].payment_id]);
+
+              if (bookingResult.rows && bookingResult.rows.length > 0) {
+                actualDeliveryStatus = bookingResult.rows[0].delivery_status;
+                console.log(`📦 [Admin Refund] bookings에서 배송 상태 조회: ${actualDeliveryStatus}`);
+              }
+            }
+          }
+        }
       } catch (e) {
-        console.error('notes 파싱 실패:', e);
+        console.error('❌ [Admin Refund] notes 파싱 실패:', e);
       }
     }
 
-    // 팝업 카테고리만 배송 상태 체크
-    if (category === '팝업' && delivery_status) {
+    // 팝업 상품이 있고 배송 상태가 있으면 배송 정책 적용
+    const shouldApplyShippingPolicy = (category === '팝업' || hasPopupProduct) && actualDeliveryStatus;
+
+    if (shouldApplyShippingPolicy) {
       const RETURN_FEE = 3000; // 반품비 3,000원
 
       // 상품 하자/오배송은 전액 환불
@@ -131,7 +160,7 @@ module.exports = async function handler(req, res) {
         // 판매자 귀책 → 전액 환불
         refundAmount = amount;
         console.log(`💰 [Admin Refund] 상품 하자/오배송 → 전액 환불: ${refundAmount}원`);
-      } else if (delivery_status === 'shipped' || delivery_status === 'delivered') {
+      } else if (actualDeliveryStatus === 'shipped' || actualDeliveryStatus === 'delivered') {
         // 배송 중 or 배송 완료 → 배송비 + 반품비 차감
         const deduction = deliveryFee + RETURN_FEE;
         refundAmount = Math.max(0, amount - deduction);
@@ -139,11 +168,11 @@ module.exports = async function handler(req, res) {
       } else {
         // 배송 전 (pending or null) → 전액 환불
         refundAmount = amount;
-        console.log(`💰 [Admin Refund] 배송 전 → 전액 환불: ${refundAmount}원`);
+        console.log(`💰 [Admin Refund] 배송 전(${actualDeliveryStatus || 'null'}) → 전액 환불: ${refundAmount}원`);
       }
     } else {
       // 팝업이 아닌 경우 전액 환불
-      console.log(`💰 [Admin Refund] 비팝업 카테고리 → 전액 환불: ${refundAmount}원`);
+      console.log(`💰 [Admin Refund] 비팝업 상품 → 전액 환불: ${refundAmount}원 (category: ${category}, hasPopup: ${hasPopupProduct})`);
     }
 
     // 4. Toss Payments 환불 API 호출
