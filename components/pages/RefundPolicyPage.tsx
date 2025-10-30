@@ -17,7 +17,7 @@ export function RefundPolicyPage() {
           돌아가기
         </button>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">취소/환불 정책 (팝업 스토어 상품 전용)</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">취소/환불 정책</h1>
         <p className="text-gray-600 mb-8">시행일: 2025년 10월 28일</p>
 
         <Card>
