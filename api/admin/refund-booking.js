@@ -125,20 +125,38 @@ module.exports = async function handler(req, res) {
 
           // 장바구니 주문이면 bookings 테이블에서 delivery_status 조회
           if (!bookingId && hasPopupProduct) {
-            // notes의 첫 번째 아이템의 listing_id로 bookings 테이블 조회
-            const firstListingId = notesData.items[0]?.listingId;
-            if (firstListingId) {
-              const bookingResult = await connection.execute(`
-                SELECT delivery_status FROM bookings
-                WHERE listing_id = ? AND user_id = (SELECT user_id FROM payments WHERE id = ?)
-                ORDER BY created_at DESC
-                LIMIT 1
-              `, [firstListingId, result.rows[0].payment_id]);
+            // 🔧 CRITICAL FIX: 팝업 상품만 필터링해서 배송 상태 확인 (혼합 주문 대응)
+            const popupItems = notesData.items.filter(item => item.category === '팝업');
+            console.log(`📦 [Admin Refund] 팝업 상품 ${popupItems.length}개 발견`);
 
-              if (bookingResult.rows && bookingResult.rows.length > 0) {
-                actualDeliveryStatus = bookingResult.rows[0].delivery_status;
-                console.log(`📦 [Admin Refund] bookings에서 배송 상태 조회: ${actualDeliveryStatus}`);
+            // 모든 팝업 상품의 배송 상태를 확인하여 가장 진행된 상태 사용
+            let mostAdvancedStatus = null;
+            const statusPriority = { 'pending': 0, 'preparing': 1, 'shipped': 2, 'delivered': 3 };
+
+            for (const popupItem of popupItems) {
+              if (popupItem.listingId) {
+                const bookingResult = await connection.execute(`
+                  SELECT delivery_status FROM bookings
+                  WHERE listing_id = ? AND user_id = (SELECT user_id FROM payments WHERE id = ?)
+                  ORDER BY created_at DESC
+                  LIMIT 1
+                `, [popupItem.listingId, result.rows[0].payment_id]);
+
+                if (bookingResult.rows && bookingResult.rows.length > 0) {
+                  const status = bookingResult.rows[0].delivery_status;
+                  console.log(`📦 [Admin Refund] 팝업 상품 ${popupItem.title || popupItem.listingId} 배송 상태: ${status}`);
+
+                  // 가장 진행된 배송 상태 선택 (shipped > preparing > pending)
+                  if (!mostAdvancedStatus || (statusPriority[status] || 0) > (statusPriority[mostAdvancedStatus] || 0)) {
+                    mostAdvancedStatus = status;
+                  }
+                }
               }
+            }
+
+            if (mostAdvancedStatus) {
+              actualDeliveryStatus = mostAdvancedStatus;
+              console.log(`📦 [Admin Refund] 최종 배송 상태 (가장 진행된 상태): ${actualDeliveryStatus}`);
             }
           }
         }

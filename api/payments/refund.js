@@ -673,7 +673,62 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       console.warn(`⚠️ [Refund] 포인트 처리 스킵 - user_id: ${payment.user_id}, refundOrderId: ${refundOrderId}`);
     }
 
-    // 11. 예약 로그 기록
+    // 11. 🎟️ 쿠폰 복구 처리 (CRITICAL: 환불 시 쿠폰 사용 횟수 복구)
+    if (payment.notes) {
+      try {
+        const notes = typeof payment.notes === 'string' ? JSON.parse(payment.notes) : payment.notes;
+        const couponCode = notes.couponCode;
+
+        if (couponCode) {
+          console.log(`🎟️ [쿠폰 복구] 쿠폰 복구 시작: ${couponCode}`);
+
+          // 🔒 FOR UPDATE 락으로 동시성 제어
+          const couponCheck = await connection.execute(`
+            SELECT used_count, usage_limit
+            FROM coupons
+            WHERE code = ? AND is_active = TRUE
+            FOR UPDATE
+          `, [couponCode.toUpperCase()]);
+
+          if (couponCheck && couponCheck.rows && couponCheck.rows.length > 0) {
+            const coupon = couponCheck.rows[0];
+
+            // used_count 감소 (0 이하로 내려가지 않도록)
+            const updateResult = await connection.execute(`
+              UPDATE coupons
+              SET used_count = GREATEST(0, used_count - 1),
+                  updated_at = NOW()
+              WHERE code = ?
+            `, [couponCode.toUpperCase()]);
+
+            if (updateResult.affectedRows > 0) {
+              console.log(`✅ [쿠폰 복구] 쿠폰 사용 횟수 복구 완료: ${couponCode} (${coupon.used_count} → ${Math.max(0, coupon.used_count - 1)})`);
+
+              // coupon_usage 테이블에서 사용 기록 삭제
+              try {
+                await connection.execute(`
+                  DELETE FROM coupon_usage
+                  WHERE coupon_code = ? AND order_id = ?
+                  LIMIT 1
+                `, [couponCode.toUpperCase(), payment.id]);
+                console.log(`✅ [쿠폰 복구] coupon_usage 기록 삭제 완료`);
+              } catch (usageError) {
+                console.log('⚠️ [쿠폰 복구] coupon_usage 테이블 없음 또는 삭제 실패 (계속 진행)');
+              }
+            } else {
+              console.warn(`⚠️ [쿠폰 복구] 쿠폰 업데이트 실패: ${couponCode}`);
+            }
+          } else {
+            console.warn(`⚠️ [쿠폰 복구] 쿠폰을 찾을 수 없음: ${couponCode}`);
+          }
+        }
+      } catch (couponError) {
+        console.error('❌ [쿠폰 복구] 실패 (계속 진행):', couponError);
+        // 쿠폰 복구 실패해도 환불은 계속 진행
+      }
+    }
+
+    // 12. 예약 로그 기록
     if (payment.booking_id) {
       try {
         await connection.execute(`
