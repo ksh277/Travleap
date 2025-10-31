@@ -328,7 +328,14 @@ module.exports = async function handler(req, res) {
             shipping_phone: finalShippingPhone,
             shipping_address: finalShippingAddress,
             shipping_address_detail: finalShippingAddressDetail,
-            shipping_zipcode: finalShippingZipcode
+            shipping_zipcode: finalShippingZipcode,
+            // 🔍 디버깅용 (나중에 제거 가능)
+            _debug_notes_shipping: shippingInfo,
+            _debug_bookings_count: bookingsList?.length || 0,
+            _debug_first_booking_shipping: firstBooking ? {
+              name: firstBooking.shipping_name,
+              phone: firstBooking.shipping_phone
+            } : null
           };
         });
       } finally {

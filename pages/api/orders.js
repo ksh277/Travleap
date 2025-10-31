@@ -591,7 +591,12 @@ module.exports = async function handler(req, res) {
               couponDiscount: categoryCouponDiscount,
               couponCode: categoryCouponCode,
               pointsUsed: categoryPointsUsed,
-              shippingInfo: category === '팝업' ? shippingInfo : null
+              shippingInfo: shippingInfo || null, // ✅ FIX: 카테고리 무관하게 항상 저장
+              billingInfo: shippingInfo ? {
+                name: shippingInfo.name,
+                email: shippingInfo.email || null,
+                phone: shippingInfo.phone
+              } : null
             })
           ]);
 
@@ -612,9 +617,8 @@ module.exports = async function handler(req, res) {
         // 재고 복구 시 이 값을 사용하므로 일치해야 함
         const actualQuantity = item.quantity || 1;
 
-        // 🔧 팝업 상품인 경우 배송지 정보 추가
-        const isPopup = item.category === '팝업';
-        const shippingData = isPopup && shippingInfo ? {
+        // ✅ FIX: 배송지 정보는 카테고리 무관하게 저장 (팝업뿐만 아니라 모든 상품)
+        const shippingData = shippingInfo ? {
           name: shippingInfo.name || null,
           phone: shippingInfo.phone || null,
           address: shippingInfo.address || null,
