@@ -36,7 +36,37 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // ✅ user_coupons 테이블이 없으면 생성
+    // ✅ coupons 테이블 생성 (없으면)
+    try {
+      await connection.execute(`
+        CREATE TABLE IF NOT EXISTS coupons (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          code VARCHAR(50) UNIQUE NOT NULL,
+          title VARCHAR(255),
+          description TEXT,
+          discount_type ENUM('percentage', 'fixed') NOT NULL,
+          discount_value INT NOT NULL,
+          min_amount INT DEFAULT 0,
+          max_discount_amount INT NULL,
+          target_category VARCHAR(50),
+          valid_from TIMESTAMP NULL,
+          valid_until TIMESTAMP NULL,
+          is_active BOOLEAN DEFAULT TRUE,
+          usage_limit INT NULL,
+          current_usage INT DEFAULT 0,
+          usage_per_user INT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_code (code),
+          INDEX idx_is_active (is_active),
+          INDEX idx_valid_until (valid_until)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+    } catch (tableError) {
+      console.warn('⚠️ [Coupon Register] coupons 테이블 생성 오류 (무시):', tableError.message);
+    }
+
+    // ✅ user_coupons 테이블 생성 (없으면)
     try {
       await connection.execute(`
         CREATE TABLE IF NOT EXISTS user_coupons (
