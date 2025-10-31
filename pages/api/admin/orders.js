@@ -117,6 +117,11 @@ module.exports = async function handler(req, res) {
                 b.status,
                 b.delivery_status,
                 b.guests,
+                b.shipping_name,
+                b.shipping_phone,
+                b.shipping_address,
+                b.shipping_address_detail,
+                b.shipping_zipcode,
                 l.title as product_title,
                 l.category
               FROM bookings b
@@ -229,15 +234,21 @@ module.exports = async function handler(req, res) {
           const billingInfo = notesData?.billingInfo || null;
           const shippingInfo = notesData?.shippingInfo || null;
 
+          // 🔧 장바구니 주문의 경우 bookings_list의 첫 번째 booking에서 shipping 정보 추출
+          const firstBooking = bookingsList && bookingsList.length > 0 ? bookingsList[0] : null;
+
           // 🔍 배송지 정보 디버깅
           if (order.category === '팝업') {
             console.log(`📦 [Orders] order_id=${order.id} 배송지 정보:`, {
               hasNotesData: !!notesData,
               hasShippingInfo: !!shippingInfo,
+              hasFirstBooking: !!firstBooking,
               shipping_name_from_bookings: order.shipping_name,
               shipping_name_from_notes: shippingInfo?.name,
+              shipping_name_from_first_booking: firstBooking?.shipping_name,
               shipping_address_from_bookings: order.shipping_address,
               shipping_address_from_notes: shippingInfo?.address,
+              shipping_address_from_first_booking: firstBooking?.shipping_address,
               shippingInfo
             });
           }
@@ -250,6 +261,16 @@ module.exports = async function handler(req, res) {
           if (!user && billingInfo) {
             console.log(`💡 [Orders] order_id=${order.id}: Neon DB에 사용자 없음, billingInfo 사용 (name=${billingInfo.name})`);
           }
+
+          // ✅ FIX: 배송 정보 우선순위
+          // 1순위: bookings 테이블 (단일 예약의 경우)
+          // 2순위: bookings_list의 첫 번째 (장바구니 주문의 경우)
+          // 3순위: notes.shippingInfo (fallback)
+          const finalShippingName = order.shipping_name || firstBooking?.shipping_name || shippingInfo?.name || null;
+          const finalShippingPhone = order.shipping_phone || firstBooking?.shipping_phone || shippingInfo?.phone || null;
+          const finalShippingAddress = order.shipping_address || firstBooking?.shipping_address || shippingInfo?.address || null;
+          const finalShippingAddressDetail = order.shipping_address_detail || firstBooking?.shipping_address_detail || shippingInfo?.addressDetail || null;
+          const finalShippingZipcode = order.shipping_zipcode || firstBooking?.shipping_zipcode || shippingInfo?.zipcode || null;
 
           return {
             id: order.id,
@@ -285,13 +306,13 @@ module.exports = async function handler(req, res) {
             // ✅ 옵션 정보 (AdminPage 표시용)
             selected_options: order.special_requests || null,
             // ✅ 배송 정보 (배송 관리 다이얼로그용)
-            // 🔧 장바구니 주문은 notes.shippingInfo에서, 단일 예약은 bookings에서
-            delivery_status: order.delivery_status,
-            shipping_name: order.shipping_name || shippingInfo?.name || null,
-            shipping_phone: order.shipping_phone || shippingInfo?.phone || null,
-            shipping_address: order.shipping_address || shippingInfo?.address || null,
-            shipping_address_detail: order.shipping_address_detail || shippingInfo?.addressDetail || null,
-            shipping_zipcode: order.shipping_zipcode || shippingInfo?.zipcode || null
+            // 🔧 우선순위: bookings → bookings_list[0] → notes.shippingInfo
+            delivery_status: order.delivery_status || firstBooking?.delivery_status || null,
+            shipping_name: finalShippingName,
+            shipping_phone: finalShippingPhone,
+            shipping_address: finalShippingAddress,
+            shipping_address_detail: finalShippingAddressDetail,
+            shipping_zipcode: finalShippingZipcode
           };
         });
       } finally {
