@@ -527,12 +527,14 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       }
 
     } else if (isOrder) {
-      // 장바구니 주문: 이미 UPDATE로 payment_key 등 저장했으므로 추가 UPDATE만 수행
+      // 장바구니 주문: 모든 카테고리 payments에 payment_key 등 저장
+      // 🐛 FIX: 환불 시 모든 payment의 포인트를 회수하려면 모든 payment가 같은 payment_key를 가져야 함
       const normalizedMethod = normalizePaymentMethod(
         paymentResult.method,
         paymentResult.easyPay?.provider
       );
 
+      // ✅ 모든 카테고리 payments 업데이트 (WHERE gateway_transaction_id 사용)
       await connection.execute(
         `UPDATE payments
          SET payment_key = ?,
@@ -546,7 +548,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
              virtual_account_bank = ?,
              virtual_account_due_date = ?,
              updated_at = NOW()
-         WHERE id = ?`,
+         WHERE gateway_transaction_id = ?`,
         [
           paymentKey,
           normalizedMethod,
@@ -558,11 +560,11 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           paymentResult.virtualAccount?.accountNumber || null,
           paymentResult.virtualAccount?.bank || null,
           paymentResult.virtualAccount?.dueDate || null,
-          orderId_num
+          orderId  // ✅ gateway_transaction_id (ORDER_xxx)로 모든 payments 업데이트
         ]
       );
 
-      console.log('✅ [결제 기록] payments 테이블 업데이트 완료 (장바구니 주문)');
+      console.log(`✅ [결제 기록] ${allPayments.length}개 payments 테이블 업데이트 완료 (장바구니 주문, payment_key=${paymentKey})`);
     }
 
     // 4.5. 포인트 적립 (카테고리별 주문마다 개별 적립)
