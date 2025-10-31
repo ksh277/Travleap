@@ -14,9 +14,10 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Receipt, MapPin, Calendar, Clock, Users, Package, Coins, AlertTriangle, Loader2, Trash2 } from 'lucide-react';
+import { Receipt, MapPin, Calendar, Clock, Users, Package, Coins, AlertTriangle, Loader2, Trash2, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatKoreanDateTime } from '../utils/date-utils';
+import { TrackingDetailDialog } from './TrackingDetailDialog';
 
 interface PaymentHistoryCardProps {
   payment: any;
@@ -29,6 +30,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
   const [refundReason, setRefundReason] = useState('');
   const [isRefunding, setIsRefunding] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showTrackingDialog, setShowTrackingDialog] = useState(false);
 
   // notes 파싱
   let notesData: any = null;
@@ -348,6 +350,19 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                 </Button>
               )}
 
+              {/* 배송 조회 버튼 (송장번호가 있는 경우) */}
+              {payment.tracking_number && payment.courier_company && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTrackingDialog(true)}
+                  className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
+                >
+                  <Truck className="w-3 h-3 mr-1" />
+                  배송 조회
+                </Button>
+              )}
+
               {(!isPaid || isRefunded) && onDelete && (
                 <Button
                   variant="outline"
@@ -479,6 +494,16 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 배송 조회 상세 다이얼로그 */}
+      {payment.tracking_number && payment.courier_company && (
+        <TrackingDetailDialog
+          open={showTrackingDialog}
+          onOpenChange={setShowTrackingDialog}
+          courierCompany={payment.courier_company}
+          trackingNumber={payment.tracking_number}
+        />
+      )}
     </>
   );
 }

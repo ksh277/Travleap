@@ -29,6 +29,7 @@ interface Order {
   booking_id: number | null; // ✅ 단일 예약 환불용
   user_name: string;
   user_email: string;
+  user_phone?: string; // ✅ 주문자 전화번호
   product_title: string;
   product_name?: string; // ✅ 실제 상품명
   listing_id: number;
@@ -49,6 +50,13 @@ interface Order {
   category: string;
   is_popup: boolean;
   order_number: string;
+  // ✅ 배송지 정보
+  delivery_status?: string;
+  shipping_name?: string;
+  shipping_phone?: string;
+  shipping_address?: string;
+  shipping_address_detail?: string;
+  shipping_zipcode?: string;
 }
 
 export function AdminOrders() {
@@ -258,9 +266,31 @@ export function AdminOrders() {
                     <tr key={order.id} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 font-mono text-sm">#{order.id}</td>
                       <td className="py-3 px-4">
-                        <div className="text-sm">
-                          <div className="font-medium">{order.user_name || '테스트 사용자'}</div>
-                          <div className="text-gray-500 text-xs">{order.user_email || 'test@example.com'}</div>
+                        <div className="text-sm space-y-1">
+                          {/* 주문자 정보 */}
+                          <div>
+                            <div className="font-medium text-gray-900">{order.user_name || '-'}</div>
+                            <div className="text-gray-500 text-xs">{order.user_email || '-'}</div>
+                            {order.user_phone && (
+                              <div className="text-gray-500 text-xs">{order.user_phone}</div>
+                            )}
+                          </div>
+                          {/* 배송지 정보 (팝업 상품인 경우만) */}
+                          {order.is_popup && order.shipping_address && (
+                            <div className="mt-2 pt-2 border-t border-gray-200">
+                              <div className="text-xs text-gray-600 font-semibold mb-1">배송지</div>
+                              {order.shipping_name && (
+                                <div className="text-xs text-gray-700">{order.shipping_name}</div>
+                              )}
+                              {order.shipping_phone && (
+                                <div className="text-xs text-gray-500">{order.shipping_phone}</div>
+                              )}
+                              <div className="text-xs text-gray-500">
+                                {order.shipping_address}
+                                {order.shipping_address_detail && ` ${order.shipping_address_detail}`}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="py-3 px-4">

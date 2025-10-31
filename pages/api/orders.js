@@ -83,7 +83,7 @@ module.exports = async function handler(req, res) {
           // IN 쿼리로 사용자 정보 한번에 조회
           const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
           const usersResult = await poolNeon.query(
-            `SELECT id, name, email FROM users WHERE id IN (${placeholders})`,
+            `SELECT id, name, email, phone, address, detail_address, postal_code FROM users WHERE id IN (${placeholders})`,
             userIds
           );
 
@@ -204,8 +204,9 @@ module.exports = async function handler(req, res) {
             id: order.id,
             booking_id: order.booking_id, // ✅ 환불 시 필요
             booking_number: order.booking_number,
-            user_name: user?.name || '',
-            user_email: user?.email || '',
+            user_name: user?.name || '', // ✅ users 테이블에서 가져온 정보 (결제 시 저장됨)
+            user_email: user?.email || '', // ✅ users 테이블에서 가져온 정보
+            user_phone: user?.phone || '', // ✅ users 테이블에서 가져온 정보
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,
@@ -230,13 +231,13 @@ module.exports = async function handler(req, res) {
             category: order.category,
             is_popup: order.category === '팝업',
             order_number: actualOrderNumber,
-            // ✅ 배송 정보 (배송 관리 다이얼로그용)
+            // ✅ 배송 정보 (주문 당시 배송지: bookings 우선, 없으면 users 테이블)
             delivery_status: order.delivery_status,
-            shipping_name: order.shipping_name,
-            shipping_phone: order.shipping_phone,
-            shipping_address: order.shipping_address,
-            shipping_address_detail: order.shipping_address_detail,
-            shipping_zipcode: order.shipping_zipcode
+            shipping_name: order.shipping_name || user?.name || '',
+            shipping_phone: order.shipping_phone || user?.phone || '',
+            shipping_address: order.shipping_address || user?.address || '',
+            shipping_address_detail: order.shipping_address_detail || user?.detail_address || '',
+            shipping_zipcode: order.shipping_zipcode || user?.postal_code || ''
           };
         });
       } finally {

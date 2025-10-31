@@ -31,7 +31,8 @@ import {
 } from './ui/select';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
-import { Package, Truck, CheckCircle, XCircle, Clock, Copy, ExternalLink } from 'lucide-react';
+import { Package, Truck, CheckCircle, XCircle, Clock, Copy, ExternalLink, Search } from 'lucide-react';
+import { TrackingDetailDialog } from './TrackingDetailDialog';
 
 interface ShippingInfo {
   id: number;
@@ -124,6 +125,7 @@ export function ShippingManagementDialog({
   const [courierCompany, setCourierCompany] = useState('');
   const [deliveryStatus, setDeliveryStatus] = useState<string>('PENDING');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showTrackingDialog, setShowTrackingDialog] = useState(false);
 
   // 송장번호 복사
   const handleCopyTracking = () => {
@@ -330,15 +332,27 @@ export function ShippingManagementDialog({
                     <Copy className="h-4 w-4" />
                   </Button>
                   {courierCompany && courierCompany !== 'etc' && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleOpenTracking}
-                      title="배송 추적"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
+                    <>
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="icon"
+                        onClick={() => setShowTrackingDialog(true)}
+                        title="배송 조회"
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Search className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={handleOpenTracking}
+                        title="택배사 사이트에서 추적"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </>
                   )}
                 </>
               )}
@@ -390,6 +404,14 @@ export function ShippingManagementDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* 배송 조회 상세 다이얼로그 */}
+      <TrackingDetailDialog
+        open={showTrackingDialog}
+        onOpenChange={setShowTrackingDialog}
+        courierCompany={courierCompany}
+        trackingNumber={trackingNumber}
+      />
     </Dialog>
   );
 }
