@@ -1502,7 +1502,7 @@ export function MyPage() {
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 mb-6">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <Ticket className="w-5 h-5 text-purple-600" />
-                    쿠폰 코드로 등록하기
+                    쿠폰 등록하기
                   </h3>
                   <div className="flex gap-2">
                     <Input
