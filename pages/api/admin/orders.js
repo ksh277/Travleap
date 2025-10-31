@@ -108,6 +108,7 @@ module.exports = async function handler(req, res) {
 
         if (orderNumbersForCart.length > 0) {
           console.log(`📦 [Orders] 혼합 주문 ${orderNumbersForCart.length}건의 bookings 조회 중...`);
+          console.log(`📦 [Orders] 조회할 order_number 목록:`, orderNumbersForCart);
 
           for (const orderNumber of orderNumbersForCart) {
             const bookingsResult = await connection.execute(`
@@ -130,9 +131,24 @@ module.exports = async function handler(req, res) {
               ORDER BY b.created_at ASC
             `, [orderNumber]);
 
+            console.log(`🔍 [Orders] order_number=${orderNumber} 조회 결과: ${bookingsResult.rows?.length || 0}건`);
+
             if (bookingsResult.rows && bookingsResult.rows.length > 0) {
               bookingsMap.set(orderNumber, bookingsResult.rows);
-              console.log(`📦 [Orders] order_number=${orderNumber}: ${bookingsResult.rows.length}개 booking 발견`);
+              console.log(`✅ [Orders] order_number=${orderNumber}: ${bookingsResult.rows.length}개 booking 발견, shipping_name=${bookingsResult.rows[0].shipping_name}`);
+            } else {
+              console.warn(`⚠️ [Orders] order_number=${orderNumber}에 해당하는 bookings가 없습니다!`);
+
+              // 모든 bookings에서 비슷한 order_number가 있는지 확인
+              const debugResult = await connection.execute(`
+                SELECT b.id, b.order_number, b.booking_number, b.shipping_name
+                FROM bookings b
+                WHERE b.order_number LIKE ?
+                ORDER BY b.created_at DESC
+                LIMIT 5
+              `, [`%${orderNumber.split('_')[1]}%`]);
+
+              console.log(`🔍 [Orders] 유사한 order_number 검색 결과:`, debugResult.rows);
             }
           }
         }
