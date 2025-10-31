@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       console.error('❌ [Debug] Neon DB 전체 사용자 조회 실패:', error);
     }
 
-    // 5. 특정 주문 상세 조회
+    // 5. 특정 주문 상세 조회 (최신 주문)
     const specificOrder = await connection.execute(`
       SELECT
         p.id,
@@ -78,24 +78,51 @@ export default async function handler(req, res) {
         p.payment_status,
         p.gateway_transaction_id,
         p.notes,
+        p.booking_id,
         p.created_at,
         b.shipping_name,
         b.shipping_phone,
-        b.shipping_address
+        b.shipping_address,
+        b.shipping_address_detail,
+        b.shipping_zipcode,
+        b.order_number as booking_order_number
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
-      WHERE p.gateway_transaction_id = ?
-    `, ['ORDER_1761870219344_3907']);
+      WHERE p.gateway_transaction_id LIKE '%1761922261162%'
+         OR p.gateway_transaction_id LIKE 'ORDER_%'
+      ORDER BY p.created_at DESC
+      LIMIT 5
+    `);
+
+    // 6. order_number로 bookings 직접 조회
+    const bookingsByOrderNumber = await connection.execute(`
+      SELECT
+        b.id,
+        b.order_number,
+        b.booking_number,
+        b.shipping_name,
+        b.shipping_phone,
+        b.shipping_address,
+        b.shipping_address_detail,
+        b.shipping_zipcode,
+        b.created_at
+      FROM bookings b
+      WHERE b.order_number LIKE '%1761922261162%'
+         OR b.order_number LIKE 'ORDER_%'
+      ORDER BY b.created_at DESC
+      LIMIT 10
+    `);
 
     console.log('🔍 [Debug] 특정 주문 조회 결과:', specificOrder.rows?.length || 0, '건');
+    console.log('🔍 [Debug] order_number로 조회한 bookings:', bookingsByOrderNumber.rows?.length || 0, '건');
 
-    // 6. 사용자 매핑 생성
+    // 7. 사용자 매핑 생성
     const userMap = new Map();
     neonUsers.forEach(user => {
       userMap.set(user.id, user);
     });
 
-    // 7. 조인된 데이터 생성
+    // 8. 조인된 데이터 생성
     const joinedData = (paymentsResult.rows || []).map(order => {
       const user = userMap.get(order.user_id);
       return {
@@ -153,7 +180,9 @@ export default async function handler(req, res) {
           ...specificOrder.rows[0],
           user_found_in_neon: userMap.has(specificOrder.rows[0].user_id),
           user_data: userMap.get(specificOrder.rows[0].user_id) || null
-        } : null
+        } : null,
+        specific_order_all: specificOrder.rows || [],
+        bookings_by_order_number: bookingsByOrderNumber.rows || []
       },
       diagnosis: {
         problem_type: null,
