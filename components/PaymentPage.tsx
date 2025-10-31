@@ -328,8 +328,8 @@ export function PaymentPage() {
     fetchCoupons();
   }, [isLoggedIn, user?.id]);
 
-  // 쿠폰 등록 함수
-  const registerCoupon = async (code: string) => {
+  // 쿠폰 적용 함수 (자동 등록 포함)
+  const applyCoupon = async (code: string) => {
     if (!code) {
       toast.error('쿠폰 코드를 입력해주세요');
       return;
@@ -342,51 +342,36 @@ export function PaymentPage() {
 
     setCouponLoading(true);
     try {
-      const response = await fetch('/api/coupons/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'x-user-id': user.id.toString()
-        },
-        body: JSON.stringify({
-          code: code.toUpperCase(),
-          userId: user.id
-        })
-      });
+      // 1️⃣ 먼저 쿠폰 등록 시도 (이미 등록된 경우 ALREADY_REGISTERED 에러 무시)
+      try {
+        const registerResponse = await fetch('/api/coupons/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'x-user-id': user.id.toString()
+          },
+          body: JSON.stringify({
+            code: code.toUpperCase(),
+            userId: user.id
+          })
+        });
 
-      const result = await response.json();
+        const registerResult = await registerResponse.json();
 
-      if (result.success) {
-        toast.success('쿠폰이 등록되었습니다!');
-        // 쿠폰 목록 새로고침
-        const couponsResponse = await fetch(`/api/coupons?userId=${user.id}`);
-        const couponsData = await couponsResponse.json();
-        if (couponsData.success) {
-          setCoupons(couponsData.data || []);
+        // 성공적으로 등록된 경우에만 메시지 표시
+        if (registerResult.success) {
+          console.log('✅ [PaymentPage] 쿠폰 자동 등록 완료');
+        } else if (registerResult.error !== 'ALREADY_REGISTERED') {
+          // ALREADY_REGISTERED가 아닌 다른 에러는 무시하고 진행
+          console.warn('⚠️ [PaymentPage] 쿠폰 등록 실패 (무시하고 진행):', registerResult.message);
         }
-        // 등록 후 바로 적용
-        await applyCoupon(code);
-      } else {
-        toast.error(result.message || '쿠폰 등록에 실패했습니다');
+      } catch (registerError) {
+        // 등록 실패해도 적용은 시도
+        console.warn('⚠️ [PaymentPage] 쿠폰 등록 오류 (무시하고 진행):', registerError);
       }
-    } catch (error) {
-      console.error('❌ [PaymentPage] 쿠폰 등록 실패:', error);
-      toast.error('쿠폰 등록 중 오류가 발생했습니다');
-    } finally {
-      setCouponLoading(false);
-    }
-  };
 
-  // 쿠폰 적용 함수
-  const applyCoupon = async (code: string) => {
-    if (!code) {
-      toast.error('쿠폰 코드를 입력해주세요');
-      return;
-    }
-
-    setCouponLoading(true);
-    try {
+      // 2️⃣ 쿠폰 적용 (검증 및 할인 계산)
       const response = await fetch('/api/coupons/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -414,6 +399,9 @@ export function PaymentPage() {
             couponCode: result.data.code
           });
         }
+
+        // 보유 쿠폰 목록 새로고침
+        fetchCoupons();
 
         toast.success(`쿠폰이 적용되었습니다! ${result.data.discountAmount.toLocaleString()}원 할인`);
       } else {
@@ -1045,20 +1033,11 @@ export function PaymentPage() {
                             />
                             <Button
                               type="button"
-                              onClick={() => registerCoupon(couponCode)}
-                              disabled={couponLoading || !couponCode}
-                              variant="outline"
-                              className="whitespace-nowrap"
-                            >
-                              등록
-                            </Button>
-                            <Button
-                              type="button"
                               onClick={() => applyCoupon(couponCode)}
                               disabled={couponLoading || !couponCode}
                               className="whitespace-nowrap"
                             >
-                              적용
+                              {couponLoading ? '처리 중...' : '적용'}
                             </Button>
                           </div>
                         </div>
@@ -1290,19 +1269,14 @@ export function PaymentPage() {
                   placeholder="쿠폰 코드 직접 입력"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  className="flex-1"
                 />
-                <Button
-                  onClick={() => registerCoupon(couponCode)}
-                  disabled={couponLoading || !couponCode}
-                  variant="outline"
-                >
-                  등록
-                </Button>
                 <Button
                   onClick={() => applyCoupon(couponCode)}
                   disabled={couponLoading || !couponCode}
+                  className="whitespace-nowrap"
                 >
-                  적용
+                  {couponLoading ? '처리 중...' : '적용'}
                 </Button>
               </div>
             </div>

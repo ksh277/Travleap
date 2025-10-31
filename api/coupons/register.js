@@ -123,6 +123,15 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // 2-1. 수량 제한 체크 (전체 사용 가능 횟수)
+    if (coupon.usage_limit !== null && coupon.current_usage >= coupon.usage_limit) {
+      return res.status(400).json({
+        success: false,
+        error: 'MAX_USAGE_EXCEEDED',
+        message: '쿠폰 발급 수량이 모두 소진되었습니다'
+      });
+    }
+
     // 3. 이미 등록했는지 확인
     const alreadyRegistered = await connection.execute(`
       SELECT id FROM user_coupons
