@@ -391,15 +391,6 @@ export function PaymentPage() {
         setCouponCode(code);
         setShowCouponModal(false);
 
-        // ✅ orderData에도 쿠폰 정보 업데이트
-        if (orderData) {
-          setOrderData({
-            ...orderData,
-            couponDiscount: result.data.discountAmount,
-            couponCode: result.data.code
-          });
-        }
-
         // 보유 쿠폰 목록 새로고침
         fetchCoupons();
 
@@ -420,16 +411,6 @@ export function PaymentPage() {
     setSelectedCoupon(null);
     setCouponDiscount(0);
     setCouponCode('');
-
-    // ✅ orderData에서도 쿠폰 정보 제거
-    if (orderData) {
-      setOrderData({
-        ...orderData,
-        couponDiscount: 0,
-        couponCode: null
-      });
-    }
-
     toast.success('쿠폰이 제거되었습니다');
   };
 
@@ -559,8 +540,8 @@ export function PaymentPage() {
           items: mappedItems,
           subtotal: orderData.subtotal,
           deliveryFee: deliveryFee,
-          couponDiscount: orderData.couponDiscount || 0,
-          couponCode: orderData.couponCode || null,
+          couponDiscount: couponDiscount, // state의 couponDiscount 사용
+          couponCode: selectedCoupon?.code || couponCode || null,
           pointsUsed: pointsToUse,
           total: finalAmount,
           status: 'pending' as const,
@@ -937,10 +918,10 @@ export function PaymentPage() {
                         <span>상품 금액</span>
                         <span>{orderData.subtotal.toLocaleString()}원</span>
                       </div>
-                      {orderData.couponDiscount > 0 && (
+                      {couponDiscount > 0 && (
                         <div className="flex justify-between text-green-600">
                           <span>쿠폰 할인</span>
-                          <span>-{orderData.couponDiscount.toLocaleString()}원</span>
+                          <span>-{couponDiscount.toLocaleString()}원</span>
                         </div>
                       )}
                       {orderData.deliveryFee !== undefined && orderData.deliveryFee > 0 && (
