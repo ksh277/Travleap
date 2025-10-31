@@ -70,10 +70,17 @@ export function AdminOrders() {
     try {
       setIsLoading(true);
       const response = await fetch('/api/orders');
-      const data = await response.json();
-      if (data.success) {
-        setOrders(data.orders || []);
-        setFilteredOrders(data.orders || []);
+      const result = await response.json();
+      console.log('🔍 [AdminOrders] API 응답:', result);
+      if (result.success) {
+        // ✅ API는 data 필드로 반환함
+        const orders = result.data || result.orders || [];
+        console.log('🔍 [AdminOrders] 로드된 주문 수:', orders.length);
+        if (orders.length > 0) {
+          console.log('🔍 [AdminOrders] 첫 번째 주문 샘플:', orders[0]);
+        }
+        setOrders(orders);
+        setFilteredOrders(orders);
       }
     } catch (error) {
       console.error('Failed to load orders:', error);

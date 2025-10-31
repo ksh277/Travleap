@@ -667,6 +667,12 @@ export const api = {
       addressDetail: string;
       memo?: string;
     };
+    // ✅ 청구 정보 추가 (주문자 정보 - 관리자 페이지 표시용)
+    billingInfo?: {
+      name: string;
+      email: string;
+      phone: string;
+    };
   }): Promise<ApiResponse<any>> => {
     try {
       // ✅ SECURITY FIX: Call server API instead of direct DB access

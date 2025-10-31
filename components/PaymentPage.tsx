@@ -527,7 +527,7 @@ export function PaymentPage() {
           total: finalAmount,
           status: 'pending' as const,
           paymentMethod,
-          // ✅ 모든 주문에 청구 정보 전달 (프로필 저장용)
+          // ✅ 배송 정보 전달 (팝업 상품 배송용)
           shippingInfo: {
             name: billingInfo.name,
             email: billingInfo.email,
@@ -536,6 +536,12 @@ export function PaymentPage() {
             address: billingInfo.address,
             addressDetail: billingInfo.detailAddress,
             memo: '' // 추후 배송 메모 필드 추가 시 사용
+          },
+          // ✅ 청구 정보 전달 (주문자 정보 - 관리자 페이지 표시용)
+          billingInfo: {
+            name: billingInfo.name,
+            email: billingInfo.email,
+            phone: billingInfo.phone
           }
         });
 

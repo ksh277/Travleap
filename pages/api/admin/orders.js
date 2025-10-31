@@ -153,10 +153,11 @@ module.exports = async function handler(req, res) {
           let deliveryFee = 0;
           let subtotal = 0;
           let actualOrderNumber = order.order_number;
+          let notesData = null; // ✅ 배송 정보 접근을 위해 스코프 밖에서 선언
 
           if (order.notes) {
             try {
-              const notesData = JSON.parse(order.notes);
+              notesData = JSON.parse(order.notes);
 
               // 주문번호 추출
               if (notesData.orderNumber) {
@@ -225,14 +226,20 @@ module.exports = async function handler(req, res) {
           const bookingsList = bookingsMap.get(orderNumber) || null;
 
           // ✅ FIX: notes에서 billingInfo 추출 (Neon DB 조회 실패 시 fallback)
-          let billingInfo = null;
-          try {
-            if (order.notes) {
-              const notesDataForBilling = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
-              billingInfo = notesDataForBilling.billingInfo || null;
-            }
-          } catch (e) {
-            console.error('❌ [Orders] billingInfo 파싱 오류:', e, 'order_id:', order.id);
+          const billingInfo = notesData?.billingInfo || null;
+          const shippingInfo = notesData?.shippingInfo || null;
+
+          // 🔍 배송지 정보 디버깅
+          if (order.category === '팝업') {
+            console.log(`📦 [Orders] order_id=${order.id} 배송지 정보:`, {
+              hasNotesData: !!notesData,
+              hasShippingInfo: !!shippingInfo,
+              shipping_name_from_bookings: order.shipping_name,
+              shipping_name_from_notes: shippingInfo?.name,
+              shipping_address_from_bookings: order.shipping_address,
+              shipping_address_from_notes: shippingInfo?.address,
+              shippingInfo
+            });
           }
 
           // ✅ FIX: Neon DB 사용자 정보 우선, 없으면 billingInfo 사용
@@ -280,11 +287,11 @@ module.exports = async function handler(req, res) {
             // ✅ 배송 정보 (배송 관리 다이얼로그용)
             // 🔧 장바구니 주문은 notes.shippingInfo에서, 단일 예약은 bookings에서
             delivery_status: order.delivery_status,
-            shipping_name: order.shipping_name || notesData?.shippingInfo?.name || null,
-            shipping_phone: order.shipping_phone || notesData?.shippingInfo?.phone || null,
-            shipping_address: order.shipping_address || notesData?.shippingInfo?.address || null,
-            shipping_address_detail: order.shipping_address_detail || notesData?.shippingInfo?.addressDetail || null,
-            shipping_zipcode: order.shipping_zipcode || notesData?.shippingInfo?.zipcode || null
+            shipping_name: order.shipping_name || shippingInfo?.name || null,
+            shipping_phone: order.shipping_phone || shippingInfo?.phone || null,
+            shipping_address: order.shipping_address || shippingInfo?.address || null,
+            shipping_address_detail: order.shipping_address_detail || shippingInfo?.addressDetail || null,
+            shipping_zipcode: order.shipping_zipcode || shippingInfo?.zipcode || null
           };
         });
       } finally {
@@ -319,7 +326,8 @@ module.exports = async function handler(req, res) {
         total,
         status,
         paymentMethod,
-        shippingInfo
+        shippingInfo,
+        billingInfo // ✅ 청구 정보 추가
       } = req.body;
 
       console.log('🛒 [Orders] 주문 생성 요청:', {
@@ -601,7 +609,8 @@ module.exports = async function handler(req, res) {
           couponDiscount: serverCouponDiscount, // ✅ 서버 계산값 저장
           couponCode: couponCode || null,
           pointsUsed: serverPointsUsed,        // ✅ 서버 검증값 저장
-          shippingInfo: shippingInfo || null
+          shippingInfo: shippingInfo || null,
+          billingInfo: billingInfo || null     // ✅ 청구 정보 저장 (주문자 이름/이메일/전화번호)
         })
       ]);
 
