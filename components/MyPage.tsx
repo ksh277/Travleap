@@ -151,6 +151,8 @@ export function MyPage() {
   const [coupons, setCoupons] = useState<any[]>([]);
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [couponCode, setCouponCode] = useState('');
+  const [publicCoupons, setPublicCoupons] = useState<any[]>([]);
+  const [publicCouponsLoading, setPublicCouponsLoading] = useState(false);
   const [userProfile, setUserProfile] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -210,6 +212,7 @@ export function MyPage() {
       fetchPayments();
       fetchPoints();
       fetchCoupons();
+      fetchPublicCoupons();
     }
   }, [user]);
 
@@ -534,6 +537,31 @@ export function MyPage() {
     }
   };
 
+  // 공개 쿠폰 가져오기
+  const fetchPublicCoupons = async () => {
+    setPublicCouponsLoading(true);
+    try {
+      const response = await fetch('/api/coupons/public');
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setPublicCoupons(data.data || []);
+          console.log('✅ [공개 쿠폰] 로드 완료:', data.data?.length || 0, '개');
+        } else {
+          throw new Error(data.message || '공개 쿠폰 조회 실패');
+        }
+      } else {
+        throw new Error('공개 쿠폰 조회 요청 실패');
+      }
+    } catch (error) {
+      console.error('공개 쿠폰 불러오기 오류:', error);
+      setPublicCoupons([]);
+    } finally {
+      setPublicCouponsLoading(false);
+    }
+  };
+
   // 쿠폰 등록
   const handleRegisterCoupon = async () => {
     if (!user) return;
@@ -570,6 +598,45 @@ export function MyPage() {
     } catch (error) {
       console.error('쿠폰 등록 오류:', error);
       toast.error('쿠폰 등록 중 오류가 발생했습니다');
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
+  // 쿠폰 다운로드 (공개 쿠폰을 보유 쿠폰으로 등록)
+  const handleDownloadCoupon = async (code: string) => {
+    if (!user) {
+      toast.error('로그인이 필요합니다');
+      return;
+    }
+
+    setCouponsLoading(true);
+    try {
+      const response = await fetch('/api/coupons/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'x-user-id': user.id.toString()
+        },
+        body: JSON.stringify({
+          code: code.toUpperCase(),
+          userId: user.id
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('쿠폰이 다운로드되었습니다!');
+        fetchCoupons(); // 보유 쿠폰 목록 새로고침
+        fetchPublicCoupons(); // 공개 쿠폰 목록 새로고침 (잔여 수량 업데이트)
+      } else {
+        toast.error(data.message || '쿠폰 다운로드에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('쿠폰 다운로드 오류:', error);
+      toast.error('쿠폰 다운로드 중 오류가 발생했습니다');
     } finally {
       setCouponsLoading(false);
     }
@@ -1337,11 +1404,105 @@ export function MyPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {/* 다운로드 가능한 쿠폰 */}
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Ticket className="w-5 h-5 text-purple-600" />
+                    다운로드 가능한 쿠폰
+                  </h3>
+                  {publicCouponsLoading ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600" />
+                      <p className="mt-2 text-gray-500">쿠폰을 불러오는 중...</p>
+                    </div>
+                  ) : publicCoupons.length === 0 ? (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <Ticket className="w-12 h-12 mx-auto text-gray-300 mb-2" />
+                      <p className="text-gray-500 text-sm">현재 다운로드 가능한 쿠폰이 없습니다</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {publicCoupons.map((coupon) => {
+                        // 이미 보유한 쿠폰인지 확인
+                        const isOwned = coupons.some(c => c.code === coupon.code);
+
+                        return (
+                          <div
+                            key={coupon.id}
+                            className={`border rounded-lg p-4 ${
+                              isOwned ? 'bg-gray-50 border-gray-200' : 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200 hover:border-purple-400'
+                            } transition-all`}
+                          >
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={coupon.discount_type === 'percentage' ? 'default' : 'secondary'} className="text-base font-bold">
+                                  {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `${coupon.discount_value.toLocaleString()}원`}
+                                </Badge>
+                                {isOwned && (
+                                  <Badge variant="outline" className="bg-white">보유중</Badge>
+                                )}
+                              </div>
+                              {coupon.remaining !== null && (
+                                <span className="text-xs text-gray-500">
+                                  잔여: {coupon.remaining}개
+                                </span>
+                              )}
+                            </div>
+
+                            <h4 className="font-semibold text-lg mb-2">{coupon.title}</h4>
+                            <p className="text-sm text-gray-600 mb-3">{coupon.description}</p>
+
+                            <div className="flex flex-wrap gap-2 text-xs mb-3">
+                              {coupon.min_amount > 0 && (
+                                <span className="bg-white px-2 py-1 rounded border">
+                                  최소 {coupon.min_amount.toLocaleString()}원
+                                </span>
+                              )}
+                              {coupon.max_discount_amount && (
+                                <span className="bg-white px-2 py-1 rounded border">
+                                  최대 {coupon.max_discount_amount.toLocaleString()}원 할인
+                                </span>
+                              )}
+                              {coupon.valid_until && (
+                                <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                                  {new Date(coupon.valid_until).toLocaleDateString('ko-KR')}까지
+                                </span>
+                              )}
+                            </div>
+
+                            <Button
+                              onClick={() => handleDownloadCoupon(coupon.code)}
+                              disabled={couponsLoading || isOwned}
+                              className={`w-full ${
+                                isOwned
+                                  ? 'bg-gray-400 cursor-not-allowed'
+                                  : 'bg-[#8B5FBF] hover:bg-[#7A4FB5]'
+                              }`}
+                              size="sm"
+                            >
+                              {couponsLoading ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  처리 중...
+                                </>
+                              ) : isOwned ? (
+                                '이미 보유한 쿠폰'
+                              ) : (
+                                '다운로드'
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 {/* 쿠폰 등록 입력 */}
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 mb-6">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <Ticket className="w-5 h-5 text-purple-600" />
-                    쿠폰 등록
+                    쿠폰 코드로 등록하기
                   </h3>
                   <div className="flex gap-2">
                     <Input
