@@ -153,11 +153,12 @@ export function ShippingManagementDialog({
     }
   }, [booking]);
 
-  // 송장번호 입력 시 자동으로 배송중 상태로 변경
+  // 송장번호와 택배사 입력 시 자동으로 배송중 상태로 변경
   useEffect(() => {
-    if (trackingNumber && courierCompany && deliveryStatus === 'READY') {
+    // 배송완료나 취소 상태가 아닌 경우에만 자동 변경
+    if (trackingNumber && courierCompany && deliveryStatus !== 'DELIVERED' && deliveryStatus !== 'CANCELED') {
       setDeliveryStatus('SHIPPING');
-      toast.info('송장번호 입력으로 배송 상태가 "배송중"으로 변경되었습니다.');
+      toast.info('송장번호와 택배사 입력으로 배송 상태가 "배송중"으로 자동 변경되었습니다.');
     }
   }, [trackingNumber, courierCompany]);
 
