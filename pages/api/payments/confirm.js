@@ -201,6 +201,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     let orderId_num = null;
     let userId = null;
     let order = null; // 장바구니 주문 정보 (isOrder일 때 사용)
+    let allPayments = []; // 🔧 FIX: 포인트 적립을 위해 함수 스코프에 선언
 
     if (isBooking) {
       // 예약 (단일 상품 결제)
@@ -267,7 +268,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         throw new Error('주문을 찾을 수 없습니다.');
       }
 
-      const allPayments = orders.rows; // 모든 카테고리 payments
+      allPayments = orders.rows; // 🔧 FIX: const 제거 (함수 스코프 변수 사용)
       console.log(`📦 [Orders] ${allPayments.length}개 카테고리 payments 조회됨`);
 
       // 첫 번째 payment를 기준으로 사용 (쿠폰/포인트 정보 포함)
