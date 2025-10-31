@@ -162,6 +162,17 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                   >
                     {isPaid ? '결제 완료' : isRefunded ? '환불 완료' : '결제 실패'}
                   </Badge>
+                  {/* 환불일 표시 */}
+                  {isRefunded && payment.refunded_at && (
+                    <Badge variant="outline" className="text-xs bg-gray-50">
+                      환불일: {formatKoreanDateTime(payment.refunded_at, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Badge>
+                  )}
                   {/* 쿠폰 사용 배지 */}
                   {notesData?.couponCode && (
                     <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
@@ -187,6 +198,32 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                 )}
               </div>
             </div>
+
+            {/* 주문 상품 상세 (장바구니 주문인 경우) */}
+            {notesData?.items && Array.isArray(notesData.items) && notesData.items.length > 0 && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                <p className="text-xs text-gray-600 mb-2 font-semibold">주문 상품 목록</p>
+                <div className="space-y-2">
+                  {notesData.items.map((item: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <div className="flex-1">
+                        <span className="text-gray-700">
+                          {item.title || item.name || item.productTitle || '상품'}
+                        </span>
+                        {item.selectedOption && item.selectedOption.name && (
+                          <span className="text-xs text-gray-500 ml-2">
+                            ({item.selectedOption.name})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-gray-600 ml-3">
+                        <strong className="text-purple-700">x {item.quantity || 1}</strong>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* 주문 기본 정보 */}
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">

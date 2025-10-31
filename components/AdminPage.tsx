@@ -49,6 +49,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import type { Listing, User } from '../types/database';
 import type { AdminProductFormData } from '../utils/pms/admin-integration';
 import { previewPrice, sanitizePriceInput } from '../utils/price-formatter';
+import { formatKoreanDateTime } from '../utils/date-utils';
 
 interface AdminPageProps {}
 
@@ -1010,11 +1011,21 @@ export function AdminPage({}: AdminPageProps) {
     toast.success('✅ 모든 데이터가 새로고침되었으며, 전체 사이트에 실시간 반영되었습니다!');
   };
 
-  // 통계 데이터 계산 (실제 products 배열 기반)
+  // 통계 데이터 계산
   const stats = {
     totalProducts: products.length || 0,
     activeProducts: products.filter(p => p.is_active === true).length || 0,
-    totalRevenue: products.reduce((sum, p) => sum + ((Number(p.price) || 0) * (p.rating_count || 0) * 0.1), 0),
+    // 실제 결제 완료된 금액 (배송비 제외, 환불 제외)
+    totalRevenue: orders
+      .filter(order =>
+        (order.payment_status === 'paid' || order.payment_status === 'completed') &&
+        order.payment_status !== 'refunded'
+      )
+      .reduce((sum, order) => {
+        // subtotal이 있으면 사용, 없으면 amount에서 배송비 차감
+        const revenue = order.subtotal || (order.amount - (order.delivery_fee || 0));
+        return sum + (revenue || 0);
+      }, 0),
     avgRating: products.length > 0 ? products.reduce((sum, p) => sum + (p.rating_avg || 0), 0) / products.length : 0
   };
 
@@ -2527,7 +2538,7 @@ export function AdminPage({}: AdminPageProps) {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">예상 수익</CardTitle>
+                  <CardTitle className="text-sm font-medium">수익</CardTitle>
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -2535,7 +2546,7 @@ export function AdminPage({}: AdminPageProps) {
                     ₩{(stats.totalRevenue || 0).toLocaleString()}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    이번 달 예상
+                    결제 완료 금액 (배송비 제외)
                   </p>
                 </CardContent>
               </Card>
@@ -4005,21 +4016,35 @@ export function AdminPage({}: AdminPageProps) {
                               }
                             })()}
                             {/* 팝업 상품인 경우 배송지 정보 표시 */}
-                            {order.category === '팝업' && order.shipping_address && (
+                            {order.category === '팝업' && (order.shipping_name || order.shipping_address) && (
                               <div className="mt-2 pt-2 border-t border-gray-200 bg-blue-50 px-2 py-1 rounded">
                                 <div className="text-xs font-medium text-blue-700 mb-1">📦 배송지</div>
-                                <div className="text-xs text-gray-700">
-                                  [{order.shipping_zipcode}] {order.shipping_address}
-                                </div>
-                                {order.shipping_address_detail && (
-                                  <div className="text-xs text-gray-700">
-                                    {order.shipping_address_detail}
+                                {/* 수령인 정보 */}
+                                {(order.shipping_name || order.shipping_phone || order.user_email) && (
+                                  <div className="text-xs text-gray-700 mb-1 space-y-0.5">
+                                    {order.shipping_name && (
+                                      <div>수령인: <span className="font-medium">{order.shipping_name}</span></div>
+                                    )}
+                                    {order.shipping_phone && (
+                                      <div>전화번호: <span className="font-medium">{order.shipping_phone}</span></div>
+                                    )}
+                                    {order.user_email && (
+                                      <div>이메일: <span className="font-medium">{order.user_email}</span></div>
+                                    )}
                                   </div>
                                 )}
-                                {order.shipping_name && (
-                                  <div className="text-xs text-gray-600 mt-1">
-                                    수령인: {order.shipping_name} / {order.shipping_phone}
-                                  </div>
+                                {/* 주소 정보 */}
+                                {order.shipping_address && (
+                                  <>
+                                    <div className="text-xs text-gray-700 mt-1">
+                                      [{order.shipping_zipcode}] {order.shipping_address}
+                                    </div>
+                                    {order.shipping_address_detail && (
+                                      <div className="text-xs text-gray-700">
+                                        {order.shipping_address_detail}
+                                      </div>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             )}
@@ -4082,14 +4107,7 @@ export function AdminPage({}: AdminPageProps) {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {order.created_at ? new Date(order.created_at).toLocaleString('ko-KR', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              timeZone: 'Asia/Seoul'
-                            }) : '-'}
+                            {formatKoreanDateTime(order.created_at)}
                           </div>
                         </TableCell>
                         <TableCell>
