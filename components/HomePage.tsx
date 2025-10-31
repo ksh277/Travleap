@@ -544,32 +544,59 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
               </div>
             </div>
           ) : activityImages.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {activityImages.map((activity, index) => {
-                const isLarge = activity.size === 'large';
-                const heightClass = isLarge ? 'h-[420px] md:h-[560px]' : 'h-[200px] md:h-[320px]';
-                const colSpanClass = isLarge && index === 0 ? 'md:col-span-2' : '';
-
-                return (
-                  <div key={activity.id} className={`${colSpanClass} relative group ${heightClass}`}>
-                    <div
-                      className="cursor-pointer h-full overflow-hidden rounded-lg"
-                      onClick={() => activity.link_url && (window.location.href = activity.link_url)}
-                    >
-                      <ImageWithFallback
-                        src={activity.image_url}
-                        alt={activity.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                      <div className={`absolute ${isLarge ? 'bottom-4 left-4' : 'bottom-3 left-3'} text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300`}>
-                        <h3 className={`${isLarge ? 'text-xl md:text-2xl' : 'text-base md:text-lg'} font-semibold mb-1`}>{activity.title}</h3>
+            <>
+              {/* 모바일: 좌우 스크롤 */}
+              <div className="md:hidden overflow-x-auto scrollbar-hide -mx-4 px-4">
+                <div className="flex gap-3" style={{ width: 'max-content' }}>
+                  {activityImages.map((activity) => (
+                    <div key={activity.id} className="relative group flex-shrink-0 w-[280px] h-[200px]">
+                      <div
+                        className="cursor-pointer h-full overflow-hidden rounded-lg"
+                        onClick={() => activity.link_url && (window.location.href = activity.link_url)}
+                      >
+                        <ImageWithFallback
+                          src={activity.image_url}
+                          alt={activity.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <h3 className="text-base font-semibold mb-1">{activity.title}</h3>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 데스크톱: 그리드 레이아웃 */}
+              <div className="hidden md:grid grid-cols-3 gap-4">
+                {activityImages.map((activity, index) => {
+                  const isLarge = activity.size === 'large';
+                  const heightClass = isLarge ? 'h-[560px]' : 'h-[320px]';
+                  const colSpanClass = isLarge && index === 0 ? 'col-span-2' : '';
+
+                  return (
+                    <div key={activity.id} className={`${colSpanClass} relative group ${heightClass}`}>
+                      <div
+                        className="cursor-pointer h-full overflow-hidden rounded-lg"
+                        onClick={() => activity.link_url && (window.location.href = activity.link_url)}
+                      >
+                        <ImageWithFallback
+                          src={activity.image_url}
+                          alt={activity.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className={`absolute ${isLarge ? 'bottom-4 left-4' : 'bottom-3 left-3'} text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300`}>
+                          <h3 className={`${isLarge ? 'text-2xl' : 'text-lg'} font-semibold mb-1`}>{activity.title}</h3>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* 기본 이미지들 - DB에 데이터가 없을 때 */}
@@ -712,79 +739,159 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
               ))}
             </div>
           ) : featuredListings.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {featuredListings.slice(0, 8).map((listing) => (
-                <Card
-                  key={listing.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[360px]"
-                  onClick={() => navigate(`/detail/${listing.id}`)}
-                >
-                  {/* 이미지 */}
-                  <div className="relative w-full h-48 max-h-48 overflow-hidden flex-shrink-0">
-                    <ImageWithFallback
-                      src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
-                      alt={listing.title}
-                      className="w-full h-48 object-cover"
-                    />
-                    <button
-                      className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // 즐겨찾기 기능 (추후 구현)
-                      }}
+            <>
+              {/* 모바일: 좌우 스크롤 */}
+              <div className="lg:hidden overflow-x-auto scrollbar-hide -mx-4 px-4">
+                <div className="flex gap-4" style={{ width: 'max-content' }}>
+                  {featuredListings.slice(0, 8).map((listing) => (
+                    <Card
+                      key={listing.id}
+                      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col flex-shrink-0 w-[280px] min-h-[360px]"
+                      onClick={() => navigate(`/detail/${listing.id}`)}
                     >
-                      <Heart className="h-4 w-4 text-gray-600" />
-                    </button>
-                    <button
-                      className="absolute top-2 left-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // 공유 기능
-                        const shareUrl = `${window.location.origin}/detail/${listing.id}`;
-                        if (navigator.share) {
-                          navigator.share({ title: listing.title, url: shareUrl });
-                        } else {
-                          navigator.clipboard.writeText(shareUrl);
-                        }
-                      }}
-                    >
-                      <Share2 className="h-4 w-4 text-gray-600" />
-                    </button>
-                  </div>
-
-                  {/* 정보 */}
-                  <CardContent className="p-6 pt-3 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
-                    <div className="space-y-3 flex-1">
-                      <div className="flex items-start gap-2">
-                        <h3 className="font-semibold text-base flex-1 line-clamp-2">{listing.title}</h3>
-                        {listing.partner?.is_verified && (
-                          <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
-                            인증
-                          </Badge>
-                        )}
+                      {/* 이미지 */}
+                      <div className="relative w-full h-48 max-h-48 overflow-hidden flex-shrink-0">
+                        <ImageWithFallback
+                          src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
+                          alt={listing.title}
+                          className="w-full h-48 object-cover"
+                        />
+                        <button
+                          className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // 즐겨찾기 기능 (추후 구현)
+                          }}
+                        >
+                          <Heart className="h-4 w-4 text-gray-600" />
+                        </button>
+                        <button
+                          className="absolute top-2 left-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // 공유 기능
+                            const shareUrl = `${window.location.origin}/detail/${listing.id}`;
+                            if (navigator.share) {
+                              navigator.share({ title: listing.title, url: shareUrl });
+                            } else {
+                              navigator.clipboard.writeText(shareUrl);
+                            }
+                          }}
+                        >
+                          <Share2 className="h-4 w-4 text-gray-600" />
+                        </button>
                       </div>
 
-                      <p className="text-xs text-gray-600 line-clamp-3">{listing.short_description || listing.description_md || ''}</p>
+                      {/* 정보 */}
+                      <CardContent className="p-6 pt-3 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
+                        <div className="space-y-3 flex-1">
+                          <div className="flex items-start gap-2">
+                            <h3 className="font-semibold text-base flex-1 line-clamp-2">{listing.title}</h3>
+                            {listing.partner?.is_verified && (
+                              <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
+                                인증
+                              </Badge>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-gray-600 line-clamp-3">{listing.short_description || listing.description_md || ''}</p>
+                        </div>
+
+                        <div className="flex items-center pt-4 mt-4 border-t">
+                          <div className="flex items-center gap-1 flex-1">
+                            {Number(listing.rating_avg || 0) > 0 && (
+                              <>
+                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                <span className="text-xs">{Number(listing.rating_avg || 0).toFixed(1)}</span>
+                                <span className="text-xs text-gray-500">({listing.rating_count || 0})</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="text-base font-bold text-[#ff6a3d]">
+                            {formatPrice(listing.price_from || 0, selectedCurrency)}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              {/* 데스크톱: 그리드 레이아웃 */}
+              <div className="hidden lg:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {featuredListings.slice(0, 8).map((listing) => (
+                  <Card
+                    key={listing.id}
+                    className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[360px]"
+                    onClick={() => navigate(`/detail/${listing.id}`)}
+                  >
+                    {/* 이미지 */}
+                    <div className="relative w-full h-48 max-h-48 overflow-hidden flex-shrink-0">
+                      <ImageWithFallback
+                        src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
+                        alt={listing.title}
+                        className="w-full h-48 object-cover"
+                      />
+                      <button
+                        className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // 즐겨찾기 기능 (추후 구현)
+                        }}
+                      >
+                        <Heart className="h-4 w-4 text-gray-600" />
+                      </button>
+                      <button
+                        className="absolute top-2 left-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // 공유 기능
+                          const shareUrl = `${window.location.origin}/detail/${listing.id}`;
+                          if (navigator.share) {
+                            navigator.share({ title: listing.title, url: shareUrl });
+                          } else {
+                            navigator.clipboard.writeText(shareUrl);
+                          }
+                        }}
+                      >
+                        <Share2 className="h-4 w-4 text-gray-600" />
+                      </button>
                     </div>
 
-                    <div className="flex items-center pt-4 mt-4 border-t">
-                      <div className="flex items-center gap-1 flex-1">
-                        {Number(listing.rating_avg || 0) > 0 && (
-                          <>
-                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                            <span className="text-xs">{Number(listing.rating_avg || 0).toFixed(1)}</span>
-                            <span className="text-xs text-gray-500">({listing.rating_count || 0})</span>
-                          </>
-                        )}
+                    {/* 정보 */}
+                    <CardContent className="p-6 pt-3 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
+                      <div className="space-y-3 flex-1">
+                        <div className="flex items-start gap-2">
+                          <h3 className="font-semibold text-base flex-1 line-clamp-2">{listing.title}</h3>
+                          {listing.partner?.is_verified && (
+                            <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
+                              인증
+                            </Badge>
+                          )}
+                        </div>
+
+                        <p className="text-xs text-gray-600 line-clamp-3">{listing.short_description || listing.description_md || ''}</p>
                       </div>
-                      <div className="text-base font-bold text-[#ff6a3d]">
-                        {formatPrice(listing.price_from || 0, selectedCurrency)}
+
+                      <div className="flex items-center pt-4 mt-4 border-t">
+                        <div className="flex items-center gap-1 flex-1">
+                          {Number(listing.rating_avg || 0) > 0 && (
+                            <>
+                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                              <span className="text-xs">{Number(listing.rating_avg || 0).toFixed(1)}</span>
+                              <span className="text-xs text-gray-500">({listing.rating_count || 0})</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="text-base font-bold text-[#ff6a3d]">
+                          {formatPrice(listing.price_from || 0, selectedCurrency)}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="text-center py-12">
               <div className="max-w-md mx-auto">

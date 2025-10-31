@@ -88,7 +88,7 @@ export function HomeBanner({ autoSlideInterval = 5000 }: HomeBannerProps) {
 
   return (
     <div
-      className="relative w-full h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] overflow-hidden group"
+      className="relative w-full h-[150px] sm:h-[200px] md:h-[300px] lg:h-[350px] overflow-hidden group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
