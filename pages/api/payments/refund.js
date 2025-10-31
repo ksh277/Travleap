@@ -332,7 +332,19 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
       }
 
       const currentPoints = userResult.rows[0].total_points || 0;
-      const newBalance = Math.max(0, currentPoints - pointsToDeduct); // 음수 방지
+
+      // 🔧 CRITICAL FIX: 실제 회수 가능한 포인트만 계산 (이미 사용된 포인트는 회수 불가)
+      const actualDeduction = Math.min(pointsToDeduct, currentPoints);
+      const newBalance = currentPoints - actualDeduction;
+
+      console.log(`💰 [포인트 회수] 회수 계산: 적립=${pointsToDeduct}P, 현재잔액=${currentPoints}P, 실제회수=${actualDeduction}P, 잔액=${newBalance}P`);
+
+      // 회수 불가능한 포인트 경고
+      if (actualDeduction < pointsToDeduct) {
+        const shortfall = pointsToDeduct - actualDeduction;
+        console.warn(`⚠️ [포인트 회수] 포인트 부족! ${shortfall}P는 이미 사용되어 회수 불가 (적립: ${pointsToDeduct}P, 잔액: ${currentPoints}P)`);
+        console.warn(`⚠️ [포인트 회수] 사용자가 적립된 포인트를 이미 사용했으므로 일부만 회수됩니다.`);
+      }
 
       // 3. Neon - users 테이블 포인트 차감
       await poolNeon.query(`
@@ -340,17 +352,30 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
       `, [newBalance, userId]);
 
       // 4. PlanetScale - user_points 테이블에 회수 내역 추가
-      await connection.execute(`
-        INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-        VALUES (?, ?, 'refund', ?, ?, ?, NOW())
-      `, [userId, -pointsToDeduct, `환불로 인한 포인트 회수 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
+      // 🔧 CRITICAL FIX: 실제 회수된 포인트만 기록 (DB 일관성 유지)
+      if (actualDeduction > 0) {
+        await connection.execute(`
+          INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+          VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+        `, [
+          userId,
+          -actualDeduction,  // ✅ 실제 회수된 포인트만 기록
+          actualDeduction < pointsToDeduct
+            ? `환불 포인트 부분 회수 (주문번호: ${orderNumber}, 적립: ${pointsToDeduct}P, 회수: ${actualDeduction}P, 부족: ${pointsToDeduct - actualDeduction}P)`
+            : `환불로 인한 포인트 회수 (주문번호: ${orderNumber})`,
+          orderNumber,
+          newBalance
+        ]);
+      } else {
+        console.warn(`⚠️ [포인트 회수] 회수할 포인트가 없음 (잔액 0P)`);
+      }
 
       // 트랜잭션 커밋
       await poolNeon.query('COMMIT');
 
-      console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
+      console.log(`✅ [포인트 회수] ${actualDeduction}P 회수 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
 
-      return pointsToDeduct;
+      return actualDeduction;  // ✅ 실제 회수된 포인트 반환
 
     } catch (error) {
       // 롤백
