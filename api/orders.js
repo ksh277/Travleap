@@ -590,7 +590,13 @@ module.exports = async function handler(req, res) {
               couponDiscount: categoryCouponDiscount,
               couponCode: categoryCouponCode,
               pointsUsed: categoryPointsUsed,
-              shippingInfo: category === '팝업' ? shippingInfo : null
+              shippingInfo: category === '팝업' ? shippingInfo : null,
+              // ✅ 청구 정보 저장 (Neon DB 조회 실패 시 fallback용)
+              billingInfo: shippingInfo ? {
+                name: shippingInfo.name,
+                email: shippingInfo.email || null,
+                phone: shippingInfo.phone
+              } : null
             })
           ]);
 

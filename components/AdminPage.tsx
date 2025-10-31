@@ -2625,6 +2625,12 @@ export function AdminPage({}: AdminPageProps) {
                     <span className="text-sm">오늘 주문</span>
                     <span className="font-medium text-blue-600">{dashboardStats?.bookings_today || 0}건</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm">환불 완료</span>
+                    <span className="font-medium text-purple-600">
+                      {orders.filter(o => o.payment_status === 'refunded').length}건
+                    </span>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -3973,6 +3979,11 @@ export function AdminPage({}: AdminPageProps) {
                             {order.user_name && (
                               <div className="text-sm font-medium">
                                 {order.user_name}
+                              </div>
+                            )}
+                            {order.user_phone && (
+                              <div className="text-xs text-gray-600">
+                                {order.user_phone}
                               </div>
                             )}
                             {order.user_email && (

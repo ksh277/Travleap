@@ -78,19 +78,25 @@ module.exports = async function handler(req, res) {
       try {
         // 모든 주문의 user_id 수집
         const userIds = [...new Set((result.rows || []).map(order => order.user_id).filter(Boolean))];
+        console.log(`👥 [Orders] 수집된 user_id 목록:`, userIds);
 
         let userMap = new Map();
         if (userIds.length > 0) {
           // IN 쿼리로 사용자 정보 한번에 조회
           const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
           const usersResult = await poolNeon.query(
-            `SELECT id, name, email FROM users WHERE id IN (${placeholders})`,
+            `SELECT id, name, email, phone FROM users WHERE id IN (${placeholders})`,
             userIds
           );
+
+          console.log(`👥 [Orders] Neon DB에서 조회된 사용자 수: ${usersResult.rows?.length || 0}`);
+          console.log(`👥 [Orders] 사용자 데이터:`, usersResult.rows);
 
           usersResult.rows.forEach(user => {
             userMap.set(user.id, user);
           });
+        } else {
+          console.warn(`⚠️ [Orders] payments 테이블에 user_id가 없습니다!`);
         }
 
         // 🔧 혼합 주문의 모든 bookings 조회 (부분 환불 지원)
@@ -129,6 +135,15 @@ module.exports = async function handler(req, res) {
         // 주문 데이터와 사용자 정보 병합
         ordersWithUserInfo = (result.rows || []).map(order => {
           const user = userMap.get(order.user_id);
+
+          // 🔍 디버깅: 주문별 user_id와 사용자 정보 확인
+          if (!user && order.user_id) {
+            console.warn(`⚠️ [Orders] order_id=${order.id}: user_id=${order.user_id}에 대한 사용자 정보 없음`);
+          } else if (!order.user_id) {
+            console.warn(`⚠️ [Orders] order_id=${order.id}: user_id가 NULL입니다`);
+          } else {
+            console.log(`✅ [Orders] order_id=${order.id}: user_id=${order.user_id}, name=${user.name}, email=${user.email}`);
+          }
 
           // notes 파싱하여 상품 정보 추출
           let itemsInfo = null;
@@ -209,12 +224,33 @@ module.exports = async function handler(req, res) {
           const orderNumber = order.gateway_transaction_id;
           const bookingsList = bookingsMap.get(orderNumber) || null;
 
+          // ✅ FIX: notes에서 billingInfo 추출 (Neon DB 조회 실패 시 fallback)
+          let billingInfo = null;
+          try {
+            if (order.notes) {
+              const notesDataForBilling = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
+              billingInfo = notesDataForBilling.billingInfo || null;
+            }
+          } catch (e) {
+            console.error('❌ [Orders] billingInfo 파싱 오류:', e, 'order_id:', order.id);
+          }
+
+          // ✅ FIX: Neon DB 사용자 정보 우선, 없으면 billingInfo 사용
+          const finalUserName = user?.name || billingInfo?.name || '';
+          const finalUserEmail = user?.email || billingInfo?.email || '';
+          const finalUserPhone = user?.phone || billingInfo?.phone || '';
+
+          if (!user && billingInfo) {
+            console.log(`💡 [Orders] order_id=${order.id}: Neon DB에 사용자 없음, billingInfo 사용 (name=${billingInfo.name})`);
+          }
+
           return {
             id: order.id,
             booking_id: order.booking_id, // ✅ 환불 시 필요
             booking_number: order.booking_number,
-            user_name: user?.name || '',
-            user_email: user?.email || '',
+            user_name: finalUserName,
+            user_email: finalUserEmail,
+            user_phone: finalUserPhone,
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,

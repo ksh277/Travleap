@@ -530,6 +530,7 @@ export function PaymentPage() {
           // ✅ 모든 주문에 청구 정보 전달 (프로필 저장용)
           shippingInfo: {
             name: billingInfo.name,
+            email: billingInfo.email,
             phone: billingInfo.phone,
             zipcode: billingInfo.postalCode,
             address: billingInfo.address,
@@ -671,10 +672,30 @@ export function PaymentPage() {
             <Card>
               <CardHeader>
                 <CardTitle>청구 정보</CardTitle>
+                <p className="text-sm text-gray-600 mt-2">
+                  주문 확인 및 배송을 위해 <strong className="text-purple-700">실제 정보</strong>를 정확하게 입력해주세요.
+                </p>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* 안내 메시지 */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+                  <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium mb-1">실제 정보 입력 필수</p>
+                    <ul className="text-xs space-y-0.5 text-blue-700">
+                      <li>• 주문 확인 및 환불 처리를 위해 정확한 정보가 필요합니다</li>
+                      <li>• 팝업 상품은 입력하신 주소로 배송됩니다</li>
+                      <li>• 입력한 정보는 안전하게 보호됩니다</li>
+                    </ul>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-medium mb-2">이름</label>
+                  <label className="block text-sm font-medium mb-2">
+                    이름 <span className="text-red-500">*</span>
+                  </label>
                   <Input
                     autoComplete="name"
                     value={billingInfo.name}
@@ -682,11 +703,15 @@ export function PaymentPage() {
                       ...prev,
                       name: e.target.value
                     }))}
-                    placeholder="홍길동"
+                    placeholder="실명을 입력하세요 (예: 홍길동)"
+                    required
                   />
+                  <p className="text-xs text-gray-500 mt-1">주문 확인에 사용됩니다</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">이메일</label>
+                  <label className="block text-sm font-medium mb-2">
+                    이메일 <span className="text-red-500">*</span>
+                  </label>
                   <Input
                     type="email"
                     autoComplete="email"
@@ -695,11 +720,15 @@ export function PaymentPage() {
                       ...prev,
                       email: e.target.value
                     }))}
-                    placeholder="example@email.com"
+                    placeholder="실제 이메일 주소 (예: example@email.com)"
+                    required
                   />
+                  <p className="text-xs text-gray-500 mt-1">주문 확인 및 영수증 발송에 사용됩니다</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">전화번호</label>
+                  <label className="block text-sm font-medium mb-2">
+                    전화번호 <span className="text-red-500">*</span>
+                  </label>
                   <Input
                     type="tel"
                     autoComplete="tel"
@@ -708,8 +737,10 @@ export function PaymentPage() {
                       ...prev,
                       phone: e.target.value
                     }))}
-                    placeholder="010-0000-0000"
+                    placeholder="연락 가능한 전화번호 (예: 010-1234-5678)"
+                    required
                   />
+                  <p className="text-xs text-gray-500 mt-1">주문 및 배송 관련 연락에 사용됩니다</p>
                 </div>
                 {/* 팝업 상품이 있을 때만 배송지 입력 표시 */}
                 {hasPopupProducts && (
