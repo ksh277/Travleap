@@ -56,6 +56,8 @@ module.exports = async function handler(req, res) {
           b.shipping_address,
           b.shipping_address_detail,
           b.shipping_zipcode,
+          b.tracking_number,
+          b.courier_company,
           l.title as product_title,
           l.category,
           l.images
@@ -267,7 +269,10 @@ module.exports = async function handler(req, res) {
             shipping_phone: order.shipping_phone || user?.phone || '',
             shipping_address: order.shipping_address || user?.address || '',
             shipping_address_detail: order.shipping_address_detail || user?.detail_address || '',
-            shipping_zipcode: order.shipping_zipcode || user?.postal_code || ''
+            shipping_zipcode: order.shipping_zipcode || user?.postal_code || '',
+            // ✅ 배송 조회 정보
+            tracking_number: order.tracking_number || null,
+            courier_company: order.courier_company || null
           };
         });
       } finally {
