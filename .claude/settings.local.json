@@ -65,7 +65,20 @@
       "Bash(if [ ! -d \"C:\\Users\\ham57\\Desktop\\Travleap\\pages\\api\\coupons\" ])",
       "Bash(then mkdir -p \"C:\\Users\\ham57\\Desktop\\Travleap\\pages\\api\\coupons\")",
       "Bash(vercel:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(if [ -d \"pages/api/admin/food\" ])",
+      "Bash(else mkdir -p pages/api/admin/food)",
+      "Bash(if [ -d \"pages/api/admin/experience\" ])",
+      "Bash(else mkdir -p pages/api/admin/experience)",
+      "Bash(if [ -d \"pages/api/admin/attractions\" ])",
+      "Bash(else mkdir -p pages/api/admin/attractions)",
+      "Bash(if [ -d \"pages/api/admin/events\" ])",
+      "Bash(else mkdir -p pages/api/admin/events)",
+      "Bash(if [ ! -d \"scripts\" ])",
+      "Bash(then mkdir -p scripts)",
+      "Bash(node scripts/check-use-points.cjs:*)",
+      "Bash(node scripts/verify-point-deduction.cjs:*)",
+      "Bash(mysql:*)"
     ],
     "deny": [],
     "ask": []

@@ -92,7 +92,7 @@ export function TrackingDetailDialog({
 
     try {
       const response = await fetch(
-        `/api/tracking/query?courier=${encodeURIComponent(courierCompany)}&invoice=${encodeURIComponent(trackingNumber)}`
+        `/api/tracking?courier=${encodeURIComponent(courierCompany)}&invoice=${encodeURIComponent(trackingNumber)}`
       );
 
       const result = await response.json();
