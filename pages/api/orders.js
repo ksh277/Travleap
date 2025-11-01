@@ -286,6 +286,8 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
+        version: "1.0.1-billingInfo-debug",
+        deployedAt: new Date().toISOString(),
         orders: ordersWithUserInfo
       });
     } catch (error) {
