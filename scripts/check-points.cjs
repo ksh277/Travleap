@@ -80,8 +80,18 @@ async function checkPoints() {
     } else {
       console.log(`✅ 최근 포인트 내역 (최대 10건):\n`);
       for (const point of pointsResult.rows) {
+        // 포인트 타입 표시
+        let typeLabel = '알 수 없음';
+        if (point.point_type === 'earn') {
+          typeLabel = '적립';
+        } else if (point.point_type === 'use') {
+          typeLabel = '사용';
+        } else if (point.point_type === 'refund') {
+          typeLabel = '회수';
+        }
+
         console.log(`   [${point.created_at}]`);
-        console.log(`   ${point.point_type === 'earn' ? '적립' : '사용'}: ${point.points > 0 ? '+' : ''}${point.points}P`);
+        console.log(`   ${typeLabel}: ${point.points > 0 ? '+' : ''}${point.points}P`);
         console.log(`   사유: ${point.reason}`);
         console.log(`   관련 주문 ID: ${point.related_order_id}`);
         console.log(`   적용 후 잔액: ${point.balance_after}P\n`);
