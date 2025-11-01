@@ -110,6 +110,11 @@ module.exports = async function handler(req, res) {
                 b.status,
                 b.delivery_status,
                 b.guests,
+                b.shipping_name,
+                b.shipping_phone,
+                b.shipping_address,
+                b.shipping_address_detail,
+                b.shipping_zipcode,
                 l.title as product_title,
                 l.category
               FROM bookings b
@@ -129,7 +134,7 @@ module.exports = async function handler(req, res) {
         ordersWithUserInfo = (result.rows || []).map(order => {
           const user = userMap.get(order.user_id);
 
-          // notes 파싱하여 상품 정보 추출
+          // notes 파싱하여 상품 정보 및 청구 정보 추출
           let itemsInfo = null;
           let itemCount = 1;
           let totalQuantity = 1; // ✅ 실제 총 수량 (각 아이템의 quantity 합산)
@@ -137,6 +142,10 @@ module.exports = async function handler(req, res) {
           let deliveryFee = 0;
           let subtotal = 0;
           let actualOrderNumber = order.order_number;
+          // ✅ FIX: notes에서 청구 정보 추출 (users 테이블에 없을 경우 대비)
+          let billingName = '';
+          let billingEmail = '';
+          let billingPhone = '';
 
           if (order.notes) {
             try {
@@ -150,6 +159,19 @@ module.exports = async function handler(req, res) {
               // 배송비 및 상품 금액 추출
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
+
+              // ✅ FIX: 청구 정보 추출 (주문 시 입력한 정보)
+              if (notesData.billingInfo) {
+                billingName = notesData.billingInfo.name || '';
+                billingEmail = notesData.billingInfo.email || '';
+                billingPhone = notesData.billingInfo.phone || '';
+              }
+              // ✅ shippingInfo도 체크 (이전 버전 호환)
+              if (!billingName && notesData.shippingInfo) {
+                billingName = notesData.shippingInfo.name || '';
+                billingEmail = notesData.shippingInfo.email || '';
+                billingPhone = notesData.shippingInfo.phone || '';
+              }
 
               // 상품 정보 추출 (우선순위: notes.items > product_title)
               if (notesData.items && Array.isArray(notesData.items) && notesData.items.length > 0) {
@@ -200,13 +222,21 @@ module.exports = async function handler(req, res) {
           const orderNumber = order.gateway_transaction_id;
           const bookingsList = bookingsMap.get(orderNumber) || null;
 
+          // ✅ FIX: 사용자 정보 우선순위
+          // 1순위: notes의 billingInfo (주문 시 입력한 정보)
+          // 2순위: users 테이블 (회원 정보)
+          // 3순위: bookings 테이블의 shipping 정보 (배송지로 입력한 정보)
+          const finalUserName = billingName || user?.name || order.shipping_name || '';
+          const finalUserEmail = billingEmail || user?.email || '';
+          const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || '';
+
           return {
             id: order.id,
             booking_id: order.booking_id, // ✅ 환불 시 필요
             booking_number: order.booking_number,
-            user_name: user?.name || '', // ✅ users 테이블에서 가져온 정보 (결제 시 저장됨)
-            user_email: user?.email || '', // ✅ users 테이블에서 가져온 정보
-            user_phone: user?.phone || '', // ✅ users 테이블에서 가져온 정보
+            user_name: finalUserName, // ✅ FIX: notes → users → bookings 순서로 우선순위
+            user_email: finalUserEmail, // ✅ FIX: notes → users 순서로 우선순위
+            user_phone: finalUserPhone, // ✅ FIX: notes → users → bookings 순서로 우선순위
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,

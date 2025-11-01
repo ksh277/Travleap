@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
             valid_until TIMESTAMP NULL,
             is_active BOOLEAN DEFAULT TRUE,
             usage_limit INT NULL,
-            current_usage INT DEFAULT 0,
+            used_count INT DEFAULT 0,
             usage_per_user INT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

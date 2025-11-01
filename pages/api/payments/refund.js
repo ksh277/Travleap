@@ -707,8 +707,20 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         console.log(`✅ [Refund] 장바구니 주문 전체 포인트 회수 완료: ${totalDeductedPoints}P (${allCategoryPayments.length}개 payments)`);
       } else {
         // 단일 예약: 하나의 payment만 처리
-        const refundOrderId = String(payment.id);
+        // ✅ FIX: booking_id로도 검색 시도 (confirm.js에서 booking_id를 related_order_id로 저장했을 경우 대비)
+        console.log(`💰 [Refund] 단일 예약 포인트 회수: payment_id=${payment.id}, booking_id=${payment.booking_id}`);
+
+        // 먼저 payment.id로 검색
+        let refundOrderId = String(payment.id);
         totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
+
+        // 포인트 회수가 0이고 booking_id가 있으면 booking_id로도 시도
+        if (totalDeductedPoints === 0 && payment.booking_id) {
+          console.log(`💰 [Refund] payment_id로 회수 실패, booking_id=${payment.booking_id}로 재시도`);
+          refundOrderId = String(payment.booking_id);
+          totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
+        }
+
         console.log(`✅ [Refund] payment_id=${payment.id} 포인트 회수 완료: ${totalDeductedPoints}P`);
       }
 
@@ -765,6 +777,27 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
 
             if (updateResult.affectedRows > 0) {
               console.log(`✅ [쿠폰 복구] 쿠폰 사용 횟수 복구 완료: ${couponCode} (${coupon.used_count} → ${Math.max(0, coupon.used_count - 1)})`);
+
+              // ✅ user_coupons 테이블 복구 (is_used = FALSE, used_at = NULL, order_number = NULL)
+              try {
+                const userCouponRestore = await connection.execute(`
+                  UPDATE user_coupons
+                  SET is_used = FALSE,
+                      used_at = NULL,
+                      order_number = NULL
+                  WHERE user_id = ? AND coupon_id = (
+                    SELECT id FROM coupons WHERE code = ? LIMIT 1
+                  ) AND order_number = ?
+                `, [payment.user_id, couponCode.toUpperCase(), payment.gateway_transaction_id || payment.order_number]);
+
+                if (userCouponRestore.affectedRows > 0) {
+                  console.log(`✅ [쿠폰 복구] user_coupons 복구 완료`);
+                } else {
+                  console.log(`ℹ️ [쿠폰 복구] user_coupons 복구 불필요 (미등록 쿠폰 또는 이미 복구됨)`);
+                }
+              } catch (userCouponRestoreError) {
+                console.log('⚠️ [쿠폰 복구] user_coupons 복구 실패 (테이블 없음)');
+              }
 
               // coupon_usage 테이블에서 사용 기록 삭제
               // 🔧 CRITICAL FIX: confirm.js에서 gateway_transaction_id를 order_id로 저장했으므로 동일하게 사용

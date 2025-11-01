@@ -9,8 +9,7 @@ require('dotenv').config();
 
 const USER_ID = 11; // 사용자 ID
 const ORDER_NUMBERS = [
-  'ORDER_1761759049375_9425',
-  'ORDER_1761757903475_4030'
+  'ORDER_1761955928607_5256'  // 최신 주문 (포인트 적립 안됨 확인)
 ];
 
 async function verifyPointDeduction() {
@@ -39,44 +38,68 @@ async function verifyPointDeduction() {
       return;
     }
 
-    // 2. PlanetScale MySQL에서 포인트 내역 확인
-    console.log('📊 [2단계] PlanetScale MySQL - user_points 테이블 확인');
+    // 2. payments 테이블에서 주문 정보 조회
+    console.log('📊 [2단계] payments 테이블 - 주문 정보 확인');
 
     for (const orderNumber of ORDER_NUMBERS) {
       console.log(`\n📌 주문번호: ${orderNumber}`);
 
-      // 적립 내역 확인
-      const earnResult = await connection.execute(`
-        SELECT id, points, point_type, reason, balance_after, created_at
-        FROM user_points
-        WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn'
-        ORDER BY created_at DESC
-        LIMIT 1
-      `, [USER_ID, orderNumber]);
+      // 해당 주문의 모든 payments 조회
+      const paymentsResult = await connection.execute(`
+        SELECT id, user_id, amount, payment_status, payment_key, notes, created_at
+        FROM payments
+        WHERE gateway_transaction_id = ?
+        ORDER BY id ASC
+      `, [orderNumber]);
 
-      if (earnResult.rows && earnResult.rows.length > 0) {
-        const earn = earnResult.rows[0];
-        console.log(`  ✅ 적립 내역 존재: +${earn.points}P (${new Date(earn.created_at).toLocaleString('ko-KR')})`);
-      } else {
-        console.log(`  ❌ 적립 내역 없음`);
+      if (!paymentsResult.rows || paymentsResult.rows.length === 0) {
+        console.log(`  ❌ 주문을 찾을 수 없습니다!`);
+        continue;
       }
 
-      // 회수 내역 확인
-      const refundResult = await connection.execute(`
-        SELECT id, points, point_type, reason, balance_after, created_at
-        FROM user_points
-        WHERE user_id = ? AND related_order_id = ? AND point_type = 'refund'
-        ORDER BY created_at DESC
-        LIMIT 1
-      `, [USER_ID, orderNumber]);
+      console.log(`\n  💳 Payments (${paymentsResult.rows.length}건):`);
+      let totalExpected = 0;
+      let totalActual = 0;
 
-      if (refundResult.rows && refundResult.rows.length > 0) {
-        const refund = refundResult.rows[0];
-        console.log(`  ✅ 회수 내역 존재: ${refund.points}P (${new Date(refund.created_at).toLocaleString('ko-KR')})`);
-        console.log(`     잔액: ${refund.balance_after}P`);
-        console.log(`     사유: ${refund.reason}`);
+      for (const payment of paymentsResult.rows) {
+        const notes = payment.notes ? JSON.parse(payment.notes) : {};
+        const subtotal = notes.subtotal || 0;
+        const expectedPoints = Math.floor(subtotal * 0.02);
+        totalExpected += expectedPoints;
+
+        console.log(`\n  📦 payment_id: ${payment.id}`);
+        console.log(`     amount: ${payment.amount}원`);
+        console.log(`     payment_status: ${payment.payment_status}`);
+        console.log(`     payment_key: ${payment.payment_key || '없음'}`);
+        console.log(`     subtotal: ${subtotal}원`);
+        console.log(`     예상 적립: ${expectedPoints}P`);
+
+        // payment_id로 적립 내역 조회
+        const earnResult = await connection.execute(`
+          SELECT id, points, reason, created_at
+          FROM user_points
+          WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn'
+        `, [USER_ID, String(payment.id)]);
+
+        if (earnResult.rows && earnResult.rows.length > 0) {
+          const actualPoints = earnResult.rows[0].points;
+          totalActual += actualPoints;
+          console.log(`     ✅ 적립 완료: ${actualPoints}P`);
+          console.log(`     적립 일시: ${new Date(earnResult.rows[0].created_at).toLocaleString('ko-KR')}`);
+        } else {
+          console.log(`     ❌ 적립 내역 없음!`);
+        }
+      }
+
+      console.log(`\n  📊 적립 통계:`);
+      console.log(`     예상 적립: ${totalExpected}P`);
+      console.log(`     실제 적립: ${totalActual}P`);
+      if (totalActual === 0) {
+        console.error(`     ❌❌❌ 포인트가 전혀 적립되지 않았습니다!`);
+      } else if (totalActual < totalExpected) {
+        console.warn(`     ⚠️  일부만 적립됨 (부족: ${totalExpected - totalActual}P)`);
       } else {
-        console.log(`  ❌ 회수 내역 없음`);
+        console.log(`     ✅ 정상 적립됨`);
       }
     }
 

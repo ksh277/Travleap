@@ -22,11 +22,12 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  const connection = connect({ url: process.env.DATABASE_URL });
+
   try {
-    const connection = connect({ url: process.env.DATABASE_URL });
     const { code, userId } = req.body;
 
-    console.log('🎟️ [Coupon Register] 쿠폰 등록 요청:', { code, userId });
+    console.log('🎟️ [Coupon Register] 쿠폰 다운로드 요청:', { code, userId });
 
     if (!code || !userId) {
       return res.status(400).json({
@@ -35,6 +36,10 @@ module.exports = async function handler(req, res) {
         message: '쿠폰 코드와 사용자 ID가 필요합니다'
       });
     }
+
+    // 🔒 트랜잭션 시작 - 동시성 제어 및 일관성 보장
+    console.log('🔒 [Coupon Register] 트랜잭션 시작');
+    await connection.execute('START TRANSACTION');
 
     // ✅ coupons 테이블 생성 (없으면)
     try {
@@ -89,14 +94,15 @@ module.exports = async function handler(req, res) {
       // 테이블이 이미 존재하면 에러 무시
     }
 
-    // 1. 쿠폰 코드 유효성 확인
+    // 1. 쿠폰 코드 유효성 확인 (🔒 FOR UPDATE 락 - 동시성 제어)
     const couponResult = await connection.execute(`
       SELECT * FROM coupons
       WHERE code = ? AND is_active = 1
-      LIMIT 1
+      FOR UPDATE
     `, [code.toUpperCase()]);
 
     if (!couponResult.rows || couponResult.rows.length === 0) {
+      await connection.execute('ROLLBACK');
       return res.status(404).json({
         success: false,
         error: 'INVALID_CODE',
@@ -105,10 +111,18 @@ module.exports = async function handler(req, res) {
     }
 
     const coupon = couponResult.rows[0];
+    console.log(`🎟️ [Coupon Register] 쿠폰 정보:`, {
+      id: coupon.id,
+      code: coupon.code,
+      usage_limit: coupon.usage_limit,
+      used_count: coupon.used_count,
+      usage_per_user: coupon.usage_per_user
+    });
 
     // 2. 유효 기간 체크
     const now = new Date();
     if (coupon.valid_from && new Date(coupon.valid_from) > now) {
+      await connection.execute('ROLLBACK');
       return res.status(400).json({
         success: false,
         error: 'NOT_YET_VALID',
@@ -116,6 +130,7 @@ module.exports = async function handler(req, res) {
       });
     }
     if (coupon.valid_until && new Date(coupon.valid_until) < now) {
+      await connection.execute('ROLLBACK');
       return res.status(400).json({
         success: false,
         error: 'EXPIRED',
@@ -123,56 +138,99 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 2-1. 수량 제한 체크 (전체 사용 가능 횟수)
-    if (coupon.usage_limit !== null && coupon.current_usage >= coupon.usage_limit) {
+    // 2-1. 🔥 수량 제한 체크 (전체 다운로드 가능 횟수) - FOR UPDATE 락 이후 재확인
+    if (coupon.usage_limit !== null && coupon.used_count >= coupon.usage_limit) {
+      await connection.execute('ROLLBACK');
+      console.warn(`⚠️ [Coupon Register] 쿠폰 소진: ${coupon.code} (${coupon.used_count}/${coupon.usage_limit})`);
       return res.status(400).json({
         success: false,
-        error: 'MAX_USAGE_EXCEEDED',
+        error: 'SOLD_OUT',
         message: '쿠폰 발급 수량이 모두 소진되었습니다'
       });
     }
 
-    // 3. 이미 등록했는지 확인
+    // 3. 🔥 이미 등록했는지 확인 (중복 다운로드 방지)
     const alreadyRegistered = await connection.execute(`
-      SELECT id FROM user_coupons
+      SELECT id, is_used FROM user_coupons
       WHERE user_id = ? AND coupon_id = ?
       LIMIT 1
     `, [userId, coupon.id]);
 
     if (alreadyRegistered.rows && alreadyRegistered.rows.length > 0) {
+      await connection.execute('ROLLBACK');
+      const isUsed = alreadyRegistered.rows[0].is_used;
+      console.warn(`⚠️ [Coupon Register] 중복 다운로드 차단: user_id=${userId}, coupon_id=${coupon.id}, is_used=${isUsed}`);
       return res.status(400).json({
         success: false,
-        error: 'ALREADY_REGISTERED',
-        message: '이미 보유한 쿠폰입니다'
+        error: 'ALREADY_DOWNLOADED',
+        message: isUsed ? '이미 사용한 쿠폰입니다' : '이미 다운로드한 쿠폰입니다'
       });
     }
 
-    // 4. 쿠폰 등록
-    await connection.execute(`
-      INSERT INTO user_coupons (user_id, coupon_id, registered_at)
-      VALUES (?, ?, NOW())
+    // 3-1. 🔥 사용자당 다운로드 횟수 제한 체크 (usage_per_user)
+    if (coupon.usage_per_user !== null && coupon.usage_per_user > 0) {
+      const userDownloadCount = await connection.execute(`
+        SELECT COUNT(*) as count FROM user_coupons
+        WHERE user_id = ? AND coupon_id = ?
+      `, [userId, coupon.id]);
+
+      const currentDownloadCount = userDownloadCount.rows[0]?.count || 0;
+      if (currentDownloadCount >= coupon.usage_per_user) {
+        await connection.execute('ROLLBACK');
+        console.warn(`⚠️ [Coupon Register] 사용자당 다운로드 한도 초과: user_id=${userId}, count=${currentDownloadCount}, limit=${coupon.usage_per_user}`);
+        return res.status(400).json({
+          success: false,
+          error: 'USER_DOWNLOAD_LIMIT_EXCEEDED',
+          message: `이 쿠폰은 1인당 ${coupon.usage_per_user}회만 다운로드 가능합니다`
+        });
+      }
+    }
+
+    // 4. 🔥 쿠폰 다운로드 (user_coupons 테이블 INSERT)
+    const insertResult = await connection.execute(`
+      INSERT INTO user_coupons (user_id, coupon_id, registered_at, is_used)
+      VALUES (?, ?, NOW(), FALSE)
     `, [userId, coupon.id]);
 
-    console.log(`✅ [Coupon Register] 쿠폰 등록 성공: user_id=${userId}, coupon_id=${coupon.id}`);
+    console.log(`✅ [Coupon Register] user_coupons INSERT 완료: insert_id=${insertResult.insertId}`);
+
+    // 5. 🔥 쿠폰 다운로드 횟수 증가 (선착순 쿠폰 대비)
+    // ⚠️ used_count는 실제 사용 시 증가하므로 여기서는 증가하지 않음
+    // 대신 download_count 필드가 있다면 증가 (선택사항)
+
+    // 🔒 트랜잭션 커밋
+    await connection.execute('COMMIT');
+    console.log(`✅ [Coupon Register] 쿠폰 다운로드 성공: user_id=${userId}, coupon_id=${coupon.id}, code=${coupon.code}`);
 
     return res.status(200).json({
       success: true,
-      message: '쿠폰이 등록되었습니다',
+      message: '쿠폰이 다운로드되었습니다',
       data: {
         code: coupon.code,
         title: coupon.title || coupon.description,
         discount_type: coupon.discount_type,
         discount_value: coupon.discount_value,
-        min_amount: coupon.min_amount
+        min_amount: coupon.min_amount,
+        valid_until: coupon.valid_until
       }
     });
 
   } catch (error) {
     console.error('❌ [Coupon Register] API error:', error);
+    console.error('❌ [Coupon Register] Error stack:', error.stack);
+
+    // 🔒 트랜잭션 롤백
+    try {
+      await connection.execute('ROLLBACK');
+      console.log('🔙 [Coupon Register] 트랜잭션 롤백 완료');
+    } catch (rollbackError) {
+      console.error('❌ [Coupon Register] 롤백 실패:', rollbackError);
+    }
+
     return res.status(500).json({
       success: false,
       error: 'SERVER_ERROR',
-      message: error.message || '쿠폰 등록 중 오류가 발생했습니다'
+      message: error.message || '쿠폰 다운로드 중 오류가 발생했습니다'
     });
   }
 };

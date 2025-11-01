@@ -40,13 +40,13 @@ module.exports = async function handler(req, res) {
         valid_from,
         valid_until,
         usage_limit,
-        current_usage,
+        used_count,
         usage_per_user
       FROM coupons
       WHERE is_active = 1
         AND (valid_from IS NULL OR valid_from <= NOW())
         AND (valid_until IS NULL OR valid_until >= NOW())
-        AND (usage_limit IS NULL OR current_usage < usage_limit)
+        AND (usage_limit IS NULL OR used_count < usage_limit)
       ORDER BY created_at DESC
     `);
 
@@ -63,10 +63,14 @@ module.exports = async function handler(req, res) {
       valid_from: coupon.valid_from,
       valid_until: coupon.valid_until,
       usage_limit: coupon.usage_limit,
-      current_usage: coupon.current_usage,
+      used_count: coupon.used_count,
       usage_per_user: coupon.usage_per_user,
       // 잔여 수량 계산
-      remaining: coupon.usage_limit ? coupon.usage_limit - coupon.current_usage : null
+      remaining: coupon.usage_limit ? coupon.usage_limit - coupon.used_count : null,
+      // 잔여율 계산 (진행률 표시용)
+      remainingPercent: coupon.usage_limit
+        ? Math.round((coupon.usage_limit - coupon.used_count) / coupon.usage_limit * 100)
+        : 100
     }));
 
     console.log(`✅ [Public Coupons] Found ${coupons.length} available coupons`);

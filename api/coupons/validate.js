@@ -70,7 +70,7 @@ module.exports = async function handler(req, res) {
     }
 
     // 최대 사용 횟수 체크 (전체)
-    if (coupon.usage_limit !== null && coupon.current_usage >= coupon.usage_limit) {
+    if (coupon.usage_limit !== null && coupon.used_count >= coupon.usage_limit) {
       return res.status(400).json({
         success: false,
         error: 'MAX_USAGE_EXCEEDED',
@@ -78,13 +78,14 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 사용자당 사용 횟수 체크
+    // 사용자당 사용 횟수 체크 (user_coupons 테이블 사용 - 더 안정적)
     if (userId && coupon.usage_per_user !== null) {
       try {
+        // user_coupons 테이블에서 이미 사용한 횟수 확인
         const usageCount = await connection.execute(`
           SELECT COUNT(*) as count
-          FROM coupon_usage
-          WHERE coupon_id = ? AND user_id = ?
+          FROM user_coupons
+          WHERE coupon_id = ? AND user_id = ? AND is_used = TRUE
         `, [coupon.id, userId]);
 
         const currentUserUsage = usageCount.rows[0]?.count || 0;
@@ -99,7 +100,28 @@ module.exports = async function handler(req, res) {
         }
       } catch (error) {
         console.error('⚠️ [Coupons] Error checking user usage:', error);
-        // 에러가 나도 계속 진행 (테이블이 없을 수 있음)
+        // ✅ user_coupons 테이블이 없으면 coupon_usage 테이블로 재시도
+        try {
+          const fallbackCount = await connection.execute(`
+            SELECT COUNT(*) as count
+            FROM coupon_usage
+            WHERE coupon_code = ? AND user_id = ?
+          `, [coupon.code.toUpperCase(), userId]);
+
+          const fallbackUsage = fallbackCount.rows[0]?.count || 0;
+          console.log(`📊 [Coupons] Fallback: User ${userId} has used coupon ${coupon.code} ${fallbackUsage} times`);
+
+          if (fallbackUsage >= coupon.usage_per_user) {
+            return res.status(400).json({
+              success: false,
+              error: 'USER_LIMIT_EXCEEDED',
+              message: `이 쿠폰은 1인당 ${coupon.usage_per_user}회만 사용 가능합니다`
+            });
+          }
+        } catch (fallbackError) {
+          console.warn('⚠️ [Coupons] Fallback check also failed, proceeding anyway:', fallbackError);
+          // 두 번 다 실패하면 그냥 진행 (쿠폰 사용 가능하게)
+        }
       }
     }
 
