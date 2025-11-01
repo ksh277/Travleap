@@ -1,6 +1,6 @@
 /**
  * 주문 관리 API
- * GET /api/orders - 모든 주문 조회
+ * GET /api/orders - 모든 주문 조회 (billingInfo 포함)
  * POST /api/orders - 장바구니 주문 생성
  */
 
