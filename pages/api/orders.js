@@ -144,7 +144,7 @@ module.exports = async function handler(req, res) {
           let deliveryFee = 0;
           let subtotal = 0;
           let actualOrderNumber = order.order_number;
-          // ✅ FIX: notes에서 청구 정보 추출 (users 테이블에 없을 경우 대비)
+          // ✅ notes에서 청구 정보 추출 (결제 페이지에서 입력한 정보)
           let billingName = '';
           let billingEmail = '';
           let billingPhone = '';
