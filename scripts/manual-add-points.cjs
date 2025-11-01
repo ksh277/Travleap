@@ -6,8 +6,9 @@ async function manualAddPoints() {
   const args = process.argv.slice(2);
 
   if (args.length < 3) {
-    console.log('사용법: node scripts/manual-add-points.cjs <user_id> <points> <reason>');
-    console.log('예: node scripts/manual-add-points.cjs 11 420 "주문 ORDER_1761922261162_7787 적립 보상"');
+    console.log('사용법: node scripts/manual-add-points.cjs <user_id> <+/-points> <reason>');
+    console.log('적립 예: node scripts/manual-add-points.cjs 11 420 "주문 적립 보상"');
+    console.log('회수 예: node scripts/manual-add-points.cjs 11 -420 "환불로 인한 회수"');
     process.exit(1);
   }
 
@@ -23,10 +24,13 @@ async function manualAddPoints() {
   const connection = connect({ url: process.env.DATABASE_URL });
   const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL });
 
+  const isDeduction = pointsToAdd < 0;
+  const absPoints = Math.abs(pointsToAdd);
+
   try {
-    console.log(`💰 수동 포인트 적립 시작...`);
+    console.log(`💰 수동 포인트 ${isDeduction ? '회수' : '적립'} 시작...`);
     console.log(`   사용자 ID: ${userId}`);
-    console.log(`   적립 포인트: ${pointsToAdd}P`);
+    console.log(`   ${isDeduction ? '회수' : '적립'} 포인트: ${absPoints}P`);
     console.log(`   사유: ${reason}\n`);
 
     // 1. 트랜잭션 시작
@@ -44,15 +48,26 @@ async function manualAddPoints() {
 
     const user = userResult.rows[0];
     const currentPoints = user.total_points || 0;
-    const newBalance = currentPoints + pointsToAdd;
+
+    // 회수 시 실제 회수 가능한 포인트만 계산
+    let actualPoints = pointsToAdd;
+    if (isDeduction) {
+      actualPoints = -Math.min(absPoints, currentPoints);
+    }
+
+    const newBalance = currentPoints + actualPoints;
 
     console.log(`👤 사용자 정보:`);
     console.log(`   이름: ${user.name}`);
     console.log(`   이메일: ${user.email}`);
     console.log(`   현재 포인트: ${currentPoints}P`);
-    console.log(`   적립 후 포인트: ${newBalance}P\n`);
+    if (isDeduction && Math.abs(actualPoints) < absPoints) {
+      console.warn(`⚠️  포인트 부족! (요청: ${absPoints}P, 실제 회수: ${Math.abs(actualPoints)}P, 부족: ${absPoints - Math.abs(actualPoints)}P)`);
+    }
+    console.log(`   ${isDeduction ? '회수' : '적립'} 후 포인트: ${newBalance}P\n`);
 
     // 3. user_points 테이블에 기록 추가 (PlanetScale)
+    const pointType = isDeduction ? 'refund' : 'earn';
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
     const expiresAtStr = expiresAt.toISOString().slice(0, 19).replace('T', ' ');
@@ -67,8 +82,8 @@ async function manualAddPoints() {
         balance_after,
         expires_at,
         created_at
-      ) VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
-    `, [userId, pointsToAdd, reason, 'manual', newBalance, expiresAtStr]);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+    `, [userId, actualPoints, pointType, `[수동 ${isDeduction ? '회수' : '적립'}] ${reason}`, 'manual', newBalance, expiresAtStr]);
 
     console.log(`✅ user_points 기록 추가 완료 (ID: ${insertResult.insertId})`);
 
@@ -83,8 +98,8 @@ async function manualAddPoints() {
     // 5. 커밋
     await poolNeon.query('COMMIT');
 
-    console.log(`\n🎉 포인트 적립 완료!`);
-    console.log(`   ${user.email}님께 ${pointsToAdd}P가 적립되었습니다.`);
+    console.log(`\n🎉 포인트 ${isDeduction ? '회수' : '적립'} 완료!`);
+    console.log(`   ${user.email}님 ${isDeduction ? '에게서' : '께'} ${Math.abs(actualPoints)}P ${isDeduction ? '회수' : '적립'}되었습니다.`);
     console.log(`   최종 잔액: ${newBalance}P\n`);
 
   } catch (error) {
