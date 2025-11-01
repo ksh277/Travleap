@@ -167,6 +167,9 @@ module.exports = async function handler(req, res) {
                 billingName = notesData.billingInfo.name || '';
                 billingEmail = notesData.billingInfo.email || '';
                 billingPhone = notesData.billingInfo.phone || '';
+                console.log(`✅ [Orders] order_id=${order.id}: billingInfo 발견 - name="${billingName}", email="${billingEmail}", phone="${billingPhone}"`);
+              } else {
+                console.log(`⚠️ [Orders] order_id=${order.id}: billingInfo 없음`);
               }
               // ✅ shippingInfo도 체크 (이전 버전 호환)
               if (!billingName && notesData.shippingInfo) {
@@ -231,6 +234,8 @@ module.exports = async function handler(req, res) {
           const finalUserName = billingName || user?.name || order.shipping_name || '';
           const finalUserEmail = billingEmail || user?.email || '';
           const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || '';
+
+          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (billing="${billingName}", user="${user?.name || 'null'}", shipping="${order.shipping_name || 'null'}")`);
 
           return {
             id: order.id,
