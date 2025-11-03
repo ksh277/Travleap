@@ -598,74 +598,147 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
               </div>
             </>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* 기본 이미지들 - DB에 데이터가 없을 때 */}
-              <div className="md:col-span-2 relative group h-[420px] md:h-[560px]">
-                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/stay')}>
-                  <ImageWithFallback
-                    src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=400&fit=crop"
-                    alt="신안 숙박"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="absolute bottom-4 left-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <h3 className="text-xl md:text-2xl font-semibold mb-1">신안 숙박</h3>
+            <>
+              {/* 모바일: 좌우 스크롤 - DB 데이터와 동일한 스타일 */}
+              <div className="md:hidden overflow-x-auto scrollbar-hide -mx-4 px-4">
+                <div className="flex gap-3" style={{ width: 'max-content' }}>
+                  <div className="relative group flex-shrink-0 w-[280px] h-[200px]">
+                    <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/stay')}>
+                      <ImageWithFallback
+                        src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=400&fit=crop"
+                        alt="신안 숙박"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <h3 className="text-base font-semibold mb-1">신안 숙박</h3>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative group flex-shrink-0 w-[280px] h-[200px]">
+                    <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/tour')}>
+                      <ImageWithFallback
+                        src="https://images.unsplash.com/photo-1464822759880-4601b726be04?w=800&h=400&fit=crop"
+                        alt="홍도 투어"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <h3 className="text-base font-semibold mb-1">홍도 투어</h3>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative group flex-shrink-0 w-[280px] h-[200px]">
+                    <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/experience')}>
+                      <ImageWithFallback
+                        src="https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=400&h=300&fit=crop"
+                        alt="갯벌 체험"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <h4 className="text-base font-semibold">갯벌 체험</h4>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative group flex-shrink-0 w-[280px] h-[200px]">
+                    <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/food')}>
+                      <ImageWithFallback
+                        src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop"
+                        alt="신안 맛집"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <h4 className="text-base font-semibold">신안 맛집</h4>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative group flex-shrink-0 w-[280px] h-[200px]">
+                    <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/attraction')}>
+                      <ImageWithFallback
+                        src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop"
+                        alt="관광 명소"
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <h4 className="text-base font-semibold">관광 명소</h4>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="relative group h-[420px] md:h-[560px]">
-                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/tour')}>
-                  <ImageWithFallback
-                    src="https://images.unsplash.com/photo-1464822759880-4601b726be04?w=800&h=400&fit=crop"
-                    alt="홍도 투어"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="absolute bottom-4 left-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <h3 className="text-xl md:text-2xl font-semibold mb-1">홍도 투어</h3>
+
+              {/* 데스크톱: 그리드 레이아웃 (기존 유지) */}
+              <div className="hidden md:grid grid-cols-3 gap-4">
+                <div className="col-span-2 relative group h-[560px]">
+                  <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/stay')}>
+                    <ImageWithFallback
+                      src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&h=400&fit=crop"
+                      alt="신안 숙박"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-4 left-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <h3 className="text-2xl font-semibold mb-1">신안 숙박</h3>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative group h-[560px]">
+                  <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/tour')}>
+                    <ImageWithFallback
+                      src="https://images.unsplash.com/photo-1464822759880-4601b726be04?w=800&h=400&fit=crop"
+                      alt="홍도 투어"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-4 left-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <h3 className="text-2xl font-semibold mb-1">홍도 투어</h3>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative group h-[320px]">
+                  <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/experience')}>
+                    <ImageWithFallback
+                      src="https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=400&h=300&fit=crop"
+                      alt="갯벌 체험"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <h4 className="text-lg font-semibold">갯벌 체험</h4>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative group h-[320px]">
+                  <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/food')}>
+                    <ImageWithFallback
+                      src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop"
+                      alt="신안 맛집"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <h4 className="text-lg font-semibold">신안 맛집</h4>
+                    </div>
+                  </div>
+                </div>
+                <div className="relative group h-[320px]">
+                  <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/attraction')}>
+                    <ImageWithFallback
+                      src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop"
+                      alt="관광 명소"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <h4 className="text-lg font-semibold">관광 명소</h4>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="relative group h-[200px] md:h-[320px]">
-                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/experience')}>
-                  <ImageWithFallback
-                    src="https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=400&h=300&fit=crop"
-                    alt="갯벌 체험"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <h4 className="text-base md:text-lg font-semibold">갯벌 체험</h4>
-                  </div>
-                </div>
-              </div>
-              <div className="relative group h-[200px] md:h-[320px]">
-                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/food')}>
-                  <ImageWithFallback
-                    src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400&h=300&fit=crop"
-                    alt="신안 맛집"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <h4 className="text-base md:text-lg font-semibold">신안 맛집</h4>
-                  </div>
-                </div>
-              </div>
-              <div className="relative group h-[200px] md:h-[320px]">
-                <div className="cursor-pointer h-full overflow-hidden rounded-lg" onClick={() => navigate('/category/attraction')}>
-                  <ImageWithFallback
-                    src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop"
-                    alt="관광 명소"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="absolute bottom-3 left-3 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <h4 className="text-base md:text-lg font-semibold">관광 명소</h4>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </>
           )}
         </section>
       </div>
