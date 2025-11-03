@@ -238,7 +238,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
   return (
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom" role="main" aria-label="홈페이지 메인 콘텐츠">
       {/* Hero Section - Mobile Optimized with YouTube Background */}
-      <div className="relative h-[600px] overflow-hidden mobile-safe-top">
+      <div className="relative h-[200px] md:h-[600px] overflow-hidden mobile-safe-top">
         {/* YouTube Background Video */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
           <iframe
