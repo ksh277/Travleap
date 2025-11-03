@@ -34,7 +34,6 @@ import {
   EyeOff,
   Receipt,
   Coins,
-  Ticket,
   Key
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -148,10 +147,6 @@ export function MyPage() {
   const [pointsLoading, setPointsLoading] = useState(false);
   const [totalPoints, setTotalPoints] = useState(0);
   const [pointHistory, setPointHistory] = useState<any[]>([]);
-  const [coupons, setCoupons] = useState<any[]>([]);
-  const [couponsLoading, setCouponsLoading] = useState(false);
-  const [publicCoupons, setPublicCoupons] = useState<any[]>([]);
-  const [publicCouponsLoading, setPublicCouponsLoading] = useState(false);
   const [userProfile, setUserProfile] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -210,8 +205,6 @@ export function MyPage() {
       fetchUserData();
       fetchPayments();
       fetchPoints();
-      fetchCoupons();
-      fetchPublicCoupons();
     }
   }, [user]);
 
@@ -506,97 +499,6 @@ export function MyPage() {
       setPointHistory([]);
     } finally {
       setPointsLoading(false);
-    }
-  };
-
-  // 사용자 쿠폰 가져오기
-  const fetchCoupons = async () => {
-    if (!user) return;
-
-    setCouponsLoading(true);
-    try {
-      const response = await fetch(`/api/coupons?userId=${user.id}`);
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setCoupons(data.data || []);
-          console.log('✅ [쿠폰] 로드 완료:', data.data?.length || 0, '개');
-        } else {
-          throw new Error(data.message || '쿠폰 조회 실패');
-        }
-      } else {
-        throw new Error('쿠폰 조회 요청 실패');
-      }
-    } catch (error) {
-      console.error('쿠폰 불러오기 오류:', error);
-      setCoupons([]);
-    } finally {
-      setCouponsLoading(false);
-    }
-  };
-
-  // 공개 쿠폰 가져오기
-  const fetchPublicCoupons = async () => {
-    setPublicCouponsLoading(true);
-    try {
-      const response = await fetch('/api/coupons/public');
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setPublicCoupons(data.data || []);
-          console.log('✅ [공개 쿠폰] 로드 완료:', data.data?.length || 0, '개');
-        } else {
-          throw new Error(data.message || '공개 쿠폰 조회 실패');
-        }
-      } else {
-        throw new Error('공개 쿠폰 조회 요청 실패');
-      }
-    } catch (error) {
-      console.error('공개 쿠폰 불러오기 오류:', error);
-      setPublicCoupons([]);
-    } finally {
-      setPublicCouponsLoading(false);
-    }
-  };
-
-  // 쿠폰 다운로드 (공개 쿠폰을 보유 쿠폰으로 등록)
-  const handleDownloadCoupon = async (code: string) => {
-    if (!user) {
-      toast.error('로그인이 필요합니다');
-      return;
-    }
-
-    setCouponsLoading(true);
-    try {
-      const response = await fetch('/api/coupons/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'x-user-id': user.id.toString()
-        },
-        body: JSON.stringify({
-          code: code.toUpperCase(),
-          userId: user.id
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success('쿠폰이 다운로드되었습니다!');
-        fetchCoupons(); // 보유 쿠폰 목록 새로고침
-        fetchPublicCoupons(); // 공개 쿠폰 목록 새로고침 (잔여 수량 업데이트)
-      } else {
-        toast.error(data.message || '쿠폰 다운로드에 실패했습니다');
-      }
-    } catch (error) {
-      console.error('쿠폰 다운로드 오류:', error);
-      toast.error('쿠폰 다운로드 중 오류가 발생했습니다');
-    } finally {
-      setCouponsLoading(false);
     }
   };
 

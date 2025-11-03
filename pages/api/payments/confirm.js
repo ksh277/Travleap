@@ -592,18 +592,18 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     if (userId) {
       console.log(`💰 [포인트 적립] userId=${userId}, orderId=${orderId}, isOrder=${isOrder}, isBooking=${isBooking}`);
 
-      // ✅ Neon PostgreSQL Pool (users 테이블용)
+      // ✅ Neon PostgreSQL Pool (users 테이블용) - 함수 스코프로 이동하여 isOrder와 isBooking 양쪽에서 접근 가능
       const { Pool } = require('@neondatabase/serverless');
       const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
 
-      if (isOrder) {
-        // 장바구니 주문: allPayments 배열 사용
-        console.log(`💰 [포인트 적립 시작] 장바구니 주문 - userId=${userId}, allPayments=${allPayments.length}건`);
-
       try {
-        // 트랜잭션 시작 (FOR UPDATE를 위해 필수)
-        await poolNeon.query('BEGIN');
-        console.log(`💰 [포인트] Neon DB 트랜잭션 시작`);
+        if (isOrder) {
+          // 장바구니 주문: allPayments 배열 사용
+          console.log(`💰 [포인트 적립 시작] 장바구니 주문 - userId=${userId}, allPayments=${allPayments.length}건`);
+
+          // 트랜잭션 시작 (FOR UPDATE를 위해 필수)
+          await poolNeon.query('BEGIN');
+          console.log(`💰 [포인트] Neon DB 트랜잭션 시작`);
 
         // 사용자 정보 조회 (Neon - users 테이블)
         // ✅ FOR UPDATE 추가: 동시성 제어 (포인트 적립 중 다른 트랜잭션 차단)
@@ -679,37 +679,48 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           try {
             console.log(`📧 [알림] 결제 완료 알림 발송 시작: ${user.email}`);
 
+            // ✅ FIX: 첫 번째 payment의 notes에서 주문 정보 추출
+            const firstPayment = allPayments && allPayments.length > 0 ? allPayments[0] : null;
+            const firstNotes = firstPayment && firstPayment.notes ? JSON.parse(firstPayment.notes) : null;
+
             // items 정보 파싱
             let productName = '상품';
             let itemCount = 0;
-            if (notes && notes.items && Array.isArray(notes.items)) {
-              itemCount = notes.items.length;
-              const firstItem = notes.items[0];
+            if (firstNotes && firstNotes.items && Array.isArray(firstNotes.items)) {
+              itemCount = firstNotes.items.length;
+              const firstItem = firstNotes.items[0];
               const firstItemName = firstItem.title || firstItem.name || '';
               productName = itemCount > 1
                 ? `${firstItemName} 외 ${itemCount - 1}개`
                 : firstItemName;
             }
 
+            // ✅ FIX: 금액 정보 추출
+            const orderSubtotal = firstNotes?.subtotal || totalPointsToEarn * 50; // subtotal이 없으면 포인트로 역산
+            const orderDeliveryFee = firstNotes?.deliveryFee || 0;
+            const orderCouponDiscount = firstNotes?.couponDiscount || 0;
+            const orderPointsUsed = firstNotes?.pointsUsed || 0;
+            const orderTotalAmount = allPayments.reduce((sum, p) => sum + p.amount, 0); // 모든 payment 합계
+
             // 알림 데이터 준비
             const notificationData = {
               customerName: user.name || '고객',
               customerEmail: user.email,
-              customerPhone: user.phone || notes?.shippingInfo?.phone || null,
+              customerPhone: user.phone || firstNotes?.shippingInfo?.phone || null,
               orderNumber: orderId,
               orderDate: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
               productName: productName,
               quantity: itemCount,
-              subtotal: originalSubtotal,
-              deliveryFee: shippingFee,
-              couponDiscount: notes?.couponDiscount || 0,
-              pointsUsed: notes?.pointsUsed || 0,
-              totalAmount: order.amount,
-              pointsEarned: Math.floor(originalSubtotal * 0.02), // 2% 적립
-              shippingName: notes?.shippingInfo?.name || null,
-              shippingPhone: notes?.shippingInfo?.phone || null,
-              shippingAddress: notes?.shippingInfo
-                ? `${notes.shippingInfo.address} ${notes.shippingInfo.addressDetail || ''}`
+              subtotal: orderSubtotal,
+              deliveryFee: orderDeliveryFee,
+              couponDiscount: orderCouponDiscount,
+              pointsUsed: orderPointsUsed,
+              totalAmount: orderTotalAmount,
+              pointsEarned: totalPointsToEarn, // 실제 적립된 포인트 사용
+              shippingName: firstNotes?.shippingInfo?.name || null,
+              shippingPhone: firstNotes?.shippingInfo?.phone || null,
+              shippingAddress: firstNotes?.shippingInfo
+                ? `${firstNotes.shippingInfo.address} ${firstNotes.shippingInfo.addressDetail || ''}`
                 : null
             };
 
@@ -770,50 +781,26 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           console.error(`❌ [포인트] 포인트 적립 불가 - 사용자 데이터 확인 필요`);
           await poolNeon.query('ROLLBACK');
         }
-      } catch (pointsError) {
-        console.error('❌ [포인트/알림] 처리 실패:', pointsError);
-        console.error('❌ [포인트] 에러 스택:', pointsError.stack);
-        console.error('❌ [포인트] 에러 타입:', pointsError.constructor.name);
-        console.error('❌ [포인트] 에러 메시지:', pointsError.message);
 
-        // 롤백 시도
-        try {
-          await poolNeon.query('ROLLBACK');
-          console.log(`⚠️ [포인트] Neon DB 트랜잭션 롤백 완료`);
-        } catch (rollbackError) {
-          console.error('❌ [포인트] 롤백 실패:', rollbackError);
-        }
+          // ✅ 결제 완료 후 장바구니 비우기
+          try {
+            console.log(`🛒 [장바구니] 결제 완료, 장바구니 삭제 중... (user_id: ${userId})`);
 
-        // 포인트/알림 처리 실패해도 결제는 성공 처리
-        console.warn(`⚠️ [포인트] 포인트 적립 실패했지만 결제는 성공 처리됨`);
-      } finally {
-        // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
-        await poolNeon.end();
-        console.log(`💰 [포인트] Neon DB 연결 종료`);
-      }
-      }
+            await connection.execute(`
+              DELETE FROM cart_items
+              WHERE user_id = ?
+            `, [userId]);
 
-      // ✅ 결제 완료 후 장바구니 비우기
-      if (userId) {
-        try {
-          console.log(`🛒 [장바구니] 결제 완료, 장바구니 삭제 중... (user_id: ${userId})`);
+            console.log(`✅ [장바구니] 장바구니 삭제 완료`);
+          } catch (cartError) {
+            console.error('❌ [장바구니] 삭제 실패 (계속 진행):', cartError);
+            // 장바구니 삭제 실패해도 결제는 성공 처리
+          }
 
-          await connection.execute(`
-            DELETE FROM cart_items
-            WHERE user_id = ?
-          `, [userId]);
+        } else if (isBooking && bookingId) {
+          // 단일 예약: booking 정보에서 금액 조회하여 포인트 적립
+          console.log(`💰 [포인트 적립 시작] 단일 예약 - userId=${userId}, bookingId=${bookingId}`);
 
-          console.log(`✅ [장바구니] 장바구니 삭제 완료`);
-        } catch (cartError) {
-          console.error('❌ [장바구니] 삭제 실패 (계속 진행):', cartError);
-          // 장바구니 삭제 실패해도 결제는 성공 처리
-        }
-      }
-      } else if (isBooking && bookingId) {
-        // 단일 예약: booking 정보에서 금액 조회하여 포인트 적립
-        console.log(`💰 [포인트 적립 시작] 단일 예약 - userId=${userId}, bookingId=${bookingId}`);
-
-        try {
           // 트랜잭션 시작
           await poolNeon.query('BEGIN');
           console.log(`💰 [포인트] Neon DB 트랜잭션 시작`);
@@ -880,27 +867,31 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           await poolNeon.query('COMMIT');
           console.log(`✅ [포인트] Neon DB 트랜잭션 커밋 완료`);
 
-        } catch (pointsError) {
-          console.error('❌ [포인트] 처리 실패:', pointsError);
-          console.error('❌ [포인트] 에러 스택:', pointsError.stack);
-
-          // 롤백 시도
-          try {
-            await poolNeon.query('ROLLBACK');
-            console.log(`⚠️ [포인트] Neon DB 트랜잭션 롤백 완료`);
-          } catch (rollbackError) {
-            console.error('❌ [포인트] 롤백 실패:', rollbackError);
-          }
-
-          // 포인트 처리 실패해도 결제는 성공 처리
-          console.warn(`⚠️ [포인트] 포인트 적립 실패했지만 결제는 성공 처리됨`);
-        } finally {
-          // Connection pool 정리
-          await poolNeon.end();
-          console.log(`💰 [포인트] Neon DB 연결 종료`);
+        } else {
+          console.log(`⚠️ [포인트 적립] 포인트 적립 조건 미충족 - isOrder=${isOrder}, isBooking=${isBooking}, userId=${userId}, bookingId=${bookingId}`);
         }
-      } else {
-        console.log(`⚠️ [포인트 적립] 포인트 적립 조건 미충족 - isOrder=${isOrder}, isBooking=${isBooking}, userId=${userId}, bookingId=${bookingId}`);
+
+      } catch (pointsError) {
+        console.error('❌ [포인트/알림] 처리 실패:', pointsError);
+        console.error('❌ [포인트] 에러 스택:', pointsError.stack);
+        console.error('❌ [포인트] 에러 타입:', pointsError.constructor.name);
+        console.error('❌ [포인트] 에러 메시지:', pointsError.message);
+
+        // 롤백 시도
+        try {
+          await poolNeon.query('ROLLBACK');
+          console.log(`⚠️ [포인트] Neon DB 트랜잭션 롤백 완료`);
+        } catch (rollbackError) {
+          console.error('❌ [포인트] 롤백 실패:', rollbackError);
+        }
+
+        // 포인트/알림 처리 실패해도 결제는 성공 처리
+        console.warn(`⚠️ [포인트] 포인트 적립 실패했지만 결제는 성공 처리됨`);
+      } finally {
+        // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
+        await poolNeon.end();
+        console.log(`💰 [포인트] Neon DB 연결 종료`);
+      }
       }
     } else {
       console.log(`⚠️ [포인트 적립] userId 없음 - 포인트 적립 불가`);

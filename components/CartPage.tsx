@@ -87,44 +87,10 @@ export function CartPage() {
   const { isLoggedIn, user } = useAuth();
   const { cartItems, updateQuantity, removeFromCart, clearCart } = useCartStore();
 
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
-  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [favorites, setFavorites] = useState<number[]>([]);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
   const [itemErrors, setItemErrors] = useState<Record<number, string>>({});
-  const [showCouponDetails, setShowCouponDetails] = useState(false);
-  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
-  const [isCouponsLoading, setIsCouponsLoading] = useState(false);
-
-  // 🔄 쿠폰 데이터를 DB에서 가져오기 (하드코딩 제거)
-  useEffect(() => {
-    const fetchCoupons = async () => {
-      if (!isLoggedIn) return;
-
-      setIsCouponsLoading(true);
-      try {
-        const response = await fetch(`/api/coupons?userId=${user?.id}`);
-        const result = await response.json();
-
-        if (result.success) {
-          console.log('🎟️ [쿠폰] DB에서 가져온 쿠폰:', result.data.length, '개');
-          setAvailableCoupons(result.data);
-        } else {
-          console.error('❌ [쿠폰] 조회 실패:', result.error);
-          setAvailableCoupons([]);
-        }
-      } catch (error) {
-        console.error('❌ [쿠폰] API 오류:', error);
-        setAvailableCoupons([]);
-      } finally {
-        setIsCouponsLoading(false);
-      }
-    };
-
-    fetchCoupons();
-  }, [isLoggedIn, user?.id]);
 
   // Load favorites on mount
   useEffect(() => {
@@ -239,17 +205,11 @@ export function CartPage() {
         return sum + (itemPrice + optionPrice) * item.quantity;
       }, 0);
 
-    const couponDiscount = appliedCoupon
-      ? appliedCoupon.type === 'fixed'
-        ? appliedCoupon.discount
-        : Math.floor(subtotal * appliedCoupon.discount / 100)
-      : 0;
-
     // 🔧 팝업 상품만의 합계가 50,000원 이상이면 배송비 무료 (혼합 주문 대응)
     const hasPopupProduct = cartItems.some(item => item.category === '팝업');
     const shippingFee = hasPopupProduct && popupSubtotal >= 50000 ? 0 : (hasPopupProduct ? 3000 : 0);
 
-    const total = Math.max(0, subtotal - couponDiscount + shippingFee);
+    const total = Math.max(0, subtotal + shippingFee);
     const savings = cartItems.reduce((sum, item) => {
       if (item.originalPrice && item.originalPrice > (item.price || 0)) {
         return sum + ((item.originalPrice - (item.price || 0)) * item.quantity);
@@ -257,10 +217,10 @@ export function CartPage() {
       return sum;
     }, 0);
 
-    return { subtotal, couponDiscount, shippingFee, total, savings };
-  }, [cartItems, appliedCoupon]);
+    return { subtotal, shippingFee, total, savings };
+  }, [cartItems]);
 
-  const { subtotal, couponDiscount, shippingFee, total, savings } = calculations;
+  const { subtotal, shippingFee, total, savings } = calculations;
 
   // Enhanced item removal with confirmation
   const removeItem = useCallback((id: number, itemName: string) => {
@@ -320,94 +280,10 @@ export function CartPage() {
     }
   }, [isLoggedIn, favorites]);
 
-  // Enhanced coupon application with validation and feedback
-  const applyCoupon = useCallback(async () => {
-    if (!couponCode.trim()) {
-      toast.error('쿠폰 코드를 입력해주세요');
-      return;
-    }
-
-    setIsApplyingCoupon(true);
-
-    try {
-      const coupon = availableCoupons.find(c => c.code === couponCode.toUpperCase());
-
-      if (!coupon) {
-        toast.error('유효하지 않은 쿠폰 코드입니다');
-        return;
-      }
-
-      if (subtotal < coupon.minAmount) {
-        toast.error(`최소 주문 금액 ${coupon.minAmount.toLocaleString()}원 이상이어야 사용 가능합니다`);
-        return;
-      }
-
-      // Check if coupon is expired
-      if (coupon.expiresAt && new Date() > new Date(coupon.expiresAt)) {
-        toast.error('만료된 쿠폰입니다');
-        return;
-      }
-
-      // Check if coupon is already applied
-      if (appliedCoupon?.code === coupon.code) {
-        toast.error('이미 적용된 쿠폰입니다');
-        return;
-      }
-
-      setAppliedCoupon(coupon);
-      setCouponCode('');
-
-      const discountAmount = coupon.type === 'fixed'
-        ? coupon.discount
-        : Math.floor(subtotal * coupon.discount / 100);
-
-      toast.success(`쿠폰이 적용되었습니다! ${discountAmount.toLocaleString()}원 할인`);
-    } catch (error) {
-      toast.error('쿠폰 적용 중 오류가 발생했습니다');
-    } finally {
-      setIsApplyingCoupon(false);
-    }
-  }, [couponCode, availableCoupons, subtotal, appliedCoupon]);
-
-  // Enhanced coupon removal
-  const removeCoupon = useCallback(() => {
-    if (appliedCoupon) {
-      setAppliedCoupon(null);
-      toast.success('쿠폰이 제거되었습니다');
-    }
-  }, [appliedCoupon]);
-
-  // Auto-apply best coupon
-  const autoApplyBestCoupon = useCallback(() => {
-    if (appliedCoupon) return; // Don't override existing coupon
-
-    const eligibleCoupons = availableCoupons.filter(coupon =>
-      subtotal >= coupon.minAmount &&
-      (!coupon.expiresAt || new Date() <= new Date(coupon.expiresAt))
-    );
-
-    if (eligibleCoupons.length === 0) return;
-
-    // Find the coupon with highest discount value
-    const bestCoupon = eligibleCoupons.reduce((best, current) => {
-      const currentDiscount = current.type === 'fixed'
-        ? current.discount
-        : Math.floor(subtotal * current.discount / 100);
-      const bestDiscount = best.type === 'fixed'
-        ? best.discount
-        : Math.floor(subtotal * best.discount / 100);
-
-      return currentDiscount > bestDiscount ? current : best;
-    });
-
-    return bestCoupon;
-  }, [availableCoupons, subtotal, appliedCoupon]);
-
   // Clear cart with confirmation
   const handleClearCart = useCallback(() => {
     try {
       clearCart();
-      setAppliedCoupon(null);
       toast.success('장바구니가 비워졌습니다');
     } catch (error) {
       toast.error('장바구니 비우기 중 오류가 발생했습니다');
@@ -459,8 +335,8 @@ export function CartPage() {
           name: item.name || item.title || 'Unknown Item'
         })),
         subtotal,
-        couponDiscount,
-        couponCode: appliedCoupon?.code || null,
+        couponDiscount: 0,
+        couponCode: null,
         deliveryFee: shippingFee,
         total
       };
@@ -489,24 +365,7 @@ export function CartPage() {
     } finally {
       setIsProcessingCheckout(false);
     }
-  }, [isProcessingCheckout, isLoggedIn, cartItems, itemErrors, total, subtotal, couponDiscount, appliedCoupon, user, navigate]);
-
-  // Auto-suggest best coupon when subtotal changes
-  useEffect(() => {
-    const bestCoupon = autoApplyBestCoupon();
-    if (bestCoupon && !appliedCoupon && subtotal > 0) {
-      // Show suggestion toast
-      toast.info(`${bestCoupon.code} 쿠폰으로 ${bestCoupon.type === 'fixed' ? bestCoupon.discount.toLocaleString() + '원' : bestCoupon.discount + '%'} 할인받으세요!`, {
-        action: {
-          label: '적용',
-          onClick: () => {
-            setAppliedCoupon(bestCoupon);
-            toast.success('쿠폰이 자동 적용되었습니다!');
-          }
-        }
-      });
-    }
-  }, [subtotal, autoApplyBestCoupon, appliedCoupon]);
+  }, [isProcessingCheckout, isLoggedIn, cartItems, itemErrors, total, subtotal, user, navigate]);
 
   return (
     <>

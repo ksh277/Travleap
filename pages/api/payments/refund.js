@@ -677,6 +677,10 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       order_number: payment.order_number
     });
 
+    // ✅ FIX: 알림용 변수 정의
+    let earnedPointsDeducted = 0;
+    let pointsUsedRefunded = 0;
+
     if (payment.user_id) {
       let totalDeductedPoints = 0;
 
@@ -724,6 +728,9 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         console.log(`✅ [Refund] payment_id=${payment.id} 포인트 회수 완료: ${totalDeductedPoints}P`);
       }
 
+      // ✅ FIX: 알림용 변수에 값 할당
+      earnedPointsDeducted = totalDeductedPoints;
+
       if (totalDeductedPoints === 0) {
         console.warn(`⚠️ [Refund] 포인트 회수 0P! 적립 내역이 없거나 이미 회수되었을 수 있습니다.`);
       }
@@ -737,6 +744,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
           if (pointsUsed > 0) {
             const refundOrderId = String(payment.id);
             await refundUsedPoints(connection, payment.user_id, pointsUsed, refundOrderId);
+            pointsUsedRefunded = pointsUsed; // ✅ FIX: 알림용 변수에 값 할당
             console.log(`✅ [Refund] 사용 포인트 환불 완료: ${pointsUsed}P`);
           }
         } catch (notesError) {
