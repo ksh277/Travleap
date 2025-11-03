@@ -54,6 +54,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
   const [retryCount, setRetryCount] = useState(0);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchStep, setSearchStep] = useState(1); // 모바일 검색 단계 (1: 목적지+인원, 2: 체크인+체크아웃)
   const [backgroundVideo, setBackgroundVideo] = useState({
     videoId: 'kroXVig0QRc', // YouTube 영상 ID
     overlayOpacity: 0.4
@@ -292,8 +293,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
           <div className="w-full max-w-2xl lg:max-w-6xl mobile-container">
             <div className="mobile-card bg-white shadow-2xl">
               <div className="flex flex-col gap-4">
-                {/* 모바일: 1열, 데스크탑: 원래대로 */}
-                <div className="flex flex-col lg:flex-row gap-3 lg:gap-4">
+                {/* 데스크톱: 모든 필드 표시 */}
+                <div className="hidden lg:flex lg:flex-row gap-3 lg:gap-4">
                   {/* 목적지 */}
                   <div className="space-y-2 relative lg:flex-1">
                     <label className="text-sm font-medium text-gray-700 block">{t('destination', selectedLanguage)}</label>
@@ -476,8 +477,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                   </div>
                 </div>
 
-                {/* 두 번째 행: 날짜 범위 표시 및 검색 버튼 */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                {/* 데스크톱: 날짜 범위 표시 및 검색 버튼 */}
+                <div className="hidden lg:flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                   {/* 날짜 범위 표시 */}
                   <div className="flex-1 w-full sm:w-auto">
                     {checkInDate && checkOutDate && checkOutDate > checkInDate && (
@@ -496,7 +497,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                   {/* Mobile-Optimized Search Button */}
                   <div className="flex-shrink-0 w-full sm:w-auto">
                     <Button
-                      className="mobile-button mobile-ripple bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white w-full sm:w-auto transition-all duration-200"
+                      className="mobile-button mobile-ripple bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white w-full sm:min-w-[240px] transition-all duration-200"
                       onClick={handleSearch}
                       disabled={searchLoading || !destination.trim()}
                     >
@@ -514,6 +515,233 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                     </Button>
                   </div>
                 </div>
+
+                {/* 모바일 Step 1: 목적지 + 인원 + 다음 버튼 */}
+                {searchStep === 1 && (
+                  <div className="lg:hidden flex flex-col gap-3">
+                    {/* 목적지 */}
+                    <div className="space-y-2 relative">
+                      <label className="text-sm font-medium text-gray-700 block">{t('destination', selectedLanguage)}</label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 z-10" />
+                        <input
+                          type="text"
+                          placeholder={t('destinationPlaceholder', selectedLanguage)}
+                          value={destination}
+                          onChange={(e) => handleDestinationChange(e.target.value)}
+                          onFocus={() => destination.length > 0 && setShowSuggestions(true)}
+                          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                          className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px]"
+                          autoComplete="off"
+                        />
+                        {showSuggestions && searchSuggestions.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg z-20 mt-1">
+                            {searchSuggestions.map((suggestion, index) => (
+                              <button
+                                key={index}
+                                className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm first:rounded-t-md last:rounded-b-md"
+                                onClick={() => {
+                                  setDestination(suggestion);
+                                  setShowSuggestions(false);
+                                }}
+                              >
+                                <MapPin className="inline h-3 w-3 mr-2 text-gray-400" />
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 인원 */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 block">{t('guests', selectedLanguage)}</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-normal min-h-[44px] text-sm border-gray-200 rounded-lg hover:border-purple-500">
+                            <Users className="mr-2 h-4 w-4" />
+                            <span className="truncate">{`${t('rooms', selectedLanguage)} ${guestCounts.rooms}, ${t('adults', selectedLanguage)} ${guestCounts.adults}${guestCounts.children > 0 ? `, ${t('children', selectedLanguage)} ${guestCounts.children}` : ''}`}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="start">
+                          <div className="space-y-4">
+                            {/* 객실 수 */}
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-medium">{t('rooms', selectedLanguage)}</label>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setGuestCounts(prev => ({ ...prev, rooms: Math.max(1, prev.rooms - 1) }))}
+                                  disabled={guestCounts.rooms <= 1}
+                                >
+                                  -
+                                </Button>
+                                <span className="w-8 text-center">{guestCounts.rooms}</span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setGuestCounts(prev => ({ ...prev, rooms: prev.rooms + 1 }))}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* 성인 수 */}
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-medium">{t('adults', selectedLanguage)}</label>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setGuestCounts(prev => ({ ...prev, adults: Math.max(1, prev.adults - 1) }))}
+                                  disabled={guestCounts.adults <= 1}
+                                >
+                                  -
+                                </Button>
+                                <span className="w-8 text-center">{guestCounts.adults}</span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setGuestCounts(prev => ({ ...prev, adults: prev.adults + 1 }))}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* 어린이 수 */}
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-medium">{t('children', selectedLanguage)}</label>
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setGuestCounts(prev => ({ ...prev, children: Math.max(0, prev.children - 1) }))}
+                                  disabled={guestCounts.children <= 0}
+                                >
+                                  -
+                                </Button>
+                                <span className="w-8 text-center">{guestCounts.children}</span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setGuestCounts(prev => ({ ...prev, children: prev.children + 1 }))}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* 다음 버튼 */}
+                    <Button
+                      className="mobile-button bg-purple-600 hover:bg-purple-700 text-white w-full"
+                      onClick={() => setSearchStep(2)}
+                    >
+                      다음
+                    </Button>
+                  </div>
+                )}
+
+                {/* 모바일 Step 2: 체크인 + 체크아웃 + 이전/검색 버튼 */}
+                {searchStep === 2 && (
+                  <div className="lg:hidden flex flex-col gap-3">
+                    {/* 체크인 날짜 */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 block">{t('checkIn', selectedLanguage)}</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                          >
+                            <span className={checkInDate ? 'text-gray-900' : 'text-gray-400'}>
+                              {checkInDate ? format(checkInDate, 'yyyy년 MM월 dd일', { locale: ko }) : '날짜 선택'}
+                            </span>
+                            <CalendarIcon className="h-4 w-4 text-gray-400" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={checkInDate}
+                            onSelect={setCheckInDate}
+                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                            locale={ko}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* 체크아웃 날짜 */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 block">{t('checkOut', selectedLanguage)}</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                          >
+                            <span className={checkOutDate ? 'text-gray-900' : 'text-gray-400'}>
+                              {checkOutDate ? format(checkOutDate, 'yyyy년 MM월 dd일', { locale: ko }) : '날짜 선택'}
+                            </span>
+                            <CalendarIcon className="h-4 w-4 text-gray-400" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={checkOutDate}
+                            onSelect={setCheckOutDate}
+                            disabled={(date) => {
+                              const today = new Date(new Date().setHours(0, 0, 0, 0));
+                              if (date < today) return true;
+                              if (checkInDate && date <= checkInDate) return true;
+                              return false;
+                            }}
+                            locale={ko}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* 이전 + 검색 버튼 */}
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        className="w-1/3"
+                        onClick={() => setSearchStep(1)}
+                      >
+                        이전
+                      </Button>
+                      <Button
+                        className="mobile-button bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white flex-1"
+                        onClick={handleSearch}
+                        disabled={searchLoading || !destination.trim()}
+                      >
+                        {searchLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            검색 중...
+                          </>
+                        ) : (
+                          <>
+                            <Search className="h-4 w-4 mr-2" />
+                            {t('search', selectedLanguage)}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -76,6 +76,7 @@ export function Header({
   const [minRating, setMinRating] = useState(0);
   const [partnersOnly, setPartnersOnly] = useState(false);
   const [sponsorFirst, setSponsorFirst] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Fetch categories from DB
   const { categories: dbCategories, loading: categoriesLoading } = useCategories();
@@ -359,7 +360,7 @@ export function Header({
             </Button>
 
             {/* 모바일 메뉴 */}
-            <Sheet>
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild className="md:hidden">
                 <Button variant="ghost" size="icon" className="min-w-[44px] min-h-[44px] flex items-center justify-center">
                   <Menu className="h-5 w-5" />
@@ -378,6 +379,7 @@ export function Header({
                         } else {
                           navigate(`/${item.id}`);
                         }
+                        setMobileMenuOpen(false);
                       }}
                       className="text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center px-6 border-b border-gray-100"
                     >
@@ -392,9 +394,10 @@ export function Header({
                       {categories.map((category) => (
                         <button
                           key={category.id}
-                          onClick={() =>
-                            navigate(`/category/${category.id}`)
-                          }
+                          onClick={() => {
+                            navigate(`/category/${category.id}`);
+                            setMobileMenuOpen(false);
+                          }}
                           className="flex items-center space-x-3 text-left px-6 py-4 hover:bg-gray-50 min-h-[56px] border-b border-gray-100"
                         >
                           <span className="text-lg">{category.icon}</span>
@@ -410,28 +413,40 @@ export function Header({
                       <div className="grid gap-0">
                         {isAdmin ? (
                           <button
-                            onClick={() => navigate("/admin")}
+                            onClick={() => {
+                              navigate("/admin");
+                              setMobileMenuOpen(false);
+                            }}
                             className="block w-full text-left px-6 py-4 hover:bg-purple-50 text-purple-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
                           >
                             {t('admin', selectedLanguage)} 페이지
                           </button>
                         ) : user?.role === 'vendor' ? (
                           <button
-                            onClick={() => navigate(getVendorDashboardPath())}
+                            onClick={() => {
+                              navigate(getVendorDashboardPath());
+                              setMobileMenuOpen(false);
+                            }}
                             className="block w-full text-left px-6 py-4 hover:bg-blue-50 text-blue-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
                           >
                             벤더 대시보드
                           </button>
                         ) : (
                           <button
-                            onClick={() => navigate("/mypage")}
+                            onClick={() => {
+                              navigate("/mypage");
+                              setMobileMenuOpen(false);
+                            }}
                             className="block w-full text-left px-6 py-4 hover:bg-blue-50 text-blue-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
                           >
                             {t('mypage', selectedLanguage)}
                           </button>
                         )}
                         <button
-                          onClick={logout}
+                          onClick={() => {
+                            logout();
+                            setMobileMenuOpen(false);
+                          }}
                           className="block w-full text-left px-6 py-4 hover:bg-gray-50 text-gray-600 min-h-[56px] flex items-center"
                         >
                           {t('logout', selectedLanguage)}
@@ -439,7 +454,10 @@ export function Header({
                       </div>
                     ) : (
                       <button
-                        onClick={() => navigate("/login")}
+                        onClick={() => {
+                          navigate("/login");
+                          setMobileMenuOpen(false);
+                        }}
                         className="block w-full text-left px-6 py-4 hover:bg-gray-50 text-gray-600 min-h-[56px] flex items-center"
                       >
                         {t('login', selectedLanguage)}
