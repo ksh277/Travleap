@@ -3,7 +3,7 @@ const { connect } = require('@planetscale/database');
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -13,88 +13,134 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
+  // 로그인 확인 (Authorization 헤더 필요)
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      error: '로그인이 필요합니다. 다시 로그인해주세요.'
+    });
+  }
+
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
 
+    // PartnerApplyPage.tsx에서 보내는 필드명 (snake_case)을 처리
     const {
-      businessName,
-      contactName,
+      business_name,
+      contact_name,
       email,
       phone,
-      businessNumber,
-      address,
+      business_address,
       location,
-      latitude,
-      longitude,
-      coordinates,
-      website,
-      instagram,
       services,
+      base_price,
+      base_price_text,
+      detailed_address,
       description,
-      businessHours,
-      discountRate,
-      images
+      images,
+      business_hours,
+      duration,
+      min_age,
+      max_capacity,
+      language,
+      lat,
+      lng
     } = req.body;
 
-    console.log('파트너 신청:', {
-      businessName,
-      address,
-      coordinates
+    console.log('파트너 신청 데이터:', {
+      business_name,
+      business_address,
+      location,
+      services,
+      lat,
+      lng
     });
 
     // 필수 항목 검증
-    if (!businessName || !contactName || !email || !phone) {
+    if (!business_name || !contact_name || !email || !phone) {
       return res.status(400).json({
         success: false,
         error: '필수 정보를 모두 입력해주세요.'
       });
     }
 
-    // 이미지 URL들을 JSON 문자열로 변환 (admin_notes에 저장)
-    const imageData = images && Array.isArray(images) && images.length > 0
-      ? JSON.stringify({ images: images })
-      : null;
+    // 좌표를 "위도,경도" 형식으로 변환
+    const coordinates = (lat && lng) ? `${lat},${lng}` : null;
 
-    // partner_applications 테이블에 저장
+    // 상세 정보를 JSON으로 저장 (admin_notes 필드 활용)
+    const additionalData = {
+      images: images || [],
+      base_price,
+      base_price_text,
+      detailed_address,
+      business_hours,
+      duration,
+      min_age,
+      max_capacity,
+      language
+    };
+
+    // partners 테이블에 직접 저장 (status: pending)
     const result = await connection.execute(`
-      INSERT INTO partner_applications (
-        company_name,
-        representative_name,
+      INSERT INTO partners (
+        business_name,
+        contact_name,
         email,
         phone,
-        business_number,
-        address,
+        business_address,
         location,
-        coordinates,
-        website,
-        category,
+        services,
         description,
-        admin_notes,
+        images,
+        lat,
+        lng,
+        base_price,
+        base_price_text,
+        detailed_address,
+        business_hours,
+        duration,
+        min_age,
+        max_capacity,
+        language,
         status,
+        is_active,
         created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, NOW())
     `, [
-      businessName,
-      contactName,
+      business_name,
+      contact_name,
       email,
       phone,
-      businessNumber || null,
-      address || null,
+      business_address || null,
       location || null,
-      coordinates || null,  // "위도,경도" 형식
-      website || null,
-      services || null,      // 카테고리
+      services || null,
       description || null,
-      imageData,             // 이미지 URL들 (JSON)
+      images && images.length > 0 ? JSON.stringify(images) : null,
+      lat || null,
+      lng || null,
+      base_price || null,
+      base_price_text || null,
+      detailed_address || null,
+      business_hours || null,
+      duration || null,
+      min_age || null,
+      max_capacity || null,
+      language || null
     ]);
 
-    console.log('파트너 신청 완료:', result.insertId);
+    console.log('✅ 파트너 신청 완료:', result.insertId);
     console.log('저장된 좌표:', coordinates);
 
     return res.status(200).json({
       success: true,
-      message: '파트너 신청이 완료되었습니다. 검토 후 연락드리겠습니다.',
-      applicationId: result.insertId
+      message: '파트너 신청이 완료되었습니다. 관리자 검토 후 연락드리겠습니다.',
+      applicationId: result.insertId,
+      data: {
+        id: result.insertId,
+        business_name,
+        status: 'pending'
+      }
     });
 
   } catch (error) {
