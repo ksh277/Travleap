@@ -366,7 +366,7 @@ export function Header({
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="p-0 w-[300px]">
+              <SheetContent side="right" className="p-0 w-[200px]">
                 <div className="grid gap-0 py-6">
                   {navigation.map((item) => (
                     <button
