@@ -292,8 +292,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
           <div className="w-full max-w-2xl lg:max-w-6xl mobile-container">
             <div className="mobile-card bg-white shadow-2xl">
               <div className="flex flex-col gap-4">
-                {/* 모바일: 2x2 그리드, 데스크탑: 원래대로 */}
-                <div className="grid grid-cols-2 lg:flex lg:flex-row gap-3 lg:gap-4">
+                {/* 모바일: 1열, 데스크탑: 원래대로 */}
+                <div className="flex flex-col lg:flex-row gap-3 lg:gap-4">
                   {/* 목적지 */}
                   <div className="space-y-2 relative lg:flex-1">
                     <label className="text-sm font-medium text-gray-700 block">{t('destination', selectedLanguage)}</label>
@@ -306,7 +306,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                         onChange={(e) => handleDestinationChange(e.target.value)}
                         onFocus={() => destination.length > 0 && setShowSuggestions(true)}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        className="w-full pl-10 pr-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px]"
+                        className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px]"
                         autoComplete="off"
                       />
                       {showSuggestions && searchSuggestions.length > 0 && (
@@ -334,7 +334,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                     <label className="text-sm font-medium text-gray-700 block">{t('guests', selectedLanguage)}</label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal min-h-[56px] lg:min-h-[44px] text-sm border-gray-200 rounded-lg hover:border-purple-500">
+                        <Button variant="outline" className="w-full justify-start text-left font-normal min-h-[44px] text-sm border-gray-200 rounded-lg hover:border-purple-500">
                           <Users className="mr-2 h-4 w-4" />
                           <span className="truncate">{`${t('rooms', selectedLanguage)} ${guestCounts.rooms}, ${t('adults', selectedLanguage)} ${guestCounts.adults}${guestCounts.children > 0 ? `, ${t('children', selectedLanguage)} ${guestCounts.children}` : ''}`}</span>
                         </Button>
@@ -421,7 +421,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="w-full px-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px] text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                         >
                           <span className={checkInDate ? 'text-gray-900' : 'text-gray-400'}>
                             {checkInDate ? format(checkInDate, 'yyyy년 MM월 dd일', { locale: ko }) : '날짜 선택'}
@@ -449,7 +449,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                       <PopoverTrigger asChild>
                         <button
                           type="button"
-                          className="w-full px-3 py-3 lg:py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[56px] lg:min-h-[44px] text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm min-h-[44px] text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                         >
                           <span className={checkOutDate ? 'text-gray-900' : 'text-gray-400'}>
                             {checkOutDate ? format(checkOutDate, 'yyyy년 MM월 dd일', { locale: ko }) : '날짜 선택'}

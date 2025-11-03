@@ -129,7 +129,7 @@ export function Header({
   return (
     <header className="sticky top-0 z-50 w-full">
       {/* 상단 연보라 탑바 */}
-      <div className="bg-[#858dc5] h-[55px] md:h-[55px] flex items-center">
+      <div className="bg-[#858dc5] h-[48px] md:h-[55px] flex items-center">
         <div className="w-full px-4 md:px-[60px] flex items-center justify-between text-[13px] md:text-[14px] text-white">
           {/* 왼쪽 */}
           <div className="flex items-center gap-2 md:gap-3">
@@ -216,7 +216,7 @@ export function Header({
 
       {/* 네비게이션 바 */}
       <nav className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="h-[100px] w-full px-4 md:px-[60px] flex items-center">
+        <div className="h-[67px] md:h-[100px] w-full px-4 md:px-[60px] flex items-center">
           {/* 왼쪽: 로고 + 메뉴 */}
           <div className="flex items-center gap-4 md:gap-8">
             {/* 로고 */}
