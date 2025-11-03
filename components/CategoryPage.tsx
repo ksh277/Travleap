@@ -602,7 +602,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
 
         {/* 상품 리스트 - 그리드 형태 (4열) */}
         {loading ? (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[...Array(8)].map((_, i) => (
               <Card key={i} className="animate-pulse overflow-hidden">
                 <div className="w-full h-48 bg-gray-200"></div>
@@ -615,19 +615,19 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
             ))}
           </div>
         ) : isHotelView && currentHotels.length > 0 ? (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {currentHotels.map((hotel) => (
               <HotelCard key={hotel.partner_id} hotel={hotel} />
             ))}
           </div>
         ) : isVendorView && currentVendors.length > 0 ? (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {currentVendors.map((vendor) => (
               <RentcarVendorCard key={vendor.vendor_id} vendor={vendor} />
             ))}
           </div>
         ) : currentListings.length > 0 ? (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {currentListings.map((item) => {
               return (
                 <Card

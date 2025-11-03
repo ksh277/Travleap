@@ -1850,7 +1850,7 @@ export function DetailPage() {
                 {/* Review Summary */}
                 <Card>
                   <CardContent className="p-6">
-                    <div className="flex items-center space-x-6">
+                    <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-6">
                       <div className="text-center">
                         <div className="text-4xl mb-1">{averageRating.toFixed(1)}</div>
                         <div className="flex items-center justify-center mb-1">
@@ -1934,10 +1934,10 @@ export function DetailPage() {
                   ) : reviews.length > 0 ? (
                     reviews.map(review => (
                       <Card key={review.id}>
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between mb-3">
+                        <CardContent className="p-4 md:p-6">
+                          <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-3 space-y-3 md:space-y-0">
                             <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
                                 <span className="font-medium">{review.author}</span>
                                 <div className="flex items-center">
                                   {[...Array(5)].map((_, i) => (
@@ -1959,7 +1959,7 @@ export function DetailPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-gray-500 hover:text-blue-600"
+                                className="text-gray-500 hover:text-blue-600 min-h-[44px] md:min-h-[36px]"
                                 onClick={() => handleMarkHelpful(review.id)}
                               >
                                 <ThumbsUp className="h-4 w-4 mr-1" />
@@ -1969,7 +1969,7 @@ export function DetailPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="text-red-500 hover:text-red-700"
+                                  className="text-red-500 hover:text-red-700 min-h-[44px] md:min-h-[36px]"
                                   onClick={() => handleDeleteReview(review.id)}
                                 >
                                   삭제
