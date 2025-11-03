@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { MobileNav } from './components/MobileNav';
 import { HomePage } from './components/HomePage';
 import { CategoryPage } from './components/CategoryPage';
 import { CategoryDetailPage } from './components/CategoryDetailPage';
@@ -305,7 +304,6 @@ function AppContent() {
         selectedCurrency="KRW"
         onCategorySelect={(category) => navigate(`/${category}`)}
       />
-      <MobileNav />
       <Toaster />
     </div>
   );

@@ -632,15 +632,15 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
               return (
                 <Card
                   key={item.id}
-                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[360px]"
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[240px] md:min-h-[360px]"
                   onClick={() => navigate(`/detail/${item.id}`)}
                 >
                   {/* 이미지 */}
-                  <div className={`relative w-full h-48 max-h-48 overflow-hidden flex-shrink-0`}>
+                  <div className={`relative w-full h-32 md:h-48 max-h-32 md:max-h-48 overflow-hidden flex-shrink-0`}>
                     <ImageWithFallback
                       src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
                       alt={item.title}
-                      className="w-full h-48 object-cover"
+                      className="w-full h-32 md:h-48 object-cover"
                     />
                     <button
                       className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
@@ -663,7 +663,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                   </div>
 
                   {/* 정보 - 충분한 공간 확보 */}
-                  <CardContent className="p-6 pt-3 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
+                  <CardContent className="p-4 md:p-6 pt-3 flex flex-col flex-1 justify-between bg-white min-h-[120px] md:min-h-[180px]">
                       <div className="space-y-3 flex-1">
                         <div className="flex items-start gap-2">
                           <h3 className="font-semibold text-base flex-1 line-clamp-2">{item.title}</h3>
