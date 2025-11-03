@@ -825,7 +825,7 @@ export function MyPage() {
         {/* 프로필 카드 */}
         <Card className="mb-6">
           <CardContent className="p-6">
-            <div className="flex items-start space-x-6">
+            <div className="flex flex-col md:flex-row items-start md:space-x-6 space-y-4 md:space-y-0">
               <div className="relative">
                 <Avatar className="w-24 h-24">
                   <AvatarImage src={userProfile.avatar} />
@@ -936,19 +936,20 @@ export function MyPage() {
                     </div>
                   </div>
                 ) : (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h2 className="text-2xl font-bold">{userProfile.name}</h2>
+                  <div className="w-full">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-2 gap-2">
+                      <h2 className="text-2xl font-bold whitespace-normal break-words">{userProfile.name}</h2>
                       <Button
                         onClick={() => setIsEditingProfile(true)}
                         variant="outline"
                         size="sm"
+                        className="whitespace-nowrap w-full md:w-auto"
                       >
                         <Edit className="w-4 h-4 mr-1" />
                         개인정보수정
                       </Button>
                     </div>
-                    <p className="text-gray-600 mb-2">{userProfile.email}</p>
+                    <p className="text-gray-600 mb-2 break-words">{userProfile.email}</p>
                     <p className="text-gray-600 mb-2">{userProfile.phone}</p>
                     {userProfile.address && (
                       <p className="text-gray-600 mb-2 flex items-start gap-1">

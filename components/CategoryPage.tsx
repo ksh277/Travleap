@@ -368,7 +368,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
       </div>
 
       {/* 검색 바 - 배경 이미지 위에 반쯤 걸쳐진 박스 */}
-      <div className="relative -mt-16 mb-6">
+      <div className="hidden md:block relative -mt-16 mb-6">
         <div className="max-w-[1200px] mx-auto px-4">
           <div className="bg-white rounded-lg shadow-lg p-6">
             <div className="flex gap-4 items-center">
