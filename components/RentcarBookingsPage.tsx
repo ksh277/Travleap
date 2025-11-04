@@ -5,7 +5,7 @@
  * - 바우처 확인 (QR 코드)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import QRCodeLib from 'qrcode';
 
 interface RentcarBooking {
   id: number;
@@ -121,6 +122,9 @@ export function RentcarBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<RentcarBooking | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const [qrVoucherCode, setQrVoucherCode] = useState('');
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // 데이터 로드
   useEffect(() => {
@@ -252,10 +256,34 @@ export function RentcarBookingsPage() {
       return;
     }
 
-    // QR 코드 표시 모달
-    toast.success(`바우처 코드: ${booking.voucher_code}`);
-    // TODO: QR 코드 모달 컴포넌트 추가
+    // QR 코드 표시 모달 열기
+    setQrVoucherCode(booking.voucher_code);
+    setShowQRDialog(true);
   };
+
+  // QR 코드 생성
+  useEffect(() => {
+    if (showQRDialog && qrVoucherCode && qrCanvasRef.current) {
+      QRCodeLib.toCanvas(
+        qrCanvasRef.current,
+        qrVoucherCode,
+        {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#ffffff'
+          }
+        },
+        (error) => {
+          if (error) {
+            console.error('QR code generation failed:', error);
+            toast.error('QR 코드 생성에 실패했습니다');
+          }
+        }
+      );
+    }
+  }, [showQRDialog, qrVoucherCode]);
 
   if (!isLoggedIn) {
     return null;
@@ -653,6 +681,37 @@ export function RentcarBookingsPage() {
               ) : (
                 '예약 취소하기'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR 코드 모달 */}
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="h-5 w-5" />
+              바우처 QR 코드
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="p-4 bg-white rounded-lg border-2 border-gray-200">
+              <canvas ref={qrCanvasRef} />
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-1">바우처 코드</p>
+              <p className="font-mono font-semibold text-lg">{qrVoucherCode}</p>
+            </div>
+            <div className="w-full p-3 bg-blue-50 rounded-lg">
+              <p className="text-xs text-blue-800 text-center">
+                현장에서 이 QR 코드를 제시하여 차량을 인수하세요
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQRDialog(false)}>
+              닫기
             </Button>
           </DialogFooter>
         </DialogContent>

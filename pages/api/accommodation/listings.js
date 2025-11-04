@@ -156,6 +156,7 @@ module.exports = async function handler(req, res) {
           l.is_active,
           p.business_name as vendor_name,
           p.logo as vendor_logo,
+          p.average_rating,
           p.check_in_time,
           p.check_out_time,
           p.policies,
@@ -261,7 +262,7 @@ module.exports = async function handler(req, res) {
           query += ` ORDER BY l.price_from DESC`;
           break;
         case 'rating':
-          query += ` ORDER BY total_bookings DESC`; // TODO: 실제 평점 필드 추가 시 변경
+          query += ` ORDER BY p.average_rating DESC, total_bookings DESC`;
           break;
         case 'newest':
           query += ` ORDER BY l.created_at DESC`;
