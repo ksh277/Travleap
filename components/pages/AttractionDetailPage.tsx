@@ -67,11 +67,11 @@ export function AttractionDetailPage() {
 
       try {
         setLoading(true);
-        const response = await fetch(`/api/tourist/list?limit=1`);
+        const response = await fetch(`/api/attractions/list?id=${id}`);
         const result = await response.json();
 
-        if (result.success) {
-          setAttraction(result.data[0]);
+        if (result.success && result.attraction) {
+          setAttraction(result.attraction);
         } else {
           setError('관광지 정보를 찾을 수 없습니다');
         }

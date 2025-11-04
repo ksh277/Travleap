@@ -76,16 +76,19 @@ export function ExperienceDetailPage() {
 
       try {
         setLoading(true);
-        // 임시로 목록 API 사용
-        const expResponse = await fetch(`/api/experience/list?limit=1`);
+
+        // 체험 정보 조회
+        const expResponse = await fetch(`/api/experience/list?id=${id}`);
         const expResult = await expResponse.json();
 
-        const slotResponse = await fetch(`/api/experience/slots/${id}`);
-        const slotResult = await slotResponse.json();
+        if (expResult.success && expResult.experience) {
+          setExperience(expResult.experience);
 
-        if (expResult.success && slotResult.success) {
-          setExperience(expResult.data[0]);
-          setSlots(slotResult.data.slots);
+          // 슬롯 정보는 experience의 time_slots 필드 사용
+          // 또는 별도 API가 있다면 호출
+          if (expResult.experience.time_slots) {
+            setSlots(expResult.experience.time_slots);
+          }
         } else {
           setError('체험 정보를 찾을 수 없습니다');
         }

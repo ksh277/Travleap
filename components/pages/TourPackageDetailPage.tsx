@@ -101,12 +101,20 @@ export function TourPackageDetailPage() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/tour/packages/${id}`);
+        // 패키지 정보 조회
+        const response = await fetch(`/api/tour/packages?id=${id}`);
         const result = await response.json();
 
-        if (result.success && result.data) {
-          setPackageData(result.data.package);
-          setSchedules(result.data.availableSchedules || []);
+        if (result.success && result.package) {
+          setPackageData(result.package);
+
+          // 일정 정보 조회
+          const schedulesResponse = await fetch(`/api/tour/schedules?package_id=${id}`);
+          const schedulesResult = await schedulesResponse.json();
+
+          if (schedulesResult.success && schedulesResult.schedules) {
+            setSchedules(schedulesResult.schedules);
+          }
         } else {
           setError('패키지 정보를 찾을 수 없습니다');
         }

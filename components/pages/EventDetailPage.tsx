@@ -58,11 +58,11 @@ export function EventDetailPage() {
 
       try {
         setLoading(true);
-        const response = await fetch(`/api/event/list?limit=1`);
+        const response = await fetch(`/api/events/list?id=${id}`);
         const result = await response.json();
 
-        if (result.success) {
-          setEvent(result.data[0]);
+        if (result.success && result.event) {
+          setEvent(result.event);
         } else {
           setError('행사 정보를 찾을 수 없습니다');
         }
