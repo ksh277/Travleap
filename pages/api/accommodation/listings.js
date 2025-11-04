@@ -227,8 +227,26 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // TODO: 날짜별 가용성 체크
-      // checkin_date, checkout_date가 있으면 예약 가능 여부 확인
+      // 날짜별 가용성 체크 (예약이 겹치는 숙박 제외)
+      if (checkin_date && checkout_date) {
+        query += `
+          AND l.id NOT IN (
+            SELECT listing_id
+            FROM bookings
+            WHERE status NOT IN ('cancelled', 'rejected')
+              AND (
+                (start_date <= ? AND end_date > ?)
+                OR (start_date < ? AND end_date >= ?)
+                OR (start_date >= ? AND end_date <= ?)
+              )
+          )
+        `;
+        params.push(
+          checkin_date, checkin_date,
+          checkout_date, checkout_date,
+          checkin_date, checkout_date
+        );
+      }
 
       query += ` GROUP BY l.id`;
 
@@ -257,34 +275,68 @@ module.exports = async function handler(req, res) {
 
       const result = await connection.execute(query, params);
 
-      // JSON 필드 파싱
-      const listings = (result.rows || []).map(listing => {
-        let images = [];
-        let amenitiesObj = {};
-
-        try {
-          if (listing.images) {
-            images = typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images;
-          }
-        } catch (e) {
-          console.warn('Images parsing failed:', listing.id);
+      // 가용성 체크 함수
+      const checkAvailability = async (listingId) => {
+        // 날짜가 제공되지 않으면 항상 available
+        if (!checkin_date || !checkout_date) {
+          return true;
         }
 
-        try {
-          if (listing.amenities) {
-            amenitiesObj = typeof listing.amenities === 'string' ? JSON.parse(listing.amenities) : listing.amenities;
-          }
-        } catch (e) {
-          console.warn('Amenities parsing failed:', listing.id);
-        }
+        // 해당 숙박에 겹치는 예약이 있는지 확인
+        const availabilityQuery = `
+          SELECT COUNT(*) as conflicting_bookings
+          FROM bookings
+          WHERE listing_id = ?
+            AND status NOT IN ('cancelled', 'rejected')
+            AND (
+              (start_date <= ? AND end_date > ?)
+              OR (start_date < ? AND end_date >= ?)
+              OR (start_date >= ? AND end_date <= ?)
+            )
+        `;
 
-        return {
-          ...listing,
-          images,
-          amenities: amenitiesObj,
-          is_available: true // TODO: 실제 가용성 체크
-        };
-      });
+        const availResult = await connection.execute(availabilityQuery, [
+          listingId,
+          checkin_date, checkin_date,
+          checkout_date, checkout_date,
+          checkin_date, checkout_date
+        ]);
+
+        return (availResult.rows[0]?.conflicting_bookings || 0) === 0;
+      };
+
+      // JSON 필드 파싱 및 가용성 체크
+      const listingsWithAvailability = await Promise.all(
+        (result.rows || []).map(async (listing) => {
+          let images = [];
+          let amenitiesObj = {};
+
+          try {
+            if (listing.images) {
+              images = typeof listing.images === 'string' ? JSON.parse(listing.images) : listing.images;
+            }
+          } catch (e) {
+            console.warn('Images parsing failed:', listing.id);
+          }
+
+          try {
+            if (listing.amenities) {
+              amenitiesObj = typeof listing.amenities === 'string' ? JSON.parse(listing.amenities) : listing.amenities;
+            }
+          } catch (e) {
+            console.warn('Amenities parsing failed:', listing.id);
+          }
+
+          return {
+            ...listing,
+            images,
+            amenities: amenitiesObj,
+            is_available: await checkAvailability(listing.id)
+          };
+        })
+      );
+
+      const listings = listingsWithAvailability;
 
       // 전체 개수 조회
       let countQuery = `
@@ -348,6 +400,27 @@ module.exports = async function handler(req, res) {
               break;
           }
         });
+      }
+
+      // 날짜별 가용성 체크 (예약이 겹치는 숙박 제외)
+      if (checkin_date && checkout_date) {
+        countQuery += `
+          AND l.id NOT IN (
+            SELECT listing_id
+            FROM bookings
+            WHERE status NOT IN ('cancelled', 'rejected')
+              AND (
+                (start_date <= ? AND end_date > ?)
+                OR (start_date < ? AND end_date >= ?)
+                OR (start_date >= ? AND end_date <= ?)
+              )
+          )
+        `;
+        countParams.push(
+          checkin_date, checkin_date,
+          checkout_date, checkout_date,
+          checkin_date, checkout_date
+        );
       }
 
       const countResult = await connection.execute(countQuery, countParams);

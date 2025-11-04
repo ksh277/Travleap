@@ -4,18 +4,46 @@
  */
 
 import { connect } from '@planetscale/database';
+const jwt = require('jsonwebtoken');
 
 const connection = connect({ url: process.env.DATABASE_URL_BUSINESS });
+
+// JWT 검증 함수
+function verifyAdmin(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('UNAUTHORIZED');
+  }
+
+  const token = authHeader.substring(7);
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'travleap-secret-2025');
+
+    if (decoded.role !== 'admin' && decoded.userType !== 'admin') {
+      throw new Error('FORBIDDEN');
+    }
+
+    return decoded;
+  } catch (error) {
+    throw new Error('INVALID_TOKEN');
+  }
+}
 
 export default async function handler(req, res) {
   const { method } = req;
   const { id } = req.query;
 
-  // TODO: 관리자 권한 체크 추가
-  // const { user } = req;
-  // if (!user || user.role !== 'admin') {
-  //   return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
-  // }
+  // 🔒 관리자 권한 확인
+  try {
+    verifyAdmin(req);
+  } catch (error) {
+    const statusCode = error.message === 'UNAUTHORIZED' ? 401 : 403;
+    return res.status(statusCode).json({
+      success: false,
+      error: error.message,
+      message: '관리자 권한이 필요합니다.'
+    });
+  }
 
   try {
     if (method === 'DELETE') {

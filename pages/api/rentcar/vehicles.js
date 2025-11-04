@@ -149,8 +149,21 @@ module.exports = async function handler(req, res) {
         params.push(parseInt(max_price));
       }
 
-      // TODO: 날짜별 가용성 체크
-      // pickup_date, dropoff_date가 있으면 rentcar_availability_rules 체크
+      // 날짜별 가용성 체크 (예약이 겹치는 차량 제외)
+      if (pickup_date && dropoff_date) {
+        query += `
+          AND v.id NOT IN (
+            SELECT vehicle_id
+            FROM rentcar_bookings
+            WHERE status IN ('confirmed', 'in_progress')
+              AND (
+                (pickup_date < ? AND dropoff_date > ?)
+                OR (pickup_date >= ? AND pickup_date < ?)
+              )
+          )
+        `;
+        params.push(dropoff_date, pickup_date, pickup_date, dropoff_date);
+      }
 
       query += ` GROUP BY v.id`;
 
@@ -176,11 +189,45 @@ module.exports = async function handler(req, res) {
 
       const result = await connection.execute(query, params);
 
-      // JSON 필드 파싱
-      const vehicles = (result.rows || []).map(vehicle => ({
-        ...vehicle,
-        is_available: true // TODO: 실제 가용성 체크
-      }));
+      // 가용성 체크 함수
+      const checkAvailability = async (vehicleId) => {
+        // 날짜가 제공되지 않으면 항상 available
+        if (!pickup_date || !dropoff_date) {
+          return true;
+        }
+
+        // 해당 차량에 겹치는 예약이 있는지 확인
+        const availabilityQuery = `
+          SELECT COUNT(*) as conflicting_bookings
+          FROM rentcar_bookings
+          WHERE vehicle_id = ?
+            AND status IN ('confirmed', 'in_progress')
+            AND (
+              (pickup_date < ? AND dropoff_date > ?)
+              OR (pickup_date >= ? AND pickup_date < ?)
+            )
+        `;
+
+        const availResult = await connection.execute(availabilityQuery, [
+          vehicleId,
+          dropoff_date,
+          pickup_date,
+          pickup_date,
+          dropoff_date
+        ]);
+
+        return (availResult.rows[0]?.conflicting_bookings || 0) === 0;
+      };
+
+      // JSON 필드 파싱 및 가용성 체크
+      const vehiclesWithAvailability = await Promise.all(
+        (result.rows || []).map(async (vehicle) => ({
+          ...vehicle,
+          is_available: await checkAvailability(vehicle.id)
+        }))
+      );
+
+      const vehicles = vehiclesWithAvailability;
 
       // 전체 개수 조회
       let countQuery = `
@@ -225,6 +272,22 @@ module.exports = async function handler(req, res) {
       if (max_price) {
         countQuery += ` AND v.deposit_amount_krw <= ?`;
         countParams.push(parseInt(max_price));
+      }
+
+      // 날짜별 가용성 체크 (예약이 겹치는 차량 제외)
+      if (pickup_date && dropoff_date) {
+        countQuery += `
+          AND v.id NOT IN (
+            SELECT vehicle_id
+            FROM rentcar_bookings
+            WHERE status IN ('confirmed', 'in_progress')
+              AND (
+                (pickup_date < ? AND dropoff_date > ?)
+                OR (pickup_date >= ? AND pickup_date < ?)
+              )
+          )
+        `;
+        countParams.push(dropoff_date, pickup_date, pickup_date, dropoff_date);
       }
 
       const countResult = await connection.execute(countQuery, countParams);
