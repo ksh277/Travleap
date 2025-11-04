@@ -179,20 +179,10 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
     console.log('✅ [Idempotency] 신규 결제 요청 확인');
 
-    // 1. Toss Payments API로 결제 승인 요청 (트랜잭션 외부)
-    const paymentResult = await approveTossPayment({
-      paymentKey,
-      orderId,
-      amount
-    });
+    // 🔒 PHASE 1: Toss API 호출 전 모든 검증 완료 (DB 변경 없음)
+    console.log('🔒 [Validation] 사전 검증 시작');
 
-    tossApproved = true; // 승인 완료 플래그
-    console.log('✅ [Toss Payments] 결제 승인 완료:', paymentResult);
-
-    // 🔒 DB 작업 시작
-    console.log('🔒 [Database] DB 작업 시작');
-
-    // 2. orderId로 예약 또는 주문 찾기
+    // 2. orderId로 예약 또는 주문 찾기 및 검증
     // orderId는 booking_number (BK-...) 또는 ORDER_... 형식
     const isBooking = orderId.startsWith('BK-');
     const isOrder = orderId.startsWith('ORDER_');
@@ -202,9 +192,10 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     let userId = null;
     let order = null; // 장바구니 주문 정보 (isOrder일 때 사용)
     let allPayments = []; // 🔧 FIX: 포인트 적립을 위해 함수 스코프에 선언
+    let booking = null; // 검증용 booking 데이터
 
     if (isBooking) {
-      // 예약 (단일 상품 결제)
+      // 예약 (단일 상품 결제) - 검증만 수행
       const bookings = await connection.execute(
         'SELECT * FROM bookings WHERE booking_number = ?',
         [orderId]
@@ -214,7 +205,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         throw new Error('예약을 찾을 수 없습니다.');
       }
 
-      const booking = bookings.rows[0];
+      booking = bookings.rows[0];
       bookingId = booking.id;
       userId = booking.user_id;
 
@@ -232,7 +223,87 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
       console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (차이: ${difference}원)`);
 
-      // 3. 예약 상태 변경 (HOLD → CONFIRMED)
+    } else if (isOrder) {
+      // 주문 (장바구니 결제) - 검증만 수행
+      // 🔧 카테고리별로 분리된 payments를 모두 조회
+      const orders = await connection.execute(
+        'SELECT * FROM payments WHERE gateway_transaction_id = ? ORDER BY id ASC',
+        [orderId]
+      );
+
+      if (!orders || !orders.rows || orders.rows.length === 0) {
+        throw new Error('주문을 찾을 수 없습니다.');
+      }
+
+      allPayments = orders.rows;
+      console.log(`📦 [Orders] ${allPayments.length}개 카테고리 payments 조회됨`);
+
+      // 첫 번째 payment를 기준으로 사용 (쿠폰/포인트 정보 포함)
+      order = allPayments[0];
+      orderId_num = order.id;
+      userId = order.user_id;
+
+      // ✅ 금액 검증: 모든 payments의 합계가 Toss 결제 금액과 일치하는지 확인
+      const totalExpectedAmount = allPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(totalExpectedAmount - actualAmount);
+
+      // 1원 이하 오차 허용 (부동소수점 연산 및 타입 변환 오차)
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${totalExpectedAmount}원 (${allPayments.length}개 카테고리), 실제: ${actualAmount}원, 차이: ${difference}원`);
+        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${totalExpectedAmount}원, 실제: ${actualAmount}원)`);
+      }
+
+      console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (${allPayments.length}개 카테고리, 차이: ${difference}원)`);
+
+      // ✅ 포인트 잔액 사전 검증 (Toss 호출 전)
+      const notes = order.notes ? JSON.parse(order.notes) : null;
+      const pointsUsed = notes?.pointsUsed || 0;
+
+      if (pointsUsed > 0 && userId) {
+        const { Pool } = require('@neondatabase/serverless');
+        const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+        try {
+          const userResult = await poolNeon.query(`SELECT total_points FROM users WHERE id = $1`, [userId]);
+
+          if (userResult && userResult.rows && userResult.rows.length > 0) {
+            const currentPoints = userResult.rows[0].total_points || 0;
+
+            if (currentPoints < pointsUsed) {
+              console.error(`❌ [Points Validation] 포인트 부족: 현재 ${currentPoints}P, 필요 ${pointsUsed}P`);
+              throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용: ${pointsUsed}P)`);
+            }
+
+            console.log(`✅ [Points Validation] 포인트 잔액 확인: ${currentPoints}P (사용 예정: ${pointsUsed}P)`);
+          }
+        } finally {
+          await poolNeon.end();
+        }
+      }
+
+    } else {
+      throw new Error('올바르지 않은 주문 번호 형식입니다.');
+    }
+
+    console.log('✅ [Validation] 모든 사전 검증 완료 - Toss API 호출 준비');
+
+    // 🔒 PHASE 2: Toss Payments API 호출 (검증 완료 후)
+    const paymentResult = await approveTossPayment({
+      paymentKey,
+      orderId,
+      amount
+    });
+
+    tossApproved = true; // 승인 완료 플래그
+    console.log('✅ [Toss Payments] 결제 승인 완료:', paymentResult);
+
+    // 🔒 PHASE 3: DB 작업 시작 (중요도 순서대로 실행)
+    console.log('🔒 [Database] DB 작업 시작 (Critical operations first)');
+
+    // 3. DB 업데이트 - 예약/주문 상태 변경
+    if (isBooking) {
+      // 3-1. 예약 상태 변경 (HOLD → CONFIRMED)
       // ✅ 배송 상태도 PENDING → READY로 변경 (결제 완료 = 배송 준비)
       await connection.execute(
         `UPDATE bookings
@@ -257,38 +328,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       }
 
     } else if (isOrder) {
-      // 주문 (장바구니 결제)
-      // 🔧 카테고리별로 분리된 payments를 모두 조회
-      const orders = await connection.execute(
-        'SELECT * FROM payments WHERE gateway_transaction_id = ? ORDER BY id ASC',
-        [orderId]
-      );
-
-      if (!orders || !orders.rows || orders.rows.length === 0) {
-        throw new Error('주문을 찾을 수 없습니다.');
-      }
-
-      allPayments = orders.rows; // 🔧 FIX: const 제거 (함수 스코프 변수 사용)
-      console.log(`📦 [Orders] ${allPayments.length}개 카테고리 payments 조회됨`);
-
-      // 첫 번째 payment를 기준으로 사용 (쿠폰/포인트 정보 포함)
-      order = allPayments[0];
-      orderId_num = order.id;
-      userId = order.user_id;
-
-      // ✅ 금액 검증: 모든 payments의 합계가 Toss 결제 금액과 일치하는지 확인
-      const totalExpectedAmount = allPayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
-      const actualAmount = parseFloat(amount);
-      const difference = Math.abs(totalExpectedAmount - actualAmount);
-
-      // 1원 이하 오차 허용 (부동소수점 연산 및 타입 변환 오차)
-      if (difference > 1) {
-        console.error(`❌ [금액 검증 실패] 예상: ${totalExpectedAmount}원 (${allPayments.length}개 카테고리), 실제: ${actualAmount}원, 차이: ${difference}원`);
-        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${totalExpectedAmount}원, 실제: ${actualAmount}원)`);
-      }
-
-      console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (${allPayments.length}개 카테고리, 차이: ${difference}원)`);
-
+      // 주문 (장바구니 결제) - allPayments는 이미 검증 단계에서 조회됨
       // 🔧 CRITICAL FIX: 포인트 차감을 payment 상태 변경보다 먼저 처리
       // 포인트 차감 실패 시 payments가 'paid'로 변경되지 않아야 DB 일관성 유지
       const notes = order.notes ? JSON.parse(order.notes) : null;
@@ -934,30 +974,102 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
   } catch (error) {
     console.error('❌ [결제 승인] 실패:', error);
+    console.error('❌ [Error Details] Stage:', error.stage || 'UNKNOWN', 'Operation:', error.operation || 'UNKNOWN');
 
-    // 🔒 트랜잭션 롤백 (connection이 존재하면)
-    if (connection) {
+    // 🔒 IMPROVED ROLLBACK: DB 복구 시도 (PlanetScale는 트랜잭션 미지원, 수동 복구)
+    let dbRollbackAttempted = false;
+    let dbRollbackSuccess = false;
+
+    if (tossApproved && connection) {
+      dbRollbackAttempted = true;
+      console.log('🔄 [DB Rollback] Toss 승인 후 DB 실패 감지 - 수동 복구 시도');
+
       try {
-        // PlanetScale does not support rollback
+        // 1. 예약 상태 복구 (confirmed → hold)
+        if (isBooking && bookingId) {
+          await connection.execute(`
+            UPDATE bookings
+            SET status = 'hold',
+                payment_status = 'pending',
+                delivery_status = NULL,
+                updated_at = NOW()
+            WHERE id = ? AND payment_status = 'paid'
+          `, [bookingId]);
+          console.log(`✅ [DB Rollback] 예약 상태 복구 완료 (booking_id: ${bookingId})`);
+        }
+
+        // 2. 주문 상태 복구 (paid → pending)
+        if (isOrder && orderId) {
+          await connection.execute(`
+            UPDATE payments
+            SET payment_status = 'pending',
+                updated_at = NOW()
+            WHERE gateway_transaction_id = ? AND payment_status = 'paid'
+          `, [orderId]);
+          console.log(`✅ [DB Rollback] 주문 상태 복구 완료 (order_id: ${orderId})`);
+        }
+
+        // 3. 포인트 차감 복구 (사용 취소)
+        if (isOrder && userId) {
+          const notes = order?.notes ? JSON.parse(order.notes) : null;
+          const pointsUsed = notes?.pointsUsed || 0;
+
+          if (pointsUsed > 0) {
+            const { Pool } = require('@neondatabase/serverless');
+            const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+            try {
+              await poolNeon.query('BEGIN');
+
+              // 사용 내역 삭제 또는 취소 처리
+              await connection.execute(`
+                DELETE FROM user_points
+                WHERE user_id = ? AND point_type = 'use' AND related_order_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)
+              `, [userId, orderId]);
+
+              // 포인트 복구
+              await poolNeon.query(`
+                UPDATE users SET total_points = total_points + $1 WHERE id = $2
+              `, [pointsUsed, userId]);
+
+              await poolNeon.query('COMMIT');
+              console.log(`✅ [DB Rollback] 포인트 복구 완료 (user_id: ${userId}, +${pointsUsed}P)`);
+            } catch (pointRollbackError) {
+              await poolNeon.query('ROLLBACK');
+              console.error('❌ [DB Rollback] 포인트 복구 실패:', pointRollbackError);
+            } finally {
+              await poolNeon.end();
+            }
+          }
+        }
+
+        dbRollbackSuccess = true;
+        console.log('✅ [DB Rollback] 수동 복구 완료');
+
       } catch (rollbackError) {
-        console.error('❌ [Transaction] 롤백 실패:', rollbackError);
+        console.error('❌ [DB Rollback] 수동 복구 실패:', rollbackError);
+        dbRollbackSuccess = false;
       }
     }
 
     // 🔒 Toss Payments 취소 (Toss API 승인은 되었지만 DB 작업 실패)
+    let tossRollbackSuccess = false;
+
     if (tossApproved && paymentKey) {
       try {
-        console.log('🔄 [Toss Payments] 자동 취소 시도:', paymentKey);
+        console.log('🔄 [Toss Rollback] 자동 취소 시도:', paymentKey);
         await cancelTossPayment(
           paymentKey,
-          '시스템 오류로 인한 자동 취소'
+          `시스템 오류로 인한 자동 취소 (${error.message || 'DB 작업 실패'})`
         );
-        console.log('✅ [Toss Payments] 자동 취소 완료');
-      } catch (cancelError) {
-        console.error('❌ [Toss Payments] 자동 취소 실패:', cancelError);
-        console.error('⚠️  [긴급] 수동 환불 필요! paymentKey:', paymentKey);
+        console.log('✅ [Toss Rollback] 자동 취소 완료');
+        tossRollbackSuccess = true;
 
-        // ✅ 관리자 알림 저장 (Problem #32 해결)
+      } catch (cancelError) {
+        console.error('❌ [Toss Rollback] 자동 취소 실패:', cancelError);
+        console.error('⚠️  ⚠️  ⚠️  [CRITICAL] 수동 환불 긴급 필요! paymentKey:', paymentKey);
+
+        // ✅ 관리자 알림 저장 (중요도 강화)
         try {
           await connection.execute(`
             INSERT INTO admin_notifications (
@@ -972,15 +1084,18 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
             'PAYMENT_CANCEL_FAILED',
             'CRITICAL',
             '🚨 Toss 결제 자동 취소 실패 - 긴급 조치 필요',
-            `결제 승인은 완료되었으나 DB 작업 실패로 자동 취소를 시도했지만 실패했습니다. 고객에게 결제 금액이 청구되었으나 시스템에는 주문이 생성되지 않았습니다. 즉시 수동 환불 처리가 필요합니다.`,
+            `결제 승인 완료 → DB 작업 실패 → 자동 취소 실패. 고객에게 결제 금액이 청구되었으나 시스템에는 주문이 생성되지 않았습니다. 즉시 수동 환불 처리가 필요합니다.`,
             JSON.stringify({
               paymentKey,
               orderId,
               amount,
-              orderName,
-              error: cancelError.message,
+              userId,
+              originalError: error.message,
+              cancelError: cancelError.message,
+              dbRollbackAttempted,
+              dbRollbackSuccess,
               timestamp: new Date().toISOString(),
-              actionRequired: '관리자 페이지에서 해당 paymentKey로 수동 환불 처리 필요'
+              actionRequired: '관리자 페이지에서 해당 paymentKey로 즉시 수동 환불 처리 필요'
             })
           ]);
           console.log('✅ [Admin Alert] 관리자 알림 저장 완료');
@@ -993,19 +1108,33 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     }
 
     // Toss Payments API 에러의 경우 더 자세한 정보 반환
-    if (error.message) {
-      return {
-        success: false,
-        message: error.message,
-        code: error.code || 'PAYMENT_CONFIRM_FAILED'
-      };
+    const errorResponse = {
+      success: false,
+      message: error.message || '결제 승인 중 오류가 발생했습니다.',
+      code: error.code || 'PAYMENT_CONFIRM_ERROR',
+      tossApproved,
+      rollback: {
+        tossRollbackAttempted: tossApproved,
+        tossRollbackSuccess,
+        dbRollbackAttempted,
+        dbRollbackSuccess
+      }
+    };
+
+    // 롤백 상태에 따른 메시지 추가
+    if (tossApproved) {
+      if (tossRollbackSuccess) {
+        errorResponse.message = `결제 승인 후 오류 발생. 자동 취소 완료. (${error.message})`;
+        errorResponse.userMessage = '결제 처리 중 오류가 발생하여 자동으로 취소되었습니다. 다시 시도해주세요.';
+      } else {
+        errorResponse.message = `결제 승인 후 오류 발생. 자동 취소 실패! 관리자 확인 필요. (${error.message})`;
+        errorResponse.userMessage = '결제 처리 중 오류가 발생했습니다. 고객센터로 문의해주세요.';
+        errorResponse.requiresManualRefund = true;
+        errorResponse.paymentKey = paymentKey;
+      }
     }
 
-    return {
-      success: false,
-      message: '결제 승인 중 오류가 발생했습니다.',
-      code: 'PAYMENT_CONFIRM_ERROR'
-    };
+    return errorResponse;
   } finally {
     // ℹ️ PlanetScale connection은 자동으로 관리되므로 명시적 해제 불필요
     console.log('✅ [Connection] 결제 처리 완료');
