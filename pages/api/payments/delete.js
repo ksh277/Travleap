@@ -7,12 +7,13 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../../../utils/auth-middleware');
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -27,19 +28,12 @@ module.exports = async function handler(req, res) {
 
   try {
     const { paymentId } = req.body;
-    const userId = req.headers['x-user-id'];
+    const userId = req.user.userId;
 
     if (!paymentId) {
       return res.status(400).json({
         success: false,
         message: 'paymentId is required'
-      });
-    }
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'userId is required (x-user-id header)'
       });
     }
 
@@ -108,4 +102,7 @@ module.exports = async function handler(req, res) {
       message: error.message || '결제 내역 삭제에 실패했습니다.'
     });
   }
-};
+}
+
+// JWT 인증 적용
+module.exports = withAuth(handler, { requireAuth: true });

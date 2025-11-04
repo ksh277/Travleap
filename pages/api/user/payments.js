@@ -1,11 +1,12 @@
 /**
  * 사용자 결제 내역 조회 API
- * GET /api/user/payments?userId=123
+ * GET /api/user/payments
  */
 
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../../../utils/auth-middleware');
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -23,15 +24,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // x-user-id 헤더에서 userId 읽기 (쿼리 파라미터도 fallback)
-    const userId = req.headers['x-user-id'] || req.query.userId;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'userId is required (x-user-id header or userId query param)'
-      });
-    }
+    // JWT에서 userId 읽기
+    const userId = req.user.userId;
 
     const connection = connect({ url: process.env.DATABASE_URL });
 
@@ -127,4 +121,7 @@ module.exports = async function handler(req, res) {
       message: error.message || '결제 내역 조회에 실패했습니다.'
     });
   }
-};
+}
+
+// JWT 인증 적용
+module.exports = withAuth(handler, { requireAuth: true });
