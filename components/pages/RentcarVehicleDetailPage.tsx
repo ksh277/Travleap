@@ -86,8 +86,18 @@ export function RentcarVehicleDetailPage() {
   const [isBooking, setIsBooking] = useState(false);
 
   // 예약 폼 상태
-  const [pickupDate, setPickupDate] = useState<Date>();
-  const [returnDate, setReturnDate] = useState<Date>();
+  const [pickupDate, setPickupDate] = useState<Date>(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    return tomorrow;
+  });
+  const [returnDate, setReturnDate] = useState<Date>(() => {
+    const dayAfterTomorrow = new Date();
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    dayAfterTomorrow.setHours(0, 0, 0, 0);
+    return dayAfterTomorrow;
+  });
   const [pickupTime, setPickupTime] = useState('10:00');
   const [returnTime, setReturnTime] = useState('10:00');
 
@@ -288,7 +298,9 @@ export function RentcarVehicleDetailPage() {
     if (!selectedInsurance) return 0;
 
     const totalHours = calculateRentalHours();
-    return Math.ceil(selectedInsurance.hourly_rate_krw * totalHours);
+    // 소수점 시간을 올림 처리하여 시간당 요금 계산 (예: 25.5시간 -> 26시간)
+    const billingHours = Math.ceil(totalHours);
+    return selectedInsurance.hourly_rate_krw * billingHours;
   };
 
   // 가격 계산 (시간 단위 + 보험료)
@@ -541,7 +553,7 @@ export function RentcarVehicleDetailPage() {
                     idx === currentImageIndex ? 'border-blue-500' : 'border-gray-200'
                   }`}
                 >
-                  <ImageWithFallback src={img} alt="" className="w-full h-full object-cover" />
+                  <ImageWithFallback src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
                 </button>
               ))}
             </div>
@@ -839,7 +851,9 @@ export function RentcarVehicleDetailPage() {
 
                           {/* 보험 상품 목록 */}
                           {insurances.map((insurance) => {
-                            const insuranceFee = Math.ceil(insurance.hourly_rate_krw * calculateRentalHours());
+                            const totalHours = calculateRentalHours();
+                            const billingHours = Math.ceil(totalHours);
+                            const insuranceFee = insurance.hourly_rate_krw * billingHours;
                             return (
                               <label
                                 key={insurance.id}
@@ -875,7 +889,7 @@ export function RentcarVehicleDetailPage() {
                                       </div>
                                     )}
                                     <div className="text-xs text-gray-500 mt-1">
-                                      {insurance.hourly_rate_krw.toLocaleString()}원/시간 × {Math.floor(calculateRentalHours())}시간
+                                      {insurance.hourly_rate_krw.toLocaleString()}원/시간 × {billingHours}시간
                                     </div>
                                   </div>
                                   <div className="text-right">

@@ -197,8 +197,18 @@ export function RentcarSearchPage({ selectedCurrency = 'KRW' }: RentcarSearchPag
   const [pickupLocation, setPickupLocation] = useState('CJU');
   const [dropoffLocation, setDropoffLocation] = useState('CJU');
   const [sameLocation, setSameLocation] = useState(true);
-  const [pickupDate, setPickupDate] = useState<Date>();
-  const [dropoffDate, setDropoffDate] = useState<Date>();
+  const [pickupDate, setPickupDate] = useState<Date>(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    return tomorrow;
+  });
+  const [dropoffDate, setDropoffDate] = useState<Date>(() => {
+    const dayAfterTomorrow = new Date();
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    dayAfterTomorrow.setHours(0, 0, 0, 0);
+    return dayAfterTomorrow;
+  });
   const [pickupTime, setPickupTime] = useState('10:00');
   const [dropoffTime, setDropoffTime] = useState('10:00');
   const [driverAge, setDriverAge] = useState('26');
@@ -589,6 +599,7 @@ export function RentcarSearchPage({ selectedCurrency = 'KRW' }: RentcarSearchPag
                             src={car.vehicle.images[0] || 'https://images.unsplash.com/photo-1550355291-bbee04a92027?w=400'}
                             alt={car.vehicle.model}
                             className="w-32 h-24 object-cover rounded-lg"
+                            loading="lazy"
                           />
 
                           {/* 차량 정보 */}
@@ -652,12 +663,26 @@ export function RentcarSearchPage({ selectedCurrency = 'KRW' }: RentcarSearchPag
                 </Card>
               )}
 
-              {!loading && results.length === 0 && (
+              {!loading && results.length === 0 && !error && (
                 <Card>
                   <CardContent className="p-12 text-center">
                     <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-semibold mb-2">검색 결과가 없습니다</h3>
                     <p className="text-gray-600">다른 날짜나 위치로 다시 검색해보세요</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* API 실패 에러 표시 */}
+              {!loading && error && (
+                <Card className="border-red-200">
+                  <CardContent className="p-12 text-center">
+                    <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2 text-red-700">오류가 발생했습니다</h3>
+                    <p className="text-gray-600 mb-4">{error}</p>
+                    <Button onClick={handleSearch} variant="outline">
+                      다시 검색하기
+                    </Button>
                   </CardContent>
                 </Card>
               )}

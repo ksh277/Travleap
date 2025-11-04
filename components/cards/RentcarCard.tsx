@@ -31,6 +31,7 @@ export function RentcarCard({ car, onBook, onShowDetails }: RentcarCardProps) {
                 src={vehicle.images[0] || 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2'}
                 alt={vehicle.model}
                 className="w-full h-full object-cover"
+                loading="lazy"
               />
               {vehicle.airConditioning && (
                 <Badge className="absolute top-2 right-2 bg-blue-500">에어컨</Badge>
