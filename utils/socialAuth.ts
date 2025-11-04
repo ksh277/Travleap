@@ -192,6 +192,11 @@ export const initNaverAuth = () => {
   }
 
   const loginWithNaver = () => {
+    // localStorage 클리어
+    localStorage.removeItem('naver_auth_user');
+    localStorage.removeItem('naver_auth_success');
+    localStorage.removeItem('naver_auth_error');
+
     const redirectUri = `${window.location.origin}/auth/naver/callback`;
     const state = Math.random().toString(36).substring(2);
     const authUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=token&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
@@ -208,24 +213,88 @@ export const initNaverAuth = () => {
     );
 
     return new Promise<{ email: string; name: string; id: string; picture?: string }>((resolve, reject) => {
+      let resolved = false;
+
+      // localStorage 폴링 (500ms 간격)
+      const storageCheck = setInterval(() => {
+        const success = localStorage.getItem('naver_auth_success');
+        const error = localStorage.getItem('naver_auth_error');
+        const userDataStr = localStorage.getItem('naver_auth_user');
+
+        if (success === 'true' && userDataStr && !resolved) {
+          resolved = true;
+          clearInterval(storageCheck);
+          clearInterval(checkPopup);
+
+          const userData = JSON.parse(userDataStr);
+          console.log('✅ [Naver Auth] Success via localStorage:', userData.email);
+
+          // localStorage 클리어
+          localStorage.removeItem('naver_auth_user');
+          localStorage.removeItem('naver_auth_success');
+          localStorage.removeItem('naver_auth_error');
+
+          popup?.close();
+          resolve(userData);
+        } else if (error && !resolved) {
+          resolved = true;
+          clearInterval(storageCheck);
+          clearInterval(checkPopup);
+
+          console.error('❌ [Naver Auth] Error via localStorage:', error);
+
+          localStorage.removeItem('naver_auth_error');
+          popup?.close();
+          reject(new Error(error));
+        }
+      }, 500);
+
       const checkPopup = setInterval(() => {
         if (!popup || popup.closed) {
           clearInterval(checkPopup);
-          reject(new Error('로그인 창이 닫혔습니다.'));
+          clearInterval(storageCheck);
+
+          if (!resolved) {
+            resolved = true;
+
+            // 팝업이 닫혔는데 localStorage에 데이터가 있는지 한 번 더 확인
+            const userDataStr = localStorage.getItem('naver_auth_user');
+            if (userDataStr) {
+              const userData = JSON.parse(userDataStr);
+              localStorage.removeItem('naver_auth_user');
+              localStorage.removeItem('naver_auth_success');
+              resolve(userData);
+            } else {
+              reject(new Error('로그인 창이 닫혔습니다.'));
+            }
+          }
         }
       }, 1000);
 
-      window.addEventListener('message', (event) => {
-        if (event.data.type === 'naver-auth-success') {
+      // postMessage 이벤트 리스너 (fallback)
+      const messageHandler = (event: MessageEvent) => {
+        if (event.data.type === 'naver-auth-success' && !resolved) {
+          resolved = true;
           clearInterval(checkPopup);
+          clearInterval(storageCheck);
+          window.removeEventListener('message', messageHandler);
+
+          console.log('✅ [Naver Auth] Success via postMessage:', event.data.user.email);
           popup?.close();
           resolve(event.data.user);
-        } else if (event.data.type === 'naver-auth-error') {
+        } else if (event.data.type === 'naver-auth-error' && !resolved) {
+          resolved = true;
           clearInterval(checkPopup);
+          clearInterval(storageCheck);
+          window.removeEventListener('message', messageHandler);
+
+          console.error('❌ [Naver Auth] Error via postMessage:', event.data.error);
           popup?.close();
           reject(new Error(event.data.error));
         }
-      });
+      };
+
+      window.addEventListener('message', messageHandler);
     });
   };
 

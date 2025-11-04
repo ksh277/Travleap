@@ -59,9 +59,6 @@ const AccommodationDetailPage = () => {
   const [specialRequests, setSpecialRequests] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // TODO: 실제 사용자 ID는 인증 컨텍스트에서 가져와야 함
-  const userId = 1;
-
   useEffect(() => {
     if (id) {
       loadAccommodation();
@@ -128,6 +125,14 @@ const AccommodationDetailPage = () => {
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 사용자 정보 가져오기
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!currentUser?.id) {
+      alert('로그인이 필요합니다.');
+      router.push('/login');
+      return;
+    }
+
     if (!checkinDate || !checkoutDate) {
       alert('체크인/체크아웃 날짜를 선택해주세요.');
       return;
@@ -164,7 +169,7 @@ const AccommodationDetailPage = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId,
+          user_id: currentUser.id,
           listing_id: accommodation?.listing_id || accommodation?.id,
           checkin_date: checkinDate,
           checkout_date: checkoutDate,
@@ -172,7 +177,8 @@ const AccommodationDetailPage = () => {
           guest_email: guestEmail,
           guest_phone: guestPhone,
           guest_count: guestCount,
-          special_requests: specialRequests
+          special_requests: specialRequests,
+          total_price: calculateTotalPrice()
         })
       });
 

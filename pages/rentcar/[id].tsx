@@ -50,9 +50,6 @@ const RentcarDetailPage = () => {
   const [selectedInsurance, setSelectedInsurance] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // TODO: 실제 사용자 ID는 인증 컨텍스트에서 가져와야 함
-  const userId = 1;
-
   useEffect(() => {
     if (id) {
       loadVehicle();
@@ -122,6 +119,14 @@ const RentcarDetailPage = () => {
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 사용자 정보 가져오기
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!currentUser?.id) {
+      alert('로그인이 필요합니다.');
+      router.push('/login');
+      return;
+    }
+
     if (!pickupDate || !dropoffDate) {
       alert('대여일과 반납일을 선택해주세요.');
       return;
@@ -143,7 +148,7 @@ const RentcarDetailPage = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId,
+          user_id: currentUser.id,
           vehicle_id: vehicle?.id,
           pickup_datetime: `${pickupDate}T10:00:00`,
           dropoff_datetime: `${dropoffDate}T10:00:00`,
@@ -152,7 +157,8 @@ const RentcarDetailPage = () => {
           customer_phone: customerPhone,
           customer_driver_license: driverLicense,
           selected_insurance_ids: selectedInsurance,
-          special_requests: specialRequests
+          special_requests: specialRequests,
+          total_price_krw: calculateTotalPrice()
         })
       });
 
