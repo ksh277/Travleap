@@ -561,11 +561,34 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       console.log(`💰 [Refund] 비팝업 카테고리 → 기존 정책 적용: ${actualRefundAmount}원`);
     }
 
-    // 🔒 4. DB 트랜잭션 시작 (Problem #37, #39 해결: Toss 환불 전에 DB 작업 먼저 수행)
-    console.log(`🔒 [Refund] DB 트랜잭션 시작 - 재고/포인트/상태 변경 처리`);
+    // 🔒 4. Toss Payments API로 환불 요청 먼저 수행 (CRITICAL FIX)
+    // 고객 관점: Toss 환불 성공이 최우선, DB는 나중에 수정 가능
+    console.log(`🔄 [Refund] Toss Payments API 호출 중... (금액: ${actualRefundAmount.toLocaleString()}원)`);
+
+    let tossRefundSuccess = false;
+    let tossRefundResult = null;
+
+    try {
+      tossRefundResult = await cancelTossPayment(
+        paymentKey,
+        cancelReason,
+        actualRefundAmount > 0 ? actualRefundAmount : undefined
+      );
+
+      console.log(`✅ [Refund] Toss Payments 환불 성공:`, tossRefundResult);
+      tossRefundSuccess = true;
+    } catch (tossError) {
+      console.error(`❌ [Refund] Toss Payments API 호출 실패:`, tossError);
+
+      // Toss API 실패 시 DB 작업 없이 즉시 에러 반환
+      throw new Error(`TOSS_REFUND_FAILED: Toss Payments 환불 실패 - ${tossError.message}`);
+    }
+
+    // 🔒 5. Toss 환불 성공 후 DB 트랜잭션 시작
+    console.log(`🔒 [Refund] Toss 환불 성공 - DB 트랜잭션 시작 (재고/포인트/상태 변경)`);
     await connection.execute('START TRANSACTION');
 
-    // 5. 장바구니 주문 여부 확인
+    // 6. 장바구니 주문 여부 확인
     const isCartOrder = payment.order_number && payment.order_number.startsWith('ORDER_');
 
     // 6. 장바구니 주문이면 모든 bookings 조회
@@ -750,31 +773,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     await connection.execute('COMMIT');
     console.log(`✅ [Refund] DB 트랜잭션 커밋 완료 - 재고/포인트/상태 변경 성공`);
 
-    // 13. 🔄 Toss Payments API로 환불 요청 (DB 작업 성공 후 실행 - Problem #37 해결)
-    console.log(`🔄 [Refund] Toss Payments API 호출 중... (금액: ${actualRefundAmount.toLocaleString()}원)`);
-
-    let tossRefundSuccess = false;
-    let tossRefundError = null;
-
-    try {
-      const refundResult = await cancelTossPayment(
-        paymentKey,
-        cancelReason,
-        actualRefundAmount > 0 ? actualRefundAmount : undefined
-      );
-
-      console.log(`✅ [Refund] Toss Payments 환불 완료:`, refundResult);
-      tossRefundSuccess = true;
-    } catch (tossError) {
-      console.error(`❌ [Refund] Toss Payments API 호출 실패:`, tossError);
-      tossRefundError = tossError;
-
-      // ⚠️ Toss API 실패해도 DB는 이미 커밋됨
-      // 관리자가 수동으로 Toss 대시보드에서 환불 처리 필요
-      console.warn(`⚠️ [Refund] DB는 환불 완료 처리되었으나, Toss API 실패. 수동 처리 필요.`);
-    }
-
-    // 14. 환불 완료 알림 발송
+    // 13. 환불 완료 알림 발송 (Toss 환불은 이미 4번에서 완료됨)
     try {
       console.log(`📧 [알림] 환불 완료 알림 발송 시작 (user_id: ${payment.user_id})`);
 
@@ -828,52 +827,121 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       // 알림 실패해도 환불은 성공 처리
     }
 
-    // 15. 성공 응답
+    // 14. 성공 응답 (Toss 환불 성공 + DB 커밋 성공)
     const response = {
       success: true,
-      message: tossRefundSuccess
-        ? '환불이 완료되었습니다.'
-        : '⚠️ DB 환불 처리 완료. Toss API 실패 - 수동 처리 필요',
+      message: '환불이 완료되었습니다.',
       refundAmount: actualRefundAmount,
       paymentKey,
       bookingId: payment.booking_id,
       orderNumber: payment.order_number,
       refundedAt: new Date().toISOString(),
-      tossRefundSuccess,
-      warning: tossRefundSuccess ? null : 'Toss Payments API 호출 실패. Toss 대시보드에서 수동 환불 필요.'
+      tossRefundSuccess: true,
+      tossRefundResult: tossRefundResult ? {
+        status: tossRefundResult.status,
+        transactionKey: tossRefundResult.transactionKey
+      } : null
     };
-
-    if (tossRefundError) {
-      response.tossError = tossRefundError.message || String(tossRefundError);
-    }
 
     return response;
 
   } catch (error) {
     console.error(`❌ [Refund] 환불 처리 실패:`, error);
 
-    // 트랜잭션 롤백
-    try {
-      await connection.execute('ROLLBACK');
-      console.log(`🔙 [Refund] DB 트랜잭션 롤백 완료`);
-    } catch (rollbackError) {
-      console.error(`❌ [Refund] 롤백 실패:`, rollbackError);
-    }
+    // ✅ IMPROVED ERROR HANDLING
+    if (error.message && error.message.startsWith('TOSS_REFUND_FAILED')) {
+      // Toss API 실패 → DB 작업 시작 전 실패 → 안전한 실패
+      console.log('✅ [Refund] Toss 환불 실패 - DB 변경사항 없음 (안전한 실패)');
 
-    // Toss Payments API 에러 처리
-    if (error.message) {
       return {
         success: false,
         message: error.message,
-        code: error.code || 'REFUND_FAILED'
+        code: 'TOSS_REFUND_FAILED',
+        tossRefundAttempted: true,
+        tossRefundSuccess: false,
+        dbChangesMade: false
+      };
+
+    } else if (tossRefundSuccess) {
+      // ⚠️ CRITICAL: Toss 환불은 성공했으나 DB 작업 실패
+      // 고객은 돈을 받았지만 시스템에 환불 기록이 없음
+      console.error('⚠️⚠️⚠️ [CRITICAL] Toss 환불 성공 후 DB 작업 실패!');
+      console.error('⚠️ 고객은 환불받았으나 시스템에 미반영 - 관리자 수동 처리 필요');
+
+      // DB 트랜잭션 롤백 시도
+      try {
+        await connection.execute('ROLLBACK');
+        console.log(`🔙 [Refund] DB 트랜잭션 롤백 완료`);
+      } catch (rollbackError) {
+        console.error(`❌ [Refund] 롤백 실패:`, rollbackError);
+      }
+
+      // 관리자 알림 저장 (수동 DB 업데이트 필요)
+      try {
+        await connection.execute(`
+          INSERT INTO admin_notifications (
+            type,
+            priority,
+            title,
+            message,
+            metadata,
+            created_at
+          ) VALUES (?, ?, ?, ?, ?, NOW())
+        `, [
+          'REFUND_DB_FAILED',
+          'CRITICAL',
+          '🚨 환불 완료 후 DB 업데이트 실패 - 수동 처리 필요',
+          `Toss Payments 환불은 성공했으나 DB 작업 실패. 고객은 환불을 받았지만 시스템에는 환불 상태가 기록되지 않았습니다. 수동으로 DB 업데이트가 필요합니다.`,
+          JSON.stringify({
+            paymentKey,
+            refundAmount: actualRefundAmount,
+            userId: payment?.user_id,
+            bookingId: payment?.booking_id,
+            orderNumber: payment?.order_number,
+            tossRefundSuccess: true,
+            dbError: error.message,
+            timestamp: new Date().toISOString(),
+            actionRequired: 'DB에서 해당 payment의 status를 refunded로 수동 업데이트 필요'
+          })
+        ]);
+        console.log('✅ [Admin Alert] 관리자 알림 저장 완료');
+      } catch (alertError) {
+        console.error('❌ [Admin Alert] 알림 저장 실패:', alertError.message);
+      }
+
+      // 부분 성공 응답 반환
+      return {
+        success: false,
+        message: `환불은 완료되었으나 시스템 업데이트 실패. 환불 금액은 고객에게 전달되었습니다. (${error.message})`,
+        code: 'REFUND_DB_FAILED',
+        tossRefundSuccess: true,
+        dbChangesMade: false,
+        requiresManualDBUpdate: true,
+        paymentKey,
+        refundAmount: actualRefundAmount,
+        warning: '관리자 확인 필요: 고객은 환불받았으나 시스템 미반영'
+      };
+
+    } else {
+      // Toss 호출 전 다른 에러 (검증 에러 등)
+      console.log('✅ [Refund] 검증 실패 또는 기타 에러 - 변경사항 없음');
+
+      // 트랜잭션 롤백 (START TRANSACTION 전이면 에러 무시)
+      try {
+        await connection.execute('ROLLBACK');
+        console.log(`🔙 [Refund] DB 트랜잭션 롤백 완료`);
+      } catch (rollbackError) {
+        // ROLLBACK 실패는 무시 (트랜잭션이 시작되지 않았을 수 있음)
+      }
+
+      return {
+        success: false,
+        message: error.message || '환불 처리 중 오류가 발생했습니다.',
+        code: error.code || 'REFUND_ERROR',
+        tossRefundAttempted: false,
+        dbChangesMade: false
       };
     }
-
-    return {
-      success: false,
-      message: '환불 처리 중 오류가 발생했습니다.',
-      code: 'REFUND_ERROR'
-    };
   }
 }
 
