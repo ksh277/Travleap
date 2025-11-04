@@ -725,6 +725,13 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
           totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
         }
 
+        // 🔧 FIX: 포인트 회수가 여전히 0이고 order_number가 있으면 order_number로도 시도 (수동 적립 대응)
+        if (totalDeductedPoints === 0 && payment.order_number) {
+          console.log(`💰 [Refund] payment_id/booking_id로 회수 실패, order_number=${payment.order_number}로 재시도 (수동 적립 대응)`);
+          refundOrderId = payment.order_number; // ORDER_... 형식
+          totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
+        }
+
         console.log(`✅ [Refund] payment_id=${payment.id} 포인트 회수 완료: ${totalDeductedPoints}P`);
       }
 
