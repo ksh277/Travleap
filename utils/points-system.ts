@@ -296,11 +296,18 @@ export async function expirePoints(): Promise<number> {
   try {
     const now = new Date();
 
-    // 1. 만료된 포인트 조회
+    // 1. 만료된 포인트 조회 (이미 만료 처리된 것 제외)
     const expiredPoints = await db.query(`
-      SELECT user_id, points, id
-      FROM user_points
-      WHERE point_type = 'earn' AND expires_at <= ? AND expires_at IS NOT NULL
+      SELECT up1.user_id, up1.points, up1.id
+      FROM user_points up1
+      WHERE up1.point_type = 'earn'
+        AND up1.expires_at <= ?
+        AND up1.expires_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM user_points up2
+          WHERE up2.point_type = 'expire'
+          AND up2.reason = CONCAT('포인트 만료 (ID: ', up1.id, ')')
+        )
     `, [now]);
 
     let expiredCount = 0;
@@ -311,11 +318,11 @@ export async function expirePoints(): Promise<number> {
       const currentPoints = users[0].total_points || 0;
       const newBalance = Math.max(0, currentPoints - point.points);
 
-      // 3. 만료 내역 추가
+      // 3. 만료 내역 추가 (ID 포함하여 중복 방지)
       await db.execute(`
         INSERT INTO user_points (user_id, points, point_type, reason, balance_after)
-        VALUES (?, ?, 'expire', '포인트 만료', ?)
-      `, [point.user_id, -point.points, newBalance]);
+        VALUES (?, ?, 'expire', ?, ?)
+      `, [point.user_id, -point.points, `포인트 만료 (ID: ${point.id})`, newBalance]);
 
       // 4. 사용자 포인트 업데이트
       await db.execute('UPDATE users SET total_points = ? WHERE id = ?', [newBalance, point.user_id]);

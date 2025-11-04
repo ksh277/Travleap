@@ -5,11 +5,12 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { randomUUID } = require('crypto');
 
 function generateOrderNumber() {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  return `ORDER_${timestamp}_${random}`;
+  // UUID 사용으로 완전한 유일성 보장
+  const uuid = randomUUID();
+  return `ORDER_${uuid}`;
 }
 
 module.exports = async function handler(req, res) {
@@ -104,32 +105,38 @@ module.exports = async function handler(req, res) {
         if (orderNumbersForCart.length > 0) {
           console.log(`📦 [Orders] 혼합 주문 ${orderNumbersForCart.length}건의 bookings 조회 중...`);
 
-          for (const orderNumber of orderNumbersForCart) {
-            const bookingsResult = await connection.execute(`
-              SELECT
-                b.id as booking_id,
-                b.listing_id,
-                b.status,
-                b.delivery_status,
-                b.guests,
-                b.shipping_name,
-                b.shipping_phone,
-                b.shipping_address,
-                b.shipping_address_detail,
-                b.shipping_zipcode,
-                l.title as product_title,
-                l.category
-              FROM bookings b
-              LEFT JOIN listings l ON b.listing_id = l.id
-              WHERE b.order_number = ? AND b.status != 'cancelled'
-              ORDER BY b.created_at ASC
-            `, [orderNumber]);
+          // N+1 쿼리 개선: IN 절로 한 번에 조회
+          const placeholders = orderNumbersForCart.map(() => '?').join(',');
+          const bookingsResult = await connection.execute(`
+            SELECT
+              b.id as booking_id,
+              b.order_number,
+              b.listing_id,
+              b.status,
+              b.delivery_status,
+              b.guests,
+              b.shipping_name,
+              b.shipping_phone,
+              b.shipping_address,
+              b.shipping_address_detail,
+              b.shipping_zipcode,
+              l.title as product_title,
+              l.category
+            FROM bookings b
+            LEFT JOIN listings l ON b.listing_id = l.id
+            WHERE b.order_number IN (${placeholders}) AND b.status != 'cancelled'
+            ORDER BY b.order_number, b.created_at ASC
+          `, orderNumbersForCart);
 
-            if (bookingsResult.rows && bookingsResult.rows.length > 0) {
-              bookingsMap.set(orderNumber, bookingsResult.rows);
-              console.log(`📦 [Orders] order_number=${orderNumber}: ${bookingsResult.rows.length}개 booking 발견`);
+          // order_number별로 그룹화
+          (bookingsResult.rows || []).forEach(booking => {
+            if (!bookingsMap.has(booking.order_number)) {
+              bookingsMap.set(booking.order_number, []);
             }
-          }
+            bookingsMap.get(booking.order_number).push(booking);
+          });
+
+          console.log(`📦 [Orders] ${bookingsResult.rows?.length || 0}개 booking 조회 완료`);
         }
 
         // 주문 데이터와 사용자 정보 병합

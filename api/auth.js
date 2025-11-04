@@ -1,5 +1,6 @@
 const { neon } = require('@neondatabase/serverless');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 // 수동 body parser (Vercel에서 자동 파싱이 안 될 경우)
 async function parseBody(req) {
@@ -43,6 +44,16 @@ module.exports = async function handler(req, res) {
 
   const databaseUrl = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
   const sql = neon(databaseUrl);
+
+  // JWT_SECRET 환경변수 확인
+  const JWT_SECRET = process.env.JWT_SECRET;
+  if (!JWT_SECRET) {
+    console.error('❌ JWT_SECRET 환경변수가 설정되지 않았습니다!');
+    return res.status(500).json({
+      success: false,
+      error: '서버 설정 오류입니다. 관리자에게 문의하세요.'
+    });
+  }
 
   const { action } = req.query;
 
@@ -103,15 +114,17 @@ module.exports = async function handler(req, res) {
 
       console.log('✅ Login successful for:', user.email);
 
-      // JWT 토큰 생성 (간단한 JWT 형식)
-      const token = Buffer.from(JSON.stringify({
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        iat: Date.now(),
-        exp: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7일
-      })).toString('base64');
+      // JWT 토큰 생성 (정상 JWT 사용)
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        },
+        JWT_SECRET,
+        { expiresIn: '7d', algorithm: 'HS256' }
+      );
 
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       return res.status(200).json({
@@ -177,14 +190,16 @@ module.exports = async function handler(req, res) {
 
       const newUserId = result[0].id;
 
-      const token = Buffer.from(JSON.stringify({
-        userId: newUserId,
-        email,
-        name,
-        role: 'user',
-        iat: Date.now(),
-        exp: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7일
-      })).toString('base64');
+      const token = jwt.sign(
+        {
+          userId: newUserId,
+          email,
+          name,
+          role: 'user'
+        },
+        JWT_SECRET,
+        { expiresIn: '7d', algorithm: 'HS256' }
+      );
 
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       return res.status(200).json({
@@ -215,14 +230,16 @@ module.exports = async function handler(req, res) {
 
       if (existing.length > 0) {
         const user = existing[0];
-        const token = Buffer.from(JSON.stringify({
-          userId: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          iat: Date.now(),
-          exp: Date.now() + (7 * 24 * 60 * 60 * 1000)
-        })).toString('base64');
+        const token = jwt.sign(
+          {
+            userId: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role
+          },
+          JWT_SECRET,
+          { expiresIn: '7d', algorithm: 'HS256' }
+        );
 
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         return res.status(200).json({
@@ -255,14 +272,16 @@ module.exports = async function handler(req, res) {
       const newUser = result[0];
       console.log('✅ [Social Login] New user created:', newUser.id);
 
-      const token = Buffer.from(JSON.stringify({
-        userId: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-        role: newUser.role,
-        iat: Date.now(),
-        exp: Date.now() + (7 * 24 * 60 * 60 * 1000)
-      })).toString('base64');
+      const token = jwt.sign(
+        {
+          userId: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+          role: newUser.role
+        },
+        JWT_SECRET,
+        { expiresIn: '7d', algorithm: 'HS256' }
+      );
 
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       return res.status(200).json({
