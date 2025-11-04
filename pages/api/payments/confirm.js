@@ -396,10 +396,11 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
                   AND (usage_limit IS NULL OR used_count < usage_limit)
               `, [notes.couponCode.toUpperCase()]);
 
-              // affectedRows 확인으로 동시성 충돌 감지
+              // SECURITY FIX: affectedRows 확인으로 동시성 충돌 감지
               if (updateResult.affectedRows === 0) {
-                console.error(`⚠️ [쿠폰] 사용 한도 초과 (동시성 충돌): ${notes.couponCode} - 다른 사용자가 먼저 사용했을 수 있습니다.`);
-                // 한도 초과해도 결제는 성공 처리 (쿠폰만 미적용)
+                console.error(`❌ [쿠폰] 사용 한도 초과 - 결제를 취소합니다. (쿠폰: ${notes.couponCode})`);
+                // SECURITY FIX: 쿠폰 한도 초과 시 결제 실패 처리 (이전에는 성공 처리했음)
+                throw new Error('COUPON_LIMIT_EXCEEDED: 쿠폰 사용 한도가 초과되었습니다. 다른 사용자가 먼저 사용했을 수 있습니다.');
               } else {
                 // ✅ user_coupons 테이블 업데이트 (is_used = TRUE, used_at, order_number)
                 try {

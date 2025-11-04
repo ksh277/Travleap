@@ -339,11 +339,11 @@ module.exports = async function handler(req, res) {
 
       // 🔒 금액 검증 (보안: 클라이언트 조작 방지)
       // ⚠️ CRITICAL: 클라이언트가 보낸 subtotal을 절대 믿지 말 것!
-      // items 배열에서 서버가 직접 재계산
+      // SECURITY FIX: DB에서 실제 가격을 조회하여 검증
       let serverCalculatedSubtotal = 0;
 
       for (const item of items) {
-        if (!item.price || !item.quantity || item.price < 0 || item.quantity <= 0) {
+        if (!item.listingId || !item.quantity || item.quantity <= 0) {
           return res.status(400).json({
             success: false,
             error: 'INVALID_ITEM',
@@ -351,12 +351,68 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        // 옵션 가격이 있으면 포함
-        const itemPrice = item.price || 0;
-        const optionPrice = item.selectedOption?.priceAdjustment || 0;  // ✅ priceAdjustment 사용
-        const totalItemPrice = (itemPrice + optionPrice) * item.quantity;
+        // SECURITY FIX: DB에서 실제 가격 조회
+        const listingResult = await connection.execute(
+          'SELECT price_from as price, title FROM listings WHERE id = ? AND is_active = 1',
+          [item.listingId]
+        );
 
+        if (!listingResult.rows || listingResult.rows.length === 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'LISTING_NOT_FOUND',
+            message: `상품을 찾을 수 없습니다. (ID: ${item.listingId})`
+          });
+        }
+
+        const actualItemPrice = listingResult.rows[0].price;
+
+        // SECURITY FIX: 클라이언트가 보낸 가격과 DB 가격 비교
+        if (item.price && Math.abs(actualItemPrice - item.price) > 1) {
+          console.error(`❌ [Orders] 가격 조작 감지!
+            - 상품: ${listingResult.rows[0].title}
+            - DB 가격: ${actualItemPrice}원
+            - 클라이언트 가격: ${item.price}원`);
+
+          return res.status(400).json({
+            success: false,
+            error: 'PRICE_TAMPERED',
+            message: '상품 가격이 변경되었습니다. 페이지를 새로고침해주세요.'
+          });
+        }
+
+        // SECURITY FIX: 옵션 가격도 DB에서 검증
+        let actualOptionPrice = 0;
+        if (item.selectedOption?.id) {
+          const optionResult = await connection.execute(
+            'SELECT price_adjustment FROM product_options WHERE id = ? AND listing_id = ?',
+            [item.selectedOption.id, item.listingId]
+          );
+
+          if (optionResult.rows && optionResult.rows.length > 0) {
+            actualOptionPrice = optionResult.rows[0].price_adjustment || 0;
+
+            // 옵션 가격도 검증
+            if (item.selectedOption.priceAdjustment && Math.abs(actualOptionPrice - item.selectedOption.priceAdjustment) > 1) {
+              console.error(`❌ [Orders] 옵션 가격 조작 감지!
+                - 옵션 ID: ${item.selectedOption.id}
+                - DB 가격: ${actualOptionPrice}원
+                - 클라이언트 가격: ${item.selectedOption.priceAdjustment}원`);
+
+              return res.status(400).json({
+                success: false,
+                error: 'OPTION_PRICE_TAMPERED',
+                message: '옵션 가격이 변경되었습니다. 페이지를 새로고침해주세요.'
+              });
+            }
+          }
+        }
+
+        // 실제 DB 가격으로 계산
+        const totalItemPrice = (actualItemPrice + actualOptionPrice) * item.quantity;
         serverCalculatedSubtotal += totalItemPrice;
+
+        console.log(`✅ [Orders] 상품 가격 검증 완료: ${listingResult.rows[0].title} = ${actualItemPrice}원 + 옵션 ${actualOptionPrice}원`);
       }
 
       console.log(`🔒 [Orders] 서버 측 subtotal 재계산: ${serverCalculatedSubtotal}원 (클라이언트: ${subtotal}원)`);

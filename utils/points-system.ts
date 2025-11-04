@@ -74,9 +74,16 @@ export async function usePoints(
   const db = getDatabase();
 
   try {
-    // 1. 현재 포인트 조회
-    const users = await db.query('SELECT total_points FROM users WHERE id = ?', [userId]);
+    // SECURITY FIX: 트랜잭션 시작 및 FOR UPDATE 락 추가
+    // 동시에 여러 요청이 포인트를 사용하려 할 때 레이스 컨디션 방지
+    await db.query('BEGIN');
+
+    // 1. 현재 포인트 조회 - SECURITY FIX: FOR UPDATE 락 추가
+    // 이 락이 걸리면 다른 트랜잭션은 이 row를 읽을 수 없고 대기해야 함
+    const users = await db.query('SELECT total_points FROM users WHERE id = ? FOR UPDATE', [userId]);
+
     if (users.length === 0) {
+      await db.query('ROLLBACK');
       return { success: false, message: '사용자를 찾을 수 없습니다.' };
     }
 
@@ -84,6 +91,8 @@ export async function usePoints(
 
     // 2. 잔액 확인
     if (currentPoints < points) {
+      await db.query('ROLLBACK');
+      console.warn(`⚠️ [Points] User ${userId} 포인트 부족: 보유 ${currentPoints}P, 사용 시도 ${points}P`);
       return { success: false, message: `보유 포인트가 부족합니다. (보유: ${currentPoints}P, 사용: ${points}P)` };
     }
 
@@ -98,10 +107,20 @@ export async function usePoints(
     // 4. 사용자 포인트 업데이트
     await db.execute('UPDATE users SET total_points = ? WHERE id = ?', [newBalance, userId]);
 
+    // SECURITY FIX: 트랜잭션 커밋
+    await db.query('COMMIT');
+
     console.log(`✅ [Points] User ${userId} used ${points} points. New balance: ${newBalance}`);
     return { success: true };
 
   } catch (error) {
+    // SECURITY FIX: 에러 발생 시 롤백
+    try {
+      await db.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('❌ [Points] Rollback failed:', rollbackError);
+    }
+
     console.error('❌ [Points] Failed to use points:', error);
     return { success: false, message: '포인트 사용 중 오류가 발생했습니다.' };
   }

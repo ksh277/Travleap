@@ -78,7 +78,20 @@
       "Bash(then mkdir -p scripts)",
       "Bash(node scripts/check-use-points.cjs:*)",
       "Bash(node scripts/verify-point-deduction.cjs:*)",
-      "Bash(mysql:*)"
+      "Bash(mysql:*)",
+      "Bash(if [ -f \"C:\\Users\\ham57\\Desktop\\Travleap\\.env\" ])",
+      "Bash(then echo \"✅ .env file exists\")",
+      "Bash(else echo \"❌ .env file NOT found\")",
+      "Bash(node scripts/manual-add-points.cjs:*)",
+      "Bash(node scripts/verify-env-db.cjs:*)",
+      "Bash(.env)",
+      "Bash(node scripts/check-actual-points.cjs:*)",
+      "Bash(node scripts/emergency-fix-points.cjs:*)",
+      "Bash(node scripts/rollback-emergency-fix.cjs:*)",
+      "WebFetch(domain:travelap.vercel.app)",
+      "Bash(git log:*)",
+      "Bash(npm audit:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
