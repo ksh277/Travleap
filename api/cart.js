@@ -1,24 +1,17 @@
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../utils/auth-middleware');
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  const userIdParam = req.query.userId;
-
-  if (!userIdParam) {
-    return res.status(400).json({ success: false, error: 'userId is required' });
-  }
-
-  const userId = parseInt(userIdParam);
-  if (isNaN(userId)) {
-    return res.status(400).json({ success: false, error: 'Invalid userId' });
-  }
+  // JWT에서 userId 가져오기
+  const userId = req.user.userId;
 
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
@@ -266,4 +259,7 @@ module.exports = async function handler(req, res) {
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-};
+}
+
+// JWT 인증 적용
+module.exports = withAuth(handler, { requireAuth: true });

@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'PUT, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-user-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -30,15 +30,10 @@ module.exports = async function handler(req, res) {
     req.query.itemId = req.body.listingId.toString();
   }
 
-  // body에서 userId를 query로 옮김
-  if (req.body.userId) {
-    req.query.userId = req.body.userId.toString();
-  }
-
   console.log('🔢 [Cart Update] Redirecting to cart.js PUT handler');
-  console.log('   userId:', req.query.userId, 'itemId:', req.query.itemId);
+  console.log('   itemId:', req.query.itemId);
   console.log('   quantity:', req.body.quantity);
 
-  // cart.js의 PUT 핸들러로 위임
+  // cart.js의 PUT 핸들러로 위임 (JWT 인증은 cart.js에서 처리)
   return cartHandler(req, res);
 };
