@@ -55,6 +55,17 @@ const TourDetailPage = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [booking, setBooking] = useState(false);
+
+  // 예약 폼
+  const [adultCount, setAdultCount] = useState(1);
+  const [childCount, setChildCount] = useState(0);
+  const [infantCount, setInfantCount] = useState(0);
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [specialRequests, setSpecialRequests] = useState('');
 
   useEffect(() => {
     if (id) {
@@ -93,8 +104,109 @@ const TourDetailPage = () => {
 
   const handleBooking = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
-    // TODO: 예약 모달 열기
-    alert('예약 기능은 곧 추가됩니다!');
+    setShowBookingModal(true);
+  };
+
+  const getTotalPrice = () => {
+    if (!selectedSchedule) return 0;
+    const adultPrice = (selectedSchedule.price_adult_krw || tour?.price_adult_krw || 0) * adultCount;
+    const childPrice = (selectedSchedule.price_child_krw || tour?.price_child_krw || 0) * childCount;
+    const infantPrice = (selectedSchedule.price_infant_krw || tour?.price_infant_krw || 0) * infantCount;
+    return adultPrice + childPrice + infantPrice;
+  };
+
+  const getTotalParticipants = () => {
+    return adultCount + childCount + infantCount;
+  };
+
+  const handleSubmitBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedSchedule || !tour) return;
+
+    const totalParticipants = getTotalParticipants();
+    if (totalParticipants < tour.min_participants) {
+      alert(`최소 ${tour.min_participants}명 이상 예약해야 합니다.`);
+      return;
+    }
+
+    if (totalParticipants > selectedSchedule.available_seats) {
+      alert(`잔여 좌석이 부족합니다. (잔여: ${selectedSchedule.available_seats}석)`);
+      return;
+    }
+
+    if (!contactName || !contactPhone || !contactEmail) {
+      alert('연락처 정보를 모두 입력해주세요.');
+      return;
+    }
+
+    setBooking(true);
+
+    try {
+      // 사용자 정보 가져오기
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      if (!currentUser?.id) {
+        alert('로그인이 필요합니다.');
+        router.push('/login');
+        return;
+      }
+
+      // 참가자 정보 구성
+      const participants = [];
+      for (let i = 0; i < adultCount; i++) {
+        participants.push({
+          name: i === 0 ? contactName : `성인 ${i + 1}`,
+          age: null,
+          phone: i === 0 ? contactPhone : '',
+          type: 'adult'
+        });
+      }
+      for (let i = 0; i < childCount; i++) {
+        participants.push({
+          name: `아동 ${i + 1}`,
+          age: null,
+          phone: '',
+          type: 'child'
+        });
+      }
+      for (let i = 0; i < infantCount; i++) {
+        participants.push({
+          name: `유아 ${i + 1}`,
+          age: null,
+          phone: '',
+          type: 'infant'
+        });
+      }
+
+      const response = await fetch('/api/tour/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schedule_id: selectedSchedule.id,
+          user_id: currentUser.id,
+          participants,
+          adult_count: adultCount,
+          child_count: childCount,
+          infant_count: infantCount,
+          total_price_krw: getTotalPrice(),
+          special_requests: specialRequests || null
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`예약이 완료되었습니다!\n예약번호: ${data.booking.booking_number}\n바우처코드: ${data.booking.voucher_code}`);
+        router.push('/my/bookings');
+      } else {
+        alert(data.error || '예약에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('예약 실패:', error);
+      alert('예약 중 오류가 발생했습니다.');
+    } finally {
+      setBooking(false);
+    }
   };
 
   if (loading) {
@@ -326,6 +438,133 @@ const TourDetailPage = () => {
             </div>
           </div>
         </div>
+
+        {/* 예약 모달 */}
+        {showBookingModal && selectedSchedule && (
+          <div className="modal-overlay" onClick={() => setShowBookingModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>투어 예약</h2>
+                <button className="close-button" onClick={() => setShowBookingModal(false)}>✕</button>
+              </div>
+
+              <form onSubmit={handleSubmitBooking} className="booking-form">
+                {/* 선택한 일정 정보 */}
+                <div className="selected-schedule-info">
+                  <h3>{tour?.package_name}</h3>
+                  <div className="schedule-details">
+                    <p><strong>출발일:</strong> {selectedSchedule.departure_date} {selectedSchedule.departure_time}</p>
+                    <p><strong>가이드:</strong> {selectedSchedule.guide_name}</p>
+                    <p><strong>잔여 좌석:</strong> {selectedSchedule.available_seats}석</p>
+                  </div>
+                </div>
+
+                {/* 참가자 수 선택 */}
+                <div className="form-section">
+                  <h3>참가자 수</h3>
+                  <div className="participant-selector">
+                    <div className="selector-item">
+                      <label>성인 (필수)</label>
+                      <div className="counter">
+                        <button type="button" onClick={() => setAdultCount(Math.max(1, adultCount - 1))}>-</button>
+                        <span>{adultCount}</span>
+                        <button type="button" onClick={() => setAdultCount(adultCount + 1)}>+</button>
+                      </div>
+                      <span className="price-per-person">
+                        {(selectedSchedule.price_adult_krw || tour?.price_adult_krw || 0).toLocaleString()}원
+                      </span>
+                    </div>
+
+                    {tour?.price_child_krw && tour.price_child_krw > 0 && (
+                      <div className="selector-item">
+                        <label>아동</label>
+                        <div className="counter">
+                          <button type="button" onClick={() => setChildCount(Math.max(0, childCount - 1))}>-</button>
+                          <span>{childCount}</span>
+                          <button type="button" onClick={() => setChildCount(childCount + 1)}>+</button>
+                        </div>
+                        <span className="price-per-person">
+                          {(selectedSchedule.price_child_krw || tour.price_child_krw).toLocaleString()}원
+                        </span>
+                      </div>
+                    )}
+
+                    {tour?.price_infant_krw && tour.price_infant_krw > 0 && (
+                      <div className="selector-item">
+                        <label>유아</label>
+                        <div className="counter">
+                          <button type="button" onClick={() => setInfantCount(Math.max(0, infantCount - 1))}>-</button>
+                          <span>{infantCount}</span>
+                          <button type="button" onClick={() => setInfantCount(infantCount + 1)}>+</button>
+                        </div>
+                        <span className="price-per-person">
+                          {tour.price_infant_krw.toLocaleString()}원
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="total-participants">총 {getTotalParticipants()}명</p>
+                </div>
+
+                {/* 연락처 정보 */}
+                <div className="form-section">
+                  <h3>연락처 정보</h3>
+                  <div className="form-grid">
+                    <input
+                      type="text"
+                      placeholder="예약자 이름"
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                      required
+                    />
+                    <input
+                      type="tel"
+                      placeholder="연락처 (예: 010-1234-5678)"
+                      value={contactPhone}
+                      onChange={(e) => setContactPhone(e.target.value)}
+                      required
+                    />
+                    <input
+                      type="email"
+                      placeholder="이메일"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      required
+                      className="full-width"
+                    />
+                  </div>
+                </div>
+
+                {/* 특별 요청사항 */}
+                <div className="form-section">
+                  <h3>특별 요청사항 (선택)</h3>
+                  <textarea
+                    placeholder="특별한 요청사항이 있으시면 입력해주세요."
+                    value={specialRequests}
+                    onChange={(e) => setSpecialRequests(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+
+                {/* 총 금액 */}
+                <div className="total-price-section">
+                  <span>총 결제 금액</span>
+                  <strong>{getTotalPrice().toLocaleString()}원</strong>
+                </div>
+
+                {/* 버튼 */}
+                <div className="modal-actions">
+                  <button type="button" onClick={() => setShowBookingModal(false)} className="cancel-button">
+                    취소
+                  </button>
+                  <button type="submit" className="submit-button" disabled={booking}>
+                    {booking ? '예약 중...' : '예약 완료'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         <style jsx>{`
           .tour-detail-page {
@@ -748,6 +987,266 @@ const TourDetailPage = () => {
             font-size: 14px;
           }
 
+          /* 모달 스타일 */
+          .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+          }
+
+          .modal-content {
+            background: white;
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          }
+
+          .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px;
+            border-bottom: 1px solid #e5e7eb;
+          }
+
+          .modal-header h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            margin: 0;
+          }
+
+          .close-button {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #f3f4f6;
+            color: #6b7280;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+          }
+
+          .close-button:hover {
+            background: #e5e7eb;
+            color: #111827;
+          }
+
+          .booking-form {
+            padding: 24px;
+          }
+
+          .selected-schedule-info {
+            background: #f0f9ff;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+          }
+
+          .selected-schedule-info h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 12px;
+          }
+
+          .schedule-details p {
+            margin: 4px 0;
+            color: #374151;
+            font-size: 14px;
+          }
+
+          .form-section {
+            margin-bottom: 24px;
+          }
+
+          .form-section h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 12px;
+          }
+
+          .participant-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .selector-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+          }
+
+          .selector-item label {
+            font-weight: 600;
+            color: #374151;
+          }
+
+          .counter {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+
+          .counter button {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            background: white;
+            color: #374151;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          .counter button:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+          }
+
+          .counter span {
+            min-width: 32px;
+            text-align: center;
+            font-weight: 600;
+            color: #111827;
+          }
+
+          .price-per-person {
+            color: #6b7280;
+            font-size: 14px;
+          }
+
+          .total-participants {
+            text-align: right;
+            font-weight: 600;
+            color: #3b82f6;
+            margin-top: 8px;
+          }
+
+          .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+          }
+
+          .form-grid input {
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.2s;
+          }
+
+          .form-grid input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+          }
+
+          .form-grid input.full-width {
+            grid-column: 1 / -1;
+          }
+
+          textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+            font-family: inherit;
+            resize: vertical;
+            transition: all 0.2s;
+          }
+
+          textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+          }
+
+          .total-price-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 24px;
+          }
+
+          .total-price-section span {
+            font-size: 16px;
+            color: #6b7280;
+          }
+
+          .total-price-section strong {
+            font-size: 24px;
+            color: #3b82f6;
+            font-weight: 700;
+          }
+
+          .modal-actions {
+            display: flex;
+            gap: 12px;
+          }
+
+          .cancel-button,
+          .submit-button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          .cancel-button {
+            background: #f3f4f6;
+            color: #374151;
+          }
+
+          .cancel-button:hover {
+            background: #e5e7eb;
+          }
+
+          .submit-button {
+            background: #3b82f6;
+            color: white;
+          }
+
+          .submit-button:hover:not(:disabled) {
+            background: #2563eb;
+          }
+
+          .submit-button:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+          }
+
           @media (max-width: 968px) {
             .detail-layout {
               grid-template-columns: 1fr;
@@ -767,6 +1266,14 @@ const TourDetailPage = () => {
               flex-direction: row;
               justify-content: space-between;
               align-items: center;
+            }
+
+            .modal-content {
+              max-height: 95vh;
+            }
+
+            .form-grid {
+              grid-template-columns: 1fr;
             }
           }
         `}</style>

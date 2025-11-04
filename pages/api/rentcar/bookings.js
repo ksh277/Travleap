@@ -49,7 +49,8 @@ module.exports = async function handler(req, res) {
         customer_phone,
         customer_driver_license,
         selected_insurance_ids = [], // 선택한 보험 ID 배열
-        special_requests = ''
+        special_requests = '',
+        total_price_krw // 클라이언트가 보낸 가격 (검증 필요)
       } = req.body;
 
       // 필수 필드 검증
@@ -60,166 +61,205 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      // 차량 정보 조회
-      const vehicleQuery = `
-        SELECT
-          v.*,
-          vd.id as vendor_id,
-          vd.business_name as vendor_name
-        FROM rentcar_vehicles v
-        LEFT JOIN rentcar_vendors vd ON v.vendor_id = vd.id
-        WHERE v.id = ? AND v.is_active = 1
-      `;
+      // 🔒 트랜잭션 시작
+      await connection.execute('START TRANSACTION');
 
-      const vehicleResult = await connection.execute(vehicleQuery, [vehicle_id]);
-
-      if (!vehicleResult.rows || vehicleResult.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: '차량을 찾을 수 없습니다.'
-        });
-      }
-
-      const vehicle = vehicleResult.rows[0];
-
-      // 날짜 계산
-      const pickupDate = new Date(pickup_datetime);
-      const dropoffDate = new Date(dropoff_datetime);
-      const totalDays = Math.ceil((dropoffDate - pickupDate) / (1000 * 60 * 60 * 24));
-
-      if (totalDays <= 0) {
-        return res.status(400).json({
-          success: false,
-          error: '반납일은 대여일보다 이후여야 합니다.'
-        });
-      }
-
-      // TODO: 차량 가용성 체크 (rentcar_availability_rules, rentcar_bookings 테이블)
-      // 현재는 간단하게 활성화된 차량이면 예약 가능하다고 가정
-
-      // 기본 요금 계산 (deposit_amount를 일일 요금으로 간주 - 추후 rate_plans 테이블 사용)
-      const dailyRate = vehicle.deposit_amount_krw || 50000;
-      const basePrice = dailyRate * totalDays;
-
-      // 선택한 보험 비용 계산
-      let insuranceFee = 0;
-      let insuranceDetails = [];
-
-      if (selected_insurance_ids.length > 0) {
-        const insuranceQuery = `
-          SELECT id, insurance_name, daily_rate_krw, coverage_amount_krw
-          FROM rentcar_insurance_plans
-          WHERE id IN (${selected_insurance_ids.map(() => '?').join(',')})
-            AND vehicle_id = ?
-            AND is_active = 1
+      try {
+        // 차량 정보 조회 (FOR UPDATE로 락 획득)
+        const vehicleQuery = `
+          SELECT
+            v.*,
+            vd.id as vendor_id,
+            vd.business_name as vendor_name
+          FROM rentcar_vehicles v
+          LEFT JOIN rentcar_vendors vd ON v.vendor_id = vd.id
+          WHERE v.id = ? AND v.is_active = 1
+          FOR UPDATE
         `;
 
-        const insuranceResult = await connection.execute(
-          insuranceQuery,
-          [...selected_insurance_ids, vehicle_id]
-        );
+        const vehicleResult = await connection.execute(vehicleQuery, [vehicle_id]);
 
-        if (insuranceResult.rows && insuranceResult.rows.length > 0) {
-          insuranceResult.rows.forEach(insurance => {
-            const insuranceCost = insurance.daily_rate_krw * totalDays;
-            insuranceFee += insuranceCost;
-            insuranceDetails.push({
-              id: insurance.id,
-              name: insurance.insurance_name,
-              daily_rate: insurance.daily_rate_krw,
-              total_cost: insuranceCost
-            });
+        if (!vehicleResult.rows || vehicleResult.rows.length === 0) {
+          await connection.execute('ROLLBACK');
+          return res.status(404).json({
+            success: false,
+            error: '차량을 찾을 수 없습니다.'
           });
         }
-      }
 
-      // 추가 비용 (현재는 0, 추후 옵션 추가 시 계산)
-      const additionalFees = 0;
+        const vehicle = vehicleResult.rows[0];
 
-      // 총 금액
-      const totalPrice = basePrice + insuranceFee + additionalFees;
+        // 날짜 계산
+        const pickupDate = new Date(pickup_datetime);
+        const dropoffDate = new Date(dropoff_datetime);
+        const totalDays = Math.ceil((dropoffDate - pickupDate) / (1000 * 60 * 60 * 24));
 
-      // 예약 번호 및 확인 코드 생성
-      const bookingNumber = generateBookingNumber();
-      const confirmationCode = generateConfirmationCode();
+        if (totalDays <= 0) {
+          await connection.execute('ROLLBACK');
+          return res.status(400).json({
+            success: false,
+            error: '반납일은 대여일보다 이후여야 합니다.'
+          });
+        }
 
-      // 예약 생성
-      const insertQuery = `
-        INSERT INTO rentcar_bookings (
-          booking_number,
+        // TODO: 차량 가용성 체크 (rentcar_availability_rules, rentcar_bookings 테이블)
+        // 현재는 간단하게 활성화된 차량이면 예약 가능하다고 가정
+
+        // 🔒 서버측 가격 재계산 (보안: 클라이언트 조작 방지)
+        // 기본 요금 계산 (deposit_amount를 일일 요금으로 간주 - 추후 rate_plans 테이블 사용)
+        const dailyRate = parseFloat(vehicle.deposit_amount_krw) || 50000;
+        const basePrice = dailyRate * totalDays;
+
+        // 선택한 보험 비용 계산
+        let insuranceFee = 0;
+        let insuranceDetails = [];
+
+        if (selected_insurance_ids.length > 0) {
+          const insuranceQuery = `
+            SELECT id, insurance_name, daily_rate_krw, coverage_amount_krw
+            FROM rentcar_insurance_plans
+            WHERE id IN (${selected_insurance_ids.map(() => '?').join(',')})
+              AND vehicle_id = ?
+              AND is_active = 1
+          `;
+
+          const insuranceResult = await connection.execute(
+            insuranceQuery,
+            [...selected_insurance_ids, vehicle_id]
+          );
+
+          if (insuranceResult.rows && insuranceResult.rows.length > 0) {
+            insuranceResult.rows.forEach(insurance => {
+              const insuranceCost = parseFloat(insurance.daily_rate_krw) * totalDays;
+              insuranceFee += insuranceCost;
+              insuranceDetails.push({
+                id: insurance.id,
+                name: insurance.insurance_name,
+                daily_rate: insurance.daily_rate_krw,
+                total_cost: insuranceCost
+              });
+            });
+          }
+        }
+
+        // 추가 비용 (현재는 0, 추후 옵션 추가 시 계산)
+        const additionalFees = 0;
+
+        // 서버 계산 총 금액
+        const serverCalculatedTotal = basePrice + insuranceFee + additionalFees;
+
+        console.log(`🔒 [Rentcar Booking] 서버 측 가격 재계산:
+          - 일일 요금 ${dailyRate}원 × ${totalDays}일 = ${basePrice}원
+          - 보험료: ${insuranceFee}원
+          - 추가 비용: ${additionalFees}원
+          - 서버 계산 합계: ${serverCalculatedTotal}원
+          - 클라이언트 값: ${total_price_krw}원`);
+
+        // 🔒 가격 검증: 클라이언트가 보낸 가격과 서버 계산이 다르면 거부
+        if (total_price_krw !== undefined && Math.abs(serverCalculatedTotal - total_price_krw) > 1) {
+          await connection.execute('ROLLBACK');
+          console.error(`❌ [Rentcar Booking] 가격 조작 감지!
+            - 클라이언트 total_price: ${total_price_krw}원
+            - 서버 계산 total: ${serverCalculatedTotal}원
+            - 차이: ${Math.abs(serverCalculatedTotal - total_price_krw)}원`);
+
+          return res.status(400).json({
+            success: false,
+            error: 'PRICE_TAMPERED',
+            message: '예약 금액이 조작되었습니다. 페이지를 새로고침해주세요.'
+          });
+        }
+
+        // 예약 번호 및 확인 코드 생성
+        const bookingNumber = generateBookingNumber();
+        const confirmationCode = generateConfirmationCode();
+
+        // 예약 생성 (서버 검증된 가격 사용)
+        const insertQuery = `
+          INSERT INTO rentcar_bookings (
+            booking_number,
+            user_id,
+            vehicle_id,
+            vendor_id,
+            pickup_location_id,
+            dropoff_location_id,
+            pickup_datetime,
+            dropoff_datetime,
+            customer_name,
+            customer_email,
+            customer_phone,
+            customer_driver_license,
+            total_days,
+            daily_rate_krw,
+            insurance_fee_krw,
+            additional_fees_krw,
+            total_price_krw,
+            status,
+            payment_status,
+            special_requests,
+            confirmation_code,
+            created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, NOW())
+        `;
+
+        const insertResult = await connection.execute(insertQuery, [
+          bookingNumber,
           user_id,
           vehicle_id,
-          vendor_id,
-          pickup_location_id,
-          dropoff_location_id,
+          vehicle.vendor_id,
+          pickup_location_id || null,
+          dropoff_location_id || null,
           pickup_datetime,
           dropoff_datetime,
           customer_name,
           customer_email,
           customer_phone,
           customer_driver_license,
-          total_days,
-          daily_rate_krw,
-          insurance_fee_krw,
-          additional_fees_krw,
-          total_price_krw,
-          status,
-          payment_status,
+          totalDays,
+          dailyRate,
+          insuranceFee,
+          additionalFees,
+          serverCalculatedTotal, // 서버 계산 가격 사용
           special_requests,
-          confirmation_code,
-          created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending', ?, ?, NOW())
-      `;
+          confirmationCode
+        ]);
 
-      const insertResult = await connection.execute(insertQuery, [
-        bookingNumber,
-        user_id,
-        vehicle_id,
-        vehicle.vendor_id,
-        pickup_location_id || null,
-        dropoff_location_id || null,
-        pickup_datetime,
-        dropoff_datetime,
-        customer_name,
-        customer_email,
-        customer_phone,
-        customer_driver_license,
-        totalDays,
-        dailyRate,
-        insuranceFee,
-        additionalFees,
-        totalPrice,
-        special_requests,
-        confirmationCode
-      ]);
+        // 🔒 트랜잭션 커밋
+        await connection.execute('COMMIT');
 
-      console.log('✅ [Rentcar Booking] 예약 생성:', {
-        booking_number: bookingNumber,
-        vehicle: vehicle.display_name || `${vehicle.brand} ${vehicle.model}`,
-        total_days: totalDays,
-        total_price: totalPrice
-      });
-
-      return res.status(201).json({
-        success: true,
-        booking: {
-          id: insertResult.insertId,
+        console.log('✅ [Rentcar Booking] 예약 생성:', {
           booking_number: bookingNumber,
-          confirmation_code: confirmationCode,
-          vehicle_name: vehicle.display_name || `${vehicle.brand} ${vehicle.model}`,
-          vendor_name: vehicle.vendor_name,
-          pickup_datetime,
-          dropoff_datetime,
+          vehicle: vehicle.display_name || `${vehicle.brand} ${vehicle.model}`,
           total_days: totalDays,
-          daily_rate_krw: dailyRate,
-          insurance_fee_krw: insuranceFee,
-          insurance_details: insuranceDetails,
-          additional_fees_krw: additionalFees,
-          total_price_krw: totalPrice,
-          status: 'pending',
-          payment_status: 'pending'
-        }
-      });
+          total_price: serverCalculatedTotal
+        });
+
+        return res.status(201).json({
+          success: true,
+          booking: {
+            id: insertResult.insertId,
+            booking_number: bookingNumber,
+            confirmation_code: confirmationCode,
+            vehicle_name: vehicle.display_name || `${vehicle.brand} ${vehicle.model}`,
+            vendor_name: vehicle.vendor_name,
+            pickup_datetime,
+            dropoff_datetime,
+            total_days: totalDays,
+            daily_rate_krw: dailyRate,
+            insurance_fee_krw: insuranceFee,
+            insurance_details: insuranceDetails,
+            additional_fees_krw: additionalFees,
+            total_price_krw: serverCalculatedTotal,
+            status: 'pending',
+            payment_status: 'pending'
+          }
+        });
+
+      } catch (innerError) {
+        // 트랜잭션 롤백
+        await connection.execute('ROLLBACK');
+        throw innerError;
+      }
 
     } catch (error) {
       console.error('❌ [Rentcar Booking] 예약 생성 실패:', error);

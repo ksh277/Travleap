@@ -126,6 +126,14 @@ const ExperienceDetailPage = () => {
       return;
     }
 
+    // 사용자 정보 가져오기
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!currentUser?.id) {
+      alert('로그인이 필요합니다.');
+      router.push('/login');
+      return;
+    }
+
     setBooking(true);
 
     try {
@@ -134,11 +142,12 @@ const ExperienceDetailPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           experience_id: experience.id,
-          user_id: 1, // TODO: Replace with actual user ID
+          user_id: currentUser.id,
           experience_date: bookingDate,
           experience_time: bookingTime,
           num_adults: numAdults,
-          num_children: numChildren
+          num_children: numChildren,
+          total_krw: getTotalPrice()
         })
       });
 

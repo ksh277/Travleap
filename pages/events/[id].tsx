@@ -127,45 +127,58 @@ const EventDetailPage = () => {
       return;
     }
 
+    // 사용자 정보 가져오기
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!currentUser?.id) {
+      alert('로그인이 필요합니다.');
+      router.push('/login');
+      return;
+    }
+
     setPurchasing(true);
 
     try {
       const ticketPromises = [];
 
+      // 각 티켓 타입별로 한 번씩만 API 호출 (quantity 사용)
       for (const [ticketName, qty] of Object.entries(quantities)) {
         if (qty > 0) {
           const ticketType = event.ticket_types.find(t => t.name === ticketName);
           if (ticketType) {
-            for (let i = 0; i < qty; i++) {
-              ticketPromises.push(
-                fetch('/api/events/tickets', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    event_id: event.id,
-                    user_id: 1, // TODO: Replace with actual user ID
-                    ticket_type: ticketName,
-                    price_krw: ticketType.price_krw
-                  })
+            const totalAmount = ticketType.price_krw * qty;
+
+            ticketPromises.push(
+              fetch('/api/events/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  event_id: event.id,
+                  user_id: currentUser.id,
+                  ticket_type: ticketName,
+                  quantity: qty,
+                  total_amount: totalAmount
                 })
-              );
-            }
+              })
+            );
           }
         }
       }
 
       const results = await Promise.all(ticketPromises);
-      const allSuccessful = results.every(async (res) => {
-        const data = await res.json();
-        return data.success;
-      });
+
+      // 모든 응답을 JSON으로 변환
+      const jsonResults = await Promise.all(results.map(res => res.json()));
+
+      // 모든 티켓이 성공적으로 생성되었는지 확인
+      const allSuccessful = jsonResults.every(data => data.success);
 
       if (allSuccessful) {
         alert(`${totalTickets}장의 티켓을 구매했습니다!`);
         setQuantities({});
         router.push('/my/tickets');
       } else {
-        alert('일부 티켓 구매에 실패했습니다. 다시 시도해주세요.');
+        const errorMsg = jsonResults.find(data => !data.success)?.message || jsonResults.find(data => !data.success)?.error;
+        alert(errorMsg || '일부 티켓 구매에 실패했습니다. 다시 시도해주세요.');
       }
     } catch (error) {
       console.error('티켓 구매 실패:', error);

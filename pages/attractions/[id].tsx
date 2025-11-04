@@ -143,98 +143,74 @@ const AttractionDetailPage = () => {
       return;
     }
 
+    // 사용자 정보 가져오기
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!currentUser?.id) {
+      alert('로그인이 필요합니다.');
+      router.push('/login');
+      return;
+    }
+
     setPurchasing(true);
 
     try {
-      // Create tickets for each type
-      const ticketPromises = [];
+      // API가 기대하는 tickets 배열 구성
+      const tickets = [];
 
       if (quantities.adult > 0) {
-        for (let i = 0; i < quantities.adult; i++) {
-          ticketPromises.push(
-            fetch('/api/attractions/tickets', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                attraction_id: attraction.id,
-                user_id: 1, // TODO: Replace with actual user ID
-                ticket_type: 'adult',
-                price_krw: attraction.admission_fee_adult,
-                valid_date: visitDate
-              })
-            })
-          );
-        }
+        tickets.push({
+          type: 'adult',
+          count: quantities.adult
+        });
       }
 
       if (quantities.child > 0) {
-        for (let i = 0; i < quantities.child; i++) {
-          ticketPromises.push(
-            fetch('/api/attractions/tickets', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                attraction_id: attraction.id,
-                user_id: 1, // TODO: Replace with actual user ID
-                ticket_type: 'child',
-                price_krw: attraction.admission_fee_child,
-                valid_date: visitDate
-              })
-            })
-          );
-        }
+        tickets.push({
+          type: 'child',
+          count: quantities.child
+        });
       }
 
       if (quantities.senior > 0) {
-        for (let i = 0; i < quantities.senior; i++) {
-          ticketPromises.push(
-            fetch('/api/attractions/tickets', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                attraction_id: attraction.id,
-                user_id: 1, // TODO: Replace with actual user ID
-                ticket_type: 'senior',
-                price_krw: attraction.admission_fee_senior,
-                valid_date: visitDate
-              })
-            })
-          );
-        }
+        tickets.push({
+          type: 'senior',
+          count: quantities.senior
+        });
       }
 
       if (quantities.infant > 0) {
-        for (let i = 0; i < quantities.infant; i++) {
-          ticketPromises.push(
-            fetch('/api/attractions/tickets', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                attraction_id: attraction.id,
-                user_id: 1, // TODO: Replace with actual user ID
-                ticket_type: 'infant',
-                price_krw: attraction.admission_fee_infant || 0,
-                valid_date: visitDate
-              })
-            })
-          );
-        }
+        tickets.push({
+          type: 'infant',
+          count: quantities.infant
+        });
       }
 
-      const results = await Promise.all(ticketPromises);
-      const allSuccessful = results.every(async (res) => {
-        const data = await res.json();
-        return data.success;
+      // 총 금액 계산
+      const totalAmount = getTotalPrice();
+
+      // 한 번의 API 호출로 모든 티켓 구매
+      const response = await fetch('/api/attractions/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          attraction_id: attraction.id,
+          tickets: tickets,
+          valid_date: visitDate,
+          total_amount: totalAmount
+        })
       });
 
-      if (allSuccessful) {
+      const data = await response.json();
+
+      if (data.success) {
         alert(`${totalTickets}장의 티켓을 구매했습니다!`);
         // Reset quantities
         setQuantities({ adult: 0, child: 0, senior: 0, infant: 0 });
         // Navigate to tickets page or show confirmation
         router.push('/my/tickets');
       } else {
-        alert('일부 티켓 구매에 실패했습니다. 다시 시도해주세요.');
+        alert(data.message || data.error || '티켓 구매에 실패했습니다.');
       }
     } catch (error) {
       console.error('티켓 구매 실패:', error);

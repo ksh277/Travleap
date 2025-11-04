@@ -33,6 +33,8 @@ interface Restaurant {
   accepts_reservations: boolean;
   accepts_takeout: boolean;
   accepts_delivery: boolean;
+  delivery_fee_krw: number;
+  min_delivery_amount_krw: number;
   parking_available: boolean;
   images: string[];
   rating_avg: number;
@@ -125,6 +127,15 @@ const FoodDetailPage = () => {
       return;
     }
 
+    // 배달인 경우 최소 주문 금액 확인
+    if (orderType === 'delivery' && restaurant) {
+      const subtotal = getTotalPrice();
+      if (restaurant.min_delivery_amount_krw && subtotal < restaurant.min_delivery_amount_krw) {
+        alert(`최소 배달 금액은 ${restaurant.min_delivery_amount_krw.toLocaleString()}원입니다.`);
+        return;
+      }
+    }
+
     const items = Object.entries(cart).map(([menuId, count]) => {
       const menu = menus.find(m => m.id === parseInt(menuId));
       return {
@@ -136,6 +147,10 @@ const FoodDetailPage = () => {
     });
 
     try {
+      const deliveryFee = (orderType === 'delivery' && restaurant)
+        ? (restaurant.delivery_fee_krw || 0)
+        : 0;
+
       const response = await fetch('/api/food/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -145,7 +160,7 @@ const FoodDetailPage = () => {
           order_type: orderType,
           items,
           subtotal_krw: getTotalPrice(),
-          delivery_fee_krw: orderType === 'delivery' ? 3000 : 0
+          delivery_fee_krw: deliveryFee
         })
       });
 
@@ -154,7 +169,7 @@ const FoodDetailPage = () => {
         alert(`주문이 완료되었습니다!\n주문번호: ${data.order.order_number}`);
         setCart({});
       } else {
-        alert(`주문 실패: ${data.error}`);
+        alert(`주문 실패: ${data.message || data.error}`);
       }
     } catch (error) {
       console.error('주문 실패:', error);
