@@ -1,11 +1,12 @@
 /**
  * 사용자 포인트 내역 조회 API
- * GET /api/user/points?userId=123
+ * GET /api/user/points
  */
 
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../../../utils/auth-middleware');
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -23,15 +24,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // x-user-id 헤더에서 userId 읽기 (쿼리 파라미터도 fallback)
-    const userId = req.headers['x-user-id'] || req.query.userId;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'userId is required (x-user-id header or userId query param)'
-      });
-    }
+    // JWT에서 userId 읽기 (withAuth 미들웨어가 req.user에 추가)
+    const userId = req.user.userId;
 
     // ✅ Dual Database 아키텍처
     // 1. Neon PostgreSQL: users.total_points 조회
@@ -85,4 +79,7 @@ module.exports = async function handler(req, res) {
       message: error.message || '포인트 내역 조회에 실패했습니다.'
     });
   }
-};
+}
+
+// JWT 인증 적용
+module.exports = withAuth(handler, { requireAuth: true });
