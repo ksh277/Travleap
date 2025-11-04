@@ -6,7 +6,9 @@
 
 const { connect } = require('@planetscale/database');
 
-const STAY_CATEGORY_ID = 1857; // stay 카테고리 ID
+// 숙박 카테고리 ID (categories 테이블의 고정값)
+// Note: 향후 환경 변수로 관리 권장 (STAY_CATEGORY_ID)
+const STAY_CATEGORY_ID = 1857;
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

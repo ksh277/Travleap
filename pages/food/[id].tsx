@@ -4,6 +4,7 @@ import Head from 'next/head';
 import {
   MapPin, Phone, Clock, Star, Loader, ShoppingCart, Plus, Minus
 } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Menu {
   id: number;
@@ -42,6 +43,7 @@ interface Restaurant {
 const FoodDetailPage = () => {
   const router = useRouter();
   const { id } = router.query;
+  const { user } = useAuth();
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [menus, setMenus] = useState<Menu[]>([]);
@@ -49,7 +51,8 @@ const FoodDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<{[key: number]: number}>({});
 
-  const userId = 1; // TODO: 실제 사용자 ID
+  // 실제 로그인한 사용자 ID 사용 (로그인 안 한 경우 guest)
+  const userId = user?.id || null;
 
   useEffect(() => {
     if (id) {

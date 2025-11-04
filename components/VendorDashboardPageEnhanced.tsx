@@ -449,8 +449,10 @@ export function VendorDashboardPageEnhanced() {
       const vendorResponse = await fetch(`/api/vendors`, { headers });
       const vendorData = await vendorResponse.json();
 
-      console.log('🔍 [DEBUG] API Response:', vendorData);
-      console.log('🔍 [DEBUG] User Email:', user.email);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [DEBUG] API Response:', vendorData);
+        console.log('🔍 [DEBUG] User Email:', user.email);
+      }
 
       if (!vendorData.success || !vendorData.data) {
         console.error('❌ API 응답 실패:', vendorData);
@@ -459,13 +461,17 @@ export function VendorDashboardPageEnhanced() {
         return;
       }
 
-      console.log('🔍 [DEBUG] 전체 벤더 목록:', vendorData.data);
-      console.log('🔍 [DEBUG] 벤더 이메일들:', vendorData.data.map((v: any) => v.contact_email));
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [DEBUG] 전체 벤더 목록:', vendorData.data);
+        console.log('🔍 [DEBUG] 벤더 이메일들:', vendorData.data.map((v: any) => v.contact_email));
+      }
 
       // 현재 로그인한 사용자의 이메일로 벤더 찾기
       const vendor = vendorData.data.find((v: any) => v.contact_email === user.email);
 
-      console.log('🔍 [DEBUG] 매칭된 벤더:', vendor);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [DEBUG] 매칭된 벤더:', vendor);
+      }
 
       if (!vendor) {
         console.error('❌ 벤더를 찾을 수 없습니다. User email:', user.email);
@@ -474,17 +480,23 @@ export function VendorDashboardPageEnhanced() {
         return;
       }
 
-      console.log('✅ 벤더 정보 설정:', vendor);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ 벤더 정보 설정:', vendor);
+      }
       setVendorInfo(vendor);
 
       const vendorId = vendor.id; // 벤더 ID 가져오기
-      console.log('🔍 [DEBUG] Vendor ID:', vendorId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [DEBUG] Vendor ID:', vendorId);
+      }
 
       // 2. 차량 목록 조회 API - JWT 토큰으로 인증
       const vehiclesResponse = await fetch(`/api/vendor/vehicles`, { headers });
       const vehiclesData = await vehiclesResponse.json();
 
-      console.log('🔍 [DEBUG] 차량 API 응답:', vehiclesData);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [DEBUG] 차량 API 응답:', vehiclesData);
+      }
 
       if (vehiclesData.success && vehiclesData.data) {
         // Parse images from JSON string to array
@@ -503,7 +515,9 @@ export function VendorDashboardPageEnhanced() {
       const bookingsResponse = await fetch(`/api/vendor/bookings`, { headers });
       const bookingsData = await bookingsResponse.json();
 
-      console.log('🔍 [DEBUG] 예약 API 응답:', bookingsData);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [DEBUG] 예약 API 응답:', bookingsData);
+      }
 
       if (bookingsData.success && bookingsData.data) {
         setBookings(bookingsData.data);
@@ -519,7 +533,9 @@ export function VendorDashboardPageEnhanced() {
       const revenueResponse = await fetch(`/api/vendor/revenue`, { headers });
       const revenueData = await revenueResponse.json();
 
-      console.log('🔍 [DEBUG] 매출 API 응답:', revenueData);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [DEBUG] 매출 API 응답:', revenueData);
+      }
 
       if (revenueData.success && revenueData.data) {
         setRevenueData(revenueData.data.map((r: any) => ({
@@ -536,7 +552,9 @@ export function VendorDashboardPageEnhanced() {
       const insuranceResponse = await fetch(`/api/vendor/insurance`, { headers });
       const insuranceData = await insuranceResponse.json();
 
-      console.log('🔍 [DEBUG] 보험 API 응답:', insuranceData);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [DEBUG] 보험 API 응답:', insuranceData);
+      }
 
       if (insuranceData.success && insuranceData.data) {
         setInsurances(insuranceData.data);

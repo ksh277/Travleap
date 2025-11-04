@@ -46,10 +46,12 @@ interface RentcarSearchPageProps {
 async function searchCarsAPI(request: CarSearchRequest): Promise<CarSearchResult[]> {
   try {
     // 새로운 MVP API 호출 (가용성 + 가격 계산 한 번에)
+    // Note: location_id는 실제 locations 테이블의 ID로 매핑 필요
+    // 현재는 기본 location(1번)을 사용. 향후 request.pickupPlaceId를 locations 테이블에서 조회하여 ID 매핑 필요
     const params = new URLSearchParams({
       pickup_at: request.pickupAt,
       return_at: request.dropoffAt,
-      location_id: '1', // TODO: location code를 ID로 매핑 필요
+      location_id: '1', // FIXME: locations 테이블에서 request.pickupPlaceId로 ID 조회 필요
     });
 
     if (request.driverAge) {

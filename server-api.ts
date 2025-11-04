@@ -233,8 +233,10 @@ async function startServer() {
   paymentConfirmAPI = paymentConfirmModule;
   paymentRefundAPI = paymentRefundModule;
   // lodgingAPI = lodgingModule; // 파일 없음 - 주석 처리
-  console.log('[DEBUG] bannerModule:', bannerModule);
-  console.log('[DEBUG] activityModule:', activityModule);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[DEBUG] bannerModule:', bannerModule);
+    console.log('[DEBUG] activityModule:', activityModule);
+  }
   bannerAPI = bannerModule;
   activityAPI = activityModule;
   // newsletterAPI = newsletterModule; // 파일 없음 - 주석 처리
@@ -447,7 +449,9 @@ function setupRoutes() {
           const { connect } = await import('@planetscale/database');
           const psConnection = connect({ url: process.env.DATABASE_URL! });
 
-          console.log('🔍 [LOGIN DEBUG] 벤더 타입 조회 시작... user.id:', user.id, '(타입:', typeof user.id, ')');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [LOGIN DEBUG] 벤더 타입 조회 시작... user.id:', user.id, '(타입:', typeof user.id, ')');
+          }
 
           // STEP 1: partners 테이블 조회 (숙박 벤더)
           // 타입 불일치 문제 해결: user.id를 문자열로도 조회
@@ -459,17 +463,21 @@ function setupRoutes() {
             [user.id, user.id.toString()]
           );
 
-          console.log('🔍 [LOGIN DEBUG] partners 조회 결과:', partnerResult.rows?.length || 0, '개');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [LOGIN DEBUG] partners 조회 결과:', partnerResult.rows?.length || 0, '개');
+          }
 
           if (partnerResult.rows && partnerResult.rows.length > 0) {
             const partner: any = partnerResult.rows[0];
-            console.log('✅ [LOGIN DEBUG] partners 테이블에서 발견:', {
-              id: partner.id,
-              user_id: partner.user_id,
-              partner_type: partner.partner_type,
-              services: partner.services,
-              category: partner.category
-            });
+            if (process.env.NODE_ENV === 'development') {
+              console.log('✅ [LOGIN DEBUG] partners 테이블에서 발견:', {
+                id: partner.id,
+                user_id: partner.user_id,
+                partner_type: partner.partner_type,
+                services: partner.services,
+                category: partner.category
+              });
+            }
 
             // 1순위: partner_type 필드 사용
             if (partner.partner_type === 'lodging') {
@@ -503,7 +511,9 @@ function setupRoutes() {
               [user.id, user.id.toString()]
             );
 
-            console.log('🔍 [LOGIN DEBUG] rentcar_vendors 조회 결과:', rentcarResult.rows?.length || 0, '개');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🔍 [LOGIN DEBUG] rentcar_vendors 조회 결과:', rentcarResult.rows?.length || 0, '개');
+            }
 
             if (rentcarResult.rows && rentcarResult.rows.length > 0) {
               vendorType = 'rental';
