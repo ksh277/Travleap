@@ -295,7 +295,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        vehicles,
+        data: vehicles,
         pagination: {
           total,
           limit: parseInt(limit),

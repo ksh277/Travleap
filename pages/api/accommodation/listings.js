@@ -431,7 +431,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        listings,
+        data: listings,
         pagination: {
           total,
           limit: parseInt(limit),
