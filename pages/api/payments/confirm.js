@@ -769,7 +769,6 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
               console.warn('⚠️  [사용자 정보] 업데이트 실패 (계속 진행):', updateError);
             }
           }
-        }
 
           // 트랜잭션 커밋
           console.log(`💰 [포인트] Neon DB 트랜잭션 커밋 시도`);
@@ -782,20 +781,20 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           await poolNeon.query('ROLLBACK');
         }
 
-          // ✅ 결제 완료 후 장바구니 비우기
-          try {
-            console.log(`🛒 [장바구니] 결제 완료, 장바구니 삭제 중... (user_id: ${userId})`);
+        // ✅ 결제 완료 후 장바구니 비우기
+        try {
+          console.log(`🛒 [장바구니] 결제 완료, 장바구니 삭제 중... (user_id: ${userId})`);
 
-            await connection.execute(`
-              DELETE FROM cart_items
-              WHERE user_id = ?
-            `, [userId]);
+          await connection.execute(`
+            DELETE FROM cart_items
+            WHERE user_id = ?
+          `, [userId]);
 
-            console.log(`✅ [장바구니] 장바구니 삭제 완료`);
-          } catch (cartError) {
-            console.error('❌ [장바구니] 삭제 실패 (계속 진행):', cartError);
-            // 장바구니 삭제 실패해도 결제는 성공 처리
-          }
+          console.log(`✅ [장바구니] 장바구니 삭제 완료`);
+        } catch (cartError) {
+          console.error('❌ [장바구니] 삭제 실패 (계속 진행):', cartError);
+          // 장바구니 삭제 실패해도 결제는 성공 처리
+        }
 
         } else if (isBooking && bookingId) {
           // 단일 예약: booking 정보에서 금액 조회하여 포인트 적립
@@ -891,7 +890,6 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
         await poolNeon.end();
         console.log(`💰 [포인트] Neon DB 연결 종료`);
-      }
       }
     } else {
       console.log(`⚠️ [포인트 적립] userId 없음 - 포인트 적립 불가`);
