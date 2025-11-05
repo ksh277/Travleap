@@ -19,42 +19,20 @@ export default function PaymentSuccessPage() {
           throw new Error('결제 정보가 올바르지 않습니다.');
         }
 
-        // 렌트카 예약 여부 확인 (booking_number가 RNT로 시작)
-        const isRentcarBooking = orderId.startsWith('RNT');
+        console.log('💳 결제 승인 중...', orderId);
 
-        let response;
-
-        if (isRentcarBooking) {
-          // ✅ 렌트카 MVP API 사용
-          console.log('🚗 렌트카 예약 결제 승인 중...', orderId);
-
-          response = await fetch(`/api/rentals/${orderId}/confirm`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              paymentKey,
-              orderId,
-              amount: parseInt(amount)
-            })
-          });
-        } else {
-          // ✅ 일반 상품 결제 승인 (팝업, 액티비티 등)
-          console.log('🛍️ 일반 상품 결제 승인 중...', orderId);
-
-          response = await fetch('/api/payments/confirm', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              paymentKey,
-              orderId,
-              amount: parseInt(amount)
-            })
-          });
-        }
+        // ✅ 통합 결제 API 사용 (모든 카테고리 지원: 렌트카, 투어, 숙박, 관광지, 이벤트, 체험, 음식점, 팝업)
+        const response = await fetch('/api/payments/confirm', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            paymentKey,
+            orderId,
+            amount: parseInt(amount)
+          })
+        });
 
         const result = await response.json();
 
@@ -65,7 +43,7 @@ export default function PaymentSuccessPage() {
         console.log('✅ 결제 승인 완료:', result);
 
         setStatus('success');
-        setMessage(isRentcarBooking ? '렌트카 예약이 확정되었습니다!' : '결제가 완료되었습니다!');
+        setMessage('결제가 완료되었습니다!');
 
         // 3초 후 마이페이지로 이동
         setTimeout(() => {
