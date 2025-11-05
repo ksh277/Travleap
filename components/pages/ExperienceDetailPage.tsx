@@ -111,21 +111,58 @@ export function ExperienceDetailPage() {
     return total;
   };
 
-  const handleBooking = () => {
-    if (!selectedSlot) {
+  const handleBooking = async () => {
+    if (!selectedSlot || !experience) {
       toast.error('시간대를 선택해주세요');
       return;
     }
 
-    navigate(`/experience/booking/${selectedSlot.id}`, {
-      state: {
-        experience,
-        slot: selectedSlot,
-        participantCount,
-        equipmentRental,
-        totalPrice: calculateTotal()
+    try {
+      // 예약 생성 API 호출
+      const response = await fetch('/api/experience/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+          experience_id: experience.id,
+          slot_id: selectedSlot.id,
+          participant_count: participantCount,
+          equipment_rental: equipmentRental
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        toast.error(result.message || '예약 생성에 실패했습니다');
+        return;
       }
-    });
+
+      // 결제 페이지로 이동
+      const bookingData = result.data;
+      const totalAmount = bookingData.total_amount;
+      const userName = localStorage.getItem('user_name') || 'Guest';
+      const userEmail = localStorage.getItem('user_email') || '';
+
+      navigate(
+        `/payment?` +
+        `bookingId=${bookingData.booking_id}&` +
+        `bookingNumber=${bookingData.booking_number}&` +
+        `amount=${totalAmount}&` +
+        `title=${encodeURIComponent(`${experience.name} 체험`)}&` +
+        `customerName=${encodeURIComponent(userName)}&` +
+        `customerEmail=${encodeURIComponent(userEmail)}&` +
+        `category=experience`
+      );
+
+      toast.success('예약이 생성되었습니다!');
+
+    } catch (error) {
+      console.error('체험 예약 오류:', error);
+      toast.error('체험 예약 중 오류가 발생했습니다');
+    }
   };
 
   if (loading) {

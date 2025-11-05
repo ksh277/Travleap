@@ -177,7 +177,7 @@ export function HotelDetailPage() {
   };
 
   // 예약 처리
-  const handleBooking = () => {
+  const handleBooking = async () => {
     if (!checkIn || !checkOut) {
       toast.error('체크인/체크아웃 날짜를 선택해주세요');
       return;
@@ -188,26 +188,71 @@ export function HotelDetailPage() {
       return;
     }
 
-    // 숙박 일수 계산
-    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    const totalPrice = selectedRoom.base_price_per_night * nights;
+    if (!hotelData) {
+      toast.error('호텔 정보를 찾을 수 없습니다');
+      return;
+    }
 
-    // 예약 정보를 결제 페이지로 전달
-    const bookingData = {
-      listingId: selectedRoom.id,
-      listingTitle: `${hotelData?.partner.business_name} - ${selectedRoom.name}`,
-      roomType: selectedRoom.name,
-      roomPrice: selectedRoom.base_price_per_night,
-      checkIn: format(checkIn, 'yyyy-MM-dd'),
-      checkOut: format(checkOut, 'yyyy-MM-dd'),
-      nights: nights,
-      totalPrice: totalPrice,
-      image: selectedRoom.images?.[0],
-      location: selectedRoom.location
-    };
+    try {
+      // 숙박 일수 계산
+      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+      const roomPrice = selectedRoom.base_price_per_night * nights;
+      const taxAmount = Math.floor(roomPrice * 0.10);
+      const serviceCharge = Math.floor(roomPrice * 0.10);
+      const totalPrice = roomPrice + taxAmount + serviceCharge;
 
-    localStorage.setItem('booking_data', JSON.stringify(bookingData));
-    navigate('/payment');
+      const userName = localStorage.getItem('user_name') || 'Guest';
+      const userEmail = localStorage.getItem('user_email') || '';
+      const userPhone = localStorage.getItem('user_phone') || '';
+
+      // 예약 생성 API 호출
+      const response = await fetch('/api/accommodation/bookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+          listing_id: selectedRoom.id,
+          checkin_date: format(checkIn, 'yyyy-MM-dd'),
+          checkout_date: format(checkOut, 'yyyy-MM-dd'),
+          guest_name: userName,
+          guest_email: userEmail,
+          guest_phone: userPhone,
+          guest_count: selectedRoom.capacity,
+          total_price: totalPrice,
+          special_requests: ''
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        toast.error(result.message || '예약 생성에 실패했습니다');
+        return;
+      }
+
+      // 결제 페이지로 이동
+      const bookingData = result.booking;
+      const totalAmount = bookingData.total_price;
+
+      navigate(
+        `/payment?` +
+        `bookingId=${bookingData.id}&` +
+        `bookingNumber=${bookingData.booking_number}&` +
+        `amount=${totalAmount}&` +
+        `title=${encodeURIComponent(`${hotelData.partner.business_name} - ${selectedRoom.name}`)}&` +
+        `customerName=${encodeURIComponent(userName)}&` +
+        `customerEmail=${encodeURIComponent(userEmail)}&` +
+        `category=accommodation`
+      );
+
+      toast.success('예약이 생성되었습니다!');
+
+    } catch (error) {
+      console.error('예약 생성 오류:', error);
+      toast.error('예약 처리 중 오류가 발생했습니다');
+    }
   };
 
   // 즐겨찾기 토글

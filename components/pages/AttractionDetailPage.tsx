@@ -95,7 +95,7 @@ export function AttractionDetailPage() {
     );
   };
 
-  const handlePurchase = () => {
+  const handlePurchase = async () => {
     if (!attraction) return;
 
     const tickets = [];
@@ -109,14 +109,51 @@ export function AttractionDetailPage() {
       return;
     }
 
-    navigate(`/tourist/purchase/${attraction.id}`, {
-      state: {
-        attraction,
-        tickets,
-        visitDate,
-        totalPrice: calculateTotal()
+    try {
+      // 주문 생성 API 호출
+      const response = await fetch('/api/attractions/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+          attraction_id: attraction.id,
+          visit_date: visitDate,
+          tickets
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        toast.error(result.message || '주문 생성에 실패했습니다');
+        return;
       }
-    });
+
+      // 결제 페이지로 이동
+      const orderData = result.data;
+      const totalAmount = orderData.total_amount;
+      const userName = localStorage.getItem('user_name') || 'Guest';
+      const userEmail = localStorage.getItem('user_email') || '';
+
+      navigate(
+        `/payment?` +
+        `bookingId=${orderData.order_id}&` +
+        `bookingNumber=${orderData.order_number}&` +
+        `amount=${totalAmount}&` +
+        `title=${encodeURIComponent(`${attraction.name} 입장권`)}&` +
+        `customerName=${encodeURIComponent(userName)}&` +
+        `customerEmail=${encodeURIComponent(userEmail)}&` +
+        `category=attraction`
+      );
+
+      toast.success('주문이 생성되었습니다!');
+
+    } catch (error) {
+      console.error('티켓 구매 오류:', error);
+      toast.error('티켓 구매 중 오류가 발생했습니다');
+    }
   };
 
   if (loading) {

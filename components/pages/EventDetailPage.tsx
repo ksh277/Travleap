@@ -82,17 +82,59 @@ export function EventDetailPage() {
     return price * quantity;
   };
 
-  const handleBooking = () => {
+  const handleBooking = async () => {
     if (!event) return;
 
-    navigate(`/event/booking/${event.id}`, {
-      state: {
-        event,
-        ticketType,
-        quantity,
-        totalPrice: calculateTotal()
+    if (quantity <= 0) {
+      toast.error('수량을 선택해주세요');
+      return;
+    }
+
+    try {
+      // 주문 생성 API 호출
+      const response = await fetch('/api/events/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+          event_id: event.id,
+          ticket_type: ticketType,
+          quantity
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        toast.error(result.message || '주문 생성에 실패했습니다');
+        return;
       }
-    });
+
+      // 결제 페이지로 이동
+      const orderData = result.data;
+      const totalAmount = orderData.total_amount;
+      const userName = localStorage.getItem('user_name') || 'Guest';
+      const userEmail = localStorage.getItem('user_email') || '';
+
+      navigate(
+        `/payment?` +
+        `bookingId=${orderData.order_id}&` +
+        `bookingNumber=${orderData.order_number}&` +
+        `amount=${totalAmount}&` +
+        `title=${encodeURIComponent(`${event.title} ${ticketType === 'vip' ? 'VIP' : '일반'}석`)}&` +
+        `customerName=${encodeURIComponent(userName)}&` +
+        `customerEmail=${encodeURIComponent(userEmail)}&` +
+        `category=event`
+      );
+
+      toast.success('주문이 생성되었습니다!');
+
+    } catch (error) {
+      console.error('티켓 예매 오류:', error);
+      toast.error('티켓 예매 중 오류가 발생했습니다');
+    }
   };
 
   if (loading) {

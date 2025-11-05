@@ -168,20 +168,79 @@ export function RestaurantDetailPage() {
   };
 
   // 주문하기
-  const handleOrder = () => {
+  const handleOrder = async () => {
     if (cart.length === 0) {
       toast.error('장바구니가 비어있습니다');
       return;
     }
 
-    navigate('/food/order', {
-      state: {
-        restaurant,
-        cart,
-        orderType,
-        totalPrice: calculateTotal()
+    if (!restaurant) {
+      toast.error('식당 정보를 찾을 수 없습니다');
+      return;
+    }
+
+    try {
+      // 주문 아이템 변환
+      const items = cart.map(item => ({
+        menu_id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.discount_price_krw || item.price_krw,
+        options: Object.entries(item.selectedOptions || {}).map(([name, value]) => ({
+          name,
+          value
+        }))
+      }));
+
+      const subtotal = calculateTotal();
+
+      // 주문 생성 API 호출
+      const response = await fetch('/api/food/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+          restaurant_id: restaurant.id,
+          order_type: orderType,
+          items,
+          subtotal_krw: subtotal,
+          delivery_fee_krw: 0,
+          discount_krw: 0
+        })
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        toast.error(result.message || '주문 생성에 실패했습니다');
+        return;
       }
-    });
+
+      // 결제 페이지로 이동
+      const orderData = result.order;
+      const totalAmount = orderData.total_krw;
+      const userName = localStorage.getItem('user_name') || 'Guest';
+      const userEmail = localStorage.getItem('user_email') || '';
+
+      navigate(
+        `/payment?` +
+        `bookingId=${orderData.id}&` +
+        `bookingNumber=${orderData.order_number}&` +
+        `amount=${totalAmount}&` +
+        `title=${encodeURIComponent(`${restaurant.name} 주문`)}&` +
+        `customerName=${encodeURIComponent(userName)}&` +
+        `customerEmail=${encodeURIComponent(userEmail)}&` +
+        `category=food`
+      );
+
+      toast.success('주문이 생성되었습니다!');
+
+    } catch (error) {
+      console.error('주문 생성 오류:', error);
+      toast.error('주문 처리 중 오류가 발생했습니다');
+    }
   };
 
   // 예약하기
