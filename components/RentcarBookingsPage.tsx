@@ -144,7 +144,7 @@ export function RentcarBookingsPage() {
       // MVP API 사용 - 체크인/체크아웃 정보 포함
       const response = await fetch(`/api/rentcar/user/rentals?user_id=${user?.id || ''}&customer_email=${user?.email || ''}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -209,7 +209,7 @@ export function RentcarBookingsPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           cancel_reason: cancelReason || '고객 요청'

@@ -91,7 +91,9 @@
       "WebFetch(domain:travelap.vercel.app)",
       "Bash(git log:*)",
       "Bash(npm audit:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(node -e:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []

@@ -5,15 +5,9 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { withPublicCors } = require('../../../utils/cors-middleware');
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+async function handler(req, res) {
 
   // DATABASE_URL 체크
   if (!process.env.DATABASE_URL) {
@@ -234,4 +228,7 @@ module.exports = async function handler(req, res) {
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-};
+}
+
+// 공개 CORS 적용
+module.exports = withPublicCors(handler);

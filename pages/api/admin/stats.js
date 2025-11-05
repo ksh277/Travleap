@@ -1,34 +1,23 @@
 const { connect } = require('@planetscale/database');
 const { Pool } = require('@neondatabase/serverless');
+const { withPublicCors } = require('../../../utils/cors-middleware');
 
-// Neon PostgreSQL connection for users
-let pool;
-function getPool() {
-  if (!pool) {
-    const connectionString = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error('DATABASE_URL not configured');
-    }
-    pool = new Pool({ connectionString });
-  }
-  return pool;
-}
-
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
+async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
+  let poolNeon = null;
+
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
+
+    // Neon PostgreSQL connection for users
+    const connectionString = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL not configured');
+    }
+    poolNeon = new Pool({ connectionString });
 
     const stats = {
       totalListings: 0,
@@ -50,8 +39,7 @@ module.exports = async function handler(req, res) {
     // Users from Neon DB
     try {
       console.log('📊 [Neon] 회원수 조회');
-      const neonDb = getPool();
-      const users = await neonDb.query('SELECT COUNT(*) as count FROM users');
+      const users = await poolNeon.query('SELECT COUNT(*) as count FROM users');
       stats.totalUsers = parseInt(users.rows[0]?.count) || 0;
       console.log('✅ [Neon] 회원수:', stats.totalUsers);
     } catch (e) {
@@ -120,5 +108,17 @@ module.exports = async function handler(req, res) {
         totalReviews: 0
       }
     });
+  } finally {
+    // Connection pool 정리 (메모리 누수 방지)
+    if (poolNeon) {
+      try {
+        await poolNeon.end();
+      } catch (cleanupError) {
+        console.error('⚠️ [Stats] Pool cleanup error:', cleanupError);
+      }
+    }
   }
-};
+}
+
+// 공개 CORS 적용 (관리자 API지만 공개 접근 가능)
+module.exports = withPublicCors(handler);

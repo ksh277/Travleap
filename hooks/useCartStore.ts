@@ -146,7 +146,7 @@ export function useCartStore() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-id': user.id.toString()
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
           },
           body: JSON.stringify({
             userId: user.id,
@@ -299,7 +299,7 @@ export function useCartStore() {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-id': user.id.toString()
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
           },
           body: JSON.stringify({
             userId: user.id,

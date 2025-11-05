@@ -1547,7 +1547,7 @@ export function AdminPage({}: AdminPageProps) {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/admin/listings/${editingProductForOptions.id}/options`, {
         method: 'POST',
         headers: {
@@ -1578,7 +1578,7 @@ export function AdminPage({}: AdminPageProps) {
 
   const handleUpdateOption = async (optionId: number, updates: any) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/admin/product-options/${optionId}`, {
         method: 'PUT',
         headers: {
@@ -1607,7 +1607,7 @@ export function AdminPage({}: AdminPageProps) {
     if (!confirm('이 옵션을 삭제하시겠습니까?')) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/admin/product-options/${optionId}`, {
         method: 'DELETE',
         headers: {
@@ -2173,7 +2173,7 @@ export function AdminPage({}: AdminPageProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
         },
         body: JSON.stringify({
           bookingId: order.booking_id || undefined, // booking_id가 있으면 사용
@@ -5190,7 +5190,7 @@ export function AdminPage({}: AdminPageProps) {
                               onClick={async () => {
                                 if (confirm('정말 이 댓글을 삭제하시겠습니까?')) {
                                   try {
-                                    const token = localStorage.getItem('token');
+                                    const token = localStorage.getItem('auth_token');
                                     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004'}/api/blogs/comments/${comment.id}`, {
                                       method: 'DELETE',
                                       headers: {

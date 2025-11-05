@@ -554,7 +554,7 @@ export const api = {
   }): Promise<ApiResponse<Booking>> => {
     try {
       // 1. booking_id로 payment_key 조회
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
@@ -1761,7 +1761,7 @@ export const api = {
       if (typeof window !== 'undefined') {
         const response = await fetch(`${API_BASE_URL}/api/favorites?userId=${userId}`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
           }
         });
         if (!response.ok) return [];
@@ -3367,7 +3367,7 @@ export const api = {
     // 댓글 관리
     getAllComments: async (): Promise<ApiResponse<any[]>> => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('auth_token');
         if (!token) {
           return {
             success: false,
@@ -3407,7 +3407,7 @@ export const api = {
     // 블로그 관리
     getBlogs: async (filters?: any): Promise<ApiResponse<any[]>> => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('auth_token');
         if (!token) {
           return {
             success: false,
@@ -3446,7 +3446,7 @@ export const api = {
 
     createBlog: async (blogData: any): Promise<ApiResponse<any>> => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('auth_token');
         if (!token) {
           return {
             success: false,
@@ -3491,7 +3491,7 @@ export const api = {
 
     updateBlog: async (blogId: number, blogData: any): Promise<ApiResponse<any>> => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('auth_token');
         if (!token) {
           return {
             success: false,
@@ -3536,7 +3536,7 @@ export const api = {
 
     deleteBlog: async (blogId: number): Promise<ApiResponse<null>> => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('auth_token');
         if (!token) {
           return {
             success: false,
@@ -3851,7 +3851,7 @@ export const api = {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
           }
         });
 

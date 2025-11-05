@@ -5,6 +5,7 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { withPublicCors } = require('../../../utils/cors-middleware');
 
 function generateOrderNumber() {
   const timestamp = Date.now();
@@ -12,14 +13,7 @@ function generateOrderNumber() {
   return `ORDER_${timestamp}_${random}`;
 }
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+async function handler(req, res) {
 
   const connection = connect({ url: process.env.DATABASE_URL });
 
@@ -862,4 +856,7 @@ module.exports = async function handler(req, res) {
     success: false,
     error: 'Method not allowed'
   });
-};
+}
+
+// 공개 CORS 적용 (관리자 API지만 공개 접근 가능)
+module.exports = withPublicCors(handler);

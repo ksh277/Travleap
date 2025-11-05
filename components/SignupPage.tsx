@@ -184,7 +184,7 @@ export function SignupPage() {
       if (result.success && result.data) {
         toast.success('Google 로그인 성공!');
         // useAuth의 login 상태 업데이트
-        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('auth_token', result.data.token);
         localStorage.setItem('user', JSON.stringify(result.data.user));
         navigate('/', { replace: true });
         window.location.reload();
@@ -220,7 +220,7 @@ export function SignupPage() {
 
       if (result.success && result.data) {
         toast.success('카카오 로그인 성공!');
-        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('auth_token', result.data.token);
         localStorage.setItem('user', JSON.stringify(result.data.user));
         navigate('/', { replace: true });
         window.location.reload();
@@ -256,7 +256,7 @@ export function SignupPage() {
 
       if (result.success && result.data) {
         toast.success('네이버 로그인 성공!');
-        localStorage.setItem('token', result.data.token);
+        localStorage.setItem('auth_token', result.data.token);
         localStorage.setItem('user', JSON.stringify(result.data.user));
         navigate('/', { replace: true });
         window.location.reload();

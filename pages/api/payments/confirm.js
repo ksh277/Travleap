@@ -8,6 +8,7 @@
 const { connect } = require('@planetscale/database');
 const { notifyPartnerNewBooking } = require('../../utils/notification');
 const { withPaymentRateLimit } = require('../../../utils/rate-limit-middleware');
+const { withPublicCors } = require('../../../utils/cors-middleware');
 
 // Toss Payments 설정
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY;
@@ -1310,15 +1311,6 @@ async function handlePaymentFailure(orderId, reason) {
  * HTTP POST /api/payments/confirm
  */
 async function handler(req, res) {
-  // CORS 헤더 설정
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // OPTIONS 요청 처리 (CORS preflight)
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
 
   // POST 요청만 허용
   if (req.method !== 'POST') {
@@ -1367,8 +1359,10 @@ async function handler(req, res) {
   }
 }
 
-// Rate Limiting 적용 (5분에 3회)
-const rateLimitedHandler = withPaymentRateLimit(handler);
+// Rate Limiting 및 공개 CORS 적용 (5분에 3회)
+const rateLimitedHandler = withPublicCors(
+  withPaymentRateLimit(handler)
+);
 
 // Export main handler
 module.exports = rateLimitedHandler;

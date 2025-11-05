@@ -182,7 +182,7 @@ export function ShippingManagementDialog({
 
     try {
       // JWT 토큰 가져오기
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       if (!token) {
         toast.error('로그인이 필요합니다.');
         return;

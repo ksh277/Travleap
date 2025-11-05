@@ -128,7 +128,7 @@ export function PopupVendorDashboard() {
       // 1. 내 상품 목록 조회
       const productsResponse = await fetch(`/api/vendor/products?vendorId=${user?.id}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -142,7 +142,7 @@ export function PopupVendorDashboard() {
       // 2. 주문 목록 조회
       const ordersResponse = await fetch(`/api/vendor/orders?vendorId=${user?.id}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 

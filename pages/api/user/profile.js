@@ -1,14 +1,8 @@
 const { neon } = require('@neondatabase/serverless');
 const { withAuth } = require('../../../utils/auth-middleware');
+const { withSecureCors } = require('../../../utils/cors-middleware');
 
 async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -162,5 +156,7 @@ async function handler(req, res) {
   }
 }
 
-// JWT 인증 적용
-module.exports = withAuth(handler, { requireAuth: true });
+// CORS → Auth 미들웨어 적용
+module.exports = withSecureCors(
+  withAuth(handler, { requireAuth: true })
+);

@@ -119,7 +119,7 @@ export default function CommunityBlogWritePage() {
     };
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       if (!token) {
         toast.error('인증 토큰이 없습니다. 다시 로그인해주세요.');
         navigate('/login');

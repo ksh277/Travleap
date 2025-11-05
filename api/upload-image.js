@@ -197,9 +197,9 @@ async function handler(req, res) {
   }
 }
 
-// 보안 미들웨어 적용: 인증 + CORS + Rate Limiting
-module.exports = withStandardRateLimit(
-  withSecureCors(
+// 보안 미들웨어 적용: CORS → Rate Limiting → Auth (올바른 순서)
+module.exports = withSecureCors(
+  withStandardRateLimit(
     withAuth(handler, { requireAuth: true })
   )
 );

@@ -62,7 +62,7 @@ export default function CommunityBlogDetailPage() {
 
   const fetchPost = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const headers: any = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -101,7 +101,7 @@ export default function CommunityBlogDetailPage() {
 
   const fetchComments = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const headers: any = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -159,7 +159,7 @@ export default function CommunityBlogDetailPage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/api/blogs/${id}/like`, {
         method: 'POST',
         headers: {
@@ -215,7 +215,7 @@ export default function CommunityBlogDetailPage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/api/blogs/${id}/comments`, {
         method: 'POST',
         headers: {
@@ -258,7 +258,7 @@ export default function CommunityBlogDetailPage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/api/blogs/comments/${commentId}`, {
         method: 'PUT',
         headers: {
@@ -294,7 +294,7 @@ export default function CommunityBlogDetailPage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/api/blogs/${id}/bookmark`, {
         method: 'POST',
         headers: {
@@ -323,7 +323,7 @@ export default function CommunityBlogDetailPage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/api/blogs/comments/${commentId}`, {
         method: 'DELETE',
         headers: {
@@ -362,7 +362,7 @@ export default function CommunityBlogDetailPage() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/api/blogs/comments/${commentId}/like`, {
         method: 'POST',
         headers: {

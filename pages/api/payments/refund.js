@@ -1057,18 +1057,12 @@ async function getRefundPolicy(paymentKey) {
   }
 }
 
+const { withPublicCors } = require('../../../utils/cors-middleware');
+
 /**
  * API 핸들러
  */
-module.exports = async function handler(req, res) {
-  // CORS 헤더
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({
@@ -1113,6 +1107,9 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+// 공개 CORS 적용 (환불 API는 공개 접근 가능)
+module.exports = withPublicCors(handler);
 
 // ✅ Export refundPayment function for use by admin APIs
 module.exports.refundPayment = refundPayment;

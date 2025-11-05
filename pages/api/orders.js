@@ -6,6 +6,7 @@
 
 const { connect } = require('@planetscale/database');
 const { randomUUID } = require('crypto');
+const { withPublicCors } = require('../../utils/cors-middleware');
 
 function generateOrderNumber() {
   // UUID 사용으로 완전한 유일성 보장
@@ -13,14 +14,7 @@ function generateOrderNumber() {
   return `ORDER_${uuid}`;
 }
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+async function handler(req, res) {
 
   const connection = connect({ url: process.env.DATABASE_URL });
 
@@ -935,4 +929,7 @@ module.exports = async function handler(req, res) {
     success: false,
     error: 'Method not allowed'
   });
-};
+}
+
+// 공개 CORS 적용
+module.exports = withPublicCors(handler);

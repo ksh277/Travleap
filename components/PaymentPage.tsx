@@ -161,7 +161,7 @@ export function PaymentPage() {
       try {
         const response = await fetch('/api/user/profile', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
             'x-user-id': user.id.toString()
           }
         });
@@ -197,7 +197,7 @@ export function PaymentPage() {
     try {
       const response = await fetch('/api/user/points', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
           'x-user-id': user.id.toString()
         }
       });
@@ -327,7 +327,7 @@ export function PaymentPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
           'x-user-id': user?.id?.toString() || ''
         },
         body: JSON.stringify(addressData)
@@ -454,7 +454,7 @@ export function PaymentPage() {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
                 'x-user-id': user?.id?.toString() || ''
               },
               body: JSON.stringify({
