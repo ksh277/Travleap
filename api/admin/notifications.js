@@ -7,15 +7,16 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../../utils/auth-middleware');
+const { withSecureCors } = require('../../utils/cors-middleware');
 
-module.exports = async function handler(req, res) {
-  // CORS 헤더
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+async function handler(req, res) {
+  // 관리자 권한 확인
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: '관리자 권한이 필요합니다.'
+    });
   }
 
   const connection = connect({ url: process.env.DATABASE_URL });
@@ -186,4 +187,7 @@ module.exports = async function handler(req, res) {
     success: false,
     message: 'Method not allowed'
   });
-};
+}
+
+// JWT 인증 및 보안 CORS 적용
+module.exports = withSecureCors(withAuth(handler, { requireAuth: true, requireAdmin: true }));

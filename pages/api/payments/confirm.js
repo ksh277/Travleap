@@ -7,6 +7,7 @@
 
 const { connect } = require('@planetscale/database');
 const { notifyPartnerNewBooking } = require('../../utils/notification');
+const { withPaymentRateLimit } = require('../../../utils/rate-limit-middleware');
 
 // Toss Payments 설정
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY;
@@ -1308,7 +1309,7 @@ async function handlePaymentFailure(orderId, reason) {
  * Vercel Serverless Function Handler
  * HTTP POST /api/payments/confirm
  */
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   // CORS 헤더 설정
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -1364,7 +1365,13 @@ module.exports = async function handler(req, res) {
       message: error.message || '서버 오류가 발생했습니다.'
     });
   }
-};
+}
+
+// Rate Limiting 적용 (5분에 3회)
+const rateLimitedHandler = withPaymentRateLimit(handler);
+
+// Export main handler
+module.exports = rateLimitedHandler;
 
 // Export helper functions for internal use
 module.exports.confirmPayment = confirmPayment;

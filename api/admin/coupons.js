@@ -1,19 +1,21 @@
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../../utils/auth-middleware');
+const { withSecureCors } = require('../../utils/cors-middleware');
 
 /**
- * 관리자 쿠폰 관리 API
+ * 관리자 쿠폰 관리 API (관리자 전용)
  * GET: 모든 쿠폰 조회
  * POST: 쿠폰 생성
  * PUT: 쿠폰 수정
  * DELETE: 쿠폰 삭제
  */
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+async function handler(req, res) {
+  // 관리자 권한 확인
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: '관리자 권한이 필요합니다.'
+    });
   }
 
   try {
@@ -245,4 +247,7 @@ module.exports = async function handler(req, res) {
       message: error.message || '쿠폰 관리 중 오류가 발생했습니다'
     });
   }
-};
+}
+
+// JWT 인증 및 보안 CORS 적용
+module.exports = withSecureCors(withAuth(handler, { requireAuth: true, requireAdmin: true }));

@@ -1,16 +1,7 @@
 const { connect } = require('@planetscale/database');
+const { withPublicCors } = require('../../utils/cors-middleware');
 
-
-module.exports = async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
+async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
@@ -29,4 +20,7 @@ module.exports = async function handler(req, res) {
     console.error('Activities error:', error);
     return res.status(500).json({ success: false, error: 'Failed to fetch activities', activities: [] });
   }
-};
+}
+
+// 공개 API CORS 적용
+module.exports = withPublicCors(handler);

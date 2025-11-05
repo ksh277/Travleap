@@ -180,13 +180,16 @@ async function refundUsedPoints(connection, userId, pointsUsed, orderNumber) {
   }
 }
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+const { withAuth } = require('../../utils/auth-middleware');
+const { withSecureCors } = require('../../utils/cors-middleware');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+async function handler(req, res) {
+  // 관리자 권한 확인
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: '관리자 권한이 필요합니다.'
+    });
   }
 
   if (req.method !== 'POST') {
@@ -366,4 +369,7 @@ module.exports = async function handler(req, res) {
       message: error.message || '환불 처리 중 오류가 발생했습니다.'
     });
   }
-};
+}
+
+// JWT 인증 및 보안 CORS 적용
+module.exports = withSecureCors(withAuth(handler, { requireAuth: true, requireAdmin: true }));

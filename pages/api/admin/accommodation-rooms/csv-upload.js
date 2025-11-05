@@ -1,11 +1,25 @@
 /**
  * 객실 CSV 업로드 API (listings 테이블 사용)
  * POST /api/admin/accommodation-rooms/csv-upload
+ *
+ * 보안:
+ * - Admin 권한 필수
+ * - CSV 파일 검증 (타입, 크기)
+ * - CSV Injection 방지
+ * - Rate Limiting
  */
 
 const { connect } = require('@planetscale/database');
 const formidable = require('formidable');
 const fs = require('fs');
+const { withAuth } = require('../../../../utils/auth-middleware');
+const { withSecureCors } = require('../../../../utils/cors-middleware');
+const { withStrictRateLimit } = require('../../../../utils/rate-limit-middleware');
+const {
+  validateCSVFile,
+  sanitizeCSVContent,
+  sanitizeFilename
+} = require('../../../../utils/file-upload-security');
 
 const STAY_CATEGORY_ID = 1857;
 
@@ -16,17 +30,21 @@ export const config = {
   },
 };
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+
+  // Admin 권한 확인
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: '관리자 권한이 필요합니다.'
+    });
   }
 
   const connection = connect({ url: process.env.DATABASE_URL });
@@ -64,6 +82,24 @@ module.exports = async function handler(req, res) {
       }
 
       try {
+        // 파일명 새니타이징
+        const safeFilename = sanitizeFilename(file.originalFilename || file.name || 'upload.csv');
+
+        // CSV 파일 검증
+        const fileBuffer = fs.readFileSync(file.filepath || file.path);
+        const validation = validateCSVFile({
+          filename: safeFilename,
+          buffer: fileBuffer
+        });
+
+        if (!validation.valid) {
+          console.warn(`⚠️ [CSV Upload] Invalid CSV: ${validation.reason}`);
+          return res.status(400).json({
+            success: false,
+            error: validation.reason
+          });
+        }
+
         // 벤더 존재 확인
         const vendorCheck = await connection.execute(
           'SELECT id FROM partners WHERE id = ? AND partner_type = "lodging"',
@@ -77,8 +113,9 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        // CSV 파일 읽기
-        const csvContent = fs.readFileSync(file.filepath || file.path, 'utf-8');
+        // CSV 파일 읽기 및 새니타이징
+        let csvContent = fs.readFileSync(file.filepath || file.path, 'utf-8');
+        csvContent = sanitizeCSVContent(csvContent);
         const lines = csvContent.split('\n').filter(line => line.trim());
 
         if (lines.length < 2) {
@@ -176,10 +213,21 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('CSV upload error:', error);
+
+    // 프로덕션에서는 상세 에러 숨기기
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+
     return res.status(500).json({
       success: false,
       error: '서버 오류가 발생했습니다.',
-      message: error.message
+      ...(isDevelopment && { message: error.message })
     });
   }
-};
+}
+
+// 보안 미들웨어 적용: Admin 인증 + CORS + Rate Limiting
+module.exports = withStrictRateLimit(
+  withSecureCors(
+    withAuth(handler, { requireAuth: true, requireAdmin: true })
+  )
+);

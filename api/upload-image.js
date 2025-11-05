@@ -3,23 +3,40 @@
  * Vercel Blob Storage 사용
  * - FormData (파트너 관리용, busboy)
  * - JSON base64 (차량 관리용, ImageUploader)
+ *
+ * 보안:
+ * - JWT 인증 필수
+ * - 파일 타입 검증 (MIME + Magic bytes)
+ * - 파일 크기 제한 (10MB)
+ * - Rate Limiting (1분에 20회)
  */
 
 const { put } = require('@vercel/blob');
 const Busboy = require('busboy');
+const { withAuth } = require('../utils/auth-middleware');
+const { withSecureCors } = require('../utils/cors-middleware');
+const { withStandardRateLimit } = require('../utils/rate-limit-middleware');
+const {
+  validateImageFile,
+  validateBase64Image,
+  sanitizeFilename
+} = require('../utils/file-upload-security');
 
-module.exports = async function handler(req, res) {
-  // CORS 헤더
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
+
+  // 인증 확인 (withAuth 미들웨어에서 설정)
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: '로그인이 필요합니다.'
+    });
   }
 
   try {
@@ -36,6 +53,19 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // 파일명 새니타이징
+      const safeFilename = sanitizeFilename(filename || 'image.jpg');
+
+      // Base64 이미지 검증
+      const validation = validateBase64Image(image, safeFilename);
+      if (!validation.valid) {
+        console.warn(`⚠️ [Upload] Invalid base64 image: ${validation.reason}`);
+        return res.status(400).json({
+          success: false,
+          message: validation.reason
+        });
+      }
+
       // base64 디코딩
       const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
@@ -43,7 +73,7 @@ module.exports = async function handler(req, res) {
       // 파일명 생성
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(2, 8);
-      const ext = filename ? filename.split('.').pop() : 'jpg';
+      const ext = safeFilename.split('.').pop() || 'jpg';
       const categoryPath = category || 'rentcar';
       const blobFilename = `${categoryPath}/${timestamp}-${randomString}.${ext}`;
 
@@ -53,7 +83,7 @@ module.exports = async function handler(req, res) {
         addRandomSuffix: false,
       });
 
-      console.log('✅ Blob 업로드 성공 (base64):', blob.url);
+      console.log('✅ Blob 업로드 성공 (base64):', blob.url, `(user: ${req.user.id})`);
 
       return res.status(200).json({
         success: true,
@@ -108,10 +138,28 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // 파일명 새니타이징
+      const safeFilename = sanitizeFilename(filename || 'image.jpg');
+
+      // 이미지 파일 검증
+      const validation = validateImageFile({
+        filename: safeFilename,
+        mimeType,
+        buffer: fileBuffer
+      });
+
+      if (!validation.valid) {
+        console.warn(`⚠️ [Upload] Invalid multipart image: ${validation.reason}`);
+        return res.status(400).json({
+          success: false,
+          message: validation.reason
+        });
+      }
+
       // 파일명 생성
       const timestamp = Date.now();
       const randomString = Math.random().toString(36).substring(2, 8);
-      const extension = filename?.split('.').pop()?.toLowerCase() || 'jpg';
+      const extension = safeFilename.split('.').pop()?.toLowerCase() || 'jpg';
       const blobFilename = `${category}/${timestamp}-${randomString}.${extension}`;
 
       // Vercel Blob에 업로드
@@ -121,7 +169,7 @@ module.exports = async function handler(req, res) {
         contentType: mimeType,
       });
 
-      console.log('✅ Blob 업로드 성공 (FormData):', blob.url);
+      console.log('✅ Blob 업로드 성공 (FormData):', blob.url, `(user: ${req.user.id})`);
 
       return res.status(200).json({
         success: true,
@@ -137,10 +185,21 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ Image upload error:', error);
+
+    // 프로덕션에서는 상세 에러 숨기기
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+
     return res.status(500).json({
       success: false,
       message: '이미지 업로드에 실패했습니다',
-      error: error.message
+      ...(isDevelopment && { error: error.message })
     });
   }
-};
+}
+
+// 보안 미들웨어 적용: 인증 + CORS + Rate Limiting
+module.exports = withStandardRateLimit(
+  withSecureCors(
+    withAuth(handler, { requireAuth: true })
+  )
+);

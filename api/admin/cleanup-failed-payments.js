@@ -1,20 +1,21 @@
 /**
- * 실패한 결제 데이터 클린업 API
- * DELETE /api/admin/cleanup-failed-payments
+ * 실패한 결제 데이터 클린업 API (관리자 전용)
+ * POST /api/admin/cleanup-failed-payments
  *
  * 결제 성공(paid, completed)이 아닌 오래된 pending 상태 결제를 삭제합니다.
  */
 
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../../utils/auth-middleware');
+const { withSecureCors } = require('../../utils/cors-middleware');
 
-module.exports = async function handler(req, res) {
-  // CORS 헤더
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+async function handler(req, res) {
+  // 관리자 권한 확인
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: '관리자 권한이 필요합니다.'
+    });
   }
 
   if (req.method !== 'POST') {
@@ -129,4 +130,7 @@ module.exports = async function handler(req, res) {
       error: error.message || '클린업 중 오류가 발생했습니다.'
     });
   }
-};
+}
+
+// JWT 인증 및 보안 CORS 적용
+module.exports = withSecureCors(withAuth(handler, { requireAuth: true, requireAdmin: true }));

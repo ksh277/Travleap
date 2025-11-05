@@ -1,6 +1,7 @@
 const { neon } = require('@neondatabase/serverless');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { withStrictRateLimit } = require('../utils/rate-limit-middleware');
 
 // 수동 body parser (Vercel에서 자동 파싱이 안 될 경우)
 async function parseBody(req) {
@@ -24,7 +25,7 @@ async function parseBody(req) {
   });
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -304,12 +305,16 @@ module.exports = async function handler(req, res) {
     console.error('❌ Auth error:', error);
     console.error('Stack:', error.stack);
 
-    // 임시로 모든 에러 메시지 노출 (디버깅용)
+    // 프로덕션에서는 자세한 에러 메시지 숨기기
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+
     return res.status(500).json({
       success: false,
-      error: error.message || '서버 오류가 발생했습니다.',
-      details: error.toString(),
-      stack: error.stack
+      error: isDevelopment ? error.message : '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      ...(isDevelopment && { details: error.toString(), stack: error.stack })
     });
   }
 }
+
+// Rate Limiting 적용 (15분에 5회)
+module.exports = withStrictRateLimit(handler);
