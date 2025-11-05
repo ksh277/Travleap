@@ -214,8 +214,7 @@ export function MyPage() {
     try {
       const response = await fetch('/api/user/profile', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'x-user-id': user.id.toString()
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -394,8 +393,7 @@ export function MyPage() {
     try {
       const response = await fetch('/api/user/payments', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'x-user-id': user.id.toString()
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -448,8 +446,7 @@ export function MyPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'x-user-id': user?.id.toString() || ''
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({ paymentId })
       });
@@ -475,8 +472,7 @@ export function MyPage() {
     try {
       const response = await fetch('/api/user/points', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'x-user-id': user.id.toString()
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -553,8 +549,8 @@ export function MyPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'x-user-id': user.id.toString()
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}` // ✅ 수정: 'token' → 'auth_token'
+          // ✅ x-user-id 헤더 제거 (JWT에서 자동으로 user 정보 가져옴)
         },
         body: JSON.stringify({
           name: editProfile.name,
@@ -613,8 +609,7 @@ export function MyPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'x-user-id': user.id.toString()
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
