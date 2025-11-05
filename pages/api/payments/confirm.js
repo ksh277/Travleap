@@ -185,9 +185,21 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     console.log('🔒 [Validation] 사전 검증 시작');
 
     // 2. orderId로 예약 또는 주문 찾기 및 검증
-    // orderId는 booking_number (BK-...) 또는 ORDER_... 형식
+    // orderId 형식:
+    // - BK-... (기존 bookings)
+    // - ORDER_... (장바구니)
+    // - ATR... (관광지 주문)
+    // - EVT... (행사 주문)
+    // - EXP... (체험 예약)
+    // - FOOD... (음식점 주문)
+    // - ACC... (숙박 예약)
     const isBooking = orderId.startsWith('BK-');
     const isOrder = orderId.startsWith('ORDER_');
+    const isAttractionOrder = orderId.startsWith('ATR');
+    const isEventOrder = orderId.startsWith('EVT');
+    const isExperienceBooking = orderId.startsWith('EXP');
+    const isFoodOrder = orderId.startsWith('FOOD');
+    const isAccommodationBooking = orderId.startsWith('ACC');
 
     let bookingId = null;
     let orderId_num = null;
@@ -195,6 +207,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     let order = null; // 장바구니 주문 정보 (isOrder일 때 사용)
     let allPayments = []; // 🔧 FIX: 포인트 적립을 위해 함수 스코프에 선언
     let booking = null; // 검증용 booking 데이터
+    let categoryOrderId = null; // 카테고리별 주문 ID
 
     if (isBooking) {
       // 예약 (단일 상품 결제) - 검증만 수행
@@ -283,6 +296,136 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           await poolNeon.end();
         }
       }
+
+    } else if (isAttractionOrder) {
+      // 관광지 주문 검증
+      const orders = await connection.execute(
+        'SELECT * FROM attraction_orders WHERE order_number = ?',
+        [orderId]
+      );
+
+      if (!orders || !orders.rows || orders.rows.length === 0) {
+        throw new Error('관광지 주문을 찾을 수 없습니다.');
+      }
+
+      order = orders.rows[0];
+      categoryOrderId = order.id;
+      userId = order.user_id;
+
+      const expectedAmount = parseFloat(order.total_amount || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원`);
+        throw new Error(`결제 금액이 일치하지 않습니다.`);
+      }
+
+      console.log(`✅ [관광지 주문 검증] ${actualAmount}원 일치 확인`);
+
+    } else if (isEventOrder) {
+      // 행사 주문 검증
+      const orders = await connection.execute(
+        'SELECT * FROM event_orders WHERE order_number = ?',
+        [orderId]
+      );
+
+      if (!orders || !orders.rows || orders.rows.length === 0) {
+        throw new Error('행사 주문을 찾을 수 없습니다.');
+      }
+
+      order = orders.rows[0];
+      categoryOrderId = order.id;
+      userId = order.user_id;
+
+      const expectedAmount = parseFloat(order.total_amount || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원`);
+        throw new Error(`결제 금액이 일치하지 않습니다.`);
+      }
+
+      console.log(`✅ [행사 주문 검증] ${actualAmount}원 일치 확인`);
+
+    } else if (isExperienceBooking) {
+      // 체험 예약 검증
+      const bookings = await connection.execute(
+        'SELECT * FROM experience_bookings WHERE booking_number = ?',
+        [orderId]
+      );
+
+      if (!bookings || !bookings.rows || bookings.rows.length === 0) {
+        throw new Error('체험 예약을 찾을 수 없습니다.');
+      }
+
+      order = bookings.rows[0];
+      categoryOrderId = order.id;
+      userId = order.user_id;
+
+      const expectedAmount = parseFloat(order.total_krw || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원`);
+        throw new Error(`결제 금액이 일치하지 않습니다.`);
+      }
+
+      console.log(`✅ [체험 예약 검증] ${actualAmount}원 일치 확인`);
+
+    } else if (isFoodOrder) {
+      // 음식점 주문 검증
+      const orders = await connection.execute(
+        'SELECT * FROM food_orders WHERE order_number = ?',
+        [orderId]
+      );
+
+      if (!orders || !orders.rows || orders.rows.length === 0) {
+        throw new Error('음식점 주문을 찾을 수 없습니다.');
+      }
+
+      order = orders.rows[0];
+      categoryOrderId = order.id;
+      userId = order.user_id;
+
+      const expectedAmount = parseFloat(order.total_krw || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원`);
+        throw new Error(`결제 금액이 일치하지 않습니다.`);
+      }
+
+      console.log(`✅ [음식점 주문 검증] ${actualAmount}원 일치 확인`);
+
+    } else if (isAccommodationBooking) {
+      // 숙박 예약 검증 (bookings 테이블 사용하지만 별도 처리)
+      const bookings = await connection.execute(
+        'SELECT * FROM bookings WHERE booking_number = ? AND listing_id IN (SELECT id FROM listings WHERE category = "stay")',
+        [orderId]
+      );
+
+      if (!bookings || !bookings.rows || bookings.rows.length === 0) {
+        throw new Error('숙박 예약을 찾을 수 없습니다.');
+      }
+
+      booking = bookings.rows[0];
+      bookingId = booking.id;
+      userId = booking.user_id;
+
+      const expectedAmount = parseFloat(booking.total_amount || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원`);
+        throw new Error(`결제 금액이 일치하지 않습니다.`);
+      }
+
+      console.log(`✅ [숙박 예약 검증] ${actualAmount}원 일치 확인`);
 
     } else {
       throw new Error('올바르지 않은 주문 번호 형식입니다.');
@@ -505,6 +648,76 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       } catch (notifyError) {
         console.warn('⚠️  [알림] 장바구니 주문 파트너 알림 실패 (계속 진행):', notifyError);
       }
+
+    } else if (isAttractionOrder) {
+      // 관광지 주문 상태 변경
+      await connection.execute(
+        `UPDATE attraction_orders
+         SET payment_status = 'paid',
+             order_status = 'confirmed',
+             payment_key = ?,
+             payment_method = ?,
+             paid_at = NOW(),
+             updated_at = NOW()
+         WHERE id = ?`,
+        [paymentKey, paymentResult.method, categoryOrderId]
+      );
+      console.log(`✅ [관광지 주문] 상태 변경: pending → paid (order_id: ${categoryOrderId})`);
+
+    } else if (isEventOrder) {
+      // 행사 주문 상태 변경
+      await connection.execute(
+        `UPDATE event_orders
+         SET payment_status = 'paid',
+             order_status = 'confirmed',
+             payment_key = ?,
+             payment_method = ?,
+             paid_at = NOW(),
+             updated_at = NOW()
+         WHERE id = ?`,
+        [paymentKey, paymentResult.method, categoryOrderId]
+      );
+      console.log(`✅ [행사 주문] 상태 변경: pending → paid (order_id: ${categoryOrderId})`);
+
+    } else if (isExperienceBooking) {
+      // 체험 예약 상태 변경
+      await connection.execute(
+        `UPDATE experience_bookings
+         SET status = 'confirmed',
+             payment_status = 'paid',
+             payment_key = ?,
+             payment_method = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [paymentKey, paymentResult.method, categoryOrderId]
+      );
+      console.log(`✅ [체험 예약] 상태 변경: pending → confirmed (booking_id: ${categoryOrderId})`);
+
+    } else if (isFoodOrder) {
+      // 음식점 주문 상태 변경
+      await connection.execute(
+        `UPDATE food_orders
+         SET status = 'confirmed',
+             payment_status = 'paid',
+             payment_key = ?,
+             payment_method = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [paymentKey, paymentResult.method, categoryOrderId]
+      );
+      console.log(`✅ [음식점 주문] 상태 변경: pending → confirmed (order_id: ${categoryOrderId})`);
+
+    } else if (isAccommodationBooking) {
+      // 숙박 예약 상태 변경 (bookings 테이블, 이미 위에서 처리했지만 명확성을 위해 별도 로그)
+      await connection.execute(
+        `UPDATE bookings
+         SET status = 'confirmed',
+             payment_status = 'paid',
+             updated_at = NOW()
+         WHERE id = ?`,
+        [bookingId]
+      );
+      console.log(`✅ [숙박 예약] 상태 변경: pending → confirmed (booking_id: ${bookingId})`);
 
     } else {
       throw new Error('올바르지 않은 주문 번호 형식입니다.');
@@ -967,8 +1180,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     return {
       success: true,
       message: '결제가 완료되었습니다.',
-      bookingId,
-      orderId: orderId_num,
+      bookingId: bookingId || categoryOrderId,
+      orderId: orderId_num || categoryOrderId,
       paymentKey,
       receiptUrl: paymentResult.receipt?.url || null,
       amount: paymentResult.totalAmount
@@ -1009,6 +1222,62 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
             WHERE gateway_transaction_id = ? AND payment_status = 'paid'
           `, [orderId]);
           console.log(`✅ [DB Rollback] 주문 상태 복구 완료 (order_id: ${orderId})`);
+        }
+
+        // 2-1. 카테고리별 주문 상태 복구
+        if (isAttractionOrder && categoryOrderId) {
+          await connection.execute(`
+            UPDATE attraction_orders
+            SET payment_status = 'pending',
+                order_status = 'pending',
+                updated_at = NOW()
+            WHERE id = ? AND payment_status = 'paid'
+          `, [categoryOrderId]);
+          console.log(`✅ [DB Rollback] 관광지 주문 상태 복구 완료 (order_id: ${categoryOrderId})`);
+        }
+
+        if (isEventOrder && categoryOrderId) {
+          await connection.execute(`
+            UPDATE event_orders
+            SET payment_status = 'pending',
+                order_status = 'pending',
+                updated_at = NOW()
+            WHERE id = ? AND payment_status = 'paid'
+          `, [categoryOrderId]);
+          console.log(`✅ [DB Rollback] 행사 주문 상태 복구 완료 (order_id: ${categoryOrderId})`);
+        }
+
+        if (isExperienceBooking && categoryOrderId) {
+          await connection.execute(`
+            UPDATE experience_bookings
+            SET status = 'pending',
+                payment_status = 'pending',
+                updated_at = NOW()
+            WHERE id = ? AND payment_status = 'paid'
+          `, [categoryOrderId]);
+          console.log(`✅ [DB Rollback] 체험 예약 상태 복구 완료 (booking_id: ${categoryOrderId})`);
+        }
+
+        if (isFoodOrder && categoryOrderId) {
+          await connection.execute(`
+            UPDATE food_orders
+            SET status = 'pending',
+                payment_status = 'pending',
+                updated_at = NOW()
+            WHERE id = ? AND payment_status = 'paid'
+          `, [categoryOrderId]);
+          console.log(`✅ [DB Rollback] 음식점 주문 상태 복구 완료 (order_id: ${categoryOrderId})`);
+        }
+
+        if (isAccommodationBooking && bookingId) {
+          await connection.execute(`
+            UPDATE bookings
+            SET status = 'pending',
+                payment_status = 'pending',
+                updated_at = NOW()
+            WHERE id = ? AND payment_status = 'paid'
+          `, [bookingId]);
+          console.log(`✅ [DB Rollback] 숙박 예약 상태 복구 완료 (booking_id: ${bookingId})`);
         }
 
         // 3. 포인트 차감 복구 (사용 취소)
