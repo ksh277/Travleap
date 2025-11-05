@@ -262,40 +262,20 @@ export function PaymentPage() {
       setDeliveryFee(0);
       setDeliveryFeeLoading(false);
     } else {
-      // 직접 결제 페이지 접근 시 (장바구니 거치지 않은 경우)
-      const calculateDeliveryFee = async () => {
-        try {
-          setDeliveryFeeLoading(true);
-          const response = await fetch('/api/calculate-shipping', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              items: orderData?.items || [],
-              shippingAddress: billingInfo.address
-            })
-          });
+      // 팝업 상품인 경우 배송비 계산
+      // 단일 팝업 상품: 5만원 미만이면 3,000원
+      const productAmount = parseInt(booking?.totalPrice || amount || totalAmount || '0');
 
-          const result = await response.json();
-          if (result.success) {
-            setDeliveryFee(result.data.total_fee);
-            console.log('✅ [PaymentPage] 배송비 계산:', result.data);
-          } else {
-            console.error('❌ [PaymentPage] 배송비 계산 실패:', result.error);
-            setDeliveryFee(3000); // 기본 배송비
-          }
-        } catch (error) {
-          console.error('❌ [PaymentPage] 배송비 계산 오류:', error);
-          setDeliveryFee(3000); // 기본 배송비
-        } finally {
-          setDeliveryFeeLoading(false);
-        }
-      };
-
-      calculateDeliveryFee();
+      if (productAmount < 50000) {
+        setDeliveryFee(3000);
+        console.log('✅ [PaymentPage] 배송비 계산: 5만원 미만 → 3,000원');
+      } else {
+        setDeliveryFee(0);
+        console.log('✅ [PaymentPage] 배송비 계산: 5만원 이상 → 무료');
+      }
+      setDeliveryFeeLoading(false);
     }
-  }, [hasPopupProducts, orderData?.deliveryFee, orderData?.items, billingInfo.address]);
+  }, [hasPopupProducts, orderData?.deliveryFee, booking?.totalPrice, amount, totalAmount]);
 
   const loadBookingDetails = async () => {
     try {
@@ -822,10 +802,15 @@ export function PaymentPage() {
                         <span>상품 금액</span>
                         <span>{parseInt(booking?.totalPrice || amount || totalAmount || '0').toLocaleString()}원</span>
                       </div>
-                      {deliveryFee > 0 && (
+                      {hasPopupProducts && (
                         <div className="flex justify-between">
-                          <span>배송비</span>
-                          <span>{deliveryFee.toLocaleString()}원</span>
+                          <span className="flex items-center gap-1">
+                            배송비
+                            {deliveryFeeLoading && <span className="text-xs text-gray-400">(계산 중...)</span>}
+                          </span>
+                          <span>
+                            {deliveryFee > 0 ? `${deliveryFee.toLocaleString()}원` : <span className="text-green-600">무료</span>}
+                          </span>
                         </div>
                       )}
                       <Separator />
