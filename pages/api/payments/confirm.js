@@ -193,6 +193,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     // - EXP... (체험 예약)
     // - FOOD... (음식점 주문)
     // - ACC... (숙박 예약)
+    // - TOUR... (투어 예약)
+    // - RENT- (렌트카 예약)
     const isBooking = orderId.startsWith('BK-');
     const isOrder = orderId.startsWith('ORDER_');
     const isAttractionOrder = orderId.startsWith('ATR');
@@ -200,6 +202,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     const isExperienceBooking = orderId.startsWith('EXP');
     const isFoodOrder = orderId.startsWith('FOOD');
     const isAccommodationBooking = orderId.startsWith('ACC');
+    const isTourBooking = orderId.startsWith('TOUR');
+    const isRentcarBooking = orderId.startsWith('RENT-');
 
     let bookingId = null;
     let orderId_num = null;
@@ -426,6 +430,60 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       }
 
       console.log(`✅ [숙박 예약 검증] ${actualAmount}원 일치 확인`);
+
+    } else if (isTourBooking) {
+      // 투어 예약 검증
+      const tourBookings = await connection.execute(
+        'SELECT * FROM tour_bookings WHERE booking_number = ?',
+        [orderId]
+      );
+
+      if (!tourBookings || !tourBookings.rows || tourBookings.rows.length === 0) {
+        throw new Error('투어 예약을 찾을 수 없습니다.');
+      }
+
+      booking = tourBookings.rows[0];
+      bookingId = booking.id;
+      categoryOrderId = booking.id;
+      userId = booking.user_id;
+
+      const expectedAmount = parseFloat(booking.total_amount || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원`);
+        throw new Error(`결제 금액이 일치하지 않습니다.`);
+      }
+
+      console.log(`✅ [투어 예약 검증] ${actualAmount}원 일치 확인`);
+
+    } else if (isRentcarBooking) {
+      // 렌트카 예약 검증
+      const rentcarBookings = await connection.execute(
+        'SELECT * FROM rentcar_bookings WHERE booking_number = ?',
+        [orderId]
+      );
+
+      if (!rentcarBookings || !rentcarBookings.rows || rentcarBookings.rows.length === 0) {
+        throw new Error('렌트카 예약을 찾을 수 없습니다.');
+      }
+
+      booking = rentcarBookings.rows[0];
+      bookingId = booking.id;
+      categoryOrderId = booking.id;
+      userId = booking.user_id;
+
+      const expectedAmount = parseFloat(booking.total_price_krw || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원`);
+        throw new Error(`결제 금액이 일치하지 않습니다.`);
+      }
+
+      console.log(`✅ [렌트카 예약 검증] ${actualAmount}원 일치 확인`);
 
     } else {
       throw new Error('올바르지 않은 주문 번호 형식입니다.');
@@ -718,6 +776,37 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         [bookingId]
       );
       console.log(`✅ [숙박 예약] 상태 변경: pending → confirmed (booking_id: ${bookingId})`);
+
+    } else if (isTourBooking) {
+      // 투어 예약 상태 변경
+      await connection.execute(
+        `UPDATE tour_bookings
+         SET payment_status = 'paid',
+             status = 'confirmed',
+             payment_key = ?,
+             payment_method = ?,
+             paid_at = NOW(),
+             updated_at = NOW()
+         WHERE id = ?`,
+        [paymentKey, paymentResult.method, categoryOrderId]
+      );
+      console.log(`✅ [투어 예약] 상태 변경: pending → paid (booking_id: ${categoryOrderId})`);
+
+    } else if (isRentcarBooking) {
+      // 렌트카 예약 상태 변경
+      await connection.execute(
+        `UPDATE rentcar_bookings
+         SET payment_status = 'captured',
+             status = 'confirmed',
+             payment_key = ?,
+             payment_method = ?,
+             paid_at = NOW(),
+             confirmed_at = NOW(),
+             updated_at = NOW()
+         WHERE id = ?`,
+        [paymentKey, paymentResult.method, categoryOrderId]
+      );
+      console.log(`✅ [렌트카 예약] 상태 변경: hold → confirmed (booking_id: ${categoryOrderId})`);
 
     } else {
       throw new Error('올바르지 않은 주문 번호 형식입니다.');
@@ -1122,8 +1211,97 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           await poolNeon.query('COMMIT');
           console.log(`✅ [포인트] Neon DB 트랜잭션 커밋 완료`);
 
+        } else if ((isAttractionOrder || isEventOrder || isExperienceBooking || isFoodOrder || isAccommodationBooking || isTourBooking || isRentcarBooking) && categoryOrderId && userId) {
+          // 카테고리 주문 포인트 적립
+          console.log(`💰 [포인트 적립 시작] 카테고리 주문 - userId=${userId}, categoryOrderId=${categoryOrderId}`);
+
+          // 트랜잭션 시작
+          await poolNeon.query('BEGIN');
+          console.log(`💰 [포인트] Neon DB 트랜잭션 시작`);
+
+          // 사용자 정보 조회
+          const userResult = await poolNeon.query('SELECT name, email, phone, total_points FROM users WHERE id = $1 FOR UPDATE', [userId]);
+          console.log(`💰 [포인트] Neon DB 사용자 조회 결과:`, userResult.rows?.length || 0, '건');
+
+          if (userResult.rows && userResult.rows.length > 0) {
+            const user = userResult.rows[0];
+            console.log(`💰 [포인트] 사용자 정보: id=${userId}, name=${user.name}, 현재 포인트=${user.total_points}P`);
+
+            // 주문 금액 조회
+            let orderAmount = 0;
+            let categoryName = '';
+
+            if (isAttractionOrder) {
+              orderAmount = parseFloat(order.total_amount || 0);
+              categoryName = '관광지';
+            } else if (isEventOrder) {
+              orderAmount = parseFloat(order.total_amount || 0);
+              categoryName = '행사';
+            } else if (isExperienceBooking) {
+              orderAmount = parseFloat(order.total_krw || 0);
+              categoryName = '체험';
+            } else if (isFoodOrder) {
+              orderAmount = parseFloat(order.total_krw || 0);
+              categoryName = '음식점';
+            } else if (isAccommodationBooking) {
+              orderAmount = parseFloat(booking.total_amount || 0);
+              categoryName = '숙박';
+            } else if (isTourBooking) {
+              orderAmount = parseFloat(booking.total_amount || 0);
+              categoryName = '투어';
+            } else if (isRentcarBooking) {
+              orderAmount = parseFloat(booking.total_price_krw || 0);
+              categoryName = '렌트카';
+            }
+
+            console.log(`💰 [포인트] ${categoryName} 주문 금액: ${orderAmount}원`);
+
+            // 포인트 적립 (2%)
+            const pointsToEarn = Math.floor(orderAmount * 0.02);
+
+            if (pointsToEarn > 0) {
+              const currentBalance = user.total_points || 0;
+              const newBalance = currentBalance + pointsToEarn;
+
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
+
+              console.log(`💰 [포인트] ${pointsToEarn}P 적립 예정 (잔액: ${currentBalance}P → ${newBalance}P)`);
+
+              // 포인트 내역 추가 (PlanetScale)
+              // ✅ FIX: related_order_id를 order_number로 저장 (환불 시 매칭용)
+              const insertResult = await connection.execute(`
+                INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
+                VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+              `, [
+                userId,
+                pointsToEarn,
+                `${categoryName} 주문 적립 (order_number: ${orderId})`,
+                orderId, // ✅ order_number 사용 (ATR..., EVT..., EXP..., FOOD..., ACC...)
+                newBalance,
+                expiresAt
+              ]);
+
+              console.log(`✅ [포인트] ${categoryName} 주문 ${pointsToEarn}P 적립 완료 (user_points insert_id=${insertResult.insertId})`);
+
+              // 사용자 포인트 총합 업데이트 (Neon)
+              await poolNeon.query(`
+                UPDATE users SET total_points = $1 WHERE id = $2
+              `, [newBalance, userId]);
+
+              console.log(`✅ [포인트] ${categoryName} 주문 ${pointsToEarn}P 적립 완료 (사용자 ${userId}, 최종 잔액: ${newBalance}P)`);
+            } else {
+              console.warn(`⚠️ [포인트] 적립 포인트 0P (주문금액=${orderAmount})`);
+            }
+          }
+
+          // 트랜잭션 커밋
+          console.log(`💰 [포인트] Neon DB 트랜잭션 커밋 시도`);
+          await poolNeon.query('COMMIT');
+          console.log(`✅ [포인트] Neon DB 트랜잭션 커밋 완료`);
+
         } else {
-          console.log(`⚠️ [포인트 적립] 포인트 적립 조건 미충족 - isOrder=${isOrder}, isBooking=${isBooking}, userId=${userId}, bookingId=${bookingId}`);
+          console.log(`⚠️ [포인트 적립] 포인트 적립 조건 미충족 - isOrder=${isOrder}, isBooking=${isBooking}, userId=${userId}, bookingId=${bookingId}, categoryOrderId=${categoryOrderId}`);
         }
 
       } catch (pointsError) {
@@ -1237,6 +1415,25 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         }
 
         if (isEventOrder && categoryOrderId) {
+          // 행사 주문 정보 조회 (티켓 수량 확인)
+          const eventOrderResult = await connection.execute(`
+            SELECT event_id, quantity FROM event_orders WHERE id = ?
+          `, [categoryOrderId]);
+
+          if (eventOrderResult.rows && eventOrderResult.rows.length > 0) {
+            const eventOrder = eventOrderResult.rows[0];
+
+            // 티켓 재고 복구 (결제 실패 시 차감한 티켓 복원)
+            await connection.execute(`
+              UPDATE events
+              SET tickets_remaining = tickets_remaining + ?
+              WHERE id = ?
+            `, [eventOrder.quantity, eventOrder.event_id]);
+
+            console.log(`✅ [DB Rollback] 행사 티켓 재고 복구: event_id=${eventOrder.event_id}, +${eventOrder.quantity}매`);
+          }
+
+          // 주문 상태 복구
           await connection.execute(`
             UPDATE event_orders
             SET payment_status = 'pending',
@@ -1248,6 +1445,25 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         }
 
         if (isExperienceBooking && categoryOrderId) {
+          // 체험 예약 정보 조회 (슬롯 및 인원 정보 확인)
+          const expBookingResult = await connection.execute(`
+            SELECT slot_id, participant_count FROM experience_bookings WHERE id = ?
+          `, [categoryOrderId]);
+
+          if (expBookingResult.rows && expBookingResult.rows.length > 0) {
+            const expBooking = expBookingResult.rows[0];
+
+            // 슬롯 참가자 수 복구 (결제 실패 시 증가시킨 참가자 수 복원)
+            await connection.execute(`
+              UPDATE experience_slots
+              SET current_participants = current_participants - ?
+              WHERE id = ?
+            `, [expBooking.participant_count, expBooking.slot_id]);
+
+            console.log(`✅ [DB Rollback] 체험 슬롯 재고 복구: slot_id=${expBooking.slot_id}, -${expBooking.participant_count}명`);
+          }
+
+          // 예약 상태 복구
           await connection.execute(`
             UPDATE experience_bookings
             SET status = 'pending',
@@ -1278,6 +1494,28 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
             WHERE id = ? AND payment_status = 'paid'
           `, [bookingId]);
           console.log(`✅ [DB Rollback] 숙박 예약 상태 복구 완료 (booking_id: ${bookingId})`);
+        }
+
+        if (isTourBooking && categoryOrderId) {
+          await connection.execute(`
+            UPDATE tour_bookings
+            SET status = 'pending',
+                payment_status = 'pending',
+                updated_at = NOW()
+            WHERE id = ? AND payment_status = 'paid'
+          `, [categoryOrderId]);
+          console.log(`✅ [DB Rollback] 투어 예약 상태 복구 완료 (booking_id: ${categoryOrderId})`);
+        }
+
+        if (isRentcarBooking && categoryOrderId) {
+          await connection.execute(`
+            UPDATE rentcar_bookings
+            SET status = 'hold',
+                payment_status = 'pending',
+                updated_at = NOW()
+            WHERE id = ? AND payment_status = 'captured'
+          `, [categoryOrderId]);
+          console.log(`✅ [DB Rollback] 렌트카 예약 상태 복구 완료 (booking_id: ${categoryOrderId})`);
         }
 
         // 3. 포인트 차감 복구 (사용 취소)

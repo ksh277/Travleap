@@ -482,8 +482,9 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
   try {
     console.log(`💰 [Refund] 환불 요청 시작: paymentKey=${paymentKey}, reason=${cancelReason}`);
 
-    // 1. DB에서 결제 정보 조회 (delivery_status 포함)
-    const paymentResult = await connection.execute(`
+    // 1. DB에서 결제 정보 조회 - 모든 카테고리 지원
+    // 1-1. payments 테이블에서 먼저 조회 (기존 bookings + ORDER_)
+    let paymentResult = await connection.execute(`
       SELECT
         p.*,
         p.order_id_str,
@@ -496,7 +497,8 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         b.order_number,
         b.booking_number,
         b.delivery_status,
-        l.category
+        l.category,
+        'payments' as source_table
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
@@ -504,11 +506,175 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       LIMIT 1
     `, [paymentKey]);
 
-    if (!paymentResult.rows || paymentResult.rows.length === 0) {
-      throw new Error('PAYMENT_NOT_FOUND: 결제 정보를 찾을 수 없습니다.');
+    let payment = null;
+    let categoryOrderId = null;
+    let orderCategory = null;
+
+    if (paymentResult.rows && paymentResult.rows.length > 0) {
+      payment = paymentResult.rows[0];
+      console.log(`✅ [Refund] payments 테이블에서 결제 찾음: ${payment.order_id_str || payment.booking_number}`);
+    } else {
+      // 1-2. 카테고리별 주문 테이블에서 조회
+      console.log(`🔍 [Refund] payments 테이블에서 못 찾음, 카테고리별 주문 테이블 검색...`);
+
+      // 관광지 주문 조회
+      const attractionResult = await connection.execute(`
+        SELECT *, 'attraction' as order_category, 'attraction_orders' as source_table
+        FROM attraction_orders
+        WHERE payment_key = ?
+        LIMIT 1
+      `, [paymentKey]);
+
+      if (attractionResult.rows && attractionResult.rows.length > 0) {
+        const order = attractionResult.rows[0];
+        payment = {
+          user_id: order.user_id,
+          amount: order.total_amount,
+          payment_key: order.payment_key,
+          payment_status: order.payment_status,
+          order_id_str: order.order_number,
+          source_table: 'attraction_orders',
+          category: 'attraction'
+        };
+        categoryOrderId = order.id;
+        orderCategory = 'attraction';
+        console.log(`✅ [Refund] 관광지 주문 찾음: ${order.order_number}`);
+      }
+
+      // 행사 주문 조회
+      if (!payment) {
+        const eventResult = await connection.execute(`
+          SELECT *, 'event' as order_category, 'event_orders' as source_table
+          FROM event_orders
+          WHERE payment_key = ?
+          LIMIT 1
+        `, [paymentKey]);
+
+        if (eventResult.rows && eventResult.rows.length > 0) {
+          const order = eventResult.rows[0];
+          payment = {
+            user_id: order.user_id,
+            amount: order.total_amount,
+            payment_key: order.payment_key,
+            payment_status: order.payment_status,
+            order_id_str: order.order_number,
+            source_table: 'event_orders',
+            category: 'event'
+          };
+          categoryOrderId = order.id;
+          orderCategory = 'event';
+          console.log(`✅ [Refund] 행사 주문 찾음: ${order.order_number}`);
+        }
+      }
+
+      // 체험 예약 조회
+      if (!payment) {
+        const experienceResult = await connection.execute(`
+          SELECT *, 'experience' as order_category, 'experience_bookings' as source_table
+          FROM experience_bookings
+          WHERE payment_key = ?
+          LIMIT 1
+        `, [paymentKey]);
+
+        if (experienceResult.rows && experienceResult.rows.length > 0) {
+          const booking = experienceResult.rows[0];
+          payment = {
+            user_id: booking.user_id,
+            amount: booking.total_krw,
+            payment_key: booking.payment_key,
+            payment_status: booking.payment_status,
+            order_id_str: booking.booking_number,
+            source_table: 'experience_bookings',
+            category: 'experience'
+          };
+          categoryOrderId = booking.id;
+          orderCategory = 'experience';
+          console.log(`✅ [Refund] 체험 예약 찾음: ${booking.booking_number}`);
+        }
+      }
+
+      // 음식점 주문 조회
+      if (!payment) {
+        const foodResult = await connection.execute(`
+          SELECT *, 'food' as order_category, 'food_orders' as source_table
+          FROM food_orders
+          WHERE payment_key = ?
+          LIMIT 1
+        `, [paymentKey]);
+
+        if (foodResult.rows && foodResult.rows.length > 0) {
+          const order = foodResult.rows[0];
+          payment = {
+            user_id: order.user_id,
+            amount: order.total_krw,
+            payment_key: order.payment_key,
+            payment_status: order.payment_status,
+            order_id_str: order.order_number,
+            source_table: 'food_orders',
+            category: 'food'
+          };
+          categoryOrderId = order.id;
+          orderCategory = 'food';
+          console.log(`✅ [Refund] 음식점 주문 찾음: ${order.order_number}`);
+        }
+      }
+
+      // 투어 예약 조회
+      if (!payment) {
+        const tourResult = await connection.execute(`
+          SELECT *, 'tour' as order_category, 'tour_bookings' as source_table
+          FROM tour_bookings
+          WHERE payment_key = ?
+          LIMIT 1
+        `, [paymentKey]);
+
+        if (tourResult.rows && tourResult.rows.length > 0) {
+          const booking = tourResult.rows[0];
+          payment = {
+            user_id: booking.user_id,
+            amount: booking.total_amount,
+            payment_key: booking.payment_key,
+            payment_status: booking.payment_status,
+            order_id_str: booking.booking_number,
+            source_table: 'tour_bookings',
+            category: 'tour'
+          };
+          categoryOrderId = booking.id;
+          orderCategory = 'tour';
+          console.log(`✅ [Refund] 투어 예약 찾음: ${booking.booking_number}`);
+        }
+      }
+
+      // 렌트카 예약 조회
+      if (!payment) {
+        const rentcarResult = await connection.execute(`
+          SELECT *, 'rentcar' as order_category, 'rentcar_bookings' as source_table
+          FROM rentcar_bookings
+          WHERE payment_key = ?
+          LIMIT 1
+        `, [paymentKey]);
+
+        if (rentcarResult.rows && rentcarResult.rows.length > 0) {
+          const booking = rentcarResult.rows[0];
+          payment = {
+            user_id: booking.user_id,
+            amount: booking.total_price_krw,
+            payment_key: booking.payment_key,
+            payment_status: booking.payment_status,
+            order_id_str: booking.booking_number,
+            source_table: 'rentcar_bookings',
+            category: 'rentcar'
+          };
+          categoryOrderId = booking.id;
+          orderCategory = 'rentcar';
+          console.log(`✅ [Refund] 렌트카 예약 찾음: ${booking.booking_number}`);
+        }
+      }
     }
 
-    const payment = paymentResult.rows[0];
+    if (!payment) {
+      throw new Error('PAYMENT_NOT_FOUND: 결제 정보를 찾을 수 없습니다.');
+    }
 
     // 2. 이미 환불된 결제인지 확인
     if (payment.payment_status === 'refunded') {
@@ -640,41 +806,152 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       console.log(`✅ [Refund] 예약 취소 완료 (booking_id: ${payment.booking_id})`);
     }
 
-    // 9. payments 테이블 업데이트
-    const updateResult = await connection.execute(`
-      UPDATE payments
-      SET payment_status = 'refunded',
-          refund_amount = ?,
-          refund_reason = ?,
-          refunded_at = NOW(),
-          updated_at = NOW()
-      WHERE payment_key = ?
-    `, [actualRefundAmount, cancelReason, paymentKey]);
+    // 9. 카테고리별 주문 테이블 상태 업데이트
+    if (orderCategory === 'attraction' && categoryOrderId) {
+      await connection.execute(`
+        UPDATE attraction_orders
+        SET payment_status = 'refunded',
+            order_status = 'canceled',
+            canceled_at = NOW(),
+            cancel_reason = ?,
+            refunded_at = NOW(),
+            refund_amount = ?
+        WHERE id = ?
+      `, [cancelReason, actualRefundAmount, categoryOrderId]);
+      console.log(`✅ [Refund] 관광지 주문 취소 완료 (attraction_order_id: ${categoryOrderId})`);
+    } else if (orderCategory === 'event' && categoryOrderId) {
+      // 행사 티켓 재고 복구
+      const eventOrderResult = await connection.execute(`
+        SELECT event_id, quantity FROM event_orders WHERE id = ?
+      `, [categoryOrderId]);
 
-    console.log(`✅ [Refund] payments 테이블 업데이트 완료 (affected rows: ${updateResult.rowsAffected || updateResult.affectedRows || 'unknown'})`);
+      if (eventOrderResult.rows && eventOrderResult.rows.length > 0) {
+        const eventOrder = eventOrderResult.rows[0];
+        await connection.execute(`
+          UPDATE events
+          SET tickets_remaining = tickets_remaining + ?
+          WHERE id = ?
+        `, [eventOrder.quantity, eventOrder.event_id]);
+        console.log(`📦 [Refund] 행사 티켓 재고 복구: event_id=${eventOrder.event_id}, +${eventOrder.quantity}개`);
+      }
 
-    // ✅ 업데이트 검증: payment_status가 제대로 바뀌었는지 확인
-    const verifyResult = await connection.execute(`
-      SELECT id, payment_status, refund_amount, refunded_at
-      FROM payments
-      WHERE payment_key = ?
-    `, [paymentKey]);
+      await connection.execute(`
+        UPDATE event_orders
+        SET payment_status = 'refunded',
+            order_status = 'canceled',
+            canceled_at = NOW(),
+            cancel_reason = ?,
+            refunded_at = NOW(),
+            refund_amount = ?
+        WHERE id = ?
+      `, [cancelReason, actualRefundAmount, categoryOrderId]);
+      console.log(`✅ [Refund] 행사 주문 취소 완료 (event_order_id: ${categoryOrderId})`);
+    } else if (orderCategory === 'experience' && categoryOrderId) {
+      // 체험 슬롯 재고 복구
+      const experienceBookingResult = await connection.execute(`
+        SELECT slot_id, participant_count FROM experience_bookings WHERE id = ?
+      `, [categoryOrderId]);
 
-    if (verifyResult.rows && verifyResult.rows.length > 0) {
-      console.log(`🔍 [Refund] 업데이트 검증:`, verifyResult.rows[0]);
-    } else {
-      console.warn(`⚠️ [Refund] 업데이트 검증 실패: payment를 찾을 수 없음`);
+      if (experienceBookingResult.rows && experienceBookingResult.rows.length > 0) {
+        const expBooking = experienceBookingResult.rows[0];
+        await connection.execute(`
+          UPDATE experience_slots
+          SET current_participants = current_participants - ?
+          WHERE id = ?
+        `, [expBooking.participant_count, expBooking.slot_id]);
+        console.log(`📦 [Refund] 체험 슬롯 재고 복구: slot_id=${expBooking.slot_id}, -${expBooking.participant_count}명`);
+      }
+
+      await connection.execute(`
+        UPDATE experience_bookings
+        SET payment_status = 'refunded',
+            booking_status = 'canceled',
+            canceled_at = NOW(),
+            cancel_reason = ?,
+            refunded_at = NOW(),
+            refund_amount = ?
+        WHERE id = ?
+      `, [cancelReason, actualRefundAmount, categoryOrderId]);
+      console.log(`✅ [Refund] 체험 예약 취소 완료 (experience_booking_id: ${categoryOrderId})`);
+    } else if (orderCategory === 'food' && categoryOrderId) {
+      await connection.execute(`
+        UPDATE food_orders
+        SET payment_status = 'refunded',
+            order_status = 'canceled',
+            canceled_at = NOW(),
+            cancel_reason = ?,
+            refunded_at = NOW(),
+            refund_amount = ?
+        WHERE id = ?
+      `, [cancelReason, actualRefundAmount, categoryOrderId]);
+      console.log(`✅ [Refund] 음식점 주문 취소 완료 (food_order_id: ${categoryOrderId})`);
+    } else if (orderCategory === 'tour' && categoryOrderId) {
+      await connection.execute(`
+        UPDATE tour_bookings
+        SET payment_status = 'refunded',
+            status = 'canceled',
+            canceled_at = NOW(),
+            cancel_reason = ?,
+            refunded_at = NOW(),
+            refund_amount = ?
+        WHERE id = ?
+      `, [cancelReason, actualRefundAmount, categoryOrderId]);
+      console.log(`✅ [Refund] 투어 예약 취소 완료 (tour_booking_id: ${categoryOrderId})`);
+    } else if (orderCategory === 'rentcar' && categoryOrderId) {
+      await connection.execute(`
+        UPDATE rentcar_bookings
+        SET payment_status = 'refunded',
+            status = 'cancelled',
+            cancelled_at = NOW(),
+            cancellation_reason = ?,
+            refunded_at = NOW(),
+            refund_amount = ?
+        WHERE id = ?
+      `, [cancelReason, actualRefundAmount, categoryOrderId]);
+      console.log(`✅ [Refund] 렌트카 예약 취소 완료 (rentcar_booking_id: ${categoryOrderId})`);
     }
 
-    // 10. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불)
+    // 10. payments 테이블 업데이트 (payment 테이블에 있는 경우에만)
+    if (payment.source_table === 'payments') {
+      const updateResult = await connection.execute(`
+        UPDATE payments
+        SET payment_status = 'refunded',
+            refund_amount = ?,
+            refund_reason = ?,
+            refunded_at = NOW(),
+            updated_at = NOW()
+        WHERE payment_key = ?
+      `, [actualRefundAmount, cancelReason, paymentKey]);
+
+      console.log(`✅ [Refund] payments 테이블 업데이트 완료 (affected rows: ${updateResult.rowsAffected || updateResult.affectedRows || 'unknown'})`);
+
+      // ✅ 업데이트 검증: payment_status가 제대로 바뀌었는지 확인
+      const verifyResult = await connection.execute(`
+        SELECT id, payment_status, refund_amount, refunded_at
+        FROM payments
+        WHERE payment_key = ?
+      `, [paymentKey]);
+
+      if (verifyResult.rows && verifyResult.rows.length > 0) {
+        console.log(`🔍 [Refund] 업데이트 검증:`, verifyResult.rows[0]);
+      } else {
+        console.warn(`⚠️ [Refund] 업데이트 검증 실패: payment를 찾을 수 없음`);
+      }
+    } else {
+      console.log(`ℹ️ [Refund] payments 테이블 업데이트 스킵 (카테고리 주문: ${orderCategory})`);
+    }
+
+    // 11. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불)
     // 🐛 FIX: 장바구니 주문은 여러 개의 payment가 있고, 각각 포인트가 적립되므로 모두 회수해야 함
-    console.log(`💰 [Refund] 포인트 처리 시작 - payment_id: ${payment.id}, user_id: ${payment.user_id}, order_number: ${payment.order_number}`);
+    console.log(`💰 [Refund] 포인트 처리 시작 - user_id: ${payment.user_id}, order_number: ${payment.order_id_str}, category: ${orderCategory || 'payments'}`);
     console.log(`💰 [Refund] payment 정보:`, {
-      id: payment.id,
+      id: payment.id || categoryOrderId,
       user_id: payment.user_id,
       amount: payment.amount,
       payment_status: payment.payment_status,
-      order_number: payment.order_number
+      order_id_str: payment.order_id_str,
+      order_number: payment.order_number,
+      orderCategory: orderCategory
     });
 
     // ✅ FIX: 알림용 변수 정의
@@ -711,28 +988,34 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         console.log(`✅ [Refund] 장바구니 주문 전체 포인트 회수 완료: ${totalDeductedPoints}P (${allCategoryPayments.length}개 payments)`);
       } else {
         // 단일 예약: 하나의 payment만 처리
-        // ✅ FIX: booking_id로도 검색 시도 (confirm.js에서 booking_id를 related_order_id로 저장했을 경우 대비)
-        console.log(`💰 [Refund] 단일 예약 포인트 회수: payment_id=${payment.id}, booking_id=${payment.booking_id}`);
+        console.log(`💰 [Refund] 단일 예약 포인트 회수 시작`);
 
-        // 먼저 payment.id로 검색
-        let refundOrderId = String(payment.id);
-        totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
-
-        // 포인트 회수가 0이고 booking_id가 있으면 booking_id로도 시도
-        if (totalDeductedPoints === 0 && payment.booking_id) {
-          console.log(`💰 [Refund] payment_id로 회수 실패, booking_id=${payment.booking_id}로 재시도`);
-          refundOrderId = String(payment.booking_id);
+        // 🔧 카테고리 주문인 경우 order_id_str (ATR..., EVT..., EXP..., FOOD...) 사용
+        if (orderCategory && payment.order_id_str) {
+          console.log(`💰 [Refund] 카테고리 주문 포인트 회수: order_number=${payment.order_id_str}`);
+          totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, payment.order_id_str);
+        } else if (payment.id) {
+          // payments 테이블 주문: payment.id로 검색
+          console.log(`💰 [Refund] payments 테이블 주문 포인트 회수: payment_id=${payment.id}`);
+          let refundOrderId = String(payment.id);
           totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
+
+          // 포인트 회수가 0이고 booking_id가 있으면 booking_id로도 시도
+          if (totalDeductedPoints === 0 && payment.booking_id) {
+            console.log(`💰 [Refund] payment_id로 회수 실패, booking_id=${payment.booking_id}로 재시도`);
+            refundOrderId = String(payment.booking_id);
+            totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
+          }
+
+          // 🔧 FIX: 포인트 회수가 여전히 0이고 order_number가 있으면 order_number로도 시도 (수동 적립 대응)
+          if (totalDeductedPoints === 0 && payment.order_number) {
+            console.log(`💰 [Refund] payment_id/booking_id로 회수 실패, order_number=${payment.order_number}로 재시도 (수동 적립 대응)`);
+            refundOrderId = payment.order_number; // ORDER_... 형식
+            totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
+          }
         }
 
-        // 🔧 FIX: 포인트 회수가 여전히 0이고 order_number가 있으면 order_number로도 시도 (수동 적립 대응)
-        if (totalDeductedPoints === 0 && payment.order_number) {
-          console.log(`💰 [Refund] payment_id/booking_id로 회수 실패, order_number=${payment.order_number}로 재시도 (수동 적립 대응)`);
-          refundOrderId = payment.order_number; // ORDER_... 형식
-          totalDeductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
-        }
-
-        console.log(`✅ [Refund] payment_id=${payment.id} 포인트 회수 완료: ${totalDeductedPoints}P`);
+        console.log(`✅ [Refund] 포인트 회수 완료: ${totalDeductedPoints}P`);
       }
 
       // ✅ FIX: 알림용 변수에 값 할당
