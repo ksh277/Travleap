@@ -53,19 +53,19 @@ export function LoginPage() {
               navigate('/vendor/popup', { replace: true });
             } else if (user.vendorType === 'food') {
               console.log('🍽️ 음식 벤더 대시보드로 이동');
-              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
+              navigate('/vendor/food', { replace: true });
             } else if (user.vendorType === 'attraction') {
               console.log('📷 관광지 벤더 대시보드로 이동');
-              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
+              navigate('/vendor/attractions', { replace: true });
             } else if (user.vendorType === 'travel') {
               console.log('🗺️ 여행 벤더 대시보드로 이동');
-              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
+              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유 (travel은 유지)
             } else if (user.vendorType === 'event') {
               console.log('📅 행사 벤더 대시보드로 이동');
-              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
+              navigate('/vendor/events', { replace: true });
             } else if (user.vendorType === 'experience') {
               console.log('🎡 체험 벤더 대시보드로 이동');
-              navigate('/vendor/popup', { replace: true }); // 팝업 대시보드 공유
+              navigate('/vendor/experience', { replace: true });
             } else {
               // vendorType이 없으면 기본 팝업 대시보드로 이동 (Toss 심사용)
               console.log('🎪 벤더 대시보드로 이동 (기본 - 팝업)');

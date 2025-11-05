@@ -51,6 +51,10 @@ import { VendorRegistrationPage } from './components/VendorRegistrationPage';
 import VendorDashboardPageEnhanced from './components/VendorDashboardPageEnhanced';
 import { PartnerDashboardPageEnhanced } from './components/PartnerDashboardPageEnhanced';
 import PopupVendorDashboard from './components/PopupVendorDashboard';
+import { ExperienceVendorDashboard } from './components/ExperienceVendorDashboard';
+import { FoodVendorDashboard } from './components/FoodVendorDashboard';
+import { AttractionsVendorDashboard } from './components/AttractionsVendorDashboard';
+import { EventsVendorDashboard } from './components/EventsVendorDashboard';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentFailPage from './components/PaymentFailPage';
@@ -162,6 +166,42 @@ function AppContent() {
           <Route path="/vendor/popup" element={
             isLoggedIn && user?.role === 'vendor' ? (
               <PopupVendorDashboard />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 체험 벤더 대시보드 */}
+          <Route path="/vendor/experience" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <ExperienceVendorDashboard />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 음식점 벤더 대시보드 */}
+          <Route path="/vendor/food" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <FoodVendorDashboard />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 관광지 벤더 대시보드 */}
+          <Route path="/vendor/attractions" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <AttractionsVendorDashboard />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 행사 벤더 대시보드 */}
+          <Route path="/vendor/events" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <EventsVendorDashboard />
             ) : (
               <Navigate to="/login" replace />
             )
