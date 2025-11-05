@@ -24,7 +24,7 @@ interface RentcarBooking {
   voucher_code?: string;
 }
 
-type TabType = 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks';
+type TabType = 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras';
 
 export default function RentcarVendorDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('today');
@@ -66,6 +66,22 @@ export default function RentcarVendorDashboard() {
     note: ''
   });
 
+  // Extras management state
+  const [extras, setExtras] = useState<any[]>([]);
+  const [extrasLoading, setExtrasLoading] = useState(false);
+  const [showExtraForm, setShowExtraForm] = useState(false);
+  const [editingExtra, setEditingExtra] = useState<any>(null);
+  const [extraForm, setExtraForm] = useState({
+    name: '',
+    description: '',
+    category: 'equipment',
+    price_type: 'per_day',
+    price_krw: '',
+    max_quantity: '1',
+    has_inventory: false,
+    current_stock: ''
+  });
+
   // Fetch data based on active tab
   useEffect(() => {
     if (activeTab === 'today') {
@@ -74,6 +90,8 @@ export default function RentcarVendorDashboard() {
       fetchRefundsData();
     } else if (activeTab === 'blocks') {
       fetchVehiclesAndBlocks();
+    } else if (activeTab === 'extras') {
+      fetchExtras();
     }
   }, [activeTab]);
 
@@ -167,6 +185,123 @@ export default function RentcarVendorDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch extras
+  const fetchExtras = async () => {
+    setExtrasLoading(true);
+
+    try {
+      const response = await fetch('/api/vendor/rentcar/extras', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setExtras(result.data || []);
+      } else {
+        setError(result.message || '옵션을 불러오는데 실패했습니다.');
+      }
+    } catch (err: any) {
+      setError(err.message || '서버 오류가 발생했습니다.');
+    } finally {
+      setExtrasLoading(false);
+    }
+  };
+
+  // Create or update extra
+  const saveExtra = async () => {
+    if (!extraForm.name || !extraForm.price_krw) {
+      alert('옵션명과 가격은 필수입니다.');
+      return;
+    }
+
+    try {
+      const method = editingExtra ? 'PUT' : 'POST';
+      const body = editingExtra
+        ? { id: editingExtra.id, ...extraForm }
+        : extraForm;
+
+      const response = await fetch('/api/vendor/rentcar/extras', {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(editingExtra ? '옵션이 수정되었습니다.' : '옵션이 추가되었습니다.');
+        setShowExtraForm(false);
+        setEditingExtra(null);
+        setExtraForm({
+          name: '',
+          description: '',
+          category: 'equipment',
+          price_type: 'per_day',
+          price_krw: '',
+          max_quantity: '1',
+          has_inventory: false,
+          current_stock: ''
+        });
+        fetchExtras();
+      } else {
+        alert(result.message || '저장에 실패했습니다.');
+      }
+    } catch (err: any) {
+      alert(err.message || '서버 오류가 발생했습니다.');
+    }
+  };
+
+  // Delete extra
+  const deleteExtra = async (id: number) => {
+    if (!confirm('정말 이 옵션을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/vendor/rentcar/extras', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+        },
+        body: JSON.stringify({ id })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('옵션이 삭제되었습니다.');
+        fetchExtras();
+      } else {
+        alert(result.message || '삭제에 실패했습니다.');
+      }
+    } catch (err: any) {
+      alert(err.message || '서버 오류가 발생했습니다.');
+    }
+  };
+
+  // Edit extra
+  const startEditExtra = (extra: any) => {
+    setEditingExtra(extra);
+    setExtraForm({
+      name: extra.name,
+      description: extra.description || '',
+      category: extra.category,
+      price_type: extra.price_type,
+      price_krw: extra.price_krw.toString(),
+      max_quantity: extra.max_quantity.toString(),
+      has_inventory: extra.has_inventory === 1,
+      current_stock: extra.current_stock?.toString() || ''
+    });
+    setShowExtraForm(true);
   };
 
   // Create vehicle block
@@ -528,6 +663,16 @@ export default function RentcarVendorDashboard() {
               }`}
             >
               🚫 차량 차단
+            </button>
+            <button
+              onClick={() => setActiveTab('extras')}
+              className={`flex-1 py-4 px-6 text-center font-medium transition ${
+                activeTab === 'extras'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              ⚙️ 옵션 관리
             </button>
           </div>
         </div>
@@ -1380,6 +1525,277 @@ export default function RentcarVendorDashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Extras Management Tab */}
+          {activeTab === 'extras' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">옵션 관리</h2>
+                <button
+                  onClick={() => {
+                    setShowExtraForm(!showExtraForm);
+                    setEditingExtra(null);
+                    setExtraForm({
+                      name: '',
+                      description: '',
+                      category: 'equipment',
+                      price_type: 'per_day',
+                      price_krw: '',
+                      max_quantity: '1',
+                      has_inventory: false,
+                      current_stock: ''
+                    });
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  {showExtraForm ? '취소' : '+ 새 옵션 추가'}
+                </button>
+              </div>
+
+              {/* Extra Form */}
+              {showExtraForm && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6">
+                  <h3 className="text-lg font-bold mb-4">
+                    {editingExtra ? '옵션 수정' : '새 옵션 추가'}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        옵션명 *
+                      </label>
+                      <input
+                        type="text"
+                        value={extraForm.name}
+                        onChange={(e) => setExtraForm({ ...extraForm, name: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="예: GPS 네비게이션"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        카테고리 *
+                      </label>
+                      <select
+                        value={extraForm.category}
+                        onChange={(e) => setExtraForm({ ...extraForm, category: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      >
+                        <option value="equipment">장비 (Equipment)</option>
+                        <option value="service">서비스 (Service)</option>
+                        <option value="driver">운전자 (Driver)</option>
+                        <option value="insurance">보험 (Insurance)</option>
+                        <option value="misc">기타 (Misc)</option>
+                      </select>
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        설명
+                      </label>
+                      <textarea
+                        value={extraForm.description}
+                        onChange={(e) => setExtraForm({ ...extraForm, description: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        rows={2}
+                        placeholder="옵션에 대한 상세 설명"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        가격 유형 *
+                      </label>
+                      <select
+                        value={extraForm.price_type}
+                        onChange={(e) => setExtraForm({ ...extraForm, price_type: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      >
+                        <option value="per_day">일당 (Per Day)</option>
+                        <option value="per_rental">예약당 (Per Rental)</option>
+                        <option value="per_hour">시간당 (Per Hour)</option>
+                        <option value="per_item">개당 (Per Item)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        가격 (원) *
+                      </label>
+                      <input
+                        type="number"
+                        value={extraForm.price_krw}
+                        onChange={(e) => setExtraForm({ ...extraForm, price_krw: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="10000"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        최대 수량
+                      </label>
+                      <input
+                        type="number"
+                        value={extraForm.max_quantity}
+                        onChange={(e) => setExtraForm({ ...extraForm, max_quantity: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        placeholder="1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={extraForm.has_inventory}
+                          onChange={(e) => setExtraForm({ ...extraForm, has_inventory: e.target.checked })}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm font-medium text-gray-700">재고 관리 활성화</span>
+                      </label>
+                      {extraForm.has_inventory && (
+                        <input
+                          type="number"
+                          value={extraForm.current_stock}
+                          onChange={(e) => setExtraForm({ ...extraForm, current_stock: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg mt-2"
+                          placeholder="현재 재고 수량"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-2 mt-4">
+                    <button
+                      onClick={() => {
+                        setShowExtraForm(false);
+                        setEditingExtra(null);
+                      }}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={saveExtra}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    >
+                      {editingExtra ? '수정' : '추가'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Extras List */}
+              {extrasLoading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="mt-2 text-gray-600">옵션 로딩 중...</p>
+                </div>
+              ) : extras.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <p className="text-gray-500">등록된 옵션이 없습니다.</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    새 옵션을 추가하여 차량 예약 시 추가 서비스를 제공하세요.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          옵션명
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          카테고리
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          가격
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          재고
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          상태
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                          액션
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {extras.map((extra) => (
+                        <tr key={extra.id}>
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-gray-900">{extra.name}</div>
+                            {extra.description && (
+                              <div className="text-sm text-gray-500">{extra.description}</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {extra.category === 'equipment' && '장비'}
+                            {extra.category === 'service' && '서비스'}
+                            {extra.category === 'driver' && '운전자'}
+                            {extra.category === 'insurance' && '보험'}
+                            {extra.category === 'misc' && '기타'}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {extra.price_krw.toLocaleString()}원
+                            <div className="text-xs text-gray-500">
+                              ({extra.price_type === 'per_day' && '일당'}
+                              {extra.price_type === 'per_rental' && '예약당'}
+                              {extra.price_type === 'per_hour' && '시간당'}
+                              {extra.price_type === 'per_item' && '개당'})
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {extra.has_inventory ? `${extra.current_stock}개` : '무제한'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                extra.is_active
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {extra.is_active ? '활성' : '비활성'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right text-sm space-x-2">
+                            <button
+                              onClick={() => startEditExtra(extra)}
+                              className="text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              수정
+                            </button>
+                            <button
+                              onClick={() => deleteExtra(extra.id)}
+                              className="text-red-600 hover:text-red-800 font-medium"
+                            >
+                              삭제
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Help Text */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+                <h4 className="font-bold text-blue-900 mb-2">💡 사용 가이드</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• GPS, 아동 안전 시트, 보험 등 차량에 추가할 수 있는 옵션을 관리합니다.</li>
+                  <li>• 가격 유형을 선택하여 일당/예약당/시간당/개당 요금을 설정할 수 있습니다.</li>
+                  <li>• 재고 관리를 활성화하면 옵션의 수량을 제한할 수 있습니다.</li>
+                  <li>• 등록된 옵션은 차량별로 연결하여 사용자에게 제공됩니다.</li>
+                </ul>
+              </div>
             </div>
           )}
         </div>

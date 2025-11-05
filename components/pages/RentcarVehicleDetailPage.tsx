@@ -114,6 +114,10 @@ export function RentcarVehicleDetailPage() {
   const [insurances, setInsurances] = useState<Insurance[]>([]);
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<number | null>(null);
 
+  // 옵션 상태
+  const [extras, setExtras] = useState<any[]>([]);
+  const [selectedExtras, setSelectedExtras] = useState<Map<number, number>>(new Map()); // Map<extraId, quantity>
+
   // 리뷰 관련 상태
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -168,6 +172,14 @@ export function RentcarVehicleDetailPage() {
 
           if (insuranceResult.success && insuranceResult.data) {
             setInsurances(insuranceResult.data);
+          }
+
+          // 옵션 로드
+          const extrasResponse = await fetch(`/api/rentcar/vehicles/${vehicleId}/extras`);
+          const extrasResult = await extrasResponse.json();
+
+          if (extrasResult.success && extrasResult.data) {
+            setExtras(extrasResult.data.extras || []);
           }
         } else {
           setError('차량 정보를 찾을 수 없습니다');
@@ -303,7 +315,51 @@ export function RentcarVehicleDetailPage() {
     return selectedInsurance.hourly_rate_krw * billingHours;
   };
 
-  // 가격 계산 (시간 단위 + 보험료)
+  // 옵션 선택/수량 변경
+  const toggleExtra = (extraId: number, quantity: number) => {
+    const newSelectedExtras = new Map(selectedExtras);
+    if (quantity <= 0) {
+      newSelectedExtras.delete(extraId);
+    } else {
+      newSelectedExtras.set(extraId, quantity);
+    }
+    setSelectedExtras(newSelectedExtras);
+  };
+
+  // 옵션 가격 계산
+  const calculateExtrasFee = () => {
+    let total = 0;
+    const totalHours = calculateRentalHours();
+    const rentalDays = Math.ceil(totalHours / 24);
+
+    selectedExtras.forEach((quantity, extraId) => {
+      const extra = extras.find(e => e.id === extraId);
+      if (!extra) return;
+
+      let price = 0;
+      switch (extra.price_type) {
+        case 'per_day':
+          price = extra.price_krw * rentalDays * quantity;
+          break;
+        case 'per_rental':
+          price = extra.price_krw * quantity;
+          break;
+        case 'per_hour':
+          price = extra.price_krw * Math.ceil(totalHours) * quantity;
+          break;
+        case 'per_item':
+          price = extra.price_krw * quantity;
+          break;
+        default:
+          price = extra.price_krw * quantity;
+      }
+      total += price;
+    });
+
+    return total;
+  };
+
+  // 가격 계산 (시간 단위 + 보험료 + 옵션료)
   const calculateTotalPrice = () => {
     if (!vehicle || !pickupDate || !returnDate) return 0;
 
@@ -323,8 +379,9 @@ export function RentcarVehicleDetailPage() {
     }
 
     const insuranceFee = calculateInsuranceFee();
+    const extrasFee = calculateExtrasFee();
 
-    return rentalFee + insuranceFee;
+    return rentalFee + insuranceFee + extrasFee;
   };
 
   // 예약 처리 (새 MVP API 사용)
@@ -387,6 +444,22 @@ export function RentcarVehicleDetailPage() {
       const pickupDateTime = `${format(pickupDate, 'yyyy-MM-dd')}T${pickupTime}:00+09:00`;
       const returnDateTime = `${format(returnDate, 'yyyy-MM-dd')}T${returnTime}:00+09:00`;
 
+      // 선택된 옵션 데이터 준비
+      const selectedExtrasData: any[] = [];
+      selectedExtras.forEach((quantity, extraId) => {
+        const extra = extras.find(e => e.id === extraId);
+        if (extra && quantity > 0) {
+          selectedExtrasData.push({
+            extra_id: extra.id,
+            extra_code: extra.extra_code,
+            name: extra.name,
+            quantity: quantity,
+            price_type: extra.price_type,
+            unit_price_krw: extra.price_krw
+          });
+        }
+      });
+
       // 새 MVP API로 예약 생성 (운전자 정보 포함)
       const bookingPayload = {
         vehicle_id: vehicle.id,
@@ -400,11 +473,11 @@ export function RentcarVehicleDetailPage() {
           license_no: driverLicenseNo,
           license_exp: driverLicenseExp
         },
-        customer: {
-          name: user.name,
-          email: user.email,
-          phone: user.phone || ''
-        }
+        customer_name: user.name,
+        customer_email: user.email,
+        customer_phone: user.phone || '',
+        insurance_plan_id: selectedInsuranceId,
+        extras: selectedExtrasData.length > 0 ? selectedExtrasData : undefined
       };
 
       const bookingResponse = await fetch('/api/rentals', {
@@ -906,6 +979,121 @@ export function RentcarVehicleDetailPage() {
                     </>
                   )}
 
+                  {/* 옵션 선택 (선택사항) */}
+                  {extras.length > 0 && pickupDate && returnDate && calculateRentalHours() >= 4 && (
+                    <>
+                      <Separator className="my-4" />
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 mb-2">추가 옵션 (선택사항)</h3>
+                          <p className="text-xs text-gray-500 mb-3">
+                            필요한 옵션을 선택하고 수량을 입력하세요.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          {extras.map((extra) => {
+                            const quantity = selectedExtras.get(extra.id) || 0;
+                            const totalHours = calculateRentalHours();
+                            const rentalDays = Math.ceil(totalHours / 24);
+
+                            let pricePerUnit = extra.price_krw;
+                            let priceLabel = '';
+                            let totalPrice = 0;
+
+                            switch (extra.price_type) {
+                              case 'per_day':
+                                priceLabel = `${extra.price_krw.toLocaleString()}원/일`;
+                                totalPrice = extra.price_krw * rentalDays * quantity;
+                                break;
+                              case 'per_rental':
+                                priceLabel = `${extra.price_krw.toLocaleString()}원/예약`;
+                                totalPrice = extra.price_krw * quantity;
+                                break;
+                              case 'per_hour':
+                                priceLabel = `${extra.price_krw.toLocaleString()}원/시간`;
+                                totalPrice = extra.price_krw * Math.ceil(totalHours) * quantity;
+                                break;
+                              case 'per_item':
+                                priceLabel = `${extra.price_krw.toLocaleString()}원/개`;
+                                totalPrice = extra.price_krw * quantity;
+                                break;
+                            }
+
+                            const isAvailable = !extra.has_inventory || extra.current_stock > 0;
+                            const maxQuantity = extra.has_inventory
+                              ? Math.min(extra.max_quantity, extra.current_stock)
+                              : extra.max_quantity;
+
+                            return (
+                              <div
+                                key={extra.id}
+                                className={`border rounded-lg p-4 ${
+                                  quantity > 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                                } ${!isAvailable ? 'opacity-50' : ''}`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-medium text-gray-900">{extra.name}</h4>
+                                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                                        {extra.category === 'equipment' && '장비'}
+                                        {extra.category === 'service' && '서비스'}
+                                        {extra.category === 'driver' && '운전자'}
+                                        {extra.category === 'insurance' && '보험'}
+                                        {extra.category === 'misc' && '기타'}
+                                      </span>
+                                    </div>
+                                    {extra.description && (
+                                      <p className="text-sm text-gray-600 mt-1">{extra.description}</p>
+                                    )}
+                                    <div className="flex items-center gap-3 mt-2">
+                                      <span className="text-sm text-gray-700">{priceLabel}</span>
+                                      {extra.has_inventory && (
+                                        <span className="text-xs text-gray-500">
+                                          재고: {extra.current_stock}개
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center border border-gray-300 rounded-lg">
+                                      <button
+                                        onClick={() => toggleExtra(extra.id, Math.max(0, quantity - 1))}
+                                        disabled={!isAvailable || quantity === 0}
+                                        className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        -
+                                      </button>
+                                      <span className="px-3 py-1 min-w-[40px] text-center border-x border-gray-300">
+                                        {quantity}
+                                      </span>
+                                      <button
+                                        onClick={() => toggleExtra(extra.id, quantity + 1)}
+                                        disabled={!isAvailable || quantity >= maxQuantity}
+                                        className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                    {quantity > 0 && (
+                                      <div className="text-right min-w-[80px]">
+                                        <div className="font-semibold text-blue-600">
+                                          +₩{totalPrice.toLocaleString()}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   <Separator className="my-4" />
 
                   {/* 가격 표시 */}
@@ -923,7 +1111,7 @@ export function RentcarVehicleDetailPage() {
                               )}
                             </span>
                             <span className="font-medium">
-                              ₩{(calculateTotalPrice() - calculateInsuranceFee()).toLocaleString()}
+                              ₩{(calculateTotalPrice() - calculateInsuranceFee() - calculateExtrasFee()).toLocaleString()}
                             </span>
                           </div>
                           {calculateInsuranceFee() > 0 && (
@@ -931,6 +1119,14 @@ export function RentcarVehicleDetailPage() {
                               <span className="text-gray-600">보험료</span>
                               <span className="font-medium text-green-600">
                                 +₩{calculateInsuranceFee().toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {calculateExtrasFee() > 0 && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">추가 옵션</span>
+                              <span className="font-medium text-blue-600">
+                                +₩{calculateExtrasFee().toLocaleString()}
                               </span>
                             </div>
                           )}

@@ -263,8 +263,39 @@ module.exports = async function handler(req, res) {
 
     // 추가 옵션 요금
     let extrasPriceKrw = 0;
-    // extras는 [{extra_id, quantity}] 형식
-    // 실제 구현 시 각 extra의 가격을 조회하여 합산
+    // extras는 [{extra_id, quantity, price_type, unit_price_krw}] 형식
+    if (extras && Array.isArray(extras) && extras.length > 0) {
+      // 각 extra의 가격 계산
+      for (const extra of extras) {
+        const { extra_id, quantity, price_type, unit_price_krw } = extra;
+
+        if (!extra_id || !quantity || !price_type || !unit_price_krw) {
+          continue; // 유효하지 않은 extra는 스킵
+        }
+
+        let extraPrice = 0;
+        switch (price_type) {
+          case 'per_day':
+            extraPrice = unit_price_krw * pricing.rental_days * quantity;
+            break;
+          case 'per_rental':
+            extraPrice = unit_price_krw * quantity;
+            break;
+          case 'per_hour':
+            extraPrice = unit_price_krw * pricing.total_hours * quantity;
+            break;
+          case 'per_item':
+            extraPrice = unit_price_krw * quantity;
+            break;
+          default:
+            extraPrice = unit_price_krw * quantity;
+        }
+
+        extrasPriceKrw += extraPrice;
+      }
+
+      console.log(`   🎁 Extras calculated: ${extras.length} items, total=${extrasPriceKrw} KRW`);
+    }
 
     // 보증금
     const depositAmountKrw = vehicle.deposit_amount_krw || 0;
