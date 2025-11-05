@@ -5,6 +5,7 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { verifyJWT } = require('../../../../utils/jwt');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,16 +16,34 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const connection = connect({ url: process.env.DATABASE_URL });
-
-  const { vendor_id } = req.query;
-
-  if (!vendor_id) {
+  // JWT 인증
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) {
     return res.status(401).json({
       success: false,
-      error: '벤더 인증이 필요합니다.'
+      error: '인증 토큰이 필요합니다.'
     });
   }
+
+  let decoded;
+  try {
+    decoded = verifyJWT(token);
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      error: '유효하지 않은 토큰입니다.'
+    });
+  }
+
+  if (decoded.role !== 'vendor') {
+    return res.status(403).json({
+      success: false,
+      error: '벤더 권한이 필요합니다.'
+    });
+  }
+
+  const vendor_id = decoded.userId;
+  const connection = connect({ url: process.env.DATABASE_URL });
 
   // GET: 예약 목록 조회
   if (req.method === 'GET') {
@@ -46,10 +65,16 @@ module.exports = async function handler(req, res) {
           e.duration_minutes,
           u.name as user_name,
           u.email as user_email,
-          u.phone as user_phone
+          u.phone as user_phone,
+          es.slot_date,
+          es.start_time,
+          es.end_time,
+          es.max_participants,
+          es.current_participants
         FROM experience_bookings eb
         LEFT JOIN experiences e ON eb.experience_id = e.id
         LEFT JOIN users u ON eb.user_id = u.id
+        LEFT JOIN experience_slots es ON eb.slot_id = es.id
         WHERE e.vendor_id = ?
       `;
 
