@@ -91,6 +91,12 @@ export function RestaurantDetailPage() {
   const [orderType, setOrderType] = useState<'dine_in' | 'takeout' | 'delivery'>('dine_in');
   const [cart, setCart] = useState<CartItem[]>([]);
 
+  // 예약 관련
+  const [isReservationMode, setIsReservationMode] = useState(false);
+  const [reservationDate, setReservationDate] = useState('');
+  const [reservationTime, setReservationTime] = useState('');
+  const [partySize, setPartySize] = useState(2);
+
   // 데이터 로드
   useEffect(() => {
     const fetchData = async () => {
@@ -178,6 +184,48 @@ export function RestaurantDetailPage() {
     });
   };
 
+  // 예약하기
+  const handleReservation = async () => {
+    if (!reservationDate || !reservationTime) {
+      toast.error('예약 날짜와 시간을 선택해주세요');
+      return;
+    }
+
+    if (partySize < 1) {
+      toast.error('최소 1명 이상 선택해주세요');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/food/reservations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+          restaurant_id: restaurant?.id,
+          reservation_date: reservationDate,
+          reservation_time: reservationTime,
+          party_size: partySize,
+          special_requests: ''
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('예약이 완료되었습니다!');
+        navigate('/mypage', { state: { tab: 'reservations' } });
+      } else {
+        toast.error(result.message || '예약에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('예약 오류:', error);
+      toast.error('예약 처리 중 오류가 발생했습니다');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -259,11 +307,34 @@ export function RestaurantDetailPage() {
 
             {/* 서비스 옵션 */}
             <div className="flex gap-2 mt-4">
+              {restaurant.accepts_reservations && (
+                <Button
+                  variant={isReservationMode ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    setIsReservationMode(!isReservationMode);
+                    if (!isReservationMode) {
+                      // 예약 모드로 전환 시 기본 날짜 설정
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      setReservationDate(tomorrow.toISOString().split('T')[0]);
+                      setReservationTime('18:00');
+                    }
+                  }}
+                >
+                  <Clock className="h-4 w-4 mr-1" />
+                  예약
+                </Button>
+              )}
               {restaurant.accepts_takeout && (
                 <Button
-                  variant={orderType === 'takeout' ? 'default' : 'outline'}
+                  variant={!isReservationMode && orderType === 'takeout' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setOrderType('takeout')}
+                  onClick={() => {
+                    setIsReservationMode(false);
+                    setOrderType('takeout');
+                  }}
+                  disabled={isReservationMode}
                 >
                   <PackageOpen className="h-4 w-4 mr-1" />
                   포장
@@ -271,9 +342,13 @@ export function RestaurantDetailPage() {
               )}
               {restaurant.accepts_delivery && (
                 <Button
-                  variant={orderType === 'delivery' ? 'default' : 'outline'}
+                  variant={!isReservationMode && orderType === 'delivery' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setOrderType('delivery')}
+                  onClick={() => {
+                    setIsReservationMode(false);
+                    setOrderType('delivery');
+                  }}
+                  disabled={isReservationMode}
                 >
                   <Truck className="h-4 w-4 mr-1" />
                   배달
@@ -281,15 +356,97 @@ export function RestaurantDetailPage() {
               )}
               {restaurant.table_order_enabled && (
                 <Button
-                  variant={orderType === 'dine_in' ? 'default' : 'outline'}
+                  variant={!isReservationMode && orderType === 'dine_in' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setOrderType('dine_in')}
+                  onClick={() => {
+                    setIsReservationMode(false);
+                    setOrderType('dine_in');
+                  }}
+                  disabled={isReservationMode}
                 >
                   <Utensils className="h-4 w-4 mr-1" />
                   매장
                 </Button>
               )}
             </div>
+
+            {/* 예약 폼 */}
+            {isReservationMode && restaurant.accepts_reservations && (
+              <div className="mt-4 p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-3">예약 정보</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      예약 날짜
+                    </label>
+                    <input
+                      type="date"
+                      value={reservationDate}
+                      onChange={(e) => setReservationDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      예약 시간
+                    </label>
+                    <select
+                      value={reservationTime}
+                      onChange={(e) => setReservationTime(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="11:00">11:00</option>
+                      <option value="11:30">11:30</option>
+                      <option value="12:00">12:00</option>
+                      <option value="12:30">12:30</option>
+                      <option value="13:00">13:00</option>
+                      <option value="13:30">13:30</option>
+                      <option value="17:00">17:00</option>
+                      <option value="17:30">17:30</option>
+                      <option value="18:00">18:00</option>
+                      <option value="18:30">18:30</option>
+                      <option value="19:00">19:00</option>
+                      <option value="19:30">19:30</option>
+                      <option value="20:00">20:00</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      인원
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPartySize(Math.max(1, partySize - 1))}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="px-4 py-2 border border-gray-300 rounded-lg min-w-[60px] text-center">
+                        {partySize}명
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPartySize(Math.min(20, partySize + 1))}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleReservation}
+                    className="w-full"
+                  >
+                    예약 확정하기
+                  </Button>
+                  <p className="text-xs text-gray-600 text-center">
+                    예약은 영업 시간 내에만 가능합니다
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
