@@ -210,9 +210,9 @@ async function handler(req, res) {
   }
 }
 
-// 보안 미들웨어 적용: Admin 인증 + CORS + Rate Limiting
-module.exports = withStrictRateLimit(
-  withSecureCors(
+// 올바른 미들웨어 순서: CORS → RateLimit → Auth
+module.exports = withSecureCors(
+  withStrictRateLimit(
     withAuth(handler, { requireAuth: true, requireAdmin: true })
   )
 );

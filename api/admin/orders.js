@@ -7,6 +7,7 @@
 const { connect } = require('@planetscale/database');
 const { withAuth } = require('../../utils/auth-middleware');
 const { withSecureCors } = require('../../utils/cors-middleware');
+const { withStandardRateLimit } = require('../../utils/rate-limit-middleware');
 
 function generateOrderNumber() {
   const timestamp = Date.now();
@@ -771,4 +772,9 @@ async function handler(req, res) {
 }
 
 // JWT 인증 및 보안 CORS 적용
-module.exports = withSecureCors(withAuth(handler, { requireAuth: true, requireAdmin: true }));
+// 올바른 미들웨어 순서: CORS → RateLimit → Auth
+module.exports = withSecureCors(
+  withStandardRateLimit(
+    withAuth(handler, { requireAuth: true, requireAdmin: true })
+  )
+);

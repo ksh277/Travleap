@@ -31,13 +31,14 @@ function getAllowedOrigins() {
  * CORS 헤더 설정
  *
  * @param {Object} res - Response 객체
+ * @param {Object} req - Request 객체 (origin 확인용)
  * @param {Object} options - 옵션
  * @param {boolean} options.allowAnyOrigin - 모든 도메인 허용 (공개 API용)
  * @param {string[]} options.allowedMethods - 허용할 HTTP 메서드
  * @param {string[]} options.allowedHeaders - 허용할 헤더
  * @param {boolean} options.credentials - 인증 정보 포함 여부
  */
-function setCorsHeaders(res, options = {}) {
+function setCorsHeaders(res, req, options = {}) {
   const {
     allowAnyOrigin = false,
     allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -48,18 +49,32 @@ function setCorsHeaders(res, options = {}) {
   if (allowAnyOrigin) {
     // 공개 API: 모든 도메인 허용
     res.setHeader('Access-Control-Allow-Origin', '*');
+    // * 사용 시 credentials는 false여야 함
+    if (credentials) {
+      res.setHeader('Access-Control-Allow-Credentials', 'false');
+    }
   } else {
-    // 보안 API: 특정 도메인만 허용
+    // 보안 API: 요청 origin 확인 후 단일 origin 반환
+    const requestOrigin = req.headers.origin || req.headers.Origin;
     const allowedOrigins = getAllowedOrigins();
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins.join(','));
+
+    // 요청 origin이 허용 목록에 있으면 해당 origin 반환
+    if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+      if (credentials) {
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+      }
+    } else {
+      // 요청 origin이 없거나 허용되지 않으면 첫 번째 허용 origin 사용 (fallback)
+      res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
+      if (credentials) {
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+      }
+    }
   }
 
   res.setHeader('Access-Control-Allow-Methods', allowedMethods.join(', '));
   res.setHeader('Access-Control-Allow-Headers', allowedHeaders.join(', '));
-
-  if (credentials) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
 }
 
 /**
@@ -70,8 +85,8 @@ function setCorsHeaders(res, options = {}) {
  */
 function withCors(handler, options = {}) {
   return async function (req, res) {
-    // CORS 헤더 설정
-    setCorsHeaders(res, { ...options, allowAnyOrigin: options.public || false });
+    // CORS 헤더 설정 (req 전달)
+    setCorsHeaders(res, req, { ...options, allowAnyOrigin: options.public || false });
 
     // OPTIONS 요청 처리 (preflight)
     if (req.method === 'OPTIONS') {

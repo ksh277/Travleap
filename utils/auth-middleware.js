@@ -68,11 +68,11 @@ function verifyJWTFromRequest(req) {
 /**
  * API 핸들러를 JWT 인증으로 보호
  * @param {Function} handler - 원본 API 핸들러
- * @param {Object} options - { requireAuth: true, allowedRoles: ['user', 'admin'] }
+ * @param {Object} options - { requireAuth: true, requireAdmin: false, allowedRoles: ['user', 'admin'] }
  * @returns {Function} 인증이 추가된 핸들러
  */
 function withAuth(handler, options = {}) {
-  const { requireAuth = true, allowedRoles = null } = options;
+  const { requireAuth = true, requireAdmin = false, allowedRoles = null } = options;
 
   return async function (req, res) {
     // JWT 검증
@@ -87,7 +87,16 @@ function withAuth(handler, options = {}) {
       });
     }
 
-    // 역할 확인
+    // requireAdmin 옵션 체크
+    if (requireAdmin && (!user || user.role !== 'admin')) {
+      return res.status(403).json({
+        success: false,
+        error: 'FORBIDDEN',
+        message: '관리자 권한이 필요합니다.'
+      });
+    }
+
+    // 역할 확인 (allowedRoles 옵션)
     if (user && allowedRoles && !allowedRoles.includes(user.role)) {
       return res.status(403).json({
         success: false,
