@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { Calendar, MapPin, Users, Clock, CreditCard, CheckCircle, XCircle, AlertCircle, Car, Fuel, Settings, Bed, Coffee } from 'lucide-react';
+import { Calendar, MapPin, Users, Clock, CreditCard, CheckCircle, XCircle, AlertCircle, Car, Fuel, Settings, Bed, Coffee, Ticket, UtensilsCrossed, Camera, PartyPopper } from 'lucide-react';
 
 interface TourBooking {
   id: number;
@@ -88,11 +88,81 @@ interface AccommodationBooking {
   created_at: string;
 }
 
+interface ExperienceBooking {
+  id: number;
+  booking_number: string;
+  experience_id: number;
+  experience_name: string;
+  experience_description: string;
+  thumbnail_url: string;
+  slot_datetime: string;
+  duration_minutes: number;
+  participant_count: number;
+  price_per_person: number;
+  total_amount: number;
+  status: string;
+  payment_status: string;
+  created_at: string;
+}
+
+interface FoodOrder {
+  id: number;
+  order_number: string;
+  restaurant_id: number;
+  restaurant_name: string;
+  restaurant_address: string;
+  thumbnail_url: string;
+  reservation_datetime: string;
+  party_size: number;
+  menu_items: any;
+  total_amount: number;
+  status: string;
+  payment_status: string;
+  special_requests: string;
+  created_at: string;
+}
+
+interface AttractionOrder {
+  id: number;
+  order_number: string;
+  attraction_id: number;
+  attraction_name: string;
+  attraction_address: string;
+  thumbnail_url: string;
+  visit_date: string;
+  tickets: any;
+  total_amount: number;
+  status: string;
+  payment_status: string;
+  created_at: string;
+}
+
+interface EventOrder {
+  id: number;
+  order_number: string;
+  event_id: number;
+  event_title: string;
+  venue_name: string;
+  thumbnail_url: string;
+  start_datetime: string;
+  ticket_type: string;
+  quantity: number;
+  unit_price: number;
+  total_amount: number;
+  status: string;
+  payment_status: string;
+  created_at: string;
+}
+
 const MyBookingsPage = () => {
-  const [categoryTab, setCategoryTab] = useState<'tour' | 'rentcar' | 'accommodation'>('tour');
+  const [categoryTab, setCategoryTab] = useState<'tour' | 'rentcar' | 'accommodation' | 'experience' | 'food' | 'attractions' | 'events'>('tour');
   const [tourBookings, setTourBookings] = useState<TourBooking[]>([]);
   const [rentcarBookings, setRentcarBookings] = useState<RentcarBooking[]>([]);
   const [accommodationBookings, setAccommodationBookings] = useState<AccommodationBooking[]>([]);
+  const [experienceBookings, setExperienceBookings] = useState<ExperienceBooking[]>([]);
+  const [foodOrders, setFoodOrders] = useState<FoodOrder[]>([]);
+  const [attractionOrders, setAttractionOrders] = useState<AttractionOrder[]>([]);
+  const [eventOrders, setEventOrders] = useState<EventOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
@@ -126,6 +196,34 @@ const MyBookingsPage = () => {
       if (accommodationData.success) {
         setAccommodationBookings(accommodationData.bookings || []);
       }
+
+      // 체험 예약 로드
+      const experienceResponse = await fetch(`/api/experience/bookings?user_id=${userId}`);
+      const experienceData = await experienceResponse.json();
+      if (experienceData.success) {
+        setExperienceBookings(experienceData.data || []);
+      }
+
+      // 음식점 주문 로드
+      const foodResponse = await fetch(`/api/food/orders?user_id=${userId}`);
+      const foodData = await foodResponse.json();
+      if (foodData.success) {
+        setFoodOrders(foodData.data || []);
+      }
+
+      // 관광지 주문 로드
+      const attractionResponse = await fetch(`/api/attractions/orders?user_id=${userId}`);
+      const attractionData = await attractionResponse.json();
+      if (attractionData.success) {
+        setAttractionOrders(attractionData.data || []);
+      }
+
+      // 행사 주문 로드
+      const eventResponse = await fetch(`/api/events/orders?user_id=${userId}`);
+      const eventData = await eventResponse.json();
+      if (eventData.success) {
+        setEventOrders(eventData.data || []);
+      }
     } catch (error) {
       console.error('예약 내역 로드 실패:', error);
     } finally {
@@ -153,7 +251,14 @@ const MyBookingsPage = () => {
     );
   };
 
-  const currentBookings = categoryTab === 'tour' ? tourBookings : categoryTab === 'rentcar' ? rentcarBookings : accommodationBookings;
+  const currentBookings =
+    categoryTab === 'tour' ? tourBookings :
+    categoryTab === 'rentcar' ? rentcarBookings :
+    categoryTab === 'accommodation' ? accommodationBookings :
+    categoryTab === 'experience' ? experienceBookings :
+    categoryTab === 'food' ? foodOrders :
+    categoryTab === 'attractions' ? attractionOrders :
+    categoryTab === 'events' ? eventOrders : [];
   const filteredBookings = currentBookings.filter(booking => {
     if (filterStatus === 'all') return true;
     return booking.status === filterStatus;
@@ -217,6 +322,30 @@ const MyBookingsPage = () => {
             >
               숙박 ({accommodationBookings.length})
             </button>
+            <button
+              className={`category-tab ${categoryTab === 'experience' ? 'active' : ''}`}
+              onClick={() => { setCategoryTab('experience'); setFilterStatus('all'); }}
+            >
+              체험 ({experienceBookings.length})
+            </button>
+            <button
+              className={`category-tab ${categoryTab === 'food' ? 'active' : ''}`}
+              onClick={() => { setCategoryTab('food'); setFilterStatus('all'); }}
+            >
+              음식점 ({foodOrders.length})
+            </button>
+            <button
+              className={`category-tab ${categoryTab === 'attractions' ? 'active' : ''}`}
+              onClick={() => { setCategoryTab('attractions'); setFilterStatus('all'); }}
+            >
+              관광지 ({attractionOrders.length})
+            </button>
+            <button
+              className={`category-tab ${categoryTab === 'events' ? 'active' : ''}`}
+              onClick={() => { setCategoryTab('events'); setFilterStatus('all'); }}
+            >
+              행사 ({eventOrders.length})
+            </button>
           </div>
 
           {/* 상태 필터 탭 */}
@@ -250,9 +379,23 @@ const MyBookingsPage = () => {
           {filteredBookings.length === 0 ? (
             <div className="empty-state">
               <p>예약 내역이 없습니다.</p>
-              <Link href={categoryTab === 'tour' ? '/tour' : categoryTab === 'rentcar' ? '/rentcar' : '/accommodation'}>
+              <Link href={
+                categoryTab === 'tour' ? '/tour' :
+                categoryTab === 'rentcar' ? '/rentcar' :
+                categoryTab === 'accommodation' ? '/accommodation' :
+                categoryTab === 'experience' ? '/experience' :
+                categoryTab === 'food' ? '/food' :
+                categoryTab === 'attractions' ? '/attractions' :
+                categoryTab === 'events' ? '/events' : '/'
+              }>
                 <a className="browse-button">
-                  {categoryTab === 'tour' ? '투어 둘러보기' : categoryTab === 'rentcar' ? '렌트카 둘러보기' : '숙박 둘러보기'}
+                  {categoryTab === 'tour' ? '투어 둘러보기' :
+                   categoryTab === 'rentcar' ? '렌트카 둘러보기' :
+                   categoryTab === 'accommodation' ? '숙박 둘러보기' :
+                   categoryTab === 'experience' ? '체험 둘러보기' :
+                   categoryTab === 'food' ? '음식점 둘러보기' :
+                   categoryTab === 'attractions' ? '관광지 둘러보기' :
+                   categoryTab === 'events' ? '행사 둘러보기' : '홈으로'}
                 </a>
               </Link>
             </div>
@@ -575,6 +718,312 @@ const MyBookingsPage = () => {
                   </div>
                 </div>
               ))}
+
+              {categoryTab === 'experience' && filteredBookings.map((booking: any) => (
+                <div key={booking.id} className="booking-card">
+                  <div className="booking-header">
+                    <div className="booking-number">
+                      예약번호: {booking.booking_number}
+                    </div>
+                    {getStatusBadge(booking.status)}
+                  </div>
+
+                  <div className="booking-content">
+                    <div className="booking-image">
+                      <img
+                        src={booking.thumbnail_url || '/placeholder-experience.jpg'}
+                        alt={booking.experience_name}
+                      />
+                      {booking.duration_minutes && (
+                        <div className="duration-badge">
+                          {Math.floor(booking.duration_minutes / 60)}시간
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="booking-info">
+                      <h3>{booking.experience_name}</h3>
+                      {booking.experience_description && (
+                        <p className="vendor-name">{booking.experience_description}</p>
+                      )}
+
+                      <div className="info-grid">
+                        <div className="info-item">
+                          <Calendar size={16} />
+                          <span>{new Date(booking.slot_datetime).toLocaleString()}</span>
+                        </div>
+                        <div className="info-item">
+                          <Users size={16} />
+                          <span>{booking.participant_count}명</span>
+                        </div>
+                        {booking.duration_minutes && (
+                          <div className="info-item">
+                            <Clock size={16} />
+                            <span>{booking.duration_minutes}분</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="booking-actions">
+                      <div className="price-box">
+                        <span className="price-label">총 결제금액</span>
+                        <span className="price-value">
+                          {booking.total_amount.toLocaleString()}원
+                        </span>
+                        <div className="price-breakdown">
+                          <span>{booking.participant_count}명 × {booking.price_per_person.toLocaleString()}원</span>
+                        </div>
+                        <span className={`payment-status ${booking.payment_status}`}>
+                          {booking.payment_status === 'paid' ? '결제완료' :
+                           booking.payment_status === 'refunded' ? '환불완료' : '결제대기'}
+                        </span>
+                      </div>
+
+                      {booking.status === 'confirmed' && (
+                        <div className="action-buttons">
+                          <button className="btn-secondary">예약 변경</button>
+                          <button className="btn-danger">예약 취소</button>
+                        </div>
+                      )}
+
+                      {booking.status === 'completed' && (
+                        <button className="btn-primary">리뷰 작성</button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="booking-footer">
+                    <span className="booking-date">
+                      예약일: {new Date(booking.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {categoryTab === 'food' && filteredBookings.map((booking: any) => (
+                <div key={booking.id} className="booking-card">
+                  <div className="booking-header">
+                    <div className="booking-number">
+                      주문번호: {booking.order_number}
+                    </div>
+                    {getStatusBadge(booking.status)}
+                  </div>
+
+                  <div className="booking-content">
+                    <div className="booking-image">
+                      <img
+                        src={booking.thumbnail_url || '/placeholder-restaurant.jpg'}
+                        alt={booking.restaurant_name}
+                      />
+                    </div>
+
+                    <div className="booking-info">
+                      <h3>{booking.restaurant_name}</h3>
+                      {booking.restaurant_address && (
+                        <p className="vendor-name">{booking.restaurant_address}</p>
+                      )}
+
+                      <div className="info-grid">
+                        <div className="info-item">
+                          <Calendar size={16} />
+                          <span>{new Date(booking.reservation_datetime).toLocaleString()}</span>
+                        </div>
+                        <div className="info-item">
+                          <Users size={16} />
+                          <span>{booking.party_size}명</span>
+                        </div>
+                        {booking.special_requests && (
+                          <div className="info-item">
+                            <span>요청사항: {booking.special_requests}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="booking-actions">
+                      <div className="price-box">
+                        <span className="price-label">총 결제금액</span>
+                        <span className="price-value">
+                          {booking.total_amount.toLocaleString()}원
+                        </span>
+                        <span className={`payment-status ${booking.payment_status}`}>
+                          {booking.payment_status === 'paid' ? '결제완료' :
+                           booking.payment_status === 'refunded' ? '환불완료' : '결제대기'}
+                        </span>
+                      </div>
+
+                      {booking.status === 'confirmed' && (
+                        <div className="action-buttons">
+                          <button className="btn-secondary">예약 변경</button>
+                          <button className="btn-danger">예약 취소</button>
+                        </div>
+                      )}
+
+                      {booking.status === 'completed' && (
+                        <button className="btn-primary">리뷰 작성</button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="booking-footer">
+                    <span className="booking-date">
+                      예약일: {new Date(booking.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {categoryTab === 'attractions' && filteredBookings.map((booking: any) => (
+                <div key={booking.id} className="booking-card">
+                  <div className="booking-header">
+                    <div className="booking-number">
+                      주문번호: {booking.order_number}
+                    </div>
+                    {getStatusBadge(booking.status)}
+                  </div>
+
+                  <div className="booking-content">
+                    <div className="booking-image">
+                      <img
+                        src={booking.thumbnail_url || '/placeholder-attraction.jpg'}
+                        alt={booking.attraction_name}
+                      />
+                    </div>
+
+                    <div className="booking-info">
+                      <h3>{booking.attraction_name}</h3>
+                      {booking.attraction_address && (
+                        <p className="vendor-name">{booking.attraction_address}</p>
+                      )}
+
+                      <div className="info-grid">
+                        <div className="info-item">
+                          <Calendar size={16} />
+                          <span>방문일: {new Date(booking.visit_date).toLocaleDateString()}</span>
+                        </div>
+                        {booking.tickets && typeof booking.tickets === 'object' && (
+                          <div className="info-item">
+                            <Ticket size={16} />
+                            <span>
+                              {Array.isArray(booking.tickets) ?
+                                booking.tickets.map((t: any) => `${t.type_name} ${t.count}매`).join(', ') :
+                                '티켓 정보'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="booking-actions">
+                      <div className="price-box">
+                        <span className="price-label">총 결제금액</span>
+                        <span className="price-value">
+                          {booking.total_amount.toLocaleString()}원
+                        </span>
+                        <span className={`payment-status ${booking.payment_status}`}>
+                          {booking.payment_status === 'paid' ? '결제완료' :
+                           booking.payment_status === 'refunded' ? '환불완료' : '결제대기'}
+                        </span>
+                      </div>
+
+                      {booking.status === 'confirmed' && (
+                        <div className="action-buttons">
+                          <button className="btn-secondary">예약 변경</button>
+                          <button className="btn-danger">예약 취소</button>
+                        </div>
+                      )}
+
+                      {booking.status === 'completed' && (
+                        <button className="btn-primary">리뷰 작성</button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="booking-footer">
+                    <span className="booking-date">
+                      예약일: {new Date(booking.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {categoryTab === 'events' && filteredBookings.map((booking: any) => (
+                <div key={booking.id} className="booking-card">
+                  <div className="booking-header">
+                    <div className="booking-number">
+                      주문번호: {booking.order_number}
+                    </div>
+                    {getStatusBadge(booking.status)}
+                  </div>
+
+                  <div className="booking-content">
+                    <div className="booking-image">
+                      <img
+                        src={booking.thumbnail_url || '/placeholder-event.jpg'}
+                        alt={booking.event_title}
+                      />
+                      <div className="duration-badge">
+                        {booking.ticket_type === 'general' ? '일반석' : 'VIP석'}
+                      </div>
+                    </div>
+
+                    <div className="booking-info">
+                      <h3>{booking.event_title}</h3>
+                      {booking.venue_name && (
+                        <p className="vendor-name">{booking.venue_name}</p>
+                      )}
+
+                      <div className="info-grid">
+                        <div className="info-item">
+                          <Calendar size={16} />
+                          <span>{new Date(booking.start_datetime).toLocaleString()}</span>
+                        </div>
+                        <div className="info-item">
+                          <Ticket size={16} />
+                          <span>{booking.quantity}매</span>
+                        </div>
+                        <div className="info-item">
+                          <span>좌석: {booking.ticket_type === 'general' ? '일반석' : 'VIP석'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="booking-actions">
+                      <div className="price-box">
+                        <span className="price-label">총 결제금액</span>
+                        <span className="price-value">
+                          {booking.total_amount.toLocaleString()}원
+                        </span>
+                        <div className="price-breakdown">
+                          <span>{booking.quantity}매 × {booking.unit_price.toLocaleString()}원</span>
+                        </div>
+                        <span className={`payment-status ${booking.payment_status}`}>
+                          {booking.payment_status === 'paid' ? '결제완료' :
+                           booking.payment_status === 'refunded' ? '환불완료' : '결제대기'}
+                        </span>
+                      </div>
+
+                      {booking.status === 'confirmed' && (
+                        <div className="action-buttons">
+                          <button className="btn-secondary">예약 변경</button>
+                          <button className="btn-danger">예약 취소</button>
+                        </div>
+                      )}
+
+                      {booking.status === 'completed' && (
+                        <button className="btn-primary">리뷰 작성</button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="booking-footer">
+                    <span className="booking-date">
+                      예약일: {new Date(booking.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -631,6 +1080,7 @@ const MyBookingsPage = () => {
 
           .category-tabs {
             display: flex;
+            flex-wrap: wrap;
             gap: 12px;
             margin-bottom: 16px;
           }

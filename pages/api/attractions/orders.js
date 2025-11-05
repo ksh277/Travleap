@@ -59,29 +59,35 @@ async function handler(req, res) {
         });
       }
 
-      // 관광지 정보 조회
-      const [attractions] = await connection.execute(
-        `SELECT
-          id,
-          name,
-          admission_fee_adult,
-          admission_fee_child,
-          admission_fee_senior,
-          admission_fee_infant
-        FROM attractions
-        WHERE id = ?`,
-        [attraction_id]
-      );
+      // 🔒 트랜잭션 시작
+      await connection.beginTransaction();
 
-      if (attractions.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'ATTRACTION_NOT_FOUND',
-          message: '관광지를 찾을 수 없습니다.',
-        });
-      }
+      try {
+        // 관광지 정보 조회 (FOR UPDATE로 락 획득)
+        const [attractions] = await connection.execute(
+          `SELECT
+            id,
+            name,
+            admission_fee_adult,
+            admission_fee_child,
+            admission_fee_senior,
+            admission_fee_infant
+          FROM attractions
+          WHERE id = ?
+          FOR UPDATE`,
+          [attraction_id]
+        );
 
-      const attraction = attractions[0];
+        if (attractions.length === 0) {
+          await connection.rollback();
+          return res.status(404).json({
+            success: false,
+            error: 'ATTRACTION_NOT_FOUND',
+            message: '관광지를 찾을 수 없습니다.',
+          });
+        }
+
+        const attraction = attractions[0];
 
       // 티켓 가격 계산
       let totalAmount = 0;
@@ -139,41 +145,51 @@ async function handler(req, res) {
       // 주문 번호 생성
       const orderNumber = generateOrderNumber();
 
-      // 주문 생성
-      const [result] = await connection.execute(
-        `INSERT INTO attraction_orders (
-          order_number,
-          attraction_id,
-          user_id,
-          visit_date,
-          tickets,
-          total_amount,
-          payment_status,
-          order_status,
-          created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 'pending', NOW())`,
-        [
-          orderNumber,
-          attraction_id,
-          user.userId,
-          visit_date,
-          JSON.stringify(ticketDetails),
-          totalAmount
-        ]
-      );
+        // 주문 생성
+        const [result] = await connection.execute(
+          `INSERT INTO attraction_orders (
+            order_number,
+            attraction_id,
+            user_id,
+            visit_date,
+            tickets,
+            total_amount,
+            payment_status,
+            order_status,
+            created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 'pending', 'pending', NOW())`,
+          [
+            orderNumber,
+            attraction_id,
+            user.userId,
+            visit_date,
+            JSON.stringify(ticketDetails),
+            totalAmount
+          ]
+        );
 
-      return res.status(201).json({
-        success: true,
-        message: '주문이 생성되었습니다.',
-        data: {
-          order_id: result.insertId,
-          order_number: orderNumber,
-          attraction_name: attraction.name,
-          visit_date,
-          tickets: ticketDetails,
-          total_amount: totalAmount
-        }
-      });
+        // 트랜잭션 커밋
+        await connection.commit();
+
+        console.log(`✅ [Attraction Order] 주문 생성: ${orderNumber}, user_id=${user.userId}, total=${totalAmount}원`);
+
+        return res.status(201).json({
+          success: true,
+          message: '주문이 생성되었습니다.',
+          data: {
+            order_id: result.insertId,
+            order_number: orderNumber,
+            attraction_name: attraction.name,
+            visit_date,
+            tickets: ticketDetails,
+            total_amount: totalAmount
+          }
+        });
+
+      } catch (innerError) {
+        await connection.rollback();
+        throw innerError;
+      }
     }
 
     // ==========================================
