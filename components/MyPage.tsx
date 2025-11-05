@@ -397,6 +397,8 @@ export function MyPage() {
         }
       });
 
+      console.log('📡 [결제 내역] 응답 상태:', response.status, response.statusText);
+
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -406,7 +408,9 @@ export function MyPage() {
           throw new Error(data.message || '결제 내역 조회 실패');
         }
       } else {
-        throw new Error('결제 내역 조회 요청 실패');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ [결제 내역] 오류 응답:', response.status, errorData);
+        throw new Error(errorData.message || `결제 내역 조회 실패 (${response.status})`);
       }
     } catch (error) {
       console.error('결제 내역 불러오기 오류:', error);
@@ -476,6 +480,8 @@ export function MyPage() {
         }
       });
 
+      console.log('📡 [포인트] 응답 상태:', response.status, response.statusText);
+
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -486,7 +492,9 @@ export function MyPage() {
           throw new Error(data.message || '포인트 내역 조회 실패');
         }
       } else {
-        throw new Error('포인트 내역 조회 요청 실패');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ [포인트] 오류 응답:', response.status, errorData);
+        throw new Error(errorData.message || `포인트 내역 조회 실패 (${response.status})`);
       }
     } catch (error) {
       console.error('포인트 내역 불러오기 오류:', error);
