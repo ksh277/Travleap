@@ -1,12 +1,13 @@
 const { neon } = require('@neondatabase/serverless');
 const bcrypt = require('bcryptjs');
+const { verifyJWTFromRequest } = require('../../utils/auth-middleware.cjs');
 
 module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
   if (req.method === 'OPTIONS') {
@@ -32,15 +33,17 @@ module.exports = async function handler(req, res) {
   const sql = neon(databaseUrl);
 
   try {
-    // 사용자 ID 가져오기
-    const userId = req.headers['x-user-id'];
+    // JWT 토큰에서 userId 추출
+    const user = verifyJWTFromRequest(req);
 
-    if (!userId) {
+    if (!user) {
       return res.status(401).json({
         success: false,
         error: '인증이 필요합니다.'
       });
     }
+
+    const userId = user.userId;
 
     const { currentPassword, newPassword } = req.body;
 

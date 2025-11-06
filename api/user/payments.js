@@ -1,9 +1,10 @@
 /**
  * 사용자 결제 내역 조회 API
- * GET /api/user/payments?userId=123
+ * GET /api/user/payments
  */
 
 const { connect } = require('@planetscale/database');
+const { verifyJWTFromRequest } = require('../../utils/auth-middleware.cjs');
 
 module.exports = async function handler(req, res) {
   // CORS 헤더 설정
@@ -23,15 +24,17 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // x-user-id 헤더에서 userId 읽기 (쿼리 파라미터도 fallback)
-    const userId = req.headers['x-user-id'] || req.query.userId;
+    // JWT 토큰에서 userId 추출
+    const user = verifyJWTFromRequest(req);
 
-    if (!userId) {
-      return res.status(400).json({
+    if (!user) {
+      return res.status(401).json({
         success: false,
-        message: 'userId is required (x-user-id header or userId query param)'
+        message: '인증이 필요합니다. 로그인 후 다시 시도해주세요.'
       });
     }
+
+    const userId = user.userId;
 
     const connection = connect({ url: process.env.DATABASE_URL });
 
