@@ -206,7 +206,14 @@ export function CartPage() {
       }, 0);
 
     // 🔧 팝업 상품만의 합계가 50,000원 이상이면 배송비 무료 (혼합 주문 대응)
-    const hasPopupProduct = cartItems.some(item => item.category === '팝업');
+    // ✅ FIX: category 필드가 없는 경우 대비 (localStorage 기존 데이터)
+    // popupSubtotal > 0이면 팝업 상품이 있다고 판단
+    const hasPopupProduct = popupSubtotal > 0 || cartItems.some(item =>
+      item.category === '팝업' ||
+      item.category === 'popup' ||
+      (item.name || item.title || '').toLowerCase().includes('popup') ||
+      (item.name || item.title || '').includes('팝업')
+    );
     const shippingFee = hasPopupProduct && popupSubtotal >= 50000 ? 0 : (hasPopupProduct ? 3000 : 0);
 
     const total = Math.max(0, subtotal + shippingFee);
