@@ -120,7 +120,18 @@ export function CartPage() {
         console.log('🔍 [장바구니 검증] 페이지 로드 시 검증 시작');
 
         // 서버에서 검증된 장바구니 데이터 다시 가져오기
-        const response = await fetch(`/api/cart?userId=${user?.id}`);
+        const response = await fetch(`/api/cart?userId=${user?.id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        });
+
+        if (!response.ok) {
+          console.error('❌ [장바구니 검증] API 호출 실패:', response.status);
+          setIsValidating(false);
+          return;
+        }
+
         const result = await response.json();
 
         if (!result.success) {
@@ -150,7 +161,10 @@ export function CartPage() {
           // 유효하지 않은 항목 삭제
           for (const item of invalidItems) {
             await fetch(`/api/cart?itemId=${item.id}&userId=${user?.id}`, {
-              method: 'DELETE'
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+              }
             });
           }
 

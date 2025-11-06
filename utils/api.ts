@@ -2026,6 +2026,18 @@ export const api = {
         body: JSON.stringify(socialData)
       });
 
+      // 응답이 JSON인지 확인
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('❌ 소셜 로그인: JSON이 아닌 응답 받음', contentType);
+        const text = await response.text();
+        console.error('응답 내용:', text.substring(0, 200));
+        return {
+          success: false,
+          error: '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+        };
+      }
+
       const data = await response.json();
 
       if (!response.ok) {

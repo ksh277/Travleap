@@ -61,7 +61,16 @@ export function useCartStore() {
       try {
         console.log('🛒 [장바구니] API에서 로드 시작, user_id:', user.id);
 
-        const response = await fetch(`/api/cart?userId=${user.id}`);
+        const response = await fetch(`/api/cart?userId=${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const result = await response.json();
 
         if (result.success) {

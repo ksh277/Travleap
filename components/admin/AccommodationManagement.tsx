@@ -99,16 +99,31 @@ export const AccommodationManagement: React.FC = () => {
   const loadPartners = async () => {
     try {
       // 숙박 벤더 전용 API 사용
+      console.log('📥 숙박 업체 목록 로드 중...');
       const response = await fetch('/api/admin/accommodation-vendors');
+
+      if (!response.ok) {
+        console.error(`❌ API 호출 실패: ${response.status} ${response.statusText}`);
+        toast.error(`업체 목록을 불러올 수 없습니다 (HTTP ${response.status})`);
+        return;
+      }
+
       const result = await response.json();
+      console.log('📦 API 응답:', result);
+
       if (result.success && result.data) {
         console.log(`✅ 숙박 업체 ${result.data.length}개 로드됨`);
         setPartners(result.data);
+
+        if (result.data.length === 0) {
+          console.log('ℹ️ 등록된 숙박 업체가 없습니다');
+        }
       } else {
-        toast.error('업체 목록을 불러올 수 없습니다.');
+        console.error('❌ API 응답 실패:', result);
+        toast.error(result.error || '업체 목록을 불러올 수 없습니다.');
       }
     } catch (error) {
-      console.error('Failed to load partners:', error);
+      console.error('❌ 업체 목록 로드 실패:', error);
       toast.error('업체 목록을 불러올 수 없습니다.');
     }
   };
