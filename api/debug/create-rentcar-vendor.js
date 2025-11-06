@@ -38,14 +38,14 @@ module.exports = async function handler(req, res) {
     const email = `rentcar.test.${Date.now()}@travleap.com`;
     const password = 'rentcar1234!';
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userId = `rentcar_${Date.now()}`;
+    const username = `rentcar_${Date.now()}`;
 
     const userResult = await neonPool.query(`
-      INSERT INTO users (user_id, email, password_hash, name, phone, role, created_at, updated_at)
+      INSERT INTO users (username, email, password_hash, name, phone, role, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
       RETURNING id, email, name, role
     `, [
-      userId,
+      username,
       email,
       hashedPassword,
       '신안 렌터카',

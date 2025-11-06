@@ -125,7 +125,9 @@
       "Bash(grep:*)",
       "Bash(if [ -f .env ])",
       "Bash(then grep -i \"GOOGLE\\|NAVER\\|KAKAO\" .env)",
-      "Bash(else echo \".env file not found\")"
+      "Bash(else echo \".env file not found\")",
+      "Bash(node scripts/check-db-structure.cjs:*)",
+      "Bash(timeout 90 bash:*)"
     ],
     "deny": [],
     "ask": []
