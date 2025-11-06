@@ -3,9 +3,6 @@ server-api.ts
 workers/
 scripts/
 
-# CRITICAL: pages/api/ conflicts with api/ - use only api/
-pages/api/
-
 # Empty/incomplete API handlers
 api/admin/commission-settings.js
 api/bookings/create-with-lock.js
