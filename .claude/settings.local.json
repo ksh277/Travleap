@@ -129,7 +129,11 @@
       "Bash(node scripts/check-db-structure.cjs:*)",
       "Bash(timeout 90 bash:*)",
       "Bash(node scripts/check-partners-schema.cjs:*)",
-      "Bash(node scripts/check-tables-list.cjs:*)"
+      "Bash(node scripts/check-tables-list.cjs:*)",
+      "Bash(node scripts/check-rentcar-listings.cjs:*)",
+      "Bash(node scripts/check-listings-category-field.cjs:*)",
+      "Bash(node scripts/check-actual-rentcar-data.cjs:*)",
+      "Bash(node scripts/check-rentcar-tables-structure.cjs:*)"
     ],
     "deny": [],
     "ask": []
