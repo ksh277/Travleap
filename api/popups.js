@@ -11,7 +11,7 @@
  */
 
 const { connect } = require('@planetscale/database');
-const { withPublicCors } = require('../../utils/cors-middleware');
+const { withPublicCors } = require('../utils/cors-middleware');
 
 async function handler(req, res) {
   if (req.method !== 'GET') {

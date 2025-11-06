@@ -6,7 +6,7 @@
 
 const { connect } = require('@planetscale/database');
 const { randomUUID } = require('crypto');
-const { withPublicCors } = require('../../utils/cors-middleware');
+const { withPublicCors } = require('../utils/cors-middleware');
 
 function generateOrderNumber() {
   // UUID 사용으로 완전한 유일성 보장
