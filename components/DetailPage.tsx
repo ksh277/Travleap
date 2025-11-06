@@ -2394,6 +2394,22 @@ export function DetailPage() {
                           }
 
                           // ✅ 바로 PaymentPage로 이동
+                          // 🔒 배송비 계산 (팝업 상품만)
+                          const itemSubtotal = item.category === '팝업'
+                            ? (item.price || 0) * quantity + (selectedOption ? selectedOption.price_adjustment * quantity : 0)
+                            : priceCalculation.total;
+
+                          const isPopup = item.category === '팝업';
+                          const deliveryFee = isPopup ? (itemSubtotal >= 50000 ? 0 : 3000) : 0;
+                          const totalWithDelivery = itemSubtotal + deliveryFee;
+
+                          console.log('📦 [DetailPage] 배송비 계산:', {
+                            category: item.category,
+                            subtotal: itemSubtotal,
+                            deliveryFee: deliveryFee,
+                            total: totalWithDelivery
+                          });
+
                           const orderData = {
                             items: [{
                               id: item.id,
@@ -2413,12 +2429,9 @@ export function DetailPage() {
                                 priceAdjustment: selectedOption.price_adjustment
                               } : null
                             }],
-                            subtotal: item.category === '팝업'
-                              ? (item.price || 0) * quantity + (selectedOption ? selectedOption.price_adjustment * quantity : 0)
-                              : priceCalculation.total,
-                            total: item.category === '팝업'
-                              ? (item.price || 0) * quantity + (selectedOption ? selectedOption.price_adjustment * quantity : 0)
-                              : priceCalculation.total,
+                            subtotal: itemSubtotal,
+                            deliveryFee: deliveryFee,
+                            total: totalWithDelivery,
                             // ✅ 쿠폰 정보 초기값 (PaymentPage에서 업데이트)
                             couponDiscount: 0,
                             couponCode: null
