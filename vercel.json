@@ -1,4 +1,10 @@
 {
-  "buildCommand": "npm run build && mkdir -p dist/api && cp -r api/* dist/api/ && mkdir -p dist/utils && cp utils/cors-middleware.js dist/utils/",
-  "outputDirectory": "dist"
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
 }
