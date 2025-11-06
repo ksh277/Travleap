@@ -91,42 +91,55 @@ module.exports = async function handler(req, res) {
       // 3. 카테고리별 특수 테이블 확인
       let categorySpecificData = null;
 
-      if (category === 'food') {
-        // 음식점 메뉴 확인
-        const menuResult = await connection.execute(`
-          SELECT COUNT(*) as count FROM menus WHERE restaurant_id = ? LIMIT 1
-        `, [product.id]);
-        categorySpecificData = { menus: menuResult.rows?.[0]?.count || 0 };
-      } else if (category === 'tour') {
-        // 관광지 입장권 확인
-        const attractionResult = await connection.execute(`
-          SELECT id, name FROM attractions WHERE id = ? LIMIT 1
-        `, [product.id]);
-        categorySpecificData = { attraction: attractionResult.rows?.[0] || null };
-      } else if (category === 'experience') {
-        // 체험 타임슬롯 확인
-        const slotsResult = await connection.execute(`
-          SELECT COUNT(*) as count FROM experience_slots WHERE experience_id = ? LIMIT 1
-        `, [product.id]);
-        categorySpecificData = { slots: slotsResult.rows?.[0]?.count || 0 };
-      } else if (category === 'event') {
-        // 행사 좌석 확인
-        const seatsResult = await connection.execute(`
-          SELECT COUNT(*) as count FROM event_seats WHERE event_id = ? LIMIT 1
-        `, [product.id]);
-        categorySpecificData = { seats: seatsResult.rows?.[0]?.count || 0 };
-      } else if (category === 'stay') {
-        // 숙박 객실 확인
-        const roomsResult = await connection.execute(`
-          SELECT COUNT(*) as count FROM accommodation_rooms WHERE accommodation_id = ? LIMIT 1
-        `, [product.id]);
-        categorySpecificData = { rooms: roomsResult.rows?.[0]?.count || 0 };
-      } else if (category === 'rentcar') {
-        // 렌트카 차량 확인
-        const vehiclesResult = await connection.execute(`
-          SELECT COUNT(*) as count FROM rentcar_vehicles WHERE partner_id IN (SELECT id FROM partners WHERE partner_type = 'rentcar') LIMIT 1
-        `);
-        categorySpecificData = { vehicles: vehiclesResult.rows?.[0]?.count || 0 };
+      try {
+        if (category === 'food') {
+          // listing_food 테이블 확인
+          const foodResult = await connection.execute(`
+            SELECT * FROM listing_food WHERE listing_id = ? LIMIT 1
+          `, [product.id]);
+          categorySpecificData = { foodData: foodResult.rows?.[0] || null };
+        } else if (category === 'tour') {
+          // listing_tour 테이블 확인
+          const tourResult = await connection.execute(`
+            SELECT * FROM listing_tour WHERE listing_id = ? LIMIT 1
+          `, [product.id]);
+          categorySpecificData = { tourData: tourResult.rows?.[0] || null };
+        } else if (category === 'experience') {
+          // listings만 사용 (별도 테이블 없음)
+          categorySpecificData = { note: 'listings 테이블만 사용' };
+        } else if (category === 'event') {
+          // listing_event 테이블 확인
+          const eventResult = await connection.execute(`
+            SELECT * FROM listing_event WHERE listing_id = ? LIMIT 1
+          `, [product.id]);
+          categorySpecificData = { eventData: eventResult.rows?.[0] || null };
+        } else if (category === 'stay') {
+          // listing_accommodation 및 room_types 확인
+          const accomResult = await connection.execute(`
+            SELECT * FROM listing_accommodation WHERE listing_id = ? LIMIT 1
+          `, [product.id]);
+          const roomsResult = await connection.execute(`
+            SELECT COUNT(*) as count FROM room_types WHERE partner_id = (SELECT partner_id FROM listings WHERE id = ?) LIMIT 1
+          `, [product.id]);
+          categorySpecificData = {
+            accommodationData: accomResult.rows?.[0] || null,
+            roomCount: roomsResult.rows?.[0]?.count || 0
+          };
+        } else if (category === 'rentcar') {
+          // listing_rentcar 및 rentcar_vehicles 확인
+          const rentcarResult = await connection.execute(`
+            SELECT * FROM listing_rentcar WHERE listing_id = ? LIMIT 1
+          `, [product.id]);
+          const vehiclesResult = await connection.execute(`
+            SELECT COUNT(*) as count FROM rentcar_vehicles WHERE partner_id = (SELECT partner_id FROM listings WHERE id = ?) LIMIT 1
+          `, [product.id]);
+          categorySpecificData = {
+            rentcarData: rentcarResult.rows?.[0] || null,
+            vehicleCount: vehiclesResult.rows?.[0]?.count || 0
+          };
+        }
+      } catch (tableError) {
+        categorySpecificData = { error: `테이블 조회 실패: ${tableError.message}` };
       }
 
       // 4. 결제 가능 여부 판단
