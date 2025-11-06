@@ -178,10 +178,13 @@ async function handler(req, res) {
       // 비밀번호 해시화
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // 사용자 생성 (PlanetScale MySQL에는 username 컬럼 없음)
+      // user_id 생성 (PlanetScale users 테이블에 필수)
+      const userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      // 사용자 생성 (PlanetScale MySQL)
       const result = await connection.execute(
-        'INSERT INTO users (email, password_hash, name, phone, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())',
-        [email, hashedPassword, name, phone || '', 'user']
+        'INSERT INTO users (user_id, email, password_hash, name, phone, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())',
+        [userId, email, hashedPassword, name, phone || '', 'user']
       );
 
       const newUserId = result.insertId;
@@ -259,10 +262,13 @@ async function handler(req, res) {
       // 새 사용자 생성
       console.log('🆕 [Social Login] Creating new user...');
 
-      // PlanetScale MySQL에는 username 컬럼 없음
+      // user_id 생성 (PlanetScale users 테이블에 필수)
+      const userId = `${provider}_${Date.now()}_${providerId.substring(0, 6)}`;
+
+      // PlanetScale MySQL - 소셜 로그인 사용자 생성
       const result = await connection.execute(
-        'INSERT INTO users (email, name, provider, provider_id, role, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())',
-        [email, name, provider, providerId, 'user', '']
+        'INSERT INTO users (user_id, email, name, provider, provider_id, role, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+        [userId, email, name, provider, providerId, 'user', '']
       );
 
       const newUserId = result.insertId;
