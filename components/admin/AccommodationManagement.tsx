@@ -827,8 +827,8 @@ export const AccommodationManagement: React.FC = () => {
                     const startIndex = (vendorCurrentPage - 1) * vendorItemsPerPage;
                     const paginatedPartners = filtered.slice(startIndex, startIndex + vendorItemsPerPage);
                     return paginatedPartners.map((partner) => (
-                      <TableRow key={partner.partner_id}>
-                        <TableCell className="font-medium">{partner.partner_id}</TableCell>
+                      <TableRow key={partner.id}>
+                        <TableCell className="font-medium">{partner.id}</TableCell>
                         <TableCell>{partner.business_name}</TableCell>
                         <TableCell>{partner.room_count}</TableCell>
                         <TableCell>₩{partner.min_price?.toLocaleString()}</TableCell>
@@ -842,7 +842,7 @@ export const AccommodationManagement: React.FC = () => {
                         <TableCell>
                           <Select
                             value={partner.status || 'pending'}
-                            onValueChange={(value) => handleUpdateVendorStatus(partner.id || partner.partner_id, value)}
+                            onValueChange={(value) => handleUpdateVendorStatus(partner.id, value)}
                           >
                             <SelectTrigger className="w-32">
                               <SelectValue />
@@ -860,7 +860,7 @@ export const AccommodationManagement: React.FC = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handlePmsSync(partner.id || partner.partner_id, partner.business_name)}
+                                onClick={() => handlePmsSync(partner.id, partner.business_name)}
                                 title="PMS 동기화"
                                 className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                               >
@@ -870,7 +870,7 @@ export const AccommodationManagement: React.FC = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setSelectedPartnerId(partner.partner_id)}
+                              onClick={() => setSelectedPartnerId(partner.id)}
                               title="객실 보기"
                             >
                               <Eye className="h-4 w-4" />
@@ -886,7 +886,7 @@ export const AccommodationManagement: React.FC = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => deletePartner(partner.partner_id, partner.business_name)}
+                              onClick={() => deletePartner(partner.id, partner.business_name)}
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               title="업체 삭제"
                             >
@@ -946,7 +946,7 @@ export const AccommodationManagement: React.FC = () => {
                   <SelectContent>
                     <SelectItem value="none">업체 선택 (필수)</SelectItem>
                     {partners.map((partner) => (
-                      <SelectItem key={partner.partner_id} value={partner.partner_id.toString()}>
+                      <SelectItem key={partner.id} value={partner.id?.toString() || ''}>
                         {partner.business_name}
                       </SelectItem>
                     ))}
