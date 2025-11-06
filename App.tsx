@@ -45,6 +45,10 @@ import { AffiliatePage } from './components/AffiliatePage';
 import { RentcarSearchPage } from './components/RentcarSearchPage';
 import { AccommodationDetailPage } from './components/AccommodationDetailPage';
 import { HotelDetailPage } from './components/pages/HotelDetailPage';
+import { RestaurantDetailPage } from './components/pages/RestaurantDetailPage';
+import { AttractionDetailPage } from './components/pages/AttractionDetailPage';
+import { ExperienceDetailPage } from './components/pages/ExperienceDetailPage';
+import { EventDetailPage } from './components/pages/EventDetailPage';
 import { RentcarVendorDetailPage } from './components/pages/RentcarVendorDetailPage';
 import { RentcarVehicleDetailPage } from './components/pages/RentcarVehicleDetailPage';
 import { VendorRegistrationPage } from './components/VendorRegistrationPage';
@@ -124,6 +128,18 @@ function AppContent() {
 
           {/* 숙박 상세 페이지 (호텔별 객실 목록) */}
           <Route path="/accommodation/:partnerId" element={<HotelDetailPage />} />
+
+          {/* 식당 상세 페이지 */}
+          <Route path="/restaurant/:id" element={<RestaurantDetailPage />} />
+
+          {/* 관광지 상세 페이지 */}
+          <Route path="/attraction/:id" element={<AttractionDetailPage />} />
+
+          {/* 체험 상세 페이지 */}
+          <Route path="/experience/:id" element={<ExperienceDetailPage />} />
+
+          {/* 이벤트 상세 페이지 */}
+          <Route path="/event/:id" element={<EventDetailPage />} />
 
           {/* 렌트카 업체 상세 페이지 (업체별 차량 목록) */}
           <Route path="/rentcar/:vendorId" element={<RentcarVendorDetailPage />} />
