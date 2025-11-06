@@ -16,7 +16,7 @@ export const initGoogleAuth = () => {
     localStorage.removeItem('google_auth_success');
     localStorage.removeItem('google_auth_error');
 
-    const redirectUri = `${window.location.origin}/auth/google/callback`;
+    const redirectUri = `${window.location.origin}/api/auth/callback/google`;
     const scope = 'email profile';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${encodeURIComponent(scope)}`;
 
@@ -197,7 +197,7 @@ export const initNaverAuth = () => {
     localStorage.removeItem('naver_auth_success');
     localStorage.removeItem('naver_auth_error');
 
-    const redirectUri = `${window.location.origin}/auth/naver/callback`;
+    const redirectUri = `${window.location.origin}/api/auth/callback/naver`;
     const state = Math.random().toString(36).substring(2);
     const authUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=token&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
 

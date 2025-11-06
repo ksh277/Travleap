@@ -121,7 +121,8 @@
       "Bash(node scripts/create-tour-products.cjs:*)",
       "Bash(node scripts/create-accommodation-vendors.cjs:*)",
       "Bash(python3:*)",
-      "Bash(api/package.json)"
+      "Bash(api/package.json)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

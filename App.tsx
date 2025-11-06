@@ -14,8 +14,6 @@ import { AboutPage } from './components/AboutPage';
 import { ShinanPage } from './components/ShinanPage';
 import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
-import { GoogleCallback } from './components/GoogleCallback';
-import { NaverCallback } from './components/NaverCallback';
 import { CartPage } from './components/CartPage';
 import { AdminPage } from './components/AdminPage';
 import { MyPage } from './components/MyPage';
@@ -163,8 +161,6 @@ function AppContent() {
           {/* 인증 관련 */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
-          <Route path="/auth/google/callback" element={<GoogleCallback />} />
-          <Route path="/auth/naver/callback" element={<NaverCallback />} />
 
           {/* 렌트카 업체 등록 */}
           <Route path="/vendor/register" element={<VendorRegistrationPage />} />
