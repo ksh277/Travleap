@@ -88,26 +88,24 @@ module.exports = async function handler(req, res) {
 
         console.log('✅ [Naver Callback] access_token 획득');
 
-        // Naver API로 사용자 정보 가져오기
-        const response = await fetch('https://openapi.naver.com/v1/nid/me', {
+        // 서버 측 프록시를 통해 사용자 정보 가져오기 (CORS 문제 해결)
+        const apiUrl = window.location.origin;
+        const response = await fetch(\`\${apiUrl}/api/auth/naver/user-info\`, {
+          method: 'POST',
           headers: {
-            'Authorization': \`Bearer \${accessToken}\`
-          }
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ accessToken })
         });
-        const data = await response.json();
+        const result = await response.json();
 
-        if (data.resultcode !== '00') {
-          throw new Error(data.message || '사용자 정보 가져오기 실패');
+        if (!result.success || !result.data) {
+          throw new Error(result.error || '사용자 정보 가져오기 실패');
         }
 
-        console.log('✅ [Naver Callback] 사용자 정보 획득:', data.response.email);
+        console.log('✅ [Naver Callback] 사용자 정보 획득:', result.data.email);
 
-        const user = {
-          id: data.response.id,
-          email: data.response.email,
-          name: data.response.name,
-          picture: data.response.profile_image
-        };
+        const user = result.data;
 
         // localStorage에 저장
         localStorage.setItem('naver_auth_user', JSON.stringify(user));

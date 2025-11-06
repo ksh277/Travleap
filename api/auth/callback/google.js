@@ -88,18 +88,24 @@ module.exports = async function handler(req, res) {
 
         console.log('✅ [Google Callback] access_token 획득');
 
-        // Google API로 사용자 정보 가져오기
-        const response = await fetch(\`https://www.googleapis.com/oauth2/v2/userinfo?access_token=\${accessToken}\`);
-        const userData = await response.json();
+        // 서버 측 프록시를 통해 사용자 정보 가져오기 (CORS 문제 해결)
+        const apiUrl = window.location.origin;
+        const response = await fetch(\`\${apiUrl}/api/auth/google/user-info\`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ accessToken })
+        });
+        const result = await response.json();
 
-        console.log('✅ [Google Callback] 사용자 정보 획득:', userData.email);
+        if (!result.success || !result.data) {
+          throw new Error(result.error || '사용자 정보 가져오기 실패');
+        }
 
-        const user = {
-          id: userData.id,
-          email: userData.email,
-          name: userData.name,
-          picture: userData.picture
-        };
+        console.log('✅ [Google Callback] 사용자 정보 획득:', result.data.email);
+
+        const user = result.data;
 
         // localStorage에 저장
         localStorage.setItem('google_auth_user', JSON.stringify(user));
