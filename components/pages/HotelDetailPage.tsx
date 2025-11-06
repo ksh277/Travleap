@@ -33,6 +33,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { api } from '../../utils/api';
+import { ReservationModal } from '../ReservationModal';
 
 interface Room {
   id: number;
@@ -71,6 +72,7 @@ export function HotelDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
 
   // 예약 폼 상태
   const [checkIn, setCheckIn] = useState<Date>();
@@ -394,6 +396,15 @@ export function HotelDetailPage() {
                   </div>
                   <div className="flex gap-2">
                     <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => setIsReservationModalOpen(true)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-1" />
+                      간단 예약
+                    </Button>
+                    <Button
                       variant="outline"
                       size="sm"
                       onClick={toggleFavorite}
@@ -625,6 +636,17 @@ export function HotelDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* 간단 예약 모달 */}
+      <ReservationModal
+        isOpen={isReservationModalOpen}
+        onClose={() => setIsReservationModalOpen(false)}
+        vendorId={partnerId || ''}
+        vendorName={hotelData.partner.business_name}
+        serviceName="숙박"
+        category="hotel"
+        requiresEndDate={true}
+      />
     </div>
   );
 }
