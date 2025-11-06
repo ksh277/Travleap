@@ -100,7 +100,9 @@
       "Bash(pages/api/user/payments.js)",
       "Bash(pages/api/user/points.js)",
       "Bash(api/user/address.js)",
-      "Bash(pages/api/user/address.js)"
+      "Bash(pages/api/user/address.js)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:awesomeplan.co.kr)"
     ],
     "deny": [],
     "ask": []

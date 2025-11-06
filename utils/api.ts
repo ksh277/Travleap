@@ -675,6 +675,12 @@ export const api = {
     };
   }): Promise<ApiResponse<any>> => {
     try {
+      console.log('📦 [createOrder] 주문 생성 요청 시작:', {
+        userId: orderData.userId,
+        itemCount: orderData.items?.length,
+        total: orderData.total
+      });
+
       // ✅ SECURITY FIX: Call server API instead of direct DB access
       const response = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
@@ -685,16 +691,38 @@ export const api = {
         body: JSON.stringify(orderData)
       });
 
+      console.log('📦 [createOrder] 서버 응답:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || '주문 생성에 실패했습니다.');
+        // 에러 응답 상세 로깅
+        const responseText = await response.text();
+        console.error('❌ [createOrder] 서버 에러 응답:', {
+          status: response.status,
+          statusText: response.statusText,
+          responseText: responseText.substring(0, 500)
+        });
+
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('❌ [createOrder] JSON 파싱 실패:', parseError);
+          throw new Error(`서버 오류 (${response.status}): ${responseText.substring(0, 100)}`);
+        }
+
+        throw new Error(errorData.error || errorData.message || '주문 생성에 실패했습니다.');
       }
 
       const result = await response.json();
+      console.log('✅ [createOrder] 주문 생성 성공:', result);
       return result;
 
     } catch (error) {
-      console.error('Failed to create order:', error);
+      console.error('❌ [createOrder] Failed to create order:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : '주문 생성에 실패했습니다.'

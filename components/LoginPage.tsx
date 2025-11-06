@@ -22,7 +22,7 @@ export function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    console.log('🔑 로그인 시도:', email, password);
+    console.log('🔑 로그인 시도:', email);
 
     try {
       const success = await login(email, password);
@@ -31,6 +31,21 @@ export function LoginPage() {
 
       if (success) {
         toast.success('로그인 성공!');
+
+        // 모바일 환경 감지
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        console.log('📱 모바일 환경:', isMobile);
+
+        // 세션 저장 확인 (모바일에서 중요)
+        const tokenCheck = localStorage.getItem('auth_token');
+        console.log('🔐 토큰 저장 확인:', tokenCheck ? '✅ 저장됨' : '❌ 저장 안됨');
+
+        if (!tokenCheck) {
+          console.error('❌ 토큰 저장 실패 - 세션 복원 불가능');
+          toast.error('로그인 정보 저장 실패. 브라우저 설정을 확인해주세요.');
+          setIsLoading(false);
+          return;
+        }
 
         // 약간의 딜레이 후 리다이렉트 (상태 업데이트 대기)
         setTimeout(() => {
@@ -113,6 +128,17 @@ export function LoginPage() {
         localStorage.setItem('auth_token', result.data.token);
         localStorage.setItem('user_info', JSON.stringify(result.data.user));
 
+        // 저장 검증 (모바일 중요)
+        const tokenCheck = localStorage.getItem('auth_token');
+        if (!tokenCheck) {
+          console.error('❌ Google 로그인: 토큰 저장 실패');
+          toast.error('로그인 정보 저장 실패. 브라우저 설정을 확인해주세요.');
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('✅ Google 로그인: 토큰 저장 성공, 리다이렉트 시작');
+
         // 페이지 새로고침으로 세션 복원
         window.location.href = '/';
       } else {
@@ -151,6 +177,17 @@ export function LoginPage() {
         localStorage.setItem('auth_token', result.data.token);
         localStorage.setItem('user_info', JSON.stringify(result.data.user));
 
+        // 저장 검증 (모바일 중요)
+        const tokenCheck = localStorage.getItem('auth_token');
+        if (!tokenCheck) {
+          console.error('❌ 카카오 로그인: 토큰 저장 실패');
+          toast.error('로그인 정보 저장 실패. 브라우저 설정을 확인해주세요.');
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('✅ 카카오 로그인: 토큰 저장 성공, 리다이렉트 시작');
+
         // 페이지 새로고침으로 세션 복원
         window.location.href = '/';
       } else {
@@ -188,6 +225,17 @@ export function LoginPage() {
         // useAuth가 사용하는 키 이름으로 저장
         localStorage.setItem('auth_token', result.data.token);
         localStorage.setItem('user_info', JSON.stringify(result.data.user));
+
+        // 저장 검증 (모바일 중요)
+        const tokenCheck = localStorage.getItem('auth_token');
+        if (!tokenCheck) {
+          console.error('❌ 네이버 로그인: 토큰 저장 실패');
+          toast.error('로그인 정보 저장 실패. 브라우저 설정을 확인해주세요.');
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('✅ 네이버 로그인: 토큰 저장 성공, 리다이렉트 시작');
 
         // 페이지 새로고침으로 세션 복원
         window.location.href = '/';

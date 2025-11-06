@@ -42,7 +42,7 @@ function setCorsHeaders(res, req, options = {}) {
   const {
     allowAnyOrigin = false,
     allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders = ['Content-Type', 'Authorization'],
+    allowedHeaders = ['Content-Type', 'Authorization', 'x-user-id', 'X-User-Id'],
     credentials = true
   } = options;
 
