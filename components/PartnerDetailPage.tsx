@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPartnerPrice } from '../utils/price-formatter';
+import { ReservationModal } from './ReservationModal';
 
 interface Partner {
   id: number;
@@ -57,6 +58,7 @@ export function PartnerDetailPage() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [nearbyPartners, setNearbyPartners] = useState<Partner[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
 
   useEffect(() => {
     loadPartnerDetail();
@@ -74,13 +76,14 @@ export function PartnerDetailPage() {
     if (!partner) return;
 
     const initMap = () => {
-      if (!(window as any).google || !(window as any).google.maps) {
-        console.error('Google Maps API not loaded');
-        return;
-      }
-
       const container = document.getElementById('map');
       if (!container) return;
+
+      if (!(window as any).google || !(window as any).google.maps) {
+        console.error('Google Maps API not loaded');
+        container.innerHTML = '<div class="flex items-center justify-center h-full bg-gray-100 text-gray-500"><div class="text-center"><p class="mb-2">지도를 불러올 수 없습니다</p><p class="text-sm">Google Maps API 키를 설정해주세요</p></div></div>';
+        return;
+      }
 
       // lat/lng가 있으면 바로 사용
       if (partner.lat && partner.lng) {
@@ -541,6 +544,23 @@ export function PartnerDetailPage() {
                   </div>
                 </Card>
 
+                {/* Reservation Button */}
+                <Card>
+                  <CardContent className="p-6">
+                    <Button
+                      onClick={() => setIsReservationModalOpen(true)}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6"
+                      size="lg"
+                    >
+                      <Clock className="h-5 w-5 mr-2" />
+                      예약하기
+                    </Button>
+                    <p className="text-sm text-gray-500 text-center mt-3">
+                      날짜와 시간을 선택하여 예약하세요
+                    </p>
+                  </CardContent>
+                </Card>
+
                 {/* Host Info Card */}
                 <Card>
                   <CardContent className="p-6">
@@ -639,6 +659,16 @@ export function PartnerDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Reservation Modal */}
+      <ReservationModal
+        isOpen={isReservationModalOpen}
+        onClose={() => setIsReservationModalOpen(false)}
+        vendorId={partner.id.toString()}
+        vendorName={partner.name}
+        serviceName={partner.category}
+        category={partner.category as any}
+      />
     </>
   );
 }
