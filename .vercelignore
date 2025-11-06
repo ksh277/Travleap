@@ -3,24 +3,20 @@ server-api.ts
 workers/
 scripts/
 
-# CRITICAL: Exclude entire api/ directory (Express backend, not for Vercel)
-# Only pages/api/ should be deployed as serverless functions
-api/
+# Empty/incomplete API handlers
+api/admin/commission-settings.js
+api/bookings/create-with-lock.js
+api/bookings/return-inspect.js
+api/rentcar/payment.js
+api/rentcar/vendor-register.js
+api/rentcar/vendor-vehicles.js
+api/shared/activities-module.js
+api/shared/banners-module.js
+api/shared/newsletter.js
+api/shared/lodging.js
 
-# Empty/incomplete API handlers (REDUNDANT - covered by api/ above)
-# api/admin/commission-settings.js
-# api/bookings/create-with-lock.js
-# api/bookings/return-inspect.js
-# api/rentcar/payment.js
-# api/rentcar/vendor-register.js
-# api/rentcar/vendor-vehicles.js
-# api/shared/activities-module.js
-# api/shared/banners-module.js
-# api/shared/newsletter.js
-# api/shared/lodging.js
-
-# API files with syntax errors (REDUNDANT - covered by api/ above)
-# api/auth/route.js
-# api/db/route.js
-# api/pms/sync/route.js
-# api/shared/listings.js
+# API files with syntax errors
+api/auth/route.js
+api/db/route.js
+api/pms/sync/route.js
+api/shared/listings.js
