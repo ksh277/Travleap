@@ -402,7 +402,7 @@ export function PaymentPage() {
           userId: Number(user?.id) || 1,
           items: mappedItems,
           subtotal: orderData.subtotal,
-          deliveryFee: deliveryFee,
+          deliveryFee: orderData.deliveryFee || 0,
           couponDiscount: 0,
           couponCode: null,
           pointsUsed: pointsToUse,
