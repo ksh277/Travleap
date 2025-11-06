@@ -30,7 +30,9 @@ export function useCartStore() {
               // category 없으면 상품명으로 팝업 감지
               if (!category || category === 'general') {
                 const title = (item.title || item.name || '').toLowerCase();
-                if (title.includes('popup') || title.includes('팝업') || title.includes('pop')) {
+                // 팝업 관련 키워드 또는 퍼플아일랜드 상품 감지
+                if (title.includes('popup') || title.includes('팝업') || title.includes('pop') ||
+                    title.includes('퍼플아일랜드') || title.includes('purple island') || title.includes('purpleisland')) {
                   category = '팝업';
                 }
               }
@@ -91,7 +93,9 @@ export function useCartStore() {
             // 🔧 category 없으면 상품명으로 팝업 감지
             if (!category || category === 'general') {
               const title = (item.title || '').toLowerCase();
-              if (title.includes('popup') || title.includes('팝업') || title.includes('pop')) {
+              // 팝업 관련 키워드 또는 퍼플아일랜드 상품 감지
+              if (title.includes('popup') || title.includes('팝업') || title.includes('pop') ||
+                  title.includes('퍼플아일랜드') || title.includes('purple island') || title.includes('purpleisland')) {
                 category = '팝업';
               }
             }
@@ -220,7 +224,9 @@ export function useCartStore() {
             // 🔧 category 없으면 상품명으로 팝업 감지
             if (!category || category === 'general') {
               const title = (item.title || '').toLowerCase();
-              if (title.includes('popup') || title.includes('팝업') || title.includes('pop')) {
+              // 팝업 관련 키워드 또는 퍼플아일랜드 상품 감지
+              if (title.includes('popup') || title.includes('팝업') || title.includes('pop') ||
+                  title.includes('퍼플아일랜드') || title.includes('purple island') || title.includes('purpleisland')) {
                 category = '팝업';
               }
             }
