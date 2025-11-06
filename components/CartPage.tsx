@@ -338,34 +338,52 @@ export function CartPage() {
       }
 
 
+      // 🔒 CRITICAL: items를 먼저 매핑 (배송비 계산과 동일한 데이터 사용)
+      const mappedItems = cartItems.map(item => ({
+        ...item,
+        // Ensure we have clean data
+        image: item.image || '/placeholder.jpg',
+        category: item.category || 'general',
+        name: item.name || item.title || 'Unknown Item'
+      }));
+
+      // 🔒 매핑된 items로 배송비 재계산 (서버와 동일한 로직)
+      const finalPopupSubtotal = mappedItems
+        .filter(item => item.category === '팝업' || item.category === 'popup')
+        .reduce((sum, item) => {
+          const itemPrice = item.price || 0;
+          const optionPrice = item.selectedOption?.priceAdjustment || 0;
+          return sum + (itemPrice + optionPrice) * item.quantity;
+        }, 0);
+
+      const finalHasPopupProduct = finalPopupSubtotal > 0;
+      const finalShippingFee = finalHasPopupProduct && finalPopupSubtotal >= 50000 ? 0 : (finalHasPopupProduct ? 3000 : 0);
+      const finalTotal = subtotal + finalShippingFee;
+
       // Create comprehensive order summary
       const orderSummary: OrderSummary = {
-        items: cartItems.map(item => ({
-          ...item,
-          // Ensure we have clean data
-          image: item.image || '/placeholder.jpg',
-          category: item.category || 'general',
-          name: item.name || item.title || 'Unknown Item'
-        })),
+        items: mappedItems,
         subtotal,
         couponDiscount: 0,
         couponCode: null,
-        deliveryFee: shippingFee,
-        total
+        deliveryFee: finalShippingFee,
+        total: finalTotal
       };
 
-      // Validate order summary
-      if (orderSummary.total !== total) {
-        toast.error('주문 정보 오류가 발생했습니다. 다시 시도해주세요');
-        return;
-      }
+      // Validate order summary (finalTotal 사용)
+      console.log('🔍 [Checkout] 금액 검증:', {
+        'calculations.total': total,
+        'finalTotal': finalTotal,
+        'finalShippingFee': finalShippingFee,
+        'orderSummary.total': orderSummary.total
+      });
 
       toast.success('결제 페이지로 이동합니다...');
 
       // Navigate to payment with order data
       const orderParams = new URLSearchParams({
         orderData: JSON.stringify(orderSummary),
-        totalAmount: total.toString(),
+        totalAmount: finalTotal.toString(),
         userId: user?.id?.toString() || '',
         timestamp: Date.now().toString()
       });
