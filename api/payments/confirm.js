@@ -456,7 +456,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         paymentResult.easyPay?.provider
       );
 
-      await connection.execute(
+      const paymentInsertResult = await connection.execute(
         `INSERT INTO payments (
           user_id, booking_id, order_id, payment_key, order_id_str, amount,
           payment_method, payment_status, approved_at, receipt_url,
@@ -484,7 +484,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         ]
       );
 
-      console.log('✅ [결제 기록] payments 테이블에 저장 완료');
+      const paymentId = paymentInsertResult.insertId;
+      console.log(`✅ [결제 기록] payments 테이블에 저장 완료 (payment_id: ${paymentId})`);
 
       // ✅ 단일 예약에서도 청구 정보를 사용자 프로필에 저장
       try {
@@ -522,6 +523,78 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         }
       } catch (updateError) {
         console.warn('⚠️  [사용자 정보] 업데이트 실패 (계속 진행):', updateError);
+      }
+
+      // ✅ 단일 예약 포인트 적립 (CRITICAL FIX)
+      try {
+        const { Pool } = require('@neondatabase/serverless');
+        const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+        try {
+          console.log(`💰 [포인트] 단일 예약 포인트 적립 시작 (booking_id: ${bookingId}, user_id: ${userId})`);
+
+          // 트랜잭션 시작 (FOR UPDATE를 위해 필수)
+          await poolNeon.query('BEGIN');
+
+          // 사용자 정보 조회 (Neon - users 테이블)
+          const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [userId]);
+
+          if (userResult.rows && userResult.rows.length > 0) {
+            const currentPoints = userResult.rows[0].total_points || 0;
+
+            // 💰 포인트 적립 (2%, 상품 금액 기준, 배송비 제외)
+            // booking.total_amount에서 배송비를 빼고 계산
+            const totalAmount = parseFloat(booking.total_amount || 0);
+            const shippingFee = parseFloat(booking.shipping_fee || 0);
+            const productAmount = totalAmount - shippingFee;
+            const pointsToEarn = Math.floor(productAmount * 0.02);
+
+            if (pointsToEarn > 0) {
+              const newBalance = currentPoints + pointsToEarn;
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
+
+              // 포인트 내역 추가 (PlanetScale - user_points 테이블)
+              await connection.execute(`
+                INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
+                VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+              `, [
+                userId,
+                pointsToEarn,
+                `주문 적립 (booking_id: ${bookingId})`,
+                String(paymentId), // ✅ payment_id를 related_order_id로 저장 (환불 시 개별 회수)
+                newBalance,
+                expiresAt
+              ]);
+
+              // 사용자 포인트 업데이트 (Neon - users 테이블)
+              await poolNeon.query(`
+                UPDATE users SET total_points = $1 WHERE id = $2
+              `, [newBalance, userId]);
+
+              console.log(`✅ [포인트] booking_id=${bookingId} ${pointsToEarn}P 적립 완료 (잔액: ${newBalance}P)`);
+            } else {
+              console.log(`ℹ️  [포인트] booking_id=${bookingId} 적립할 포인트 없음 (상품 금액: ${productAmount}원)`);
+            }
+          }
+
+          // 트랜잭션 커밋
+          await poolNeon.query('COMMIT');
+        } catch (pointsError) {
+          console.error('❌ [포인트] 단일 예약 적립 실패 (계속 진행):', pointsError);
+          // 롤백 시도
+          try {
+            await poolNeon.query('ROLLBACK');
+          } catch (rollbackError) {
+            console.error('❌ [포인트] 롤백 실패:', rollbackError);
+          }
+          // 포인트 적립 실패해도 결제는 성공 처리
+        } finally {
+          // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
+          await poolNeon.end();
+        }
+      } catch (outerError) {
+        console.error('❌ [포인트] 단일 예약 포인트 적립 실패 (계속 진행):', outerError);
       }
 
     } else if (isOrder) {
