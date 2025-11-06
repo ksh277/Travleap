@@ -10,7 +10,7 @@
  * 권한: 로그인 필수
  */
 
-const { getCourierCode } = require('../../../utils/sweettracker.ts');
+const { getCourierCode } = require('../../utils/sweettracker.ts');
 
 module.exports = async function handler(req, res) {
   // CORS
