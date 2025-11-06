@@ -1,4 +1,4 @@
-const { neon } = require('@neondatabase/serverless');
+const { connect } = require('@planetscale/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { withStrictRateLimit } = require('../utils/rate-limit-middleware');
@@ -43,8 +43,7 @@ async function handler(req, res) {
   // 수동으로 body 파싱
   req.body = await parseBody(req);
 
-  const databaseUrl = process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL;
-  const sql = neon(databaseUrl);
+  const connection = connect({ url: process.env.DATABASE_URL });
 
   // JWT_SECRET 환경변수 확인
   const JWT_SECRET = process.env.JWT_SECRET;
@@ -82,13 +81,13 @@ async function handler(req, res) {
         return res.status(400).json({ success: false, error: '잘못된 입력 형식입니다.' });
       }
 
-      const result = await sql`SELECT * FROM users WHERE email = ${email}`;
+      const result = await connection.execute('SELECT * FROM users WHERE email = ?', [email]);
 
-      if (result.length === 0) {
+      if (!result.rows || result.rows.length === 0) {
         return res.status(401).json({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
       }
 
-      const user = result[0];
+      const user = result.rows[0];
 
       console.log('🔍 Login attempt for:', email);
       console.log('   User found:', user.email, '(ID:', user.id, ')');
@@ -170,9 +169,9 @@ async function handler(req, res) {
       }
 
       // 이메일 중복 확인
-      const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
+      const existing = await connection.execute('SELECT id FROM users WHERE email = ?', [email]);
 
-      if (existing.length > 0) {
+      if (existing.rows && existing.rows.length > 0) {
         return res.status(400).json({ success: false, error: '이미 사용 중인 이메일입니다.' });
       }
 
@@ -183,13 +182,12 @@ async function handler(req, res) {
       const username = email.split('@')[0] + '_' + Date.now().toString().substring(8);
 
       // 사용자 생성
-      const result = await sql`
-        INSERT INTO users (email, username, password_hash, name, phone, role, created_at, updated_at)
-        VALUES (${email}, ${username}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING id
-      `;
+      const result = await connection.execute(
+        'INSERT INTO users (email, username, password_hash, name, phone, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())',
+        [email, username, hashedPassword, name, phone || '', 'user']
+      );
 
-      const newUserId = result[0].id;
+      const newUserId = result.insertId;
 
       const token = jwt.sign(
         {
@@ -226,11 +224,14 @@ async function handler(req, res) {
 
       // 기존 사용자 확인
       console.log('🔍 [Social Login] Checking existing user...');
-      const existing = await sql`SELECT * FROM users WHERE provider = ${provider} AND provider_id = ${providerId}`;
-      console.log('✅ [Social Login] Existing user found:', existing.length);
+      const existing = await connection.execute(
+        'SELECT * FROM users WHERE provider = ? AND provider_id = ?',
+        [provider, providerId]
+      );
+      console.log('✅ [Social Login] Existing user found:', existing.rows ? existing.rows.length : 0);
 
-      if (existing.length > 0) {
-        const user = existing[0];
+      if (existing.rows && existing.rows.length > 0) {
+        const user = existing.rows[0];
         const token = jwt.sign(
           {
             userId: user.id,
@@ -264,13 +265,13 @@ async function handler(req, res) {
       // username 생성 (이메일 @ 앞부분 사용)
       const username = email.split('@')[0] + '_' + providerId.substring(0, 6);
 
-      const result = await sql`
-        INSERT INTO users (email, username, name, provider, provider_id, role, password_hash, created_at, updated_at)
-        VALUES (${email}, ${username}, ${name}, ${provider}, ${providerId}, 'user', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING id, email, name, role
-      `;
+      const result = await connection.execute(
+        'INSERT INTO users (email, username, name, provider, provider_id, role, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+        [email, username, name, provider, providerId, 'user', '']
+      );
 
-      const newUser = result[0];
+      const newUserId = result.insertId;
+      const newUser = { id: newUserId, email, name, role: 'user' };
       console.log('✅ [Social Login] New user created:', newUser.id);
 
       const token = jwt.sign(
