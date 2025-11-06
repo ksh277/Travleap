@@ -4,7 +4,7 @@
  *
  * 생성:
  * 1. Neon PostgreSQL users 테이블 - 벤더 계정
- * 2. PlanetScale partners 테이블 - 숙박 파트너 (partner_type='stay')
+ * 2. PlanetScale partners 테이블 - 숙박 파트너 (partner_type='lodging')
  */
 
 const { connect } = require('@planetscale/database');
@@ -78,7 +78,7 @@ module.exports = async function handler(req, res) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
     `, [
       newUserId,
-      'stay',
+      'lodging',
       '제주 오션뷰 호텔',
       '김호텔',
       email,
@@ -105,7 +105,7 @@ module.exports = async function handler(req, res) {
       phone: '010-2345-6789',
       role: 'vendor',
       status: 'approved',
-      partnerType: 'stay'
+      partnerType: 'lodging'
     };
 
     console.log('✅ [Create Accommodation] Vendor creation completed');
