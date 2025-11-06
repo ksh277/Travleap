@@ -83,6 +83,64 @@ console.log('\n📦 Building frontend...');
 try {
   execSync('node ./node_modules/vite/bin/vite.js build', { stdio: 'inherit' });
   console.log('✅ Build completed!');
+
+  // Copy api/ directory to dist/api/ for Vercel deployment
+  console.log('\n📦 Copying api/ to dist/api/...');
+  const apiSource = path.join(__dirname, 'api');
+  const apiDest = path.join(__dirname, 'dist', 'api');
+
+  if (fs.existsSync(apiSource)) {
+    // Create dist/api if it doesn't exist
+    if (!fs.existsSync(apiDest)) {
+      fs.mkdirSync(apiDest, { recursive: true });
+    }
+
+    // Copy all .js files from api/ to dist/api/
+    function copyRecursive(src, dest) {
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+
+        if (entry.isDirectory()) {
+          if (!fs.existsSync(destPath)) {
+            fs.mkdirSync(destPath, { recursive: true });
+          }
+          copyRecursive(srcPath, destPath);
+        } else if (entry.name.endsWith('.js')) {
+          fs.copyFileSync(srcPath, destPath);
+          console.log(`   Copied ${srcPath} → ${destPath}`);
+        }
+      }
+    }
+
+    copyRecursive(apiSource, apiDest);
+    console.log('✅ API files copied to dist/api/');
+  }
+
+  // Copy utils/ to dist/utils/ (needed by api/)
+  console.log('\n📦 Copying utils/ to dist/utils/...');
+  const utilsSource = path.join(__dirname, 'utils');
+  const utilsDest = path.join(__dirname, 'dist', 'utils');
+
+  if (fs.existsSync(utilsSource)) {
+    if (!fs.existsSync(utilsDest)) {
+      fs.mkdirSync(utilsDest, { recursive: true });
+    }
+
+    // Copy necessary utils files
+    const utilsFiles = ['cors-middleware.js'];
+    for (const file of utilsFiles) {
+      const srcPath = path.join(utilsSource, file);
+      const destPath = path.join(utilsDest, file);
+      if (fs.existsSync(srcPath)) {
+        fs.copyFileSync(srcPath, destPath);
+        console.log(`   Copied ${file}`);
+      }
+    }
+    console.log('✅ Utils files copied to dist/utils/');
+  }
+
 } catch (err) {
   console.error('❌ Build failed');
   process.exitCode = 1;
