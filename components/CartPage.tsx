@@ -339,26 +339,48 @@ export function CartPage() {
 
 
       // 🔒 CRITICAL: items를 먼저 매핑 (배송비 계산과 동일한 데이터 사용)
-      const mappedItems = cartItems.map(item => ({
-        ...item,
-        // Ensure we have clean data
-        image: item.image || '/placeholder.jpg',
-        category: item.category || 'general',
-        name: item.name || item.title || 'Unknown Item'
-      }));
+      const mappedItems = cartItems.map(item => {
+        // category 강제 설정 (localStorage 오래된 데이터 대응)
+        let category = item.category || 'general';
+        const title = (item.title || item.name || '').toLowerCase();
+
+        // category가 없거나 'general'이면 상품명으로 팝업 감지
+        if (!category || category === 'general' || category === '') {
+          if (title.includes('popup') || title.includes('팝업') || title.includes('pop') ||
+              title.includes('퍼플아일랜드') || title.includes('purple island') || title.includes('purpleisland')) {
+            category = '팝업';
+          }
+        }
+
+        return {
+          ...item,
+          image: item.image || '/placeholder.jpg',
+          category: category,
+          name: item.name || item.title || 'Unknown Item'
+        };
+      });
 
       // 🔒 매핑된 items로 배송비 재계산 (서버와 동일한 로직)
-      const finalPopupSubtotal = mappedItems
-        .filter(item => item.category === '팝업' || item.category === 'popup')
-        .reduce((sum, item) => {
-          const itemPrice = item.price || 0;
-          const optionPrice = item.selectedOption?.priceAdjustment || 0;
-          return sum + (itemPrice + optionPrice) * item.quantity;
-        }, 0);
+      const popupItems = mappedItems.filter(item => item.category === '팝업' || item.category === 'popup');
+      const finalPopupSubtotal = popupItems.reduce((sum, item) => {
+        const itemPrice = item.price || 0;
+        const optionPrice = item.selectedOption?.priceAdjustment || 0;
+        return sum + (itemPrice + optionPrice) * item.quantity;
+      }, 0);
 
       const finalHasPopupProduct = finalPopupSubtotal > 0;
       const finalShippingFee = finalHasPopupProduct && finalPopupSubtotal >= 50000 ? 0 : (finalHasPopupProduct ? 3000 : 0);
       const finalTotal = subtotal + finalShippingFee;
+
+      // 🔍 디버깅 로그
+      console.log('📦 [CartPage] 배송비 계산:', {
+        '전체 상품': mappedItems.length,
+        '팝업 상품': popupItems.length,
+        '팝업 상품 제목들': popupItems.map(i => i.title),
+        '팝업 subtotal': finalPopupSubtotal,
+        '배송비': finalShippingFee,
+        '최종 total': finalTotal
+      });
 
       // Create comprehensive order summary
       const orderSummary: OrderSummary = {
