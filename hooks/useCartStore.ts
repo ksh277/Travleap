@@ -22,7 +22,23 @@ export function useCartStore() {
         if (savedCart) {
           try {
             const parsed = JSON.parse(savedCart);
-            setCartState({ cartItems: parsed });
+
+            // 🔒 CRITICAL: 기존 localStorage 데이터에 category 강제 설정
+            const fixedItems = parsed.map((item: any) => {
+              let category = item.category || '';
+
+              // category 없으면 상품명으로 팝업 감지
+              if (!category || category === 'general') {
+                const title = (item.title || item.name || '').toLowerCase();
+                if (title.includes('popup') || title.includes('팝업') || title.includes('pop')) {
+                  category = '팝업';
+                }
+              }
+
+              return { ...item, category };
+            });
+
+            setCartState({ cartItems: fixedItems });
           } catch (error) {
             console.error('Failed to parse saved cart state:', error);
             localStorage.removeItem('travleap_cart');
@@ -69,6 +85,17 @@ export function useCartStore() {
               images = [];
             }
 
+            // 🔒 CRITICAL: category 강제 설정 (기존 DB 데이터 대응)
+            let category = item.category_name || item.category || '';
+
+            // 🔧 category 없으면 상품명으로 팝업 감지
+            if (!category || category === 'general') {
+              const title = (item.title || '').toLowerCase();
+              if (title.includes('popup') || title.includes('팝업') || title.includes('pop')) {
+                category = '팝업';
+              }
+            }
+
             const transformed = {
               id: item.id,                    // cart_items 테이블의 id
               listingId: item.listing_id,     // ✅ 실제 상품 ID 추가
@@ -76,7 +103,7 @@ export function useCartStore() {
               price: item.price_from || 0,
               quantity: item.quantity || 1,
               image: images[0] || '/placeholder.jpg',
-              category: item.category_name || '',
+              category: category,
               location: item.location || '',
               date: item.selected_date,
               guests: item.num_adults || 1,
@@ -187,6 +214,17 @@ export function useCartStore() {
               images = [];
             }
 
+            // 🔒 CRITICAL: category 강제 설정 (기존 DB 데이터 대응)
+            let category = item.category_name || item.category || '';
+
+            // 🔧 category 없으면 상품명으로 팝업 감지
+            if (!category || category === 'general') {
+              const title = (item.title || '').toLowerCase();
+              if (title.includes('popup') || title.includes('팝업') || title.includes('pop')) {
+                category = '팝업';
+              }
+            }
+
             return {
               id: item.id,                    // cart_items 테이블의 id
               listingId: item.listing_id,     // ✅ 실제 상품 ID 추가
@@ -194,7 +232,7 @@ export function useCartStore() {
               price: item.price_from || 0,
               quantity: item.quantity || 1,
               image: images[0] || '/placeholder.jpg',
-              category: item.category_name || '',
+              category: category,
               location: item.location || '',
               date: item.selected_date,
               guests: item.num_adults || 1,
