@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import {
-  MapPin, Phone, Clock, AlertTriangle, Ticket, Users, Car, Wheelchair, Baby,
+  MapPin, Phone, Clock, AlertTriangle, Ticket, Users, Car,
   Loader2, Heart, Share2, ChevronLeft, CheckCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -259,13 +259,13 @@ export function AttractionDetailPage() {
                   )}
                   {attraction.wheelchair_accessible && (
                     <div className="flex items-center gap-1 text-sm">
-                      <Wheelchair className="h-4 w-4 text-blue-500" />
+                      <CheckCircle className="h-4 w-4 text-blue-500" />
                       <span>휠체어 이용 가능</span>
                     </div>
                   )}
                   {attraction.stroller_friendly && (
                     <div className="flex items-center gap-1 text-sm">
-                      <Baby className="h-4 w-4 text-purple-500" />
+                      <CheckCircle className="h-4 w-4 text-purple-500" />
                       <span>유모차 이용 가능</span>
                     </div>
                   )}
