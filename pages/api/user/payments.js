@@ -1,19 +1,13 @@
 /**
  * 사용자 결제 내역 조회 API
- * GET /api/user/payments?userId=123
+ * GET /api/user/payments
  */
 
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../../../utils/auth-middleware');
+const { withSecureCors } = require('../../../utils/cors-middleware');
 
-module.exports = async function handler(req, res) {
-  // CORS 헤더 설정
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+async function handler(req, res) {
 
   if (req.method !== 'GET') {
     return res.status(405).json({
@@ -23,15 +17,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // x-user-id 헤더에서 userId 읽기 (쿼리 파라미터도 fallback)
-    const userId = req.headers['x-user-id'] || req.query.userId;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'userId is required (x-user-id header or userId query param)'
-      });
-    }
+    // JWT에서 userId 읽기
+    const userId = req.user.userId;
 
     const connection = connect({ url: process.env.DATABASE_URL });
 
@@ -127,4 +114,9 @@ module.exports = async function handler(req, res) {
       message: error.message || '결제 내역 조회에 실패했습니다.'
     });
   }
-};
+}
+
+// JWT 인증 및 보안 CORS 적용
+module.exports = withSecureCors(
+  withAuth(handler, { requireAuth: true })
+);

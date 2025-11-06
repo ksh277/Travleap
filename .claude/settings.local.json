@@ -93,7 +93,14 @@
       "Bash(npm audit:*)",
       "Bash(curl:*)",
       "Bash(node -e:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(api/user/payments.js)",
+      "Bash(api/user/points.js)",
+      "Bash(pages/api/user/payments.js)",
+      "Bash(pages/api/user/points.js)",
+      "Bash(api/user/address.js)",
+      "Bash(pages/api/user/address.js)"
     ],
     "deny": [],
     "ask": []
