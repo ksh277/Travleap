@@ -122,7 +122,10 @@
       "Bash(node scripts/create-accommodation-vendors.cjs:*)",
       "Bash(python3:*)",
       "Bash(api/package.json)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(if [ -f .env ])",
+      "Bash(then grep -i \"GOOGLE\\|NAVER\\|KAKAO\" .env)",
+      "Bash(else echo \".env file not found\")"
     ],
     "deny": [],
     "ask": []

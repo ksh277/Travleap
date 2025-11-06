@@ -1,7 +1,7 @@
 const { connect } = require('@planetscale/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { withStrictRateLimit } = require('../utils/rate-limit-middleware');
+const { withStrictRateLimit } = require('../utils/rate-limit-middleware.cjs');
 
 // 수동 body parser (Vercel에서 자동 파싱이 안 될 경우)
 async function parseBody(req) {

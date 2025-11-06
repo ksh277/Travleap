@@ -1,7 +1,7 @@
 const { connect } = require('@planetscale/database');
-const { withAuth } = require('../../utils/auth-middleware');
+const { withAuth } = require('../../utils/auth-middleware.cjs');
 const { withSecureCors } = require('../../utils/cors-middleware');
-const { withStandardRateLimit } = require('../../utils/rate-limit-middleware');
+const { withStandardRateLimit } = require('../../utils/rate-limit-middleware.cjs');
 
 /**
  * 관리자 쿠폰 관리 API (관리자 전용)

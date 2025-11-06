@@ -1,8 +1,8 @@
 const { connect } = require('@planetscale/database');
 const bcrypt = require('bcryptjs');
-const { withAuth } = require('../../utils/auth-middleware');
+const { withAuth } = require('../../utils/auth-middleware.cjs');
 const { withSecureCors } = require('../../utils/cors-middleware');
-const { withStandardRateLimit } = require('../../utils/rate-limit-middleware');
+const { withStandardRateLimit } = require('../../utils/rate-limit-middleware.cjs');
 
 async function handler(req, res) {
   // 관리자 권한 확인
