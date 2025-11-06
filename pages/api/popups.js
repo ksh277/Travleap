@@ -70,6 +70,7 @@ async function handler(req, res) {
         partner_id as vendor_id,
         title as popup_name,
         title as brand_name,
+        category,
         description_md as description,
         short_description,
         location,

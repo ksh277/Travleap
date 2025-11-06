@@ -11,9 +11,17 @@
  */
 
 const { connect } = require('@planetscale/database');
-const { withPublicCors } = require('../utils/cors-middleware');
 
-async function handler(req, res) {
+module.exports = async function handler(req, res) {
+  // CORS 헤더 설정
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({
       success: false,
@@ -33,19 +41,13 @@ async function handler(req, res) {
       offset = '0'
     } = req.query;
 
-    // 쿼리 빌드
-    let whereConditions = ['is_active = TRUE'];
+    // 쿼리 빌드 - listings 테이블 사용 (category='팝업')
+    let whereConditions = ['is_active = 1', "category = '팝업'"];
     let queryParams = [];
-
-    // 상태 필터
-    if (status) {
-      whereConditions.push('status = ?');
-      queryParams.push(status);
-    }
 
     // 검색 필터
     if (search) {
-      whereConditions.push('(brand_name LIKE ? OR popup_name LIKE ? OR description LIKE ?)');
+      whereConditions.push('(title LIKE ? OR description_md LIKE ? OR short_description LIKE ?)');
       const searchTerm = `%${search}%`;
       queryParams.push(searchTerm, searchTerm, searchTerm);
     }
@@ -55,13 +57,13 @@ async function handler(req, res) {
       : '';
 
     // 정렬 설정
-    const allowedSortColumns = ['created_at', 'start_date', 'view_count', 'like_count'];
+    const allowedSortColumns = ['created_at', 'price_from', 'view_count', 'rating_avg'];
     const sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'created_at';
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     // 총 개수 조회
     const countResult = await connection.execute(
-      `SELECT COUNT(*) as total FROM popups ${whereClause}`,
+      `SELECT COUNT(*) as total FROM listings ${whereClause}`,
       queryParams
     );
 
@@ -69,39 +71,29 @@ async function handler(req, res) {
       ? countResult.rows[0].total
       : 0;
 
-    // 팝업 목록 조회
+    // 팝업 목록 조회 (listings 테이블)
     const popupsResult = await connection.execute(
       `SELECT
         id,
-        vendor_id,
-        brand_name,
-        popup_name,
-        description,
-        location_name,
+        partner_id as vendor_id,
+        title as popup_name,
+        title as brand_name,
+        category,
+        description_md as description,
+        short_description,
+        location,
         address,
-        latitude,
-        longitude,
-        start_date,
-        end_date,
-        operating_hours,
-        entrance_fee,
-        is_free,
-        image_url,
-        gallery_images,
-        requires_reservation,
-        max_capacity,
-        booking_url,
-        status,
+        price_from as entrance_fee,
+        images,
         tags,
-        sns_instagram,
-        sns_website,
-        parking_info,
-        nearby_subway,
         view_count,
-        like_count,
+        rating_avg,
+        rating_count,
+        booking_count,
+        cart_enabled,
         created_at,
         updated_at
-      FROM popups
+      FROM listings
       ${whereClause}
       ORDER BY ${sortColumn} ${sortOrder}
       LIMIT ? OFFSET ?`,
@@ -113,8 +105,9 @@ async function handler(req, res) {
     // JSON 필드 파싱
     const parsedPopups = popups.map(popup => ({
       ...popup,
-      gallery_images: popup.gallery_images ? JSON.parse(popup.gallery_images) : [],
-      tags: popup.tags ? JSON.parse(popup.tags) : []
+      gallery_images: popup.images ? JSON.parse(popup.images) : [],
+      tags: popup.tags ? JSON.parse(popup.tags) : [],
+      is_free: !popup.entrance_fee || popup.entrance_fee === 0
     }));
 
     return res.status(200).json({
@@ -137,5 +130,3 @@ async function handler(req, res) {
     });
   }
 }
-
-module.exports = withPublicCors(handler);
