@@ -133,7 +133,8 @@
       "Bash(node scripts/check-rentcar-listings.cjs:*)",
       "Bash(node scripts/check-listings-category-field.cjs:*)",
       "Bash(node scripts/check-actual-rentcar-data.cjs:*)",
-      "Bash(node scripts/check-rentcar-tables-structure.cjs:*)"
+      "Bash(node scripts/check-rentcar-tables-structure.cjs:*)",
+      "Bash(node scripts/check-points-system.cjs:*)"
     ],
     "deny": [],
     "ask": []
