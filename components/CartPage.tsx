@@ -197,8 +197,14 @@ export function CartPage() {
     }, 0);
 
     // 🔧 팝업 상품만의 합계 계산 (배송비 판단용 - 포인트/쿠폰 차감 전 금액)
+    // ✅ FIX: category 필드 없는 경우도 이름으로 감지
     const popupSubtotal = cartItems
-      .filter(item => item.category === '팝업')
+      .filter(item =>
+        item.category === '팝업' ||
+        item.category === 'popup' ||
+        (item.name || item.title || '').toLowerCase().includes('popup') ||
+        (item.name || item.title || '').includes('팝업')
+      )
       .reduce((sum, item) => {
         const itemPrice = item.price || 0;
         const optionPrice = item.selectedOption?.priceAdjustment || 0;
