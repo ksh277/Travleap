@@ -2083,7 +2083,7 @@ export function DetailPage() {
 
           {/* Booking Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-20 lg:top-24">
+            <div className="sticky top-32 lg:top-36 z-0">
               <Card>
                 <CardHeader>
                   <CardTitle>결제하기</CardTitle>
