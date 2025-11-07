@@ -561,15 +561,6 @@ export function RentcarVendorDetailPage() {
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => setIsReservationModalOpen(true)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <Clock className="h-4 w-4 mr-1" />
-                      간단 예약
-                    </Button>
-                    <Button
                       variant="outline"
                       size="sm"
                       onClick={toggleFavorite}
@@ -1123,16 +1114,6 @@ export function RentcarVendorDetailPage() {
           </div>
         </div>
       </div>
-
-      {/* 간단 예약 모달 */}
-      <ReservationModal
-        isOpen={isReservationModalOpen}
-        onClose={() => setIsReservationModalOpen(false)}
-        vendorId={vendorId || ''}
-        vendorName={vendorData?.vendor.vendor_name || ''}
-        serviceName="렌터카"
-        category="rentcar"
-      />
     </div>
   );
 }

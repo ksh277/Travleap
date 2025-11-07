@@ -21,8 +21,20 @@ import { api, type TravelItem } from '../utils/api';
 import { toast } from 'sonner';
 import { getGoogleMapsApiKey } from '../utils/env';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { RentcarVendorCard } from './cards/RentcarVendorCard';
 
 interface CategoryDetailPageProps {}
+
+interface RentcarVendor {
+  vendor_id: number;
+  vendor_code: string;
+  vendor_name: string;
+  vehicle_count: number;
+  min_price: number;
+  max_price: number;
+  images: string[];
+  vehicle_classes: string;
+}
 
 // 카테고리별 메타데이터
 const categoryMeta = {
@@ -91,6 +103,9 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
   const [toDate, setToDate] = useState('');
   const [adults, setAdults] = useState(1);
 
+  // 🚗 렌트카 업체 리스트 (rentcar 카테고리 전용)
+  const [rentcarVendors, setRentcarVendors] = useState<RentcarVendor[]>([]);
+
   // 현재 카테고리 정보
   const currentCategory = categorySlug ? categoryMeta[categorySlug as keyof typeof categoryMeta] : null;
 
@@ -101,8 +116,53 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
 
       setLoading(true);
       try {
-        console.log(`🔄 ${categorySlug} 카테고리 상품 로딩 중...`);
+        console.log(`🔄 ${categorySlug} 카테고리 로딩 중...`);
 
+        // 🚗 렌트카 카테고리는 업체 리스트 표시
+        if (categorySlug === 'rentcar') {
+          // 1. 렌트카 파트너 조회
+          const partnersResponse = await fetch('/api/partners?type=rentcar');
+          const partnersData = await partnersResponse.json();
+
+          if (partnersData.success && partnersData.data) {
+            const partners = partnersData.data;
+
+            // 2. 각 파트너의 차량 개수 및 가격 정보 조회
+            const vendorPromises = partners.map(async (partner: any) => {
+              const listingsResponse = await api.getListings({
+                category: 'rentcar',
+                partnerId: partner.id,
+                limit: 100
+              });
+
+              const listings = listingsResponse.data || [];
+              const prices = listings.map((l: TravelItem) => l.price_from || 0).filter((p: number) => p > 0);
+
+              return {
+                vendor_id: partner.id,
+                vendor_code: `PARTNER_${partner.id}`,
+                vendor_name: partner.business_name,
+                vehicle_count: listings.length,
+                min_price: prices.length > 0 ? Math.min(...prices) : 0,
+                max_price: prices.length > 0 ? Math.max(...prices) : 0,
+                images: partner.images && partner.images.length > 0 ? partner.images : ['https://images.unsplash.com/photo-1449965408869-eaa3f722e40d'],
+                vehicle_classes: listings.map((l: TravelItem) => l.title).join(', ')
+              };
+            });
+
+            const vendors = await Promise.all(vendorPromises);
+            // 차량이 있는 업체만 표시
+            const activeVendors = vendors.filter(v => v.vehicle_count > 0);
+
+            console.log(`✅ 렌트카 업체 ${activeVendors.length}개 로드됨`);
+            setRentcarVendors(activeVendors);
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // 일반 카테고리는 상품 리스트 표시
         const response = await api.getListings({
           category: categorySlug,
           limit: 100,
@@ -119,10 +179,11 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
           setFilteredItems([]);
         }
       } catch (error) {
-        console.error('카테고리 상품 로드 오류:', error);
-        toast.error('상품을 불러오는 중 오류가 발생했습니다.');
+        console.error('카테고리 로드 오류:', error);
+        toast.error('데이터를 불러오는 중 오류가 발생했습니다.');
         setItems([]);
         setFilteredItems([]);
+        setRentcarVendors([]);
       } finally {
         setLoading(false);
       }
@@ -272,29 +333,31 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
             <h2 className="text-2xl font-bold text-gray-900">
-              {currentCategory.title} 상품
+              {categorySlug === 'rentcar' ? '렌트카 업체' : `${currentCategory.title} 상품`}
             </h2>
             <Badge variant="outline" style={{ backgroundColor: `${currentCategory.color}20`, color: currentCategory.color }}>
-              {filteredItems.length}개
+              {categorySlug === 'rentcar' ? `${rentcarVendors.length}개 업체` : `${filteredItems.length}개`}
             </Badge>
           </div>
 
-          {/* 정렬 옵션 */}
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="정렬" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="latest">최신순</SelectItem>
-              <SelectItem value="popular">인기순</SelectItem>
-              <SelectItem value="rating">평점순</SelectItem>
-              <SelectItem value="price_low">가격 낮은순</SelectItem>
-              <SelectItem value="price_high">가격 높은순</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* 정렬 옵션 - 렌트카는 정렬 안함 */}
+          {categorySlug !== 'rentcar' && (
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="정렬" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="latest">최신순</SelectItem>
+                <SelectItem value="popular">인기순</SelectItem>
+                <SelectItem value="rating">평점순</SelectItem>
+                <SelectItem value="price_low">가격 낮은순</SelectItem>
+                <SelectItem value="price_high">가격 높은순</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
-        {/* 상품 목록 */}
+        {/* 상품/업체 목록 */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, index) => (
@@ -306,6 +369,12 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
                   <div className="h-6 bg-gray-200 rounded"></div>
                 </CardContent>
               </Card>
+            ))}
+          </div>
+        ) : categorySlug === 'rentcar' && rentcarVendors.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {rentcarVendors.map((vendor) => (
+              <RentcarVendorCard key={vendor.vendor_id} vendor={vendor} />
             ))}
           </div>
         ) : filteredItems.length > 0 ? (
@@ -382,9 +451,11 @@ export function CategoryDetailPage({}: CategoryDetailPageProps) {
             <div className="text-gray-400 mb-4">
               <Search className="h-12 w-12 mx-auto" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">상품이 없습니다</h3>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {categorySlug === 'rentcar' ? '등록된 업체가 없습니다' : '상품이 없습니다'}
+            </h3>
             <p className="text-gray-600">
-              {searchQuery ? '검색 조건을 변경해보세요.' : '등록된 상품이 없습니다.'}
+              {searchQuery ? '검색 조건을 변경해보세요.' : categorySlug === 'rentcar' ? '차량을 등록한 업체가 없습니다.' : '등록된 상품이 없습니다.'}
             </p>
           </div>
         )}

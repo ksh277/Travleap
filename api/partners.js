@@ -21,11 +21,12 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
+    // 🔧 쿼리 파라미터로 partner_type 필터링 가능
+    const { type } = req.query || {};
 
     // 활성화된 파트너만 조회 (is_active = 1, status = 'approved')
-    // 렌트카 업체 제외 (partner_type != 'rentcar') - 렌트카는 별도 페이지에서 관리
-    // 이제 images 필드를 포함 (base64 정리완료, URL만 저장)
-    const result = await connection.execute(`
+    // type 파라미터가 있으면 해당 타입만, 없으면 렌트카 제외
+    let query = `
       SELECT
         p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone,
         p.business_address, p.location, p.services, p.base_price, p.base_price_text,
@@ -34,14 +35,32 @@ module.exports = async function handler(req, res) {
         p.tier, p.partner_type, p.is_verified, p.is_featured,
         p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at
       FROM partners p
-      WHERE p.is_active = 1 AND p.status = 'approved' AND p.partner_type != 'rentcar'
+      WHERE p.is_active = 1
+    `;
+
+    if (type === 'rentcar') {
+      // 렌트카 파트너만 조회
+      query += ` AND p.partner_type = 'rentcar'`;
+    } else if (!type) {
+      // 타입 지정 없으면 렌트카 제외 (기존 동작 유지)
+      query += ` AND p.partner_type != 'rentcar'`;
+    } else {
+      // 특정 타입 조회
+      query += ` AND p.partner_type = ?`;
+    }
+
+    query += `
       ORDER BY
         p.is_featured DESC,
         p.created_at DESC
-    `);
+    `;
+
+    const result = type && type !== 'rentcar'
+      ? await connection.execute(query, [type])
+      : await connection.execute(query);
 
     const partners = result.rows || [];
-    console.log(`✅ Partners API: ${partners.length}개 파트너 조회 성공`);
+    console.log(`✅ Partners API: ${partners.length}개 파트너 조회 성공 (type: ${type || 'all except rentcar'})`);
 
     return res.status(200).json({
       success: true,
