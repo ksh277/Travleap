@@ -903,112 +903,7 @@ export function RentcarVehicleDetailPage() {
                     </>
                   )}
 
-                  {/* 보험 선택 (선택사항) */}
-                  {insurances.length > 0 && pickupDate && returnDate && calculateRentalHours() >= 4 && (
-                    <>
-                      <Separator className="my-4" />
-                      <div className="space-y-3">
-                        <div>
-                          <h3 className="font-semibold text-gray-900 mb-2">보험 선택 (선택사항)</h3>
-                          <p className="text-xs text-gray-500 mb-3">원하시는 보험을 선택하세요. 선택하지 않아도 예약 가능합니다.</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          {/* 보험 없음 옵션 */}
-                          {(() => {
-                            const hasRequiredInsurance = insurances.some(ins => ins.is_required);
-                            return (
-                              <label className={`block border rounded-lg p-3 transition-all ${
-                                hasRequiredInsurance
-                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
-                                  : selectedInsuranceId === null
-                                  ? 'border-blue-500 bg-blue-50 cursor-pointer'
-                                  : 'border-gray-200 hover:border-gray-300 cursor-pointer'
-                              }`}>
-                                <div className="flex items-start gap-3">
-                                  <input
-                                    type="radio"
-                                    name="insurance"
-                                    checked={selectedInsuranceId === null}
-                                    onChange={() => !hasRequiredInsurance && setSelectedInsuranceId(null)}
-                                    disabled={hasRequiredInsurance}
-                                    className="mt-1"
-                                  />
-                                  <div className="flex-1">
-                                    <div className="font-medium text-gray-900">
-                                      보험 없음
-                                      {hasRequiredInsurance && (
-                                        <span className="ml-2 text-xs text-red-600">(필수 보험 선택 필요)</span>
-                                      )}
-                                    </div>
-                                    <div className="text-sm text-gray-500">추가 보험료 없음</div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="font-semibold text-gray-900">₩0</div>
-                                  </div>
-                                </div>
-                              </label>
-                            );
-                          })()}
-
-                          {/* 보험 상품 목록 */}
-                          {insurances.map((insurance) => {
-                            const totalHours = calculateRentalHours();
-                            const billingHours = Math.ceil(totalHours);
-                            const insuranceFee = insurance.hourly_rate_krw * billingHours;
-                            return (
-                              <label
-                                key={insurance.id}
-                                className={`block border rounded-lg p-3 cursor-pointer transition-all ${
-                                  selectedInsuranceId === insurance.id
-                                    ? 'border-green-500 bg-green-50'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <input
-                                    type="radio"
-                                    name="insurance"
-                                    checked={selectedInsuranceId === insurance.id}
-                                    onChange={() => setSelectedInsuranceId(insurance.id)}
-                                    className="mt-1"
-                                  />
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <div className="font-medium text-gray-900">{insurance.name}</div>
-                                      {insurance.is_required && (
-                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
-                                          필수
-                                        </span>
-                                      )}
-                                    </div>
-                                    {insurance.description && (
-                                      <div className="text-sm text-gray-600 mt-1">{insurance.description}</div>
-                                    )}
-                                    {insurance.coverage_details && (
-                                      <div className="text-xs text-gray-500 mt-1 whitespace-pre-line">
-                                        {insurance.coverage_details.split('\n').slice(0, 2).join('\n')}
-                                      </div>
-                                    )}
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      {insurance.hourly_rate_krw.toLocaleString()}원/시간 × {billingHours}시간
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="font-semibold text-green-700">
-                                      +₩{insuranceFee.toLocaleString()}
-                                    </div>
-                                  </div>
-                                </div>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* 옵션 선택 (선택사항) */}
+                  {/* 옵션 선택 (선택사항) - 벤더가 관리 */}
                   {extras.length > 0 && pickupDate && returnDate && calculateRentalHours() >= 4 && (
                     <>
                       <Separator className="my-4" />
@@ -1116,6 +1011,111 @@ export function RentcarVehicleDetailPage() {
                                   </div>
                                 </div>
                               </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* 보험 선택 (선택사항) - 관리자가 관리 */}
+                  {insurances.length > 0 && pickupDate && returnDate && calculateRentalHours() >= 4 && (
+                    <>
+                      <Separator className="my-4" />
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 mb-2">보험 선택 (선택사항)</h3>
+                          <p className="text-xs text-gray-500 mb-3">원하시는 보험을 선택하세요. 선택하지 않아도 예약 가능합니다.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          {/* 보험 없음 옵션 */}
+                          {(() => {
+                            const hasRequiredInsurance = insurances.some(ins => ins.is_required);
+                            return (
+                              <label className={`block border rounded-lg p-3 transition-all ${
+                                hasRequiredInsurance
+                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
+                                  : selectedInsuranceId === null
+                                  ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                                  : 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                              }`}>
+                                <div className="flex items-start gap-3">
+                                  <input
+                                    type="radio"
+                                    name="insurance"
+                                    checked={selectedInsuranceId === null}
+                                    onChange={() => !hasRequiredInsurance && setSelectedInsuranceId(null)}
+                                    disabled={hasRequiredInsurance}
+                                    className="mt-1"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-medium text-gray-900">
+                                      보험 없음
+                                      {hasRequiredInsurance && (
+                                        <span className="ml-2 text-xs text-red-600">(필수 보험 선택 필요)</span>
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-gray-500">추가 보험료 없음</div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-semibold text-gray-900">₩0</div>
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })()}
+
+                          {/* 보험 상품 목록 */}
+                          {insurances.map((insurance) => {
+                            const totalHours = calculateRentalHours();
+                            const billingHours = Math.ceil(totalHours);
+                            const insuranceFee = insurance.hourly_rate_krw * billingHours;
+                            return (
+                              <label
+                                key={insurance.id}
+                                className={`block border rounded-lg p-3 cursor-pointer transition-all ${
+                                  selectedInsuranceId === insurance.id
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <input
+                                    type="radio"
+                                    name="insurance"
+                                    checked={selectedInsuranceId === insurance.id}
+                                    onChange={() => setSelectedInsuranceId(insurance.id)}
+                                    className="mt-1"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className="font-medium text-gray-900">{insurance.name}</div>
+                                      {insurance.is_required && (
+                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
+                                          필수
+                                        </span>
+                                      )}
+                                    </div>
+                                    {insurance.description && (
+                                      <div className="text-sm text-gray-600 mt-1">{insurance.description}</div>
+                                    )}
+                                    {insurance.coverage_details && (
+                                      <div className="text-xs text-gray-500 mt-1 whitespace-pre-line">
+                                        {insurance.coverage_details.split('\n').slice(0, 2).join('\n')}
+                                      </div>
+                                    )}
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {insurance.hourly_rate_krw.toLocaleString()}원/시간 × {billingHours}시간
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="font-semibold text-green-700">
+                                      +₩{insuranceFee.toLocaleString()}
+                                    </div>
+                                  </div>
+                                </div>
+                              </label>
                             );
                           })}
                         </div>
