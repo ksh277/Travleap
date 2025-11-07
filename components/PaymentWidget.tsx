@@ -77,13 +77,24 @@ export default function PaymentWidget({
       console.log('💳 결제 요청:', { bookingNumber, amount, orderName });
 
       // successUrl 조건부 설정
-      const isCartOrder = bookingId === 0 || bookingNumber.startsWith('ORDER_');
-      const successUrl = isCartOrder
-        ? `${window.location.origin}/payment/success2`
-        : `${window.location.origin}/payment/success?bookingId=${bookingId}`;
-      const failUrl = isCartOrder
-        ? `${window.location.origin}/payment/fail2`
-        : `${window.location.origin}/payment/fail?bookingId=${bookingId}`;
+      const isCartOrder = bookingNumber.startsWith('ORDER_');
+      const isRentcarBooking = bookingNumber.startsWith('RC');
+
+      let successUrl, failUrl;
+
+      if (isCartOrder) {
+        // 장바구니 주문
+        successUrl = `${window.location.origin}/payment/success2`;
+        failUrl = `${window.location.origin}/payment/fail2`;
+      } else if (isRentcarBooking) {
+        // 렌트카 예약
+        successUrl = `${window.location.origin}/payment/success?bookingNumber=${bookingNumber}`;
+        failUrl = `${window.location.origin}/payment/fail?bookingNumber=${bookingNumber}`;
+      } else {
+        // 일반 예약 (숙박 등)
+        successUrl = `${window.location.origin}/payment/success?bookingId=${bookingId}`;
+        failUrl = `${window.location.origin}/payment/fail?bookingId=${bookingId}`;
+      }
 
       // 결제 요청 (method는 '카드'로 통일 - Toss 창에서 모든 결제 수단 선택 가능)
       // ✅ 전화번호 형식 검증 (Toss 요구사항: 10~11자리 숫자)

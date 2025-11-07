@@ -530,8 +530,9 @@ export function RentcarVehicleDetailPage() {
       // ✅ localStorage에서 숙박 예약 데이터 제거 (렌트카 결제 시 혼선 방지)
       localStorage.removeItem('booking_data');
 
+      // ✅ 렌트카는 bookingNumber만 사용 (bookingId는 DB 조회를 유발하므로 제외)
       navigate(
-        `/payment?bookingId=${bookingData.rental_id}&bookingNumber=${bookingData.booking_number}&amount=${totalPrice}&title=${encodeURIComponent(vehicle.display_name)}&customerName=${encodeURIComponent(user.name)}&customerEmail=${encodeURIComponent(user.email)}`
+        `/payment?bookingNumber=${bookingData.booking_number}&amount=${totalPrice}&title=${encodeURIComponent(vehicle.display_name)}&customerName=${encodeURIComponent(user.name)}&customerEmail=${encodeURIComponent(user.email)}`
       );
 
       toast.success('예약이 생성되었습니다!');

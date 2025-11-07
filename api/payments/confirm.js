@@ -193,9 +193,10 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     console.log('🔒 [Database] DB 작업 시작');
 
     // 2. orderId로 예약 또는 주문 찾기
-    // orderId는 booking_number (BK-...) 또는 ORDER_... 형식
+    // orderId는 booking_number (BK-...), RC (렌트카), 또는 ORDER_... 형식
     const isBooking = orderId.startsWith('BK-');
     const isOrder = orderId.startsWith('ORDER_');
+    const isRentcar = orderId.startsWith('RC');
 
     let bookingId = null;
     let orderId_num = null;
@@ -443,13 +444,52 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         console.warn('⚠️  [알림] 장바구니 주문 파트너 알림 실패 (계속 진행):', notifyError);
       }
 
+    } else if (isRentcar) {
+      // 렌트카 예약 (RC로 시작)
+      const rentcarBookings = await connection.execute(
+        'SELECT * FROM rentcar_bookings WHERE booking_number = ?',
+        [orderId]
+      );
+
+      if (!rentcarBookings || !rentcarBookings.rows || rentcarBookings.rows.length === 0) {
+        throw new Error('렌트카 예약을 찾을 수 없습니다.');
+      }
+
+      const rentcarBooking = rentcarBookings.rows[0];
+      bookingId = rentcarBooking.id;
+      userId = rentcarBooking.user_id;
+
+      // ✅ 금액 검증
+      const expectedAmount = parseFloat(rentcarBooking.total_krw || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원, 차이: ${difference}원`);
+        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${expectedAmount}원, 실제: ${actualAmount}원)`);
+      }
+
+      console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (차이: ${difference}원)`);
+
+      // 3. 렌트카 예약 상태 변경 (pending → confirmed)
+      await connection.execute(
+        `UPDATE rentcar_bookings
+         SET status = 'confirmed',
+             payment_status = 'paid',
+             updated_at = NOW()
+         WHERE id = ?`,
+        [bookingId]
+      );
+
+      console.log(`✅ [렌트카] 상태 변경: pending → confirmed (booking_id: ${bookingId})`);
+
     } else {
       throw new Error('올바르지 않은 주문 번호 형식입니다.');
     }
 
     // 4. 결제 정보 기록 (payments 테이블)
-    // ✅ 단일 예약(BK-)만 INSERT, 장바구니(ORDER_)는 이미 UPDATE 완료
-    if (isBooking) {
+    // ✅ 단일 예약(BK-, RC)만 INSERT, 장바구니(ORDER_)는 이미 UPDATE 완료
+    if (isBooking || isRentcar) {
       // ✅ created_at, updated_at은 NOW()를 사용하여 DB에서 직접 생성 (타임존 문제 방지)
       // ✅ payment_method는 Toss API 값을 DB ENUM과 호환되도록 변환
       const normalizedMethod = normalizePaymentMethod(
