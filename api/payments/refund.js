@@ -334,9 +334,15 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
       }
 
       const currentPoints = userResult.rows[0].total_points || 0;
-      const newBalance = Math.max(0, currentPoints - pointsToDeduct); // 음수 방지
+      const newBalance = currentPoints - pointsToDeduct; // ✅ 음수 허용 (포인트 체인 대응)
 
-      // 3. Neon - users 테이블 포인트 차감
+      // 포인트 부족 시 경고 로그
+      if (newBalance < 0) {
+        console.log(`⚠️  [포인트 회수] 포인트 부족 → 음수 허용: ${currentPoints}P - ${pointsToDeduct}P = ${newBalance}P`);
+        console.log(`    (다른 주문에서 이미 사용된 포인트를 회수하는 경우 음수 발생 가능)`);
+      }
+
+      // 3. Neon - users 테이블 포인트 차감 (음수 허용)
       await poolNeon.query(`
         UPDATE users SET total_points = $1 WHERE id = $2
       `, [newBalance, userId]);
