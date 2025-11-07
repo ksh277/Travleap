@@ -291,7 +291,7 @@ module.exports = async function handler(req, res) {
           console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (billing="${billingName}", user="${user?.name || 'null'}", shipping="${order.shipping_name || 'null'}")`);
 
           return {
-            id: order.id,
+            id: parseInt(order.id) || order.id, // ✅ FIX: 문자열 → 숫자 변환
             booking_id: order.booking_id, // ✅ 환불 시 필요
             booking_number: order.booking_number,
             user_name: finalUserName, // ✅ FIX: notes → users → bookings 순서로 우선순위
@@ -300,10 +300,10 @@ module.exports = async function handler(req, res) {
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,
-            amount: order.amount, // ✅ AdminOrders.tsx amount 필드 (필수)
-            total_amount: order.amount, // ✅ 하위 호환성
-            subtotal: subtotal || (order.amount - deliveryFee),
-            delivery_fee: deliveryFee,
+            amount: parseFloat(order.amount), // ✅ FIX: 문자열 → 숫자 변환
+            total_amount: parseFloat(order.amount), // ✅ FIX: 문자열 → 숫자 변환
+            subtotal: parseFloat(subtotal || (order.amount - deliveryFee)),
+            delivery_fee: parseFloat(deliveryFee),
             items_info: itemsInfo, // ✅ 주문 상품 상세 정보 (배송 관리용)
             bookings_list: bookingsList, // 🔧 혼합 주문의 모든 bookings (부분 환불용)
             item_count: itemCount, // ✅ 상품 종류 수
