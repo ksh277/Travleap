@@ -173,8 +173,11 @@ module.exports = async function handler(req, res) {
               subtotal = notesData.subtotal || 0;
 
               // ✅ 카테고리 추출 (booking_id가 null인 경우 notes에서 가져옴)
+              // notes.category 우선, 없으면 notes.items[0].category에서 추출
               if (notesData.category) {
                 categoryFromNotes = notesData.category;
+              } else if (notesData.items && notesData.items.length > 0 && notesData.items[0].category) {
+                categoryFromNotes = notesData.items[0].category;
               }
 
               // ✅ FIX: 청구 정보 추출 (주문 시 입력한 정보)
