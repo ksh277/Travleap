@@ -11,9 +11,9 @@
  * 라우트: PATCH /api/bookings/:id/shipping
  */
 
-const { db } = require('../../../utils/database');
-const { JWTUtils } = require('../../../utils/jwt');
-const { maskForLog } = require('../../../utils/pii-masking');
+const { db } = require('../../utils/database.cjs');
+const { JWTUtils } = require('../../../utils/jwt.cjs');
+const { maskForLog } = require('../../../utils/pii-masking.cjs');
 
 module.exports = async function handler(req, res) {
   try {

@@ -10,7 +10,7 @@
  * 권한: 결제 완료 후 시스템 또는 사용자
  */
 
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 

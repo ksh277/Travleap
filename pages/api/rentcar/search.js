@@ -10,7 +10,7 @@
  * 권한: 공개 (인증 불필요)
  */
 
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 
 /**
  * 시간제 요금 계산

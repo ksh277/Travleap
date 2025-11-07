@@ -12,8 +12,8 @@
  * 권한: 예약 소유자, 벤더, 관리자
  */
 
-const { db } = require('../../utils/database');
-const { JWTUtils } = require('../../utils/jwt');
+const { db } = require('../../utils/database.cjs');
+const { JWTUtils } = require('../../utils/jwt.cjs');
 
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY;
 const TOSS_CANCEL_URL = 'https://api.tosspayments.com/v1/payments';

@@ -6,8 +6,8 @@
  * 권한: vendor (본인 상품만 조회 가능)
  */
 
-const { db } = require('../../utils/database');
-const { JWTUtils } = require('../../utils/jwt');
+const { db } = require('../../utils/database.cjs');
+const { JWTUtils } = require('../../utils/jwt.cjs');
 
 module.exports = async function handler(req, res) {
   try {

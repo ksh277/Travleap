@@ -12,8 +12,8 @@
  * 권한: 인증된 사용자
  */
 
-const { db } = require('../../utils/database');
-const { JWTUtils } = require('../../utils/jwt');
+const { db } = require('../../utils/database.cjs');
+const { JWTUtils } = require('../../utils/jwt.cjs');
 const { encrypt, encryptPhone, encryptEmail } = require('../../utils/encryption.cjs');
 
 /**

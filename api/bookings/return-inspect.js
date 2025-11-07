@@ -14,7 +14,7 @@
  *    penalty = 0 → voidDeposit
  */
 
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 const { tossPaymentsServer } = require('../../utils/toss-payments-server');
 
 /**

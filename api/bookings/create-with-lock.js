@@ -9,7 +9,7 @@
  * 5. Lock 해제
  */
 
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 const { lockManager } = require('../../utils/lock-manager');
 
 /**

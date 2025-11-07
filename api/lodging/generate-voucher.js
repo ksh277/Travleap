@@ -10,8 +10,8 @@
  * 권한: 결제 완료된 예약의 소유자, 관리자
  */
 
-const { db } = require('../../utils/database');
-const { JWTUtils } = require('../../utils/jwt');
+const { db } = require('../../utils/database.cjs');
+const { JWTUtils } = require('../../utils/jwt.cjs');
 const QRCode = require('qrcode');
 
 /**

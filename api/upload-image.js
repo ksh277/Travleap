@@ -20,7 +20,7 @@ const {
   validateImageFile,
   validateBase64Image,
   sanitizeFilename
-} = require('../utils/file-upload-security');
+} = require('../utils/file-upload-security.cjs');
 
 async function handler(req, res) {
   if (req.method === 'OPTIONS') {

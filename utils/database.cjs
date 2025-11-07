@@ -1,0 +1,1090 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.db = void 0;
+exports.getDatabase = getDatabase;
+const database_1 = require("@planetscale/database");
+class Database {
+    constructor() {
+        // 브라우저 환경에서는 DB 직접 접속 불가
+        if (typeof window !== 'undefined') {
+            throw new Error('❌ Database cannot be accessed from browser! Use API routes instead.');
+        }
+        // PlanetScale MySQL 연결
+        const config = {
+            host: process.env.DATABASE_HOST,
+            username: process.env.DATABASE_USERNAME,
+            password: process.env.DATABASE_PASSWORD,
+        };
+        if (!config.host || !config.username || !config.password) {
+            throw new Error('DATABASE_HOST, DATABASE_USERNAME, DATABASE_PASSWORD not configured');
+        }
+        this.connection = (0, database_1.connect)(config);
+        console.log('✅ [Database] Connected to PlanetScale MySQL');
+    }
+    async execute(sqlString, params = []) {
+        try {
+            // PlanetScale execute 사용
+            // ✅ PlanetScale 결과 구조: { rows: [], rowsAffected: 0, insertId: '0', ... }
+            const result = await this.connection.execute(sqlString, params);
+            // ✅ FIX: PlanetScale는 result.rows 속성에 데이터 존재 (result 자체가 배열이 아님)
+            return {
+                rows: result.rows || [],
+                insertId: result.insertId ? Number(result.insertId) : 0,
+                affectedRows: result.rowsAffected || 0
+            };
+        }
+        catch (error) {
+            console.error('❌ [Database] Execution error:', error);
+            console.error('   SQL:', sqlString);
+            console.error('   Params:', params);
+            // ✅ FIX: 에러를 다시 throw해서 상위에서 처리하도록
+            // 빈 배열 반환은 에러를 숨기고 디버깅을 어렵게 만듦
+            throw error;
+        }
+    }
+    // 기본 CRUD 작업
+    async select(table, where) {
+        let sql = `SELECT * FROM ${table}`;
+        const params = [];
+        if (where) {
+            const conditions = Object.keys(where).map((key) => {
+                params.push(where[key]);
+                return `${key} = ?`;
+            });
+            sql += ` WHERE ${conditions.join(' AND ')}`;
+        }
+        const result = await this.execute(sql, params);
+        return result.rows;
+    }
+    // 별칭: findAll (select와 동일)
+    async findAll(table, where) {
+        return this.select(table, where);
+    }
+    // 별칭: findOne (select 결과의 첫 번째 항목)
+    async findOne(table, where) {
+        const results = await this.select(table, where);
+        return results.length > 0 ? results[0] : null;
+    }
+    async insert(table, data) {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const placeholders = values.map(() => '?').join(', ');
+        const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
+        const result = await this.execute(sql, values);
+        const returnValue = { id: Number(result.insertId) || Date.now(), ...data };
+        return returnValue;
+    }
+    async update(table, id, data) {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const setClause = columns.map(col => `${col} = ?`).join(', ');
+        const sql = `UPDATE ${table} SET ${setClause} WHERE id = ?`;
+        const result = await this.execute(sql, [...values, id]);
+        return (result.affectedRows || 0) > 0;
+    }
+    async upsert(table, where, data) {
+        // Try to find existing record
+        const existing = await this.select(table, where);
+        if (existing.length > 0) {
+            // Update existing record
+            await this.update(table, existing[0].id, data);
+            return { id: existing[0].id, ...data };
+        }
+        else {
+            // Insert new record
+            return await this.insert(table, { ...where, ...data });
+        }
+    }
+    async delete(table, id) {
+        const sql = `DELETE FROM ${table} WHERE id = ?`;
+        const result = await this.execute(sql, [id]);
+        return (result.affectedRows || 0) > 0;
+    }
+    async query(sql, params = []) {
+        const result = await this.execute(sql, params);
+        return result.rows;
+    }
+    // 상품 목록 조회 (특화)
+    async getListings(filters = {}) {
+        let sql = `
+      SELECT
+        l.*,
+        c.name_ko as category_name,
+        c.slug as category_slug
+      FROM listings l
+      LEFT JOIN categories c ON l.category_id = c.id
+      WHERE l.is_published = 1
+    `;
+        const params = [];
+        if (filters.category && filters.category !== 'all') {
+            sql += ' AND c.slug = ?';
+            params.push(filters.category);
+        }
+        if (filters.location) {
+            sql += ' AND l.location LIKE ?';
+            params.push(`%${filters.location}%`);
+        }
+        if (filters.minPrice) {
+            sql += ' AND l.price_from >= ?';
+            params.push(filters.minPrice);
+        }
+        if (filters.maxPrice) {
+            sql += ' AND l.price_from <= ?';
+            params.push(filters.maxPrice);
+        }
+        sql += ' ORDER BY l.created_at DESC';
+        if (filters.limit) {
+            sql += ` LIMIT ${filters.limit}`;
+            if (filters.offset) {
+                sql += ` OFFSET ${filters.offset}`;
+            }
+        }
+        return this.query(sql, params);
+    }
+    // 카테고리 목록 조회
+    async getCategories() {
+        return this.query('SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order');
+    }
+    // 테스트 연결 메서드 추가
+    async testConnection() {
+        try {
+            const result = await this.query('SELECT 1 as test');
+            return result.length > 0;
+        }
+        catch (error) {
+            return false;
+        }
+    }
+    // 파트너 목록 조회 메서드 추가
+    async getPartners() {
+        try {
+            return this.query('SELECT * FROM partners WHERE status = "approved" ORDER BY created_at DESC');
+        }
+        catch (error) {
+            return [];
+        }
+    }
+    // 리뷰 목록 조회
+    async getReviews(listingId) {
+        if (listingId) {
+            return this.query(`
+        SELECT r.*, u.name as user_name, l.title as listing_title
+        FROM reviews r
+        LEFT JOIN users u ON r.user_id = u.id
+        LEFT JOIN listings l ON r.listing_id = l.id
+        WHERE r.listing_id = ?
+        ORDER BY r.created_at DESC
+      `, [listingId]);
+        }
+        else {
+            return this.query(`
+        SELECT r.*, u.name as user_name, l.title as listing_title, l.location as listing_location
+        FROM reviews r
+        LEFT JOIN users u ON r.user_id = u.id
+        LEFT JOIN listings l ON r.listing_id = l.id
+        WHERE r.is_verified = 1
+        ORDER BY r.created_at DESC
+        LIMIT 10
+      `);
+        }
+    }
+    // 데이터베이스 초기화
+    async initializeIfEmpty() {
+        try {
+            // 먼저 categories 테이블이 존재하는지 확인
+            const tables = await this.query(`
+        SELECT COUNT(*) as count
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+        AND table_name = 'categories'
+      `);
+            const tableExists = tables.length > 0 && tables[0].count > 0;
+            if (tableExists) {
+                console.log('✅ [Database] Tables already exist, skipping initialization');
+                return;
+            }
+            console.log('📦 [Database] Tables not found, creating...');
+            // 테이블 생성 및 데이터 시드
+            await this.createTables();
+            await this.seedBasicData();
+        }
+        catch (error) {
+            console.warn('⚠️  [Database] Initialization check failed, attempting to create tables:', error);
+            // 테이블 체크 실패 시에도 생성 시도
+            try {
+                await this.createTables();
+                await this.seedBasicData();
+            }
+            catch (fallbackError) {
+                console.error('❌ [Database] Fallback initialization failed:', fallbackError);
+            }
+        }
+    }
+    // 강제 데이터베이스 재초기화 (개발용)
+    async forceReinitialize() {
+        try {
+            await this.createTables();
+            await this.seedBasicData();
+        }
+        catch (error) {
+            console.error('Force reinitialization failed:', error);
+        }
+    }
+    async createTables() {
+        // 카테고리 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        slug VARCHAR(50) UNIQUE NOT NULL,
+        name_ko VARCHAR(100) NOT NULL,
+        name_en VARCHAR(100),
+        icon VARCHAR(50),
+        color_hex VARCHAR(7),
+        sort_order INT DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+        // 상품 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS listings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        category_id INT NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        partner_id INT,
+        title VARCHAR(300) NOT NULL,
+        description_md TEXT,
+        short_description TEXT,
+        price_from DECIMAL(10, 2),
+        price_to DECIMAL(10, 2),
+        currency VARCHAR(10) DEFAULT 'KRW',
+        images JSON,
+        lat DECIMAL(10, 8),
+        lng DECIMAL(11, 8),
+        location VARCHAR(200),
+        address TEXT,
+        coordinates VARCHAR(100),
+        duration VARCHAR(50),
+        max_capacity INT DEFAULT 10,
+        min_capacity INT DEFAULT 1,
+        min_age INT,
+        difficulty ENUM('easy', 'moderate', 'hard') DEFAULT 'easy',
+        meeting_point TEXT,
+        cancellation_policy TEXT,
+        highlights JSON,
+        included JSON,
+        excluded JSON,
+        amenities JSON,
+        tags JSON,
+        policies TEXT,
+        rating_avg DECIMAL(3, 2) DEFAULT 0.00,
+        rating_count INT DEFAULT 0,
+        view_count INT DEFAULT 0,
+        booking_count INT DEFAULT 0,
+        start_date DATE,
+        end_date DATE,
+        available_from TIMESTAMP,
+        available_to TIMESTAMP,
+        is_published BOOLEAN DEFAULT TRUE,
+        is_featured BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
+        featured_score INT DEFAULT 0,
+        partner_boost INT DEFAULT 0,
+        sponsored_until TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_category (category_id),
+        INDEX idx_location (location),
+        INDEX idx_price (price_from),
+        INDEX idx_rating (rating_avg),
+        INDEX idx_featured (is_featured),
+        INDEX idx_active (is_active, is_published)
+      )
+    `);
+        // 사용자 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(50) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        phone VARCHAR(20),
+        role ENUM('user', 'partner', 'admin') DEFAULT 'user',
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+        // PMS 설정 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS pms_configs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listing_id INT NOT NULL,
+        vendor ENUM('stayntouch', 'opera', 'cloudbeds', 'mews', 'custom') NOT NULL,
+        hotel_id VARCHAR(100) NOT NULL,
+        api_key VARCHAR(500),
+        api_secret VARCHAR(500),
+        api_endpoint VARCHAR(500),
+        webhook_secret VARCHAR(200),
+        settings JSON,
+        is_active BOOLEAN DEFAULT TRUE,
+        last_sync_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_listing (listing_id),
+        INDEX idx_hotel (hotel_id),
+        INDEX idx_vendor (vendor)
+      )
+    `);
+        // 객실 타입 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS room_types (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listing_id INT NOT NULL,
+        pms_vendor VARCHAR(50),
+        pms_hotel_id VARCHAR(100),
+        pms_room_type_id VARCHAR(100),
+        room_type_id VARCHAR(100) NOT NULL,
+        room_type_name VARCHAR(200) NOT NULL,
+        description TEXT,
+        max_occupancy INT DEFAULT 2,
+        bed_type VARCHAR(100),
+        amenities JSON,
+        base_price DECIMAL(10, 2),
+        currency VARCHAR(10) DEFAULT 'KRW',
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_room_type (listing_id, room_type_id),
+        INDEX idx_listing (listing_id),
+        INDEX idx_active (is_active)
+      )
+    `);
+        // 객실 미디어 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS room_media (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        room_type_id INT NOT NULL,
+        media_url VARCHAR(500) NOT NULL,
+        media_type ENUM('image', 'video') DEFAULT 'image',
+        caption TEXT,
+        display_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_room_type (room_type_id),
+        INDEX idx_order (room_type_id, display_order)
+      )
+    `);
+        // 요금 플랜 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS rate_plans (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listing_id INT,
+        room_type_id INT NOT NULL,
+        pms_rate_plan_id VARCHAR(100),
+        rate_plan_id VARCHAR(100),
+        rate_plan_name VARCHAR(200) NOT NULL,
+        base_price DECIMAL(10, 2),
+        check_date DATE,
+        price DECIMAL(10, 2),
+        currency VARCHAR(10) DEFAULT 'KRW',
+        min_stay INT DEFAULT 1,
+        max_stay INT,
+        is_refundable BOOLEAN DEFAULT TRUE,
+        breakfast_included BOOLEAN DEFAULT FALSE,
+        closed_to_arrival BOOLEAN DEFAULT FALSE,
+        closed_to_departure BOOLEAN DEFAULT FALSE,
+        non_refundable BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_listing (listing_id),
+        INDEX idx_room_type (room_type_id),
+        INDEX idx_date (check_date),
+        INDEX idx_active (is_active)
+      )
+    `);
+        // 객실 재고 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS room_inventory (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listing_id INT,
+        room_type_id INT NOT NULL,
+        date DATE NOT NULL,
+        check_date DATE,
+        available INT NOT NULL DEFAULT 0,
+        total INT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_inventory (room_type_id, date),
+        INDEX idx_listing (listing_id),
+        INDEX idx_room_type (room_type_id),
+        INDEX idx_date (date),
+        INDEX idx_check_date (check_date),
+        INDEX idx_available (available)
+      )
+    `);
+        // 리뷰 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listing_id INT NOT NULL,
+        user_id INT NOT NULL,
+        booking_id INT,
+        rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        title VARCHAR(200),
+        comment_md TEXT,
+        pros TEXT,
+        cons TEXT,
+        visit_date DATE,
+        images JSON,
+        is_verified BOOLEAN DEFAULT FALSE,
+        is_published BOOLEAN DEFAULT TRUE,
+        is_visible BOOLEAN DEFAULT TRUE,
+        helpful_count INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_listing (listing_id),
+        INDEX idx_user (user_id)
+      )
+    `);
+        // 파트너 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS partners (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        business_name VARCHAR(200) NOT NULL,
+        contact_name VARCHAR(100) NOT NULL,
+        email VARCHAR(255),
+        phone VARCHAR(20),
+        business_number VARCHAR(50),
+        website VARCHAR(500),
+        instagram VARCHAR(100),
+        description TEXT,
+        services TEXT,
+        location VARCHAR(200),
+        base_price DECIMAL(10, 2) DEFAULT 0,
+        detailed_address TEXT,
+        images JSON,
+        business_hours VARCHAR(200),
+        tier ENUM('bronze', 'silver', 'gold', 'vip') DEFAULT 'bronze',
+        partner_type ENUM('general', 'lodging', 'rentcar', 'popup', 'food', 'attraction', 'travel', 'event', 'experience') DEFAULT 'general',
+        pms_provider VARCHAR(50),
+        pms_api_key VARCHAR(255),
+        pms_property_id VARCHAR(100),
+        pms_sync_enabled TINYINT(1) DEFAULT 0,
+        pms_sync_interval INT DEFAULT 60,
+        last_sync_at DATETIME,
+        check_in_time VARCHAR(10),
+        check_out_time VARCHAR(10),
+        policies TEXT,
+        logo VARCHAR(500),
+        is_verified BOOLEAN DEFAULT FALSE,
+        is_featured BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
+        status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+        lat DECIMAL(10, 8),
+        lng DECIMAL(11, 8),
+        business_address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_status (status),
+        INDEX idx_user (user_id),
+        INDEX idx_active (is_active),
+        INDEX idx_location (location),
+        INDEX idx_partner_type (partner_type)
+      )
+    `);
+        // 예약 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS bookings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_number VARCHAR(50) UNIQUE NOT NULL,
+        listing_id INT NOT NULL,
+        user_id INT NOT NULL,
+        start_date DATE,
+        end_date DATE,
+        check_in_time TIME,
+        check_out_time TIME,
+        num_adults INT DEFAULT 1,
+        num_children INT DEFAULT 0,
+        num_seniors INT DEFAULT 0,
+        price_adult DECIMAL(10, 2),
+        price_child DECIMAL(10, 2),
+        price_senior DECIMAL(10, 2),
+        subtotal DECIMAL(10, 2),
+        discount_amount DECIMAL(10, 2) DEFAULT 0,
+        tax_amount DECIMAL(10, 2) DEFAULT 0,
+        total_amount DECIMAL(10, 2) NOT NULL,
+        payment_method ENUM('card', 'bank_transfer', 'kakaopay', 'naverpay') NOT NULL,
+        payment_status ENUM('pending', 'paid', 'failed', 'refunded') DEFAULT 'pending',
+        status ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
+        customer_info JSON,
+        special_requests TEXT,
+        cancellation_reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_listing (listing_id),
+        INDEX idx_user (user_id),
+        INDEX idx_status (status)
+      )
+    `);
+        // 결제 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_id INT NOT NULL,
+        payment_method ENUM('card', 'bank_transfer', 'kakaopay', 'naverpay') NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        currency VARCHAR(10) DEFAULT 'KRW',
+        status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
+        transaction_id VARCHAR(200),
+        gateway_response JSON,
+        processed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_booking (booking_id),
+        INDEX idx_status (status)
+      )
+    `);
+        // 블로그 포스트 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS blog_posts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(300) NOT NULL,
+        slug VARCHAR(300) UNIQUE NOT NULL,
+        content_md TEXT,
+        excerpt TEXT,
+        featured_image VARCHAR(500),
+        images JSON,
+        tags JSON,
+        category VARCHAR(100),
+        author_id INT,
+        views INT DEFAULT 0,
+        likes INT DEFAULT 0,
+        is_published BOOLEAN DEFAULT FALSE,
+        is_featured BOOLEAN DEFAULT FALSE,
+        published_at TIMESTAMP,
+        event_start_date DATE,
+        event_end_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_published (is_published),
+        INDEX idx_category (category),
+        INDEX idx_author (author_id),
+        INDEX idx_event_dates (event_start_date, event_end_date)
+      )
+    `);
+        // 이미지 테이블 (BLOB 저장 지원)
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS images (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        entity_type ENUM('listing', 'partner', 'user', 'review', 'blog', 'general') NOT NULL,
+        entity_id INT,
+        file_name VARCHAR(255) NOT NULL,
+        original_name VARCHAR(255),
+        file_path VARCHAR(500),
+        file_url VARCHAR(500),
+        file_data LONGBLOB,
+        file_size INT,
+        mime_type VARCHAR(100),
+        width INT,
+        height INT,
+        alt_text VARCHAR(255),
+        is_primary BOOLEAN DEFAULT FALSE,
+        uploaded_by INT,
+        storage_type ENUM('blob', 'url') DEFAULT 'blob',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_entity (entity_type, entity_id),
+        INDEX idx_uploader (uploaded_by),
+        INDEX idx_storage_type (storage_type)
+      )
+    `);
+        // 관리자 설정 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS admin_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        setting_key VARCHAR(100) UNIQUE NOT NULL,
+        setting_value TEXT,
+        setting_category VARCHAR(50) DEFAULT 'general',
+        description TEXT,
+        data_type ENUM('string', 'number', 'boolean', 'json') DEFAULT 'string',
+        updated_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_category (setting_category)
+      )
+    `);
+        // 관리자 로그 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS admin_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        admin_id INT NOT NULL,
+        action VARCHAR(100) NOT NULL,
+        entity_type VARCHAR(50),
+        entity_id INT,
+        description TEXT,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_admin (admin_id),
+        INDEX idx_action (action),
+        INDEX idx_entity (entity_type, entity_id)
+      )
+    `);
+        // 파트너 신청 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS partner_applications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        business_name VARCHAR(200) NOT NULL,
+        contact_name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        phone VARCHAR(20),
+        business_number VARCHAR(50),
+        business_address TEXT,
+        description TEXT,
+        services TEXT,
+        status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+        reviewed_by INT,
+        review_notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_status (status),
+        INDEX idx_user (user_id)
+      )
+    `);
+        // 문의 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS contacts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        status ENUM('pending', 'replied', 'resolved') DEFAULT 'pending',
+        admin_reply TEXT,
+        replied_by INT,
+        replied_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_status (status),
+        INDEX idx_created_at (created_at)
+      )
+    `);
+        // 미디어 라이브러리 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS media (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        filename VARCHAR(500) NOT NULL,
+        original_filename VARCHAR(500) NOT NULL,
+        url LONGTEXT NOT NULL,
+        thumbnail_url LONGTEXT,
+        file_type VARCHAR(50) NOT NULL,
+        file_size INT,
+        width INT,
+        height INT,
+        alt_text VARCHAR(500),
+        caption TEXT,
+        category ENUM('product', 'banner', 'blog', 'partner', 'event', 'other') DEFAULT 'other',
+        usage_location VARCHAR(100) COMMENT '사용 위치: main_banner, category_banner, product_image, blog_image 등',
+        tags JSON COMMENT '검색용 태그',
+        uploaded_by BIGINT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_category (category),
+        INDEX idx_usage_location (usage_location),
+        INDEX idx_file_type (file_type),
+        INDEX idx_is_active (is_active),
+        INDEX idx_created_at (created_at)
+      )
+    `);
+        // 홈 배너 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS home_banners (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        image_url VARCHAR(500) NOT NULL,
+        title VARCHAR(200),
+        subtitle VARCHAR(300),
+        link_url VARCHAR(500),
+        display_order INT DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_active (is_active),
+        INDEX idx_order (display_order)
+      )
+    `);
+        // 배너 관리 테이블 (관리자 페이지용)
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS banners (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        image_url LONGTEXT NOT NULL,
+        title VARCHAR(200),
+        link_url VARCHAR(500),
+        display_order INT DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_active (is_active),
+        INDEX idx_order (display_order)
+      )
+    `);
+        // 액티비티 이미지 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS activity_images (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        activity_id INT NOT NULL,
+        image_url VARCHAR(500) NOT NULL,
+        caption VARCHAR(200),
+        display_order INT DEFAULT 0,
+        is_primary BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_activity (activity_id),
+        INDEX idx_order (display_order)
+      )
+    `);
+        // 숙박 예약 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS lodging_bookings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_number VARCHAR(50) UNIQUE NOT NULL,
+        listing_id INT NOT NULL,
+        room_type_id INT NOT NULL,
+        user_id INT NOT NULL,
+        check_in_date DATE NOT NULL,
+        check_out_date DATE NOT NULL,
+        num_guests INT DEFAULT 1,
+        total_amount DECIMAL(10, 2) NOT NULL,
+        deposit_amount DECIMAL(10, 2) DEFAULT 0,
+        payment_status ENUM('pending', 'deposit_paid', 'fully_paid', 'refunded') DEFAULT 'pending',
+        booking_status ENUM('pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled') DEFAULT 'pending',
+        customer_info JSON,
+        special_requests TEXT,
+        cancellation_reason TEXT,
+        expiry_date TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_listing (listing_id),
+        INDEX idx_room_type (room_type_id),
+        INDEX idx_user (user_id),
+        INDEX idx_payment_status (payment_status),
+        INDEX idx_booking_status (booking_status),
+        INDEX idx_expiry (expiry_date)
+      )
+    `);
+        // 벤더 설정 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS vendor_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_id INT NOT NULL,
+        setting_key VARCHAR(100) NOT NULL,
+        setting_value TEXT,
+        data_type ENUM('string', 'number', 'boolean', 'json') DEFAULT 'string',
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_vendor_setting (vendor_id, setting_key),
+        INDEX idx_vendor (vendor_id)
+      )
+    `);
+        // PMS API 크레덴셜 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS pms_api_credentials (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_id INT NOT NULL,
+        pms_provider VARCHAR(50) NOT NULL,
+        api_key VARCHAR(500),
+        api_secret VARCHAR(500),
+        api_endpoint VARCHAR(500),
+        hotel_id VARCHAR(100),
+        property_id VARCHAR(100),
+        sync_enabled BOOLEAN DEFAULT FALSE,
+        sync_interval_hours INT DEFAULT 1,
+        last_sync_at TIMESTAMP,
+        settings JSON,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_vendor_pms (vendor_id),
+        INDEX idx_provider (pms_provider),
+        INDEX idx_sync_enabled (sync_enabled)
+      )
+    `);
+        // PMS 동기화 작업 로그 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS pms_sync_jobs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        pms_credential_id INT NOT NULL,
+        status ENUM('RUNNING', 'SUCCESS', 'FAILED') DEFAULT 'RUNNING',
+        started_at TIMESTAMP,
+        completed_at TIMESTAMP,
+        rooms_synced INT DEFAULT 0,
+        rates_synced INT DEFAULT 0,
+        availability_synced INT DEFAULT 0,
+        sync_details JSON,
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_credential (pms_credential_id),
+        INDEX idx_status (status),
+        INDEX idx_started_at (started_at)
+      )
+    `);
+        // 수수료율 관리 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS commission_rates (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        category VARCHAR(50),
+        vendor_id INT,
+        rate DECIMAL(5, 2) NOT NULL DEFAULT 10.00,
+        effective_from TIMESTAMP,
+        effective_to TIMESTAMP,
+        is_active BOOLEAN DEFAULT TRUE,
+        notes TEXT,
+        created_by INT,
+        updated_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_category (category),
+        INDEX idx_vendor (vendor_id),
+        INDEX idx_active (is_active),
+        INDEX idx_effective_dates (effective_from, effective_to)
+      )
+    `);
+        // 렌트카 벤더 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS rentcar_vendors (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_code VARCHAR(50) UNIQUE NOT NULL,
+        business_name VARCHAR(200) NOT NULL,
+        brand_name VARCHAR(200),
+        business_number VARCHAR(50),
+        contact_name VARCHAR(100) NOT NULL,
+        contact_email VARCHAR(255) NOT NULL,
+        contact_phone VARCHAR(20) NOT NULL,
+        description TEXT,
+        logo_url LONGTEXT,
+        pms_provider VARCHAR(50),
+        pms_api_key VARCHAR(500),
+        pms_property_id VARCHAR(100),
+        status ENUM('pending', 'active', 'suspended') DEFAULT 'pending',
+        is_verified BOOLEAN DEFAULT FALSE,
+        commission_rate DECIMAL(5, 2) DEFAULT 10.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_status (status),
+        INDEX idx_vendor_code (vendor_code)
+      )
+    `);
+        // 렌트카 차량 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS rentcar_vehicles (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_id INT NOT NULL,
+        vehicle_code VARCHAR(50) NOT NULL,
+        brand VARCHAR(100) NOT NULL,
+        model VARCHAR(100) NOT NULL,
+        year INT NOT NULL,
+        display_name VARCHAR(200) NOT NULL,
+        vehicle_class ENUM('compact', 'midsize', 'fullsize', 'luxury', 'suv', 'van', 'electric') NOT NULL,
+        vehicle_type VARCHAR(100),
+        fuel_type ENUM('gasoline', 'diesel', 'electric', 'hybrid') NOT NULL,
+        transmission ENUM('manual', 'automatic') NOT NULL,
+        seating_capacity INT NOT NULL,
+        door_count INT DEFAULT 4,
+        large_bags INT DEFAULT 2,
+        small_bags INT DEFAULT 2,
+        thumbnail_url LONGTEXT,
+        images JSON,
+        features JSON,
+        age_requirement INT DEFAULT 21,
+        license_requirement VARCHAR(100),
+        mileage_limit_per_day INT DEFAULT 0,
+        unlimited_mileage BOOLEAN DEFAULT TRUE,
+        deposit_amount_krw DECIMAL(10, 2) DEFAULT 0,
+        smoking_allowed BOOLEAN DEFAULT FALSE,
+        daily_rate_krw DECIMAL(10, 2) NOT NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        is_featured BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_vehicle_code (vendor_id, vehicle_code),
+        INDEX idx_vendor (vendor_id),
+        INDEX idx_class (vehicle_class),
+        INDEX idx_active (is_active)
+      )
+    `);
+        // 렌트카 예약 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS rentcar_bookings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_number VARCHAR(50) UNIQUE NOT NULL,
+        vendor_id INT NOT NULL,
+        vehicle_id INT NOT NULL,
+        user_id INT NOT NULL,
+        customer_name VARCHAR(100) NOT NULL,
+        customer_email VARCHAR(255) NOT NULL,
+        customer_phone VARCHAR(20) NOT NULL,
+        pickup_location_id INT,
+        dropoff_location_id INT,
+        pickup_date DATE NOT NULL,
+        pickup_time TIME NOT NULL,
+        dropoff_date DATE NOT NULL,
+        dropoff_time TIME NOT NULL,
+        daily_rate_krw DECIMAL(10, 2) NOT NULL,
+        rental_days INT NOT NULL,
+        subtotal_krw DECIMAL(10, 2) NOT NULL,
+        insurance_krw DECIMAL(10, 2) DEFAULT 0,
+        extras_krw DECIMAL(10, 2) DEFAULT 0,
+        tax_krw DECIMAL(10, 2) DEFAULT 0,
+        discount_krw DECIMAL(10, 2) DEFAULT 0,
+        total_krw DECIMAL(10, 2) NOT NULL,
+        status ENUM('pending', 'confirmed', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending',
+        payment_status ENUM('pending', 'paid', 'refunded') DEFAULT 'pending',
+        special_requests TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_vendor (vendor_id),
+        INDEX idx_vehicle (vehicle_id),
+        INDEX idx_status (status),
+        INDEX idx_dates (pickup_date, dropoff_date)
+      )
+    `);
+        // 렌트카 지점 테이블
+        await this.execute(`
+      CREATE TABLE IF NOT EXISTS rentcar_locations (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vendor_id INT NOT NULL,
+        location_code VARCHAR(50) NOT NULL,
+        name VARCHAR(200) NOT NULL,
+        location_type ENUM('airport', 'downtown', 'station', 'hotel') NOT NULL,
+        address TEXT NOT NULL,
+        city VARCHAR(100),
+        postal_code VARCHAR(20),
+        lat DECIMAL(10, 8),
+        lng DECIMAL(11, 8),
+        operating_hours JSON,
+        phone VARCHAR(20),
+        pickup_fee_krw DECIMAL(10, 2) DEFAULT 0,
+        dropoff_fee_krw DECIMAL(10, 2) DEFAULT 0,
+        is_active BOOLEAN DEFAULT TRUE,
+        display_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_location_code (vendor_id, location_code),
+        INDEX idx_vendor (vendor_id),
+        INDEX idx_type (location_type),
+        INDEX idx_active (is_active)
+      )
+    `);
+        console.log('✅ [Database] All tables created successfully');
+    }
+    async seedBasicData() {
+        console.log('🌱 데이터베이스 시드 시작...');
+        // 관리자 계정 생성 (2개)
+        const adminAccounts = [
+            { user_id: 'admin_shinan', email: 'admin@shinan.com', password_hash: 'hashed_admin123', name: '관리자', phone: '010-0000-0000', role: 'admin' },
+            { user_id: 'admin_manager', email: 'manager@shinan.com', password_hash: 'hashed_manager123', name: '매니저', phone: '010-0000-0001', role: 'admin' }
+        ];
+        for (const admin of adminAccounts) {
+            await this.execute(`
+        INSERT IGNORE INTO users (user_id, email, password_hash, name, phone, role)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [admin.user_id, admin.email, admin.password_hash, admin.name, admin.phone, admin.role]);
+        }
+        // 테스트 사용자 계정들 추가
+        const testUsers = [
+            { user_id: 'test_user1', email: 'user1@test.com', password_hash: 'hashed_user123', name: '김신안', phone: '010-1234-5678', role: 'user' },
+            { user_id: 'test_user2', email: 'user2@test.com', password_hash: 'hashed_user123', name: '박홍도', phone: '010-2345-6789', role: 'user' },
+            { user_id: 'test_user3', email: 'user3@test.com', password_hash: 'hashed_user123', name: '이증도', phone: '010-3456-7890', role: 'user' },
+            { user_id: 'partner1', email: 'partner1@test.com', password_hash: 'hashed_partner123', name: '최비금', phone: '010-4567-8901', role: 'partner' },
+            { user_id: 'partner2', email: 'partner2@test.com', password_hash: 'hashed_partner123', name: '정도초', phone: '010-5678-9012', role: 'partner' }
+        ];
+        for (const user of testUsers) {
+            await this.execute(`
+        INSERT IGNORE INTO users (user_id, email, password_hash, name, phone, role)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [user.user_id, user.email, user.password_hash, user.name, user.phone, user.role]);
+        }
+        // 8개 카테고리 데이터
+        const categoriesData = [
+            { slug: 'tour', name_ko: '여행', name_en: 'Travel', icon: 'map', color_hex: '#FF6B6B', sort_order: 1 },
+            { slug: 'rentcar', name_ko: '렌트카', name_en: 'Car Rental', icon: 'car', color_hex: '#4ECDC4', sort_order: 2 },
+            { slug: 'stay', name_ko: '숙박', name_en: 'Accommodation', icon: 'bed', color_hex: '#45B7D1', sort_order: 3 },
+            { slug: 'food', name_ko: '음식', name_en: 'Food', icon: 'utensils', color_hex: '#96CEB4', sort_order: 4 },
+            { slug: 'tourist', name_ko: '관광지', name_en: 'Tourist Spots', icon: 'camera', color_hex: '#FFEAA7', sort_order: 5 },
+            { slug: 'popup', name_ko: '팝업', name_en: 'Pop-up', icon: 'star', color_hex: '#FF9FF3', sort_order: 6 },
+            { slug: 'event', name_ko: '행사', name_en: 'Events', icon: 'calendar', color_hex: '#54A0FF', sort_order: 7 },
+            { slug: 'experience', name_ko: '체험', name_en: 'Experience', icon: 'heart', color_hex: '#5F27CD', sort_order: 8 }
+        ];
+        for (const category of categoriesData) {
+            await this.execute(`
+        INSERT IGNORE INTO categories (slug, name_ko, name_en, icon, color_hex, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [category.slug, category.name_ko, category.name_en, category.icon, category.color_hex, category.sort_order]);
+        }
+        // 관리자 설정 초기 데이터
+        const adminSettingsData = [
+            { setting_key: 'site_name', setting_value: 'Travleap', setting_category: 'general', description: '사이트 이름', data_type: 'string' },
+            { setting_key: 'commission_rate', setting_value: '10', setting_category: 'finance', description: '수수료율 (%)', data_type: 'number' },
+            { setting_key: 'max_images_per_listing', setting_value: '10', setting_category: 'listing', description: '상품당 최대 이미지 수', data_type: 'number' },
+            { setting_key: 'default_currency', setting_value: 'KRW', setting_category: 'general', description: '기본 통화', data_type: 'string' },
+            { setting_key: 'maintenance_mode', setting_value: 'false', setting_category: 'system', description: '유지보수 모드', data_type: 'boolean' }
+        ];
+        for (const setting of adminSettingsData) {
+            await this.execute(`
+        INSERT IGNORE INTO admin_settings (setting_key, setting_value, setting_category, description, data_type, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [setting.setting_key, setting.setting_value, setting.setting_category, setting.description, setting.data_type, 1]);
+        }
+        // 기본 수수료율 데이터 시드 (9개)
+        const commissionRatesData = [
+            { id: 1, category: null, vendor_id: null, rate: 10.00, notes: '전체 기본 수수료율', created_by: 1 },
+            { id: 2, category: 'rentcar', vendor_id: null, rate: 10.00, notes: '렌트카 기본 수수료율', created_by: 1 },
+            { id: 3, category: 'stay', vendor_id: null, rate: 12.00, notes: '숙박 기본 수수료율', created_by: 1 },
+            { id: 4, category: 'tour', vendor_id: null, rate: 15.00, notes: '여행 기본 수수료율', created_by: 1 },
+            { id: 5, category: 'food', vendor_id: null, rate: 8.00, notes: '음식 기본 수수료율', created_by: 1 },
+            { id: 6, category: 'tourist', vendor_id: null, rate: 12.00, notes: '관광지 기본 수수료율', created_by: 1 },
+            { id: 7, category: 'popup', vendor_id: null, rate: 20.00, notes: '팝업 기본 수수료율', created_by: 1 },
+            { id: 8, category: 'event', vendor_id: null, rate: 15.00, notes: '행사 기본 수수료율', created_by: 1 },
+            { id: 9, category: 'experience', vendor_id: null, rate: 15.00, notes: '체험 기본 수수료율', created_by: 1 }
+        ];
+        for (const commissionRate of commissionRatesData) {
+            await this.execute(`
+        INSERT IGNORE INTO commission_rates (id, category, vendor_id, rate, is_active, notes, created_by)
+        VALUES (?, ?, ?, ?, TRUE, ?, ?)
+      `, [commissionRate.id, commissionRate.category, commissionRate.vendor_id, commissionRate.rate, commissionRate.notes, commissionRate.created_by]);
+        }
+        // 파트너 데이터는 관리자가 직접 승인하므로 초기 데이터 생성하지 않음
+        console.log('ℹ️  파트너 데이터는 파트너 신청을 통해 추가됩니다.');
+        // 블로그 포스트는 관리자가 직접 작성하므로 초기 데이터 생성하지 않음
+        console.log('ℹ️  블로그 포스트는 관리자가 직접 작성합니다.');
+        // 상품과 리뷰는 관리자가 직접 추가하므로 초기 데이터 생성하지 않음
+        console.log('ℹ️  상품과 리뷰는 관리자 페이지에서 직접 추가합니다.');
+    }
+}
+// Lazy initialization - database instance is created only when first accessed
+let dbInstance = null;
+function getDatabase() {
+    if (!dbInstance) {
+        dbInstance = new Database();
+    }
+    return dbInstance;
+}
+// Getter for backwards compatibility - will create instance on first access
+exports.db = new Proxy({}, {
+    get(target, prop) {
+        const instance = getDatabase();
+        const value = instance[prop];
+        if (typeof value === 'function') {
+            return value.bind(instance);
+        }
+        return value;
+    }
+});
+// 개발 환경에서 강제 재초기화 실행 (관리자 계정 생성)
+if (typeof window !== 'undefined') {
+    window.forceReinitDB = () => getDatabase().forceReinitialize();
+}
+exports.default = exports.db;

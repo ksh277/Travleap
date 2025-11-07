@@ -1,5 +1,5 @@
 // 렌트카 결제 처리 API
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 
 
 

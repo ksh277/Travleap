@@ -10,7 +10,7 @@
  * 권한: 벤더
  */
 
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 
 module.exports = async function handler(req, res) {
   try {

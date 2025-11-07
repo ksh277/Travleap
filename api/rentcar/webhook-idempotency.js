@@ -14,7 +14,7 @@
  * - 이미 처리된 이벤트면 200 OK 반환 (재처리 안함)
  */
 
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 const crypto = require('crypto');
 
 /**

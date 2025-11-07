@@ -6,9 +6,9 @@
  * 권한: vendor (본인의 상품 주문만 조회 가능)
  */
 
-const { db } = require('../../utils/database');
-const { JWTUtils } = require('../../utils/jwt');
-const { maskForLog } = require('../../utils/pii-masking');
+const { db } = require('../../utils/database.cjs');
+const { JWTUtils } = require('../../utils/jwt.cjs');
+const { maskForLog } = require('../../utils/pii-masking.cjs');
 
 module.exports = async function handler(req, res) {
   try {

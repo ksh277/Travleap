@@ -12,7 +12,7 @@
  * - 푸시 알림 (FCM - 선택적)
  */
 
-const { db } = require('../../../utils/database');
+const { db } = require('../../utils/database.cjs');
 
 /**
  * 체크인 24시간 전 알림 발송

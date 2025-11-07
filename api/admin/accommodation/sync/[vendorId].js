@@ -7,7 +7,7 @@
  */
 
 const { connect } = require('@planetscale/database');
-const { syncPMS } = require('../../../../utils/pms-integrations');
+const { syncPMS } = require('../../../../utils/pms-integrations.cjs');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

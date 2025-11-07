@@ -10,8 +10,8 @@
  * 권한: 벤더, 관리자
  */
 
-const { db } = require('../../utils/database');
-const { JWTUtils } = require('../../utils/jwt');
+const { db } = require('../../utils/database.cjs');
+const { JWTUtils } = require('../../utils/jwt.cjs');
 
 module.exports = async function handler(req, res) {
   try {

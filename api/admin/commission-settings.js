@@ -1,5 +1,5 @@
 // 관리자 정산 비율 관리 API
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 
 /**
  * 관리자: 모든 수수료 정책 조회

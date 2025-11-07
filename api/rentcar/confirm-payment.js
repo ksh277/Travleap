@@ -11,9 +11,9 @@
  * 권한: 예약 소유자 또는 공개
  */
 
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 const { checkIdempotency, markEventProcessed } = require('./webhook-idempotency');
-const { sendError, RENTCAR_ERRORS } = require('../../utils/rentcar-error-codes');
+const { sendError, RENTCAR_ERRORS } = require('../../utils/rentcar-error-codes.cjs');
 
 // Toss Payments 클라이언트 초기화
 const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY;

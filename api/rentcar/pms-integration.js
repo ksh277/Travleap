@@ -16,7 +16,7 @@
  * 인증: API Key (X-API-Key 헤더)
  */
 
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 
 // PMS API Key 검증 (환경변수 또는 DB에서 관리)
 const PMS_API_KEYS = process.env.PMS_API_KEYS

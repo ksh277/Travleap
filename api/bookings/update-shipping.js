@@ -11,7 +11,7 @@
  */
 
 const { connect } = require('@planetscale/database');
-const { JWTUtils } = require('../../utils/jwt');
+const { JWTUtils } = require('../../utils/jwt.cjs');
 
 module.exports = async function handler(req, res) {
   // CORS

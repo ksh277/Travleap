@@ -1,5 +1,5 @@
 // 렌트카 벤더 차량 관리 API
-const { db } = require('../../utils/database');
+const { db } = require('../../utils/database.cjs');
 
 
 
