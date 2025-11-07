@@ -372,9 +372,18 @@ export function RentcarVehicleDetailPage() {
       rentalFee = mvpPricing.base_amount;
       console.log('MVP API 가격 사용:', rentalFee);
     } else {
-      // 없으면 로컬 계산
-      const hourlyRate = vehicle.hourly_rate_krw || Math.ceil(vehicle.daily_rate_krw / 24);
-      rentalFee = Math.ceil(hourlyRate * totalHours);
+      // 없으면 로컬 계산 (백엔드와 동일한 로직)
+      const hourlyRate = vehicle.hourly_rate_krw || Math.floor(vehicle.daily_rate_krw / 24);
+      const fullDays = Math.floor(totalHours / 24);
+      const remainingHours = totalHours % 24;
+
+      if (remainingHours === 0) {
+        // 정확히 24시간 단위인 경우 (1일, 2일, 3일 등)
+        rentalFee = vehicle.daily_rate_krw * fullDays;
+      } else {
+        // 24시간 단위가 아닌 경우 (예: 1.5일, 2.3일 등)
+        rentalFee = (vehicle.daily_rate_krw * fullDays) + Math.ceil(hourlyRate * remainingHours);
+      }
       console.log('로컬 계산 가격:', rentalFee);
     }
 
@@ -793,11 +802,11 @@ export function RentcarVehicleDetailPage() {
                           <p className="text-xs text-blue-700 mt-1">
                             {mvpPricing.rental_days}일 {mvpPricing.remainder_hours > 0 && `+ ${mvpPricing.remainder_hours}시간`}
                             {' '}(일 ₩{mvpPricing.daily_rate?.toLocaleString() || vehicle.daily_rate_krw.toLocaleString()},
-                            시간 ₩{mvpPricing.hourly_rate?.toLocaleString() || vehicle.hourly_rate_krw?.toLocaleString() || Math.ceil(vehicle.daily_rate_krw / 24).toLocaleString()})
+                            시간 ₩{mvpPricing.hourly_rate?.toLocaleString() || vehicle.hourly_rate_krw?.toLocaleString() || Math.floor(vehicle.daily_rate_krw / 24).toLocaleString()})
                           </p>
                         ) : (
                           <p className="text-xs text-blue-700 mt-1">
-                            시간당 약 ₩{(vehicle.hourly_rate_krw || Math.ceil(vehicle.daily_rate_krw / 24)).toLocaleString()}
+                            시간당 약 ₩{(vehicle.hourly_rate_krw || Math.floor(vehicle.daily_rate_krw / 24)).toLocaleString()}
                           </p>
                         )}
                       </div>
