@@ -316,9 +316,12 @@ export function useCartStore() {
     // 로그인한 사용자는 API를 통해 삭제
     if (isLoggedIn && user?.id) {
       try {
-        // ⭐ 수정: 올바른 API 경로 사용
-        const response = await fetch(`/api/cart?itemId=${itemId}&userId=${user.id}`, {
-          method: 'DELETE'
+        // ✅ FIX: Authorization 헤더 추가
+        const response = await fetch(`/api/cart?itemId=${itemId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
         });
 
         const result = await response.json();
@@ -398,10 +401,13 @@ export function useCartStore() {
     // 로그인한 사용자는 API를 통해 삭제
     if (isLoggedIn && user?.id) {
       try {
-        // 각 항목을 개별 삭제
+        // ✅ FIX: Authorization 헤더 추가
         const deletePromises = cartState.cartItems.map(item =>
-          fetch(`/api/cart?itemId=${item.id}&userId=${user.id}`, {
-            method: 'DELETE'
+          fetch(`/api/cart?itemId=${item.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+            }
           }).then(res => res.json())
         );
 
