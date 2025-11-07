@@ -4,7 +4,6 @@
  */
 
 const { connect } = require('@planetscale/database');
-const { encrypt, encryptPhone, encryptEmail } = require('../../utils/encryption');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -193,11 +192,8 @@ module.exports = async function handler(req, res) {
     const returnDateStr = returnDate.toISOString().split('T')[0];
     const returnTimeStr = returnDate.toTimeString().substring(0, 5);
 
-    // 8. 고객 정보 암호화
-    const encryptedCustomerName = encrypt(customer_name);
-    const encryptedCustomerEmail = encryptEmail(customer_email);
-    const encryptedCustomerPhone = customer_phone ? encryptPhone(customer_phone) : null;
-    const encryptedDriverName = driver?.name ? encrypt(driver.name) : null;
+    // 8. 고객 정보 (암호화 없이 직접 저장)
+    // 다른 API들과 일관성을 위해 평문 저장
 
     // 9. 예약 생성
     const result = await connection.execute(`
@@ -224,8 +220,8 @@ module.exports = async function handler(req, res) {
       )
     `, [
       bookingNumber, vehicle.vendor_id, vehicle_id, user_id || null,
-      encryptedCustomerName, encryptedCustomerEmail, encryptedCustomerPhone,
-      encryptedDriverName, driver?.birth || null, driver?.license_no || null, driver?.license_exp || null,
+      customer_name, customer_email, customer_phone || null,
+      driver?.name || null, driver?.birth || null, driver?.license_no || null, driver?.license_exp || null,
       validPickupLocationId, validDropoffLocationId,
       pickupDateStr, pickupTimeStr, returnDateStr, returnTimeStr,
       hourlyRate, Math.ceil(rentalHours), subtotal, tax, totalAmount,
