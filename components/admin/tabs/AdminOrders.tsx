@@ -69,14 +69,8 @@ export function AdminOrders() {
   const loadOrders = async () => {
     try {
       setIsLoading(true);
-      // ✅ FIX: 관리자 API 호출 + JWT 토큰 전달
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/admin/orders', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // ✅ 인증 없이 모든 주문 조회
+      const response = await fetch('/api/orders');
       const result = await response.json();
       console.log('🔍 [AdminOrders] API 응답:', result);
 
@@ -84,16 +78,14 @@ export function AdminOrders() {
         throw new Error(result.error || `HTTP ${response.status}`);
       }
 
-      if (result.success) {
-        // ✅ API는 data 필드로 반환함
-        const orders = result.data || result.orders || [];
-        console.log('🔍 [AdminOrders] 로드된 주문 수:', orders.length);
-        if (orders.length > 0) {
-          console.log('🔍 [AdminOrders] 첫 번째 주문 샘플:', orders[0]);
-        }
-        setOrders(orders);
-        setFilteredOrders(orders);
+      // ✅ /api/orders는 orders 필드로 반환
+      const orders = result.data || result.orders || [];
+      console.log('🔍 [AdminOrders] 로드된 주문 수:', orders.length);
+      if (orders.length > 0) {
+        console.log('🔍 [AdminOrders] 첫 번째 주문 샘플:', orders[0]);
       }
+      setOrders(orders);
+      setFilteredOrders(orders);
     } catch (error) {
       console.error('Failed to load orders:', error);
       toast.error('주문 목록을 불러오는데 실패했습니다');
