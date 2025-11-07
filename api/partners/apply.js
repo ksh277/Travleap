@@ -31,6 +31,7 @@ module.exports = async function handler(req, res) {
       contact_name,
       email,
       phone,
+      mobile_phone,
       business_address,
       location,
       services,
@@ -57,8 +58,8 @@ module.exports = async function handler(req, res) {
       lng
     });
 
-    // 필수 항목 검증
-    if (!business_name || !contact_name || !email || !phone) {
+    // 필수 항목 검증 (mobile_phone 필수)
+    if (!business_name || !contact_name || !email || !mobile_phone) {
       return res.status(400).json({
         success: false,
         error: '필수 정보를 모두 입력해주세요.'
@@ -88,6 +89,7 @@ module.exports = async function handler(req, res) {
         contact_name,
         email,
         phone,
+        mobile_phone,
         business_address,
         location,
         services,
@@ -106,12 +108,13 @@ module.exports = async function handler(req, res) {
         status,
         is_active,
         created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, NOW())
     `, [
       business_name,
       contact_name,
       email,
-      phone,
+      phone || null,
+      mobile_phone,
       business_address || null,
       location || null,
       services || null,

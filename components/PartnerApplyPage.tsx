@@ -46,6 +46,7 @@ export function PartnerApplyPage() {
     contact_name: '',
     email: '',
     phone: '',
+    mobile_phone: '',
     business_address: '',
     location: '',
     services: '', // 카테고리 (단일 선택)
@@ -482,11 +483,21 @@ export function PartnerApplyPage() {
                         </div>
 
                         <div>
-                          <Label htmlFor="phone">전화번호 *</Label>
+                          <Label htmlFor="phone">가게 전화번호</Label>
                           <Input
                             id="phone"
                             value={formData.phone}
                             onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                            placeholder="061-123-4567 (선택사항)"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="mobile_phone">휴대전화번호 *</Label>
+                          <Input
+                            id="mobile_phone"
+                            value={formData.mobile_phone}
+                            onChange={(e) => setFormData(prev => ({ ...prev, mobile_phone: e.target.value }))}
                             placeholder="010-1234-5678"
                             required
                           />
