@@ -537,11 +537,31 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           // 트랜잭션 시작 (FOR UPDATE를 위해 필수)
           await poolNeon.query('BEGIN');
 
-          // 사용자 정보 조회 (Neon - users 테이블)
+          // 🔧 RACE CONDITION FIX: PlanetScale user_points의 최신 balance_after를 기준으로 사용
+          // Neon total_points는 동기화 지연이 있을 수 있으므로, PlanetScale balance_after가 더 정확함
+          const latestBalanceResult = await connection.execute(`
+            SELECT balance_after
+            FROM user_points
+            WHERE user_id = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+          `, [userId]);
+
+          let currentPoints = 0;
+          if (latestBalanceResult.rows && latestBalanceResult.rows.length > 0) {
+            currentPoints = latestBalanceResult.rows[0].balance_after || 0;
+            console.log(`💰 [포인트] PlanetScale 최신 balance_after 사용: ${currentPoints}P`);
+          } else {
+            // 포인트 내역이 없으면 Neon fallback
+            const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [userId]);
+            currentPoints = userResult.rows?.[0]?.total_points || 0;
+            console.log(`💰 [포인트] Neon fallback 사용: ${currentPoints}P`);
+          }
+
+          // 사용자 정보 조회 (Neon - FOR UPDATE 락은 여전히 필요)
           const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [userId]);
 
           if (userResult.rows && userResult.rows.length > 0) {
-            const currentPoints = userResult.rows[0].total_points || 0;
 
             // 💰 포인트 적립 (2%, 상품 금액 기준, 배송비 제외)
             // booking.total_amount에서 배송비를 빼고 계산
@@ -654,8 +674,27 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         if (userResult.rows && userResult.rows.length > 0) {
           const user = userResult.rows[0];
 
+          // 🔧 RACE CONDITION FIX: PlanetScale user_points의 최신 balance_after를 기준으로 사용
+          // Neon total_points는 포인트 사용 직후 동기화 지연이 있을 수 있음
+          const latestBalanceResult = await connection.execute(`
+            SELECT balance_after
+            FROM user_points
+            WHERE user_id = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+          `, [userId]);
+
+          let currentBalance = 0;
+          if (latestBalanceResult.rows && latestBalanceResult.rows.length > 0) {
+            currentBalance = latestBalanceResult.rows[0].balance_after || 0;
+            console.log(`💰 [포인트] PlanetScale 최신 balance_after 사용: ${currentBalance}P (Neon: ${user.total_points}P)`);
+          } else {
+            // 포인트 내역이 없으면 Neon total_points 사용
+            currentBalance = user.total_points || 0;
+            console.log(`💰 [포인트] Neon total_points 사용 (PlanetScale 내역 없음): ${currentBalance}P`);
+          }
+
           // 🔧 각 카테고리 payment마다 개별적으로 포인트 적립
-          let currentBalance = user.total_points || 0;
           let totalPointsToEarn = 0;
 
           for (const categoryPayment of allPayments) {
