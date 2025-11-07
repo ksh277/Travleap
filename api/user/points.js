@@ -46,14 +46,52 @@ module.exports = async function handler(req, res) {
     // 2. PlanetScale MySQL: user_points 내역 조회
     const connection = connect({ url: process.env.DATABASE_URL });
 
-    // 사용자 총 포인트 조회 (Neon PostgreSQL)
-    const userResult = await poolNeon.query(`
-      SELECT total_points
-      FROM users
-      WHERE id = $1
+    // 🔧 CRITICAL FIX: balance_after를 신뢰할 수 있는 소스로 사용
+    // Neon total_points는 Race Condition으로 동기화 안될 수 있음
+    // 대신 PlanetScale의 최신 balance_after 사용 (트랜잭션 순서 보장)
+
+    // 최신 포인트 거래의 balance_after 조회
+    const balanceResult = await connection.execute(`
+      SELECT balance_after
+      FROM user_points
+      WHERE user_id = ?
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
     `, [parseInt(userId)]);
 
-    const totalPoints = userResult.rows?.[0]?.total_points || 0;
+    let totalPoints = 0;
+
+    if (balanceResult.rows && balanceResult.rows.length > 0) {
+      // PlanetScale balance_after 사용 (더 정확함)
+      totalPoints = balanceResult.rows[0].balance_after || 0;
+      console.log(`💰 [포인트 조회] User ${userId}: balance_after=${totalPoints}P`);
+
+      // Neon과 동기화 (백그라운드, 실패해도 무시)
+      try {
+        const userResult = await poolNeon.query(`SELECT total_points FROM users WHERE id = $1`, [parseInt(userId)]);
+        const neonPoints = userResult.rows?.[0]?.total_points || 0;
+
+        if (neonPoints !== totalPoints) {
+          console.warn(`⚠️ [포인트 조회] Neon 동기화 안됨: Neon=${neonPoints}P, PlanetScale=${totalPoints}P`);
+          // 백그라운드 동기화 (실패해도 무시)
+          poolNeon.query(`UPDATE users SET total_points = $1 WHERE id = $2`, [totalPoints, parseInt(userId)])
+            .then(() => console.log(`✅ [포인트 조회] Neon 자동 동기화 완료: ${totalPoints}P`))
+            .catch(err => console.error(`❌ [포인트 조회] Neon 동기화 실패:`, err.message));
+        }
+      } catch (neonError) {
+        console.error(`❌ [포인트 조회] Neon 확인 실패 (계속 진행):`, neonError.message);
+      }
+    } else {
+      // 포인트 내역이 없으면 Neon 확인 (fallback)
+      try {
+        const userResult = await poolNeon.query(`SELECT total_points FROM users WHERE id = $1`, [parseInt(userId)]);
+        totalPoints = userResult.rows?.[0]?.total_points || 0;
+        console.log(`💰 [포인트 조회] User ${userId}: Neon fallback=${totalPoints}P`);
+      } catch (neonError) {
+        console.error(`❌ [포인트 조회] Neon fallback 실패:`, neonError.message);
+        totalPoints = 0;
+      }
+    }
 
     // 포인트 내역 조회 (PlanetScale MySQL)
     const pointsResult = await connection.execute(`

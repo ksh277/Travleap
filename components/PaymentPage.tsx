@@ -113,6 +113,9 @@ export function PaymentPage() {
   const [pointsLoading, setPointsLoading] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
+  const [availableInsurances, setAvailableInsurances] = useState<any[]>([]);
+  const [selectedInsurance, setSelectedInsurance] = useState<any>(null);
+  const [insurancesLoading, setInsurancesLoading] = useState(false);
 
   // 팝업 상품 여부 확인 (배송지 필요 여부 판단용)
   const hasPopupProducts =
@@ -120,11 +123,13 @@ export function PaymentPage() {
     booking?.listing?.category === '팝업' || // 단일 상품 주문
     false;
 
-  // 최종 결제 금액 계산 (배송비 + 포인트 차감 후)
+  // 최종 결제 금액 계산 (배송비 + 보험료 + 포인트 차감 후)
   const orderTotal = orderData ? orderData.total : parseInt(booking?.totalPrice || amount || totalAmount || '0');
   // orderData.deliveryFee가 있으면 이미 orderData.total에 배송비 포함됨 (장바구니에서 온 경우)
   const totalWithDelivery = orderData?.deliveryFee !== undefined ? orderTotal : orderTotal + deliveryFee;
-  const finalAmount = Math.max(0, totalWithDelivery - pointsToUse);
+  const insuranceFee = selectedInsurance ? selectedInsurance.price : 0;
+  const totalWithInsurance = totalWithDelivery + insuranceFee;
+  const finalAmount = Math.max(0, totalWithInsurance - pointsToUse);
 
   // 🐛 디버깅 로그
   useEffect(() => {
@@ -215,6 +220,24 @@ export function PaymentPage() {
     }
   };
 
+  // 카테고리별 보험 조회
+  const fetchInsurances = async (category: string) => {
+    setInsurancesLoading(true);
+    try {
+      const response = await fetch(`/api/insurance?category=${category}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setAvailableInsurances(data.data || []);
+        console.log(`✅ ${category} 보험 조회 성공:`, data.data?.length || 0, '개');
+      }
+    } catch (error) {
+      console.error('Failed to fetch insurances:', error);
+    } finally {
+      setInsurancesLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isLoggedIn) {
       toast.error('로그인이 필요합니다.');
@@ -276,6 +299,41 @@ export function PaymentPage() {
       setDeliveryFeeLoading(false);
     }
   }, [hasPopupProducts, orderData?.deliveryFee, booking?.totalPrice, amount, totalAmount]);
+
+  // 보험 조회 (예약 정보 로드 후 카테고리별 보험 조회)
+  useEffect(() => {
+    let category = null;
+
+    // 장바구니 주문인 경우 첫 번째 상품의 카테고리 사용
+    if (orderData?.items && orderData.items.length > 0) {
+      category = orderData.items[0].category;
+    }
+    // 단일 예약인 경우
+    else if (booking?.listing?.category) {
+      category = booking.listing.category;
+    }
+
+    // 카테고리 매핑 (한글 → 영문)
+    const categoryMap: { [key: string]: string } = {
+      '여행': 'tour',
+      '투어': 'tour',
+      'tour': 'tour',
+      '렌트카': 'rentcar',
+      'rentcar': 'rentcar',
+      '숙박': 'stay',
+      'stay': 'stay',
+      '체험': 'experience',
+      'experience': 'experience',
+      '맛집': 'food',
+      'food': 'food'
+    };
+
+    if (category) {
+      const mappedCategory = categoryMap[category] || category;
+      console.log(`🏥 [보험] ${category} → ${mappedCategory} 보험 조회`);
+      fetchInsurances(mappedCategory);
+    }
+  }, [booking, orderData]);
 
   const loadBookingDetails = async () => {
     try {
@@ -409,6 +467,13 @@ export function PaymentPage() {
           total: finalAmount,
           status: 'pending' as const,
           paymentMethod,
+          // ✅ 보험 정보 전달
+          insurance: selectedInsurance ? {
+            id: selectedInsurance.id,
+            name: selectedInsurance.name,
+            price: selectedInsurance.price,
+            coverage_amount: selectedInsurance.coverage_amount
+          } : null,
           // ✅ 배송 정보 전달 (팝업 상품 배송용)
           shippingInfo: {
             name: billingInfo.name,
@@ -813,6 +878,93 @@ export function PaymentPage() {
               </CardContent>
             </Card>
 
+            {/* 보험 선택 */}
+            {availableInsurances.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    보험 선택 (선택사항)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-gray-600">
+                    여행 중 발생할 수 있는 다양한 위험에 대비하여 보험을 추가하실 수 있습니다.
+                  </p>
+
+                  {insurancesLoading ? (
+                    <div className="text-center py-6 text-gray-500">보험 상품을 불러오는 중...</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* 보험 미선택 옵션 */}
+                      <div
+                        onClick={() => setSelectedInsurance(null)}
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                          !selectedInsurance
+                            ? 'border-purple-600 bg-purple-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">보험 미가입</p>
+                            <p className="text-sm text-gray-500 mt-1">보험 없이 진행</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900">0원</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 보험 상품 목록 */}
+                      {availableInsurances.map((insurance) => (
+                        <div
+                          key={insurance.id}
+                          onClick={() => setSelectedInsurance(insurance)}
+                          className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                            selectedInsurance?.id === insurance.id
+                              ? 'border-blue-600 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900 flex items-center gap-2">
+                                <Shield className="h-4 w-4 text-blue-600" />
+                                {insurance.name}
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1">{insurance.description}</p>
+
+                              {/* 보장 내용 미리보기 */}
+                              <div className="mt-2 text-xs text-gray-500 space-y-1">
+                                {insurance.coverage_details.items.slice(0, 2).map((item: string, idx: number) => (
+                                  <div key={idx} className="flex items-start gap-1">
+                                    <span className="text-green-600">✓</span>
+                                    <span>{item}</span>
+                                  </div>
+                                ))}
+                                {insurance.coverage_details.items.length > 2 && (
+                                  <div className="text-gray-400 ml-3">
+                                    외 {insurance.coverage_details.items.length - 2}건의 보장
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="font-semibold text-blue-600">{insurance.price.toLocaleString()}원</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                최대 {(insurance.coverage_amount / 10000).toLocaleString()}만원 보장
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* 결제 요약 */}
             <Card>
               <CardHeader>
@@ -835,10 +987,19 @@ export function PaymentPage() {
                           <span>{orderData.deliveryFee.toLocaleString()}원</span>
                         </div>
                       )}
+                      {selectedInsurance && (
+                        <div className="flex justify-between text-blue-600">
+                          <span className="flex items-center gap-1">
+                            <Shield className="h-4 w-4" />
+                            {selectedInsurance.name}
+                          </span>
+                          <span>+{selectedInsurance.price.toLocaleString()}원</span>
+                        </div>
+                      )}
                       <Separator />
                       <div className="flex justify-between font-medium text-lg">
                         <span>주문 금액</span>
-                        <span className="text-gray-700">{orderData.total.toLocaleString()}원</span>
+                        <span className="text-gray-700">{(orderData.total + insuranceFee).toLocaleString()}원</span>
                       </div>
                     </>
                   ) : (
@@ -858,10 +1019,19 @@ export function PaymentPage() {
                           </span>
                         </div>
                       )}
+                      {selectedInsurance && (
+                        <div className="flex justify-between text-blue-600">
+                          <span className="flex items-center gap-1">
+                            <Shield className="h-4 w-4" />
+                            {selectedInsurance.name}
+                          </span>
+                          <span>+{selectedInsurance.price.toLocaleString()}원</span>
+                        </div>
+                      )}
                       <Separator />
                       <div className="flex justify-between font-medium text-lg">
                         <span>주문 금액</span>
-                        <span className="text-gray-700">{(parseInt(booking?.totalPrice || amount || totalAmount || '0') + deliveryFee).toLocaleString()}원</span>
+                        <span className="text-gray-700">{(parseInt(booking?.totalPrice || amount || totalAmount || '0') + deliveryFee + insuranceFee).toLocaleString()}원</span>
                       </div>
                     </>
                   )}

@@ -8,6 +8,7 @@ const AdminDashboard = lazy(() => import('./admin/tabs/AdminDashboard').then(m =
 const AdminOrders = lazy(() => import('./admin/tabs/AdminOrders').then(m => ({ default: m.AdminOrders })));
 const AdminContacts = lazy(() => import('./admin/tabs/AdminContacts').then(m => ({ default: m.AdminContacts })));
 const AdminCoupons = lazy(() => import('./admin/tabs/AdminCoupons').then(m => ({ default: m.AdminCoupons })));
+const AdminInsurance = lazy(() => import('./admin/tabs/AdminInsurance').then(m => ({ default: m.AdminInsurance })));
 
 // Import existing external components (already optimized)
 import { RentcarManagement } from './admin/RentcarManagement';
@@ -44,10 +45,11 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             <TabsTrigger value="orders">주문</TabsTrigger>
             <TabsTrigger value="coupons">쿠폰</TabsTrigger>
+            <TabsTrigger value="insurance">보험</TabsTrigger>
             <TabsTrigger value="contacts">문의</TabsTrigger>
             <TabsTrigger value="rentcar">렌트카</TabsTrigger>
             <TabsTrigger value="media">미디어</TabsTrigger>
@@ -68,6 +70,12 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
           <Suspense fallback={<LoadingFallback />}>
             <TabsContent value="coupons">
               <AdminCoupons />
+            </TabsContent>
+          </Suspense>
+
+          <Suspense fallback={<LoadingFallback />}>
+            <TabsContent value="insurance">
+              <AdminInsurance />
             </TabsContent>
           </Suspense>
 
