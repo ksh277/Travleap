@@ -3726,7 +3726,7 @@ export const api = {
       try {
         // Vercel 환경: API 엔드포인트 호출
         if (typeof window !== 'undefined') {
-          const response = await fetch(`${API_BASE_URL}/api/admin/orders`);
+          const response = await fetch(`${API_BASE_URL}/api/orders`);
           const result = await response.json();
           return result;
         }

@@ -66,9 +66,54 @@ module.exports = async function handler(req, res) {
         FROM payments p
         LEFT JOIN bookings b ON p.booking_id = b.id
         LEFT JOIN listings l ON b.listing_id = l.id
-        WHERE p.payment_status IN ('pending', 'paid', 'completed', 'refunded')
+        WHERE p.payment_status IN ('paid', 'completed', 'refunded')
         ORDER BY p.created_at DESC
       `);
+
+      // ✅ 렌트카 주문 추가 조회
+      const rentcarResult = await connection.execute(`
+        SELECT
+          NULL as id,
+          rb.user_id,
+          rb.total_krw as amount,
+          rb.payment_status,
+          rb.payment_key,
+          rb.booking_number as order_number,
+          NULL as notes,
+          rb.created_at,
+          rb.approved_at,
+          rb.refund_amount_krw as refund_amount,
+          rb.refunded_at,
+          rb.id as booking_id,
+          rb.booking_number,
+          rb.status as booking_status,
+          rb.pickup_date as start_date,
+          rb.dropoff_date as end_date,
+          1 as guests,
+          1 as adults,
+          0 as children,
+          0 as infants,
+          rb.vehicle_id as listing_id,
+          NULL as delivery_status,
+          rb.customer_name as shipping_name,
+          rb.customer_phone as shipping_phone,
+          NULL as shipping_address,
+          NULL as shipping_address_detail,
+          NULL as shipping_zipcode,
+          NULL as tracking_number,
+          NULL as courier_company,
+          CONCAT(v.brand, ' ', v.model) as product_title,
+          '렌트카' as category,
+          v.images
+        FROM rentcar_bookings rb
+        LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
+        WHERE rb.payment_status IN ('paid', 'completed', 'refunded')
+        ORDER BY rb.created_at DESC
+      `);
+
+      // ✅ 일반 주문 + 렌트카 주문 통합
+      const allOrders = [...(result.rows || []), ...(rentcarResult.rows || [])]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       // Neon PostgreSQL에서 사용자 정보 조회
       const { Pool } = require('@neondatabase/serverless');
@@ -80,7 +125,7 @@ module.exports = async function handler(req, res) {
 
       try {
         // 모든 주문의 user_id 수집
-        const userIds = [...new Set((result.rows || []).map(order => order.user_id).filter(Boolean))];
+        const userIds = [...new Set(allOrders.map(order => order.user_id).filter(Boolean))];
 
         let userMap = new Map();
         if (userIds.length > 0) {
@@ -97,7 +142,7 @@ module.exports = async function handler(req, res) {
         }
 
         // 🔧 혼합 주문의 모든 bookings 조회 (부분 환불 지원)
-        const orderNumbersForCart = (result.rows || [])
+        const orderNumbersForCart = allOrders
           .filter(order => !order.booking_id && order.gateway_transaction_id)
           .map(order => order.gateway_transaction_id);
 
@@ -141,7 +186,7 @@ module.exports = async function handler(req, res) {
         }
 
         // 주문 데이터와 사용자 정보 병합
-        ordersWithUserInfo = (result.rows || []).map(order => {
+        ordersWithUserInfo = allOrders.map(order => {
           const user = userMap.get(order.user_id);
 
           // notes 파싱하여 상품 정보 및 청구 정보 추출
@@ -156,8 +201,6 @@ module.exports = async function handler(req, res) {
           let billingName = '';
           let billingEmail = '';
           let billingPhone = '';
-          // ✅ notes에서 카테고리 추출 (booking_id가 null인 경우)
-          let categoryFromNotes = null;
 
           if (order.notes) {
             try {
@@ -171,14 +214,6 @@ module.exports = async function handler(req, res) {
               // 배송비 및 상품 금액 추출
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
-
-              // ✅ 카테고리 추출 (booking_id가 null인 경우 notes에서 가져옴)
-              // notes.category 우선, 없으면 notes.items[0].category에서 추출
-              if (notesData.category) {
-                categoryFromNotes = notesData.category;
-              } else if (notesData.items && notesData.items.length > 0 && notesData.items[0].category) {
-                categoryFromNotes = notesData.items[0].category;
-              }
 
               // ✅ FIX: 청구 정보 추출 (주문 시 입력한 정보)
               if (notesData.billingInfo) {
@@ -255,9 +290,6 @@ module.exports = async function handler(req, res) {
 
           console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (billing="${billingName}", user="${user?.name || 'null'}", shipping="${order.shipping_name || 'null'}")`);
 
-          // ✅ 카테고리 우선순위: listings.category → notes.category
-          const finalCategory = order.category || categoryFromNotes;
-
           return {
             id: order.id,
             booking_id: order.booking_id, // ✅ 환불 시 필요
@@ -282,12 +314,12 @@ module.exports = async function handler(req, res) {
             start_date: order.start_date,
             end_date: order.end_date,
             // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
-            num_adults: finalCategory === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
-            guests: finalCategory === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
+            num_adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
+            guests: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
             num_children: order.children || 0,
             num_seniors: 0,
-            category: finalCategory,
-            is_popup: finalCategory === '팝업',
+            category: order.category,
+            is_popup: order.category === '팝업',
             order_number: actualOrderNumber,
             // ✅ 배송 정보 (주문 당시 배송지: bookings 우선, 없으면 users 테이블)
             delivery_status: order.delivery_status,
