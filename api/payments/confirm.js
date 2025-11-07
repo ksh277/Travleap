@@ -203,6 +203,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     let userId = null;
     let order = null; // 장바구니 주문 정보 (isOrder일 때 사용)
     let allPayments = null; // 장바구니 주문의 모든 카테고리 payments (포인트 적립용)
+    let booking = null; // 일반 예약 정보 (isBooking일 때 사용)
+    let rentcarBooking = null; // 렌트카 예약 정보 (isRentcar일 때 사용)
 
     if (isBooking) {
       // 예약 (단일 상품 결제)
@@ -215,7 +217,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         throw new Error('예약을 찾을 수 없습니다.');
       }
 
-      const booking = bookings.rows[0];
+      booking = bookings.rows[0];
       bookingId = booking.id;
       userId = booking.user_id;
 
@@ -455,7 +457,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         throw new Error('렌트카 예약을 찾을 수 없습니다.');
       }
 
-      const rentcarBooking = rentcarBookings.rows[0];
+      rentcarBooking = rentcarBookings.rows[0];
       bookingId = rentcarBooking.id;
       userId = rentcarBooking.user_id;
 

@@ -282,8 +282,8 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               </div>
             )}
 
-            {/* 배송지 정보 (팝업 상품) */}
-            {notesData?.shippingInfo && (
+            {/* 배송지 정보 (팝업 상품만) */}
+            {notesData?.shippingInfo && (category === '팝업' || notesData.category === '팝업' || payment.category === 'popup') && (
               <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
                 <div className="flex items-start">
                   <Package className="w-4 h-4 mr-2 text-gray-600 mt-0.5 flex-shrink-0" />
