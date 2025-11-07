@@ -154,7 +154,10 @@
       "Bash(node scripts/create-insurance-table.cjs:*)",
       "Bash(node scripts/create-refund-policies-table.cjs:*)",
       "Bash(if [ -d \"pages/api/admin/refund-policies\" ])",
-      "Bash(else mkdir -p pages/api/admin/refund-policies)"
+      "Bash(else mkdir -p pages/api/admin/refund-policies)",
+      "Bash(node scripts/test-refund-points.cjs:*)",
+      "Bash(node scripts/check-cart-refund.cjs:*)",
+      "Bash(node scripts/create-admin-notifications-table.cjs:*)"
     ],
     "deny": [],
     "ask": []

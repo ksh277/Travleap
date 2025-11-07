@@ -328,7 +328,9 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
 
       if (!userResult.rows || userResult.rows.length === 0) {
         console.error(`❌ [포인트 회수] 사용자를 찾을 수 없음: user_id=${userId}`);
-        return 0;
+        await poolNeon.query('ROLLBACK');
+        await poolNeon.end();
+        throw new Error(`사용자를 찾을 수 없습니다 (user_id=${userId})`);
       }
 
       const currentPoints = userResult.rows[0].total_points || 0;
@@ -339,27 +341,29 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
         UPDATE users SET total_points = $1 WHERE id = $2
       `, [newBalance, userId]);
 
-      // 4. PlanetScale - user_points 테이블에 회수 내역 추가
+      // ✅ FIX: Neon COMMIT 먼저 실행 (트랜잭션 안전성 향상)
+      await poolNeon.query('COMMIT');
+      console.log(`✅ [포인트 회수] Neon COMMIT 완료 - 잔액: ${newBalance}P`);
+
+      // 4. PlanetScale - user_points 테이블에 회수 내역 추가 (Neon COMMIT 후)
       await connection.execute(`
         INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
         VALUES (?, ?, 'refund', ?, ?, ?, NOW())
       `, [userId, -pointsToDeduct, `환불로 인한 포인트 회수 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
-
-      // 트랜잭션 커밋
-      await poolNeon.query('COMMIT');
 
       console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
 
       return pointsToDeduct;
 
     } catch (error) {
-      // 롤백
+      // 롤백 (Neon COMMIT 전 에러만 롤백됨)
       try {
         await poolNeon.query('ROLLBACK');
+        console.log(`🔄 [포인트 회수] Neon 트랜잭션 롤백 완료`);
       } catch (rollbackError) {
         console.error('❌ [포인트 회수] 롤백 실패:', rollbackError);
       }
-      throw error;
+      throw error; // ✅ FIX: 에러를 상위로 전파
     } finally {
       // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
       await poolNeon.end();
@@ -367,7 +371,32 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
 
   } catch (error) {
     console.error(`❌ [포인트 회수] 실패 (user_id=${userId}):`, error);
-    return 0;
+
+    // ✅ FIX: 관리자 알림 저장 (에러를 조용히 무시하지 않음)
+    try {
+      await connection.execute(`
+        INSERT INTO admin_notifications (
+          type, priority, title, message, metadata, created_at
+        ) VALUES (?, ?, ?, ?, ?, NOW())
+      `, [
+        'REFUND_POINT_DEDUCTION_FAILED',
+        'HIGH',
+        '⚠️ 환불 시 포인트 회수 실패',
+        `user_id=${userId}, orderNumber=${orderNumber}`,
+        JSON.stringify({
+          userId,
+          orderNumber,
+          pointsToDeduct,
+          error: error.message,
+          stack: error.stack
+        })
+      ]);
+      console.log(`📢 [포인트 회수] 관리자 알림 생성 완료`);
+    } catch (notifError) {
+      console.error(`❌ [포인트 회수] 관리자 알림 생성 실패:`, notifError);
+    }
+
+    throw error; // ✅ FIX: 에러를 throw하여 환불 프로세스 중단
   }
 }
 
@@ -665,32 +694,84 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     }
 
     // 10. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불)
-    // 🔧 카테고리별 주문: payment_id를 related_order_id로 사용 (confirm.js에서 이렇게 저장함)
-    const refundOrderId = String(payment.id);
+    console.log(`💰 [Refund] 포인트 처리 시작 - payment_id: ${payment.id}, user_id: ${payment.user_id}, isCartOrder: ${isCartOrder}`);
 
-    console.log(`💰 [Refund] 포인트 처리 시작 - payment_id: ${payment.id}, user_id: ${payment.user_id}`);
+    if (payment.user_id) {
+      // ✅ FIX: 장바구니 주문이면 모든 카테고리 payments의 포인트 회수
+      if (isCartOrder && payment.order_number) {
+        console.log(`🛒 [Refund] 장바구니 주문 포인트 회수 시작 (order_number: ${payment.order_number})`);
 
-    if (payment.user_id && refundOrderId) {
-      // 10-1. 적립된 포인트 회수 (payment_id로 조회)
-      const deductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
-      console.log(`✅ [Refund] payment_id=${payment.id} 포인트 회수 완료: ${deductedPoints}P`);
+        // 10-1. 같은 order_number를 가진 모든 payments 조회
+        const allPaymentsResult = await connection.execute(`
+          SELECT id, user_id, notes
+          FROM payments
+          WHERE order_number = ? AND payment_status != 'refunded'
+        `, [payment.order_number]);
 
-      // 10-2. 사용한 포인트 환불 (notes에서 추출)
-      if (payment.notes) {
-        try {
-          const notes = typeof payment.notes === 'string' ? JSON.parse(payment.notes) : payment.notes;
-          const pointsUsed = notes.pointsUsed || 0;
+        const allPayments = allPaymentsResult.rows || [];
+        console.log(`💰 [Refund] ${allPayments.length}개 카테고리 payment 발견`);
 
-          if (pointsUsed > 0) {
-            await refundUsedPoints(connection, payment.user_id, pointsUsed, refundOrderId);
-            console.log(`✅ [Refund] 사용 포인트 환불 완료: ${pointsUsed}P`);
+        let totalDeductedPoints = 0;
+        let totalRefundedPoints = 0;
+
+        // 10-2. 각 payment마다 포인트 회수
+        for (const categoryPayment of allPayments) {
+          const refundOrderId = String(categoryPayment.id);
+
+          try {
+            // 10-2-1. 적립된 포인트 회수
+            const deductedPoints = await deductEarnedPoints(connection, categoryPayment.user_id, refundOrderId);
+            totalDeductedPoints += deductedPoints;
+            console.log(`  ✅ [Refund] payment_id=${categoryPayment.id} 포인트 회수: ${deductedPoints}P`);
+
+            // 10-2-2. 사용한 포인트 환불 (첫 번째 payment의 notes에만 있음)
+            if (categoryPayment.notes) {
+              try {
+                const notes = typeof categoryPayment.notes === 'string' ? JSON.parse(categoryPayment.notes) : categoryPayment.notes;
+                const pointsUsed = notes.pointsUsed || 0;
+
+                if (pointsUsed > 0) {
+                  await refundUsedPoints(connection, categoryPayment.user_id, pointsUsed, refundOrderId);
+                  totalRefundedPoints += pointsUsed;
+                  console.log(`  ✅ [Refund] payment_id=${categoryPayment.id} 사용 포인트 환불: ${pointsUsed}P`);
+                }
+              } catch (notesError) {
+                console.error(`  ⚠️ [Refund] payment_id=${categoryPayment.id} notes 파싱 실패:`, notesError);
+              }
+            }
+          } catch (pointError) {
+            console.error(`  ❌ [Refund] payment_id=${categoryPayment.id} 포인트 처리 실패:`, pointError);
+            // ✅ 개별 payment 포인트 실패는 로그만 남기고 계속 진행 (다른 카테고리 처리 위해)
           }
-        } catch (notesError) {
-          console.error('⚠️ [Refund] notes 파싱 실패:', notesError);
+        }
+
+        console.log(`✅ [Refund] 장바구니 전체 포인트 처리 완료 - 회수: ${totalDeductedPoints}P, 환불: ${totalRefundedPoints}P`);
+
+      } else {
+        // 단일 상품 환불
+        const refundOrderId = String(payment.id);
+
+        // 10-1. 적립된 포인트 회수
+        const deductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
+        console.log(`✅ [Refund] payment_id=${payment.id} 포인트 회수 완료: ${deductedPoints}P`);
+
+        // 10-2. 사용한 포인트 환불
+        if (payment.notes) {
+          try {
+            const notes = typeof payment.notes === 'string' ? JSON.parse(payment.notes) : payment.notes;
+            const pointsUsed = notes.pointsUsed || 0;
+
+            if (pointsUsed > 0) {
+              await refundUsedPoints(connection, payment.user_id, pointsUsed, refundOrderId);
+              console.log(`✅ [Refund] 사용 포인트 환불 완료: ${pointsUsed}P`);
+            }
+          } catch (notesError) {
+            console.error('⚠️ [Refund] notes 파싱 실패:', notesError);
+          }
         }
       }
     } else {
-      console.warn(`⚠️ [Refund] 포인트 처리 스킵 - user_id: ${payment.user_id}, refundOrderId: ${refundOrderId}`);
+      console.warn(`⚠️ [Refund] 포인트 처리 스킵 - user_id가 없음`);
     }
 
     // 11. 🎟️ 쿠폰 복구 처리 (CRITICAL: 환불 시 쿠폰 사용 횟수 복구)
