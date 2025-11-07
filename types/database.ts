@@ -44,6 +44,8 @@ export interface CartItem {
   inStock?: boolean;
   estimatedDelivery?: string;
   total?: number;
+  checkInTime?: string;  // ✅ 체크인/예약 시간 (HH:MM 형식)
+  checkOutTime?: string; // ✅ 체크아웃 시간 (HH:MM 형식)
   selectedOption?: {
     id: number;
     name: string;

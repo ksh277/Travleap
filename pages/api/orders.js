@@ -743,6 +743,7 @@ module.exports = async function handler(req, res) {
             payment_status,
             start_date,
             end_date,
+            check_in_time,
             adults,
             children,
             infants,
@@ -757,7 +758,7 @@ module.exports = async function handler(req, res) {
             shipping_zipcode,
             created_at,
             updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `, [
           userId,
           item.listingId,
@@ -768,6 +769,7 @@ module.exports = async function handler(req, res) {
           'pending',
           item.selectedDate || null,
           item.selectedDate || null,
+          item.checkInTime || null, // ✅ 예약/체크인 시간 (음식점/체험/숙박)
           item.adults || 0,
           item.children || 0,
           item.infants || 0,

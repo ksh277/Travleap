@@ -849,6 +849,7 @@ export function DetailPage() {
       location: item.location || '',
       date: item.category === '팝업' ? '' : selectedDate!.toISOString().split('T')[0],
       guests: item.category === '팝업' ? quantity : totalGuests,
+      checkInTime: startTime || undefined,  // ✅ 예약/체크인 시간 (음식점/체험/숙박)
       selectedOption: selectedOption ? {
         id: selectedOption.id,
         name: selectedOption.option_name,
