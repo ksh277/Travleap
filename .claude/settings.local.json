@@ -161,7 +161,8 @@
       "Bash(node scripts/check-rentcar-insurance.cjs:*)",
       "Bash(node scripts/create-jeju-rentcar-insurance.cjs:*)",
       "Bash(node scripts/create-rentcar-extras-table.cjs:*)",
-      "Bash(node scripts/create-sample-rentcar-extras.cjs:*)"
+      "Bash(node scripts/create-sample-rentcar-extras.cjs:*)",
+      "Bash(node scripts/reset-jeju-rentcar-extras.cjs:*)"
     ],
     "deny": [],
     "ask": []

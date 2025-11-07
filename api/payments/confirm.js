@@ -497,14 +497,20 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         paymentResult.easyPay?.provider
       );
 
+      // ✅ notes 생성 (카테고리 정보 포함)
+      const paymentNotes = {
+        category: isRentcar ? '렌트카' : (isBooking ? '여행' : '주문')
+      };
+
       const paymentInsertResult = await connection.execute(
         `INSERT INTO payments (
           user_id, booking_id, order_id, payment_key, order_id_str, amount,
           payment_method, payment_status, approved_at, receipt_url,
           card_company, card_number, card_installment,
           virtual_account_number, virtual_account_bank, virtual_account_due_date,
+          notes,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           userId,
           bookingId,
@@ -521,49 +527,52 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           paymentResult.card?.installmentPlanMonths || 0,
           paymentResult.virtualAccount?.accountNumber || null,
           paymentResult.virtualAccount?.bank || null,
-          paymentResult.virtualAccount?.dueDate || null
+          paymentResult.virtualAccount?.dueDate || null,
+          JSON.stringify(paymentNotes)
         ]
       );
 
       const paymentId = paymentInsertResult.insertId;
       console.log(`✅ [결제 기록] payments 테이블에 저장 완료 (payment_id: ${paymentId})`);
 
-      // ✅ 단일 예약에서도 청구 정보를 사용자 프로필에 저장
-      try {
-        const { Pool } = require('@neondatabase/serverless');
-        const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+      // ✅ 단일 예약에서만 청구 정보를 사용자 프로필에 저장 (렌트카 제외)
+      if (isBooking) {
+        try {
+          const { Pool } = require('@neondatabase/serverless');
+          const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
 
-        // bookings 테이블에서 shipping 정보 가져오기
-        const bookingResult = await connection.execute(
-          'SELECT guest_phone, shipping_zipcode, shipping_address, shipping_address_detail FROM bookings WHERE id = ?',
-          [bookingId]
-        );
+          // bookings 테이블에서 shipping 정보 가져오기
+          const bookingResult = await connection.execute(
+            'SELECT guest_phone, shipping_zipcode, shipping_address, shipping_address_detail FROM bookings WHERE id = ?',
+            [bookingId]
+          );
 
-        if (bookingResult && bookingResult.rows && bookingResult.rows.length > 0) {
-          const bookingData = bookingResult.rows[0];
+          if (bookingResult && bookingResult.rows && bookingResult.rows.length > 0) {
+            const bookingData = bookingResult.rows[0];
 
-          // 청구 정보가 있으면 사용자 프로필에 저장
-          if (bookingData.guest_phone || bookingData.shipping_address) {
-            await poolNeon.query(`
-              UPDATE users
-              SET phone = COALESCE(NULLIF($1, ''), phone),
-                  postal_code = COALESCE(NULLIF($2, ''), postal_code),
-                  address = COALESCE(NULLIF($3, ''), address),
-                  detail_address = COALESCE(NULLIF($4, ''), detail_address),
-                  updated_at = NOW()
-              WHERE id = $5
-            `, [
-              bookingData.guest_phone,
-              bookingData.shipping_zipcode,
-              bookingData.shipping_address,
-              bookingData.shipping_address_detail,
-              userId
-            ]);
-            console.log(`✅ [사용자 정보] 단일 예약 청구 정보 업데이트 완료 (user_id: ${userId})`);
+            // 청구 정보가 있으면 사용자 프로필에 저장
+            if (bookingData.guest_phone || bookingData.shipping_address) {
+              await poolNeon.query(`
+                UPDATE users
+                SET phone = COALESCE(NULLIF($1, ''), phone),
+                    postal_code = COALESCE(NULLIF($2, ''), postal_code),
+                    address = COALESCE(NULLIF($3, ''), address),
+                    detail_address = COALESCE(NULLIF($4, ''), detail_address),
+                    updated_at = NOW()
+                WHERE id = $5
+              `, [
+                bookingData.guest_phone,
+                bookingData.shipping_zipcode,
+                bookingData.shipping_address,
+                bookingData.shipping_address_detail,
+                userId
+              ]);
+              console.log(`✅ [사용자 정보] 단일 예약 청구 정보 업데이트 완료 (user_id: ${userId})`);
+            }
           }
+        } catch (updateError) {
+          console.warn('⚠️  [사용자 정보] 업데이트 실패 (계속 진행):', updateError);
         }
-      } catch (updateError) {
-        console.warn('⚠️  [사용자 정보] 업데이트 실패 (계속 진행):', updateError);
       }
 
       // ✅ 단일 예약 포인트 적립 (CRITICAL FIX)
@@ -604,9 +613,22 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           if (userResult.rows && userResult.rows.length > 0) {
 
             // 💰 포인트 적립 (2%, 상품 금액 기준, 배송비 제외)
-            // booking.total_amount에서 배송비를 빼고 계산
-            const totalAmount = parseFloat(booking.total_amount || 0);
-            const shippingFee = parseFloat(booking.shipping_fee || 0);
+            let totalAmount = 0;
+            let shippingFee = 0;
+            let orderDescription = '';
+
+            if (isRentcar) {
+              // 렌트카: rentcarBooking.total_krw 사용 (배송비 없음)
+              totalAmount = parseFloat(rentcarBooking.total_krw || 0);
+              shippingFee = 0;
+              orderDescription = `렌트카 예약 적립 (booking_number: ${orderId})`;
+            } else {
+              // 일반 예약: booking.total_amount에서 배송비를 빼고 계산
+              totalAmount = parseFloat(booking.total_amount || 0);
+              shippingFee = parseFloat(booking.shipping_fee || 0);
+              orderDescription = `주문 적립 (booking_id: ${bookingId})`;
+            }
+
             const productAmount = totalAmount - shippingFee;
             const pointsToEarn = Math.floor(productAmount * 0.02);
 
@@ -622,7 +644,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
               `, [
                 userId,
                 pointsToEarn,
-                `주문 적립 (booking_id: ${bookingId})`,
+                orderDescription,
                 String(paymentId), // ✅ payment_id를 related_order_id로 저장 (환불 시 개별 회수)
                 newBalance,
                 expiresAt
@@ -633,9 +655,9 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
                 UPDATE users SET total_points = $1 WHERE id = $2
               `, [newBalance, userId]);
 
-              console.log(`✅ [포인트] booking_id=${bookingId} ${pointsToEarn}P 적립 완료 (잔액: ${newBalance}P)`);
+              console.log(`✅ [포인트] ${isRentcar ? '렌트카' : '예약'} ${pointsToEarn}P 적립 완료 (주문: ${orderId}, 잔액: ${newBalance}P)`);
             } else {
-              console.log(`ℹ️  [포인트] booking_id=${bookingId} 적립할 포인트 없음 (상품 금액: ${productAmount}원)`);
+              console.log(`ℹ️  [포인트] ${isRentcar ? '렌트카' : '예약'} 적립할 포인트 없음 (상품 금액: ${productAmount}원)`);
             }
           }
 

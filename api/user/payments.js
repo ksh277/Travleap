@@ -39,6 +39,7 @@ module.exports = async function handler(req, res) {
     const connection = connect({ url: process.env.DATABASE_URL });
 
     // 결제 내역 조회 (최신순, 숨김 처리된 내역 제외)
+    // ✅ 렌트카 예약도 포함하도록 UNION 사용
     const result = await connection.execute(`
       SELECT
         p.id,
@@ -70,15 +71,63 @@ module.exports = async function handler(req, res) {
         b.infants,
         l.title as listing_title,
         l.category,
-        l.images as listing_images
+        l.images as listing_images,
+        NULL as vehicle_name,
+        NULL as pickup_date,
+        NULL as dropoff_date
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
       WHERE p.user_id = ?
         AND (p.hidden_from_user IS NULL OR p.hidden_from_user = 0)
-      ORDER BY p.created_at DESC
+        AND (p.order_id_str IS NULL OR NOT p.order_id_str LIKE 'RC%')
+
+      UNION ALL
+
+      SELECT
+        p.id,
+        p.booking_id,
+        p.order_id,
+        p.order_id_str,
+        p.gateway_transaction_id,
+        p.amount,
+        p.payment_method,
+        p.payment_status,
+        p.payment_key,
+        p.approved_at,
+        p.receipt_url,
+        p.card_company,
+        p.card_number,
+        p.created_at,
+        p.notes,
+        p.refund_amount,
+        p.refund_reason,
+        p.refunded_at,
+        rb.booking_number,
+        NULL as listing_id,
+        rb.pickup_date as start_date,
+        rb.dropoff_date as end_date,
+        NULL as selected_option_id,
+        NULL as guests,
+        NULL as adults,
+        NULL as children,
+        NULL as infants,
+        v.display_name as listing_title,
+        '렌트카' as category,
+        NULL as listing_images,
+        v.display_name as vehicle_name,
+        rb.pickup_date,
+        rb.dropoff_date
+      FROM payments p
+      INNER JOIN rentcar_bookings rb ON p.order_id_str = rb.booking_number
+      LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
+      WHERE p.user_id = ?
+        AND (p.hidden_from_user IS NULL OR p.hidden_from_user = 0)
+        AND p.order_id_str LIKE 'RC%'
+
+      ORDER BY created_at DESC
       LIMIT 50
-    `, [parseInt(userId)]);
+    `, [parseInt(userId), parseInt(userId)]);
 
     // notes.items에서 listingId를 추출하여 상품명 조회
     const payments = result.rows || [];
