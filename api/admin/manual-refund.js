@@ -181,7 +181,7 @@ async function refundUsedPoints(connection, userId, pointsUsed, orderNumber) {
 }
 
 const { withAuth } = require('../../utils/auth-middleware.cjs');
-const { withSecureCors } = require('../../utils/cors-middleware');
+const { withSecureCors } = require('../../utils/cors-middleware.cjs');
 const { withStandardRateLimit } = require('../../utils/rate-limit-middleware.cjs');
 
 async function handler(req, res) {

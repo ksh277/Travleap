@@ -1,6 +1,6 @@
 const { connect } = require('@planetscale/database');
 const { Pool } = require('@neondatabase/serverless');
-const { withPublicCors } = require('../../utils/cors-middleware');
+const { withPublicCors } = require('../../utils/cors-middleware.cjs');
 
 async function handler(req, res) {
   if (req.method === 'OPTIONS') {
