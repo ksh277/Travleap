@@ -14,7 +14,7 @@
 
 const { db } = require('../../utils/database');
 const { JWTUtils } = require('../../utils/jwt');
-const { encrypt, encryptPhone, encryptEmail } = require('../../utils/encryption');
+const { encrypt, encryptPhone, encryptEmail } = require('../../utils/encryption.cjs');
 
 /**
  * 만나이 계산

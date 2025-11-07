@@ -1,5 +1,5 @@
 const { connect } = require('@planetscale/database');
-const { decrypt, decryptPhone, decryptEmail } = require('../../../utils/encryption');
+const { decrypt, decryptPhone, decryptEmail } = require('../../utils/encryption.cjs');
 
 /**
  * 관리자용 사고 신고 관리 API

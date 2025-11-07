@@ -4,7 +4,7 @@
  */
 
 const { connect } = require('@planetscale/database');
-const { encrypt, encryptPhone, encryptEmail } = require('../../utils/encryption');
+const { encrypt, encryptPhone, encryptEmail } = require('../../utils/encryption.cjs');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');

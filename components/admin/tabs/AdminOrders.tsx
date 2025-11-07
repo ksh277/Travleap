@@ -69,9 +69,21 @@ export function AdminOrders() {
   const loadOrders = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/orders');
+      // ✅ FIX: 관리자 API 호출 + JWT 토큰 전달
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/admin/orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       const result = await response.json();
       console.log('🔍 [AdminOrders] API 응답:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+      }
+
       if (result.success) {
         // ✅ API는 data 필드로 반환함
         const orders = result.data || result.orders || [];
