@@ -731,7 +731,7 @@ export function MyPage() {
     }
 
     try {
-      const response = await api.admin.deleteReview(Number(reviewId));
+      const response = await api.deleteReview(Number(reviewId));
       if (response.success) {
         toast.success('리뷰가 삭제되었습니다.');
         // 리뷰 목록에서 제거
