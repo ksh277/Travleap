@@ -140,7 +140,8 @@
       "Bash(node scripts/check-popup-notes.cjs:*)",
       "Bash(node scripts/check-popup-user.cjs:*)",
       "Bash(node scripts/test-popup-payment-query.cjs:*)",
-      "Bash(node scripts/check-cart-points.cjs:*)"
+      "Bash(node scripts/check-cart-points.cjs:*)",
+      "Bash(node scripts/check-recent-cart.cjs:*)"
     ],
     "deny": [],
     "ask": []

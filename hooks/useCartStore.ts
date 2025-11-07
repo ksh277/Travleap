@@ -209,7 +209,11 @@ export function useCartStore() {
         console.log('✅ [장바구니 추가] API 저장 성공, 장바구니 새로고침 중...');
 
         // API 성공 후 전체 장바구니 다시 로드 (DB와 동기화)
-        const cartResponse = await fetch(`/api/cart?userId=${user.id}`);
+        const cartResponse = await fetch(`/api/cart?userId=${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        });
         const cartResult = await cartResponse.json();
 
         if (cartResult.success) {
