@@ -132,15 +132,22 @@ export function PartnerApplyPage() {
     }
   }, [authLoading, user, navigate]);
 
-  // Kakao 주소 검색
+  // Daum 주소 검색
   const openAddressSearch = () => {
+    const daum = (window as any).daum;
     const kakao = (window as any).kakao;
-    if (!kakao || !kakao.maps) {
-      toast.error('주소 검색 기능을 불러올 수 없습니다.');
+
+    if (!daum || !daum.Postcode) {
+      toast.error('주소 검색 기능을 불러올 수 없습니다. (Daum Postcode API)');
       return;
     }
 
-    new (window as any).daum.Postcode({
+    if (!kakao || !kakao.maps || !kakao.maps.services) {
+      toast.error('좌표 변환 기능을 불러올 수 없습니다. (Kakao Maps API)');
+      return;
+    }
+
+    new daum.Postcode({
       oncomplete: function(data: any) {
         // 도로명 주소 또는 지번 주소
         const fullAddress = data.roadAddress || data.jibunAddress;

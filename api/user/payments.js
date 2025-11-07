@@ -119,7 +119,7 @@ module.exports = async function handler(req, res) {
         rb.pickup_date,
         rb.dropoff_date
       FROM payments p
-      INNER JOIN rentcar_bookings rb ON p.order_id_str = rb.booking_number
+      INNER JOIN rentcar_bookings rb ON p.order_id_str COLLATE utf8mb4_unicode_ci = rb.booking_number COLLATE utf8mb4_unicode_ci
       LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
       WHERE p.user_id = ?
         AND (p.hidden_from_user IS NULL OR p.hidden_from_user = 0)

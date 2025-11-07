@@ -24,7 +24,7 @@ module.exports = async function handler(req, res) {
     // 🔧 쿼리 파라미터로 partner_type 필터링 가능
     const { type } = req.query || {};
 
-    // 활성화된 파트너만 조회 (is_active = 1, status = 'approved')
+    // 활성화되고 승인된 파트너만 조회 (is_active = 1, status = 'approved')
     // type 파라미터가 있으면 해당 타입만, 없으면 렌트카 제외
     let query = `
       SELECT
@@ -36,6 +36,7 @@ module.exports = async function handler(req, res) {
         p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at
       FROM partners p
       WHERE p.is_active = 1
+        AND p.status = 'approved'
     `;
 
     if (type === 'rentcar') {

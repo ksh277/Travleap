@@ -492,7 +492,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
   try {
     console.log(`💰 [Refund] 환불 요청 시작: paymentKey=${paymentKey}, reason=${cancelReason}`);
 
-    // 1. DB에서 결제 정보 조회 (delivery_status 포함)
+    // 1. DB에서 결제 정보 조회 (delivery_status 포함 + rentcar_bookings 지원)
     const paymentResult = await connection.execute(`
       SELECT
         p.*,
@@ -506,10 +506,15 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         b.order_number,
         b.booking_number,
         b.delivery_status,
-        l.category
+        l.category,
+        rb.id as rentcar_booking_id,
+        rb.booking_number as rentcar_booking_number,
+        rb.pickup_datetime as rentcar_start_date,
+        rb.total_krw as rentcar_amount
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
+      LEFT JOIN rentcar_bookings rb ON p.order_id_str COLLATE utf8mb4_unicode_ci = rb.booking_number COLLATE utf8mb4_unicode_ci
       WHERE p.payment_key = ?
       LIMIT 1
     `, [paymentKey]);
@@ -529,18 +534,25 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     let actualRefundAmount = cancelAmount || payment.amount;
     let policyInfo = null;
 
-    if (!skipPolicy && payment.booking_id) {
+    if (!skipPolicy && (payment.booking_id || payment.rentcar_booking_id)) {
       // 3-1. DB에서 환불 정책 조회
       const policyFromDB = await getRefundPolicyFromDB(
         connection,
         payment.listing_id,
-        payment.category
+        payment.rentcar_booking_id ? 'rentcar' : payment.category
       );
 
       console.log(`📋 [Refund] 적용 정책: ${policyFromDB.policy_name}`);
 
-      // 3-2. 정책 기반 환불 금액 계산
-      policyInfo = calculateRefundPolicy(payment, policyFromDB);
+      // 3-2. 정책 기반 환불 금액 계산 (렌트카는 rentcar_start_date 사용)
+      const refundPaymentData = payment.rentcar_booking_id ? {
+        ...payment,
+        start_date: payment.rentcar_start_date,
+        total_amount: payment.rentcar_amount,
+        amount: payment.amount
+      } : payment;
+
+      policyInfo = calculateRefundPolicy(refundPaymentData, policyFromDB);
 
       if (!policyInfo.refundable) {
         throw new Error(`REFUND_POLICY_VIOLATION: ${policyInfo.reason}`);
@@ -648,7 +660,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       await restoreStock(connection, booking.id);
     }
 
-    // 8. bookings 상태 변경
+    // 8. bookings/rentcar_bookings 상태 변경
     if (isCartOrder) {
       await connection.execute(`
         UPDATE bookings
@@ -660,7 +672,19 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       `, [cancelReason, payment.order_number]);
 
       console.log(`✅ [Refund] ${bookingsToRefund.length}개 예약 취소 완료`);
+    } else if (payment.rentcar_booking_id) {
+      // 렌트카 예약 취소
+      await connection.execute(`
+        UPDATE rentcar_bookings
+        SET status = 'cancelled',
+            payment_status = 'refunded',
+            updated_at = NOW()
+        WHERE id = ?
+      `, [payment.rentcar_booking_id]);
+
+      console.log(`✅ [Refund] 렌트카 예약 취소 완료 (rentcar_booking_id: ${payment.rentcar_booking_id})`);
     } else if (payment.booking_id) {
+      // 일반 예약 취소
       await connection.execute(`
         UPDATE bookings
         SET status = 'cancelled',
