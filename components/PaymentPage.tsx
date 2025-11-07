@@ -40,19 +40,18 @@ export function PaymentPage() {
   const isLockBasedBooking = Boolean(bookingNumber);
 
   // ✅ orderData를 state로 관리하여 쿠폰 정보 업데이트 가능하게 수정
-  const [orderData, setOrderData] = useState<any>(null);
-
-  // URL 파라미터에서 orderData 파싱 (초기 로드 시에만)
-  useEffect(() => {
+  // ✅ FIX: 동기적으로 파싱하여 race condition 방지
+  const [orderData, setOrderData] = useState<any>(() => {
     if (orderDataParam) {
       try {
-        const parsed = JSON.parse(orderDataParam);
-        setOrderData(parsed);
+        return JSON.parse(orderDataParam);
       } catch (error) {
         console.error('Failed to parse order data:', error);
+        return null;
       }
     }
-  }, [orderDataParam]);
+    return null;
+  });
 
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
