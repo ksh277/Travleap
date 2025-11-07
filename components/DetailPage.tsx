@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+// Tabs removed - using scroll navigation instead
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Calendar } from './ui/calendar';
@@ -176,6 +176,7 @@ export function DetailPage() {
   const [priceCalculation, setPriceCalculation] = useState({ basePrice: 0, taxes: 0, total: 0 });
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('description');
   const galleryRef = useRef<HTMLDivElement>(null);
 
   const [bookingData, setBookingData] = useState<BookingFormData>({
@@ -233,6 +234,39 @@ export function DetailPage() {
     const total = basePrice;
     setPriceCalculation({ basePrice, taxes, total });
   }, [adults, children, infants, item, selectedPackages]);
+
+  // 스크롤 이동 함수
+  const scrollToSection = (sectionId: string) => {
+    const section = document.getElementById(sectionId);
+    if (section) {
+      const yOffset = -80; // 헤더 높이 고려
+      const y = section.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+      setActiveTab(sectionId);
+    }
+  };
+
+  // 스크롤 위치에 따른 active 탭 감지
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = ['description', 'location', 'policy', 'reviews'];
+      const scrollPosition = window.scrollY + 150; // 헤더 + 여유
+
+      for (const sectionId of sections) {
+        const section = document.getElementById(sectionId);
+        if (section) {
+          const { offsetTop, offsetHeight } = section;
+          if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
+            setActiveTab(sectionId);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const fetchItemDetails = useCallback(async () => {
     try {
@@ -1251,26 +1285,83 @@ export function DetailPage() {
               </Card>
             )}
 
-            {/* Tabs */}
-            <Tabs defaultValue="description" className="w-full mt-6">
-              <TabsList className={`grid w-full ${item?.category === '팝업' ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-1`}>
-                <TabsTrigger value="description" className="text-xs sm:text-sm">소개</TabsTrigger>
+            {/* Navigation Tabs (Sticky) */}
+            <div className="sticky top-16 z-10 bg-white border-b shadow-sm mb-6 -mx-4 px-4">
+              <div className={`grid w-full ${item?.category === '팝업' ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-1 max-w-6xl mx-auto`}>
+                <button
+                  onClick={() => scrollToSection('description')}
+                  className={`py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+                    activeTab === 'description'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  소개
+                </button>
                 {item?.category !== '팝업' && (
-                  <TabsTrigger value="location" className="text-xs sm:text-sm">위치</TabsTrigger>
+                  <button
+                    onClick={() => scrollToSection('location')}
+                    className={`py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+                      activeTab === 'location'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    위치
+                  </button>
                 )}
-                <TabsTrigger value="policy" className="text-xs sm:text-sm">정책</TabsTrigger>
-                <TabsTrigger value="reviews" className="text-xs sm:text-sm col-span-2 md:col-span-1">리뷰 ({reviews.length})</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="description" className="space-y-6">
+                <button
+                  onClick={() => scrollToSection('policy')}
+                  className={`py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
+                    activeTab === 'policy'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  정책
+                </button>
+                <button
+                  onClick={() => scrollToSection('reviews')}
+                  className={`py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 col-span-2 md:col-span-1 ${
+                    activeTab === 'reviews'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  리뷰 ({reviews.length})
+                </button>
+              </div>
+            </div>
+
+              <div id="description" className="space-y-6 scroll-mt-24">
                 <Card>
                   <CardHeader>
                     <CardTitle>상품 소개</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-700 leading-relaxed">
+                    {/* 간단 설명 */}
+                    <p className="text-gray-700 leading-relaxed mb-6">
                       {item.description}
                     </p>
+
+                    {/* 상세 설명 - 이미지 또는 텍스트 */}
+                    {(item as any).descriptionType === 'image' && (item as any).descriptionImageUrl ? (
+                      <div className="my-6">
+                        <ImageWithFallback
+                          src={(item as any).descriptionImageUrl}
+                          alt={`${item.title} 상세 소개`}
+                          className="w-full rounded-lg"
+                        />
+                      </div>
+                    ) : item.description !== (item as any).shortDescription && (item as any).description_md ? (
+                      <div className="my-6 prose max-w-none">
+                        <div
+                          className="text-gray-700 leading-relaxed whitespace-pre-wrap"
+                          dangerouslySetInnerHTML={{ __html: (item as any).description_md }}
+                        />
+                      </div>
+                    ) : null}
+
                     {/* 팝업 카테고리가 아닐 때만 특징 표시 */}
                     {item.category !== '팝업' && (
                       <div className="mt-6 space-y-4">
@@ -1295,12 +1386,12 @@ export function DetailPage() {
                     )}
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>
 
 
-              {/* 팝업 카테고리가 아닐 때만 위치 탭 표시 */}
+              {/* 팝업 카테고리가 아닐 때만 위치 섹션 표시 */}
               {item?.category !== '팝업' && (
-                <TabsContent value="location" className="space-y-6">
+                <div id="location" className="space-y-6 scroll-mt-24">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
@@ -1414,11 +1505,11 @@ export function DetailPage() {
                     </div>
                   </CardContent>
                 </Card>
-                </TabsContent>
+                </div>
               )}
 
-              {/* 정책 탭 - 모든 카테고리에 표시 (법적 필수) */}
-              <TabsContent value="policy" className="space-y-6">
+              {/* 정책 섹션 - 모든 카테고리에 표시 (법적 필수) */}
+              <div id="policy" className="space-y-6 scroll-mt-24">
                 {/* 취소 및 환불 정책 - 카테고리별 */}
                 <Card>
                   <CardHeader>
@@ -1844,9 +1935,9 @@ export function DetailPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>
 
-              <TabsContent value="reviews" className="space-y-6">
+              <div id="reviews" className="space-y-6 scroll-mt-24">
                 {/* Review Summary */}
                 <Card>
                   <CardContent className="p-6">
@@ -1987,8 +2078,7 @@ export function DetailPage() {
                     </div>
                   )}
                 </div>
-              </TabsContent>
-            </Tabs>
+              </div>
           </div>
 
           {/* Booking Sidebar */}

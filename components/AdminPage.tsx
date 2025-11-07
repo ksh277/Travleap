@@ -725,6 +725,8 @@ export function AdminPage({}: AdminPageProps) {
     images: [],
     description: '',
     longDescription: '',
+    descriptionType: 'text', // 'text' or 'image'
+    descriptionImageUrl: '', // 상세 소개 이미지 URL
     highlights: [''],
     included: [''],
     excluded: [''],
@@ -1275,7 +1277,11 @@ export function AdminPage({}: AdminPageProps) {
       const listingData = {
         title: newProduct.title,
         description: newProduct.description || '',
-        longDescription: newProduct.longDescription || newProduct.description || '',
+        longDescription: newProduct.descriptionType === 'image'
+          ? `<img src="${newProduct.descriptionImageUrl}" alt="상품 소개" style="width: 100%; max-width: 1200px;" />`
+          : (newProduct.longDescription || newProduct.description || ''),
+        descriptionType: newProduct.descriptionType || 'text',
+        descriptionImageUrl: newProduct.descriptionImageUrl || '',
         price: parseInt(newProduct.price) || 0,
         childPrice: newProduct.childPrice ? parseInt(newProduct.childPrice) : null,
         infantPrice: newProduct.infantPrice ? parseInt(newProduct.infantPrice) : null,
@@ -1334,6 +1340,8 @@ export function AdminPage({}: AdminPageProps) {
           images: [],
           description: '',
           longDescription: '',
+          descriptionType: 'text',
+          descriptionImageUrl: '',
           highlights: [''],
           included: [''],
           excluded: [''],
@@ -3222,14 +3230,72 @@ export function AdminPage({}: AdminPageProps) {
                                 rows={2}
                               />
                             </div>
+
+                            {/* 상세 소개 - 이미지 또는 텍스트 선택 */}
                             <div>
-                              <label className="text-sm font-medium mb-1 block">상세 설명</label>
-                              <Textarea
-                                value={newProduct.longDescription}
-                                onChange={(e) => setNewProduct(prev => ({ ...prev, longDescription: e.target.value }))}
-                                placeholder="상세한 상품 설명을 입력하세요"
-                                rows={4}
-                              />
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="text-sm font-medium">상세 소개</label>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setNewProduct(prev => ({ ...prev, descriptionType: 'text' }))}
+                                    className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                      (newProduct.descriptionType || 'text') === 'text'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                  >
+                                    📝 텍스트
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setNewProduct(prev => ({ ...prev, descriptionType: 'image' }))}
+                                    className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                                      newProduct.descriptionType === 'image'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                  >
+                                    🖼️ 이미지
+                                  </button>
+                                </div>
+                              </div>
+
+                              {(newProduct.descriptionType || 'text') === 'text' ? (
+                                <Textarea
+                                  value={newProduct.longDescription}
+                                  onChange={(e) => setNewProduct(prev => ({ ...prev, longDescription: e.target.value }))}
+                                  placeholder="상세한 상품 설명을 입력하세요 (네이버 스마트스토어처럼 긴 설명 가능)"
+                                  rows={8}
+                                />
+                              ) : (
+                                <div className="space-y-3">
+                                  <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
+                                    <p className="text-sm text-blue-800">
+                                      💡 네이버 스마트스토어처럼 긴 상품 소개 이미지를 업로드하세요
+                                    </p>
+                                  </div>
+                                  <Input
+                                    type="text"
+                                    value={newProduct.descriptionImageUrl || ''}
+                                    onChange={(e) => setNewProduct(prev => ({ ...prev, descriptionImageUrl: e.target.value }))}
+                                    placeholder="상품 소개 이미지 URL을 입력하세요"
+                                  />
+                                  {newProduct.descriptionImageUrl && (
+                                    <div className="border rounded-md overflow-hidden">
+                                      <img
+                                        src={newProduct.descriptionImageUrl}
+                                        alt="상품 소개 미리보기"
+                                        className="w-full"
+                                        onError={(e) => {
+                                          e.currentTarget.src = '/placeholder.png';
+                                          toast.error('이미지를 불러올 수 없습니다');
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
