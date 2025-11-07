@@ -513,7 +513,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         l.category,
         rb.id as rentcar_booking_id,
         rb.booking_number as rentcar_booking_number,
-        rb.pickup_datetime as rentcar_start_date,
+        rb.pickup_date as rentcar_start_date,
         rb.total_krw as rentcar_amount
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
