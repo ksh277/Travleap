@@ -60,7 +60,10 @@ module.exports = async function handler(req, res) {
 
           const userMap = new Map();
           usersResult.rows.forEach(user => {
-            userMap.set(user.id, user);
+            // ✅ FIX: PlanetScale review.user_id는 문자열, Neon user.id는 숫자
+            // 타입 불일치로 인한 매칭 실패 방지를 위해 숫자와 문자열 모두 저장
+            userMap.set(user.id, user);           // 숫자 키
+            userMap.set(String(user.id), user);   // 문자열 키
           });
 
           // 리뷰에 user 정보 추가
