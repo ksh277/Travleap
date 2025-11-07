@@ -472,6 +472,7 @@ export function RentcarVehicleDetailPage() {
       // 새 MVP API로 예약 생성 (운전자 정보 포함)
       const bookingPayload = {
         vehicle_id: vehicle.id,
+        user_id: user.id,  // 사용자 ID 추가
         pickup_at: pickupDateTime,
         return_at: returnDateTime,
         pickup_location_id: 1,

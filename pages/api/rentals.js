@@ -24,6 +24,7 @@ module.exports = async function handler(req, res) {
   try {
     const {
       vehicle_id,
+      user_id,
       pickup_at,
       return_at,
       pickup_location_id,
@@ -153,7 +154,7 @@ module.exports = async function handler(req, res) {
     // 9. 예약 생성
     const result = await connection.execute(`
       INSERT INTO rentcar_bookings (
-        booking_number, vendor_id, vehicle_id,
+        booking_number, vendor_id, vehicle_id, user_id,
         customer_name, customer_email, customer_phone,
         driver_name, driver_birth, driver_license_no, driver_license_exp,
         pickup_location_id, dropoff_location_id,
@@ -163,7 +164,7 @@ module.exports = async function handler(req, res) {
         status, payment_status,
         created_at, updated_at
       ) VALUES (
-        ?, ?, ?,
+        ?, ?, ?, ?,
         ?, ?, ?,
         ?, ?, ?, ?,
         ?, ?,
@@ -174,7 +175,7 @@ module.exports = async function handler(req, res) {
         NOW(), NOW()
       )
     `, [
-      bookingNumber, vehicle.vendor_id, vehicle_id,
+      bookingNumber, vehicle.vendor_id, vehicle_id, user_id || null,
       encryptedCustomerName, encryptedCustomerEmail, encryptedCustomerPhone,
       encryptedDriverName, driver?.birth || null, driver?.license_no || null, driver?.license_exp || null,
       pickup_location_id, dropoff_location_id,
