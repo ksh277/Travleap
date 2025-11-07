@@ -183,14 +183,19 @@ module.exports = async function handler(req, res) {
       insurance_plan_id || null, insuranceFee
     ]);
 
-    // 10. 옵션 저장 (있는 경우)
+    // 10. 옵션 저장 (있는 경우) - 테이블이 있으면 저장
     if (extras && extras.length > 0) {
-      for (const extra of extras) {
-        await connection.execute(`
-          INSERT INTO rentcar_booking_extras (
-            booking_id, extra_id, quantity, unit_price_krw
-          ) VALUES (?, ?, ?, ?)
-        `, [result.insertId, extra.extra_id, extra.quantity, extra.unit_price_krw]);
+      try {
+        for (const extra of extras) {
+          await connection.execute(`
+            INSERT INTO rentcar_booking_extras (
+              booking_id, extra_id, quantity, unit_price_krw
+            ) VALUES (?, ?, ?, ?)
+          `, [result.insertId, extra.extra_id, extra.quantity, extra.unit_price_krw]);
+        }
+      } catch (extrasError) {
+        // 테이블이 없어도 예약은 진행 (extras는 선택사항)
+        console.warn('⚠️  [Rentals API] extras 저장 실패 (테이블 없음):', extrasError.message);
       }
     }
 
