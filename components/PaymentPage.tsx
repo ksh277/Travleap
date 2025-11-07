@@ -687,19 +687,29 @@ export function PaymentPage() {
               <CardContent className="space-y-4">
                 <div>
                   <h3 className="font-medium text-gray-800">
-                    {orderData?.items?.[0]?.title || title}
+                    {orderData?.items?.[0]?.title || orderData?.items?.[0]?.name || booking?.listing?.title || title}
                   </h3>
-                  {orderData?.items?.[0]?.category && (
+                  {(orderData?.items?.[0]?.category || booking?.listing?.category) && (
                     <p className="text-sm text-gray-600 mt-1">
-                      {orderData.items[0].category === '팝업' ? '팝업 상품' :
-                       orderData.items[0].category === '숙박' ? '숙박' :
-                       orderData.items[0].category}
+                      {(() => {
+                        const category = orderData?.items?.[0]?.category || booking?.listing?.category;
+                        if (category === '팝업' || category === 'popup') return '팝업 상품';
+                        if (category === '숙박' || category === 'stay') return '숙박';
+                        if (category === '투어' || category === 'tour') return '투어';
+                        if (category === '렌트카' || category === 'rentcar') return '렌트카';
+                        if (category === '음식' || category === 'food') return '음식';
+                        if (category === '체험' || category === 'experience') return '체험';
+                        if (category === '관광지' || category === 'tourist') return '관광지';
+                        if (category === '행사' || category === 'event') return '행사';
+                        return category;
+                      })()}
                     </p>
                   )}
                 </div>
 
+                {/* 🔧 FIX: orderData가 있으면 orderData.items만 사용, booking 무시 */}
                 {/* 팝업 상품이 아닐 때만 예약 세부 정보 표시 */}
-                {booking && orderData?.items?.[0]?.category !== '팝업' && (
+                {!orderData && booking && booking.listing?.category !== '팝업' && booking.listing?.category !== 'popup' && (
                   <div className="space-y-2 text-sm text-gray-600">
                     {/* 날짜 정보 - 여러 형식 지원 */}
                     <div className="flex items-center gap-2">
@@ -750,6 +760,41 @@ export function PaymentPage() {
                         <span>예약번호: {bookingNumber || (typeof bookingId === 'string' ? bookingId.slice(-8) : bookingId)}</span>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* 장바구니 주문(orderData)인 경우 각 상품 정보 표시 */}
+                {orderData && orderData.items && orderData.items.length > 0 && (
+                  <div className="space-y-2 text-sm text-gray-600">
+                    {orderData.items.map((item: any, index: number) => (
+                      <div key={index} className="flex items-start gap-2 py-1 border-b border-gray-100 last:border-0">
+                        <span className="text-gray-400">•</span>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-800">{item.name || item.title}</p>
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                            {item.quantity > 1 && <span>{item.quantity}개</span>}
+                            {item.selectedDate && (
+                              <>
+                                <Calendar className="h-3 w-3" />
+                                <span>{item.selectedDate}</span>
+                              </>
+                            )}
+                            {(item.adults || item.children || item.infants) && (
+                              <>
+                                <Users className="h-3 w-3" />
+                                <span>
+                                  {[
+                                    item.adults && `성인 ${item.adults}`,
+                                    item.children && `아동 ${item.children}`,
+                                    item.infants && `유아 ${item.infants}`
+                                  ].filter(Boolean).join(', ')}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
