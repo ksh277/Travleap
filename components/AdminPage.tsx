@@ -618,6 +618,7 @@ export function AdminPage({}: AdminPageProps) {
     contact_name: '',
     email: '',
     phone: '',
+    mobile_phone: '',
     business_address: '',
     location: '',
     services: '',
@@ -6276,13 +6277,24 @@ export function AdminPage({}: AdminPageProps) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  전화번호 *
+                  가게 전화번호
                 </label>
                 <Input
                   value={newPartner.phone}
                   onChange={(e) => setNewPartner({ ...newPartner, phone: e.target.value })}
-                  placeholder="전화번호를 입력하세요"
+                  placeholder="가게 전화번호 (061, 02 등)"
                   id="phone"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  휴대전화번호 *
+                </label>
+                <Input
+                  value={newPartner.mobile_phone}
+                  onChange={(e) => setNewPartner({ ...newPartner, mobile_phone: e.target.value })}
+                  placeholder="휴대전화번호 (010 등)"
+                  id="mobile_phone"
                 />
               </div>
             </div>

@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
     // type 파라미터가 있으면 해당 타입만, 없으면 렌트카 제외
     let query = `
       SELECT
-        p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone,
+        p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone, p.mobile_phone,
         p.business_address, p.location, p.services, p.base_price, p.base_price_text,
         p.detailed_address, p.description, p.business_hours,
         p.duration, p.min_age, p.max_capacity, p.language,

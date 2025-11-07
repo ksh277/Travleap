@@ -66,7 +66,7 @@ module.exports = async function handler(req, res) {
         FROM payments p
         LEFT JOIN bookings b ON p.booking_id = b.id
         LEFT JOIN listings l ON b.listing_id = l.id
-        WHERE p.payment_status IN ('paid', 'completed', 'refunded')
+        WHERE p.payment_status IN ('pending', 'paid', 'completed', 'refunded')
         ORDER BY p.created_at DESC
       `);
 
@@ -156,6 +156,8 @@ module.exports = async function handler(req, res) {
           let billingName = '';
           let billingEmail = '';
           let billingPhone = '';
+          // ✅ notes에서 카테고리 추출 (booking_id가 null인 경우)
+          let categoryFromNotes = null;
 
           if (order.notes) {
             try {
@@ -169,6 +171,11 @@ module.exports = async function handler(req, res) {
               // 배송비 및 상품 금액 추출
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
+
+              // ✅ 카테고리 추출 (booking_id가 null인 경우 notes에서 가져옴)
+              if (notesData.category) {
+                categoryFromNotes = notesData.category;
+              }
 
               // ✅ FIX: 청구 정보 추출 (주문 시 입력한 정보)
               if (notesData.billingInfo) {
@@ -245,6 +252,9 @@ module.exports = async function handler(req, res) {
 
           console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (billing="${billingName}", user="${user?.name || 'null'}", shipping="${order.shipping_name || 'null'}")`);
 
+          // ✅ 카테고리 우선순위: listings.category → notes.category
+          const finalCategory = order.category || categoryFromNotes;
+
           return {
             id: order.id,
             booking_id: order.booking_id, // ✅ 환불 시 필요
@@ -269,12 +279,12 @@ module.exports = async function handler(req, res) {
             start_date: order.start_date,
             end_date: order.end_date,
             // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
-            num_adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
-            guests: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
+            num_adults: finalCategory === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
+            guests: finalCategory === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
             num_children: order.children || 0,
             num_seniors: 0,
-            category: order.category,
-            is_popup: order.category === '팝업',
+            category: finalCategory,
+            is_popup: finalCategory === '팝업',
             order_number: actualOrderNumber,
             // ✅ 배송 정보 (주문 당시 배송지: bookings 우선, 없으면 users 테이블)
             delivery_status: order.delivery_status,

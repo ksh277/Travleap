@@ -808,7 +808,7 @@ export function PartnerDetailPage() {
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <Phone className="h-5 w-5 text-purple-600" />
-                        <span className="text-sm">{partner.phone || '연락처 정보 없음'}</span>
+                        <span className="text-sm">{partner.phone || partner.mobile_phone || '연락처 정보 없음'}</span>
                       </div>
                       {partner.email && (
                         <div className="flex items-center gap-3">

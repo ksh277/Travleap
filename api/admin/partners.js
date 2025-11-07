@@ -16,7 +16,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       const result = await connection.execute(`
         SELECT
-          p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone,
+          p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone, p.mobile_phone,
           p.business_address, p.location, p.services, p.base_price, p.base_price_text,
           p.detailed_address, p.description, p.business_hours,
           p.duration, p.min_age, p.max_capacity, p.language,
@@ -44,19 +44,20 @@ module.exports = async function handler(req, res) {
 
       const result = await connection.execute(
         `INSERT INTO partners (
-          user_id, business_name, contact_name, email, phone,
+          user_id, business_name, contact_name, email, phone, mobile_phone,
           business_address, location, services, base_price, base_price_text,
           detailed_address, description, images, business_hours,
           duration, min_age, max_capacity, language,
           lat, lng,
           status, is_active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW(), NOW())`,
         [
           1, // user_id (관리자가 생성하므로 1)
           partnerData.business_name,
           partnerData.contact_name,
           partnerData.email,
-          partnerData.phone,
+          partnerData.phone || null,
+          partnerData.mobile_phone || null,
           partnerData.business_address,
           partnerData.location,
           partnerData.services,
