@@ -274,7 +274,7 @@ export function AdminOrders() {
                 </thead>
                 <tbody>
                   {filteredOrders.map((order) => (
-                    <tr key={order.id} className="border-b hover:bg-gray-50">
+                    <tr key={`${order.id}-${order.category}-${order.booking_number || order.order_number}`} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4 font-mono text-sm">#{order.id}</td>
                       <td className="py-3 px-4">
                         <div className="text-sm space-y-1">
