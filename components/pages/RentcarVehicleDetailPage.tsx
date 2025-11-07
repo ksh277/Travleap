@@ -222,6 +222,24 @@ export function RentcarVehicleDetailPage() {
     }
   };
 
+  // 운전면허번호 자동 포맷팅 (XX-XXXXXX-XX)
+  const formatLicenseNumber = (value: string) => {
+    // 숫자만 추출
+    const numbers = value.replace(/[^\d]/g, '');
+
+    // 최대 12자리까지만
+    const limited = numbers.slice(0, 12);
+
+    // 자동으로 하이픈 삽입
+    if (limited.length <= 2) {
+      return limited;
+    } else if (limited.length <= 8) {
+      return `${limited.slice(0, 2)}-${limited.slice(2)}`;
+    } else {
+      return `${limited.slice(0, 2)}-${limited.slice(2, 8)}-${limited.slice(8)}`;
+    }
+  };
+
   // 리뷰 작성
   const handleReviewSubmit = async () => {
     if (!newReview.comment.trim()) {
@@ -865,11 +883,11 @@ export function RentcarVehicleDetailPage() {
                           <input
                             type="text"
                             value={driverLicenseNo}
-                            onChange={(e) => setDriverLicenseNo(e.target.value)}
+                            onChange={(e) => setDriverLicenseNo(formatLicenseNumber(e.target.value))}
                             placeholder="12-345678-90"
                             className="w-full px-3 py-2 border rounded-md"
                           />
-                          <p className="text-xs text-gray-500 mt-1">'-' 포함하여 입력해주세요</p>
+                          <p className="text-xs text-gray-500 mt-1">숫자만 입력하세요 (하이픈 자동 입력)</p>
                         </div>
 
                         <div>
