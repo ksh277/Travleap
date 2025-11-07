@@ -53,11 +53,14 @@ module.exports = async function handler(req, res) {
         vendor_id,
         name,
         description,
-        hourly_rate_krw,
-        daily_rate_krw,
-        is_active,
+        category,
+        price_krw,
+        price_type,
+        has_inventory,
+        current_stock,
         max_quantity,
-        display_order
+        display_order,
+        is_active
       FROM rentcar_extras
       WHERE vendor_id = ? AND is_active = 1
       ORDER BY display_order ASC, name ASC`,
@@ -66,7 +69,8 @@ module.exports = async function handler(req, res) {
 
     const extras = (extrasResult.rows || []).map(extra => ({
       ...extra,
-      is_active: extra.is_active === 1
+      is_active: extra.is_active === 1,
+      has_inventory: extra.has_inventory === 1
     }));
 
     console.log(`✅ [Vehicle Extras API] ${extras.length}개 옵션 조회 완료`);
