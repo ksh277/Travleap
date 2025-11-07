@@ -134,7 +134,13 @@
       "Bash(node scripts/check-listings-category-field.cjs:*)",
       "Bash(node scripts/check-actual-rentcar-data.cjs:*)",
       "Bash(node scripts/check-rentcar-tables-structure.cjs:*)",
-      "Bash(node scripts/check-points-system.cjs:*)"
+      "Bash(node scripts/check-points-system.cjs:*)",
+      "Bash(node scripts/check-popup-category.cjs:*)",
+      "Bash(node scripts/check-popup-payments.cjs:*)",
+      "Bash(node scripts/check-popup-notes.cjs:*)",
+      "Bash(node scripts/check-popup-user.cjs:*)",
+      "Bash(node scripts/test-popup-payment-query.cjs:*)",
+      "Bash(node scripts/check-cart-points.cjs:*)"
     ],
     "deny": [],
     "ask": []

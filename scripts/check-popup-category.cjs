@@ -103,6 +103,55 @@ async function checkPopupCategory() {
       console.log('   ⚠️  필터링 결과 없음');
     }
 
+    // 4. 팝업 상품 결제 정보 확인
+    console.log('\n[4] 팝업 상품 결제 내역 확인:');
+    console.log('-'.repeat(70));
+
+    const popupPaymentsResult = await connection.execute(`
+      SELECT p.id, p.order_id_str, p.amount, p.payment_status, p.created_at, p.notes
+      FROM payments p
+      WHERE p.notes LIKE '%팝업%' OR p.notes LIKE '%popup%'
+      ORDER BY p.created_at DESC
+      LIMIT 10
+    `);
+
+    console.log(`팝업 결제 내역: ${popupPaymentsResult.rows?.length || 0}건`);
+    if (popupPaymentsResult.rows && popupPaymentsResult.rows.length > 0) {
+      popupPaymentsResult.rows.forEach(payment => {
+        console.log(`   Payment ID ${payment.id}: ${payment.order_id_str || 'N/A'}`);
+        console.log(`     금액: ₩${payment.amount}, 상태: ${payment.payment_status}`);
+        console.log(`     생성일: ${payment.created_at}`);
+      });
+    } else {
+      console.log('   ℹ️  팝업 결제 내역 없음');
+    }
+
+    // 5. 팝업 포인트 적립 확인
+    console.log('\n[5] 팝업 주문 포인트 적립 확인:');
+    console.log('-'.repeat(70));
+
+    if (popupPaymentsResult.rows && popupPaymentsResult.rows.length > 0) {
+      for (const payment of popupPaymentsResult.rows) {
+        const pointsResult = await connection.execute(`
+          SELECT id, user_id, points, reason, balance_after, created_at
+          FROM user_points
+          WHERE related_order_id = ? AND point_type = 'earn'
+        `, [String(payment.id)]);
+
+        console.log(`   Payment ID ${payment.id} (₩${payment.amount}):`);
+        if (pointsResult.rows && pointsResult.rows.length > 0) {
+          pointsResult.rows.forEach(point => {
+            console.log(`     ✅ User ${point.user_id}: +${point.points}P (잔액: ${point.balance_after}P)`);
+            console.log(`        이유: ${point.reason}`);
+          });
+        } else {
+          console.log(`     ❌ 포인트 적립 내역 없음!`);
+        }
+      }
+    } else {
+      console.log('   ℹ️  점검할 팝업 결제 내역 없음');
+    }
+
     console.log('\n' + '='.repeat(70));
     console.log('확인 완료');
     console.log('='.repeat(70));
