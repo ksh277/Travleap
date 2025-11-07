@@ -251,7 +251,14 @@ export function PaymentPage() {
       return;
     }
 
-    // 렌트카/투어 등 단일 예약 (bookingId가 URL 파라미터로 전달됨)
+    // 렌트카 예약 (bookingNumber가 있는 경우)
+    // URL 파라미터로 모든 정보가 전달되므로 DB 조회 불필요
+    if (bookingNumber) {
+      setLoading(false);
+      return;
+    }
+
+    // 일반 단일 예약 (숙박 등 - bookingId만 있는 경우)
     if (bookingId) {
       loadBookingDetails();
       return;
