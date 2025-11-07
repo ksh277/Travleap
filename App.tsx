@@ -73,7 +73,6 @@ import { useAuth } from './hooks/useAuth';
 import { useCartStore } from './hooks/useCartStore';
 import { HelmetProvider } from 'react-helmet-async';
 import { Analytics } from '@vercel/analytics/react';
-import { loadGoogleMapsScript } from './utils/env';
 
 // 스크롤 위치 리셋 컴포넌트
 function ScrollToTop() {
@@ -93,13 +92,6 @@ function AppContent() {
 
   // REMOVED: Hardcoded admin credentials (security risk)
   // To create an admin account, use: tsx scripts/create-admin.ts
-
-  // Google Maps API 로드
-  useEffect(() => {
-    loadGoogleMapsScript().catch(err => {
-      console.error('Failed to load Google Maps:', err);
-    });
-  }, []);
 
   // 세션 복원 중일 때 로딩 화면 표시
   if (!sessionRestored) {
