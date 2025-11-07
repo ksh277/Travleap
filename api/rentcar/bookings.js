@@ -107,7 +107,7 @@ module.exports = async function handler(req, res) {
       }
 
       const dailyRate = vehicle.rows[0].daily_rate_krw;
-      const hourlyRate = vehicle.rows[0].hourly_rate_krw || Math.ceil(dailyRate / 24);
+      const hourlyRate = vehicle.rows[0].hourly_rate_krw || Math.floor(dailyRate / 24);
 
       // 픽업/반납 날짜와 시간을 조합하여 정확한 시간 계산
       const [pickupHour, pickupMinute] = (pickup_time || '00:00').split(':').map(Number);
@@ -121,6 +121,10 @@ module.exports = async function handler(req, res) {
 
       const diffMs = dropoffDateObj.getTime() - pickupDateObj.getTime();
       const rentalHours = diffMs / (1000 * 60 * 60);
+
+      // 정확히 24시간 단위인지 확인
+      const fullDays = Math.floor(rentalHours / 24);
+      const remainingHours = rentalHours % 24;
 
       if (rentalHours < 4) {
         return res.status(400).json({
@@ -209,8 +213,16 @@ module.exports = async function handler(req, res) {
         insuranceFee = Math.ceil(insuranceHourlyRate * rentalHours);
       }
 
-      // 시간 단위 가격 계산 (차량 대여료 + 보험료)
-      const subtotal = Math.ceil(hourlyRate * rentalHours);
+      // 가격 계산 (일 단위 우선, 나머지는 시간 단위)
+      let subtotal = 0;
+      if (remainingHours === 0) {
+        // 정확히 24시간 단위인 경우 (1일, 2일, 3일 등)
+        subtotal = dailyRate * fullDays;
+      } else {
+        // 24시간 단위가 아닌 경우 (예: 1.5일, 2.3일 등)
+        subtotal = (dailyRate * fullDays) + Math.ceil(hourlyRate * remainingHours);
+      }
+
       const tax = Math.round(subtotal * 0.1);
       const total = subtotal + tax + insuranceFee;
 
