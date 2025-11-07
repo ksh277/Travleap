@@ -342,11 +342,6 @@ export function RentcarVehicleDetailPage() {
     }
   };
 
-  // 세금 계산 (차량 대여료의 10%)
-  const calculateTax = () => {
-    return Math.round(calculateRentalFee() * 0.1);
-  };
-
   // 보험료 계산
   const calculateInsuranceFee = () => {
     if (!selectedInsuranceId) return 0;
@@ -404,14 +399,13 @@ export function RentcarVehicleDetailPage() {
     return total;
   };
 
-  // 가격 계산 (대여료 + 세금 + 보험료 + 옵션료)
+  // 가격 계산 (대여료 + 보험료 + 옵션료)
   const calculateTotalPrice = () => {
     const rentalFee = calculateRentalFee();
-    const tax = calculateTax();
     const insuranceFee = calculateInsuranceFee();
     const extrasFee = calculateExtrasFee();
 
-    return rentalFee + tax + insuranceFee + extrasFee;
+    return rentalFee + insuranceFee + extrasFee;
   };
 
   // 예약 처리 (새 MVP API 사용)
@@ -1149,15 +1143,14 @@ export function RentcarVehicleDetailPage() {
                               ₩{calculateRentalFee().toLocaleString()}
                             </span>
                           </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">세금 (10%)</span>
-                            <span className="font-medium text-gray-700">
-                              +₩{calculateTax().toLocaleString()}
-                            </span>
-                          </div>
                           {calculateInsuranceFee() > 0 && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">보험료</span>
+                              <span className="text-gray-600">
+                                보험료
+                                <span className="text-xs text-gray-500 ml-1">
+                                  ({Math.ceil(calculateRentalHours())}시간)
+                                </span>
+                              </span>
                               <span className="font-medium text-green-600">
                                 +₩{calculateInsuranceFee().toLocaleString()}
                               </span>

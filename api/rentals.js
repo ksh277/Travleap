@@ -158,7 +158,8 @@ module.exports = async function handler(req, res) {
             error: '선택하신 보험은 현재 제공되지 않습니다'
           });
         }
-        insuranceFee = Math.ceil(insuranceResult.rows[0].hourly_rate_krw * rentalHours);
+        // 시간을 올림 처리하여 시간당 요금 계산 (예: 25.5시간 -> 26시간)
+        insuranceFee = insuranceResult.rows[0].hourly_rate_krw * Math.ceil(rentalHours);
       }
     }
 
@@ -180,8 +181,8 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const tax = Math.round(subtotal * 0.1);
-    const totalAmount = subtotal + tax + insuranceFee + extrasFee;
+    // 세금은 업체가 이미 가격에 포함하여 책정함
+    const totalAmount = subtotal + insuranceFee + extrasFee;
 
     // 6. 예약 번호 생성
     const bookingNumber = `RC${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
@@ -224,7 +225,7 @@ module.exports = async function handler(req, res) {
       driver?.name || '', driver?.birth || null, driver?.license_no || '', driver?.license_exp || null,
       validPickupLocationId, validDropoffLocationId,
       pickupDateStr, pickupTimeStr, returnDateStr, returnTimeStr,
-      hourlyRate, Math.ceil(rentalHours), subtotal, tax, totalAmount,
+      hourlyRate, Math.ceil(rentalHours), subtotal, 0, totalAmount,
       insurance_plan_id || null, insuranceFee
     ]);
 
@@ -254,7 +255,7 @@ module.exports = async function handler(req, res) {
         booking_number: bookingNumber,
         pricing: {
           base_amount: subtotal,
-          tax_amount: tax,
+          tax_amount: 0,
           insurance_fee: insuranceFee,
           extras_fee: extrasFee,
           total_amount: totalAmount,
