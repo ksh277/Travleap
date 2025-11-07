@@ -320,6 +320,33 @@ export function RentcarVehicleDetailPage() {
     return Math.max(0, diffHours);
   };
 
+  // 차량 대여료 계산 (세금 제외)
+  const calculateRentalFee = () => {
+    if (!vehicle || !pickupDate || !returnDate) return 0;
+
+    const totalHours = calculateRentalHours();
+    if (totalHours < 4) return 0;
+
+    if (mvpPricing && mvpPricing.base_amount) {
+      return mvpPricing.base_amount;
+    }
+
+    const hourlyRate = vehicle.hourly_rate_krw || Math.floor(vehicle.daily_rate_krw / 24);
+    const fullDays = Math.floor(totalHours / 24);
+    const remainingHours = totalHours % 24;
+
+    if (remainingHours === 0) {
+      return vehicle.daily_rate_krw * fullDays;
+    } else {
+      return (vehicle.daily_rate_krw * fullDays) + Math.ceil(hourlyRate * remainingHours);
+    }
+  };
+
+  // 세금 계산 (차량 대여료의 10%)
+  const calculateTax = () => {
+    return Math.round(calculateRentalFee() * 0.1);
+  };
+
   // 보험료 계산
   const calculateInsuranceFee = () => {
     if (!selectedInsuranceId) return 0;
@@ -377,38 +404,14 @@ export function RentcarVehicleDetailPage() {
     return total;
   };
 
-  // 가격 계산 (시간 단위 + 보험료 + 옵션료)
+  // 가격 계산 (대여료 + 세금 + 보험료 + 옵션료)
   const calculateTotalPrice = () => {
-    if (!vehicle || !pickupDate || !returnDate) return 0;
-
-    const totalHours = calculateRentalHours();
-    if (totalHours < 4) return 0; // 최소 4시간
-
-    // MVP API 가격이 있으면 사용 (업체 페이지에서 전달받은 경우)
-    let rentalFee = 0;
-    if (mvpPricing && mvpPricing.base_amount) {
-      rentalFee = mvpPricing.base_amount;
-      console.log('MVP API 가격 사용:', rentalFee);
-    } else {
-      // 없으면 로컬 계산 (백엔드와 동일한 로직)
-      const hourlyRate = vehicle.hourly_rate_krw || Math.floor(vehicle.daily_rate_krw / 24);
-      const fullDays = Math.floor(totalHours / 24);
-      const remainingHours = totalHours % 24;
-
-      if (remainingHours === 0) {
-        // 정확히 24시간 단위인 경우 (1일, 2일, 3일 등)
-        rentalFee = vehicle.daily_rate_krw * fullDays;
-      } else {
-        // 24시간 단위가 아닌 경우 (예: 1.5일, 2.3일 등)
-        rentalFee = (vehicle.daily_rate_krw * fullDays) + Math.ceil(hourlyRate * remainingHours);
-      }
-      console.log('로컬 계산 가격:', rentalFee);
-    }
-
+    const rentalFee = calculateRentalFee();
+    const tax = calculateTax();
     const insuranceFee = calculateInsuranceFee();
     const extrasFee = calculateExtrasFee();
 
-    return rentalFee + insuranceFee + extrasFee;
+    return rentalFee + tax + insuranceFee + extrasFee;
   };
 
   // 예약 처리 (새 MVP API 사용)
@@ -1143,7 +1146,13 @@ export function RentcarVehicleDetailPage() {
                               )}
                             </span>
                             <span className="font-medium">
-                              ₩{(calculateTotalPrice() - calculateInsuranceFee() - calculateExtrasFee()).toLocaleString()}
+                              ₩{calculateRentalFee().toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">세금 (10%)</span>
+                            <span className="font-medium text-gray-700">
+                              +₩{calculateTax().toLocaleString()}
                             </span>
                           </div>
                           {calculateInsuranceFee() > 0 && (
@@ -1174,14 +1183,14 @@ export function RentcarVehicleDetailPage() {
                       <p className="text-xs text-gray-500 mt-1">
                         {mvpPricing ? (
                           <>
-                            {mvpPricing.rental_days}일 {mvpPricing.remainder_hours > 0 && `+ ${mvpPricing.remainder_hours}시간`} 대여
-                            {calculateInsuranceFee() > 0 && ' (보험 포함)'}
+                            {mvpPricing.rental_days}일 {mvpPricing.remainder_hours > 0 && `+ ${mvpPricing.remainder_hours}시간`} 대여 (세금
+                            {calculateInsuranceFee() > 0 && ', 보험'} 포함)
                           </>
                         ) : (
                           <>
                             {Math.floor(calculateRentalHours())}시간
-                            {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`} 대여
-                            {calculateInsuranceFee() > 0 && ' (보험 포함)'}
+                            {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`} 대여 (세금
+                            {calculateInsuranceFee() > 0 && ', 보험'} 포함)
                           </>
                         )}
                       </p>
