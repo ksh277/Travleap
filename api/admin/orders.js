@@ -26,10 +26,10 @@ async function handler(req, res) {
 
   const connection = connect({ url: process.env.DATABASE_URL });
 
-  // GET: 관리자 주문 목록 조회 (payments 기반)
+  // GET: 관리자 주문 목록 조회 (payments + rentcar 통합)
   if (req.method === 'GET') {
     try {
-      // payments 테이블 기반으로 주문 정보 조회
+      // ✅ payments (일반 주문) + rentcar_bookings (렌트카) 통합 조회
       const result = await connection.execute(`
         SELECT
           p.id,
@@ -69,6 +69,49 @@ async function handler(req, res) {
         ORDER BY p.created_at DESC
       `);
 
+      // ✅ 렌트카 주문 추가 조회 (payments와 별도)
+      const rentcarResult = await connection.execute(`
+        SELECT
+          NULL as id,
+          rb.user_id,
+          rb.total_krw as amount,
+          rb.payment_status,
+          rb.payment_key,
+          rb.booking_number as order_number,
+          NULL as notes,
+          rb.created_at,
+          rb.approved_at,
+          rb.refund_amount_krw as refund_amount,
+          rb.refunded_at,
+          rb.id as booking_id,
+          rb.booking_number,
+          rb.status as booking_status,
+          rb.pickup_date as start_date,
+          rb.dropoff_date as end_date,
+          1 as guests,
+          1 as adults,
+          0 as children,
+          0 as infants,
+          rb.vehicle_id as listing_id,
+          NULL as delivery_status,
+          rb.customer_name as shipping_name,
+          rb.customer_phone as shipping_phone,
+          NULL as shipping_address,
+          NULL as shipping_address_detail,
+          NULL as shipping_zipcode,
+          CONCAT(v.brand, ' ', v.model) as product_title,
+          '렌트카' as category,
+          v.images
+        FROM rentcar_bookings rb
+        LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
+        WHERE rb.payment_status IN ('paid', 'completed', 'refunded')
+        ORDER BY rb.created_at DESC
+      `);
+
+      // ✅ 일반 주문 + 렌트카 주문 통합
+      const allOrders = [...(result.rows || []), ...(rentcarResult.rows || [])]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
       // Neon PostgreSQL에서 사용자 정보 조회
       const { Pool } = require('@neondatabase/serverless');
       const poolNeon = new Pool({
@@ -79,7 +122,7 @@ async function handler(req, res) {
 
       try {
         // 모든 주문의 user_id 수집
-        const userIds = [...new Set((result.rows || []).map(order => order.user_id).filter(Boolean))];
+        const userIds = [...new Set(allOrders.map(order => order.user_id).filter(Boolean))];
 
         let userMap = new Map();
         if (userIds.length > 0) {
@@ -96,7 +139,7 @@ async function handler(req, res) {
         }
 
         // 🔧 혼합 주문의 모든 bookings 조회 (부분 환불 지원)
-        const orderNumbersForCart = (result.rows || [])
+        const orderNumbersForCart = allOrders
           .filter(order => !order.booking_id && order.gateway_transaction_id)
           .map(order => order.gateway_transaction_id);
 
@@ -129,7 +172,7 @@ async function handler(req, res) {
         }
 
         // 주문 데이터와 사용자 정보 병합
-        ordersWithUserInfo = (result.rows || []).map(order => {
+        ordersWithUserInfo = allOrders.map(order => {
           const user = userMap.get(order.user_id);
 
           // notes 파싱하여 상품 정보 추출
