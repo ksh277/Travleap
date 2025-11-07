@@ -220,8 +220,8 @@ module.exports = async function handler(req, res) {
       )
     `, [
       bookingNumber, vehicle.vendor_id, vehicle_id, user_id || null,
-      customer_name, customer_email, customer_phone || null,
-      driver?.name || null, driver?.birth || null, driver?.license_no || null, driver?.license_exp || null,
+      customer_name, customer_email, customer_phone || '',
+      driver?.name || '', driver?.birth || null, driver?.license_no || '', driver?.license_exp || null,
       validPickupLocationId, validDropoffLocationId,
       pickupDateStr, pickupTimeStr, returnDateStr, returnTimeStr,
       hourlyRate, Math.ceil(rentalHours), subtotal, tax, totalAmount,
