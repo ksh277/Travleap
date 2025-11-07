@@ -666,20 +666,51 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           // 트랜잭션 커밋
           await poolNeon.query('COMMIT');
         } catch (pointsError) {
-          console.error('❌ [포인트] 단일 예약 적립 실패 (계속 진행):', pointsError);
+          console.error('❌ [포인트] 단일 예약 적립 실패:', pointsError);
+          console.error('❌ [포인트] 에러 상세:', pointsError.stack);
+
           // 롤백 시도
           try {
             await poolNeon.query('ROLLBACK');
+            console.log('🔄 [포인트] Neon 트랜잭션 롤백 완료');
           } catch (rollbackError) {
             console.error('❌ [포인트] 롤백 실패:', rollbackError);
           }
-          // 포인트 적립 실패해도 결제는 성공 처리
+
+          // ⚠️ CRITICAL: 관리자에게 알림 전송 (포인트 적립 실패)
+          try {
+            await connection.execute(`
+              INSERT INTO admin_notifications (
+                type, priority, title, message, metadata, created_at
+              ) VALUES (?, ?, ?, ?, ?, NOW())
+            `, [
+              'PAYMENT_POINT_EARN_FAILED',
+              'HIGH',
+              `⚠️ 포인트 자동 적립 실패 (payment_id: ${paymentId})`,
+              `user_id=${userId}, order_id=${orderId}, amount=${paymentResult.totalAmount}원`,
+              JSON.stringify({
+                paymentId,
+                userId,
+                orderId,
+                amount: paymentResult.totalAmount,
+                isRentcar,
+                error: pointsError.message,
+                stack: pointsError.stack
+              })
+            ]);
+            console.log('📢 [포인트] 관리자 알림 생성 완료 - 수동 적립 필요');
+          } catch (notifError) {
+            console.error('❌ [포인트] 관리자 알림 생성 실패:', notifError);
+          }
+
+          // 포인트 적립 실패해도 결제는 성공 처리 (수동 적립 가능)
         } finally {
           // ✅ Connection pool 정리 (에러 발생해도 반드시 실행)
           await poolNeon.end();
         }
       } catch (outerError) {
-        console.error('❌ [포인트] 단일 예약 포인트 적립 실패 (계속 진행):', outerError);
+        console.error('❌ [포인트] 단일 예약 포인트 적립 외부 오류:', outerError);
+        console.error('❌ [포인트] 외부 오류 상세:', outerError.stack);
       }
 
     } else if (isOrder) {
@@ -791,7 +822,31 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
                 console.log(`✅ [포인트] payment_id=${categoryPayment.id} ${pointsToEarn}P 적립 (카테고리: ${notes?.category})`);
               }
             } catch (categoryPointsError) {
-              console.error(`❌ [포인트] payment_id=${categoryPayment.id} 적립 실패 (계속 진행):`, categoryPointsError);
+              console.error(`❌ [포인트] payment_id=${categoryPayment.id} 적립 실패:`, categoryPointsError);
+              console.error(`❌ [포인트] 에러 상세:`, categoryPointsError.stack);
+
+              // ⚠️ 관리자 알림 (개별 카테고리 적립 실패)
+              try {
+                await connection.execute(`
+                  INSERT INTO admin_notifications (
+                    type, priority, title, message, metadata, created_at
+                  ) VALUES (?, ?, ?, ?, ?, NOW())
+                `, [
+                  'CART_POINT_EARN_FAILED',
+                  'MEDIUM',
+                  `⚠️ 장바구니 카테고리 포인트 적립 실패 (payment_id: ${categoryPayment.id})`,
+                  `user_id=${userId}, order_id=${orderId}`,
+                  JSON.stringify({
+                    paymentId: categoryPayment.id,
+                    userId,
+                    orderId,
+                    category: categoryPayment.notes ? JSON.parse(categoryPayment.notes)?.category : null,
+                    error: categoryPointsError.message
+                  })
+                ]);
+              } catch (notifError) {
+                // 알림 실패는 무시
+              }
             }
           }
 
