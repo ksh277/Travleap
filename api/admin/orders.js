@@ -159,7 +159,7 @@ async function handler(req, res) {
                 order.category = notesData.category;
               }
 
-              // 상품 정보 추출 (우선순위: notes.items > product_title)
+              // 상품 정보 추출 (우선순위: notes.items > bookings > product_title)
               if (notesData.items && Array.isArray(notesData.items) && notesData.items.length > 0) {
                 itemsInfo = notesData.items;
                 itemCount = notesData.items.length; // 아이템 종류 수
@@ -171,22 +171,23 @@ async function handler(req, res) {
 
                 console.log(`📊 [Orders] order_id=${order.id}: ${itemCount}개 종류, 총 ${totalQuantity}개 수량`);
 
-                // 첫 번째 아이템의 상품명 가져오기 (title 또는 name 필드)
-                const firstItemTitle = notesData.items[0].title || notesData.items[0].name || '';
+                // 🔧 장바구니 주문의 경우 bookings에서 상품명 가져오기
+                const orderNumber = order.gateway_transaction_id;
+                const bookingsList = bookingsMap.get(orderNumber) || null;
+
+                // 첫 번째 아이템의 상품명 가져오기 (우선순위: notes.items[0].title/name > bookings[0].product_title)
+                let firstItemTitle = notesData.items[0].title || notesData.items[0].name || '';
+
+                // ✅ FIX: items에 title/name이 없으면 bookings에서 가져오기 (구 데이터 대응)
+                if (!firstItemTitle && bookingsList && bookingsList.length > 0) {
+                  firstItemTitle = bookingsList[0].product_title || '';
+                  console.log(`🔧 [Orders] order_id=${order.id}: bookings에서 상품명 가져옴: "${firstItemTitle}"`);
+                }
 
                 if (itemCount > 1) {
                   displayTitle = firstItemTitle ? `${firstItemTitle} 외 ${itemCount - 1}개` : (order.product_title || '주문');
                 } else {
                   displayTitle = firstItemTitle || order.product_title || '주문';
-                }
-
-                // ✅ 디버깅: 상품명이 비어있거나 이상한 경우 로깅
-                if (!firstItemTitle || firstItemTitle.includes('배송지') || firstItemTitle.includes('undefined')) {
-                  console.warn(`⚠️ [Orders] order_id=${order.id}: 이상한 상품명 감지:`, {
-                    firstItemTitle,
-                    item: notesData.items[0],
-                    product_title: order.product_title
-                  });
                 }
               } else if (!displayTitle) {
                 // notes.items도 없고 product_title도 없으면
@@ -204,7 +205,7 @@ async function handler(req, res) {
             console.warn(`⚠️ [Orders] order_id=${order.id}: notes가 없음`);
           }
 
-          // 🔧 혼합 주문의 경우 모든 bookings 정보 추가
+          // 🔧 혼합 주문의 경우 모든 bookings 정보 추가 (이미 위에서 조회했을 수 있음)
           const orderNumber = order.gateway_transaction_id;
           const bookingsList = bookingsMap.get(orderNumber) || null;
 
