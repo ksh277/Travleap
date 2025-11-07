@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
+import { Textarea } from './ui/textarea';
 import {
   MapPin,
   Clock,
@@ -17,10 +18,13 @@ import {
   Camera,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
+  ThumbsUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPartnerPrice } from '../utils/price-formatter';
 import { ReservationModal } from './ReservationModal';
+import { useAuth } from '../hooks/useAuth';
 
 interface Partner {
   id: number;
@@ -49,9 +53,21 @@ interface Partner {
   lng?: number;
 }
 
+interface Review {
+  id: string;
+  user_id: number;
+  author: string;
+  rating: number;
+  comment: string;
+  date: string;
+  helpful: number;
+  verified: boolean;
+}
+
 export function PartnerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user, isLoggedIn } = useAuth();
   const [partner, setPartner] = useState<Partner | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -59,9 +75,18 @@ export function PartnerDetailPage() {
   const [nearbyPartners, setNearbyPartners] = useState<Partner[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
 
   useEffect(() => {
     loadPartnerDetail();
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      fetchReviews();
+    }
   }, [id]);
 
   // 파트너가 로드되면 근처 파트너 로드
@@ -312,6 +337,92 @@ export function PartnerDetailPage() {
     }
   };
 
+  const fetchReviews = async () => {
+    if (!id) return;
+
+    setReviewsLoading(true);
+    try {
+      const response = await fetch(`/api/partners/${id}/reviews`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setReviews(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to load reviews:', error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!isLoggedIn || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (!newReview.comment.trim()) {
+      toast.error('리뷰 내용을 입력해주세요.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/partners/${id}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          rating: newReview.rating,
+          comment: newReview.comment,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('리뷰가 등록되었습니다.');
+        setNewReview({ rating: 5, comment: '' });
+        fetchReviews();
+      } else {
+        toast.error(result.message || '리뷰 등록에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to submit review:', error);
+      toast.error('리뷰 등록 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleMarkHelpful = async (reviewId: string) => {
+    if (!isLoggedIn || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/reviews/helpful/${reviewId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('좋아요가 반영되었습니다.');
+        fetchReviews();
+      } else {
+        toast.error(result.message || '좋아요 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to mark helpful:', error);
+      toast.error('좋아요 처리 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
@@ -515,6 +626,111 @@ export function PartnerDetailPage() {
                 </div>
                 <div id="map" className="w-full h-[400px] bg-gray-100 rounded-lg"></div>
               </div>
+
+              {/* Reviews Section */}
+              <div className="mt-6 space-y-6">
+                {/* Write Review */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <MessageCircle className="h-5 w-5 mr-2" />
+                      리뷰 작성
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {isLoggedIn ? (
+                      <>
+                        <div>
+                          <label className="block text-sm mb-2">평점</label>
+                          <div className="flex items-center space-x-1">
+                            {[1, 2, 3, 4, 5].map(rating => (
+                              <button
+                                key={rating}
+                                onClick={() => setNewReview(prev => ({ ...prev, rating }))}
+                                className="p-1"
+                              >
+                                <Star
+                                  className={`h-6 w-6 ${rating <= newReview.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm mb-2">리뷰 내용</label>
+                          <Textarea
+                            placeholder="이용 후기를 남겨주세요..."
+                            value={newReview.comment}
+                            onChange={(e) => setNewReview(prev => ({ ...prev, comment: e.target.value }))}
+                            rows={4}
+                          />
+                        </div>
+                        <Button onClick={handleReviewSubmit} className="w-full">
+                          리뷰 등록
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">
+                        리뷰를 작성하려면 <button onClick={() => navigate('/login')} className="text-purple-600 underline">로그인</button>해주세요.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Review List */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-bold">리뷰 목록</h3>
+                  {reviewsLoading ? (
+                    <div className="text-center py-8 text-gray-500">
+                      리뷰를 불러오는 중...
+                    </div>
+                  ) : reviews.length > 0 ? (
+                    reviews.map(review => (
+                      <Card key={review.id}>
+                        <CardContent className="p-4 md:p-6">
+                          <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-3 space-y-3 md:space-y-0">
+                            <div className="flex-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <span className="font-medium">{review.author}</span>
+                                <div className="flex items-center">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`h-3 w-3 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                                    />
+                                  ))}
+                                </div>
+                                {review.verified && (
+                                  <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded">인증됨</span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {new Date(review.date).toLocaleDateString('ko-KR')}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-500 hover:text-blue-600"
+                                onClick={() => handleMarkHelpful(review.id)}
+                              >
+                                <ThumbsUp className="h-4 w-4 mr-1" />
+                                좋아요 {review.helpful}
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-wrap">{review.comment}</p>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      아직 작성된 리뷰가 없습니다. 첫 번째 리뷰를 작성해보세요!
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Sidebar */}
@@ -592,7 +808,7 @@ export function PartnerDetailPage() {
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <Phone className="h-5 w-5 text-purple-600" />
-                        <span className="text-sm">{partner.phone}</span>
+                        <span className="text-sm">{partner.phone || '연락처 정보 없음'}</span>
                       </div>
                       {partner.email && (
                         <div className="flex items-center gap-3">
