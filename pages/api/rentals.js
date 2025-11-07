@@ -37,7 +37,13 @@ module.exports = async function handler(req, res) {
       extras
     } = req.body;
 
-    console.log('🚗 [Rentals API] 예약 요청:', { vehicle_id, pickup_at, return_at });
+    console.log('🚗 [Rentals API] 예약 요청:');
+    console.log('   - vehicle_id:', vehicle_id);
+    console.log('   - user_id:', user_id);
+    console.log('   - pickup_at:', pickup_at);
+    console.log('   - return_at:', return_at);
+    console.log('   - pickup_location_id:', pickup_location_id);
+    console.log('   - customer:', customer_name, customer_email);
 
     // 필수 필드 검증
     if (!vehicle_id || !pickup_at || !return_at || !customer_name || !customer_email) {
@@ -69,6 +75,44 @@ module.exports = async function handler(req, res) {
 
     const vehicle = vehicleResult.rows[0];
 
+    console.log('   ✅ 차량 조회 성공:', vehicle.display_name, '(vendor:', vehicle.vendor_id + ')');
+
+    // 1.5. location 유효성 검증 및 자동 할당
+    let validPickupLocationId = pickup_location_id;
+    let validDropoffLocationId = dropoff_location_id;
+
+    // pickup_location_id 검증
+    if (pickup_location_id) {
+      const locCheck = await connection.execute(
+        'SELECT id FROM rentcar_locations WHERE id = ? AND vendor_id = ?',
+        [pickup_location_id, vehicle.vendor_id]
+      );
+      if (!locCheck.rows || locCheck.rows.length === 0) {
+        console.warn('   ⚠️  유효하지 않은 pickup_location_id:', pickup_location_id);
+        validPickupLocationId = null;
+      }
+    }
+
+    // location이 없으면 vendor의 첫 번째 location 자동 할당
+    if (!validPickupLocationId) {
+      const vendorLocs = await connection.execute(
+        'SELECT id, name FROM rentcar_locations WHERE vendor_id = ? AND is_active = 1 LIMIT 1',
+        [vehicle.vendor_id]
+      );
+
+      if (!vendorLocs.rows || vendorLocs.rows.length === 0) {
+        console.error('   ❌ vendor', vehicle.vendor_id, '의 location이 없음!');
+        return res.status(400).json({
+          success: false,
+          error: '해당 업체의 픽업 지점이 없습니다. 관리자에게 문의하세요.'
+        });
+      }
+
+      validPickupLocationId = vendorLocs.rows[0].id;
+      validDropoffLocationId = vendorLocs.rows[0].id;
+      console.log('   🔄 자동 할당된 location:', vendorLocs.rows[0].name, '(id:', validPickupLocationId + ')');
+    }
+
     // 2. 시간 계산
     const pickupDate = new Date(pickup_at);
     const returnDate = new Date(return_at);
@@ -85,6 +129,8 @@ module.exports = async function handler(req, res) {
     const fullDays = Math.floor(rentalHours / 24);
     const remainingHours = rentalHours % 24;
 
+    console.log('   ⏱️  대여 시간:', rentalHours, '시간 (', fullDays, '일 +', remainingHours, '시간)');
+
     // 3. 가격 계산
     const dailyRate = vehicle.daily_rate_krw;
     const hourlyRate = vehicle.hourly_rate_krw || Math.floor(dailyRate / 24);
@@ -95,6 +141,8 @@ module.exports = async function handler(req, res) {
     } else {
       subtotal = (dailyRate * fullDays) + Math.ceil(hourlyRate * remainingHours);
     }
+
+    console.log('   💰 가격 계산: 일일', dailyRate, '원 × ', fullDays, '일 +', hourlyRate, '원 ×', remainingHours, '시간 = ', subtotal, '원');
 
     // 4. 보험료 계산
     let insuranceFee = 0;
@@ -178,7 +226,7 @@ module.exports = async function handler(req, res) {
       bookingNumber, vehicle.vendor_id, vehicle_id, user_id || null,
       encryptedCustomerName, encryptedCustomerEmail, encryptedCustomerPhone,
       encryptedDriverName, driver?.birth || null, driver?.license_no || null, driver?.license_exp || null,
-      pickup_location_id, dropoff_location_id,
+      validPickupLocationId, validDropoffLocationId,
       pickupDateStr, pickupTimeStr, returnDateStr, returnTimeStr,
       hourlyRate, Math.ceil(rentalHours), subtotal, tax, totalAmount,
       insurance_plan_id || null, insuranceFee
@@ -225,9 +273,13 @@ module.exports = async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ [Rentals API] Error:', error);
+    console.error('   Stack:', error.stack);
+    console.error('   요청 데이터:', JSON.stringify(req.body, null, 2));
+
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
