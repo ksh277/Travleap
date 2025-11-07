@@ -509,6 +509,9 @@ export function RentcarVehicleDetailPage() {
       const bookingData = bookingResult.data;
       const totalPrice = bookingData.pricing?.total_amount || calculateTotalPrice();
 
+      // ✅ localStorage에서 숙박 예약 데이터 제거 (렌트카 결제 시 혼선 방지)
+      localStorage.removeItem('booking_data');
+
       navigate(
         `/payment?bookingId=${bookingData.rental_id}&bookingNumber=${bookingData.booking_number}&amount=${totalPrice}&title=${encodeURIComponent(vehicle.display_name)}&customerName=${encodeURIComponent(user.name)}&customerEmail=${encodeURIComponent(user.email)}`
       );

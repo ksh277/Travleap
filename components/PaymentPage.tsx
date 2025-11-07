@@ -245,7 +245,20 @@ export function PaymentPage() {
       return;
     }
 
+    // 장바구니 주문인 경우
+    if (orderData) {
+      setLoading(false);
+      return;
+    }
+
+    // 렌트카/투어 등 단일 예약 (bookingId가 URL 파라미터로 전달됨)
+    if (bookingId) {
+      loadBookingDetails();
+      return;
+    }
+
     // localStorage에서 숙박 예약 데이터 확인 (AccommodationDetailPage에서 전달)
+    // ✅ 렌트카는 URL 파라미터로 전달되므로 localStorage는 숙박 전용
     const bookingDataStr = localStorage.getItem('booking_data');
     if (bookingDataStr) {
       try {
@@ -258,20 +271,10 @@ export function PaymentPage() {
       }
     }
 
-    // 장바구니 주문인 경우
-    if (orderData) {
-      setLoading(false);
-      return;
-    }
-
-    // 단일 예약 주문인 경우
-    if (!bookingId) {
-      toast.error('결제 정보가 없습니다.');
-      navigate('/');
-      return;
-    }
-
-    loadBookingDetails();
+    // 결제 정보 없음
+    toast.error('결제 정보가 없습니다.');
+    navigate('/');
+    return;
   }, [bookingId, orderData, isLoggedIn]);
 
   // 배송비 설정 (장바구니에서 이미 계산된 값 사용)
