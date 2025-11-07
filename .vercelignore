@@ -1,22 +1,2 @@
-# Backend files not needed for deployment
-server-api.ts
-workers/
-scripts/
-
-# Empty/incomplete API handlers
-api/admin/commission-settings.js
-api/bookings/create-with-lock.js
-api/bookings/return-inspect.js
-api/rentcar/payment.js
-api/rentcar/vendor-register.js
-api/rentcar/vendor-vehicles.js
-api/shared/activities-module.js
-api/shared/banners-module.js
-api/shared/newsletter.js
-api/shared/lodging.js
-
-# API files with syntax errors
-api/auth/route.js
-api/db/route.js
-api/pms/sync/route.js
-api/shared/listings.js
+# Don't ignore dist - we need it!
+!dist/
