@@ -489,6 +489,10 @@ async function refundUsedPoints(connection, userId, pointsUsed, orderNumber) {
 async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolicy = false }) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
+  // ✅ FIX: try 블록 밖에서 선언 (catch 블록에서 참조하기 위함)
+  let tossRefundSuccess = false;
+  let tossRefundResult = null;
+
   try {
     console.log(`💰 [Refund] 환불 요청 시작: paymentKey=${paymentKey}, reason=${cancelReason}`);
 
@@ -611,9 +615,6 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     // 🔒 4. Toss Payments API로 환불 요청 먼저 수행 (CRITICAL FIX)
     // 고객 관점: Toss 환불 성공이 최우선, DB는 나중에 수정 가능
     console.log(`🔄 [Refund] Toss Payments API 호출 중... (금액: ${actualRefundAmount.toLocaleString()}원)`);
-
-    let tossRefundSuccess = false;
-    let tossRefundResult = null;
 
     try {
       tossRefundResult = await cancelTossPayment(
