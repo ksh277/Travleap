@@ -73,7 +73,7 @@ module.exports = async function handler(req, res) {
       // ✅ 렌트카 주문 추가 조회
       const rentcarResult = await connection.execute(`
         SELECT
-          NULL as id,
+          rb.id as id,
           rb.user_id,
           rb.total_krw as amount,
           rb.payment_status,
