@@ -1612,7 +1612,17 @@ export const api = {
     try {
       // 브라우저에서는 API 호출로 처리
       if (typeof window !== 'undefined') {
-        return []; // 마이페이지 리뷰는 일단 빈 배열 반환 (TODO: API 구현 필요)
+        const response = await fetch(`${API_BASE_URL}/api/user/reviews`, {
+          headers: getAuthHeaders()
+        });
+
+        if (!response.ok) {
+          console.error('Failed to fetch user reviews:', response.status);
+          return [];
+        }
+
+        const result = await response.json();
+        return result.success ? result.data || [] : [];
       }
 
       // 서버에서만 DB 직접 조회

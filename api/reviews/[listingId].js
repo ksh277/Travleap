@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
           const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
 
           const usersResult = await poolNeon.query(
-            `SELECT id, name, email FROM users WHERE id IN (${placeholders})`,
+            `SELECT id, name, username, email FROM users WHERE id IN (${placeholders})`,
             userIds
           );
 
@@ -66,7 +66,9 @@ module.exports = async function handler(req, res) {
           // 리뷰에 user 정보 추가
           reviews.forEach(review => {
             const user = userMap.get(review.user_id);
-            review.user_name = user?.name || '익명';
+            // name, username, email 순으로 확인
+            const displayName = user?.name || user?.username || user?.email?.split('@')[0] || '익명';
+            review.user_name = displayName;
             review.user_email = user?.email || null;
           });
         } catch (error) {
