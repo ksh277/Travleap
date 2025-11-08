@@ -228,7 +228,8 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
       toast.success('예약이 생성되었습니다. 결제를 진행해주세요.');
 
       // 결제 페이지로 이동 (query params로 전달)
-      navigate(`/payment?bookingId=${result.data.booking_id}&bookingNumber=${result.data.booking_number}&amount=${totalPrice}&title=${encodeURIComponent(listing.title)}&customerName=${encodeURIComponent(user?.name || 'Guest')}&customerEmail=${encodeURIComponent(user?.email || '')}`);
+      // 숙박은 bookingId만 사용 (bookingNumber는 렌트카 전용)
+      navigate(`/payment?bookingId=${result.data.booking_id}&amount=${totalPrice}&title=${encodeURIComponent(listing.title)}&customerName=${encodeURIComponent(user?.name || 'Guest')}&customerEmail=${encodeURIComponent(user?.email || '')}`);
 
     } catch (error) {
       console.error('Booking creation error:', error);

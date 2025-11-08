@@ -1945,7 +1945,7 @@ function setupRoutes() {
   // 사용자 주소 업데이트 - 인증 필수
   app.put('/api/user/address', authenticate, async (req, res) => {
     try {
-      const { db } = await import('./utils/database.js');
+      const { neon } = await import('@neondatabase/serverless');
       const userId = (req as any).user?.userId;
       const { postalCode, address, detailAddress } = req.body;
 
@@ -1957,11 +1957,23 @@ function setupRoutes() {
         return res.status(400).json({ success: false, message: '우편번호와 주소는 필수입니다' });
       }
 
-      await db.query(`
+      // Neon PostgreSQL DB 사용 (users 테이블)
+      if (!process.env.POSTGRES_DATABASE_URL) {
+        console.error('❌ POSTGRES_DATABASE_URL이 설정되지 않았습니다.');
+        return res.status(500).json({ success: false, message: '서버 설정 오류입니다.' });
+      }
+
+      const sql = neon(process.env.POSTGRES_DATABASE_URL);
+      await sql`
         UPDATE users
-        SET postal_code = ?, address = ?, detail_address = ?, updated_at = NOW()
-        WHERE id = ?
-      `, [postalCode, address, detailAddress || '', userId]);
+        SET postal_code = ${postalCode},
+            address = ${address},
+            detail_address = ${detailAddress || ''},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${userId}
+      `;
+
+      console.log('✅ [Address] 주소 업데이트 성공: userId=', userId);
 
       res.json({
         success: true,

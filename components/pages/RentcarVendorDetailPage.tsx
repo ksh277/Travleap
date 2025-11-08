@@ -156,7 +156,7 @@ export function RentcarVendorDetailPage() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/rentcars/${vendorId}`);
+        const response = await fetch(`/api/rentcar/${vendorId}`);
         const result = await response.json();
 
         if (result.success && result.data) {

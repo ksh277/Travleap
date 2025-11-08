@@ -208,7 +208,7 @@ export function HotelDetailPage() {
       const userPhone = localStorage.getItem('user_phone') || '';
 
       // 예약 생성 API 호출
-      const response = await fetch('/api/accommodation/bookings', {
+      const response = await fetch('/api/accommodations/book', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
