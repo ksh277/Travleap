@@ -4040,7 +4040,9 @@ export function AdminPage({}: AdminPageProps) {
                       )
                       .map((order: any) => (
                       <TableRow key={order.id}>
-                        <TableCell className="font-medium text-blue-600">{order.order_number}</TableCell>
+                        <TableCell className="font-medium text-blue-600">
+                          {order.order_number || order.booking_number || `ORD-${order.id}`}
+                        </TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             {order.user_name && (
@@ -4062,16 +4064,41 @@ export function AdminPage({}: AdminPageProps) {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            {order.product_name && <div className="font-medium">{order.product_name}</div>}
+                            <div className="font-medium">
+                              {(() => {
+                                // 상품명 우선순위: product_name > product_title > items_info > fallback
+                                if (order.product_name && order.product_name !== '주문') {
+                                  return order.product_name;
+                                }
+                                if (order.product_title && order.product_title !== '주문') {
+                                  return order.product_title;
+                                }
+                                if (order.items_info && order.items_info.length > 0) {
+                                  const firstItem = order.items_info[0];
+                                  const itemName = firstItem.title || firstItem.name || '상품';
+                                  return order.item_count > 1 ? `${itemName} 외 ${order.item_count - 1}건` : itemName;
+                                }
+                                return `주문 #${order.id}`;
+                              })()}
+                            </div>
                             <div className="flex items-center gap-1 mt-1">
-                              {order.category && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                                  {order.category === '팝업' ? '🎪 팝업' :
-                                   order.category === '렌트카' ? '🚗 렌트카' :
-                                   order.category === '숙박' ? '🏨 숙박' :
-                                   order.category === '여행' ? '✈️ 여행' : order.category}
-                                </span>
-                              )}
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                {(() => {
+                                  // 카테고리 fallback 로직
+                                  if (order.category === '팝업') return '🎪 팝업';
+                                  if (order.category === '렌트카') return '🚗 렌트카';
+                                  if (order.category === '숙박') return '🏨 숙박';
+                                  if (order.category === '여행') return '✈️ 여행';
+                                  if (order.category) return order.category;
+
+                                  // category가 null일 때 추론
+                                  if (order.is_popup) return '🎪 팝업';
+                                  if (order.booking_number && order.booking_number.includes('RC')) return '🚗 렌트카';
+                                  if (order.delivery_status || order.shipping_address) return '🎪 팝업';
+
+                                  return '기타';
+                                })()}
+                              </span>
                               {order.total_quantity > 1 && (
                                 <span className="text-xs text-gray-500">x{order.total_quantity}</span>
                               )}
