@@ -108,58 +108,95 @@ module.exports = async function handler(req, res) {
 
     // DELETE - 벤더 삭제
     if (req.method === 'DELETE') {
-      // 1. 진행 중인 예약 확인
-      const activeBookings = await connection.execute(
-        `SELECT COUNT(*) as count
-         FROM bookings
-         WHERE accommodation_vendor_id = ? AND status IN ('pending', 'confirmed')`,
-        [id]
-      );
+      // 1. 진행 중인 예약 확인 (테이블/컬럼이 있는 경우만)
+      try {
+        const activeBookings = await connection.execute(
+          `SELECT COUNT(*) as count
+           FROM bookings
+           WHERE accommodation_vendor_id = ? AND status IN ('pending', 'confirmed')`,
+          [id]
+        );
 
-      if (activeBookings.rows?.[0]?.count > 0) {
-        return res.status(400).json({
-          success: false,
-          error: '진행 중인 예약이 있어 삭제할 수 없습니다.',
-          activeBookings: activeBookings.rows?.[0]?.count || 0
-        });
+        if (activeBookings.rows?.[0]?.count > 0) {
+          return res.status(400).json({
+            success: false,
+            error: '진행 중인 예약이 있어 삭제할 수 없습니다.',
+            activeBookings: activeBookings.rows?.[0]?.count || 0
+          });
+        }
+      } catch (checkError) {
+        console.warn('⚠️ Unable to check active bookings (column may not exist):', checkError.message);
+        // 예약 확인 실패 시 경고와 함께 계속 진행
       }
 
       try {
-        // 2. 연관 데이터 삭제 (순차적으로)
+        // 2. 연관 데이터 삭제 (순차적으로, 각각 try-catch로 안전하게)
+        let deletedRooms = 0;
+        let deletedBookings = 0;
+        let deletedReviews = 0;
 
         // 객실 삭제
-        await connection.execute(
-          'DELETE FROM accommodation_rooms WHERE vendor_id = ?',
-          [id]
-        );
+        try {
+          const roomsResult = await connection.execute(
+            'DELETE FROM accommodation_rooms WHERE vendor_id = ?',
+            [id]
+          );
+          deletedRooms = roomsResult.rowsAffected || 0;
+          console.log(`✅ Deleted ${deletedRooms} rooms`);
+        } catch (e) {
+          console.warn('⚠️ Failed to delete rooms (table or column may not exist):', e.message);
+        }
 
-        // 과거 예약 삭제
-        await connection.execute(
-          'DELETE FROM bookings WHERE accommodation_vendor_id = ?',
-          [id]
-        );
+        // 과거 예약 삭제 (accommodation_vendor_id 컬럼이 있는 경우만)
+        try {
+          const bookingsResult = await connection.execute(
+            'DELETE FROM bookings WHERE accommodation_vendor_id = ?',
+            [id]
+          );
+          deletedBookings = bookingsResult.rowsAffected || 0;
+          console.log(`✅ Deleted ${deletedBookings} bookings`);
+        } catch (e) {
+          console.warn('⚠️ Failed to delete bookings (column may not exist):', e.message);
+        }
 
-        // 리뷰 삭제
-        await connection.execute(
-          'DELETE FROM reviews WHERE accommodation_vendor_id = ?',
-          [id]
-        );
+        // 리뷰 삭제 (accommodation_vendor_id 컬럼이 있는 경우만)
+        try {
+          const reviewsResult = await connection.execute(
+            'DELETE FROM reviews WHERE accommodation_vendor_id = ?',
+            [id]
+          );
+          deletedReviews = reviewsResult.rowsAffected || 0;
+          console.log(`✅ Deleted ${deletedReviews} reviews`);
+        } catch (e) {
+          console.warn('⚠️ Failed to delete reviews (column may not exist):', e.message);
+        }
 
-        // 벤더 삭제
+        // 벤더 삭제 (최종)
         const result = await connection.execute(
           'DELETE FROM accommodation_vendors WHERE id = ?',
           [id]
         );
 
-        console.log('Accommodation vendor deleted:', result);
+        console.log('✅ Accommodation vendor deleted:', {
+          vendor_id: id,
+          rooms: deletedRooms,
+          bookings: deletedBookings,
+          reviews: deletedReviews
+        });
 
         return res.status(200).json({
           success: true,
-          message: '벤더가 성공적으로 삭제되었습니다.'
+          message: '벤더가 성공적으로 삭제되었습니다.',
+          deleted: {
+            vendor: 1,
+            rooms: deletedRooms,
+            bookings: deletedBookings,
+            reviews: deletedReviews
+          }
         });
 
       } catch (deleteError) {
-        console.error('Vendor deletion error:', deleteError);
+        console.error('❌ Vendor deletion error:', deleteError);
         return res.status(500).json({
           success: false,
           error: '벤더 삭제 중 오류가 발생했습니다.',

@@ -51,19 +51,35 @@ async function handler(req, res) {
     }
 
     try {
-      const partners = await connection.execute('SELECT COUNT(*) as count FROM partners');
-      stats.totalPartners = partners.rows?.[0]?.count || 0;
-    } catch (e) {}
+      // ✅ 렌트카 제외한 파트너 수 (숙박/렌트카는 별도 관리)
+      const partners = await connection.execute(`
+        SELECT COUNT(*) as count
+        FROM partners
+        WHERE (partner_type NOT IN ('lodging', 'rentcar') OR partner_type IS NULL)
+      `);
+      stats.totalPartners = parseInt(partners.rows?.[0]?.count) || 0;
+    } catch (e) {
+      console.error('❌ [파트너 통계] 조회 실패:', e);
+    }
 
-    // ✅ 주문 통계 (payments 테이블)
+    // ✅ 주문 통계 (payments + rentcar_bookings)
     try {
-      // 총 주문 수 (결제 완료된 건만)
-      const ordersResult = await connection.execute(`
+      // 총 주문 수 (payments + rentcar_bookings)
+      const paymentsResult = await connection.execute(`
         SELECT COUNT(*) as count
         FROM payments
         WHERE payment_status IN ('paid', 'completed', 'refunded')
       `);
-      stats.totalOrders = parseInt(ordersResult.rows?.[0]?.count) || 0;
+      const paymentsCount = parseInt(paymentsResult.rows?.[0]?.count) || 0;
+
+      const rentcarResult = await connection.execute(`
+        SELECT COUNT(*) as count
+        FROM rentcar_bookings
+        WHERE payment_status IN ('paid', 'completed', 'refunded')
+      `);
+      const rentcarCount = parseInt(rentcarResult.rows?.[0]?.count) || 0;
+
+      stats.totalOrders = paymentsCount + rentcarCount;
 
       // 오늘 주문 수 (환불 제외)
       const todayResult = await connection.execute(`
