@@ -51,11 +51,10 @@ async function handler(req, res) {
     }
 
     try {
-      // ✅ 렌트카만 제외한 파트너 수 (렌트카는 별도 관리)
+      // ✅ 전체 파트너 수
       const partners = await connection.execute(`
         SELECT COUNT(*) as count
         FROM partners
-        WHERE (partner_type != 'rentcar' OR partner_type IS NULL)
       `);
       stats.totalPartners = parseInt(partners.rows?.[0]?.count) || 0;
     } catch (e) {

@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // GET - 파트너 목록 조회 (숙박/렌트카 제외 - 별도 관리 탭에서 관리)
+    // GET - 파트너 목록 조회 (전체)
     if (req.method === 'GET') {
       const result = await connection.execute(`
         SELECT
@@ -23,7 +23,6 @@ module.exports = async function handler(req, res) {
           p.tier, p.partner_type, p.is_verified, p.is_featured,
           p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at
         FROM partners p
-        WHERE (p.partner_type NOT IN ('lodging', 'rentcar') OR p.partner_type IS NULL)
         ORDER BY p.created_at DESC
       `);
 
