@@ -159,20 +159,27 @@ export function PaymentPage() {
 
   // 사용자 프로필 데이터 가져오기
   useEffect(() => {
-    if (!isLoggedIn || !user?.id) return;
+    if (!isLoggedIn) return;
 
     const fetchUserProfile = async () => {
       try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          console.warn('⚠️ [Profile] 토큰 없음, 프로필 조회 건너뜀');
+          return;
+        }
+
         const response = await fetch('/api/user/profile', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-            'x-user-id': user.id.toString()
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
         });
 
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
+            console.log('✅ [Profile] 사용자 프로필 로드:', data.user);
             // 사용자 정보로 청구 정보 자동 채우기
             setBillingInfo({
               name: data.user.name || '',
@@ -183,15 +190,17 @@ export function PaymentPage() {
               detailAddress: data.user.detailAddress || ''
             });
           }
+        } else {
+          console.error('❌ [Profile] 프로필 조회 실패:', response.status);
         }
       } catch (error) {
-        console.error('Failed to fetch user profile:', error);
+        console.error('❌ [Profile] 프로필 조회 오류:', error);
       }
     };
 
     fetchUserProfile();
     fetchPoints();
-  }, [isLoggedIn, user?.id]);
+  }, [isLoggedIn]);
 
   // 사용자 포인트 조회
   const fetchPoints = async () => {

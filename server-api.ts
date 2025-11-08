@@ -1903,24 +1903,34 @@ function setupRoutes() {
   // 현재 사용자 프로필 조회 - 인증 필수
   app.get('/api/user/profile', authenticate, async (req, res) => {
     try {
-      const { db } = await import('./utils/database.js');
+      const { neon } = await import('@neondatabase/serverless');
       const userId = (req as any).user?.userId;
 
       if (!userId) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다' });
       }
 
-      const users = await db.query(`
-        SELECT id, email, name, phone, postal_code, address, detail_address, role, created_at, updated_at
+      // Neon PostgreSQL DB 사용 (users 테이블)
+      if (!process.env.POSTGRES_DATABASE_URL) {
+        console.error('❌ POSTGRES_DATABASE_URL이 설정되지 않았습니다.');
+        return res.status(500).json({ success: false, message: '서버 설정 오류입니다.' });
+      }
+
+      const sql = neon(process.env.POSTGRES_DATABASE_URL);
+      const users = await sql`
+        SELECT id, email, username, name, phone, postal_code, address, detail_address, role, created_at, updated_at
         FROM users
-        WHERE id = ?
-      `, [userId]);
+        WHERE id = ${userId}
+      `;
 
       if (!users || users.length === 0) {
         return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다' });
       }
 
       const user = users[0];
+
+      console.log('✅ [Profile] 사용자 프로필 조회 성공:', user.email);
+
       res.json({
         success: true,
         user: {

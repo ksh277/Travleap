@@ -10,6 +10,9 @@ interface User {
   phone?: string;
   role: 'admin' | 'user' | 'partner' | 'vendor';
   vendorType?: string; // 'stay' (숙박) 또는 'rental' (렌트카) 등
+  postal_code?: string;
+  address?: string;
+  detail_address?: string;
 }
 
 interface AuthState {

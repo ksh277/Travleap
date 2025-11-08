@@ -209,12 +209,17 @@ export function MyPage() {
   }, [user]);
 
   const fetchUserProfile = async () => {
-    if (!user?.id) return;
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      console.warn('⚠️ [MyPage] 토큰 없음, 프로필 조회 건너뜀');
+      return;
+    }
 
     try {
       const response = await fetch('/api/user/profile', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
 
@@ -234,15 +239,18 @@ export function MyPage() {
           };
 
           // localStorage에서 bio, avatar, birthDate 가져오기 (아직 DB에 없는 필드)
-          const savedProfile = localStorage.getItem(`userProfile_${user.id}`);
-          if (savedProfile) {
-            try {
-              const localProfile = JSON.parse(savedProfile);
-              profile.bio = localProfile.bio || '';
-              profile.avatar = localProfile.avatar || '';
-              profile.birthDate = localProfile.birthDate || '';
-            } catch (error) {
-              console.error('localStorage 프로필 파싱 오류:', error);
+          const userId = data.user.id;
+          if (userId) {
+            const savedProfile = localStorage.getItem(`userProfile_${userId}`);
+            if (savedProfile) {
+              try {
+                const localProfile = JSON.parse(savedProfile);
+                profile.bio = localProfile.bio || '';
+                profile.avatar = localProfile.avatar || '';
+                profile.birthDate = localProfile.birthDate || '';
+              } catch (error) {
+                console.error('localStorage 프로필 파싱 오류:', error);
+              }
             }
           }
 
