@@ -1,4 +1,4 @@
-const { connect } = require('@planetscale/database');
+const { neon } = require('@neondatabase/serverless');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { withStrictRateLimit } = require('../utils/rate-limit-middleware.cjs');
@@ -43,7 +43,15 @@ async function handler(req, res) {
   // 수동으로 body 파싱
   req.body = await parseBody(req);
 
-  const connection = connect({ url: process.env.DATABASE_URL });
+  // Neon PostgreSQL 연결 (소셜 로그인 사용자도 Neon에 저장)
+  if (!process.env.POSTGRES_DATABASE_URL) {
+    console.error('❌ POSTGRES_DATABASE_URL 환경변수가 설정되지 않았습니다!');
+    return res.status(500).json({
+      success: false,
+      error: '서버 설정 오류입니다. 관리자에게 문의하세요.'
+    });
+  }
+  const sql = neon(process.env.POSTGRES_DATABASE_URL);
 
   // JWT_SECRET 환경변수 확인
   const JWT_SECRET = process.env.JWT_SECRET;
@@ -81,13 +89,13 @@ async function handler(req, res) {
         return res.status(400).json({ success: false, error: '잘못된 입력 형식입니다.' });
       }
 
-      const result = await connection.execute('SELECT * FROM users WHERE email = ?', [email]);
+      const result = await sql`SELECT * FROM users WHERE email = ${email}`;
 
-      if (!result.rows || result.rows.length === 0) {
+      if (!result || result.length === 0) {
         return res.status(401).json({ success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
       }
 
-      const user = result.rows[0];
+      const user = result[0];
 
       console.log('🔍 Login attempt for:', email);
       console.log('   User found:', user.email, '(ID:', user.id, ')');
@@ -169,25 +177,26 @@ async function handler(req, res) {
       }
 
       // 이메일 중복 확인
-      const existing = await connection.execute('SELECT id FROM users WHERE email = ?', [email]);
+      const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
 
-      if (existing.rows && existing.rows.length > 0) {
+      if (existing && existing.length > 0) {
         return res.status(400).json({ success: false, error: '이미 사용 중인 이메일입니다.' });
       }
 
       // 비밀번호 해시화
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // user_id 생성 (PlanetScale users 테이블에 필수)
-      const userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      // username 생성 (Neon users 테이블용 - unique 제약)
+      const username = `user_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-      // 사용자 생성 (PlanetScale MySQL)
-      const result = await connection.execute(
-        'INSERT INTO users (user_id, email, password_hash, name, phone, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())',
-        [userId, email, hashedPassword, name, phone || '', 'user']
-      );
+      // 사용자 생성 (Neon PostgreSQL)
+      const result = await sql`
+        INSERT INTO users (username, email, password_hash, name, phone, role, created_at, updated_at)
+        VALUES (${username}, ${email}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', NOW(), NOW())
+        RETURNING id
+      `;
 
-      const newUserId = result.insertId;
+      const newUserId = result[0].id;
 
       const token = jwt.sign(
         {
@@ -222,16 +231,16 @@ async function handler(req, res) {
 
       console.log('🔑 [Social Login] Request data:', { provider, providerId, email, name, hasAvatar: !!avatar });
 
-      // 기존 사용자 확인
-      console.log('🔍 [Social Login] Checking existing user...');
-      const existing = await connection.execute(
-        'SELECT * FROM users WHERE provider = ? AND provider_id = ?',
-        [provider, providerId]
-      );
-      console.log('✅ [Social Login] Existing user found:', existing.rows ? existing.rows.length : 0);
+      // 기존 사용자 확인 (Neon PostgreSQL)
+      console.log('🔍 [Social Login] Checking existing user in Neon...');
+      const existing = await sql`
+        SELECT * FROM users
+        WHERE provider = ${provider} AND provider_id = ${providerId}
+      `;
+      console.log('✅ [Social Login] Existing user found:', existing.length);
 
-      if (existing.rows && existing.rows.length > 0) {
-        const user = existing.rows[0];
+      if (existing && existing.length > 0) {
+        const user = existing[0];
         const token = jwt.sign(
           {
             userId: user.id,
@@ -260,18 +269,19 @@ async function handler(req, res) {
       }
 
       // 새 사용자 생성
-      console.log('🆕 [Social Login] Creating new user...');
+      console.log('🆕 [Social Login] Creating new user in Neon...');
 
-      // user_id 생성 (PlanetScale users 테이블에 필수)
-      const userId = `${provider}_${Date.now()}_${providerId.substring(0, 6)}`;
+      // username 생성 (Neon users 테이블용 - unique 제약)
+      const username = `${provider}_${Date.now()}_${providerId.substring(0, 6)}`;
 
-      // PlanetScale MySQL - 소셜 로그인 사용자 생성
-      const result = await connection.execute(
-        'INSERT INTO users (user_id, email, name, provider, provider_id, role, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
-        [userId, email, name, provider, providerId, 'user', '']
-      );
+      // Neon PostgreSQL - 소셜 로그인 사용자 생성
+      const result = await sql`
+        INSERT INTO users (username, email, name, provider, provider_id, role, password_hash, created_at, updated_at)
+        VALUES (${username}, ${email}, ${name}, ${provider}, ${providerId}, 'user', '', NOW(), NOW())
+        RETURNING id
+      `;
 
-      const newUserId = result.insertId;
+      const newUserId = result[0].id;
       const newUser = { id: newUserId, email, name, role: 'user' };
       console.log('✅ [Social Login] New user created:', newUser.id);
 
