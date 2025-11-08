@@ -932,7 +932,7 @@ export function AdminPage({}: AdminPageProps) {
         {
           name: '주문',
           fn: () => api.admin.getOrders().then(res => {
-            const data = res?.success ? res.data || [] : [];
+            const data = res?.success ? (res.orders || res.data || []) : [];
             setOrders(data);
             console.log(`✅ 주문 ${data.length}개 로드 완료`);
           })
