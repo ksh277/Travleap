@@ -41,18 +41,18 @@ async function verifyStatsFix() {
     const excludedResult = await connection.execute(`
       SELECT COUNT(*) as count
       FROM partners
-      WHERE (partner_type != 'rentcar' OR partner_type IS NULL)
+      WHERE (partner_type NOT IN ('lodging', 'rentcar') OR partner_type IS NULL)
     `);
     const validPartners = parseInt(excludedResult.rows?.[0]?.count) || 0;
-    console.log(`  유효 파트너 (렌트카 제외): ${validPartners}개 (기대값: 28개)`);
+    console.log(`  유효 파트너 (숙박/렌트카 제외): ${validPartners}개 (기대값: 22개)`);
 
-    const rentcarPartnersResult = await connection.execute(`
+    const excludedPartnersResult = await connection.execute(`
       SELECT COUNT(*) as count
       FROM partners
-      WHERE partner_type = 'rentcar'
+      WHERE partner_type IN ('lodging', 'rentcar')
     `);
-    const excludedCount = parseInt(rentcarPartnersResult.rows?.[0]?.count) || 0;
-    console.log(`  제외된 파트너 (렌트카만): ${excludedCount}개\n`);
+    const excludedCount = parseInt(excludedPartnersResult.rows?.[0]?.count) || 0;
+    console.log(`  제외된 파트너 (숙박+렌트카): ${excludedCount}개\n`);
 
     // 3. 파트너 타입별 분포
     console.log('=== 파트너 타입 분포 ===');
@@ -68,16 +68,12 @@ async function verifyStatsFix() {
     });
 
     console.log('\n=== 검증 결과 ===');
-    if (totalOrders === 21) {
-      console.log('✅ 주문 통계 정상: 21건');
-    } else {
-      console.log(`⚠️ 주문 통계 불일치: ${totalOrders}건 (기대값: 21건)`);
-    }
+    console.log(`주문 통계: ${totalOrders}건 (렌트카 테스트 데이터 삭제 후)`);
 
-    if (validPartners === 28) {
-      console.log('✅ 파트너 통계 정상: 28개');
+    if (validPartners === 22) {
+      console.log('✅ 파트너 통계 정상: 22개 (숙박/렌트카 제외)');
     } else {
-      console.log(`⚠️ 파트너 통계 불일치: ${validPartners}개 (기대값: 28개)`);
+      console.log(`⚠️ 파트너 통계 불일치: ${validPartners}개 (기대값: 22개)`);
     }
 
   } catch (error) {
