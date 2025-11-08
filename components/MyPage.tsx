@@ -580,8 +580,10 @@ export function MyPage() {
       const result = await response.json();
 
       if (result.success) {
-        // localStorage에도 저장 (백업)
-        localStorage.setItem(`userProfile_${user.id}`, JSON.stringify(editProfile));
+        // localStorage에도 저장 (백업) - user.id 안전 체크
+        if (user?.id) {
+          localStorage.setItem(`userProfile_${user.id}`, JSON.stringify(editProfile));
+        }
 
         setUserProfile(editProfile);
         setIsEditingProfile(false);

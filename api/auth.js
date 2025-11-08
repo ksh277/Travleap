@@ -196,7 +196,19 @@ async function handler(req, res) {
         RETURNING id
       `;
 
+      console.log('🔍 [Register] Neon INSERT result:', JSON.stringify(result));
+
+      if (!result || !Array.isArray(result) || result.length === 0) {
+        console.error('❌ [Register] Invalid Neon response:', result);
+        throw new Error('사용자 생성에 실패했습니다. 데이터베이스 응답이 유효하지 않습니다.');
+      }
+
       const newUserId = result[0].id;
+
+      if (!newUserId) {
+        console.error('❌ [Register] No ID returned:', result[0]);
+        throw new Error('사용자 생성에 실패했습니다. ID가 반환되지 않았습니다.');
+      }
 
       const token = jwt.sign(
         {
@@ -281,7 +293,20 @@ async function handler(req, res) {
         RETURNING id
       `;
 
+      console.log('🔍 [Social Login] Neon INSERT result:', JSON.stringify(result));
+
+      if (!result || !Array.isArray(result) || result.length === 0) {
+        console.error('❌ [Social Login] Invalid Neon response:', result);
+        throw new Error('소셜 로그인 사용자 생성에 실패했습니다. 데이터베이스 응답이 유효하지 않습니다.');
+      }
+
       const newUserId = result[0].id;
+
+      if (!newUserId) {
+        console.error('❌ [Social Login] No ID returned:', result[0]);
+        throw new Error('소셜 로그인 사용자 생성에 실패했습니다. ID가 반환되지 않았습니다.');
+      }
+
       const newUser = { id: newUserId, email, name, role: 'user' };
       console.log('✅ [Social Login] New user created:', newUser.id);
 

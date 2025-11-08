@@ -7285,37 +7285,51 @@ function setupRoutes() {
 
   // ===== 사용자 프로필 API =====
 
-  // 사용자 프로필 업데이트
-  app.put('/api/user/profile', async (req, res) => {
+  // 사용자 프로필 업데이트 (이름, 전화번호, 주소 모두 포함)
+  app.put('/api/user/profile', authenticate, async (req, res) => {
     try {
-      const userId = req.body.userId || req.headers['x-user-id'];
+      const { neon } = await import('@neondatabase/serverless');
+      const userId = (req as any).user?.userId;
+
       if (!userId) {
-        return res.status(401).json({ success: false, message: '인증이 필요합니다.' });
+        return res.status(401).json({ success: false, message: '인증이 필요합니다' });
       }
 
-      const { db } = await import('./utils/database.js');
+      // Neon PostgreSQL DB 사용 (users 테이블)
+      if (!process.env.POSTGRES_DATABASE_URL) {
+        console.error('❌ POSTGRES_DATABASE_URL이 설정되지 않았습니다.');
+        return res.status(500).json({ success: false, message: '서버 설정 오류입니다.' });
+      }
+
+      const sql = neon(process.env.POSTGRES_DATABASE_URL);
 
       const {
         name,
         phone,
+        postalCode,
+        address,
+        detailAddress,
         birth_date,
         bio,
         avatar
       } = req.body;
 
-      // users 테이블 업데이트
-      await db.execute(`
+      // users 테이블 업데이트 (Neon PostgreSQL)
+      await sql`
         UPDATE users
-        SET name = ?, phone = ?, birth_date = ?, bio = ?, avatar = ?, updated_at = NOW()
-        WHERE id = ?
-      `, [
-        name || '',
-        phone || '',
-        birth_date || null,
-        bio || null,
-        avatar || null,
-        parseInt(userId as string)
-      ]);
+        SET name = ${name || ''},
+            phone = ${phone || ''},
+            postal_code = ${postalCode || ''},
+            address = ${address || ''},
+            detail_address = ${detailAddress || ''},
+            birth_date = ${birth_date || null},
+            bio = ${bio || null},
+            avatar = ${avatar || null},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${userId}
+      `;
+
+      console.log('✅ [Profile] 프로필 업데이트 성공: userId=', userId);
 
       res.json({
         success: true,
@@ -7323,7 +7337,12 @@ function setupRoutes() {
       });
     } catch (error) {
       console.error('❌ [API] Update user profile error:', error);
-      res.status(500).json({ success: false, message: '프로필 업데이트 실패' });
+      res.status(500).json({
+        success: false,
+        message: '프로필 업데이트 실패',
+        error: '서버 오류가 발생했습니다.',
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
