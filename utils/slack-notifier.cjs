@@ -10,7 +10,7 @@
  * await notifyError('Payment API Error', error, { orderId: 123 });
  */
 
-const { maskForLog } = require('./pii-masking');
+const { maskForLog } = require('./pii-masking.cjs');
 
 /**
  * Slack Webhook URL
