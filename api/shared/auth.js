@@ -132,9 +132,10 @@ module.exports = async function handler(req, res) {
 
       // 사용자 생성
       const userId = `user_${Date.now()}`;
+      const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || `user${Date.now()}`;
       const result = await sql`
-        INSERT INTO users (user_id, email, password_hash, name, phone, role, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
-        VALUES (${userId}, ${email}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO users (user_id, username, email, password_hash, name, phone, role, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
+        VALUES (${userId}, ${username}, ${email}, ${hashedPassword}, ${name}, ${phone || ''}, 'user', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING id
       `;
 
@@ -201,9 +202,10 @@ module.exports = async function handler(req, res) {
 
       // 새 사용자 생성
       const userId = `${provider}_${Date.now()}`;
+      const username = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') || `${provider}${Date.now()}`;
       const result = await sql`
-        INSERT INTO users (user_id, email, name, avatar, provider, provider_id, role, password_hash, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
-        VALUES (${userId}, ${email}, ${name}, ${avatar || ''}, ${provider}, ${providerId}, 'user', '', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO users (user_id, username, email, name, avatar, provider, provider_id, role, password_hash, preferred_language, preferred_currency, marketing_consent, created_at, updated_at)
+        VALUES (${userId}, ${username}, ${email}, ${name}, ${avatar || ''}, ${provider}, ${providerId}, 'user', '', 'ko', 'KRW', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING id
       `;
 
