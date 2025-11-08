@@ -89,7 +89,7 @@ export function HotelDetailPage() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/accommodations/${partnerId}`);
+        const response = await fetch(`/api/accommodations/partner/${partnerId}`);
         const result = await response.json();
 
         if (result.success && result.data) {
