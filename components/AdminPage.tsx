@@ -166,6 +166,10 @@ export function AdminPage({}: AdminPageProps) {
   const [blogSearchQuery, setBlogSearchQuery] = useState('');
   const [blogCategoryFilter, setBlogCategoryFilter] = useState('all');
 
+  // 주문 페이지네이션 state
+  const [orderCurrentPage, setOrderCurrentPage] = useState(1);
+  const ORDERS_PER_PAGE = 10;
+
   // 파트너 페이지네이션 state
   const [partnerCurrentPage, setPartnerCurrentPage] = useState(1);
   const partnersPerPage = 6;
@@ -174,6 +178,11 @@ export function AdminPage({}: AdminPageProps) {
   useEffect(() => {
     setPartnerCurrentPage(1);
   }, [partnerSearchQuery]);
+
+  // 주문 검색 시 페이지 리셋
+  useEffect(() => {
+    setOrderCurrentPage(1);
+  }, [orderSearchQuery]);
 
   // 사용자 페이지네이션 state
   const [userCurrentPage, setUserCurrentPage] = useState(1);
@@ -4030,15 +4039,22 @@ export function AdminPage({}: AdminPageProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orders.length > 0 ? orders
-                      .filter(order =>
+                    {orders.length > 0 ? (() => {
+                      // 검색 필터링
+                      const filteredOrders = orders.filter(order =>
                         order.order_number?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
                         order.customer_info?.name?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
                         order.customer_info?.email?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
                         order.user_name?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
                         order.user_email?.toLowerCase().includes(orderSearchQuery.toLowerCase())
-                      )
-                      .map((order: any) => (
+                      );
+
+                      // 페이지네이션
+                      const startIndex = (orderCurrentPage - 1) * ORDERS_PER_PAGE;
+                      const endIndex = startIndex + ORDERS_PER_PAGE;
+                      const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+                      return paginatedOrders.map((order: any) => (
                       <TableRow key={order.id}>
                         <TableCell className="font-medium text-blue-600">
                           {order.order_number || order.booking_number || `ORD-${order.id}`}
@@ -4263,7 +4279,8 @@ export function AdminPage({}: AdminPageProps) {
                           </div>
                         </TableCell>
                       </TableRow>
-                    )) : (
+                    ));
+                    })() : (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                           주문 데이터가 없습니다.
@@ -4273,9 +4290,91 @@ export function AdminPage({}: AdminPageProps) {
                   </TableBody>
                 </Table>
 
-                <div className="mt-4 text-center">
-                  <p className="text-sm text-gray-500">총 {orders.length}개의 주문</p>
-                </div>
+                {/* 페이지네이션 */}
+                {orders.length > 0 && (() => {
+                  const filteredOrders = orders.filter(order =>
+                    order.order_number?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
+                    order.customer_info?.name?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
+                    order.customer_info?.email?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
+                    order.user_name?.toLowerCase().includes(orderSearchQuery.toLowerCase()) ||
+                    order.user_email?.toLowerCase().includes(orderSearchQuery.toLowerCase())
+                  );
+
+                  const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
+
+                  if (totalPages <= 1) {
+                    return (
+                      <div className="mt-4 text-center">
+                        <p className="text-sm text-gray-500">총 {filteredOrders.length}개의 주문</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="text-sm text-gray-500">
+                        총 {filteredOrders.length}개의 주문 (페이지 {orderCurrentPage} / {totalPages})
+                      </p>
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOrderCurrentPage(Math.max(1, orderCurrentPage - 1))}
+                          disabled={orderCurrentPage === 1}
+                        >
+                          이전
+                        </Button>
+
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                          .filter(page => {
+                            // 현재 페이지 주변 2개만 표시
+                            return Math.abs(page - orderCurrentPage) <= 2 ||
+                              page === 1 ||
+                              page === totalPages;
+                          })
+                          .map((page, index, array) => {
+                            // ... 표시
+                            if (index > 0 && page - array[index - 1] > 1) {
+                              return (
+                                <React.Fragment key={`ellipsis-${page}`}>
+                                  <span className="px-2 py-1 text-gray-400">...</span>
+                                  <Button
+                                    key={page}
+                                    variant={page === orderCurrentPage ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => setOrderCurrentPage(page)}
+                                  >
+                                    {page}
+                                  </Button>
+                                </React.Fragment>
+                              );
+                            }
+
+                            return (
+                              <Button
+                                key={page}
+                                variant={page === orderCurrentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setOrderCurrentPage(page)}
+                              >
+                                {page}
+                              </Button>
+                            );
+                          })}
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOrderCurrentPage(Math.min(totalPages, orderCurrentPage + 1))}
+                          disabled={orderCurrentPage === totalPages}
+                        >
+                          다음
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
 
