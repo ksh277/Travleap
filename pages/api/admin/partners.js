@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // GET - 파트너 목록 조회 (전체)
+    // GET - 파트너 목록 조회 (전체 28개)
     if (req.method === 'GET') {
       const result = await connection.execute(`
         SELECT
