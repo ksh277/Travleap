@@ -2,8 +2,8 @@ const { connect } = require('@planetscale/database');
 const jwt = require('jsonwebtoken');
 
 /**
- * 렌트카 체크인 API
- * POST /api/rentcar/check-in
+ * 렌트카 체크아웃 API
+ * POST /api/rentcar/check-out
  * Body: {
  *   booking_number: string,
  *   vehicle_condition: string,
@@ -69,7 +69,7 @@ module.exports = async function handler(req, res) {
     }
 
     const bookingResult = await connection.execute(
-      'SELECT id, vendor_id, status, payment_status, check_in_at FROM rentcar_bookings WHERE booking_number = ? LIMIT 1',
+      'SELECT id, vendor_id, status, payment_status, check_in_at, check_out_at, dropoff_date, dropoff_time FROM rentcar_bookings WHERE booking_number = ? LIMIT 1',
       [booking_number]
     );
 
@@ -87,37 +87,68 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, message: '취소된 예약입니다.' });
     }
 
-    if (booking.payment_status !== 'paid') {
-      return res.status(400).json({ success: false, message: '결제가 완료된 예약만 체크인할 수 있습니다.' });
+    if (!booking.check_in_at) {
+      return res.status(400).json({ success: false, message: '체크인되지 않은 예약입니다.' });
     }
 
-    if (booking.check_in_at) {
-      return res.status(400).json({ success: false, message: '이미 체크인된 예약입니다.' });
+    if (booking.check_out_at) {
+      return res.status(400).json({ success: false, message: '이미 체크아웃된 예약입니다.' });
+    }
+
+    // 연체료 계산
+    const now = new Date();
+    const dropoffTime = booking.dropoff_time || '18:00:00';
+    const plannedReturnTime = new Date(booking.dropoff_date + 'T' + dropoffTime);
+    let lateReturnHours = 0;
+    let lateReturnFee = 0;
+
+    if (now > plannedReturnTime) {
+      const lateMs = now.getTime() - plannedReturnTime.getTime();
+      lateReturnHours = Math.ceil(lateMs / (1000 * 60 * 60));
+      lateReturnFee = lateReturnHours * 10000;
     }
 
     await connection.execute(
       `UPDATE rentcar_bookings
-       SET status = 'in_use',
-           check_in_at = NOW(),
-           vehicle_condition_checkin = ?,
-           fuel_level_checkin = ?,
-           mileage_checkin = ?,
-           damage_notes_checkin = ?,
+       SET status = 'completed',
+           check_out_at = NOW(),
+           vehicle_condition_checkout = ?,
+           fuel_level_checkout = ?,
+           mileage_checkout = ?,
+           damage_notes_checkout = ?,
+           late_return_hours = ?,
+           late_return_fee_krw = ?,
            updated_at = NOW()
        WHERE id = ?`,
-      [vehicle_condition, fuel_level, mileage, damage_notes || '', booking.id]
+      [vehicle_condition, fuel_level, mileage, damage_notes || '', lateReturnHours, lateReturnFee, booking.id]
     );
 
-    console.log('✅ 체크인 완료:', { bookingId: booking.id, bookingNumber: booking_number });
+    console.log('✅ 체크아웃 완료:', { bookingId: booking.id, bookingNumber: booking_number, lateReturnHours, lateReturnFee });
+
+    // 보증금 정산
+    const depositAmount = 100000;
+    const depositSettlement = {
+      status: lateReturnFee > 0 ? (lateReturnFee >= depositAmount ? 'additional_payment_required' : 'partial_refunded') : 'refunded',
+      deposit_captured: Math.min(lateReturnFee, depositAmount),
+      deposit_refunded: Math.max(0, depositAmount - lateReturnFee),
+      additional_payment_required: Math.max(0, lateReturnFee - depositAmount)
+    };
 
     return res.status(200).json({
       success: true,
-      message: '체크인이 완료되었습니다.',
-      data: { booking_id: booking.id, booking_number: booking_number, checked_in_at: new Date().toISOString() }
+      message: '체크아웃이 완료되었습니다.',
+      data: {
+        booking_id: booking.id,
+        booking_number: booking_number,
+        checked_out_at: now.toISOString(),
+        late_return_hours: lateReturnHours,
+        late_return_fee_krw: lateReturnFee,
+        deposit_settlement: depositSettlement
+      }
     });
 
   } catch (error) {
-    console.error('❌ [Check-in API] 오류:', error);
+    console.error('❌ [Check-out API] 오류:', error);
     return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.', error: error.message });
   }
 };
