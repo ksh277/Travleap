@@ -186,7 +186,10 @@
       "Bash(node scripts/add-room-to-lodging.cjs:*)",
       "Bash(node scripts/test-stay-api.cjs:*)",
       "Bash(node scripts/add-rooms-all-lodging.cjs:*)",
-      "Bash(node scripts/delete-partner-listings.cjs:*)"
+      "Bash(node scripts/delete-partner-listings.cjs:*)",
+      "Bash(node scripts/fix-lodging-to-general.cjs:*)",
+      "Bash(node scripts/create-test-accommodation.cjs:*)",
+      "Bash(node scripts/create-accommodation-vendor-account.cjs:*)"
     ],
     "deny": [],
     "ask": []
