@@ -189,7 +189,15 @@
       "Bash(node scripts/delete-partner-listings.cjs:*)",
       "Bash(node scripts/fix-lodging-to-general.cjs:*)",
       "Bash(node scripts/create-test-accommodation.cjs:*)",
-      "Bash(node scripts/create-accommodation-vendor-account.cjs:*)"
+      "Bash(node scripts/create-accommodation-vendor-account.cjs:*)",
+      "Bash(dir:*)",
+      "Bash(nul)",
+      "Bash(findstr:*)",
+      "Bash(npm run dev:*)",
+      "Bash(node scripts/run-social-login-migration.cjs:*)",
+      "Bash(node scripts/check-neon-users-schema.cjs:*)",
+      "Bash(node scripts/test-social-login-system.cjs:*)",
+      "Bash(node scripts/check-planetscale-users.cjs:*)"
     ],
     "deny": [],
     "ask": []

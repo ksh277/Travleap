@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
 
     // Get stay category ID
     const categoryResult = await connection.execute(`SELECT id FROM categories WHERE slug = 'stay' LIMIT 1`);
-    const categoryId = categoryResult[0]?.id;
+    const categoryId = categoryResult.rows?.[0]?.id;
 
     if (!categoryId) {
       return res.status(404).json({ success: false, error: '숙박 카테고리를 찾을 수 없습니다.' });
@@ -34,11 +34,11 @@ module.exports = async function handler(req, res) {
       LIMIT 1
     `, [partnerId]);
 
-    if (!partnerResult || partnerResult.length === 0) {
+    if (!partnerResult.rows || partnerResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: '업체를 찾을 수 없습니다.' });
     }
 
-    const partner = partnerResult[0];
+    const partner = partnerResult.rows[0];
 
     // 2. Get all room listings for this partner
     const roomsResult = await connection.execute(`
@@ -49,7 +49,7 @@ module.exports = async function handler(req, res) {
       ORDER BY l.price_from ASC
     `, [partnerId, categoryId]);
 
-    const rooms = (roomsResult || []).map(room => {
+    const rooms = (roomsResult.rows || []).map(room => {
       let images = [];
       try {
         if (room.images) images = JSON.parse(room.images);

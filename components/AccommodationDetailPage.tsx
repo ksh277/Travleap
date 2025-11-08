@@ -34,6 +34,7 @@ import { ko } from 'date-fns/locale';
 import { api, type TravelItem } from '../utils/api';
 import { formatPrice } from '../utils/translations';
 import { toast } from 'sonner';
+import { useAuth } from '../hooks/useAuth';
 
 interface AccommodationDetailPageProps {
   selectedCurrency?: string;
@@ -48,6 +49,7 @@ interface RoomTypeDisplay {
 export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: AccommodationDetailPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // 상태 관리
   const [listing, setListing] = useState<TravelItem | null>(null);
@@ -60,6 +62,11 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
   const [checkIn, setCheckIn] = useState<Date>();
   const [checkOut, setCheckOut] = useState<Date>();
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [availabilityStatus, setAvailabilityStatus] = useState<{
+    checked: boolean;
+    available: boolean;
+    reason?: string;
+  }>({ checked: false, available: false });
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,6 +116,39 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
     fetchListing();
   }, [id]);
 
+  // 날짜 선택 시 예약 가능 여부 확인
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (!listing?.id || !checkIn || !checkOut) {
+        setAvailabilityStatus({ checked: false, available: false });
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/accommodation/check-availability?listing_id=${listing.id}&start_date=${format(checkIn, 'yyyy-MM-dd')}&end_date=${format(checkOut, 'yyyy-MM-dd')}`
+        );
+        const result = await response.json();
+
+        if (result.success) {
+          setAvailabilityStatus({
+            checked: true,
+            available: result.available,
+            reason: result.reason
+          });
+
+          if (!result.available && result.reason) {
+            toast.warning(result.reason);
+          }
+        }
+      } catch (error) {
+        console.error('예약 가능 여부 확인 오류:', error);
+      }
+    };
+
+    checkAvailability();
+  }, [listing?.id, checkIn, checkOut]);
+
   // 이미지 네비게이션
   const nextImage = () => {
     if (listing?.images) {
@@ -122,8 +162,8 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
     }
   };
 
-  // 예약 처리 - 바로 결제 페이지로
-  const handleBooking = () => {
+  // 예약 처리 - 예약 생성 후 결제 페이지로
+  const handleBooking = async () => {
     if (!checkIn || !checkOut) {
       toast.error('체크인/체크아웃 날짜를 선택해주세요');
       return;
@@ -136,6 +176,12 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
 
     if (!listing) return;
 
+    // 예약 가능 여부 확인
+    if (availabilityStatus.checked && !availabilityStatus.available) {
+      toast.error(availabilityStatus.reason || '선택하신 날짜는 예약이 불가능합니다');
+      return;
+    }
+
     // 선택한 객실 정보 찾기
     const selectedRoomInfo = roomTypes.find(r => r.name === selectedRoom);
     if (!selectedRoomInfo) {
@@ -147,25 +193,48 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
     const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
     const totalPrice = selectedRoomInfo.price * nights;
 
-    // 예약 정보를 결제 페이지로 전달
-    const bookingData = {
-      listingId: listing.id,
-      listingTitle: listing.title,
-      roomType: selectedRoom,
-      roomPrice: selectedRoomInfo.price,
-      checkIn: format(checkIn, 'yyyy-MM-dd'),
-      checkOut: format(checkOut, 'yyyy-MM-dd'),
-      nights: nights,
-      totalPrice: totalPrice,
-      image: listing.images?.[0],
-      location: listing.location
-    };
+    try {
+      toast.loading('예약 생성 중...');
 
-    // localStorage에 임시 저장 (결제 페이지에서 사용)
-    localStorage.setItem('booking_data', JSON.stringify(bookingData));
+      // 예약 생성 API 호출
+      const response = await fetch('/api/accommodations/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listing_id: listing.id,
+          user_id: user?.id,
+          user_email: user?.email || '',
+          user_name: user?.name || 'Guest',
+          user_phone: user?.phone || '',
+          start_date: format(checkIn, 'yyyy-MM-dd'),
+          end_date: format(checkOut, 'yyyy-MM-dd'),
+          num_adults: 2,
+          num_children: 0,
+          total_amount: totalPrice,
+          payment_method: 'card',
+          payment_status: 'pending'
+        })
+      });
 
-    // 바로 결제 페이지로 이동
-    navigate('/payment');
+      const result = await response.json();
+
+      if (!result.success) {
+        toast.dismiss();
+        toast.error(result.error || '예약 생성에 실패했습니다');
+        return;
+      }
+
+      toast.dismiss();
+      toast.success('예약이 생성되었습니다. 결제를 진행해주세요.');
+
+      // 결제 페이지로 이동 (query params로 전달)
+      navigate(`/payment?bookingId=${result.data.booking_id}&bookingNumber=${result.data.booking_number}&amount=${totalPrice}&title=${encodeURIComponent(listing.title)}&customerName=${encodeURIComponent(user?.name || 'Guest')}&customerEmail=${encodeURIComponent(user?.email || '')}`);
+
+    } catch (error) {
+      console.error('Booking creation error:', error);
+      toast.dismiss();
+      toast.error('예약 생성 중 오류가 발생했습니다');
+    }
   };
 
   // 즐겨찾기 토글

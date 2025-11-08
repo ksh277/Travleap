@@ -81,14 +81,14 @@ module.exports = async function handler(req, res) {
       [listing_id]
     );
 
-    if (!roomResult || roomResult.length === 0) {
+    if (!roomResult || !roomResult.rows || roomResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: '객실을 찾을 수 없습니다.'
       });
     }
 
-    const room = roomResult[0];
+    const room = roomResult.rows[0];
 
     if (!room.is_active) {
       return res.status(400).json({
@@ -110,7 +110,7 @@ module.exports = async function handler(req, res) {
       [listing_id, start_date, start_date, end_date, end_date, start_date, end_date]
     );
 
-    if (conflictCheck && conflictCheck.length > 0) {
+    if (conflictCheck && conflictCheck.rows && conflictCheck.rows.length > 0) {
       return res.status(400).json({
         success: false,
         error: '선택하신 날짜에 이미 예약이 존재합니다.'
@@ -130,25 +130,35 @@ module.exports = async function handler(req, res) {
 
     const finalTotalAmount = total_amount || subtotal;
 
-    // user_id 가져오기 또는 생성
+    // user_id 확인 (필수)
     let finalUserId = user_id;
     if (!finalUserId) {
-      // 기존 사용자 확인
-      const existingUser = await connection.execute(
-        'SELECT id FROM users WHERE email = ?',
-        [user_email]
-      );
+      // ✅ Neon PostgreSQL에서 이메일로 사용자 조회
+      const { Pool } = require('@neondatabase/serverless');
+      const poolNeon = new Pool({
+        connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+      });
 
-      if (existingUser && existingUser.length > 0) {
-        finalUserId = existingUser[0].id;
-      } else {
-        // 신규 게스트 사용자 생성
-        const newUser = await connection.execute(
-          `INSERT INTO users (email, name, user_type, created_at, updated_at)
-           VALUES (?, ?, 'customer', NOW(), NOW())`,
-          [user_email, user_name || 'Guest']
+      try {
+        const userResult = await poolNeon.query(
+          'SELECT id FROM users WHERE email = $1',
+          [user_email]
         );
-        finalUserId = newUser.insertId;
+
+        if (userResult.rows && userResult.rows.length > 0) {
+          finalUserId = userResult.rows[0].id;
+        } else {
+          // 사용자가 없으면 신규 생성
+          const insertResult = await poolNeon.query(
+            `INSERT INTO users (email, name, role, created_at, updated_at)
+             VALUES ($1, $2, 'customer', NOW(), NOW())
+             RETURNING id`,
+            [user_email, user_name || 'Guest']
+          );
+          finalUserId = insertResult.rows[0].id;
+        }
+      } finally {
+        await poolNeon.end();
       }
     }
 
