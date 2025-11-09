@@ -1622,7 +1622,14 @@ export const api = {
         }
 
         const result = await response.json();
-        return result.success ? result.data || [] : [];
+        // id를 string으로 변환하여 반환 (일관성 유지)
+        if (result.success && Array.isArray(result.data)) {
+          return result.data.map((review: any) => ({
+            ...review,
+            id: review.id.toString()
+          }));
+        }
+        return [];
       }
 
       // 서버에서만 DB 직접 조회
