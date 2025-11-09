@@ -16,7 +16,6 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ReservationModal } from '../ReservationModal';
 
 interface Attraction {
   id: number;
@@ -55,7 +54,6 @@ export function AttractionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
 
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
   const [adultCount, setAdultCount] = useState(1);
@@ -186,15 +184,6 @@ export function AttractionDetailPage() {
               뒤로
             </Button>
             <div className="flex gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setIsReservationModalOpen(true)}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Ticket className="h-4 w-4 mr-1" />
-                간단 예약
-              </Button>
               <Button variant="outline" size="icon" onClick={() => setIsFavorite(!isFavorite)}>
                 <Heart className={isFavorite ? 'fill-red-500 text-red-500' : ''} />
               </Button>
@@ -434,16 +423,6 @@ export function AttractionDetailPage() {
           </div>
         </div>
       </div>
-
-      {/* 간단 예약 모달 */}
-      <ReservationModal
-        isOpen={isReservationModalOpen}
-        onClose={() => setIsReservationModalOpen(false)}
-        vendorId={id || ''}
-        vendorName={attraction.name}
-        serviceName="관광지"
-        category="attraction"
-      />
     </div>
   );
 }

@@ -16,7 +16,6 @@ import {
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { ReservationModal } from '../ReservationModal';
 
 interface Experience {
   id: number;
@@ -70,7 +69,6 @@ export function ExperienceDetailPage() {
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [participantCount, setParticipantCount] = useState(1);
   const [equipmentRental, setEquipmentRental] = useState(false);
-  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -195,15 +193,6 @@ export function ExperienceDetailPage() {
               뒤로
             </Button>
             <div className="flex gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setIsReservationModalOpen(true)}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Clock className="h-4 w-4 mr-1" />
-                간단 예약
-              </Button>
               <Button variant="outline" size="icon" onClick={() => setIsFavorite(!isFavorite)}>
                 <Heart className={isFavorite ? 'fill-red-500 text-red-500' : ''} />
               </Button>
@@ -399,16 +388,6 @@ export function ExperienceDetailPage() {
           </div>
         </div>
       </div>
-
-      {/* 간단 예약 모달 */}
-      <ReservationModal
-        isOpen={isReservationModalOpen}
-        onClose={() => setIsReservationModalOpen(false)}
-        vendorId={id || ''}
-        vendorName={experience?.name || ''}
-        serviceName="체험"
-        category="experience"
-      />
     </div>
   );
 }

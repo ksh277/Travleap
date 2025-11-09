@@ -16,7 +16,6 @@ import {
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { ReservationModal } from '../ReservationModal';
 
 interface Event {
   id: number;
@@ -52,7 +51,6 @@ export function EventDetailPage() {
 
   const [ticketType, setTicketType] = useState<'general' | 'vip'>('general');
   const [quantity, setQuantity] = useState(1);
-  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -167,15 +165,6 @@ export function EventDetailPage() {
               뒤로
             </Button>
             <div className="flex gap-2">
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setIsReservationModalOpen(true)}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Clock className="h-4 w-4 mr-1" />
-                간단 예약
-              </Button>
               <Button variant="outline" size="icon" onClick={() => setIsFavorite(!isFavorite)}>
                 <Heart className={isFavorite ? 'fill-red-500 text-red-500' : ''} />
               </Button>
@@ -346,16 +335,6 @@ export function EventDetailPage() {
           </div>
         </div>
       </div>
-
-      {/* 간단 예약 모달 */}
-      <ReservationModal
-        isOpen={isReservationModalOpen}
-        onClose={() => setIsReservationModalOpen(false)}
-        vendorId={id || ''}
-        vendorName={event?.title || ''}
-        serviceName="이벤트"
-        category="event"
-      />
     </div>
   );
 }
