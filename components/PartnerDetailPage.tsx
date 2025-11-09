@@ -423,6 +423,31 @@ export function PartnerDetailPage() {
     }
   };
 
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!isLoggedIn || !user) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (!confirm('정말 이 리뷰를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const response = await api.deleteReview(Number(reviewId), Number(user.id));
+
+      if (response.success) {
+        toast.success('리뷰가 삭제되었습니다.');
+        fetchReviews(); // 리뷰 목록 새로고침
+      } else {
+        toast.error(response.error || '리뷰 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete review:', error);
+      toast.error('리뷰 삭제 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
@@ -718,6 +743,16 @@ export function PartnerDetailPage() {
                                 <ThumbsUp className="h-4 w-4 mr-1" />
                                 좋아요 {review.helpful}
                               </Button>
+                              {user && Number(user.userId || user.id) === Number(review.user_id) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-700"
+                                  onClick={() => handleDeleteReview(review.id)}
+                                >
+                                  삭제
+                                </Button>
+                              )}
                             </div>
                           </div>
                           <p className="text-gray-700 whitespace-pre-wrap">{review.comment}</p>

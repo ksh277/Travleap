@@ -740,8 +740,13 @@ export function MyPage() {
       return;
     }
 
+    if (!user?.id) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
     try {
-      const response = await api.deleteReview(Number(reviewId));
+      const response = await api.deleteReview(Number(reviewId), Number(user.id));
       if (response.success) {
         toast.success('리뷰가 삭제되었습니다.');
         // 리뷰 목록에서 제거
