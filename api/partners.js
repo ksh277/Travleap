@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
     const { type } = req.query || {};
 
     // 활성화되고 승인된 파트너만 조회 (is_active = 1, status = 'approved')
-    // type 파라미터가 있으면 해당 타입만, 없으면 렌트카 제외
+    // type 파라미터가 있으면 해당 타입만, 없으면 렌트카/숙박 제외
     let query = `
       SELECT
         p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone, p.mobile_phone,
@@ -42,9 +42,12 @@ module.exports = async function handler(req, res) {
     if (type === 'rentcar') {
       // 렌트카 파트너만 조회
       query += ` AND p.partner_type = 'rentcar'`;
+    } else if (type === 'lodging') {
+      // 숙박 파트너만 조회
+      query += ` AND p.partner_type = 'lodging'`;
     } else if (!type) {
-      // 타입 지정 없으면 렌트카 제외 (기존 동작 유지)
-      query += ` AND p.partner_type != 'rentcar'`;
+      // 타입 지정 없으면 렌트카/숙박 제외 (가맹점 페이지용)
+      query += ` AND p.partner_type != 'rentcar' AND p.partner_type != 'lodging'`;
     } else {
       // 특정 타입 조회
       query += ` AND p.partner_type = ?`;

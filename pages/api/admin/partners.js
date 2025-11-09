@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // GET - 파트너 목록 조회 (전체 28개: 22개 일반 + 6개 lodging)
+    // GET - 파트너 목록 조회 (가맹점 페이지용 - lodging 타입 제외)
     if (req.method === 'GET') {
       const result = await connection.execute(`
         SELECT
@@ -23,6 +23,7 @@ module.exports = async function handler(req, res) {
           p.tier, p.partner_type, p.is_verified, p.is_featured,
           p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at
         FROM partners p
+        WHERE (p.partner_type != 'lodging' OR p.partner_type IS NULL)
         ORDER BY p.created_at DESC
       `);
 

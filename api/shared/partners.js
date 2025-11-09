@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
   try {
     const conn = getDbConnection();
 
-    // 승인된 파트너만 조회 (pending, rejected 제외)
+    // 승인된 파트너만 조회 (pending, rejected 제외, lodging 타입 제외)
     const sql = `
       SELECT
         p.id,
@@ -49,6 +49,7 @@ module.exports = async function handler(req, res) {
         p.updated_at
       FROM partners p
       WHERE p.status NOT IN ('pending', 'rejected')
+        AND (p.partner_type != 'lodging' OR p.partner_type IS NULL)
       ORDER BY p.is_featured DESC, p.tier DESC, p.created_at DESC
     `;
 
