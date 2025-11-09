@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
   const sql = neon(databaseUrl);
 
   try {
-    // JWT 토큰에서 userId 추출
+    // JWT 토큰에서 userId와 email 추출
     const user = verifyJWTFromRequest(req);
 
     if (!user) {
@@ -36,6 +36,7 @@ module.exports = async function handler(req, res) {
     }
 
     const userId = user.userId;
+    const email = user.email; // ID 대신 email 사용 (마이그레이션으로 ID 변경되어도 email은 불변)
 
     // PUT - 주소 업데이트
     if (req.method === 'PUT') {
@@ -50,7 +51,7 @@ module.exports = async function handler(req, res) {
             address = ${address || ''},
             detail_address = ${detailAddress || ''},
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${userId}
+        WHERE email = ${email}
         RETURNING id, email, name, postal_code, address, detail_address
       `;
 
@@ -85,7 +86,7 @@ module.exports = async function handler(req, res) {
       const result = await sql`
         SELECT id, email, name, postal_code, address, detail_address
         FROM users
-        WHERE id = ${userId}
+        WHERE email = ${email}
       `;
 
       if (result.length === 0) {
