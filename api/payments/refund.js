@@ -698,33 +698,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       console.log(`✅ [Refund] 예약 취소 완료 (booking_id: ${payment.booking_id})`);
     }
 
-    // 9. payments 테이블 업데이트
-    const updateResult = await connection.execute(`
-      UPDATE payments
-      SET payment_status = 'refunded',
-          refund_amount = ?,
-          refund_reason = ?,
-          refunded_at = NOW(),
-          updated_at = NOW()
-      WHERE payment_key = ?
-    `, [actualRefundAmount, cancelReason, paymentKey]);
-
-    console.log(`✅ [Refund] payments 테이블 업데이트 완료 (affected rows: ${updateResult.rowsAffected || updateResult.affectedRows || 'unknown'})`);
-
-    // ✅ 업데이트 검증: payment_status가 제대로 바뀌었는지 확인
-    const verifyResult = await connection.execute(`
-      SELECT id, payment_status, refund_amount, refunded_at
-      FROM payments
-      WHERE payment_key = ?
-    `, [paymentKey]);
-
-    if (verifyResult.rows && verifyResult.rows.length > 0) {
-      console.log(`🔍 [Refund] 업데이트 검증:`, verifyResult.rows[0]);
-    } else {
-      console.warn(`⚠️ [Refund] 업데이트 검증 실패: payment를 찾을 수 없음`);
-    }
-
-    // 10. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불)
+    // 9. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불) - ✅ FIX: payment_status 업데이트 전에 실행
     console.log(`💰 [Refund] 포인트 처리 시작 - payment_id: ${payment.id}, user_id: ${payment.user_id}, isCartOrder: ${isCartOrder}`);
 
     if (payment.user_id) {
@@ -803,6 +777,32 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       }
     } else {
       console.warn(`⚠️ [Refund] 포인트 처리 스킵 - user_id가 없음`);
+    }
+
+    // 10. payments 테이블 업데이트 - ✅ FIX: 포인트 처리 후에 실행
+    const updateResult = await connection.execute(`
+      UPDATE payments
+      SET payment_status = 'refunded',
+          refund_amount = ?,
+          refund_reason = ?,
+          refunded_at = NOW(),
+          updated_at = NOW()
+      WHERE payment_key = ?
+    `, [actualRefundAmount, cancelReason, paymentKey]);
+
+    console.log(`✅ [Refund] payments 테이블 업데이트 완료 (affected rows: ${updateResult.rowsAffected || updateResult.affectedRows || 'unknown'})`);
+
+    // ✅ 업데이트 검증: payment_status가 제대로 바뀌었는지 확인
+    const verifyResult = await connection.execute(`
+      SELECT id, payment_status, refund_amount, refunded_at
+      FROM payments
+      WHERE payment_key = ?
+    `, [paymentKey]);
+
+    if (verifyResult.rows && verifyResult.rows.length > 0) {
+      console.log(`🔍 [Refund] 업데이트 검증:`, verifyResult.rows[0]);
+    } else {
+      console.warn(`⚠️ [Refund] 업데이트 검증 실패: payment를 찾을 수 없음`);
     }
 
     // 11. 🎟️ 쿠폰 복구 처리 (CRITICAL: 환불 시 쿠폰 사용 횟수 복구)
