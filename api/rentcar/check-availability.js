@@ -61,14 +61,14 @@ module.exports = async function handler(req, res) {
       [vehicle_id]
     );
 
-    if (!vehicleCheck || vehicleCheck.length === 0) {
+    if (!vehicleCheck.rows || vehicleCheck.rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: '차량을 찾을 수 없습니다.'
       });
     }
 
-    if (!vehicleCheck[0].is_active) {
+    if (!vehicleCheck.rows[0].is_active) {
       return res.status(200).json({
         success: true,
         available: false,
@@ -88,7 +88,7 @@ module.exports = async function handler(req, res) {
     );
 
     // 시간 범위 겹침 체크 (버퍼 타임 포함)
-    const hasConflict = (conflictCheck || []).some(booking => {
+    const hasConflict = (conflictCheck.rows || []).some(booking => {
       const [existingPickupHour, existingPickupMinute] = (booking.pickup_time || '00:00').split(':').map(Number);
       const [existingDropoffHour, existingDropoffMinute] = (booking.dropoff_time || '23:59').split(':').map(Number);
 

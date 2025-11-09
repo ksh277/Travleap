@@ -133,7 +133,7 @@ module.exports = async function handler(req, res) {
         [vendor_id]
       );
 
-      if (!vendorCheck || vendorCheck.length === 0) {
+      if (!vendorCheck.rows || vendorCheck.rows.length === 0) {
         return res.status(404).json({
           success: false,
           error: '벤더를 찾을 수 없습니다.'
@@ -146,7 +146,7 @@ module.exports = async function handler(req, res) {
         [vendor_id, room_code]
       );
 
-      if (existingRoom && existingRoom.length > 0) {
+      if (existingRoom.rows && existingRoom.rows.length > 0) {
         return res.status(400).json({
           success: false,
           error: `객실 코드 "${room_code}"가 이미 존재합니다.`
