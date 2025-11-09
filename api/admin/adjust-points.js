@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
     console.log(`📝 포인트 조정 요청: user_id=${user_id}, points=${pointsChange}, reason=${reason}`);
 
     // Neon DB 연결 (사용자 데이터)
-    const sql = neon(process.env.NEON_DATABASE_URL);
+    const sql = neon(process.env.NEON_DATABASE_URL || process.env.POSTGRES_DATABASE_URL);
 
     // 1. 현재 포인트 조회
     const userResult = await sql`

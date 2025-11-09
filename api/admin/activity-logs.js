@@ -80,7 +80,7 @@ module.exports = async function handler(req, res) {
     // 2. 사용자 로그인 로그 조회 (Neon - login_history)
     if (!type || type === 'login') {
       try {
-        const sql = neon(process.env.NEON_DATABASE_URL);
+        const sql = neon(process.env.NEON_DATABASE_URL || process.env.POSTGRES_DATABASE_URL);
 
         // 파라미터 배열 구성
         const queryParams = [];
