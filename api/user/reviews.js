@@ -118,10 +118,11 @@ module.exports = async function handler(req, res) {
         listing_id: review.listing_id,
         listing_title: review.listing_title || '상품명 없음',
         listing_image: listingImage,
+        image: listingImage, // MyPage 호환용
+        title: review.listing_title || review.title || '상품명 없음', // MyPage 호환용
         category: review.category || '투어',
         rating: review.rating || 5,
-        title: review.title || '',
-        comment: review.comment_md || review.content || '',
+        comment: review.comment_md || review.content || '', // MyPage 호환용
         images: reviewImages,
         created_at: review.created_at,
         date: review.created_at ? new Date(review.created_at).toLocaleDateString('ko-KR') : '',
@@ -132,17 +133,19 @@ module.exports = async function handler(req, res) {
     });
 
     // 블로그 댓글 포맷팅
+    const blogImageUrl = 'https://images.unsplash.com/photo-1455849318743-b2233052fcff?w=300&h=200&fit=crop';
     const blogCommentsFormatted = blogComments.map(comment => ({
       id: comment.id,
       type: 'blog_comment',
       blog_id: comment.post_id,
       blog_title: comment.blog_title || '블로그 글',
       listing_title: comment.blog_title || '블로그 댓글',
-      listing_image: 'https://images.unsplash.com/photo-1455849318743-b2233052fcff?w=300&h=200&fit=crop',
+      listing_image: blogImageUrl,
+      image: blogImageUrl, // MyPage 호환용
+      title: comment.blog_title || '블로그 댓글', // MyPage 호환용
       category: '블로그',
       rating: 0,
-      title: '',
-      comment: comment.content || '',
+      comment: comment.content || '', // MyPage 호환용
       images: [],
       created_at: comment.created_at,
       date: comment.created_at ? new Date(comment.created_at).toLocaleDateString('ko-KR') : '',
