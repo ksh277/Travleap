@@ -29,8 +29,8 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ success: false, error: 'Status is required' });
   }
 
-  // 유효한 상태 값 확인
-  const validStatuses = ['pending', 'active', 'suspended'];
+  // 유효한 상태 값 확인 (데이터베이스 ENUM과 일치)
+  const validStatuses = ['pending', 'approved', 'rejected'];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({
       success: false,
@@ -41,9 +41,9 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // 업체 상태 업데이트
+    // 업체 상태 업데이트 (partners 테이블 사용, partner_type='lodging' 조건 추가)
     const result = await connection.execute(
-      'UPDATE accommodation_vendors SET status = ?, updated_at = NOW() WHERE id = ?',
+      'UPDATE partners SET status = ?, updated_at = NOW() WHERE id = ? AND partner_type = "lodging"',
       [status, id]
     );
 

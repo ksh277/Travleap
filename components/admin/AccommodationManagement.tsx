@@ -81,13 +81,34 @@ export const AccommodationManagement: React.FC = () => {
     pms_property_id: ''
   });
   const [selectedRoom, setSelectedRoom] = useState<AccommodationRoom | null>(null);
-  const [newRoomForm, setNewRoomForm] = useState<AccommodationRoomFormData>({
-    listing_name: '',
+  const [newRoomForm, setNewRoomForm] = useState<any>({
+    room_code: '',
+    room_name: '',
+    room_type: 'standard',
+    floor: '',
+    room_number: '',
+    capacity: 2,
+    bed_type: 'double',
+    bed_count: 1,
+    size_sqm: 30,
+    base_price_per_night: '',
+    weekend_surcharge: 0,
+    view_type: 'city',
+    has_balcony: false,
+    breakfast_included: false,
+    wifi_available: true,
+    tv_available: true,
+    minibar_available: false,
+    air_conditioning: true,
+    heating: true,
+    bathroom_type: 'shower',
     description: '',
-    location: '',
-    address: '',
-    price_from: '',
-    images: ''
+    amenities: [],
+    images: '',
+    is_available: true,
+    max_occupancy: 2,
+    min_nights: 1,
+    max_nights: 30
   });
 
   // Load data
@@ -237,10 +258,10 @@ export const AccommodationManagement: React.FC = () => {
 
   const handleToggleRoomActive = async (roomId: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`/api/admin/rooms/${roomId}/toggle-active`, {
+      const response = await fetch(`/api/admin/accommodation-rooms/${roomId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !currentStatus })
+        body: JSON.stringify({ is_available: !currentStatus })
       });
       const result = await response.json();
 
@@ -556,12 +577,33 @@ export const AccommodationManagement: React.FC = () => {
     if (room) {
       setSelectedRoom(room);
       setNewRoomForm({
-        listing_name: room.name || room.listing_name || '',
-        description: room.description || '',
-        location: room.location || '',
-        address: room.address || '',
-        price_from: room.base_price_per_night?.toString() || room.price_from || '',
-        images: room.images ? JSON.stringify(room.images) : ''
+        room_code: room.room_code || '',
+        room_name: room.title || room.room_name || '',
+        room_type: room.room_type || 'standard',
+        floor: room.floor?.toString() || '',
+        room_number: room.room_number || '',
+        capacity: room.capacity || 2,
+        bed_type: room.bed_type || 'double',
+        bed_count: room.bed_count || 1,
+        size_sqm: room.size_sqm || 30,
+        base_price_per_night: room.base_price_per_night?.toString() || '',
+        weekend_surcharge: room.weekend_surcharge || 0,
+        view_type: room.view_type || 'city',
+        has_balcony: room.has_balcony === 1 || room.has_balcony === true,
+        breakfast_included: room.breakfast_included === 1 || room.breakfast_included === true,
+        wifi_available: room.wifi_available === 1 || room.wifi_available === true,
+        tv_available: room.tv_available === 1 || room.tv_available === true,
+        minibar_available: room.minibar_available === 1 || room.minibar_available === true,
+        air_conditioning: room.air_conditioning === 1 || room.air_conditioning === true,
+        heating: room.heating === 1 || room.heating === true,
+        bathroom_type: room.bathroom_type || 'shower',
+        description: room.description || room.description_md || '',
+        amenities: room.amenities || [],
+        images: room.images ? JSON.stringify(room.images) : '',
+        is_available: room.is_active === 1 || room.is_active === true || room.is_available === true,
+        max_occupancy: room.max_occupancy || 2,
+        min_nights: room.min_nights || 1,
+        max_nights: room.max_nights || 30
       });
       if (room.images && Array.isArray(room.images)) {
         setRoomImagePreviews(room.images);
@@ -569,12 +611,33 @@ export const AccommodationManagement: React.FC = () => {
     } else {
       setSelectedRoom(null);
       setNewRoomForm({
-        listing_name: '',
+        room_code: '',
+        room_name: '',
+        room_type: 'standard',
+        floor: '',
+        room_number: '',
+        capacity: 2,
+        bed_type: 'double',
+        bed_count: 1,
+        size_sqm: 30,
+        base_price_per_night: '',
+        weekend_surcharge: 0,
+        view_type: 'city',
+        has_balcony: false,
+        breakfast_included: false,
+        wifi_available: true,
+        tv_available: true,
+        minibar_available: false,
+        air_conditioning: true,
+        heating: true,
+        bathroom_type: 'shower',
         description: '',
-        location: '',
-        address: '',
-        price_from: '',
-        images: ''
+        amenities: [],
+        images: '',
+        is_available: true,
+        max_occupancy: 2,
+        min_nights: 1,
+        max_nights: 30
       });
       setRoomImagePreviews([]);
     }
@@ -589,15 +652,26 @@ export const AccommodationManagement: React.FC = () => {
     }
 
     try {
+      // API가 기대하는 형식으로 데이터 변환
       const roomData = {
+        vendor_id: selectedPartnerId,
         ...newRoomForm,
-        price_from: parseFloat(newRoomForm.price_from),
-        images: newRoomForm.images ? JSON.parse(newRoomForm.images) : []
+        base_price_per_night: parseFloat(newRoomForm.base_price_per_night) || 0,
+        weekend_surcharge: parseFloat(newRoomForm.weekend_surcharge) || 0,
+        floor: newRoomForm.floor ? parseInt(newRoomForm.floor) : null,
+        size_sqm: parseFloat(newRoomForm.size_sqm) || 30,
+        capacity: parseInt(newRoomForm.capacity) || 2,
+        bed_count: parseInt(newRoomForm.bed_count) || 1,
+        max_occupancy: parseInt(newRoomForm.max_occupancy) || 2,
+        min_nights: parseInt(newRoomForm.min_nights) || 1,
+        max_nights: parseInt(newRoomForm.max_nights) || 30,
+        images: newRoomForm.images ? JSON.parse(newRoomForm.images) : [],
+        amenities: Array.isArray(newRoomForm.amenities) ? newRoomForm.amenities : []
       };
 
       const url = selectedRoom
-        ? `/api/admin/rooms/${selectedRoom.id}`
-        : `/api/admin/lodging/vendors/${selectedPartnerId}/rooms`;
+        ? `/api/admin/accommodation-rooms/${selectedRoom.id}`
+        : `/api/admin/accommodation-rooms`;
 
       const method = selectedRoom ? 'PUT' : 'POST';
 
@@ -621,12 +695,33 @@ export const AccommodationManagement: React.FC = () => {
         setShowAddRoomDialog(false);
         setSelectedRoom(null);
         setNewRoomForm({
-          listing_name: '',
+          room_code: '',
+          room_name: '',
+          room_type: 'standard',
+          floor: '',
+          room_number: '',
+          capacity: 2,
+          bed_type: 'double',
+          bed_count: 1,
+          size_sqm: 30,
+          base_price_per_night: '',
+          weekend_surcharge: 0,
+          view_type: 'city',
+          has_balcony: false,
+          breakfast_included: false,
+          wifi_available: true,
+          tv_available: true,
+          minibar_available: false,
+          air_conditioning: true,
+          heating: true,
+          bathroom_type: 'shower',
           description: '',
-          location: '',
-          address: '',
-          price_from: '',
-          images: ''
+          amenities: [],
+          images: '',
+          is_available: true,
+          max_occupancy: 2,
+          min_nights: 1,
+          max_nights: 30
         });
         setRoomImageFiles([]);
         setRoomImagePreviews([]);
