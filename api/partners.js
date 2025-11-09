@@ -46,8 +46,8 @@ module.exports = async function handler(req, res) {
       // 숙박 파트너만 조회
       query += ` AND p.partner_type = 'lodging'`;
     } else if (!type) {
-      // 타입 지정 없으면 렌트카/숙박 제외 (가맹점 페이지용)
-      query += ` AND p.partner_type != 'rentcar' AND p.partner_type != 'lodging'`;
+      // 타입 지정 없으면 렌트카/숙박 제외 (가맹점 페이지용 - NULL 포함)
+      query += ` AND (p.partner_type NOT IN ('rentcar', 'lodging') OR p.partner_type IS NULL)`;
     } else {
       // 특정 타입 조회
       query += ` AND p.partner_type = ?`;
