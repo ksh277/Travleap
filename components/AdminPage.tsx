@@ -2524,7 +2524,7 @@ export function AdminPage({}: AdminPageProps) {
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
           <div className="space-y-2">
-            <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full">
+            <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
               <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
               <TabsTrigger value="accommodation" className="text-xs md:text-sm">숙박 관리</TabsTrigger>
