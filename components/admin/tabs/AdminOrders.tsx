@@ -179,12 +179,13 @@ export function AdminOrders() {
           toast.success(message);
         }
 
-        loadOrders();
+        // 현재 페이지 유지하며 새로고침
+        loadOrders(currentPage);
       } else {
         console.error('❌ [Admin] 환불 실패:', data);
         toast.error(data.message || '환불 처리에 실패했습니다');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ [Admin] Refund request failed:', error);
       console.error('❌ [Admin] Error details:', {
         name: error.name,
@@ -235,9 +236,12 @@ export function AdminOrders() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">주문 관리</h2>
-          <p className="text-gray-600">총 {orders.length}개의 주문</p>
+          <p className="text-gray-600">
+            총 {pagination.total}개의 주문
+            {pagination.total > 0 && ` (현재 페이지: ${orders.length}개)`}
+          </p>
         </div>
-        <Button onClick={loadOrders} variant="outline" size="sm">
+        <Button onClick={() => loadOrders(currentPage)} variant="outline" size="sm">
           <RefreshCw className="h-4 w-4 mr-2" />
           새로고침
         </Button>
