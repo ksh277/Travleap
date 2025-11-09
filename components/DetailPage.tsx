@@ -2057,7 +2057,7 @@ export function DetailPage() {
                                 <ThumbsUp className="h-4 w-4 mr-1" />
                                 좋아요 {review.helpful}
                               </Button>
-                              {user?.id === review.user_id && (
+                              {user && Number(user.userId || user.id) === Number(review.user_id) && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
