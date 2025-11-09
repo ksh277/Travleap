@@ -84,7 +84,12 @@ export function AdminInsurance() {
   const fetchInsurances = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/insurance');
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/admin/insurance', {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -154,9 +159,13 @@ export function AdminInsurance() {
 
       const method = editingInsurance ? 'PUT' : 'POST';
 
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
         body: JSON.stringify(insuranceData)
       });
 
@@ -179,8 +188,12 @@ export function AdminInsurance() {
     if (!confirm('정말 이 보험을 삭제하시겠습니까?')) return;
 
     try {
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/admin/insurance/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
       });
 
       const data = await response.json();

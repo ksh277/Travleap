@@ -88,7 +88,12 @@ export function AdminRefundPolicies() {
   const fetchPolicies = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/refund-policies');
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/admin/refund-policies', {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -168,9 +173,13 @@ export function AdminRefundPolicies() {
 
       const method = editingPolicy ? 'PUT' : 'POST';
 
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
         body: JSON.stringify(policyData)
       });
 
@@ -193,8 +202,12 @@ export function AdminRefundPolicies() {
     if (!confirm('정말 이 환불 정책을 삭제하시겠습니까?')) return;
 
     try {
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/admin/refund-policies/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
       });
 
       const data = await response.json();
@@ -213,9 +226,13 @@ export function AdminRefundPolicies() {
 
   const handleToggleActive = async (policy: RefundPolicy) => {
     try {
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/admin/refund-policies/${policy.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
         body: JSON.stringify({ ...policy, is_active: !policy.is_active })
       });
 

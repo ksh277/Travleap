@@ -2075,7 +2075,12 @@ export const api = {
     // 대시보드 통계
     getDashboardStats: async (): Promise<AdminDashboardStats | null> => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/stats`);
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`${API_BASE_URL}/api/admin/stats`, {
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          }
+        });
 
         if (!response.ok) {
           throw new Error(`API returned ${response.status}`);
@@ -2162,7 +2167,12 @@ export const api = {
         }
 
         const url = `${API_BASE_URL}/api/admin/users${params.toString() ? '?' + params.toString() : ''}`;
-        const response = await fetch(url);
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(url, {
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          }
+        });
 
         if (!response.ok) {
           throw new Error(`API returned ${response.status}`);
