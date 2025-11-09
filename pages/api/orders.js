@@ -1,11 +1,12 @@
 /**
  * 주문 관리 API
- * GET /api/orders - 모든 주문 조회 (billingInfo 포함)
- * POST /api/orders - 장바구니 주문 생성
+ * GET /api/orders - 모든 주문 조회 (관리자 전용)
+ * POST /api/orders - 장바구니 주문 생성 (일반 사용자)
  */
 
 const { connect } = require('@planetscale/database');
 const { randomUUID } = require('crypto');
+const { verifyJWTFromRequest } = require('../../utils/auth-middleware.cjs');
 
 function generateOrderNumber() {
   // UUID 사용으로 완전한 유일성 보장
@@ -27,6 +28,16 @@ module.exports = async function handler(req, res) {
 
   // GET: 관리자 주문 목록 조회 (payments 기반)
   if (req.method === 'GET') {
+    // 관리자 인증 확인
+    const user = verifyJWTFromRequest(req);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: '관리자 권한이 필요합니다.',
+        orders: []
+      });
+    }
+
     try {
       // payments 테이블 기반으로 주문 정보 조회
       const result = await connection.execute(`
