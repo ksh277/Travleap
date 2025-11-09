@@ -55,8 +55,8 @@ module.exports = async function handler(req, res) {
     const blogCommentsResult = await connection.execute(`
       SELECT bc.*, b.title as blog_title
       FROM blog_comments bc
-      LEFT JOIN blog_posts b ON bc.blog_id = b.id
-      WHERE bc.user_id = ?
+      LEFT JOIN blog_posts b ON bc.post_id = b.id
+      WHERE bc.user_id = ? AND (bc.is_deleted IS NULL OR bc.is_deleted = 0)
       ORDER BY bc.created_at DESC
     `, [parseInt(userId)]);
 
@@ -135,7 +135,7 @@ module.exports = async function handler(req, res) {
     const blogCommentsFormatted = blogComments.map(comment => ({
       id: comment.id,
       type: 'blog_comment',
-      blog_id: comment.blog_id,
+      blog_id: comment.post_id,
       blog_title: comment.blog_title || '블로그 글',
       listing_title: comment.blog_title || '블로그 댓글',
       listing_image: 'https://images.unsplash.com/photo-1455849318743-b2233052fcff?w=300&h=200&fit=crop',
