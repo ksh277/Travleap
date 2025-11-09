@@ -1957,9 +1957,10 @@ function setupRoutes() {
     try {
       const { neon } = await import('@neondatabase/serverless');
       const userId = (req as any).user?.userId;
+      const email = (req as any).user?.email;
       const { postalCode, address, detailAddress } = req.body;
 
-      if (!userId) {
+      if (!userId || !email) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다' });
       }
 
@@ -1974,16 +1975,17 @@ function setupRoutes() {
       }
 
       const sql = neon(process.env.POSTGRES_DATABASE_URL);
+      // ID 대신 email로 조회 (DB 마이그레이션 시 ID 변경되어도 email은 동일)
       await sql`
         UPDATE users
         SET postal_code = ${postalCode},
             address = ${address},
             detail_address = ${detailAddress || ''},
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${userId}
+        WHERE email = ${email}
       `;
 
-      console.log('✅ [Address] 주소 업데이트 성공: userId=', userId);
+      console.log('✅ [Address] 주소 업데이트 성공: email=', email);
 
       res.json({
         success: true,
@@ -7290,8 +7292,9 @@ function setupRoutes() {
     try {
       const { neon } = await import('@neondatabase/serverless');
       const userId = (req as any).user?.userId;
+      const email = (req as any).user?.email;
 
-      if (!userId) {
+      if (!userId || !email) {
         return res.status(401).json({ success: false, message: '인증이 필요합니다' });
       }
 
@@ -7315,6 +7318,7 @@ function setupRoutes() {
       } = req.body;
 
       // users 테이블 업데이트 (Neon PostgreSQL)
+      // ID 대신 email로 조회 (DB 마이그레이션 시 ID 변경되어도 email은 동일)
       await sql`
         UPDATE users
         SET name = ${name || ''},
@@ -7326,10 +7330,10 @@ function setupRoutes() {
             bio = ${bio || null},
             avatar = ${avatar || null},
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${userId}
+        WHERE email = ${email}
       `;
 
-      console.log('✅ [Profile] 프로필 업데이트 성공: userId=', userId);
+      console.log('✅ [Profile] 프로필 업데이트 성공: email=', email);
 
       res.json({
         success: true,
