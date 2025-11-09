@@ -2272,7 +2272,12 @@ export const api = {
     // 예약 관리
     getBookings: async (filters?: AdminBookingFilters): Promise<PaginatedResponse<Booking>> => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/orders`);
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`${API_BASE_URL}/api/orders`, {
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          }
+        });
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -3736,7 +3741,12 @@ export const api = {
       try {
         // Vercel 환경: API 엔드포인트 호출
         if (typeof window !== 'undefined') {
-          const response = await fetch(`${API_BASE_URL}/api/orders`);
+          const token = localStorage.getItem('auth_token');
+          const response = await fetch(`${API_BASE_URL}/api/orders`, {
+            headers: {
+              ...(token && { 'Authorization': `Bearer ${token}` })
+            }
+          });
           const result = await response.json();
           return result;
         }

@@ -64,7 +64,11 @@ export function useAdminData() {
           console.error('❌ Failed to fetch contacts:', err);
           return { success: false, contacts: [] };
         }),
-        fetch('/api/orders').then(r => {
+        fetch('/api/orders', {
+          headers: {
+            ...(typeof window !== 'undefined' && localStorage.getItem('auth_token') && { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` })
+          }
+        }).then(r => {
           if (!r.ok) throw new Error(`Orders API failed: ${r.status}`);
           return r.json();
         }).catch(err => {
