@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
       FROM partners p
       LEFT JOIN listings l ON l.partner_id = p.id
       LEFT JOIN bookings b ON b.listing_id = l.id
-      LEFT JOIN payments pay ON pay.order_id_str = b.booking_number OR pay.order_id_str = b.order_number
+      LEFT JOIN payments pay ON pay.booking_id = b.id
       WHERE 1=1
     `;
 
