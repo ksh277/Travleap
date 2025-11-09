@@ -436,7 +436,7 @@ export default function CommunityBlogDetailPage() {
                   <Reply className="h-4 w-4" />
                 </Button>
               )}
-              {user && user.userId === comment.user_id && (
+              {user && Number(user.userId) === Number(comment.user_id) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -446,7 +446,7 @@ export default function CommunityBlogDetailPage() {
                   <Edit2 className="h-4 w-4" />
                 </Button>
               )}
-              {user && (user.userId === comment.user_id || user.role === 'admin') && (
+              {user && (Number(user.userId) === Number(comment.user_id) || user.role === 'admin') && (
                 <Button
                   variant="ghost"
                   size="sm"

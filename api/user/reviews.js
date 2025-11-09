@@ -51,32 +51,42 @@ module.exports = async function handler(req, res) {
 
     const reviews = result.rows || [];
 
+    // PlanetScale에서 블로그 댓글도 조회
+    const blogCommentsResult = await connection.execute(`
+      SELECT bc.*, b.title as blog_title
+      FROM blog_comments bc
+      LEFT JOIN blog_posts b ON bc.blog_id = b.id
+      WHERE bc.user_id = ?
+      ORDER BY bc.created_at DESC
+    `, [parseInt(userId)]);
+
+    const blogComments = blogCommentsResult.rows || [];
+
     // Neon PostgreSQL에서 user 정보 가져오기 (이름 표시용)
-    if (reviews.length > 0) {
-      const poolNeon = new Pool({
-        connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
-      });
+    let userName = '사용자';
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
 
-      try {
-        const userResult = await poolNeon.query(
-          'SELECT id, name, username, email FROM users WHERE id = $1',
-          [parseInt(userId)]
-        );
+    try {
+      const userResult = await poolNeon.query(
+        'SELECT id, name, username, email FROM users WHERE id = $1',
+        [parseInt(userId)]
+      );
 
-        if (userResult.rows && userResult.rows.length > 0) {
-          const userData = userResult.rows[0];
-          const userName = userData.name || userData.username || userData.email?.split('@')[0] || '사용자';
+      if (userResult.rows && userResult.rows.length > 0) {
+        const userData = userResult.rows[0];
+        userName = userData.name || userData.username || userData.email?.split('@')[0] || '사용자';
 
-          reviews.forEach(review => {
-            review.user_name = userName;
-            review.user_email = userData.email;
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch user info from Neon:', error);
-      } finally {
-        await poolNeon.end();
+        reviews.forEach(review => {
+          review.user_name = userName;
+          review.user_email = userData.email;
+        });
       }
+    } catch (error) {
+      console.error('Failed to fetch user info from Neon:', error);
+    } finally {
+      await poolNeon.end();
     }
 
     // 이미지 파싱
@@ -104,6 +114,7 @@ module.exports = async function handler(req, res) {
 
       return {
         id: review.id,
+        type: 'review',
         listing_id: review.listing_id,
         listing_title: review.listing_title || '상품명 없음',
         listing_image: listingImage,
@@ -120,9 +131,34 @@ module.exports = async function handler(req, res) {
       };
     });
 
+    // 블로그 댓글 포맷팅
+    const blogCommentsFormatted = blogComments.map(comment => ({
+      id: comment.id,
+      type: 'blog_comment',
+      blog_id: comment.blog_id,
+      blog_title: comment.blog_title || '블로그 글',
+      listing_title: comment.blog_title || '블로그 댓글',
+      listing_image: 'https://images.unsplash.com/photo-1455849318743-b2233052fcff?w=300&h=200&fit=crop',
+      category: '블로그',
+      rating: 0,
+      title: '',
+      comment: comment.content || '',
+      images: [],
+      created_at: comment.created_at,
+      date: comment.created_at ? new Date(comment.created_at).toLocaleDateString('ko-KR') : '',
+      helpful_count: comment.likes || 0,
+      is_verified: false,
+      user_name: userName
+    }));
+
+    // 리뷰와 블로그 댓글 합치고 날짜순 정렬
+    const allReviews = [...reviewsFormatted, ...blogCommentsFormatted].sort((a, b) => {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
     return res.status(200).json({
       success: true,
-      data: reviewsFormatted
+      data: allReviews
     });
 
   } catch (error) {
