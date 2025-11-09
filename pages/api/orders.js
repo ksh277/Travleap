@@ -39,6 +39,13 @@ module.exports = async function handler(req, res) {
     }
 
     try {
+      // 페이지네이션 파라미터
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 20;
+      const offset = (page - 1) * limit;
+
+      console.log(`📄 [Orders] 페이지네이션: page=${page}, limit=${limit}, offset=${offset}`);
+
       // payments 테이블 기반으로 주문 정보 조회
       const result = await connection.execute(`
         SELECT
@@ -125,6 +132,9 @@ module.exports = async function handler(req, res) {
       // ✅ 일반 주문 + 렌트카 주문 통합
       const allOrders = [...(result.rows || []), ...(rentcarResult.rows || [])]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      // 총 주문 수
+      const totalOrders = allOrders.length;
 
       // Neon PostgreSQL에서 사용자 정보 조회
       const { Pool } = require('@neondatabase/serverless');
@@ -348,11 +358,23 @@ module.exports = async function handler(req, res) {
         await poolNeon.end();
       }
 
+      // 페이지네이션 적용
+      const paginatedOrders = ordersWithUserInfo.slice(offset, offset + limit);
+      const totalPages = Math.ceil(totalOrders / limit);
+
+      console.log(`📄 [Orders] 총 ${totalOrders}건 중 ${paginatedOrders.length}건 반환 (${page}/${totalPages} 페이지)`);
+
       return res.status(200).json({
         success: true,
-        version: "1.0.1-billingInfo-debug",
+        version: "1.0.2-pagination",
         deployedAt: new Date().toISOString(),
-        orders: ordersWithUserInfo
+        orders: paginatedOrders,
+        pagination: {
+          page,
+          limit,
+          total: totalOrders,
+          total_pages: totalPages
+        }
       });
     } catch (error) {
       console.error('Orders GET API error:', error);

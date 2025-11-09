@@ -34,8 +34,19 @@ async function handler(req, res) {
     console.log('📍 POSTGRES_DATABASE_URL 존재:', !!process.env.POSTGRES_DATABASE_URL);
     console.log('📍 DATABASE_URL 존재:', !!process.env.DATABASE_URL);
 
+    // 페이지네이션 파라미터
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    console.log(`📄 [Admin Users] 페이지네이션: page=${page}, limit=${limit}, offset=${offset}`);
+
     const db = getPool();
     console.log('✅ [Admin Users] Pool 연결 성공');
+
+    // 총 사용자 수 조회
+    const countResult = await db.query('SELECT COUNT(*) as total FROM users');
+    const total = parseInt(countResult.rows[0]?.total) || 0;
 
     // Neon PostgreSQL은 .rows 사용
     const result = await db.query(`
@@ -43,19 +54,21 @@ async function handler(req, res) {
         id, email, name, role, created_at, updated_at
       FROM users
       ORDER BY created_at DESC
-    `);
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
 
-    console.log(`✅ [Admin Users] ${result.rows?.length || 0}명 조회 완료`);
+    console.log(`✅ [Admin Users] 총 ${total}명 중 ${result.rows?.length || 0}명 조회 완료 (${page} 페이지)`);
 
-    const total = result.rows?.length || 0;
+    const totalPages = Math.ceil(total / limit);
+
     return res.status(200).json({
       success: true,
       data: result.rows || [],
       pagination: {
-        page: 1,
-        limit: total,
-        total: total,
-        total_pages: 1
+        page,
+        limit,
+        total,
+        total_pages: totalPages
       }
     });
   } catch (error) {

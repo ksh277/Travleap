@@ -65,12 +65,24 @@ export function AdminOrders() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    total_pages: 1
+  });
 
-  const loadOrders = async () => {
+  const loadOrders = async (page: number = 1) => {
     try {
       setIsLoading(true);
-      // ✅ 인증 없이 모든 주문 조회
-      const response = await fetch('/api/orders');
+      // ✅ Authorization 헤더 추가 (관리자 인증 필요)
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/orders?page=${page}&limit=20`, {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
       const result = await response.json();
       console.log('🔍 [AdminOrders] API 응답:', result);
 
@@ -80,12 +92,19 @@ export function AdminOrders() {
 
       // ✅ /api/orders는 orders 필드로 반환
       const orders = result.data || result.orders || [];
-      console.log('🔍 [AdminOrders] 로드된 주문 수:', orders.length);
+      console.log(`🔍 [AdminOrders] 로드된 주문 수: ${orders.length} (${page}/${result.pagination?.total_pages || 1} 페이지)`);
       if (orders.length > 0) {
         console.log('🔍 [AdminOrders] 첫 번째 주문 샘플:', orders[0]);
       }
       setOrders(orders);
       setFilteredOrders(orders);
+      setCurrentPage(page);
+      setPagination(result.pagination || {
+        page: 1,
+        limit: 20,
+        total: 0,
+        total_pages: 1
+      });
     } catch (error) {
       console.error('Failed to load orders:', error);
       toast.error('주문 목록을 불러오는데 실패했습니다');
@@ -453,6 +472,53 @@ export function AdminOrders() {
                   ? '검색 결과가 없습니다'
                   : '주문이 없습니다'}
               </p>
+            </div>
+          )}
+
+          {/* 페이지네이션 */}
+          {pagination.total_pages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="text-sm text-gray-700">
+                총 {pagination.total}개 중 {((currentPage - 1) * pagination.limit) + 1}-
+                {Math.min(currentPage * pagination.limit, pagination.total)}개 표시
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadOrders(1)}
+                  disabled={currentPage === 1 || isLoading}
+                >
+                  처음
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadOrders(currentPage - 1)}
+                  disabled={currentPage === 1 || isLoading}
+                >
+                  이전
+                </Button>
+                <span className="px-4 py-2 text-sm">
+                  {currentPage} / {pagination.total_pages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadOrders(currentPage + 1)}
+                  disabled={currentPage === pagination.total_pages || isLoading}
+                >
+                  다음
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadOrders(pagination.total_pages)}
+                  disabled={currentPage === pagination.total_pages || isLoading}
+                >
+                  마지막
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
