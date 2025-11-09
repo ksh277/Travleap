@@ -44,6 +44,10 @@ import { MediaManagement } from './admin/MediaManagement';
 import { RentcarManagement } from './admin/RentcarManagement';
 import { AccommodationManagement } from './admin/AccommodationManagement';
 import { BannerManagement } from './admin/BannerManagement';
+import { AdminSystemSettings } from './admin/tabs/AdminSystemSettings';
+import { AdminSettlements } from './admin/tabs/AdminSettlements';
+import { AdminActivityLogs } from './admin/tabs/AdminActivityLogs';
+import { PointAdjustmentDialog } from './admin/PointAdjustmentDialog';
 import { ShippingManagementDialog } from './ShippingManagementDialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import type { Listing, User } from '../types/database';
@@ -2528,12 +2532,15 @@ export function AdminPage({}: AdminPageProps) {
               <TabsTrigger value="banners" className="text-xs md:text-sm">배너 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
+              <TabsTrigger value="settlements" className="text-xs md:text-sm">정산 관리</TabsTrigger>
             </TabsList>
-            <TabsList className="grid grid-cols-4 md:grid-cols-4 w-full">
+            <TabsList className="grid grid-cols-6 md:grid-cols-6 w-full">
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
               <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
               <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
               <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
+              <TabsTrigger value="activity" className="text-xs md:text-sm">활동 로그</TabsTrigger>
+              <TabsTrigger value="settings" className="text-xs md:text-sm">시스템 설정</TabsTrigger>
             </TabsList>
           </div>
 
@@ -5221,6 +5228,21 @@ export function AdminPage({}: AdminPageProps) {
                 )}
               </DialogContent>
             </Dialog>
+          </TabsContent>
+
+          {/* 정산 관리 탭 */}
+          <TabsContent value="settlements" className="space-y-6">
+            <AdminSettlements />
+          </TabsContent>
+
+          {/* 활동 로그 탭 */}
+          <TabsContent value="activity" className="space-y-6">
+            <AdminActivityLogs />
+          </TabsContent>
+
+          {/* 시스템 설정 탭 */}
+          <TabsContent value="settings" className="space-y-6">
+            <AdminSystemSettings />
           </TabsContent>
 
           {/* 블로그 관리 탭 */}

@@ -1549,7 +1549,11 @@ export function DetailPage() {
                               </li>
                               <li className="flex items-start gap-2">
                                 <X className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                                <span><strong>환불 불가:</strong> 상품 훼손, 포장 개봉, 사용 흔적이 있는 경우</span>
+                                <span><strong>환불 불가:</strong> 제품 및 패키지 훼손, 구성품 누락, 사용 흔적이 있는 경우</span>
+                              </li>
+                              <li className="flex items-start gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                <span><strong>제품 하자:</strong> 제품 하자 시 무료 반품/교환 가능</span>
                               </li>
                             </ul>
                           )}
@@ -1559,7 +1563,9 @@ export function DetailPage() {
                         {item.is_refundable !== false && (
                           <div className="space-y-2">
                             <h4 className="font-semibold">교환/반품 주소</h4>
-                            <p className="text-sm text-gray-600">전라남도 목포시 원산중앙로 44, 2층 (58636)</p>
+                            <p className="text-sm text-gray-700">[21404] 인천광역시 부평구 세월천로6 A동 604호</p>
+                            <p className="text-sm text-gray-600">담당자: 이재원 010-5720-8350</p>
+                            <p className="text-sm text-amber-600 font-medium">⚠️ 반품 시 송장번호를 담당자에게 필수로 전달해주세요</p>
                           </div>
                         )}
 
@@ -1567,9 +1573,12 @@ export function DetailPage() {
                         <div className="border-t pt-3 space-y-2">
                           <h4 className="font-semibold">배송 및 반품비 정책</h4>
                           <ul className="space-y-1 text-sm text-gray-700">
+                            <li>• 배송사: CJ대한통운</li>
                             <li>• 기본 배송비: 3,000원</li>
                             <li>• 50,000원 이상 구매 시: 무료 배송</li>
-                            <li>• 반품 배송비: 3,000원 (단순 변심 시 고객 부담)</li>
+                            <li>• 반품 배송비: 3,000원 편도 (단순 변심 시 고객 부담)</li>
+                            <li>• 교환 배송비: 6,000원 왕복 (단순 변심 시 고객 부담)</li>
+                            <li>• 제품 하자 시: 배송비 무료 (판매자 부담)</li>
                           </ul>
                         </div>
 
