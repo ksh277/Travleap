@@ -309,20 +309,26 @@ export function AdminOrders() {
                               <div className="text-gray-500 text-xs">{order.user_phone}</div>
                             )}
                           </div>
-                          {/* 배송지 정보 (팝업 상품인 경우만) */}
-                          {order.is_popup && order.shipping_address && (
+                          {/* 배송지 정보 (팝업 상품인 경우) */}
+                          {order.is_popup && (
                             <div className="mt-2 pt-2 border-t border-gray-200">
-                              <div className="text-xs text-gray-600 font-semibold mb-1">배송지</div>
-                              {order.shipping_name && (
-                                <div className="text-xs text-gray-700">{order.shipping_name}</div>
+                              <div className="text-xs text-gray-600 font-semibold mb-1">📦 배송지</div>
+                              {order.shipping_address ? (
+                                <>
+                                  {order.shipping_name && (
+                                    <div className="text-xs text-gray-700 font-medium">{order.shipping_name}</div>
+                                  )}
+                                  {order.shipping_phone && (
+                                    <div className="text-xs text-gray-500">{order.shipping_phone}</div>
+                                  )}
+                                  <div className="text-xs text-gray-500">
+                                    ({order.shipping_zipcode}) {order.shipping_address}
+                                    {order.shipping_address_detail && ` ${order.shipping_address_detail}`}
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="text-xs text-red-600 font-medium">⚠️ 배송지 미입력</div>
                               )}
-                              {order.shipping_phone && (
-                                <div className="text-xs text-gray-500">{order.shipping_phone}</div>
-                              )}
-                              <div className="text-xs text-gray-500">
-                                {order.shipping_address}
-                                {order.shipping_address_detail && ` ${order.shipping_address_detail}`}
-                              </div>
                             </div>
                           )}
                         </div>
@@ -346,6 +352,12 @@ export function AdminOrders() {
                           ) : (
                             <div className="truncate">{order.product_title}</div>
                           )}
+                          {/* 카테고리 표시 */}
+                          <div className="mt-1">
+                            <Badge variant="outline" className="text-xs">
+                              {order.category || '기타'}
+                            </Badge>
+                          </div>
                         </div>
                       </td>
                       <td className="py-3 px-4">
