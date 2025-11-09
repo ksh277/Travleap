@@ -132,7 +132,12 @@ module.exports = async function handler(req, res) {
 
       const result = await sql.unsafe(query, [email, ...updateValues]);
 
-      if (result.length === 0) {
+      console.log('🔍 [Profile] UPDATE result:', JSON.stringify(result));
+      console.log('🔍 [Profile] result type:', typeof result);
+      console.log('🔍 [Profile] result.length:', result?.length);
+      console.log('🔍 [Profile] result[0]:', result?.[0]);
+
+      if (!result || result.length === 0) {
         return res.status(404).json({
           success: false,
           error: '사용자를 찾을 수 없습니다.'
@@ -140,6 +145,14 @@ module.exports = async function handler(req, res) {
       }
 
       const updatedUser = result[0];
+
+      if (!updatedUser) {
+        console.error('❌ [Profile] updatedUser is undefined but result.length =', result.length);
+        return res.status(500).json({
+          success: false,
+          error: '프로필 업데이트 결과를 가져올 수 없습니다.'
+        });
+      }
 
       console.log('✅ [Profile] 프로필 업데이트 성공:', updatedUser?.email || 'unknown', '| name:', updatedUser?.name || 'unknown');
 
