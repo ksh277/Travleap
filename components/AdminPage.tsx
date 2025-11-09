@@ -4097,9 +4097,19 @@ export function AdminPage({}: AdminPageProps) {
                                   return order.product_title;
                                 }
                                 if (order.items_info && order.items_info.length > 0) {
-                                  const firstItem = order.items_info[0];
-                                  const itemName = firstItem.title || firstItem.name || '상품';
-                                  return order.item_count > 1 ? `${itemName} 외 ${order.item_count - 1}건` : itemName;
+                                  // 모든 상품명 표시 + 각 상품별 수량
+                                  return (
+                                    <div className="space-y-1">
+                                      {order.items_info.map((item: any, idx: number) => (
+                                        <div key={idx} className="flex items-center gap-1">
+                                          <span>{item.title || item.name || '상품'}</span>
+                                          {item.quantity && (
+                                            <span className="text-xs text-gray-500">x{item.quantity}</span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
                                 }
                                 return `주문 #${order.id}`;
                               })()}
@@ -4122,9 +4132,6 @@ export function AdminPage({}: AdminPageProps) {
                                   return '기타';
                                 })()}
                               </span>
-                              {order.total_quantity > 1 && (
-                                <span className="text-xs text-gray-500">x{order.total_quantity}</span>
-                              )}
                             </div>
                             {order.selected_options && (() => {
                               try {
