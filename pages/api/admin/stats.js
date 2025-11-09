@@ -1,10 +1,16 @@
 const { connect } = require('@planetscale/database');
 const { Pool } = require('@neondatabase/serverless');
-const { withPublicCors } = require('../../utils/cors-middleware.cjs');
+const { withAuth } = require('../../utils/auth-middleware.cjs');
+const { withSecureCors } = require('../../utils/cors-middleware.cjs');
+const { withStandardRateLimit } = require('../../utils/rate-limit-middleware.cjs');
 
 async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  // 관리자 권한 확인
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: '관리자 권한이 필요합니다.'
+    });
   }
 
   if (req.method !== 'GET') {
@@ -139,5 +145,9 @@ async function handler(req, res) {
   }
 }
 
-// 공개 CORS 적용
-module.exports = withPublicCors(handler);
+// 올바른 미들웨어 순서: CORS → RateLimit → Auth
+module.exports = withSecureCors(
+  withStandardRateLimit(
+    withAuth(handler, { requireAuth: true, requireAdmin: true })
+  )
+);

@@ -2,6 +2,21 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
+// JWT 디코딩 헬퍼 함수
+function decodeJWT(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('JWT decode error:', error);
+    return null;
+  }
+}
+
 interface RentcarBooking {
   id: number;
   booking_number: string;
@@ -130,12 +145,26 @@ export default function RentcarVendorDashboard() {
     setError('');
 
     try {
-      // TODO: 실제 vendor_id는 JWT에서 가져오거나 localStorage에서 가져와야 함
-      const vendorId = '1'; // 임시 하드코딩
+      // JWT에서 vendor_id 추출
+      const token = localStorage.getItem('vendor_token');
+      if (!token) {
+        setError('로그인이 필요합니다.');
+        setLoading(false);
+        return;
+      }
+
+      const decoded = decodeJWT(token);
+      if (!decoded || !decoded.userId) {
+        setError('유효하지 않은 토큰입니다.');
+        setLoading(false);
+        return;
+      }
+
+      const vendorId = decoded.userId;
 
       const response = await fetch(`/api/rentcar/vendor/refunds?vendor_id=${vendorId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -159,7 +188,22 @@ export default function RentcarVendorDashboard() {
     setError('');
 
     try {
-      const vendorId = '1'; // TODO: JWT에서 가져오기
+      // JWT에서 vendor_id 추출
+      const token = localStorage.getItem('vendor_token');
+      if (!token) {
+        setError('로그인이 필요합니다.');
+        setLoading(false);
+        return;
+      }
+
+      const decoded = decodeJWT(token);
+      if (!decoded || !decoded.userId) {
+        setError('유효하지 않은 토큰입니다.');
+        setLoading(false);
+        return;
+      }
+
+      const vendorId = decoded.userId;
 
       // 차량 목록 조회
       const vehiclesResponse = await fetch(`/api/rentcar/vendor-vehicles/${vendorId}`);

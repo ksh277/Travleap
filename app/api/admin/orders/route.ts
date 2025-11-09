@@ -1,8 +1,37 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { connect } from '@planetscale/database';
 import { Pool } from '@neondatabase/serverless';
+import { verifyJWT } from '../../utils/auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // 인증 확인
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return NextResponse.json(
+      { success: false, error: '인증이 필요합니다.' },
+      { status: 401 }
+    );
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  let user;
+  try {
+    user = verifyJWT(token);
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: '유효하지 않은 토큰입니다.' },
+      { status: 401 }
+    );
+  }
+
+  // 관리자 권한 확인
+  if (user.role !== 'admin') {
+    return NextResponse.json(
+      { success: false, error: '관리자 권한이 필요합니다.' },
+      { status: 403 }
+    );
+  }
+
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
 

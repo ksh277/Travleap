@@ -5,21 +5,18 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../../utils/auth-middleware.cjs');
+const { withSecureCors } = require('../../utils/cors-middleware.cjs');
+const { withStandardRateLimit } = require('../../utils/rate-limit-middleware.cjs');
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+async function handler(req, res) {
+  // 관리자 권한 확인
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: '관리자 권한이 필요합니다.'
+    });
   }
-
-  // TODO: 관리자 권한 체크
-  // const token = req.headers.authorization?.replace('Bearer ', '');
-  // if (!token || !isAdmin(token)) {
-  //   return res.status(403).json({ success: false, error: 'Unauthorized' });
-  // }
 
   const { id } = req.query;
 
@@ -130,4 +127,11 @@ module.exports = async function handler(req, res) {
       error: error.message
     });
   }
-};
+}
+
+// 올바른 미들웨어 순서: CORS → RateLimit → Auth
+module.exports = withSecureCors(
+  withStandardRateLimit(
+    withAuth(handler, { requireAuth: true, requireAdmin: true })
+  )
+);

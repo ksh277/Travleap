@@ -1,4 +1,7 @@
 const { Pool } = require('@neondatabase/serverless');
+const { withAuth } = require('../utils/auth-middleware.cjs');
+const { withSecureCors } = require('../utils/cors-middleware.cjs');
+const { withStandardRateLimit } = require('../utils/rate-limit-middleware.cjs');
 
 // Neon PostgreSQL connection (users 테이블은 Neon에 있음)
 let pool;
@@ -13,13 +16,13 @@ function getPool() {
   return pool;
 }
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+async function handler(req, res) {
+  // 관리자 권한 확인
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: '관리자 권한이 필요합니다.'
+    });
   }
 
   if (req.method !== 'GET') {
@@ -77,4 +80,11 @@ module.exports = async function handler(req, res) {
       }
     });
   }
-};
+}
+
+// 올바른 미들웨어 순서: CORS → RateLimit → Auth
+module.exports = withSecureCors(
+  withStandardRateLimit(
+    withAuth(handler, { requireAuth: true, requireAdmin: true })
+  )
+);
