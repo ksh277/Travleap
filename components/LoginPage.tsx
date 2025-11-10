@@ -81,6 +81,9 @@ export function LoginPage() {
             } else if (user.vendorType === 'experience') {
               console.log('🎡 체험 벤더 대시보드로 이동');
               navigate('/vendor/experience', { replace: true });
+            } else if (user.vendorType === 'tour') {
+              console.log('🗺️ 투어 벤더 대시보드로 이동');
+              navigate('/vendor/tour', { replace: true });
             } else {
               // vendorType이 없으면 기본 팝업 대시보드로 이동 (Toss 심사용)
               console.log('🎪 벤더 대시보드로 이동 (기본 - 팝업)');

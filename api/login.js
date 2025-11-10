@@ -74,12 +74,12 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 벤더인 경우 벤더 타입 확인 (partners 테이블에서)
+    // 벤더인 경우 벤더 타입 확인
     let vendorType = null;
     if (user.role === 'vendor') {
       const planetscale = connect({ url: process.env.DATABASE_URL });
 
-      // partners 테이블에서 벤더 타입 확인
+      // 1. partners 테이블에서 벤더 타입 확인
       const partnerCheck = await planetscale.execute(
         `SELECT partner_type FROM partners WHERE user_id = ? LIMIT 1`,
         [user.id]
@@ -101,9 +101,37 @@ module.exports = async function handler(req, res) {
         };
 
         vendorType = vendorTypeMap[partnerType] || partnerType;
-        console.log('✅ 벤더 타입 확인됨:', user.email, '→', partnerType, '→', vendorType);
-      } else {
-        console.log('⚠️ partners 테이블에 벤더 정보가 없습니다:', user.email);
+        console.log('✅ 벤더 타입 확인됨 (partners):', user.email, '→', partnerType, '→', vendorType);
+      }
+
+      // 2. partners에 없으면 rentcar_vendors 확인
+      if (!vendorType) {
+        const rentcarCheck = await planetscale.execute(
+          `SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`,
+          [user.id]
+        );
+
+        if (rentcarCheck.rows && rentcarCheck.rows.length > 0) {
+          vendorType = 'rental';
+          console.log('✅ 벤더 타입 확인됨 (rentcar_vendors):', user.email, '→ rental');
+        }
+      }
+
+      // 3. tour_vendors 확인
+      if (!vendorType) {
+        const tourCheck = await planetscale.execute(
+          `SELECT id FROM tour_vendors WHERE user_id = ? LIMIT 1`,
+          [user.id]
+        );
+
+        if (tourCheck.rows && tourCheck.rows.length > 0) {
+          vendorType = 'tour';
+          console.log('✅ 벤더 타입 확인됨 (tour_vendors):', user.email, '→ tour');
+        }
+      }
+
+      if (!vendorType) {
+        console.log('⚠️ 벤더 타입을 확인할 수 없습니다:', user.email, '- 기본 팝업 대시보드 사용');
       }
     }
 
