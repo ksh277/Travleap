@@ -2521,7 +2521,7 @@ export function AdminPage({}: AdminPageProps) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
+      <div className="max-w-full mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
           <div className="space-y-2">
             <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full">
@@ -4032,20 +4032,19 @@ export function AdminPage({}: AdminPageProps) {
                   </Select>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>주문번호</TableHead>
-                        <TableHead>주문자 정보</TableHead>
-                        <TableHead>상품명</TableHead>
-                        <TableHead>예약일/인원</TableHead>
-                        <TableHead>금액</TableHead>
-                        <TableHead>결제/예약상태</TableHead>
-                        <TableHead>주문일시</TableHead>
-                        <TableHead>작업</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>주문번호</TableHead>
+                      <TableHead>주문자 정보</TableHead>
+                      <TableHead>상품명</TableHead>
+                      <TableHead>예약일/인원</TableHead>
+                      <TableHead>금액</TableHead>
+                      <TableHead>결제/예약상태</TableHead>
+                      <TableHead>주문일시</TableHead>
+                      <TableHead>작업</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {orders.length > 0 ? (() => {
                       // 검색 필터링
@@ -4304,7 +4303,6 @@ export function AdminPage({}: AdminPageProps) {
                     )}
                   </TableBody>
                 </Table>
-                </div>
 
                 {/* 페이지네이션 */}
                 {orders.length > 0 && (() => {
