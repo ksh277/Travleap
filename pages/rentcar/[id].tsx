@@ -29,6 +29,21 @@ interface Vehicle {
   vendor_name: string;
   vendor_rating: number;
   total_bookings: number;
+  vendor_id?: number;
+}
+
+interface Insurance {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  pricing_unit: 'fixed' | 'hourly' | 'daily';
+  coverage_amount: number;
+  coverage_details: {
+    items: string[];
+    exclusions?: string[];
+  };
+  is_active: boolean;
 }
 
 const RentcarDetailPage = () => {
@@ -39,6 +54,11 @@ const RentcarDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  // 보험 관련 상태
+  const [insurances, setInsurances] = useState<Insurance[]>([]);
+  const [selectedInsurance, setSelectedInsurance] = useState<number | null>(null);
+  const [loadingInsurances, setLoadingInsurances] = useState(false);
+
   // 예약 폼 상태
   const [pickupDate, setPickupDate] = useState('');
   const [dropoffDate, setDropoffDate] = useState('');
@@ -47,7 +67,6 @@ const RentcarDetailPage = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [driverLicense, setDriverLicense] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
-  const [selectedInsurance, setSelectedInsurance] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -55,6 +74,12 @@ const RentcarDetailPage = () => {
       loadVehicle();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (vehicle?.vendor_id) {
+      loadInsurances(vehicle.vendor_id);
+    }
+  }, [vehicle?.vendor_id]);
 
   const loadVehicle = async () => {
     setLoading(true);
@@ -69,6 +94,34 @@ const RentcarDetailPage = () => {
       console.error('차량 로드 실패:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadInsurances = async (vendorId: number) => {
+    setLoadingInsurances(true);
+    try {
+      // insurances 테이블에서 해당 벤더의 활성 보험 조회
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/admin/insurance', {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        // rentcar 카테고리 + 활성 + (공용 또는 해당 벤더 전용)
+        const availableInsurances = data.data.filter((ins: Insurance & { category: string; vendor_id: number | null }) =>
+          ins.category === 'rentcar' &&
+          ins.is_active &&
+          (ins.vendor_id === null || ins.vendor_id === vendorId)
+        );
+        setInsurances(availableInsurances);
+      }
+    } catch (error) {
+      console.error('보험 목록 로드 실패:', error);
+    } finally {
+      setLoadingInsurances(false);
     }
   };
 
@@ -109,11 +162,32 @@ const RentcarDetailPage = () => {
     return days > 0 ? days : 0;
   };
 
+  const calculateInsuranceFee = () => {
+    if (!selectedInsurance) return 0;
+
+    const insurance = insurances.find(ins => ins.id === selectedInsurance);
+    if (!insurance) return 0;
+
+    const days = calculateDays();
+    const hours = days * 24;
+
+    if (insurance.pricing_unit === 'hourly') {
+      return Math.ceil(insurance.price * hours);
+    } else if (insurance.pricing_unit === 'daily') {
+      return insurance.price * days;
+    } else {
+      // 'fixed' - 대여 기간과 상관없이 고정 금액
+      return insurance.price;
+    }
+  };
+
   const calculateTotalPrice = () => {
     const days = calculateDays();
     if (days === 0) return 0;
     const dailyRate = vehicle?.deposit_amount_krw || 50000;
-    return dailyRate * days;
+    const vehicleFee = dailyRate * days;
+    const insuranceFee = calculateInsuranceFee();
+    return vehicleFee + insuranceFee;
   };
 
   const handleBooking = async (e: React.FormEvent) => {
@@ -148,27 +222,30 @@ const RentcarDetailPage = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: currentUser.id,
+          vendor_id: vehicle?.vendor_id,
           vehicle_id: vehicle?.id,
-          pickup_datetime: `${pickupDate}T10:00:00`,
-          dropoff_datetime: `${dropoffDate}T10:00:00`,
+          user_id: currentUser.id,
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
-          customer_driver_license: driverLicense,
-          selected_insurance_ids: selectedInsurance,
-          special_requests: specialRequests,
-          total_price_krw: calculateTotalPrice()
+          pickup_location_id: null,
+          dropoff_location_id: null,
+          pickup_date: pickupDate,
+          pickup_time: '10:00',
+          dropoff_date: dropoffDate,
+          dropoff_time: '10:00',
+          insurance_id: selectedInsurance,
+          special_requests: specialRequests
         })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        alert(`예약이 완료되었습니다!\n예약번호: ${data.booking.booking_number}\n확인코드: ${data.booking.confirmation_code}`);
+        alert(`예약이 완료되었습니다!\n예약번호: ${data.data.booking_number}`);
         router.push('/my/bookings');
       } else {
-        alert(`예약 실패: ${data.error}`);
+        alert(`예약 실패: ${data.error || data.message}`);
       }
     } catch (error) {
       console.error('예약 실패:', error);
@@ -461,9 +538,15 @@ const RentcarDetailPage = () => {
                     <span>{days}일</span>
                   </div>
                   <div className="summary-row">
-                    <span>1일 요금</span>
-                    <span>{vehicle.deposit_amount_krw.toLocaleString()}원</span>
+                    <span>차량 요금</span>
+                    <span>{(vehicle.deposit_amount_krw * days).toLocaleString()}원</span>
                   </div>
+                  {selectedInsurance && (
+                    <div className="summary-row insurance-row">
+                      <span>보험료</span>
+                      <span>{calculateInsuranceFee().toLocaleString()}원</span>
+                    </div>
+                  )}
                   <div className="summary-row total">
                     <span>총 금액</span>
                     <span>{totalPrice.toLocaleString()}원</span>
@@ -526,6 +609,86 @@ const RentcarDetailPage = () => {
                   rows={3}
                 />
               </div>
+
+              {/* 보험 선택 */}
+              {insurances.length > 0 && (
+                <div className="insurance-section">
+                  <div className="divider"></div>
+                  <h4 className="insurance-title">
+                    <Shield size={18} color="#3b82f6" />
+                    보험 선택 (선택사항)
+                  </h4>
+                  {loadingInsurances ? (
+                    <div className="insurance-loading">
+                      <Loader size={20} className="spinner" />
+                      <span>보험 목록 불러오는 중...</span>
+                    </div>
+                  ) : (
+                    <div className="insurance-list">
+                      <div
+                        className={`insurance-card ${selectedInsurance === null ? 'selected' : ''}`}
+                        onClick={() => setSelectedInsurance(null)}
+                      >
+                        <input
+                          type="radio"
+                          name="insurance"
+                          checked={selectedInsurance === null}
+                          onChange={() => setSelectedInsurance(null)}
+                        />
+                        <div className="insurance-content">
+                          <div className="insurance-name">보험 없음</div>
+                          <div className="insurance-price">0원</div>
+                        </div>
+                      </div>
+                      {insurances.map((insurance) => {
+                        const insuranceFee = (() => {
+                          const days = calculateDays();
+                          const hours = days * 24;
+                          if (insurance.pricing_unit === 'hourly') {
+                            return Math.ceil(insurance.price * hours);
+                          } else if (insurance.pricing_unit === 'daily') {
+                            return insurance.price * days;
+                          } else {
+                            return insurance.price;
+                          }
+                        })();
+
+                        return (
+                          <div
+                            key={insurance.id}
+                            className={`insurance-card ${selectedInsurance === insurance.id ? 'selected' : ''}`}
+                            onClick={() => setSelectedInsurance(insurance.id)}
+                          >
+                            <input
+                              type="radio"
+                              name="insurance"
+                              checked={selectedInsurance === insurance.id}
+                              onChange={() => setSelectedInsurance(insurance.id)}
+                            />
+                            <div className="insurance-content">
+                              <div className="insurance-header">
+                                <div className="insurance-name">{insurance.name}</div>
+                                <div className="insurance-price">
+                                  {days > 0 ? `${insuranceFee.toLocaleString()}원` : '-'}
+                                </div>
+                              </div>
+                              <div className="insurance-description">{insurance.description}</div>
+                              <div className="insurance-details">
+                                <span className="insurance-unit">
+                                  {insurance.price.toLocaleString()}원
+                                  {insurance.pricing_unit === 'hourly' && '/시간'}
+                                  {insurance.pricing_unit === 'daily' && '/일'}
+                                  {insurance.pricing_unit === 'fixed' && ' (1회)'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <button type="submit" className="submit-button" disabled={submitting || days === 0}>
                 {submitting ? '예약 중...' : `${totalPrice.toLocaleString()}원 예약하기`}
@@ -908,6 +1071,111 @@ const RentcarDetailPage = () => {
           .submit-button:disabled {
             background: #9ca3af;
             cursor: not-allowed;
+          }
+
+          .insurance-section {
+            margin-top: 16px;
+          }
+
+          .insurance-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 16px;
+          }
+
+          .insurance-loading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 8px;
+            color: #6b7280;
+          }
+
+          .insurance-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .insurance-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px;
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          .insurance-card:hover {
+            background: #f3f4f6;
+            border-color: #d1d5db;
+          }
+
+          .insurance-card.selected {
+            background: #dbeafe;
+            border-color: #3b82f6;
+          }
+
+          .insurance-card input[type="radio"] {
+            margin-top: 2px;
+            flex-shrink: 0;
+            width: auto;
+          }
+
+          .insurance-content {
+            flex: 1;
+          }
+
+          .insurance-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+          }
+
+          .insurance-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #111827;
+          }
+
+          .insurance-price {
+            font-size: 15px;
+            font-weight: 700;
+            color: #3b82f6;
+          }
+
+          .insurance-description {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 8px;
+            line-height: 1.5;
+          }
+
+          .insurance-details {
+            font-size: 12px;
+            color: #9ca3af;
+          }
+
+          .insurance-unit {
+            background: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+          }
+
+          .summary-row.insurance-row {
+            color: #3b82f6;
+            font-weight: 500;
           }
 
           @media (max-width: 1200px) {

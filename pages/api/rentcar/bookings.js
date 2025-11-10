@@ -22,11 +22,11 @@ module.exports = async function handler(req, res) {
           v.display_name, v.thumbnail_url,
           ve.business_name as vendor_business_name, ve.brand_name as vendor_brand_name,
           i.name as insurance_name, i.description as insurance_description,
-          i.hourly_rate_krw as insurance_hourly_rate
+          i.price as insurance_hourly_rate, i.pricing_unit as insurance_pricing_unit
         FROM rentcar_bookings b
         INNER JOIN rentcar_vehicles v ON b.vehicle_id = v.id
         INNER JOIN rentcar_vendors ve ON b.vendor_id = ve.id
-        LEFT JOIN rentcar_insurance i ON b.insurance_id = i.id
+        LEFT JOIN insurances i ON b.insurance_id = i.id AND i.category = 'rentcar'
         WHERE 1=1
       `;
       const params = [];
@@ -59,7 +59,8 @@ module.exports = async function handler(req, res) {
           id: row.insurance_id,
           name: row.insurance_name,
           description: row.insurance_description,
-          hourly_rate_krw: row.insurance_hourly_rate,
+          price: row.insurance_hourly_rate,
+          pricing_unit: row.insurance_pricing_unit,
           fee_krw: row.insurance_fee_krw
         } : null
       }));
@@ -191,8 +192,8 @@ module.exports = async function handler(req, res) {
       let insuranceFee = 0;
       if (insurance_id) {
         const insuranceResult = await connection.execute(
-          'SELECT hourly_rate_krw, is_active FROM rentcar_insurance WHERE id = ? AND vendor_id = ?',
-          [insurance_id, vendor_id]
+          'SELECT price, pricing_unit, is_active FROM insurances WHERE id = ? AND category = ?',
+          [insurance_id, 'rentcar']
         );
 
         if (!insuranceResult.rows || insuranceResult.rows.length === 0) {
@@ -209,8 +210,15 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        const insuranceHourlyRate = insuranceResult.rows[0].hourly_rate_krw;
-        insuranceFee = Math.ceil(insuranceHourlyRate * rentalHours);
+        const insurance = insuranceResult.rows[0];
+        if (insurance.pricing_unit === 'hourly') {
+          insuranceFee = Math.ceil(insurance.price * rentalHours);
+        } else if (insurance.pricing_unit === 'daily') {
+          insuranceFee = insurance.price * Math.ceil(rentalHours / 24);
+        } else {
+          // 'fixed' - 대여 기간과 상관없이 고정 금액
+          insuranceFee = insurance.price;
+        }
       }
 
       // 가격 계산 (일 단위 우선, 나머지는 시간 단위)

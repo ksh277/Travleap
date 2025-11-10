@@ -38,7 +38,10 @@ interface Insurance {
   name: string;
   category: string;
   price: number;
+  pricing_unit: 'fixed' | 'hourly' | 'daily';
   coverage_amount: number;
+  vendor_id: number | null;
+  vehicle_id: number | null;
   description: string;
   coverage_details: {
     items: string[];
@@ -70,7 +73,10 @@ export function AdminInsurance() {
     name: '',
     category: 'tour',
     price: 0,
+    pricing_unit: 'fixed' as 'fixed' | 'hourly' | 'daily',
     coverage_amount: 0,
+    vendor_id: '',
+    vehicle_id: '',
     description: '',
     coverage_items: '',
     coverage_exclusions: '',
@@ -111,7 +117,10 @@ export function AdminInsurance() {
         name: insurance.name,
         category: insurance.category,
         price: insurance.price,
+        pricing_unit: insurance.pricing_unit || 'fixed',
         coverage_amount: insurance.coverage_amount,
+        vendor_id: insurance.vendor_id?.toString() || '',
+        vehicle_id: insurance.vehicle_id?.toString() || '',
         description: insurance.description,
         coverage_items: insurance.coverage_details.items.join('\n'),
         coverage_exclusions: insurance.coverage_details.exclusions?.join('\n') || '',
@@ -123,7 +132,10 @@ export function AdminInsurance() {
         name: '',
         category: 'tour',
         price: 0,
+        pricing_unit: 'fixed',
         coverage_amount: 0,
+        vendor_id: '',
+        vehicle_id: '',
         description: '',
         coverage_items: '',
         coverage_exclusions: '',
@@ -144,7 +156,10 @@ export function AdminInsurance() {
         name: formData.name,
         category: formData.category,
         price: Number(formData.price),
+        pricing_unit: formData.pricing_unit,
         coverage_amount: Number(formData.coverage_amount),
+        vendor_id: formData.vendor_id ? Number(formData.vendor_id) : null,
+        vehicle_id: formData.vehicle_id ? Number(formData.vehicle_id) : null,
         description: formData.description,
         coverage_details: {
           items: formData.coverage_items.split('\n').filter(item => item.trim()),
@@ -352,6 +367,9 @@ export function AdminInsurance() {
                     <span className="text-gray-600">보험료:</span>
                     <span className="font-semibold text-blue-600">
                       {insurance.price.toLocaleString()}원
+                      {insurance.pricing_unit === 'hourly' && '/시간'}
+                      {insurance.pricing_unit === 'daily' && '/일'}
+                      {insurance.pricing_unit === 'fixed' && ' (고정)'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
@@ -360,6 +378,15 @@ export function AdminInsurance() {
                       {insurance.coverage_amount.toLocaleString()}원
                     </span>
                   </div>
+                  {(insurance.vendor_id || insurance.vehicle_id) && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">적용 대상:</span>
+                      <span className="text-xs">
+                        {insurance.vendor_id && `벤더:${insurance.vendor_id}`}
+                        {insurance.vehicle_id && ` 차량:${insurance.vehicle_id}`}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t pt-3">
@@ -465,7 +492,26 @@ export function AdminInsurance() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="coverage_amount">최대 보장액 (원) *</Label>
+                <Label htmlFor="pricing_unit">가격 단위 *</Label>
+                <Select value={formData.pricing_unit} onValueChange={(value) => setFormData({ ...formData, pricing_unit: value as 'fixed' | 'hourly' | 'daily' })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">고정 (1회)</SelectItem>
+                    <SelectItem value="hourly">시간당</SelectItem>
+                    <SelectItem value="daily">일당</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">
+                  렌트카: hourly/daily, 투어: fixed
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="coverage_amount">최대 보장액 (원)</Label>
                 <Input
                   id="coverage_amount"
                   type="number"
@@ -473,6 +519,36 @@ export function AdminInsurance() {
                   value={formData.coverage_amount}
                   onChange={(e) => setFormData({ ...formData, coverage_amount: Number(e.target.value) })}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="vendor_id">벤더 ID (선택)</Label>
+                <Input
+                  id="vendor_id"
+                  type="number"
+                  placeholder="특정 벤더 전용인 경우"
+                  value={formData.vendor_id}
+                  onChange={(e) => setFormData({ ...formData, vendor_id: e.target.value })}
+                />
+                <p className="text-xs text-gray-500">
+                  비워두면 모든 벤더 공용
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="vehicle_id">차량 ID (선택)</Label>
+                <Input
+                  id="vehicle_id"
+                  type="number"
+                  placeholder="특정 차량 전용인 경우"
+                  value={formData.vehicle_id}
+                  onChange={(e) => setFormData({ ...formData, vehicle_id: e.target.value })}
+                />
+                <p className="text-xs text-gray-500">
+                  비워두면 벤더 전체 차량 적용
+                </p>
               </div>
             </div>
 

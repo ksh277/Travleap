@@ -148,8 +148,8 @@ module.exports = async function handler(req, res) {
     let insuranceFee = 0;
     if (insurance_plan_id) {
       const insuranceResult = await connection.execute(
-        'SELECT hourly_rate_krw, is_active FROM rentcar_insurance WHERE id = ? AND vendor_id = ?',
-        [insurance_plan_id, vehicle.vendor_id]
+        'SELECT price, pricing_unit, is_active FROM insurances WHERE id = ? AND category = ?',
+        [insurance_plan_id, 'rentcar']
       );
 
       if (insuranceResult.rows && insuranceResult.rows.length > 0) {
@@ -159,7 +159,15 @@ module.exports = async function handler(req, res) {
             error: '선택하신 보험은 현재 제공되지 않습니다'
           });
         }
-        insuranceFee = Math.ceil(insuranceResult.rows[0].hourly_rate_krw * rentalHours);
+        const insurance = insuranceResult.rows[0];
+        if (insurance.pricing_unit === 'hourly') {
+          insuranceFee = Math.ceil(insurance.price * rentalHours);
+        } else if (insurance.pricing_unit === 'daily') {
+          insuranceFee = insurance.price * Math.ceil(rentalHours / 24);
+        } else {
+          // 'fixed' - 대여 기간과 상관없이 고정 금액
+          insuranceFee = insurance.price;
+        }
       }
     }
 
