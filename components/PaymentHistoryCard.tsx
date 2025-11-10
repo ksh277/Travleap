@@ -308,7 +308,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                   <div className="flex items-center">
                     <Calendar className="w-4 h-4 mr-2 text-blue-600" />
                     <span className="text-gray-700">
-                      {new Date(payment.start_date).toLocaleDateString('ko-KR')} ~ {new Date(payment.end_date).toLocaleDateString('ko-KR')}
+                      {new Date(payment.start_date).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} ~ {new Date(payment.end_date).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                   {(payment.adults || payment.children || payment.infants) && (

@@ -372,9 +372,9 @@ export function AdminOrders() {
                             <>
                               {order.start_date && order.end_date ? (
                                 <>
-                                  <div>{new Date(order.start_date).toLocaleDateString('ko-KR')}</div>
+                                  <div>{new Date(order.start_date).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
                                   <div className="text-xs text-gray-500">
-                                    ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}
+                                    ~ {new Date(order.end_date).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                   </div>
                                 </>
                               ) : (

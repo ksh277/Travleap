@@ -69,6 +69,9 @@ interface Product {
   rating_count?: number;
   image: string;
   description: string;
+  longDescription?: string;
+  descriptionType?: 'text' | 'image';
+  descriptionImageUrl?: string;
   status: 'active' | 'inactive';
   is_active?: boolean;
   createdAt: string;
@@ -123,6 +126,11 @@ const loadProducts = async (): Promise<Product[]> => {
           ? imagesArray[0]
           : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop',
         description: listing.short_description || '상세 정보를 확인해보세요.',
+        longDescription: listing.detailed_description || listing.long_description || '',
+        descriptionType: (listing.detailed_description || listing.long_description)?.startsWith('http') ? 'image' : 'text',
+        descriptionImageUrl: (listing.detailed_description || listing.long_description)?.startsWith('http')
+          ? (listing.detailed_description || listing.long_description)
+          : '',
         status: listing.is_active ? 'active' : 'inactive',
         createdAt: listing.created_at ? listing.created_at.split('T')[0] : '2024-01-01',
         featured: listing.is_featured || false
@@ -1413,7 +1421,9 @@ export function AdminPage({}: AdminPageProps) {
       const updateData = {
         title: editingProduct.title,
         description: editingProduct.description || '',
-        longDescription: editingProduct.description || '',
+        longDescription: editingProduct.descriptionType === 'image'
+          ? (editingProduct.descriptionImageUrl || '')
+          : (editingProduct.longDescription || editingProduct.description || ''),
         price: editingProduct.price,
         childPrice: null,
         infantPrice: null,
@@ -5726,16 +5736,93 @@ export function AdminPage({}: AdminPageProps) {
               {/* 설명 */}
               <div>
                 <h3 className="text-lg font-medium mb-3">상품 설명</h3>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">설명</label>
-                  <Textarea
-                    value={editingProduct.description}
-                    onChange={(e) => setEditingProduct(prev =>
-                      prev ? { ...prev, description: e.target.value } : null
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">간단 설명</label>
+                    <Textarea
+                      value={editingProduct.description}
+                      onChange={(e) => setEditingProduct(prev =>
+                        prev ? { ...prev, description: e.target.value } : null
+                      )}
+                      placeholder="간단한 상품 설명을 입력하세요"
+                      rows={2}
+                    />
+                  </div>
+
+                  {/* 상세 소개 - 이미지 또는 텍스트 선택 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium">상세 소개</label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingProduct(prev =>
+                            prev ? { ...prev, descriptionType: 'text' } : null
+                          )}
+                          className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                            (editingProduct.descriptionType || 'text') === 'text'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
+                        >
+                          📝 텍스트
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingProduct(prev =>
+                            prev ? { ...prev, descriptionType: 'image' } : null
+                          )}
+                          className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                            editingProduct.descriptionType === 'image'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                          }`}
+                        >
+                          🖼️ 이미지
+                        </button>
+                      </div>
+                    </div>
+
+                    {(editingProduct.descriptionType || 'text') === 'text' ? (
+                      <Textarea
+                        value={editingProduct.longDescription || ''}
+                        onChange={(e) => setEditingProduct(prev =>
+                          prev ? { ...prev, longDescription: e.target.value } : null
+                        )}
+                        placeholder="상세한 상품 설명을 입력하세요 (네이버 스마트스토어처럼 긴 설명 가능)"
+                        rows={8}
+                      />
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
+                          <p className="text-sm text-blue-800">
+                            💡 네이버 스마트스토어처럼 긴 상품 소개 이미지를 업로드하세요
+                          </p>
+                        </div>
+                        <Input
+                          type="text"
+                          value={editingProduct.descriptionImageUrl || ''}
+                          onChange={(e) => setEditingProduct(prev =>
+                            prev ? { ...prev, descriptionImageUrl: e.target.value } : null
+                          )}
+                          placeholder="상품 소개 이미지 URL을 입력하세요"
+                        />
+                        {editingProduct.descriptionImageUrl && (
+                          <div className="border rounded-md overflow-hidden">
+                            <img
+                              src={editingProduct.descriptionImageUrl}
+                              alt="상품 소개 미리보기"
+                              className="w-full"
+                              onError={(e) => {
+                                e.currentTarget.src = '/placeholder.png';
+                                toast.error('이미지를 불러올 수 없습니다');
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     )}
-                    placeholder="상품 설명을 입력하세요"
-                    rows={4}
-                  />
+                  </div>
                 </div>
               </div>
 
