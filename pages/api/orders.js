@@ -223,6 +223,7 @@ module.exports = async function handler(req, res) {
           let billingName = '';
           let billingEmail = '';
           let billingPhone = '';
+          let hasPopupProduct = false; // ✅ 팝업 상품 포함 여부 플래그
 
           if (order.notes) {
             try {
@@ -263,7 +264,10 @@ module.exports = async function handler(req, res) {
                   return sum + (item.quantity || 1);
                 }, 0);
 
-                console.log(`📊 [Orders] order_id=${order.id}: ${itemCount}개 종류, 총 ${totalQuantity}개 수량`);
+                // ✅ 팝업 상품 포함 여부 체크
+                hasPopupProduct = notesData.items.some(item => item.category === '팝업');
+
+                console.log(`📊 [Orders] order_id=${order.id}: ${itemCount}개 종류, 총 ${totalQuantity}개 수량, 팝업 상품 포함: ${hasPopupProduct}`);
 
                 // 첫 번째 아이템의 상품명 가져오기 (title 또는 name 필드)
                 const firstItemTitle = notesData.items[0].title || notesData.items[0].name || '';
@@ -342,6 +346,7 @@ module.exports = async function handler(req, res) {
             num_seniors: 0,
             category: order.category,
             is_popup: order.category === '팝업',
+            has_popup_product: hasPopupProduct, // ✅ 장바구니 주문에 팝업 상품 포함 여부
             order_number: actualOrderNumber,
             // ✅ 배송 정보 (주문 당시 배송지: bookings 우선, 없으면 users 테이블)
             delivery_status: order.delivery_status,

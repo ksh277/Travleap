@@ -4152,7 +4152,7 @@ export function AdminPage({}: AdminPageProps) {
                               }
                             })()}
                             {/* 팝업 상품인 경우 배송지 정보 표시 */}
-                            {order.category === '팝업' && (order.shipping_name || order.shipping_address) && (
+                            {(order.category === '팝업' || order.has_popup_product) && (order.shipping_name || order.shipping_address) && (
                               <div className="mt-2 pt-2 border-t border-gray-200 bg-blue-50 px-2 py-1 rounded">
                                 <div className="text-xs font-medium text-blue-700 mb-1">📦 배송지</div>
                                 {/* 수령인 정보 */}

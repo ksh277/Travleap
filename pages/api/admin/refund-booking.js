@@ -71,8 +71,7 @@ async function handler(req, res) {
           p.payment_status,
           p.notes,
           b.delivery_status,
-          b.category,
-          b.order_number
+          b.booking_number as order_number
         FROM payments p
         LEFT JOIN bookings b ON p.booking_id = b.id
         WHERE p.booking_id = ?
@@ -106,20 +105,22 @@ async function handler(req, res) {
       });
     }
 
-    const { payment_key: paymentKey, amount, notes, delivery_status, category } = result.rows[0];
-
-    console.log(`✅ [Admin Refund] payment_key 조회 완료: ${paymentKey}, amount: ${amount}원, delivery_status: ${delivery_status}, category: ${category}`);
+    const { payment_key: paymentKey, amount, notes, delivery_status } = result.rows[0];
 
     // 3. notes에서 배송비 및 카테고리 정보 추출
     let deliveryFee = 0;
     let refundAmount = amount; // 기본은 전액 환불
     let hasPopupProduct = false;
     let actualDeliveryStatus = delivery_status;
+    let category = null; // notes에서 추출
 
     if (notes) {
       try {
         const notesData = typeof notes === 'string' ? JSON.parse(notes) : notes;
         deliveryFee = notesData.deliveryFee || 0;
+        category = notesData.category || null; // notes에서 category 추출
+
+    console.log(`✅ [Admin Refund] payment_key 조회 완료: ${paymentKey}, amount: ${amount}원, delivery_status: ${delivery_status}, category: ${category}`);
 
         // 장바구니 주문인 경우 items에서 팝업 상품 확인
         if (notesData.items && Array.isArray(notesData.items)) {
