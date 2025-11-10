@@ -217,6 +217,42 @@ async function handler(req, res) {
     if (refundResult.success) {
       console.log(`✅ [Admin Refund] 환불 완료: ${refundResult.refundAmount || amount}원`);
 
+      // 감사 로그 저장 (admin_audit_logs)
+      try {
+        const adminId = req.user.id;
+        const ipAddress = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.connection?.remoteAddress || 'unknown';
+        const userAgent = req.headers['user-agent'] || 'unknown';
+
+        await connection.execute(
+          `INSERT INTO admin_audit_logs
+           (admin_id, action, target_type, target_id, details, ip_address, user_agent)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            adminId,
+            'refund',
+            bookingId ? 'booking' : 'order',
+            bookingId || orderId,
+            JSON.stringify({
+              payment_key: paymentKey,
+              original_amount: amount,
+              refund_amount: refundResult.refundAmount || amount,
+              cancel_reason: cancelReason,
+              delivery_status: actualDeliveryStatus,
+              category: category,
+              toss_success: refundResult.tossRefundSuccess || false,
+              admin_email: req.user.email
+            }),
+            ipAddress,
+            userAgent
+          ]
+        );
+
+        console.log(`📝 [Admin Audit] 환불 로그 저장 완료: admin_id=${adminId}, target=${bookingId ? 'booking' : 'order'}_id=${bookingId || orderId}`);
+      } catch (auditError) {
+        // 감사 로그 실패는 환불 성공에 영향을 주지 않음
+        console.error('⚠️ [Admin Audit] 로그 저장 실패:', auditError.message);
+      }
+
       const responseData = {
         success: true,
         message: refundResult.message || '환불이 완료되었습니다.',
