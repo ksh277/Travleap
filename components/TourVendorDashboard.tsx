@@ -49,11 +49,16 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
   const [bookings, setBookings] = useState<TourBooking[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 패키지 목록 로드
+  // 패키지 목록 로드 (JWT에서 vendorId 자동 추출)
   const loadPackages = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/vendor/tour/packages?vendor_id=${vendorId}`);
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/vendor/tour/packages`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (data.success) {
         setPackages(data.packages || []);
@@ -65,11 +70,16 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
     }
   };
 
-  // 일정 목록 로드
+  // 일정 목록 로드 (JWT에서 vendorId 자동 추출)
   const loadSchedules = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/vendor/tour/schedules?vendor_id=${vendorId}`);
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/vendor/tour/schedules`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (data.success) {
         setSchedules(data.schedules || []);
@@ -81,11 +91,16 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
     }
   };
 
-  // 예약 목록 로드
+  // 예약 목록 로드 (JWT에서 vendorId 자동 추출)
   const loadBookings = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/vendor/tour/bookings?vendor_id=${vendorId}`);
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/vendor/tour/bookings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const data = await response.json();
       if (data.success) {
         setBookings(data.bookings || []);

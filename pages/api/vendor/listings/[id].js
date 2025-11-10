@@ -1,19 +1,5 @@
 const { connect } = require('@planetscale/database');
-
-// JWT 디코딩 함수
-function decodeJWT(token) {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    return JSON.parse(jsonPayload);
-  } catch (error) {
-    console.error('JWT decode error:', error);
-    return null;
-  }
-}
+const jwt = require('jsonwebtoken');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -34,12 +20,23 @@ module.exports = async function handler(req, res) {
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const decoded = decodeJWT(token);
+
+  // JWT 서명 검증 (보안 강화)
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
+  } catch (error) {
+    console.error('JWT verification failed:', error.message);
+    return res.status(401).json({
+      success: false,
+      error: '유효하지 않은 토큰입니다.'
+    });
+  }
 
   if (!decoded || !decoded.userId) {
     return res.status(401).json({
       success: false,
-      error: '유효하지 않은 토큰입니다.'
+      error: '토큰에 사용자 정보가 없습니다.'
     });
   }
 

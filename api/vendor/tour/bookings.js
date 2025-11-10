@@ -1,11 +1,11 @@
 const { connect } = require('@planetscale/database');
+const jwt = require('jsonwebtoken');
 
 /**
  * 업체 투어 예약 관리 API
  * GET /api/vendor/tour/bookings
  *
  * Query Parameters:
- * - vendor_id: 업체 ID (필수)
  * - status: 예약 상태 필터
  * - start_date: 시작 날짜
  * - end_date: 종료 날짜
@@ -28,24 +28,65 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // JWT 인증 확인
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized - No token provided'
+    });
+  }
+
+  const token = authHeader.substring(7);
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized - Invalid token'
+    });
+  }
+
+  // 벤더 또는 관리자 권한 확인
+  if (decoded.role !== 'vendor' && decoded.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden - Vendor role required'
+    });
+  }
+
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
+    // vendor_id는 JWT에서만 추출 (쿼리 파라미터 무시)
+    let vendor_id;
+    if (decoded.role === 'admin') {
+      vendor_id = req.query.vendor_id; // 관리자는 다른 벤더 조회 가능
+    } else {
+      // 벤더는 JWT의 userId로 tour_vendors 테이블에서 vendor_id 조회
+      const vendorResult = await connection.execute(
+        'SELECT id FROM tour_vendors WHERE user_id = ? LIMIT 1',
+        [decoded.userId]
+      );
+
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          error: '등록된 투어 벤더 정보가 없습니다.'
+        });
+      }
+
+      vendor_id = vendorResult.rows[0].id;
+    }
+
     const {
-      vendor_id,
       status,
       start_date,
       end_date,
       limit = 50,
       offset = 0
     } = req.query;
-
-    if (!vendor_id) {
-      return res.status(400).json({
-        success: false,
-        error: '업체 ID가 필요합니다.'
-      });
-    }
 
     // 동적 쿼리 조건 생성
     const conditions = ['tp.vendor_id = ?'];

@@ -129,9 +129,9 @@ export function VendorLodgingDashboard() {
     try {
       setLoading(true);
 
-      // 1. 업체 정보 조회 API
+      // 1. 업체 정보 조회 API (JWT에서 partnerId 자동 추출)
       const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
-      const vendorResponse = await fetch(`/api/vendor/lodging/info?userId=${user.id}`, {
+      const vendorResponse = await fetch(`/api/vendor/lodging/info`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -147,8 +147,8 @@ export function VendorLodgingDashboard() {
       const vendor = vendorData.data;
       setVendorInfo(vendor);
 
-      // 2. 숙소 목록 조회 API
-      const lodgingsResponse = await fetch(`/api/vendor/lodgings?userId=${user.id}`, {
+      // 2. 숙소 목록 조회 API (JWT에서 partnerId 자동 추출)
+      const lodgingsResponse = await fetch(`/api/vendor/lodgings`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -161,8 +161,8 @@ export function VendorLodgingDashboard() {
         setLodgings([]);
       }
 
-      // 3. 예약 목록 조회 API
-      const bookingsResponse = await fetch(`/api/vendor/lodging/bookings?userId=${user.id}`, {
+      // 3. 예약 목록 조회 API (JWT에서 partnerId 자동 추출)
+      const bookingsResponse = await fetch(`/api/vendor/lodging/bookings`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -233,16 +233,14 @@ export function VendorLodgingDashboard() {
       const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
 
       if (editingLodging) {
-        // 수정 - PUT API
+        // 수정 - PUT API (JWT에서 partnerId 자동 추출)
         const response = await fetch(`/api/vendor/lodgings/${editingLodging.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'x-user-id': user.id.toString()
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            userId: user.id,
             ...lodgingForm
           })
         });
@@ -255,16 +253,14 @@ export function VendorLodgingDashboard() {
           return;
         }
       } else {
-        // 추가 - POST API
+        // 추가 - POST API (JWT에서 partnerId 자동 추출)
         const response = await fetch('/api/vendor/lodgings', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'x-user-id': user.id.toString()
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            userId: user.id,
             ...lodgingForm
           })
         });
@@ -299,11 +295,10 @@ export function VendorLodgingDashboard() {
 
     try {
       const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
-      const response = await fetch(`/api/vendor/lodgings/${lodgingId}?userId=${user.id}`, {
+      const response = await fetch(`/api/vendor/lodgings/${lodgingId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-user-id': user.id.toString()
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -377,22 +372,26 @@ export function VendorLodgingDashboard() {
           let lodgingId = lodgingMap.get(row.name);
 
           if (!lodgingId) {
-            // 기존 숙소 확인 API
-            const checkResponse = await fetch(`/api/vendor/lodgings/check?userId=${user.id}&name=${encodeURIComponent(row.name)}`);
+            // 기존 숙소 확인 API (JWT에서 partnerId 자동 추출)
+            const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+            const checkResponse = await fetch(`/api/vendor/lodgings/check?name=${encodeURIComponent(row.name)}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
             const checkData = await checkResponse.json();
 
             if (checkData.success && checkData.exists) {
               lodgingId = checkData.lodgingId;
             } else {
-              // 새 숙소 생성 API
+              // 새 숙소 생성 API (JWT에서 partnerId 자동 추출)
               const createLodgingResponse = await fetch('/api/vendor/lodgings', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
-                  'x-user-id': user.id.toString()
+                  'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                  userId: user.id,
                   name: row.name,
                   type: row.type || 'hotel',
                   city: row.city || '신안군',
@@ -409,7 +408,11 @@ export function VendorLodgingDashboard() {
               const createLodgingData = await createLodgingResponse.json();
               if (createLodgingData.success) {
                 // Refetch to get the ID (or modify API to return the ID)
-                const refetchResponse = await fetch(`/api/vendor/lodgings/check?userId=${user.id}&name=${encodeURIComponent(row.name)}`);
+                const refetchResponse = await fetch(`/api/vendor/lodgings/check?name=${encodeURIComponent(row.name)}`, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`
+                  }
+                });
                 const refetchData = await refetchResponse.json();
                 lodgingId = refetchData.lodgingId;
               }
@@ -420,20 +423,19 @@ export function VendorLodgingDashboard() {
             }
           }
 
-          // 2. 객실 생성 API
+          // 2. 객실 생성 API (JWT에서 partnerId 자동 추출)
           if (lodgingId) {
             const createRoomResponse = await fetch('/api/vendor/rooms', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'x-user-id': user.id.toString()
+                'Authorization': `Bearer ${token}`
               },
               body: JSON.stringify({
-                userId: user.id,
                 lodging_id: lodgingId,
-                name: row.room_name || '객실',
+                title: row.room_name || '객실',
                 room_type: row.room_type || 'standard',
-                base_price: row.base_price || 50000,
+                price_from: row.base_price || 50000,
                 max_occupancy: row.max_occupancy || 2,
                 bed_type: row.bed_type || '더블',
                 room_size_sqm: row.room_size_sqm || 20,
@@ -485,15 +487,15 @@ export function VendorLodgingDashboard() {
     try {
       toast.info('PMS 연동을 시작합니다...');
 
-      // 1. 벤더 정보에 PMS 설정 저장 - API 호출
+      // 1. 벤더 정보에 PMS 설정 저장 - API 호출 (JWT에서 partnerId 자동 추출)
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
       const response = await fetch('/api/vendor/pms-settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': user.id.toString()
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          userId: user.id,
           pms_provider: pmsConfig.provider,
           pms_api_key: pmsConfig.api_key,
           pms_property_id: pmsConfig.property_id

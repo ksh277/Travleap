@@ -125,8 +125,8 @@ export function PopupVendorDashboard() {
     try {
       setIsLoading(true);
 
-      // 1. 내 상품 목록 조회
-      const productsResponse = await fetch(`/api/vendor/products?vendorId=${user?.id}`, {
+      // 1. 내 상품 목록 조회 (JWT에서 vendorId 자동 추출)
+      const productsResponse = await fetch(`/api/vendor/products`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
@@ -139,8 +139,8 @@ export function PopupVendorDashboard() {
         }
       }
 
-      // 2. 주문 목록 조회
-      const ordersResponse = await fetch(`/api/vendor/orders?vendorId=${user?.id}`, {
+      // 2. 주문 목록 조회 (JWT에서 vendorId 자동 추출)
+      const ordersResponse = await fetch(`/api/vendor/orders`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }

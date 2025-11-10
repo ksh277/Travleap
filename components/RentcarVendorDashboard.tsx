@@ -171,9 +171,8 @@ export default function RentcarVendorDashboard() {
         return;
       }
 
-      const vendorId = decoded.userId;
-
-      const response = await fetch(`/api/rentcar/vendor/refunds?vendor_id=${vendorId}`, {
+      // JWT에서 vendorId 자동 추출 (서버에서 처리)
+      const response = await fetch(`/api/rentcar/vendor/refunds`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -214,10 +213,12 @@ export default function RentcarVendorDashboard() {
         return;
       }
 
-      const vendorId = decoded.userId;
-
-      // 차량 목록 조회
-      const vehiclesResponse = await fetch(`/api/rentcar/vendor-vehicles/${vendorId}`);
+      // 차량 목록 조회 (JWT에서 vendorId 자동 추출)
+      const vehiclesResponse = await fetch(`/api/rentcar/vendor-vehicles/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const vehiclesData = await vehiclesResponse.json();
 
       if (vehiclesData.success) {
