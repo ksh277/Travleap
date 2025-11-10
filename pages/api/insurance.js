@@ -24,7 +24,7 @@ module.exports = async function handler(req, res) {
 
   try {
     let query = `
-      SELECT id, name, category, price, coverage_amount, description, coverage_details
+      SELECT id, name, category, price, pricing_unit, coverage_amount, description, coverage_details
       FROM insurances
       WHERE is_active = 1
     `;

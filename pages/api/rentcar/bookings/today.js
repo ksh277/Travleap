@@ -145,10 +145,11 @@ module.exports = async function handler(req, res) {
         v.image_url as vehicle_image,
         v.license_plate,
         i.name as insurance_name,
-        i.hourly_rate_krw as insurance_hourly_rate
+        i.price as insurance_price,
+        i.pricing_unit as insurance_pricing_unit
       FROM rentcar_bookings b
       LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
-      LEFT JOIN rentcar_insurance i ON b.insurance_id = i.id
+      LEFT JOIN insurances i ON b.insurance_id = i.id AND i.category = 'rentcar'
       WHERE b.vendor_id = ?
         AND b.payment_status = 'paid'
         AND (
