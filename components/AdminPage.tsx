@@ -4032,19 +4032,20 @@ export function AdminPage({}: AdminPageProps) {
                   </Select>
                 </div>
 
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>주문번호</TableHead>
-                      <TableHead>주문자 정보</TableHead>
-                      <TableHead>상품명</TableHead>
-                      <TableHead>예약일/인원</TableHead>
-                      <TableHead>금액</TableHead>
-                      <TableHead>결제/예약상태</TableHead>
-                      <TableHead>주문일시</TableHead>
-                      <TableHead>작업</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>주문번호</TableHead>
+                        <TableHead>주문자 정보</TableHead>
+                        <TableHead>상품명</TableHead>
+                        <TableHead>예약일/인원</TableHead>
+                        <TableHead>금액</TableHead>
+                        <TableHead>결제/예약상태</TableHead>
+                        <TableHead>주문일시</TableHead>
+                        <TableHead>작업</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {orders.length > 0 ? (() => {
                       // 검색 필터링
@@ -4303,6 +4304,7 @@ export function AdminPage({}: AdminPageProps) {
                     )}
                   </TableBody>
                 </Table>
+                </div>
 
                 {/* 페이지네이션 */}
                 {orders.length > 0 && (() => {
