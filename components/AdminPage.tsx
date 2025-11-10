@@ -2521,7 +2521,7 @@ export function AdminPage({}: AdminPageProps) {
         </div>
       </div>
 
-      <div className="max-w-full mx-auto px-4 py-4 md:py-6">
+      <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
           <div className="space-y-2">
             <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full">
@@ -4032,19 +4032,20 @@ export function AdminPage({}: AdminPageProps) {
                   </Select>
                 </div>
 
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>주문번호</TableHead>
-                      <TableHead>주문자 정보</TableHead>
-                      <TableHead>상품명</TableHead>
-                      <TableHead>예약일/인원</TableHead>
-                      <TableHead>금액</TableHead>
-                      <TableHead>결제/예약상태</TableHead>
-                      <TableHead>주문일시</TableHead>
-                      <TableHead>작업</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>주문번호</TableHead>
+                        <TableHead>주문자 정보</TableHead>
+                        <TableHead>상품명</TableHead>
+                        <TableHead>예약일/인원</TableHead>
+                        <TableHead>금액</TableHead>
+                        <TableHead>결제/예약상태</TableHead>
+                        <TableHead>주문일시</TableHead>
+                        <TableHead>작업</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {orders.length > 0 ? (() => {
                       // 검색 필터링
@@ -4089,13 +4090,8 @@ export function AdminPage({}: AdminPageProps) {
                           <div className="space-y-1">
                             <div className="font-medium">
                               {(() => {
-                                // 상품명 우선순위: product_name > product_title > items_info > fallback
-                                if (order.product_name && order.product_name !== '주문') {
-                                  return order.product_name;
-                                }
-                                if (order.product_title && order.product_title !== '주문') {
-                                  return order.product_title;
-                                }
+                                // 상품명 우선순위: items_info > product_name > product_title > fallback
+                                // ✅ items_info를 먼저 체크하여 각 상품별 수량 표시
                                 if (order.items_info && order.items_info.length > 0) {
                                   // 모든 상품명 표시 + 각 상품별 수량
                                   return (
@@ -4111,6 +4107,12 @@ export function AdminPage({}: AdminPageProps) {
                                     </div>
                                   );
                                 }
+                                if (order.product_name && order.product_name !== '주문') {
+                                  return order.product_name;
+                                }
+                                if (order.product_title && order.product_title !== '주문') {
+                                  return order.product_title;
+                                }
                                 return `주문 #${order.id}`;
                               })()}
                             </div>
@@ -4125,7 +4127,7 @@ export function AdminPage({}: AdminPageProps) {
                                   if (order.category) return order.category;
 
                                   // category가 null일 때 추론
-                                  if (order.is_popup) return '🎪 팝업';
+                                  if (order.is_popup || order.has_popup_product) return '🎪 팝업';
                                   if (order.booking_number && order.booking_number.includes('RC')) return '🚗 렌트카';
                                   if (order.delivery_status || order.shipping_address) return '🎪 팝업';
 
@@ -4303,6 +4305,7 @@ export function AdminPage({}: AdminPageProps) {
                     )}
                   </TableBody>
                 </Table>
+                </div>
 
                 {/* 페이지네이션 */}
                 {orders.length > 0 && (() => {
