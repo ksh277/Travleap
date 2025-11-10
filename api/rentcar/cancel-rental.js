@@ -341,9 +341,45 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // 11. extras 정보 조회 (환불 내역에 포함)
+    let extrasInfo = [];
+    let extrasTotal = 0;
+
+    try {
+      const extrasResult = await db.query(`
+        SELECT
+          rbe.extra_id,
+          rbe.quantity,
+          rbe.unit_price_krw,
+          rbe.total_price_krw,
+          re.name as extra_name,
+          re.category,
+          re.price_type
+        FROM rentcar_booking_extras rbe
+        LEFT JOIN rentcar_extras re ON rbe.extra_id = re.id
+        WHERE rbe.booking_id = ?
+      `, [rental.id]);
+
+      if (extrasResult && extrasResult.length > 0) {
+        extrasInfo = extrasResult.map(e => ({
+          name: e.extra_name || '(삭제된 옵션)',
+          category: e.category,
+          price_type: e.price_type,
+          quantity: e.quantity,
+          unit_price: Number(e.unit_price_krw || 0),
+          total_price: Number(e.total_price_krw || 0)
+        }));
+
+        extrasTotal = extrasInfo.reduce((sum, e) => sum + e.total_price, 0);
+        console.log(`📦 [Cancel-Rental] ${extrasInfo.length}개 extras 조회 완료 (총액: ${extrasTotal}원)`);
+      }
+    } catch (extrasError) {
+      console.warn('⚠️  [Cancel-Rental] extras 조회 실패 (계속 진행):', extrasError.message);
+    }
+
     console.log(`✅ [Cancel-Rental] Rental ${bookingNumber} canceled successfully`);
 
-    // 11. 성공 응답
+    // 12. 성공 응답
     return res.status(200).json({
       success: true,
       data: {
@@ -359,7 +395,10 @@ module.exports = async function handler(req, res) {
           refund_amount: refundAmount,
           cancellation_fee: cancellationFee,
           refund_status: refundAmount === rental.total_price_krw ? 'full_refund' :
-                         (refundAmount > 0 ? 'partial_refund' : 'no_refund')
+                         (refundAmount > 0 ? 'partial_refund' : 'no_refund'),
+          extras: extrasInfo,
+          extras_count: extrasInfo.length,
+          extras_total: extrasTotal
         }
       },
       message: `Booking canceled. Refund amount: ${refundAmount.toLocaleString()}원 (${refundRate}%)`

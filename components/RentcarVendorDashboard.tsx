@@ -37,6 +37,17 @@ interface RentcarBooking {
   late_return_hours?: number;
   late_return_fee_krw?: number;
   voucher_code?: string;
+  extras?: Array<{
+    extra_id: number;
+    name: string;
+    category: string;
+    price_type: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+  }>;
+  extras_count?: number;
+  extras_total?: number;
 }
 
 type TabType = 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras';
@@ -121,7 +132,7 @@ export default function RentcarVendorDashboard() {
 
       const response = await fetch(`/api/rentcar/bookings/today?start=${startOfDay}&end=${endOfDay}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
@@ -146,7 +157,7 @@ export default function RentcarVendorDashboard() {
 
     try {
       // JWT에서 vendor_id 추출
-      const token = localStorage.getItem('vendor_token');
+      const token = localStorage.getItem('auth_token');
       if (!token) {
         setError('로그인이 필요합니다.');
         setLoading(false);
@@ -189,7 +200,7 @@ export default function RentcarVendorDashboard() {
 
     try {
       // JWT에서 vendor_id 추출
-      const token = localStorage.getItem('vendor_token');
+      const token = localStorage.getItem('auth_token');
       if (!token) {
         setError('로그인이 필요합니다.');
         setLoading(false);
@@ -238,14 +249,14 @@ export default function RentcarVendorDashboard() {
     try {
       const response = await fetch('/api/vendor/rentcar/extras', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
 
       const result = await response.json();
 
       if (result.success) {
-        setExtras(result.data || []);
+        setExtras(result.data.extras || []);
       } else {
         setError(result.message || '옵션을 불러오는데 실패했습니다.');
       }
@@ -265,17 +276,31 @@ export default function RentcarVendorDashboard() {
 
     try {
       const method = editingExtra ? 'PUT' : 'POST';
-      const body = editingExtra
-        ? { id: editingExtra.id, ...extraForm }
-        : extraForm;
+
+      const payload: any = {
+        name: extraForm.name,
+        description: extraForm.description,
+        category: extraForm.category,
+        price_krw: parseInt(extraForm.price_krw),
+        price_type: extraForm.price_type,
+        has_inventory: extraForm.has_inventory,
+        current_stock: parseInt(extraForm.current_stock) || 0,
+        max_quantity: parseInt(extraForm.max_quantity) || 1,
+        display_order: 0,
+        is_active: true
+      };
+
+      if (editingExtra) {
+        payload.id = editingExtra.id;
+      }
 
       const response = await fetch('/api/vendor/rentcar/extras', {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(payload)
       });
 
       const result = await response.json();
@@ -310,13 +335,11 @@ export default function RentcarVendorDashboard() {
     }
 
     try {
-      const response = await fetch('/api/vendor/rentcar/extras', {
+      const response = await fetch(`/api/vendor/rentcar/extras?id=${id}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
-        },
-        body: JSON.stringify({ id })
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
       });
 
       const result = await response.json();
@@ -360,7 +383,7 @@ export default function RentcarVendorDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           starts_at: blockForm.starts_at,
@@ -399,7 +422,7 @@ export default function RentcarVendorDashboard() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({ is_active: false })
       });
@@ -433,7 +456,7 @@ export default function RentcarVendorDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({ voucher_code: voucherCode })
       });
@@ -478,7 +501,7 @@ export default function RentcarVendorDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           booking_number: checkInBooking.booking_number,
@@ -560,7 +583,7 @@ export default function RentcarVendorDashboard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('vendor_token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
           booking_number: checkOutBooking.booking_number,
@@ -802,6 +825,28 @@ export default function RentcarVendorDashboard() {
                               </p>
                             </div>
                           </div>
+
+                          {/* 추가 옵션 정보 */}
+                          {booking.extras && booking.extras.length > 0 && (
+                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-semibold text-purple-700">추가 옵션 ({booking.extras_count}개)</span>
+                                <span className="text-sm font-bold text-purple-900">+₩{booking.extras_total?.toLocaleString()}</span>
+                              </div>
+                              <div className="space-y-1">
+                                {booking.extras.map((extra, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-700">
+                                      • {extra.name}
+                                      {extra.quantity > 1 && <span className="text-gray-500"> x{extra.quantity}</span>}
+                                    </span>
+                                    <span className="text-gray-600">₩{extra.total_price.toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-2 mt-4">
                             {booking.status === 'confirmed' && (
                               <button
