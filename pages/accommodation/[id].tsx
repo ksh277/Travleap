@@ -165,27 +165,27 @@ const AccommodationDetailPage = () => {
 
     setSubmitting(true);
     try {
-      const response = await fetch('/api/accommodation/bookings', {
+      const response = await fetch('/api/accommodations/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: currentUser.id,
           listing_id: accommodation?.listing_id || accommodation?.id,
-          checkin_date: checkinDate,
-          checkout_date: checkoutDate,
-          guest_name: guestName,
-          guest_email: guestEmail,
-          guest_phone: guestPhone,
-          guest_count: guestCount,
+          start_date: checkinDate,
+          end_date: checkoutDate,
+          user_name: guestName,
+          user_email: guestEmail,
+          user_phone: guestPhone,
+          num_adults: guestCount,
           special_requests: specialRequests,
-          total_price: calculateTotalPrice()
+          total_amount: calculateTotalPrice()
         })
       });
 
       const data = await response.json();
 
       if (data.success) {
-        alert(`예약이 완료되었습니다!\n예약번호: ${data.booking.booking_number}`);
+        alert(`예약이 완료되었습니다!\n예약번호: ${data.data.booking_number}`);
         router.push('/my/bookings');
       } else {
         alert(`예약 실패: ${data.error}`);
