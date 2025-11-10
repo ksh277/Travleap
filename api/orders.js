@@ -67,6 +67,7 @@ module.exports = async function handler(req, res) {
         LEFT JOIN bookings b ON p.booking_id = b.id
         LEFT JOIN listings l ON b.listing_id = l.id
         WHERE p.payment_status IN ('paid', 'completed', 'refunded')
+          AND (p.notes IS NULL OR JSON_EXTRACT(p.notes, '$.category') != '렌트카')
         ORDER BY p.created_at DESC
       `);
 
