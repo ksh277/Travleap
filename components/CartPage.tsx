@@ -736,9 +736,9 @@ export function CartPage() {
                                     {(item.price || 0).toLocaleString()}원
                                   </span>
                                 </div>
-                                {item.quantity > 1 && (
+                                {(item.quantity > 1 || item.selectedOption) && (
                                   <div className="text-xs text-gray-500 mt-1">
-                                    총 {((item.price || 0) * item.quantity).toLocaleString()}원
+                                    총 {(((item.price || 0) + (item.selectedOption?.priceAdjustment || 0)) * item.quantity).toLocaleString()}원
                                   </div>
                                 )}
                               </div>
