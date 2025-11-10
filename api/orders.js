@@ -285,6 +285,25 @@ module.exports = async function handler(req, res) {
           const orderNumber = order.gateway_transaction_id;
           const bookingsList = bookingsMap.get(orderNumber) || null;
 
+          // ✅ 장바구니 주문의 배송지 정보 추출 (bookingsList에서)
+          let cartShippingName = '';
+          let cartShippingPhone = '';
+          let cartShippingAddress = '';
+          let cartShippingAddressDetail = '';
+          let cartShippingZipcode = '';
+
+          if (bookingsList && bookingsList.length > 0) {
+            // 팝업 상품의 배송지 정보 찾기
+            const popupBooking = bookingsList.find(b => b.category === '팝업');
+            if (popupBooking) {
+              cartShippingName = popupBooking.shipping_name || '';
+              cartShippingPhone = popupBooking.shipping_phone || '';
+              cartShippingAddress = popupBooking.shipping_address || '';
+              cartShippingAddressDetail = popupBooking.shipping_address_detail || '';
+              cartShippingZipcode = popupBooking.shipping_zipcode || '';
+            }
+          }
+
           // ✅ FIX: 사용자 정보 우선순위
           // 1순위: notes의 billingInfo (주문 시 입력한 정보)
           // 2순위: users 테이블 (회원 정보)
@@ -327,13 +346,13 @@ module.exports = async function handler(req, res) {
             is_popup: order.category === '팝업',
             has_popup_product: hasPopupProduct, // ✅ 장바구니 주문에 팝업 상품 포함 여부
             order_number: actualOrderNumber,
-            // ✅ 배송 정보 (주문 당시 배송지: bookings 우선, 없으면 users 테이블)
+            // ✅ 배송 정보 (주문 당시 배송지: 장바구니 bookings > 단일 bookings > users 테이블)
             delivery_status: order.delivery_status,
-            shipping_name: order.shipping_name || user?.name || '',
-            shipping_phone: order.shipping_phone || user?.phone || '',
-            shipping_address: order.shipping_address || user?.address || '',
-            shipping_address_detail: order.shipping_address_detail || user?.detail_address || '',
-            shipping_zipcode: order.shipping_zipcode || user?.postal_code || '',
+            shipping_name: cartShippingName || order.shipping_name || user?.name || '',
+            shipping_phone: cartShippingPhone || order.shipping_phone || user?.phone || '',
+            shipping_address: cartShippingAddress || order.shipping_address || user?.address || '',
+            shipping_address_detail: cartShippingAddressDetail || order.shipping_address_detail || user?.detail_address || '',
+            shipping_zipcode: cartShippingZipcode || order.shipping_zipcode || user?.postal_code || '',
             // ✅ 배송 조회 정보
             tracking_number: order.tracking_number || null,
             courier_company: order.courier_company || null
