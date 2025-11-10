@@ -45,7 +45,6 @@ interface AdditionalOption {
 
 export function VendorPricingSettings() {
   const [activeTab, setActiveTab] = useState<'discount' | 'insurance' | 'options'>('discount');
-  const [vendorId, setVendorId] = useState<number>(1); // TODO: 로그인한 업체 ID
 
   // 요금 정책
   const [pricingPolicies, setPricingPolicies] = useState<PricingPolicy[]>([]);
@@ -76,12 +75,23 @@ export function VendorPricingSettings() {
     loadPricingPolicies();
     loadInsurances();
     loadOptions();
-  }, [vendorId]);
+  }, []);
 
   // 요금 정책 로드
   const loadPricingPolicies = async () => {
     try {
-      const response = await fetch(`http://localhost:3004/api/vendor/pricing/policies?userId=${vendorId}`);
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch('/api/vendor/pricing/policies', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -98,7 +108,18 @@ export function VendorPricingSettings() {
   // 보험 상품 로드
   const loadInsurances = async () => {
     try {
-      const response = await fetch(`http://localhost:3004/api/vendor/insurance?userId=${vendorId}`);
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch('/api/vendor/insurance', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -115,7 +136,18 @@ export function VendorPricingSettings() {
   // 추가 옵션 로드
   const loadOptions = async () => {
     try {
-      const response = await fetch(`http://localhost:3004/api/vendor/options?userId=${vendorId}`);
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch('/api/vendor/options', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -132,13 +164,20 @@ export function VendorPricingSettings() {
   // 요금 정책 추가
   const addPricingPolicy = async () => {
     try {
-      const response = await fetch('http://localhost:3004/api/vendor/pricing/policies', {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch('/api/vendor/pricing/policies', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: vendorId,
-          ...newPolicy
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newPolicy)
       });
       const result = await response.json();
 
@@ -158,13 +197,20 @@ export function VendorPricingSettings() {
   // 보험 상품 추가
   const addInsurance = async () => {
     try {
-      const response = await fetch('http://localhost:3004/api/vendor/insurance', {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch('/api/vendor/insurance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: vendorId,
-          ...newInsurance
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newInsurance)
       });
       const result = await response.json();
 
@@ -189,13 +235,20 @@ export function VendorPricingSettings() {
   // 추가 옵션 추가
   const addOption = async () => {
     try {
-      const response = await fetch('http://localhost:3004/api/vendor/options', {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch('/api/vendor/options', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: vendorId,
-          ...newOption
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newOption)
       });
       const result = await response.json();
 
@@ -220,9 +273,19 @@ export function VendorPricingSettings() {
   // 활성화/비활성화 토글
   const togglePolicyActive = async (id: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`http://localhost:3004/api/vendor/pricing/policies/${id}/toggle`, {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/pricing/policies/${id}/toggle`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ is_active: !currentStatus })
       });
       const result = await response.json();
@@ -240,9 +303,19 @@ export function VendorPricingSettings() {
 
   const toggleInsuranceActive = async (id: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`http://localhost:3004/api/vendor/insurance/${id}/toggle`, {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/insurance/${id}/toggle`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ is_active: !currentStatus })
       });
       const result = await response.json();
@@ -260,9 +333,19 @@ export function VendorPricingSettings() {
 
   const toggleOptionActive = async (id: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`http://localhost:3004/api/vendor/options/${id}/toggle`, {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/options/${id}/toggle`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ is_active: !currentStatus })
       });
       const result = await response.json();
@@ -282,8 +365,18 @@ export function VendorPricingSettings() {
   const deletePolicy = async (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     try {
-      const response = await fetch(`http://localhost:3004/api/vendor/pricing/policies/${id}`, {
-        method: 'DELETE'
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/pricing/policies/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       const result = await response.json();
 
@@ -302,8 +395,18 @@ export function VendorPricingSettings() {
   const deleteInsurance = async (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     try {
-      const response = await fetch(`http://localhost:3004/api/vendor/insurance/${id}`, {
-        method: 'DELETE'
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/insurance/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       const result = await response.json();
 
@@ -322,8 +425,18 @@ export function VendorPricingSettings() {
   const deleteOption = async (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     try {
-      const response = await fetch(`http://localhost:3004/api/vendor/options/${id}`, {
-        method: 'DELETE'
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/options/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       const result = await response.json();
 

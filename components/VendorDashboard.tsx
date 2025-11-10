@@ -42,7 +42,7 @@ export function VendorDashboard({ categoryFilter, categoryName }: VendorDashboar
   const loadListings = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('vendor_token');
+      const token = localStorage.getItem('auth_token');
 
       if (!token) {
         toast.error('로그인이 필요합니다');
@@ -87,7 +87,7 @@ export function VendorDashboard({ categoryFilter, categoryName }: VendorDashboar
     }
 
     try {
-      const token = localStorage.getItem('vendor_token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/vendor/listings/${id}`, {
         method: 'DELETE',
         headers: {

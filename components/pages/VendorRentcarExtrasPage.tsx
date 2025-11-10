@@ -27,10 +27,6 @@ interface Extra {
 }
 
 export function VendorRentcarExtrasPage() {
-  // TODO: 실제 인증 시스템 적용 시 JWT에서 vendor_id 추출
-  // 임시로 하드코딩 (예: vendor_id = 15)
-  const TEMP_VENDOR_ID = 15;
-
   const [extras, setExtras] = useState<Extra[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -56,7 +52,20 @@ export function VendorRentcarExtrasPage() {
   async function loadExtras() {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/vendor/rentcar/extras?vendor_id=${TEMP_VENDOR_ID}`);
+
+      // JWT 토큰 가져오기
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        alert('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch('/api/vendor/rentcar/extras', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       const result = await response.json();
 
       if (result.success) {
@@ -115,11 +124,17 @@ export function VendorRentcarExtrasPage() {
     }
 
     try {
-      const url = `/api/vendor/rentcar/extras?vendor_id=${TEMP_VENDOR_ID}`;
+      // JWT 토큰 가져오기
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        alert('로그인이 필요합니다');
+        return;
+      }
+
       const method = editingId ? 'PUT' : 'POST';
 
       const payload: any = {
-        vendor_id: TEMP_VENDOR_ID,
         name: formData.name,
         description: formData.description,
         category: formData.category,
@@ -136,9 +151,12 @@ export function VendorRentcarExtrasPage() {
         payload.id = editingId;
       }
 
-      const response = await fetch(url, {
+      const response = await fetch('/api/vendor/rentcar/extras', {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(payload)
       });
 
@@ -149,7 +167,7 @@ export function VendorRentcarExtrasPage() {
         resetForm();
         loadExtras();
       } else {
-        alert(result.error || '작업 실패');
+        alert(result.error || result.message || '작업 실패');
       }
     } catch (error) {
       console.error('저장 실패:', error);
@@ -161,8 +179,19 @@ export function VendorRentcarExtrasPage() {
     if (!confirm('정말 삭제하시겠습니까?')) return;
 
     try {
-      const response = await fetch(`/api/vendor/rentcar/extras?vendor_id=${TEMP_VENDOR_ID}&id=${id}`, {
-        method: 'DELETE'
+      // JWT 토큰 가져오기
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
+      if (!token) {
+        alert('로그인이 필요합니다');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/rentcar/extras?id=${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       const result = await response.json();
@@ -171,7 +200,7 @@ export function VendorRentcarExtrasPage() {
         alert('삭제되었습니다');
         loadExtras();
       } else {
-        alert(result.error || '삭제 실패');
+        alert(result.error || result.message || '삭제 실패');
       }
     } catch (error) {
       console.error('삭제 실패:', error);

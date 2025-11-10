@@ -2223,6 +2223,53 @@ export function AdminPage({}: AdminPageProps) {
     }
   };
 
+  // 주문 교환 (팝업 상품 전용)
+  const handleExchangeOrder = async (order: any) => {
+    const reason = prompt('교환 사유를 입력해주세요:');
+    if (!reason || reason.trim() === '') {
+      toast.error('교환 사유를 입력해주세요');
+      return;
+    }
+
+    if (!confirm(`이 주문을 교환 처리하시겠습니까?\n\n주문번호: ${order.order_number}\n상품: ${order.product_name}\n\n고객에게 왕복 배송비 6,000원 결제 링크를 이메일로 전송합니다.`)) {
+      return;
+    }
+
+    try {
+      toast.info('교환 처리 중...');
+
+      const response = await fetch('/api/admin/exchange-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify({
+          bookingId: order.booking_id || undefined,
+          orderId: !order.booking_id ? order.id : undefined,
+          exchangeReason: reason,
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(`교환 처리가 완료되었습니다.\n\n고객(${data.customerEmail})에게 결제 링크가 전송되었습니다.`);
+
+        // 주문 목록 새로고침
+        api.admin.getOrders().then(res => {
+          const updatedOrders = res?.success ? res.data || [] : [];
+          setOrders(updatedOrders);
+        });
+      } else {
+        toast.error(data.message || '교환 처리에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('Exchange request failed:', error);
+      toast.error('교환 요청 중 오류가 발생했습니다');
+    }
+  };
+
   // ================== 이미지 관리 핸들러 ==================
 
   // 이미지 업로드/수정
@@ -4252,7 +4299,7 @@ export function AdminPage({}: AdminPageProps) {
                             <Button size="sm" variant="outline">
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {order.status === 'pending' && order.category !== '팝업' && (
+                            {order.status === 'pending' && order.category !== '팝업' && !order.has_popup_product && (
                               <Button
                                 size="sm"
                                 className="bg-green-600 hover:bg-green-700 text-white"
@@ -4261,7 +4308,7 @@ export function AdminPage({}: AdminPageProps) {
                                 확정
                               </Button>
                             )}
-                            {order.category === '팝업' && (
+                            {(order.category === '팝업' || order.has_popup_product) && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -4276,14 +4323,26 @@ export function AdminPage({}: AdminPageProps) {
                               </Button>
                             )}
                             {order.payment_status !== 'refunded' && order.payment_status !== 'failed' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-red-50 hover:bg-red-100 text-red-700"
-                                onClick={() => handleRefundOrder(order)}
-                              >
-                                환불
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="bg-red-50 hover:bg-red-100 text-red-700"
+                                  onClick={() => handleRefundOrder(order)}
+                                >
+                                  환불
+                                </Button>
+                                {(order.category === '팝업' || order.has_popup_product) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="bg-yellow-50 hover:bg-yellow-100 text-yellow-700"
+                                    onClick={() => handleExchangeOrder(order)}
+                                  >
+                                    교환
+                                  </Button>
+                                )}
+                              </>
                             )}
                             <Button
                               size="sm"

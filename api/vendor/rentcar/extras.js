@@ -7,6 +7,7 @@
  */
 
 const { connect } = require('@planetscale/database');
+const jwt = require('jsonwebtoken');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,19 +18,67 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const connection = connect({ url: process.env.DATABASE_URL });
-
   try {
-    // TODO: 실제 인증 시스템 적용 시 JWT 토큰에서 vendor_id 추출
-    // 현재는 쿼리 파라미터로 vendor_id 전달
-    const vendorId = req.query.vendor_id || req.body?.vendor_id;
-
-    if (!vendorId) {
-      return res.status(400).json({
+    // 벤더 인증
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
         success: false,
-        error: 'vendor_id가 필요합니다'
+        message: '인증 토큰이 필요합니다.'
       });
     }
+
+    const token = authHeader.substring(7);
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: '유효하지 않은 토큰입니다.'
+      });
+    }
+
+    if (decoded.role !== 'vendor' && decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: '벤더 권한이 필요합니다.'
+      });
+    }
+
+    // DB 연결
+    const connection = connect({ url: process.env.DATABASE_URL });
+
+    // 벤더 ID 조회
+    let vendorId;
+    if (decoded.role === 'admin') {
+      vendorId = req.query.vendorId || req.body?.vendorId;
+    } else {
+      const vendorResult = await connection.execute(
+        'SELECT id, business_name, status FROM rentcar_vendors WHERE user_id = ? LIMIT 1',
+        [decoded.userId]
+      );
+
+      if (!vendorResult.rows || vendorResult.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: '등록된 벤더 정보가 없습니다.'
+        });
+      }
+
+      const vendor = vendorResult.rows[0];
+      if (vendor.status !== 'active') {
+        return res.status(403).json({
+          success: false,
+          message: '비활성화된 벤더 계정입니다.'
+        });
+      }
+
+      vendorId = vendor.id;
+    }
+
+    console.log('🎛️ [Extras API] 요청:', { method: req.method, vendorId, user: decoded.email });
 
     // GET: 옵션 목록 조회
     if (req.method === 'GET') {

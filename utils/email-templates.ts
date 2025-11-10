@@ -25,6 +25,17 @@ interface RefundEmailData {
   refundedAt: string;
 }
 
+interface ExchangePaymentEmailData {
+  customerName: string;
+  orderNumber: string;
+  productName: string;
+  exchangeReason: string;
+  exchangeFee: number;
+  paymentLink: string;
+  shippingAddress?: string;
+  shippingZipcode?: string;
+}
+
 /**
  * 기본 이메일 레이아웃
  */
@@ -346,4 +357,98 @@ export function getRefundConfirmationTemplate(data: RefundEmailData): { subject:
     subject: `[Travleap] 환불 완료 - ${data.orderNumber}`,
     html: emailLayout(content),
   };
+}
+
+/**
+ * 교환 배송비 결제 안내 이메일 (사용자용)
+ */
+export function getExchangePaymentEmail(data: ExchangePaymentEmailData): string {
+  const content = `
+    <div style="text-align: center; margin-bottom: 30px;">
+      <div style="display: inline-block; background-color: #FFF9C4; color: #F57F17; padding: 8px 20px; border-radius: 20px; font-size: 14px; font-weight: 600;">
+        🔄 상품 교환
+      </div>
+    </div>
+
+    <h2 style="color: #333; margin: 0 0 10px 0; font-size: 22px; font-weight: 600;">
+      교환 신청이 접수되었습니다
+    </h2>
+
+    <p style="color: #666; font-size: 14px; margin: 0 0 30px 0;">
+      ${data.customerName}님, 교환 신청이 정상적으로 접수되었습니다.<br>
+      교환 처리를 위해 <strong>왕복 배송비 결제</strong>가 필요합니다.
+    </p>
+
+    <div style="background-color: #fff9e6; border-left: 4px solid #F57F17; padding: 20px; margin: 20px 0; border-radius: 4px;">
+      <table width="100%" cellpadding="8" cellspacing="0">
+        <tr>
+          <td style="color: #666; font-size: 14px; width: 140px;">주문번호</td>
+          <td style="color: #333; font-size: 14px; font-weight: 600;">${data.orderNumber}</td>
+        </tr>
+        <tr>
+          <td style="color: #666; font-size: 14px;">상품명</td>
+          <td style="color: #333; font-size: 14px;">${data.productName}</td>
+        </tr>
+        <tr>
+          <td style="color: #666; font-size: 14px;">교환 사유</td>
+          <td style="color: #333; font-size: 14px;">${data.exchangeReason}</td>
+        </tr>
+        ${data.shippingAddress ? `
+        <tr>
+          <td style="color: #666; font-size: 14px; vertical-align: top;">배송지</td>
+          <td style="color: #333; font-size: 14px;">
+            [${data.shippingZipcode || ''}] ${data.shippingAddress}
+          </td>
+        </tr>
+        ` : ''}
+      </table>
+    </div>
+
+    <div style="background-color: #fff3e0; border: 2px solid #FF9800; padding: 20px; margin: 25px 0; border-radius: 8px; text-align: center;">
+      <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">
+        왕복 배송비
+      </p>
+      <p style="margin: 0; font-size: 28px; font-weight: 700; color: #F57F17;">
+        ₩${data.exchangeFee.toLocaleString()}
+      </p>
+      <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">
+        (반품 배송비 3,000원 + 재발송 배송비 3,000원)
+      </p>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${data.paymentLink}"
+         style="display: inline-block; background-color: #F57F17; color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-size: 18px; font-weight: 600; box-shadow: 0 4px 6px rgba(245, 127, 23, 0.3);">
+        결제하기 →
+      </a>
+    </div>
+
+    <div style="background-color: #E3F2FD; padding: 15px; border-radius: 6px; margin: 25px 0;">
+      <p style="margin: 0 0 10px 0; font-size: 14px; color: #1565C0; font-weight: 600;">
+        📌 교환 진행 절차
+      </p>
+      <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #1976D2; line-height: 1.8;">
+        <li>왕복 배송비 6,000원 결제</li>
+        <li>기존 상품 반품 배송</li>
+        <li>새 상품 재발송</li>
+        <li>교환 완료</li>
+      </ol>
+    </div>
+
+    <div style="background-color: #FFEBEE; padding: 15px; border-radius: 6px; margin: 20px 0;">
+      <p style="margin: 0; font-size: 13px; color: #C62828;">
+        ⚠️ <strong>안내사항</strong><br>
+        • 결제 후 반품 배송지 안내를 별도로 전달드립니다.<br>
+        • 상품에 하자가 있는 경우 배송비는 판매자 부담입니다.<br>
+        • 문의사항은 고객센터로 연락주세요.
+      </p>
+    </div>
+
+    <p style="margin-top: 30px; font-size: 14px; color: #666; line-height: 1.6; text-align: center;">
+      감사합니다.<br>
+      즐거운 쇼핑 되세요! 🎁
+    </p>
+  `;
+
+  return emailLayout(content);
 }
