@@ -239,12 +239,12 @@ export function Header({
                         <ChevronDown className="w-3 h-3 ml-1" />
                       </button>
                       {/* 드롭다운 메뉴 - 2열 4행 */}
-                      <div className="absolute top-full left-0 mt-2 w-[280px] bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                        <div className="grid grid-cols-2 gap-1 p-2">
+                      <div className="absolute top-full left-0 mt-2 w-[260px] bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        <div className="grid grid-cols-2 gap-0.5 p-1.5">
                           {categories.map((category) => (
                             <button
                               key={category.id}
-                              className="block select-none rounded-md p-2 leading-none no-underline outline-none transition-colors hover:bg-gray-50 cursor-pointer text-center"
+                              className="block select-none rounded-md p-1.5 leading-none no-underline outline-none transition-colors hover:bg-gray-50 cursor-pointer text-center"
                               onClick={() =>
                                 navigate(`/category/${category.id}`)
                               }
