@@ -121,7 +121,7 @@ module.exports = async function handler(req, res) {
 
           const insertResult = await poolNeon.query(
             `INSERT INTO users (username, email, password_hash, name, phone, role, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, 'customer', NOW(), NOW())
+             VALUES ($1, $2, $3, $4, $5, 'user', NOW(), NOW())
              RETURNING id`,
             [username, user_email, placeholderPassword, user_name || 'Guest', user_phone || '']
           );
