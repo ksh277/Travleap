@@ -114,9 +114,32 @@ export function HotelDetailPage() {
   const [mapError, setMapError] = useState(false);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string>('');
 
-  // 사용자 정보
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
-  const isLoggedIn = !!user;
+  // 사용자 정보 (항상 최신 상태 가져오기)
+  const getUserFromStorage = () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr || userStr === 'null' || userStr === 'undefined') {
+        return null;
+      }
+      return JSON.parse(userStr);
+    } catch (error) {
+      console.error('Failed to parse user from localStorage:', error);
+      return null;
+    }
+  };
+
+  const [user, setUser] = useState(getUserFromStorage());
+  const isLoggedIn = !!user && !!user.email;
+
+  // 사용자 정보 변경 감지
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setUser(getUserFromStorage());
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   // Google Maps API 키 로드
   useEffect(() => {
@@ -257,8 +280,11 @@ export function HotelDetailPage() {
       return;
     }
 
-    // 로그인 체크
-    if (!isLoggedIn || !user?.email) {
+    // 로그인 체크 (최신 상태 확인)
+    const currentUser = getUserFromStorage();
+    console.log('🔐 로그인 체크:', { currentUser, isLoggedIn, hasEmail: !!currentUser?.email });
+
+    if (!currentUser || !currentUser.email) {
       toast.error('로그인이 필요한 서비스입니다');
       navigate('/login');
       return;
@@ -270,9 +296,9 @@ export function HotelDetailPage() {
       // base_price_per_night는 이미 세금 포함 가격
       const totalPrice = selectedRoom.base_price_per_night * nights;
 
-      const userName = user.name || 'Guest';
-      const userEmail = user.email;
-      const userPhone = user.phone || '';
+      const userName = currentUser.name || 'Guest';
+      const userEmail = currentUser.email;
+      const userPhone = currentUser.phone || '';
 
       console.log('📋 예약 요청 데이터:', {
         listing_id: selectedRoom.id,
