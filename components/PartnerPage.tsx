@@ -167,7 +167,7 @@ export function PartnerPage() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
-  const [mobileTab, setMobileTab] = useState<'list' | 'map'>('list');
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -361,23 +361,18 @@ export function PartnerPage() {
     }
   }, []);
 
-  // 모바일에서 지도 탭으로 전환 시 지도 초기화
+  // 모바일에서 지도 초기화 (컴포넌트 마운트 시)
   useEffect(() => {
     console.log('📱 Mobile Map useEffect:', {
       screenWidth: window.innerWidth,
-      mobileTab,
       mapExists: !!map,
       mobileMapRefExists: !!mobileMapRef.current,
       googleMapsLoaded: !!(window as any).google
     });
 
-    // 모바일 환경이 아니거나 지도 탭이 아니면 실행하지 않음
+    // 모바일 환경이 아니면 실행하지 않음
     if (window.innerWidth >= 1024) {
       console.log('⏭️ Skip: Desktop environment');
-      return;
-    }
-    if (mobileTab !== 'map') {
-      console.log('⏭️ Skip: Not on map tab');
       return;
     }
     if (map) {
@@ -457,7 +452,7 @@ export function PartnerPage() {
       // DOM 렌더링을 기다림
       setTimeout(initMobileMap, 50);
     }
-  }, [mobileTab, map, filteredPartners]);
+  }, [map, filteredPartners]);
 
   // 마커 추가 함수
   const addMarkers = (map: google.maps.Map, partnersList: Partner[]) => {
@@ -466,7 +461,7 @@ export function PartnerPage() {
     markersRef.current = [];
     infoWindowsRef.current.clear();
 
-    partnersList.forEach(partner => {
+    partnersList.forEach((partner, index) => {
       const marker = new google.maps.Marker({
         position: partner.position,
         map: map,
@@ -621,15 +616,25 @@ export function PartnerPage() {
 
   // 제휴업체 카드 클릭 핸들러 - 지도에 마커 표시 및 중심 이동
   const handlePartnerClick = (partner: Partner) => {
-    // 모바일에서는 지도 탭으로 전환
-    if (window.innerWidth < 1024) { // lg 브레이크포인트
-      setMobileTab('map');
+    console.log('🎯 Card clicked:', partner.name);
+
+    // 모바일에서는 지도로 스크롤
+    if (window.innerWidth < 1024) {
+      // 지도로 스크롤
+      mobileMapRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
     }
 
     if (map) {
       // 지도 중심을 해당 파트너 위치로 이동
-      map.setCenter(partner.position);
+      console.log('🗺️ Centering map on:', partner.position);
+      map.panTo(partner.position);
       map.setZoom(15);
+
+      // 모든 InfoWindow 닫기
+      infoWindowsRef.current.forEach(iw => iw.close());
 
       // 해당 파트너의 InfoWindow를 찾아서 열기
       const infoWindow = infoWindowsRef.current.get(partner.name);
@@ -638,6 +643,8 @@ export function PartnerPage() {
         infoWindow.open(map, marker);
       }
     }
+
+    setSelectedPartner(partner);
   };
 
   return (
@@ -786,21 +793,43 @@ export function PartnerPage() {
 
       {/* 메인 컨텐츠 */}
       <div className="max-w-[1400px] mx-auto px-4 py-6">
-        {/* 모바일: 탭 UI */}
-        <div className="lg:hidden">
-          <Tabs value={mobileTab} onValueChange={(value) => setMobileTab(value as 'list' | 'map')}>
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="list" className="flex items-center">
-                <List className="h-4 w-4 mr-2" />
-                목록
-              </TabsTrigger>
-              <TabsTrigger value="map" className="flex items-center">
-                <MapIcon className="h-4 w-4 mr-2" />
+        {/* 모바일: 지도 + 목록 순차 배치 */}
+        <div className="lg:hidden space-y-6">
+          {/* 모바일 지도 (위쪽 고정) */}
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center">
+                <MapIcon className="h-5 w-5 mr-2" />
                 지도
-              </TabsTrigger>
-            </TabsList>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {mapError ? (
+                <div className="w-full h-[300px] flex items-center justify-center bg-gray-100">
+                  <div className="text-center p-6">
+                    <div className="text-gray-400 mb-4">
+                      <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                    </div>
+                    <h3 className="text-base font-semibold text-gray-600 mb-2">지도를 불러올 수 없습니다</h3>
+                    <p className="text-sm text-gray-500">
+                      Google Maps API 키가 필요합니다.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  ref={mobileMapRef}
+                  className="w-full h-[300px]"
+                  style={{ minHeight: '300px' }}
+                />
+              )}
+            </CardContent>
+          </Card>
 
-            <TabsContent value="list">
+          {/* 모바일 목록 (아래 스크롤) */}
+          <div>
               {/* 모바일 리스트 컨텐츠 */}
               <div className="flex-1">
             {/* 필터 바 */}
@@ -1004,41 +1033,7 @@ export function PartnerPage() {
               </div>
             )}
               </div>
-            </TabsContent>
-
-            <TabsContent value="map">
-              {/* 모바일 지도 컨텐츠 */}
-              <Card className="overflow-hidden">
-                {mapError ? (
-                  <div className="w-full h-[500px] flex items-center justify-center bg-gray-100">
-                    <div className="text-center p-8 max-w-sm">
-                      <div className="text-gray-400 mb-4">
-                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7" />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-600 mb-2">지도를 불러올 수 없습니다</h3>
-                      <p className="text-sm text-gray-500 mb-4">
-                        Google Maps API 키가 필요합니다.
-                      </p>
-                      <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded border">
-                        <p className="mb-2"><strong>설정 방법:</strong></p>
-                        <p>1. Google Cloud Console에서 Maps JavaScript API 키 발급</p>
-                        <p>2. 환경변수 GOOGLE_MAPS_API_KEY에 키 설정</p>
-                        <p>3. 페이지 새로고침</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    ref={mobileMapRef}
-                    className="w-full h-[500px]"
-                    style={{ minHeight: '500px' }}
-                  />
-                )}
-              </Card>
-            </TabsContent>
-          </Tabs>
+          </div>
         </div>
 
         {/* 데스크톱: 좌우 분할 */}
