@@ -159,7 +159,8 @@ export function PartnerPage() {
   const [loading, setLoading] = useState(true);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState(false);
-  const mapRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null); // 데스크톱용
+  const mobileMapRef = useRef<HTMLDivElement>(null); // 모바일용
   const markersRef = useRef<google.maps.Marker[]>([]);
   const infoWindowsRef = useRef<Map<string, google.maps.InfoWindow>>(new Map());
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
@@ -360,8 +361,8 @@ export function PartnerPage() {
   // 모바일에서 지도 탭으로 전환 시 지도 초기화
   useEffect(() => {
     // 모바일 환경이고, 지도 탭이 활성화되고, 지도가 아직 초기화되지 않았을 때
-    if (mobileTab === 'map' && !map && (window as any).google && mapRef.current) {
-      const newMap = new google.maps.Map(mapRef.current, {
+    if (mobileTab === 'map' && !map && (window as any).google && mobileMapRef.current) {
+      const newMap = new google.maps.Map(mobileMapRef.current, {
         center: { lat: 34.9654, lng: 126.1234 }, // 신안군 중심
         zoom: 11,
         styles: [
@@ -954,7 +955,7 @@ export function PartnerPage() {
                   </div>
                 ) : (
                   <div
-                    ref={mapRef}
+                    ref={mobileMapRef}
                     className="w-full h-[500px]"
                     style={{ minHeight: '500px' }}
                   />
