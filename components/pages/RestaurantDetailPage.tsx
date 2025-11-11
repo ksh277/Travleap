@@ -255,29 +255,54 @@ export function RestaurantDetailPage() {
       return;
     }
 
+    if (!restaurant) {
+      toast.error('식당 정보를 찾을 수 없습니다');
+      return;
+    }
+
     try {
-      const response = await fetch('/api/food/reservations', {
+      const userName = localStorage.getItem('user_name') || 'Guest';
+      const userEmail = localStorage.getItem('user_email') || '';
+      const userPhone = localStorage.getItem('user_phone') || '';
+
+      const response = await fetch('/api/food/book', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
-          restaurant_id: restaurant?.id,
+          listing_id: restaurant.id,
+          user_email: userEmail,
+          user_name: userName,
+          user_phone: userPhone,
           reservation_date: reservationDate,
           reservation_time: reservationTime,
           party_size: partySize,
-          special_requests: ''
+          special_requests: '',
+          total_amount: 0  // 예약만 하는 경우 0원
         })
       });
 
       const result = await response.json();
 
       if (result.success) {
-        toast.success('예약이 완료되었습니다!');
-        navigate('/mypage', { state: { tab: 'reservations' } });
+        toast.success('예약이 생성되었습니다!');
+
+        // 결제 페이지로 이동 (예약 확정용)
+        const bookingData = result.data;
+        navigate(
+          `/payment?` +
+          `bookingId=${bookingData.booking_id}&` +
+          `bookingNumber=${bookingData.booking_number}&` +
+          `amount=0&` +
+          `title=${encodeURIComponent(`${restaurant.name} 예약`)}&` +
+          `customerName=${encodeURIComponent(userName)}&` +
+          `customerEmail=${encodeURIComponent(userEmail)}&` +
+          `category=food`
+        );
       } else {
-        toast.error(result.message || '예약에 실패했습니다');
+        toast.error(result.error || result.message || '예약에 실패했습니다');
       }
     } catch (error) {
       console.error('예약 오류:', error);

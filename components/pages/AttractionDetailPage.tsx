@@ -98,57 +98,69 @@ export function AttractionDetailPage() {
   const handlePurchase = async () => {
     if (!attraction) return;
 
-    const tickets = [];
-    if (adultCount > 0) tickets.push({ type: 'adult', count: adultCount });
-    if (childCount > 0) tickets.push({ type: 'child', count: childCount });
-    if (seniorCount > 0) tickets.push({ type: 'senior', count: seniorCount });
-    if (infantCount > 0) tickets.push({ type: 'infant', count: infantCount });
+    const totalCount = adultCount + childCount + seniorCount + infantCount;
 
-    if (tickets.length === 0) {
+    if (totalCount === 0) {
       toast.error('최소 1매 이상 선택해주세요');
       return;
     }
 
     try {
-      // 주문 생성 API 호출
-      const response = await fetch('/api/attractions/orders', {
+      const userName = localStorage.getItem('user_name') || 'Guest';
+      const userEmail = localStorage.getItem('user_email') || '';
+      const userPhone = localStorage.getItem('user_phone') || '';
+      const totalAmount = calculateTotal();
+
+      // 특별 요청사항에 티켓 상세 정보 추가
+      const ticketDetails = [];
+      if (adultCount > 0) ticketDetails.push(`성인 ${adultCount}명`);
+      if (childCount > 0) ticketDetails.push(`어린이 ${childCount}명`);
+      if (seniorCount > 0) ticketDetails.push(`경로 ${seniorCount}명`);
+      if (infantCount > 0) ticketDetails.push(`유아 ${infantCount}명`);
+      const specialRequests = `티켓: ${ticketDetails.join(', ')}`;
+
+      // 예약 생성 API 호출
+      const response = await fetch('/api/attractions/book', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
-          attraction_id: attraction.id,
+          listing_id: attraction.id,
+          user_email: userEmail,
+          user_name: userName,
+          user_phone: userPhone,
           visit_date: visitDate,
-          tickets
+          num_adults: adultCount,
+          num_children: childCount,
+          special_requests: specialRequests,
+          total_amount: totalAmount
         })
       });
 
       const result = await response.json();
 
       if (!result.success) {
-        toast.error(result.message || '주문 생성에 실패했습니다');
+        toast.error(result.error || result.message || '예약 생성에 실패했습니다');
         return;
       }
 
       // 결제 페이지로 이동
-      const orderData = result.data;
-      const totalAmount = orderData.total_amount;
-      const userName = localStorage.getItem('user_name') || 'Guest';
-      const userEmail = localStorage.getItem('user_email') || '';
+      const bookingData = result.data;
 
       navigate(
         `/payment?` +
-        `bookingId=${orderData.order_id}&` +
-        `bookingNumber=${orderData.order_number}&` +
-        `amount=${totalAmount}&` +
+        `bookingId=${bookingData.booking_id}&` +
+        `bookingNumber=${bookingData.booking_number}&` +
+        `amount=${bookingData.total_amount}&` +
         `title=${encodeURIComponent(`${attraction.name} 입장권`)}&` +
         `customerName=${encodeURIComponent(userName)}&` +
         `customerEmail=${encodeURIComponent(userEmail)}&` +
-        `category=attraction`
+        `category=attractions`
       );
 
-      toast.success('주문이 생성되었습니다!');
+      toast.success('예약이 생성되었습니다!');
 
     } catch (error) {
       console.error('티켓 구매 오류:', error);

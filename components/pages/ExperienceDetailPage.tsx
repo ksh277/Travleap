@@ -118,39 +118,53 @@ export function ExperienceDetailPage() {
     }
 
     try {
+      const userName = localStorage.getItem('user_name') || 'Guest';
+      const userEmail = localStorage.getItem('user_email') || '';
+      const userPhone = localStorage.getItem('user_phone') || '';
+      const totalAmount = calculateTotal();
+
+      // 특별 요청사항 구성
+      const specialRequests = [];
+      specialRequests.push(`강사: ${selectedSlot.instructor_name}`);
+      if (equipmentRental) {
+        specialRequests.push('장비 대여 포함');
+      }
+
       // 예약 생성 API 호출
-      const response = await fetch('/api/experience/bookings', {
+      const response = await fetch('/api/experience/book', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
-          experience_id: experience.id,
-          slot_id: selectedSlot.id,
-          participant_count: participantCount,
-          equipment_rental: equipmentRental
+          listing_id: experience.id,
+          user_email: userEmail,
+          user_name: userName,
+          user_phone: userPhone,
+          experience_date: selectedSlot.date,
+          experience_time: selectedSlot.start_time,
+          num_participants: participantCount,
+          special_requests: specialRequests.join(', '),
+          total_amount: totalAmount
         })
       });
 
       const result = await response.json();
 
       if (!result.success) {
-        toast.error(result.message || '예약 생성에 실패했습니다');
+        toast.error(result.error || result.message || '예약 생성에 실패했습니다');
         return;
       }
 
       // 결제 페이지로 이동
       const bookingData = result.data;
-      const totalAmount = bookingData.total_amount;
-      const userName = localStorage.getItem('user_name') || 'Guest';
-      const userEmail = localStorage.getItem('user_email') || '';
 
       navigate(
         `/payment?` +
         `bookingId=${bookingData.booking_id}&` +
         `bookingNumber=${bookingData.booking_number}&` +
-        `amount=${totalAmount}&` +
+        `amount=${bookingData.total_amount}&` +
         `title=${encodeURIComponent(`${experience.name} 체험`)}&` +
         `customerName=${encodeURIComponent(userName)}&` +
         `customerEmail=${encodeURIComponent(userEmail)}&` +
