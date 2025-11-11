@@ -99,9 +99,18 @@ export function HotelDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
 
-  // 예약 폼 상태
-  const [checkIn, setCheckIn] = useState<Date>();
-  const [checkOut, setCheckOut] = useState<Date>();
+  // 예약 폼 상태 (기본값: 오늘 체크인, 내일 체크아웃)
+  const [checkIn, setCheckIn] = useState<Date>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
+  const [checkOut, setCheckOut] = useState<Date>(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    return tomorrow;
+  });
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [nearbyHotels, setNearbyHotels] = useState<any[]>([]);
 
