@@ -47,6 +47,7 @@ import { BannerManagement } from './admin/BannerManagement';
 import { AdminSystemSettings } from './admin/tabs/AdminSystemSettings';
 import { AdminSettlements } from './admin/tabs/AdminSettlements';
 import { AdminActivityLogs } from './admin/tabs/AdminActivityLogs';
+import { AdminInsurance } from './admin/tabs/AdminInsurance';
 import { PointAdjustmentDialog } from './admin/PointAdjustmentDialog';
 import { ShippingManagementDialog } from './ShippingManagementDialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -2581,11 +2582,12 @@ export function AdminPage({}: AdminPageProps) {
       <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
         <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
           <div className="space-y-2">
-            <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full">
+            <TabsList className="grid grid-cols-4 md:grid-cols-9 w-full">
               <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
               <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
               <TabsTrigger value="accommodation" className="text-xs md:text-sm">숙박 관리</TabsTrigger>
               <TabsTrigger value="rentcar" className="text-xs md:text-sm">렌트카 관리</TabsTrigger>
+              <TabsTrigger value="insurance" className="text-xs md:text-sm">보험 관리</TabsTrigger>
               <TabsTrigger value="banners" className="text-xs md:text-sm">배너 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
@@ -4481,6 +4483,11 @@ export function AdminPage({}: AdminPageProps) {
           {/* 렌트카 관리 탭 */}
           <TabsContent value="rentcar" className="space-y-6">
             <RentcarManagement />
+          </TabsContent>
+
+          {/* 보험 관리 탭 */}
+          <TabsContent value="insurance" className="space-y-6">
+            <AdminInsurance />
           </TabsContent>
 
           {/* 배너 관리 탭 */}

@@ -3360,10 +3360,14 @@ export const api = {
     // 사용자 삭제
     deleteUser: async (userId: number): Promise<ApiResponse<null>> => {
       try {
+        // 🔒 STAGE 2 FIX: Authorization 헤더 추가
+        const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+
         const response = await fetch(`/api/admin/delete-user?userId=${userId}`, {
           method: 'DELETE',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
           }
         });
 

@@ -70,6 +70,7 @@ async function handler(req, res) {
           p.amount,
           p.payment_status,
           p.notes,
+          p.user_id,
           b.delivery_status,
           b.booking_number as order_number
         FROM payments p
@@ -87,6 +88,7 @@ async function handler(req, res) {
           p.amount,
           p.payment_status,
           p.notes,
+          p.user_id,
           NULL as delivery_status,
           NULL as category,
           p.gateway_transaction_id as order_number
@@ -217,18 +219,23 @@ async function handler(req, res) {
     if (refundResult.success) {
       console.log(`✅ [Admin Refund] 환불 완료: ${refundResult.refundAmount || amount}원`);
 
-      // 감사 로그 저장 (admin_audit_logs)
+      // 🔒 STAGE 2 FIX: 감사 로그 저장 (admin_audit_logs) - IP 추출 개선 + 대상 사용자 정보 추가
       try {
         const adminId = req.user.id;
-        const ipAddress = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.connection?.remoteAddress || 'unknown';
+        // IP 주소 추출 개선: 프록시 체인의 첫 번째 IP만 가져오기
+        const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+                         req.headers['x-real-ip'] ||
+                         req.connection?.remoteAddress ||
+                         'unknown';
         const userAgent = req.headers['user-agent'] || 'unknown';
 
         await connection.execute(
           `INSERT INTO admin_audit_logs
-           (admin_id, action, target_type, target_id, details, ip_address, user_agent)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+           (admin_id, admin_email, action, target_type, target_id, details, ip_address, user_agent, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
           [
             adminId,
+            req.user.email,
             'refund',
             bookingId ? 'booking' : 'order',
             bookingId || orderId,
@@ -240,7 +247,9 @@ async function handler(req, res) {
               delivery_status: actualDeliveryStatus,
               category: category,
               toss_success: refundResult.tossRefundSuccess || false,
-              admin_email: req.user.email
+              target_user_id: result.rows[0].user_id,
+              order_number: result.rows[0].order_number,
+              result: 'success'
             }),
             ipAddress,
             userAgent
@@ -279,6 +288,47 @@ async function handler(req, res) {
         fullResult: refundResult
       });
 
+      // 🔒 STAGE 2 FIX: 실패 케이스도 audit logging 추가
+      try {
+        const adminId = req.user.id;
+        const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+                         req.headers['x-real-ip'] ||
+                         req.connection?.remoteAddress ||
+                         'unknown';
+        const userAgent = req.headers['user-agent'] || 'unknown';
+
+        await connection.execute(
+          `INSERT INTO admin_audit_logs
+           (admin_id, admin_email, action, target_type, target_id, details, ip_address, user_agent, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          [
+            adminId,
+            req.user.email,
+            'refund_failed',
+            bookingId ? 'booking' : 'order',
+            bookingId || orderId,
+            JSON.stringify({
+              payment_key: paymentKey,
+              original_amount: amount,
+              cancel_reason: cancelReason,
+              delivery_status: actualDeliveryStatus,
+              category: category,
+              target_user_id: result.rows[0].user_id,
+              order_number: result.rows[0].order_number,
+              result: 'failed',
+              error_message: refundResult.message,
+              error_code: refundResult.code
+            }),
+            ipAddress,
+            userAgent
+          ]
+        );
+
+        console.log(`📝 [Admin Audit] 환불 실패 로그 저장 완료`);
+      } catch (auditError) {
+        console.error('⚠️ [Admin Audit] 실패 로그 저장 실패:', auditError.message);
+      }
+
       return res.status(400).json({
         success: false,
         message: refundResult.message || '환불 처리에 실패했습니다.',
@@ -288,6 +338,43 @@ async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ [Admin Refund] API error:', error);
+
+    // 🔒 STAGE 2 FIX: 에러 케이스도 audit logging 추가
+    try {
+      const connection2 = connect({ url: process.env.DATABASE_URL });
+      const adminId = req.user?.id;
+      const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+                       req.headers['x-real-ip'] ||
+                       req.connection?.remoteAddress ||
+                       'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+
+      await connection2.execute(
+        `INSERT INTO admin_audit_logs
+         (admin_id, admin_email, action, target_type, target_id, details, ip_address, user_agent, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [
+          adminId || 0,
+          req.user?.email || 'unknown',
+          'refund_error',
+          bookingId ? 'booking' : 'order',
+          bookingId || orderId || 0,
+          JSON.stringify({
+            cancel_reason: cancelReason,
+            result: 'error',
+            error_message: error.message,
+            error_stack: error.stack?.substring(0, 500)
+          }),
+          ipAddress,
+          userAgent
+        ]
+      );
+
+      console.log(`📝 [Admin Audit] 환불 에러 로그 저장 완료`);
+    } catch (auditError) {
+      console.error('⚠️ [Admin Audit] 에러 로그 저장 실패:', auditError.message);
+    }
+
     return res.status(500).json({
       success: false,
       message: error.message || '환불 처리 중 오류가 발생했습니다.'

@@ -976,8 +976,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
         <HomeBanner autoSlideInterval={5000} />
       </section>
 
-      {/* 주변 숙소 - 주석 처리 (Toss 심사용) */}
-      {/* <div className="container mx-auto px-4 py-12 md:py-16">
+      {/* 주변 숙소 */}
+      <div className="container mx-auto px-4 py-12 md:py-16">
         <section>
           <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 mb-6 md:mb-8">주변 숙소 보기</h2>
           {loading ? (
@@ -1013,10 +1013,10 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
             </div>
           )}
         </section>
-      </div> */}
+      </div>
 
-      {/* 인기 상품 보기 (팝업 카테고리) */}
-      <div className="container mx-auto px-4 py-12 md:py-16">
+      {/* 인기 상품 보기 (팝업 카테고리) - 주석 처리 */}
+      {/* <div className="container mx-auto px-4 py-12 md:py-16">
         <section>
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <div className="flex items-center gap-3">
@@ -1041,7 +1041,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
             </div>
           ) : featuredListings.length > 0 ? (
             <>
-              {/* 모바일: 좌우 스크롤 */}
+              {/* 모바일: 좌우 스크롤 *}
               <div className="lg:hidden overflow-x-auto scrollbar-hide -mx-4 px-4">
                 <div className="flex gap-4" style={{ width: 'max-content' }}>
                   {featuredListings.slice(0, 8).map((listing) => (
@@ -1050,7 +1050,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                       className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col flex-shrink-0 w-[280px] min-h-[360px]"
                       onClick={() => navigate(`/detail/${listing.id}`)}
                     >
-                      {/* 이미지 */}
+                      {/* 이미지 *}
                       <div className="relative w-full h-48 max-h-48 overflow-hidden flex-shrink-0">
                         <ImageWithFallback
                           src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
@@ -1083,7 +1083,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                         </button>
                       </div>
 
-                      {/* 정보 */}
+                      {/* 정보 *}
                       <CardContent className="p-6 pt-3 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
                         <div className="space-y-3 flex-1">
                           <div className="flex items-start gap-2">
@@ -1118,7 +1118,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                 </div>
               </div>
 
-              {/* 데스크톱: 그리드 레이아웃 */}
+              {/* 데스크톱: 그리드 레이아웃 *}
               <div className="hidden lg:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {featuredListings.slice(0, 8).map((listing) => (
                   <Card
@@ -1126,7 +1126,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                     className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col min-h-[360px]"
                     onClick={() => navigate(`/detail/${listing.id}`)}
                   >
-                    {/* 이미지 */}
+                    {/* 이미지 *}
                     <div className="relative w-full h-48 max-h-48 overflow-hidden flex-shrink-0">
                       <ImageWithFallback
                         src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
@@ -1159,7 +1159,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                       </button>
                     </div>
 
-                    {/* 정보 */}
+                    {/* 정보 *}
                     <CardContent className="p-6 pt-3 flex flex-col flex-1 justify-between bg-white min-h-[180px]">
                       <div className="space-y-3 flex-1">
                         <div className="flex items-start gap-2">
@@ -1212,7 +1212,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
             </div>
           )}
         </section>
-      </div>
+      </div> */}
     </div>
   );
 }
