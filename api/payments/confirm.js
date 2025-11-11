@@ -193,10 +193,12 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     console.log('🔒 [Database] DB 작업 시작');
 
     // 2. orderId로 예약 또는 주문 찾기
-    // orderId는 booking_number (BK-...), RC (렌트카), 또는 ORDER_... 형식
-    const isBooking = orderId.startsWith('BK-');
+    // orderId는 booking_number (BK-, FOOD-, ATR-, EXP-), RC (렌트카), TOUR-, EVT-, 또는 ORDER_... 형식
+    const isBooking = orderId.startsWith('BK-') || orderId.startsWith('FOOD-') || orderId.startsWith('ATR-') || orderId.startsWith('EXP-');
     const isOrder = orderId.startsWith('ORDER_');
     const isRentcar = orderId.startsWith('RC');
+    const isTour = orderId.startsWith('TOUR-');
+    const isEvent = orderId.startsWith('EVT-');
 
     let bookingId = null;
     let orderId_num = null;
@@ -511,14 +513,95 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       );
 
       console.log(`✅ [렌트카] 상태 변경: pending → confirmed (booking_id: ${bookingId})`);
+      categoryName = '렌트카';
+
+    } else if (isTour) {
+      // 투어 예약 (TOUR-로 시작)
+      const tourBookings = await connection.execute(
+        'SELECT * FROM tour_bookings WHERE booking_number = ?',
+        [orderId]
+      );
+
+      if (!tourBookings || !tourBookings.rows || tourBookings.rows.length === 0) {
+        throw new Error('투어 예약을 찾을 수 없습니다.');
+      }
+
+      const tourBooking = tourBookings.rows[0];
+      bookingId = tourBooking.id;
+      userId = tourBooking.user_id;
+
+      // ✅ 금액 검증
+      const expectedAmount = parseFloat(tourBooking.total_price_krw || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원, 차이: ${difference}원`);
+        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${expectedAmount}원, 실제: ${actualAmount}원)`);
+      }
+
+      console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (차이: ${difference}원)`);
+
+      // 3. 투어 예약 상태 변경 (pending → confirmed)
+      await connection.execute(
+        `UPDATE tour_bookings
+         SET status = 'confirmed',
+             payment_status = 'paid',
+             updated_at = NOW()
+         WHERE id = ?`,
+        [bookingId]
+      );
+
+      console.log(`✅ [투어] 상태 변경: pending → confirmed (booking_id: ${bookingId})`);
+      categoryName = '여행';
+
+    } else if (isEvent) {
+      // 이벤트 티켓 (EVT-로 시작)
+      const eventTickets = await connection.execute(
+        'SELECT * FROM event_tickets WHERE ticket_number = ?',
+        [orderId]
+      );
+
+      if (!eventTickets || !eventTickets.rows || eventTickets.rows.length === 0) {
+        throw new Error('이벤트 티켓을 찾을 수 없습니다.');
+      }
+
+      const eventTicket = eventTickets.rows[0];
+      bookingId = eventTicket.id;
+      userId = eventTicket.user_id;
+
+      // ✅ 금액 검증
+      const expectedAmount = parseFloat(eventTicket.total_amount || 0);
+      const actualAmount = parseFloat(amount);
+      const difference = Math.abs(expectedAmount - actualAmount);
+
+      if (difference > 1) {
+        console.error(`❌ [금액 검증 실패] 예상: ${expectedAmount}원, 실제: ${actualAmount}원, 차이: ${difference}원`);
+        throw new Error(`AMOUNT_MISMATCH: 결제 금액이 일치하지 않습니다. (예상: ${expectedAmount}원, 실제: ${actualAmount}원)`);
+      }
+
+      console.log(`✅ [금액 검증] ${actualAmount}원 일치 확인 (차이: ${difference}원)`);
+
+      // 3. 이벤트 티켓 상태 변경 (pending → confirmed)
+      await connection.execute(
+        `UPDATE event_tickets
+         SET status = 'confirmed',
+             payment_status = 'paid',
+             updated_at = NOW()
+         WHERE id = ?`,
+        [bookingId]
+      );
+
+      console.log(`✅ [이벤트] 상태 변경: pending → confirmed (booking_id: ${bookingId})`);
+      categoryName = '행사';
 
     } else {
       throw new Error('올바르지 않은 주문 번호 형식입니다.');
     }
 
     // 4. 결제 정보 기록 (payments 테이블)
-    // ✅ 단일 예약(BK-, RC)만 INSERT, 장바구니(ORDER_)는 이미 UPDATE 완료
-    if (isBooking || isRentcar) {
+    // ✅ 단일 예약(BK-, FOOD-, ATR-, EXP-, RC, TOUR-, EVT-)만 INSERT, 장바구니(ORDER_)는 이미 UPDATE 완료
+    if (isBooking || isRentcar || isTour || isEvent) {
       // ✅ created_at, updated_at은 NOW()를 사용하여 DB에서 직접 생성 (타임존 문제 방지)
       // ✅ payment_method는 Toss API 값을 DB ENUM과 호환되도록 변환
       const normalizedMethod = normalizePaymentMethod(
@@ -528,7 +611,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
       // ✅ notes 생성 (카테고리 정보 포함)
       const paymentNotes = {
-        category: isRentcar ? '렌트카' : (isBooking ? categoryName : '주문')
+        category: categoryName
       };
 
       const paymentInsertResult = await connection.execute(
