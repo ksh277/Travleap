@@ -39,8 +39,18 @@ module.exports = async function handler(req, res) {
         MAX(l.price_from) as max_price,
         (SELECT images FROM listings WHERE partner_id = p.id AND category_id = ? AND is_published = 1 AND is_active = 1 LIMIT 1) as sample_images,
         GROUP_CONCAT(DISTINCT l.location SEPARATOR ', ') as locations,
-        AVG(l.rating_avg) as avg_rating,
-        SUM(l.rating_count) as total_reviews
+        (
+          SELECT AVG(r.rating)
+          FROM reviews r
+          INNER JOIN listings l2 ON r.listing_id = l2.id
+          WHERE l2.partner_id = p.id AND r.is_hidden = 0
+        ) as avg_rating,
+        (
+          SELECT COUNT(*)
+          FROM reviews r
+          INNER JOIN listings l2 ON r.listing_id = l2.id
+          WHERE l2.partner_id = p.id AND r.is_hidden = 0
+        ) as total_reviews
       FROM partners p
       LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = ? AND l.is_published = 1 AND l.is_active = 1
       WHERE p.is_active = 1 AND (p.partner_type = 'lodging' OR p.partner_type IS NULL)

@@ -93,26 +93,8 @@ function AppContent() {
   // REMOVED: Hardcoded admin credentials (security risk)
   // To create an admin account, use: tsx scripts/create-admin.ts
 
-  // Google Maps API 키 로드 (앱 초기화 시 1회)
-  useEffect(() => {
-    const loadGoogleMapsKey = async () => {
-      try {
-        const response = await fetch('/api/config/google-maps-key');
-        const data = await response.json();
-        if (data.success && data.key) {
-          window.__GOOGLE_MAPS_API_KEY__ = data.key;
-          console.log('✅ Google Maps API key loaded successfully');
-        } else {
-          console.warn('⚠️ Google Maps API key not available from server, using build-time env');
-        }
-      } catch (error) {
-        console.error('❌ Failed to load Google Maps API key:', error);
-        console.warn('⚠️ Falling back to build-time environment variable');
-      }
-    };
-
-    loadGoogleMapsKey();
-  }, []);
+  // Google Maps API 키는 getGoogleMapsApiKey() 함수에서 직접 import.meta.env로 읽음
+  // 서버 호출 불필요 (iframe 방식 사용)
 
   // 세션 복원 중일 때 로딩 화면 표시
   if (!sessionRestored) {
