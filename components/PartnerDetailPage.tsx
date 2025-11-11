@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { formatPartnerPrice } from '../utils/price-formatter';
 import { ReservationModal } from './ReservationModal';
 import { useAuth } from '../hooks/useAuth';
+import { getGoogleMapsApiKey } from '../utils/env';
 
 interface Partner {
   id: number;
@@ -96,96 +97,7 @@ export function PartnerDetailPage() {
     }
   }, [partner]);
 
-  // Google Map 초기화
-  useEffect(() => {
-    if (!partner) return;
-
-    const initMap = () => {
-      const container = document.getElementById('map');
-      if (!container) return;
-
-      if (!(window as any).google || !(window as any).google.maps) {
-        console.error('Google Maps API not loaded');
-        container.innerHTML = '<div class="flex items-center justify-center h-full bg-gray-100 text-gray-500"><div class="text-center"><p class="mb-2">지도를 불러올 수 없습니다</p><p class="text-sm">Google Maps API 키를 설정해주세요</p></div></div>';
-        return;
-      }
-
-      // lat/lng가 있으면 바로 사용
-      if (partner.lat && partner.lng) {
-        const position = { lat: partner.lat, lng: partner.lng };
-
-        const map = new google.maps.Map(container, {
-          center: position,
-          zoom: 15,
-        });
-
-        // 마커 표시
-        const marker = new google.maps.Marker({
-          map: map,
-          position: position,
-          title: partner.name,
-        });
-
-        // 인포윈도우 표시
-        const infowindow = new google.maps.InfoWindow({
-          content: `<div style="padding:10px;"><strong>${partner.name}</strong><br/>${partner.address}</div>`
-        });
-        infowindow.open(map, marker);
-
-        marker.addListener('click', () => {
-          infowindow.open(map, marker);
-        });
-      } else if (partner.coordinates) {
-        const [lat, lng] = partner.coordinates.split(',').map(Number);
-        const position = { lat, lng };
-
-        const map = new google.maps.Map(container, {
-          center: position,
-          zoom: 15,
-        });
-
-        const marker = new google.maps.Marker({
-          map: map,
-          position: position,
-          title: partner.name,
-        });
-
-        const infowindow = new google.maps.InfoWindow({
-          content: `<div style="padding:10px;"><strong>${partner.name}</strong><br/>${partner.address}</div>`
-        });
-        infowindow.open(map, marker);
-
-        marker.addListener('click', () => {
-          infowindow.open(map, marker);
-        });
-      } else {
-        // 주소도 좌표도 없으면 기본 위치 (신안군청)
-        const defaultPosition = { lat: 34.8251, lng: 126.1042 };
-        const map = new google.maps.Map(container, {
-          center: defaultPosition,
-          zoom: 11,
-        });
-      }
-    };
-
-    // Google Maps API 로드 확인
-    if ((window as any).google && (window as any).google.maps) {
-      initMap();
-    } else {
-      // Google Maps API 스크립트가 이미 PartnerPage에서 로드되었을 것으로 예상
-      const checkGoogleMaps = setInterval(() => {
-        if ((window as any).google && (window as any).google.maps) {
-          clearInterval(checkGoogleMaps);
-          initMap();
-        }
-      }, 100);
-
-      // 10초 후 타임아웃
-      setTimeout(() => {
-        clearInterval(checkGoogleMaps);
-      }, 10000);
-    }
-  }, [partner]);
+  // Google Map은 이제 iframe 방식으로 렌더링 (JavaScript API 초기화 불필요)
 
   // 거리 계산 함수 (Haversine formula)
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -649,7 +561,44 @@ export function PartnerDetailPage() {
                   <MapPin className="h-5 w-5" />
                   <span className="text-sm">{partner.location}</span>
                 </div>
-                <div id="map" className="w-full h-[400px] bg-gray-100 rounded-lg"></div>
+                <div className="w-full h-[400px] bg-gray-100 rounded-lg overflow-hidden relative">
+                  {(() => {
+                    const apiKey = getGoogleMapsApiKey();
+                    console.log('🗺️ [Partner] Google Maps API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
+                    return apiKey;
+                  })() ? (
+                    <iframe
+                      src={
+                        partner.lat && partner.lng
+                          ? `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${partner.lat},${partner.lng}&zoom=15&maptype=roadmap&language=ko`
+                          : partner.coordinates
+                          ? `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${partner.coordinates}&zoom=15&maptype=roadmap&language=ko`
+                          : `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent(partner.address + ', ' + partner.location)}&zoom=14&maptype=roadmap&language=ko`
+                      }
+                      className="w-full h-full border-0"
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title={`${partner.name} 위치 지도`}
+                      onLoad={() => {
+                        console.log('✅ [Partner] Google Maps iframe loaded successfully');
+                      }}
+                      onError={(e) => {
+                        console.error('❌ [Partner] Google Maps iframe 로드 실패:', e);
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                      <div className="text-center p-6">
+                        <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h4 className="text-lg font-semibold text-gray-800 mb-2">지도를 로드할 수 없습니다</h4>
+                        <p className="text-sm text-gray-600">
+                          Google Maps API 키를 확인해주세요.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Reviews Section */}
