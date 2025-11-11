@@ -238,22 +238,22 @@ export function Header({
                         {item.name}
                         <ChevronDown className="w-3 h-3 ml-1" />
                       </button>
-                      {/* 드롭다운 메뉴 */}
-                      <div className="absolute top-full left-0 mt-2 w-[220px] bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                        <div className="grid grid-cols-1 gap-3 p-4">
+                      {/* 드롭다운 메뉴 - 2행 4열 */}
+                      <div className="absolute top-full left-0 mt-2 w-[580px] bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        <div className="grid grid-cols-4 gap-2 p-4">
                           {categories.map((category) => (
                             <button
                               key={category.id}
-                              className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-gray-50 cursor-pointer text-left"
+                              className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-gray-50 cursor-pointer text-center"
                               onClick={() =>
                                 navigate(`/category/${category.id}`)
                               }
                             >
-                              <div className="flex items-center space-x-2">
-                                <span className="text-lg">
+                              <div className="flex flex-col items-center space-y-1">
+                                <span className="text-2xl">
                                   {category.icon}
                                 </span>
-                                <div className="leading-none text-sm font-medium">
+                                <div className="leading-none text-xs font-medium">
                                   {category.name}
                                 </div>
                               </div>
