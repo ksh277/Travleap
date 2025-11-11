@@ -32,7 +32,9 @@ async function handler(req, res) {
   }
 
   // 인증 확인 (withAuth 미들웨어에서 설정)
+  console.log('🔐 [Upload] Auth check - req.user:', req.user ? 'EXISTS' : 'NULL');
   if (!req.user) {
+    console.error('❌ [Upload] No user in request - auth failed');
     return res.status(401).json({
       success: false,
       message: '로그인이 필요합니다.'
@@ -41,6 +43,7 @@ async function handler(req, res) {
 
   try {
     const contentType = req.headers['content-type'] || '';
+    console.log('📋 [Upload] Content-Type:', contentType);
 
     // JSON (base64) 방식 - ImageUploader용 (차량 이미지)
     if (contentType.includes('application/json')) {
@@ -77,13 +80,24 @@ async function handler(req, res) {
       const categoryPath = category || 'rentcar';
       const blobFilename = `${categoryPath}/${timestamp}-${randomString}.${ext}`;
 
-      // Vercel Blob에 업로드
-      const blob = await put(blobFilename, buffer, {
-        access: 'public',
-        addRandomSuffix: false,
-      });
+      console.log('📤 [Upload] Uploading to Vercel Blob...');
+      console.log('  Filename:', blobFilename);
+      console.log('  Size:', buffer.length, 'bytes');
+      console.log('  BLOB_READ_WRITE_TOKEN:', process.env.BLOB_READ_WRITE_TOKEN ? 'EXISTS' : 'MISSING');
 
-      console.log('✅ Blob 업로드 성공 (base64):', blob.url, `(user: ${req.user.id})`);
+      // Vercel Blob에 업로드
+      let blob;
+      try {
+        blob = await put(blobFilename, buffer, {
+          access: 'public',
+          addRandomSuffix: false,
+        });
+
+        console.log('✅ Blob 업로드 성공 (base64):', blob.url, `(user: ${req.user.id})`);
+      } catch (blobError) {
+        console.error('❌ [Upload] Vercel Blob upload failed:', blobError);
+        throw new Error('Vercel Blob 업로드 실패: ' + blobError.message);
+      }
 
       return res.status(200).json({
         success: true,

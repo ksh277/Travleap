@@ -101,12 +101,11 @@ export function ImageUploader({
           }
         } else {
           const errorData = await response.json().catch(() => ({ message: '업로드 실패' }));
-          console.error('❌ [ImageUploader] Upload failed:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorData
-          });
-          toast.error(`${file.name} 업로드 실패: ${errorData.message || '알 수 없는 오류'}`);
+          console.error('❌ [ImageUploader] Upload failed:');
+          console.error('  Status:', response.status, response.statusText);
+          console.error('  Error Data:', JSON.stringify(errorData, null, 2));
+          console.error('  Full response headers:', Array.from(response.headers.entries()));
+          toast.error(`${file.name} 업로드 실패: ${errorData.message || errorData.error || '알 수 없는 오류'}`);
         }
 
         setUploadProgress(((i + 1) / files.length) * 100);
