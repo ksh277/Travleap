@@ -1188,7 +1188,7 @@ export function DetailPage() {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 text-sm md:text-base text-gray-600">
                       <div className="flex items-center space-x-1">
                         <MapPin className="h-4 w-4 flex-shrink-0" />
-                        <span>{item.location}</span>
+                        <span>{item.address || item.location}</span>
                       </div>
                       {item.duration && (
                         <div className="flex items-center space-x-1">
@@ -1404,9 +1404,9 @@ export function DetailPage() {
                     <div className="space-y-6">
                       <div>
                         <h4 className="mb-2 font-medium">주소</h4>
-                        <p className="text-gray-700">{item.location}</p>
-                        {item.address && (
-                          <p className="text-gray-600 text-sm mt-1">{item.address}</p>
+                        <p className="text-gray-700">{item.address || item.location}</p>
+                        {item.address && item.location && item.address !== item.location && (
+                          <p className="text-gray-600 text-sm mt-1">({item.location})</p>
                         )}
                       </div>
 
