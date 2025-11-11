@@ -19,11 +19,24 @@ export default defineConfig({
     alias: {
       '@': '/src',
       // Prevent frontend from importing backend-only files that use database.js
+      // Use absolute paths for better matching
+      '@/utils/rentcar-api': '/utils/rentcar-api-stub.ts',
+      '@/utils/pms-integrations': '/utils/pms-integrations-stub.ts',
+      '@/utils/pms-integration': '/utils/pms-integration-stub.ts',
+      '@/utils/test-lock': '/utils/test-lock-stub.ts',
+      '@/utils/notification': '/utils/notification-stub.ts',
+      // Also match relative imports from components directory
       '../utils/rentcar-api': '/utils/rentcar-api-stub.ts',
       '../utils/pms-integrations': '/utils/pms-integrations-stub.ts',
       '../utils/pms-integration': '/utils/pms-integration-stub.ts',
       '../utils/test-lock': '/utils/test-lock-stub.ts',
       '../utils/notification': '/utils/notification-stub.ts',
+      // Match from nested admin components (../../utils/)
+      '../../utils/rentcar-api': '/utils/rentcar-api-stub.ts',
+      '../../utils/pms-integrations': '/utils/pms-integrations-stub.ts',
+      '../../utils/pms-integration': '/utils/pms-integration-stub.ts',
+      '../../utils/test-lock': '/utils/test-lock-stub.ts',
+      '../../utils/notification': '/utils/notification-stub.ts',
     },
   },
   optimizeDeps: {

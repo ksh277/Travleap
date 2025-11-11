@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
-import { rentcarApi } from '../utils/rentcar-api';
+import { rentcarApi } from '../utils/rentcar-api-stub';
 import { useAuth } from '../hooks/useAuth';
 import { notifyDataChange, refreshAllData, useRealTimeData } from '../hooks/useRealTimeData';
 import { getGoogleMapsApiKey } from '../utils/env';

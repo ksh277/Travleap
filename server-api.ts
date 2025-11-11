@@ -8681,6 +8681,20 @@ function setupRoutes() {
     }
   });
 
+  // Get all vehicles (with optional filters)
+  app.get('/api/rentcar/vehicles', async (req, res) => {
+    try {
+      const vehiclesAPI = await import('./api/rentcar/vehicles.js');
+      await vehiclesAPI.default(req as any, res as any);
+    } catch (error) {
+      console.error('❌ [API] Get vehicles error:', error);
+      res.status(500).json({
+        success: false,
+        message: '차량 목록 조회 중 오류가 발생했습니다'
+      });
+    }
+  });
+
   // Get vehicle by ID
   app.get('/api/rentcar/vehicles/:id', async (req, res) => {
     try {

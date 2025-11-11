@@ -27,7 +27,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { rentcarApi } from '../../utils/rentcar-api';
+import { rentcarApi } from '../../utils/rentcar-api-stub';
 import type {
   RentcarVendor,
   RentcarRatePlan,
