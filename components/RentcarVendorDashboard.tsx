@@ -28,15 +28,24 @@ interface RentcarBooking {
   customer_name: string;
   customer_phone: string;
   driver_name: string;
+  driver_birth?: string;  // 생년월일
   driver_license_no: string;
   pickup_at_utc: string;
   return_at_utc: string;
+  actual_pickup_at?: string;  // 실제 픽업 시간
   actual_return_at_utc?: string;
   pickup_location: string;
   total_price_krw: number;
   late_return_hours?: number;
   late_return_fee_krw?: number;
   voucher_code?: string;
+  pickup_vehicle_condition?: {
+    condition: string;
+    fuel_level: string;
+    mileage: number;
+    damage_notes: string;
+    images: string[];
+  };
   extras?: Array<{
     extra_id: number;
     name: string;
@@ -69,6 +78,9 @@ export default function RentcarVendorDashboard() {
   const [fuelLevel, setFuelLevel] = useState('');
   const [mileage, setMileage] = useState('');
   const [damageNotes, setDamageNotes] = useState('');
+  const [actualPickupTime, setActualPickupTime] = useState('');  // 실제 픽업 시간
+  const [pickupImages, setPickupImages] = useState<string[]>([]);  // 픽업 시 이미지
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Check-out state
   const [checkOutBooking, setCheckOutBooking] = useState<RentcarBooking | null>(null);
@@ -486,6 +498,49 @@ export default function RentcarVendorDashboard() {
     }
   };
 
+  // 이미지 업로드 핸들러
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingImage(true);
+
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch('/api/upload-image', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.url) {
+          uploadedUrls.push(result.url);
+        } else {
+          console.error('이미지 업로드 실패:', result.error);
+        }
+      }
+
+      setPickupImages([...pickupImages, ...uploadedUrls]);
+      alert(`${uploadedUrls.length}개 이미지가 업로드되었습니다.`);
+    } catch (err: any) {
+      alert('이미지 업로드 중 오류가 발생했습니다: ' + err.message);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // 이미지 삭제 핸들러
+  const removeImage = (index: number) => {
+    setPickupImages(pickupImages.filter((_, i) => i !== index));
+  };
+
   // Perform check-in
   const performCheckIn = async () => {
     if (!checkInBooking) return;
@@ -498,19 +553,31 @@ export default function RentcarVendorDashboard() {
     setLoading(true);
 
     try {
+      const requestBody: any = {
+        booking_number: checkInBooking.booking_number,
+        vehicle_condition: vehicleCondition,
+        fuel_level: fuelLevel,
+        mileage: parseInt(mileage),
+        damage_notes: damageNotes || ''
+      };
+
+      // 실제 픽업 시간이 입력된 경우 추가
+      if (actualPickupTime) {
+        requestBody.actual_pickup_time = new Date(actualPickupTime).toISOString();
+      }
+
+      // 이미지가 있는 경우 추가
+      if (pickupImages.length > 0) {
+        requestBody.pickup_images = pickupImages;
+      }
+
       const response = await fetch(`/api/rentcar/check-in`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
-        body: JSON.stringify({
-          booking_number: checkInBooking.booking_number,
-          vehicle_condition: vehicleCondition,
-          fuel_level: fuelLevel,
-          mileage: parseInt(mileage),
-          damage_notes: damageNotes || ''
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const result = await response.json();
@@ -523,6 +590,8 @@ export default function RentcarVendorDashboard() {
         setFuelLevel('');
         setMileage('');
         setDamageNotes('');
+        setActualPickupTime('');
+        setPickupImages([]);
         setActiveTab('today');
         fetchTodayBookings();
       } else {
@@ -793,6 +862,9 @@ export default function RentcarVendorDashboard() {
                             <p className="text-sm text-gray-600">전화: <span className="font-medium">{booking.customer_phone}</span></p>
                             <p className="text-sm text-gray-600">운전자: <span className="font-medium">{booking.driver_name}</span></p>
                             <p className="text-sm text-gray-600">면허: <span className="font-medium">{booking.driver_license_no}</span></p>
+                            {booking.driver_birth && (
+                              <p className="text-sm text-gray-600">생년월일: <span className="font-medium">{booking.driver_birth}</span></p>
+                            )}
                           </div>
 
                           {/* 결제 정보 */}
@@ -979,6 +1051,9 @@ export default function RentcarVendorDashboard() {
                       <p><span className="font-medium">고객:</span> {checkInBooking.customer_name} ({checkInBooking.customer_phone})</p>
                       <p><span className="font-medium">운전자:</span> {checkInBooking.driver_name}</p>
                       <p><span className="font-medium">면허:</span> {checkInBooking.driver_license_no}</p>
+                      {checkInBooking.driver_birth && (
+                        <p><span className="font-medium">생년월일:</span> {checkInBooking.driver_birth}</p>
+                      )}
                       <p><span className="font-medium">차량 번호:</span> {checkInBooking.vehicle_code}</p>
                       <p className="col-span-2">
                         <span className="font-medium">인수 예정:</span>{' '}
@@ -1055,6 +1130,59 @@ export default function RentcarVendorDashboard() {
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        실제 픽업 시간 (선택)
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={actualPickupTime}
+                        onChange={(e) => setActualPickupTime(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * 입력하지 않으면 현재 시간으로 자동 기록됩니다
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        차량 상태 이미지 (선택)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageUpload}
+                        disabled={uploadingImage}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * 차량 외관, 파손 부위 등을 촬영하여 업로드하세요
+                      </p>
+                      {uploadingImage && (
+                        <p className="text-sm text-blue-600 mt-2">이미지 업로드 중...</p>
+                      )}
+                      {pickupImages.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-sm font-medium text-gray-700">업로드된 이미지 ({pickupImages.length}개):</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {pickupImages.map((url, idx) => (
+                              <div key={idx} className="relative">
+                                <img src={url} alt={`차량 이미지 ${idx + 1}`} className="w-full h-24 object-cover rounded border" />
+                                <button
+                                  onClick={() => removeImage(idx)}
+                                  className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-700"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex gap-3 pt-4">
                       <button
                         onClick={() => {
@@ -1063,6 +1191,8 @@ export default function RentcarVendorDashboard() {
                           setFuelLevel('');
                           setMileage('');
                           setDamageNotes('');
+                          setActualPickupTime('');
+                          setPickupImages([]);
                           setActiveTab('today');
                         }}
                         className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
@@ -1071,7 +1201,7 @@ export default function RentcarVendorDashboard() {
                       </button>
                       <button
                         onClick={performCheckIn}
-                        disabled={loading || !vehicleCondition || !fuelLevel || !mileage}
+                        disabled={loading || uploadingImage || !vehicleCondition || !fuelLevel || !mileage}
                         className="flex-1 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
                       >
                         {loading ? '처리 중...' : '체크인 완료'}

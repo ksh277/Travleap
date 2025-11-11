@@ -6,10 +6,12 @@ const jwt = require('jsonwebtoken');
  * POST /api/rentcar/check-in
  * Body: {
  *   booking_number: string,
- *   vehicle_condition: string,
- *   fuel_level: string,
+ *   vehicle_condition: string (good/fair/damaged),
+ *   fuel_level: string (0-100),
  *   mileage: number,
- *   damage_notes?: string
+ *   damage_notes?: string,
+ *   actual_pickup_time?: string (ISO datetime, 입력하지 않으면 현재 시간 사용),
+ *   pickup_images?: string[] (차량 상태/파손 이미지 URL 배열)
  * }
  */
 module.exports = async function handler(req, res) {
@@ -44,7 +46,15 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ success: false, message: '벤더 권한이 필요합니다.' });
     }
 
-    const { booking_number, vehicle_condition, fuel_level, mileage, damage_notes } = req.body;
+    const {
+      booking_number,
+      vehicle_condition,
+      fuel_level,
+      mileage,
+      damage_notes,
+      actual_pickup_time,  // 실제 픽업 시간 (옵션)
+      pickup_images        // 픽업 시 차량 이미지 배열 (옵션)
+    } = req.body;
 
     if (!booking_number || !vehicle_condition || !fuel_level || !mileage) {
       return res.status(400).json({ success: false, message: '필수 항목을 모두 입력해주세요.' });
@@ -69,7 +79,7 @@ module.exports = async function handler(req, res) {
     }
 
     const bookingResult = await connection.execute(
-      'SELECT id, vendor_id, status, payment_status, check_in_at FROM rentcar_bookings WHERE booking_number = ? LIMIT 1',
+      'SELECT id, vendor_id, status, payment_status, pickup_checked_in_at FROM rentcar_bookings WHERE booking_number = ? LIMIT 1',
       [booking_number]
     );
 
@@ -91,29 +101,51 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, message: '결제가 완료된 예약만 체크인할 수 있습니다.' });
     }
 
-    if (booking.check_in_at) {
+    if (booking.pickup_checked_in_at) {
       return res.status(400).json({ success: false, message: '이미 체크인된 예약입니다.' });
     }
 
+    // JSON 형식으로 차량 상태 저장
+    const vehicleConditionData = {
+      condition: vehicle_condition,
+      fuel_level: fuel_level,
+      mileage: parseInt(mileage),
+      damage_notes: damage_notes || '',
+      images: pickup_images || []
+    };
+
+    // 실제 픽업 시간 결정 (입력된 시간이 있으면 사용, 없으면 NOW())
+    const pickupTimeValue = actual_pickup_time || null;
+
     await connection.execute(
       `UPDATE rentcar_bookings
-       SET status = 'in_use',
-           check_in_at = NOW(),
-           vehicle_condition_checkin = ?,
-           fuel_level_checkin = ?,
-           mileage_checkin = ?,
-           damage_notes_checkin = ?,
+       SET status = 'picked_up',
+           pickup_checked_in_at = ${pickupTimeValue ? '?' : 'NOW()'},
+           pickup_vehicle_condition = ?,
+           pickup_checked_in_by = ?,
            updated_at = NOW()
        WHERE id = ?`,
-      [vehicle_condition, fuel_level, mileage, damage_notes || '', booking.id]
+      pickupTimeValue
+        ? [pickupTimeValue, JSON.stringify(vehicleConditionData), decoded.username || decoded.email || 'vendor', booking.id]
+        : [JSON.stringify(vehicleConditionData), decoded.username || decoded.email || 'vendor', booking.id]
     );
 
-    console.log('✅ 체크인 완료:', { bookingId: booking.id, bookingNumber: booking_number });
+    console.log('✅ 체크인 완료:', {
+      bookingId: booking.id,
+      bookingNumber: booking_number,
+      actualPickupTime: pickupTimeValue || 'NOW()',
+      hasImages: (pickup_images && pickup_images.length > 0)
+    });
 
     return res.status(200).json({
       success: true,
       message: '체크인이 완료되었습니다.',
-      data: { booking_id: booking.id, booking_number: booking_number, checked_in_at: new Date().toISOString() }
+      data: {
+        booking_id: booking.id,
+        booking_number: booking_number,
+        checked_in_at: pickupTimeValue || new Date().toISOString(),
+        images_count: pickup_images ? pickup_images.length : 0
+      }
     });
 
   } catch (error) {

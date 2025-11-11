@@ -124,19 +124,16 @@ module.exports = async function handler(req, res) {
         b.customer_phone,
         b.customer_email,
         b.driver_name,
+        b.driver_birth,
         b.driver_license_no,
         b.driver_phone,
         b.status,
         b.payment_status,
         b.voucher_code,
-        b.check_in_at,
-        b.check_out_at,
-        b.vehicle_condition_checkin,
-        b.fuel_level_checkin,
-        b.mileage_checkin,
-        b.vehicle_condition_checkout,
-        b.fuel_level_checkout,
-        b.mileage_checkout,
+        b.pickup_checked_in_at,
+        b.return_checked_out_at,
+        b.pickup_vehicle_condition,
+        b.return_vehicle_condition,
         b.late_return_hours,
         b.late_return_fee_krw,
         b.created_at,
@@ -145,11 +142,10 @@ module.exports = async function handler(req, res) {
         v.image_url as vehicle_image,
         v.license_plate,
         i.name as insurance_name,
-        i.price as insurance_price,
-        i.pricing_unit as insurance_pricing_unit
+        i.hourly_rate_krw as insurance_hourly_rate
       FROM rentcar_bookings b
       LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
-      LEFT JOIN insurances i ON b.insurance_id = i.id AND i.category = 'rentcar'
+      LEFT JOIN rentcar_insurance i ON b.insurance_id = i.id
       WHERE b.vendor_id = ?
         AND b.payment_status = 'paid'
         AND (
@@ -164,46 +160,70 @@ module.exports = async function handler(req, res) {
     console.log(`✅ 오늘 예약 ${result.rows?.length || 0}건 조회 완료`);
 
     // 응답 데이터 포맷팅
-    const bookings = (result.rows || []).map(row => ({
-      id: row.id,
-      booking_number: row.booking_number,
-      status: row.status,
-      vehicle_id: row.vehicle_id,
-      vehicle_model: row.vehicle_model,
-      vehicle_code: row.vehicle_code,
-      vehicle_image: row.vehicle_image,
-      license_plate: row.license_plate,
-      customer_name: row.customer_name,
-      customer_phone: row.customer_phone,
-      customer_email: row.customer_email,
-      driver_name: row.driver_name,
-      driver_license_no: row.driver_license_no,
-      driver_phone: row.driver_phone,
-      pickup_date: row.pickup_date,
-      pickup_time: row.pickup_time,
-      dropoff_date: row.dropoff_date,
-      dropoff_time: row.dropoff_time,
-      // UTC 형식으로 변환 (프론트엔드 호환)
-      pickup_at_utc: `${row.pickup_date}T${row.pickup_time || '09:00:00'}Z`,
-      return_at_utc: `${row.dropoff_date}T${row.dropoff_time || '18:00:00'}Z`,
-      actual_return_at_utc: row.check_out_at,
-      pickup_location: '제주공항', // TODO: 실제 픽업 위치 필드 추가 필요
-      total_price_krw: parseInt(row.total_krw) || 0,
-      insurance_name: row.insurance_name,
-      insurance_fee: parseInt(row.insurance_fee_krw) || 0,
-      late_return_hours: row.late_return_hours,
-      late_return_fee_krw: parseInt(row.late_return_fee_krw) || 0,
-      voucher_code: row.voucher_code,
-      check_in_at: row.check_in_at,
-      check_out_at: row.check_out_at,
-      vehicle_condition_checkin: row.vehicle_condition_checkin,
-      fuel_level_checkin: row.fuel_level_checkin,
-      mileage_checkin: row.mileage_checkin,
-      vehicle_condition_checkout: row.vehicle_condition_checkout,
-      fuel_level_checkout: row.fuel_level_checkout,
-      mileage_checkout: row.mileage_checkout,
-      payment_status: row.payment_status
-    }));
+    const bookings = (result.rows || []).map(row => {
+      // JSON 파싱 (pickup_vehicle_condition, return_vehicle_condition)
+      let pickupCondition = null;
+      let returnCondition = null;
+
+      try {
+        if (row.pickup_vehicle_condition) {
+          pickupCondition = typeof row.pickup_vehicle_condition === 'string'
+            ? JSON.parse(row.pickup_vehicle_condition)
+            : row.pickup_vehicle_condition;
+        }
+      } catch (e) {
+        console.warn('⚠️  pickup_vehicle_condition JSON 파싱 실패:', e);
+      }
+
+      try {
+        if (row.return_vehicle_condition) {
+          returnCondition = typeof row.return_vehicle_condition === 'string'
+            ? JSON.parse(row.return_vehicle_condition)
+            : row.return_vehicle_condition;
+        }
+      } catch (e) {
+        console.warn('⚠️  return_vehicle_condition JSON 파싱 실패:', e);
+      }
+
+      return {
+        id: row.id,
+        booking_number: row.booking_number,
+        status: row.status,
+        vehicle_id: row.vehicle_id,
+        vehicle_model: row.vehicle_model,
+        vehicle_code: row.vehicle_code,
+        vehicle_image: row.vehicle_image,
+        license_plate: row.license_plate,
+        customer_name: row.customer_name,
+        customer_phone: row.customer_phone,
+        customer_email: row.customer_email,
+        driver_name: row.driver_name,
+        driver_birth: row.driver_birth,
+        driver_license_no: row.driver_license_no,
+        driver_phone: row.driver_phone,
+        pickup_date: row.pickup_date,
+        pickup_time: row.pickup_time,
+        dropoff_date: row.dropoff_date,
+        dropoff_time: row.dropoff_time,
+        // UTC 형식으로 변환 (프론트엔드 호환)
+        pickup_at_utc: `${row.pickup_date}T${row.pickup_time || '09:00:00'}Z`,
+        return_at_utc: `${row.dropoff_date}T${row.dropoff_time || '18:00:00'}Z`,
+        actual_pickup_at: row.pickup_checked_in_at,
+        actual_return_at_utc: row.return_checked_out_at,
+        pickup_location: '제주공항', // TODO: 실제 픽업 위치 필드 추가 필요
+        total_price_krw: parseInt(row.total_krw) || 0,
+        insurance_name: row.insurance_name,
+        insurance_fee: parseInt(row.insurance_fee_krw) || 0,
+        late_return_hours: row.late_return_hours,
+        late_return_fee_krw: parseInt(row.late_return_fee_krw) || 0,
+        voucher_code: row.voucher_code,
+        check_in_at: row.pickup_checked_in_at,
+        check_out_at: row.return_checked_out_at,
+        pickup_vehicle_condition: pickupCondition,
+        return_vehicle_condition: returnCondition,
+        payment_status: row.payment_status
+      };
+    });
 
     // 예약 ID 목록 추출
     const bookingIds = bookings.map(b => b.id);
