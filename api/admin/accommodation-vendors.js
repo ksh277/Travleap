@@ -31,11 +31,8 @@ module.exports = async function handler(req, res) {
   try {
     // GET - 모든 숙박 벤더 조회 (partners 테이블에서 partner_type='lodging')
     if (req.method === 'GET') {
-      // Get stay category ID
-      const categoryResult = await connection.execute(`
-        SELECT id FROM categories WHERE slug = 'stay' LIMIT 1
-      `);
-      const categoryId = categoryResult.rows?.[0]?.id || 1857;
+      // Stay category ID (stay slug = 1857)
+      const categoryId = 1857;
 
       const result = await connection.execute(
         `SELECT

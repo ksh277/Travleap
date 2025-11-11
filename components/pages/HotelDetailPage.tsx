@@ -152,7 +152,7 @@ export function HotelDetailPage() {
 
       try {
         // 카테고리 페이지 숙박 데이터 가져오기
-        const response = await api.getCategoryListings('accommodation');
+        const response = await api.getListings({ category: 'accommodation', limit: 50 });
 
         if (response.success && response.data) {
           // 현재 호텔 위치
