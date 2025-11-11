@@ -30,13 +30,29 @@ module.exports = async function handler(req, res) {
         ORDER BY category ASC, created_at DESC`
       );
 
-      const insurances = (result.rows || []).map(row => ({
-        ...row,
-        coverage_details: row.coverage_details ? JSON.parse(row.coverage_details) : { items: [], exclusions: [] },
-        is_active: row.is_active === 1 || row.is_active === true,
-        vendor_id: row.vendor_id || null,
-        vehicle_id: row.vehicle_id || null
-      }));
+      const insurances = (result.rows || []).map(row => {
+        // PlanetScale returns JSON columns as already-parsed objects
+        let coverageDetails = { items: [], exclusions: [] };
+        if (row.coverage_details) {
+          if (typeof row.coverage_details === 'string') {
+            try {
+              coverageDetails = JSON.parse(row.coverage_details);
+            } catch (e) {
+              console.warn('Failed to parse coverage_details:', e);
+            }
+          } else if (typeof row.coverage_details === 'object') {
+            coverageDetails = row.coverage_details;
+          }
+        }
+
+        return {
+          ...row,
+          coverage_details: coverageDetails,
+          is_active: row.is_active === 1 || row.is_active === true,
+          vendor_id: row.vendor_id || null,
+          vehicle_id: row.vehicle_id || null
+        };
+      });
 
       return res.status(200).json({
         success: true,

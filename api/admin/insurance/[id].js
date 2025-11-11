@@ -119,7 +119,22 @@ module.exports = async function handler(req, res) {
       }
 
       const insurance = result.rows[0];
-      insurance.coverage_details = insurance.coverage_details ? JSON.parse(insurance.coverage_details) : { items: [], exclusions: [] };
+
+      // PlanetScale returns JSON columns as already-parsed objects
+      let coverageDetails = { items: [], exclusions: [] };
+      if (insurance.coverage_details) {
+        if (typeof insurance.coverage_details === 'string') {
+          try {
+            coverageDetails = JSON.parse(insurance.coverage_details);
+          } catch (e) {
+            console.warn('Failed to parse coverage_details:', e);
+          }
+        } else if (typeof insurance.coverage_details === 'object') {
+          coverageDetails = insurance.coverage_details;
+        }
+      }
+
+      insurance.coverage_details = coverageDetails;
       insurance.is_active = insurance.is_active === 1 || insurance.is_active === true;
 
       return res.status(200).json({
