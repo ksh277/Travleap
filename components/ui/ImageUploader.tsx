@@ -61,6 +61,11 @@ export function ImageUploader({
 
         // JSON으로 base64 이미지 전송
         const token = localStorage.getItem('auth_token');
+        console.log('🔐 [ImageUploader] Token exists:', !!token);
+        if (token) {
+          console.log('🔑 [ImageUploader] Token preview:', token.substring(0, 20) + '...');
+        }
+
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
         };
@@ -68,7 +73,13 @@ export function ImageUploader({
         // JWT 인증 토큰 추가
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
+        } else {
+          console.error('❌ [ImageUploader] No auth token found in localStorage!');
         }
+
+        console.log('📤 [ImageUploader] Uploading:', file.name, `(${Math.round(file.size / 1024)}KB)`);
+        console.log('🌐 [ImageUploader] Request URL:', '/api/upload-image');
+        console.log('📋 [ImageUploader] Headers:', Object.keys(headers));
 
         const response = await fetch('/api/upload-image', {
           method: 'POST',
@@ -80,13 +91,21 @@ export function ImageUploader({
           })
         });
 
+        console.log('📥 [ImageUploader] Response status:', response.status, response.statusText);
+
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ [ImageUploader] Upload success:', data);
           if (data.success && data.url) {
             uploadedUrls.push(data.url);
           }
         } else {
           const errorData = await response.json().catch(() => ({ message: '업로드 실패' }));
+          console.error('❌ [ImageUploader] Upload failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData
+          });
           toast.error(`${file.name} 업로드 실패: ${errorData.message || '알 수 없는 오류'}`);
         }
 
