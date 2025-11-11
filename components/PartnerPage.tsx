@@ -352,24 +352,36 @@ export function PartnerPage() {
     // Google Maps API 로드
     if (!(window as any).google) {
       const apiKey = getGoogleMapsApiKey();
+      console.log('🔑 Google Maps API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
 
       if (!apiKey) {
-        console.error('Google Maps API key is not configured');
+        console.error('❌ Google Maps API key is not configured');
+        console.error('Environment:', import.meta.env.MODE);
+        console.error('VITE_GOOGLE_MAPS_API_KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'EXISTS' : 'MISSING');
         setMapError(true);
         return;
       }
 
+      console.log('📡 Loading Google Maps JavaScript API...');
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      const scriptUrl = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      console.log('🌐 Script URL:', scriptUrl);
+      script.src = scriptUrl;
       script.async = true;
       script.defer = true;
-      script.onload = initMap;
-      script.onerror = () => {
-        console.error('Failed to load Google Maps API');
+      script.onload = () => {
+        console.log('✅ Google Maps API loaded successfully');
+        initMap();
+      };
+      script.onerror = (error) => {
+        console.error('❌ Failed to load Google Maps API');
+        console.error('Error details:', error);
+        console.error('Script src:', script.src);
         setMapError(true);
       };
       document.head.appendChild(script);
     } else {
+      console.log('✅ Google Maps API already loaded');
       initMap();
     }
   }, []);
@@ -437,26 +449,33 @@ export function PartnerPage() {
 
     // Google Maps API 로드 (아직 로드되지 않았다면)
     if (!(window as any).google) {
-      console.log('📥 Loading Google Maps API...');
+      console.log('📥 [MOBILE] Loading Google Maps API...');
       const apiKey = getGoogleMapsApiKey();
+      console.log('🔑 [MOBILE] Google Maps API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
 
       if (!apiKey) {
-        console.error('❌ Google Maps API key is not configured');
+        console.error('❌ [MOBILE] Google Maps API key is not configured');
+        console.error('[MOBILE] Environment:', import.meta.env.MODE);
+        console.error('[MOBILE] VITE_GOOGLE_MAPS_API_KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'EXISTS' : 'MISSING');
         setMapError(true);
         return;
       }
 
-      console.log('🔑 API Key found:', apiKey.substring(0, 10) + '...');
+      console.log('📡 [MOBILE] Loading Google Maps JavaScript API...');
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      const scriptUrl = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      console.log('🌐 [MOBILE] Script URL:', scriptUrl);
+      script.src = scriptUrl;
       script.async = true;
       script.defer = true;
       script.onload = () => {
-        console.log('✅ Google Maps API loaded');
+        console.log('✅ [MOBILE] Google Maps API loaded successfully');
         initMobileMap();
       };
-      script.onerror = () => {
-        console.error('❌ Failed to load Google Maps API');
+      script.onerror = (error) => {
+        console.error('❌ [MOBILE] Failed to load Google Maps API');
+        console.error('[MOBILE] Error details:', error);
+        console.error('[MOBILE] Script src:', script.src);
         setMapError(true);
       };
       document.head.appendChild(script);
