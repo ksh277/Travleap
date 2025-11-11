@@ -519,6 +519,11 @@ export function PartnerPage() {
 
   // 제휴업체 카드 클릭 핸들러 - 지도에 마커 표시 및 중심 이동
   const handlePartnerClick = (partner: Partner) => {
+    // 모바일에서는 지도 탭으로 전환
+    if (window.innerWidth < 1024) { // lg 브레이크포인트
+      setMobileTab('map');
+    }
+
     if (map) {
       // 지도 중심을 해당 파트너 위치로 이동
       map.setCenter(partner.position);
@@ -817,7 +822,7 @@ export function PartnerPage() {
 
                     <div className="flex items-center justify-between mt-auto pt-2">
                       {partner.price && (
-                        <div className="text-base font-bold text-[#ff6a3d]">
+                        <div className="hidden lg:block text-base font-bold text-[#ff6a3d]">
                           {partner.price}
                         </div>
                       )}
@@ -827,7 +832,7 @@ export function PartnerPage() {
                           e.stopPropagation();
                           navigate(`/partners/${partner.id}`);
                         }}
-                        className={`bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4 ${!partner.price ? 'ml-auto' : ''}`}
+                        className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4 lg:ml-0 ml-auto"
                       >
                         상세보기
                       </Button>
@@ -1099,7 +1104,7 @@ export function PartnerPage() {
 
                     <div className="flex items-center justify-between mt-auto pt-2">
                       {partner.price && (
-                        <div className="text-base font-bold text-[#ff6a3d]">
+                        <div className="hidden lg:block text-base font-bold text-[#ff6a3d]">
                           {partner.price}
                         </div>
                       )}
@@ -1109,7 +1114,7 @@ export function PartnerPage() {
                           e.stopPropagation();
                           navigate(`/partners/${partner.id}`);
                         }}
-                        className={`bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4 ${!partner.price ? 'ml-auto' : ''}`}
+                        className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4 lg:ml-0 ml-auto"
                       >
                         상세보기
                       </Button>
