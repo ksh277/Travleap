@@ -100,26 +100,19 @@ const RentcarDetailPage = () => {
   const loadInsurances = async (vendorId: number) => {
     setLoadingInsurances(true);
     try {
-      // insurances 테이블에서 해당 벤더의 활성 보험 조회
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/admin/insurance', {
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        }
-      });
+      // 공개 렌트카 보험 API 사용 (인증 불필요)
+      const response = await fetch(`/api/rentcar/insurances?vendor_id=${vendorId}`);
       const data = await response.json();
 
       if (data.success) {
-        // rentcar 카테고리 + 활성 + (공용 또는 해당 벤더 전용)
-        const availableInsurances = data.data.filter((ins: Insurance & { category: string; vendor_id: number | null }) =>
-          ins.category === 'rentcar' &&
-          ins.is_active &&
-          (ins.vendor_id === null || ins.vendor_id === vendorId)
-        );
-        setInsurances(availableInsurances);
+        setInsurances(data.data || []);
+      } else {
+        console.error('보험 목록 로드 실패:', data.message);
+        setInsurances([]);
       }
     } catch (error) {
       console.error('보험 목록 로드 실패:', error);
+      setInsurances([]);
     } finally {
       setLoadingInsurances(false);
     }
