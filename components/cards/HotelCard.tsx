@@ -40,7 +40,7 @@ export function HotelCard({ hotel }: HotelCardProps) {
     >
       <div className="flex flex-col h-full">
         {/* 이미지 */}
-        <div className="relative w-full h-52 flex-shrink-0 overflow-hidden">
+        <div className="relative w-full h-40 md:h-52 flex-shrink-0 overflow-hidden">
           <ImageWithFallback
             src={hotel.images?.[0] || 'https://images.unsplash.com/photo-1566073771259-6a8506099945'}
             alt={hotel.business_name}
@@ -59,8 +59,8 @@ export function HotelCard({ hotel }: HotelCardProps) {
         </div>
 
         {/* 정보 */}
-        <CardContent className="p-4 flex flex-col flex-1 justify-between">
-          <div className="space-y-2">
+        <CardContent className="p-3 md:p-4 flex flex-col flex-1 justify-between">
+          <div className="space-y-1.5 md:space-y-2">
             <div className="flex items-start gap-2">
               <h3 className="font-semibold text-base flex-1 line-clamp-2 min-h-[2.5rem]">
                 {hotel.business_name}
