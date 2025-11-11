@@ -194,9 +194,9 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // 5-4. 요금제가 있는 경우만 계산
-      if (!vehicle.rate_plan_id) {
-        console.log(`   ⏭️  Vehicle ${vehicle.id} - No active rate plan`);
+      // 5-4. 요금 확인 (daily_rate_krw는 필수)
+      if (!vehicle.daily_rate_krw || vehicle.daily_rate_krw <= 0) {
+        console.log(`   ⏭️  Vehicle ${vehicle.id} - No valid pricing (daily_rate_krw: ${vehicle.daily_rate_krw})`);
         continue;
       }
 
