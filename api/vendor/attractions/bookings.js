@@ -63,8 +63,8 @@ module.exports = async function handler(req, res) {
     } else {
       // ⚠️ 주의: partners 테이블에서 user_id로 partner_id 조회
       const partnerResult = await connection.execute(
-        'SELECT id FROM partners WHERE user_id = ? LIMIT 1',
-        [decoded.userId]
+        'SELECT id FROM partners WHERE user_id = ? AND partner_type = ? LIMIT 1',
+        [decoded.userId, 'attraction']
       );
 
       if (!partnerResult.rows || partnerResult.rows.length === 0) {
