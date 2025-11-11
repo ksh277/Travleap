@@ -30,13 +30,15 @@ import {
   Navigation,
   Star,
   MessageCircle,
-  ThumbsUp
+  ThumbsUp,
+  ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { api, type ExtendedReview } from '../../utils/api';
 import { Textarea } from '../ui/textarea';
+import { getGoogleMapsApiKey } from '../../utils/env';
 
 // Date formatting helper
 const formatDate = (date: Date) => {
@@ -900,6 +902,113 @@ export function HotelDetailPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* 위치 및 지도 섹션 */}
+            <div id="location" className="space-y-6 scroll-mt-24">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <MapPin className="h-5 w-5 mr-2" />
+                    위치 및 지도
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="mb-2 font-medium">주소</h4>
+                      <p className="text-gray-700">{hotelData.rooms[0]?.location || hotelData.partner.address || '위치 정보 없음'}</p>
+                      {hotelData.partner.address && hotelData.partner.address !== hotelData.rooms[0]?.location && (
+                        <p className="text-gray-600 text-sm mt-1">{hotelData.partner.address}</p>
+                      )}
+                    </div>
+
+                    {/* 구글 지도 */}
+                    <div className="w-full">
+                      <div className="w-full h-[300px] md:h-[400px] lg:h-[500px] bg-gray-200 rounded-lg overflow-hidden relative">
+                        {getGoogleMapsApiKey() ? (
+                          <>
+                            <iframe
+                              src={
+                                (hotelData.partner as any).coordinates
+                                  ? `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${(hotelData.partner as any).coordinates}&zoom=15&maptype=roadmap&language=ko`
+                                  : `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent((hotelData.partner.address || hotelData.rooms[0]?.location || hotelData.partner.business_name) + ' 제주')}&zoom=14&maptype=roadmap&language=ko`
+                              }
+                              className="w-full h-full border-0"
+                              allowFullScreen
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                              title={`${hotelData.partner.business_name} 위치 지도`}
+                              onError={() => {
+                                console.error('Google Maps iframe 로드 실패');
+                              }}
+                            />
+                            {/* 지도 오버레이 버튼들 */}
+                            <div className="absolute top-4 right-4 flex flex-col gap-2">
+                              <Button
+                                size="sm"
+                                className="bg-white/90 text-gray-700 hover:bg-white shadow-lg"
+                                onClick={() => {
+                                  const query = (hotelData.partner as any).coordinates || encodeURIComponent((hotelData.rooms[0]?.location || hotelData.partner.business_name) + ' 제주');
+                                  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+                                  window.open(mapUrl, '_blank');
+                                }}
+                              >
+                                <ExternalLink className="h-3 w-3 mr-1" />
+                                크게보기
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-white/90 hover:bg-white shadow-lg"
+                                onClick={() => {
+                                  const destination = (hotelData.partner as any).coordinates || encodeURIComponent((hotelData.rooms[0]?.location || hotelData.partner.business_name) + ' 제주');
+                                  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+                                  window.open(directionsUrl, '_blank');
+                                }}
+                              >
+                                <Navigation className="h-3 w-3 mr-1" />
+                                길찾기
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 border-2 border-dashed border-gray-300">
+                            <div className="text-center p-6">
+                              <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                              <h4 className="text-lg font-semibold text-gray-600 mb-2">지도를 로드할 수 없습니다</h4>
+                              <p className="text-sm text-gray-500 mb-4">
+                                Google Maps API 키가 설정되지 않았습니다.
+                              </p>
+                              <div className="flex flex-col gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((hotelData.rooms[0]?.location || hotelData.partner.business_name) + ' 제주')}`;
+                                    window.open(mapUrl, '_blank');
+                                  }}
+                                >
+                                  <ExternalLink className="h-3 w-3 mr-1" />
+                                  Google Maps에서 보기
+                                </Button>
+                                <p className="text-xs text-gray-400">주소: {hotelData.rooms[0]?.location || hotelData.partner.address || '위치 정보 없음'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="mb-2 font-medium">교통편</h4>
+                      <ul className="space-y-1 text-gray-700">
+                        <li>• 제주국제공항에서 차량으로 약 30-40분</li>
+                        <li>• 주차 시설 이용 가능 (현장 문의)</li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
