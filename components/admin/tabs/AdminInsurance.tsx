@@ -101,10 +101,12 @@ export function AdminInsurance() {
       if (data.success) {
         setInsurances(data.data || []);
       } else {
-        console.error('Failed to fetch insurances:', data.error);
+        console.error('Failed to fetch insurances:', data.message || data.error);
+        alert('보험 목록 조회 실패: ' + (data.message || data.error));
       }
     } catch (error) {
-      console.error('Error fetching insurances:', error);
+      console.error('Error fetching insurances:', error instanceof Error ? error.message : String(error));
+      alert('보험 목록을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -227,9 +229,13 @@ export function AdminInsurance() {
 
   const handleToggleActive = async (insurance: Insurance) => {
     try {
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/admin/insurance/${insurance.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
         body: JSON.stringify({ ...insurance, is_active: !insurance.is_active })
       });
 
@@ -238,10 +244,11 @@ export function AdminInsurance() {
       if (data.success) {
         fetchInsurances();
       } else {
-        alert('오류: ' + data.error);
+        alert('오류: ' + (data.message || data.error));
       }
     } catch (error) {
       console.error('Error toggling active status:', error);
+      alert('보험 상태 변경 중 오류가 발생했습니다.');
     }
   };
 

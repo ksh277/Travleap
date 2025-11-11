@@ -1,5 +1,4 @@
 const { connect } = require('@planetscale/database');
-const jwt = require('jsonwebtoken');
 
 /**
  * Admin Insurance Management API
@@ -15,36 +14,9 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
+  const connection = connect({ url: process.env.DATABASE_URL });
+
   try {
-    // JWT 인증
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        message: '인증 토큰이 필요합니다.'
-      });
-    }
-
-    const token = authHeader.substring(7);
-    let decoded;
-
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
-    } catch (error) {
-      return res.status(401).json({
-        success: false,
-        message: '유효하지 않은 토큰입니다.'
-      });
-    }
-
-    if (decoded.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: '관리자 권한이 필요합니다.'
-      });
-    }
-
-    const connection = connect({ url: process.env.DATABASE_URL });
 
     // GET: 모든 보험 조회
     if (req.method === 'GET') {

@@ -31,41 +31,70 @@ module.exports = async function handler(req, res) {
   try {
     // GET - 모든 숙박 벤더 조회 (partners 테이블에서 partner_type='lodging')
     if (req.method === 'GET') {
+      // Get stay category ID
+      const categoryResult = await connection.execute(`
+        SELECT id FROM categories WHERE slug = 'stay' LIMIT 1
+      `);
+      const categoryId = categoryResult.rows?.[0]?.id || 1857;
+
       const result = await connection.execute(
         `SELECT
-          id,
-          user_id,
-          business_name,
-          business_number,
-          contact_name,
-          email as contact_email,
-          phone as contact_phone,
-          description,
-          logo as logo_url,
-          pms_provider,
-          pms_api_key,
-          pms_property_id,
-          pms_sync_enabled,
-          pms_sync_interval,
-          last_sync_at,
-          check_in_time,
-          check_out_time,
-          policies,
-          status,
-          is_active,
-          tier,
-          created_at,
-          updated_at
-        FROM partners
-        WHERE partner_type = 'lodging'
-        ORDER BY created_at DESC`
+          p.id,
+          p.user_id,
+          p.business_name,
+          p.business_number,
+          p.contact_name,
+          p.email as contact_email,
+          p.phone as contact_phone,
+          p.description,
+          p.logo as logo_url,
+          p.pms_provider,
+          p.pms_api_key,
+          p.pms_property_id,
+          p.pms_sync_enabled,
+          p.pms_sync_interval,
+          p.last_sync_at,
+          p.check_in_time,
+          p.check_out_time,
+          p.policies,
+          p.status,
+          p.is_active,
+          p.tier,
+          p.created_at,
+          p.updated_at,
+          COUNT(DISTINCT l.id) as room_count,
+          MIN(l.price_from) as min_price,
+          MAX(l.price_from) as max_price,
+          (
+            SELECT AVG(r.rating)
+            FROM reviews r
+            INNER JOIN listings l2 ON r.listing_id = l2.id
+            WHERE l2.partner_id = p.id AND r.status = 'approved'
+          ) as avg_rating,
+          (
+            SELECT COUNT(*)
+            FROM reviews r
+            INNER JOIN listings l2 ON r.listing_id = l2.id
+            WHERE l2.partner_id = p.id AND r.status = 'approved'
+          ) as total_reviews
+        FROM partners p
+        LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = ? AND l.is_published = 1 AND l.is_active = 1
+        WHERE p.partner_type = 'lodging'
+        GROUP BY p.id, p.user_id, p.business_name, p.business_number, p.contact_name, p.email, p.phone, p.description, p.logo, p.pms_provider, p.pms_api_key, p.pms_property_id, p.pms_sync_enabled, p.pms_sync_interval, p.last_sync_at, p.check_in_time, p.check_out_time, p.policies, p.status, p.is_active, p.tier, p.created_at, p.updated_at
+        ORDER BY p.created_at DESC`,
+        [categoryId]
       );
 
-      // brand_name 없으면 business_name 사용
+      // brand_name 없으면 business_name 사용, 집계 데이터 포함
       const vendors = (result.rows || []).map(vendor => ({
         ...vendor,
         brand_name: vendor.brand_name || vendor.business_name,
-        vendor_code: `ACC${vendor.id}` // vendor_code 생성
+        vendor_code: `ACC${vendor.id}`,
+        room_count: vendor.room_count || 0,
+        min_price: vendor.min_price || 0,
+        max_price: vendor.max_price || 0,
+        avg_rating: vendor.avg_rating ? parseFloat(vendor.avg_rating).toFixed(1) : '0.0',
+        total_reviews: vendor.total_reviews || 0
       }));
 
       return res.status(200).json({
