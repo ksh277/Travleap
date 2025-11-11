@@ -115,12 +115,15 @@ module.exports = async function handler(req, res) {
         if (userResult.rows && userResult.rows.length > 0) {
           finalUserId = userResult.rows[0].id;
         } else {
-          // 사용자가 없으면 신규 생성
+          // 사용자가 없으면 신규 생성 (username, password_hash 필수)
+          const username = user_email.split('@')[0] + '_' + Date.now();
+          const placeholderPassword = '$2a$10$GUEST.BOOKING.NO.PASSWORD.HASH.PLACEHOLDER';
+
           const insertResult = await poolNeon.query(
-            `INSERT INTO users (email, name, phone, role, created_at, updated_at)
-             VALUES ($1, $2, $3, 'customer', NOW(), NOW())
+            `INSERT INTO users (username, email, password_hash, name, phone, role, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, 'customer', NOW(), NOW())
              RETURNING id`,
-            [user_email, user_name || 'Guest', user_phone || '']
+            [username, user_email, placeholderPassword, user_name || 'Guest', user_phone || '']
           );
           finalUserId = insertResult.rows[0].id;
           console.log('✅ [Food Booking] 신규 사용자 생성:', finalUserId);
