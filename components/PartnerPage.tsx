@@ -75,9 +75,23 @@ const loadPartners = async (): Promise<Partner[]> => {
         }
         const category = services[0] || '여행';
 
-        // description에서 주소 추출 (description에 주소가 포함되어 있음)
-        const addressMatch = partner.description?.match(/전라남도 신안군[^\n]+/) || null;
-        const displayAddress = addressMatch ? addressMatch[0] : (partner.phone || '신안군');
+        // 주소 처리: 상세주소 우선, 없으면 business_address, 없으면 location
+        // detailed_address: 상세 주소 (예: "지도읍 송도리 123")
+        // business_address: 전체 주소 (예: "전남 신안군 지도읍 송도리 123")
+        // location: 간단한 위치 (예: "전남 신안군")
+        let fullAddress = '';
+        if (partner.detailed_address && partner.detailed_address.trim()) {
+          // detailed_address가 있으면 location과 조합
+          fullAddress = partner.location
+            ? `${partner.location} ${partner.detailed_address}`
+            : partner.detailed_address;
+        } else if (partner.business_address && partner.business_address.trim()) {
+          // business_address가 있으면 그대로 사용
+          fullAddress = partner.business_address;
+        } else {
+          // 둘 다 없으면 location 사용
+          fullAddress = partner.location || '신안군';
+        }
 
         // 가격 표시 처리 - 새로운 스마트 로직
         const priceDisplay = formatPartnerPrice(
@@ -106,7 +120,7 @@ const loadPartners = async (): Promise<Partner[]> => {
           id: partner.id.toString(),
           name: partner.business_name || '업체명 없음',
           category: category,
-          location: partner.location || displayAddress,
+          location: fullAddress,
           rating: 0,
           reviewCount: 0,
           price: priceDisplay,
@@ -910,7 +924,7 @@ export function PartnerPage() {
             {/* 업체 리스트 - 그리드 형태 (3행 2열) */}
             <div className="grid grid-cols-2 gap-4">
               {currentPartners.map((partner) => (
-                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[420px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
+                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[315px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
                   {/* 이미지 */}
                   <div className="relative w-full h-48 flex-shrink-0">
                     <img
@@ -1158,7 +1172,7 @@ export function PartnerPage() {
             {/* 업체 리스트 - 그리드 형태 (3행 2열) */}
             <div className="grid grid-cols-2 gap-4">
               {currentPartners.map((partner) => (
-                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[420px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
+                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[315px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
                   {/* 이미지 */}
                   <div className="relative w-full h-48 flex-shrink-0">
                     <img
