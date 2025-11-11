@@ -76,8 +76,8 @@ module.exports = async function handler(req, res) {
         p.check_in_time as default_check_in,
         p.check_out_time as default_check_out
       FROM listings l
-      JOIN partners p ON l.partner_id = p.id
-      WHERE l.id = ? AND l.category = 'stay' AND p.partner_type = 'lodging'`,
+      LEFT JOIN partners p ON l.partner_id = p.id
+      WHERE l.id = ? AND l.category_id = 1857`,
       [listing_id]
     );
 
