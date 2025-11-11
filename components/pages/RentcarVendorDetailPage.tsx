@@ -178,6 +178,44 @@ export function RentcarVendorDetailPage() {
     fetchVendorData();
   }, [vendorId]);
 
+  // 보험 상품 로드
+  useEffect(() => {
+    const fetchInsurances = async () => {
+      if (!vendorId) return;
+
+      try {
+        const response = await fetch('/api/admin/insurance');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          // 렌트카 카테고리 + 시간당 요금 보험만 필터링
+          // vendor_id가 일치하거나 null인 경우 (공통 보험)
+          const rentcarInsurances = result.data
+            .filter((ins: any) =>
+              ins.category === 'rentcar' &&
+              ins.pricing_unit === 'hourly' &&
+              ins.is_active &&
+              (!ins.vendor_id || ins.vendor_id === Number(vendorId))
+            )
+            .map((ins: any) => ({
+              id: ins.id,
+              name: ins.name,
+              description: ins.description,
+              coverage_details: ins.coverage_details?.items?.join('\n') || null,
+              hourly_rate_krw: ins.price,
+              display_order: ins.id
+            }));
+
+          setInsurances(rentcarInsurances);
+        }
+      } catch (err) {
+        console.error('보험 데이터 로드 오류:', err);
+      }
+    };
+
+    fetchInsurances();
+  }, [vendorId]);
+
   // 리뷰 조회
   const fetchReviews = async () => {
     if (!vendorId) return;
