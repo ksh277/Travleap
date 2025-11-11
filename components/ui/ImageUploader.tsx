@@ -60,11 +60,19 @@ export function ImageUploader({
         });
 
         // JSON으로 base64 이미지 전송
+        const token = localStorage.getItem('auth_token');
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+
+        // JWT 인증 토큰 추가
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch('/api/upload-image', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: JSON.stringify({
             image: base64Image,
             filename: file.name,

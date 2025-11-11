@@ -22,9 +22,9 @@ module.exports = async function handler(req, res) {
           location, address, meeting_point, category_id, category, partner_id,
           images, max_capacity, highlights, included, excluded,
           is_active, is_featured, is_published,
-          has_options, min_purchase, max_purchase, stock_enabled, stock, shipping_fee, is_refundable, refund_policy,
+          has_options, min_purchase, max_purchase, stock_enabled, stock, shipping_fee, refund_policy,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           listingData.title,
           listingData.longDescription || listingData.description || '',
@@ -53,7 +53,6 @@ module.exports = async function handler(req, res) {
           listingData.stockEnabled ? 1 : 0,
           listingData.stock || null,
           listingData.shippingFee || null,
-          listingData.isRefundable !== undefined ? (listingData.isRefundable ? 1 : 0) : null,
           listingData.refundPolicy ? JSON.stringify(listingData.refundPolicy) : null
         ]
       );
