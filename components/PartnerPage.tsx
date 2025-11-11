@@ -357,6 +357,31 @@ export function PartnerPage() {
     }
   }, []);
 
+  // 모바일에서 지도 탭으로 전환 시 지도 초기화
+  useEffect(() => {
+    // 모바일 환경이고, 지도 탭이 활성화되고, 지도가 아직 초기화되지 않았을 때
+    if (mobileTab === 'map' && !map && (window as any).google && mapRef.current) {
+      const newMap = new google.maps.Map(mapRef.current, {
+        center: { lat: 34.9654, lng: 126.1234 }, // 신안군 중심
+        zoom: 11,
+        styles: [
+          {
+            featureType: 'water',
+            elementType: 'geometry',
+            stylers: [{ color: '#a2daf2' }]
+          }
+        ]
+      });
+
+      setMap(newMap);
+
+      // 마커 추가 (파트너 데이터가 로드된 후)
+      if (filteredPartners.length > 0) {
+        addMarkers(newMap, filteredPartners);
+      }
+    }
+  }, [mobileTab, map, filteredPartners]);
+
   // 마커 추가 함수
   const addMarkers = (map: google.maps.Map, partnersList: Partner[]) => {
     // 기존 마커 제거
