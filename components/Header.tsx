@@ -249,11 +249,8 @@ export function Header({
                                 navigate(`/category/${category.id}`)
                               }
                             >
-                              <div className="flex flex-col items-center space-y-1">
-                                <span className="text-2xl">
-                                  {category.icon}
-                                </span>
-                                <div className="leading-none text-xs font-medium">
+                              <div className="flex flex-col items-center justify-center h-full py-3">
+                                <div className="leading-none text-sm font-medium">
                                   {category.name}
                                 </div>
                               </div>
@@ -398,9 +395,8 @@ export function Header({
                             navigate(`/category/${category.id}`);
                             setMobileMenuOpen(false);
                           }}
-                          className="flex items-center space-x-3 text-left px-6 py-4 hover:bg-gray-50 min-h-[56px] border-b border-gray-100"
+                          className="flex items-center text-left px-6 py-4 hover:bg-gray-50 min-h-[56px] border-b border-gray-100"
                         >
-                          <span className="text-lg">{category.icon}</span>
                           <span className="text-base">{category.name}</span>
                         </button>
                       ))}
