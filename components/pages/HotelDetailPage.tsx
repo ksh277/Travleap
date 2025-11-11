@@ -257,17 +257,34 @@ export function HotelDetailPage() {
       return;
     }
 
+    // 로그인 체크
+    if (!isLoggedIn || !user?.email) {
+      toast.error('로그인이 필요한 서비스입니다');
+      navigate('/login');
+      return;
+    }
+
     try {
       // 숙박 일수 계산
       const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      const roomPrice = selectedRoom.base_price_per_night * nights;
-      const taxAmount = Math.floor(roomPrice * 0.10);
-      const serviceCharge = Math.floor(roomPrice * 0.10);
-      const totalPrice = roomPrice + taxAmount + serviceCharge;
+      // base_price_per_night는 이미 세금 포함 가격
+      const totalPrice = selectedRoom.base_price_per_night * nights;
 
-      const userName = localStorage.getItem('user_name') || 'Guest';
-      const userEmail = localStorage.getItem('user_email') || '';
-      const userPhone = localStorage.getItem('user_phone') || '';
+      const userName = user.name || 'Guest';
+      const userEmail = user.email;
+      const userPhone = user.phone || '';
+
+      console.log('📋 예약 요청 데이터:', {
+        listing_id: selectedRoom.id,
+        start_date: format(checkIn, 'yyyy-MM-dd'),
+        end_date: format(checkOut, 'yyyy-MM-dd'),
+        user_name: userName,
+        user_email: userEmail,
+        num_adults: selectedRoom.capacity,
+        nights,
+        pricePerNight: selectedRoom.base_price_per_night,
+        totalPrice
+      });
 
       // 예약 생성 API 호출
       const response = await fetch('/api/accommodations/book', {
