@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import {
   MapPin,
   Calendar as CalendarIcon,
@@ -14,7 +15,9 @@ import {
   Heart,
   Navigation,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  List,
+  Map as MapIcon
 } from 'lucide-react';
 import { getGoogleMapsApiKey } from '../utils/env';
 import { api } from '../utils/api';
@@ -163,6 +166,7 @@ export function PartnerPage() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
+  const [mobileTab, setMobileTab] = useState<'list' | 'map'>('list');
 
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
@@ -675,9 +679,23 @@ export function PartnerPage() {
 
       {/* 메인 컨텐츠 */}
       <div className="max-w-[1400px] mx-auto px-4 py-6">
-        <div className="flex gap-6">
-          {/* 왼쪽: 필터 + 리스트 */}
-          <div className="flex-1 min-w-[400px]">
+        {/* 모바일: 탭 UI */}
+        <div className="lg:hidden">
+          <Tabs value={mobileTab} onValueChange={(value) => setMobileTab(value as 'list' | 'map')}>
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="list" className="flex items-center">
+                <List className="h-4 w-4 mr-2" />
+                목록
+              </TabsTrigger>
+              <TabsTrigger value="map" className="flex items-center">
+                <MapIcon className="h-4 w-4 mr-2" />
+                지도
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="list">
+              {/* 모바일 리스트 컨텐츠 */}
+              <div className="flex-1">
             {/* 필터 바 */}
             <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
               <div className="flex flex-wrap gap-4 items-center">
@@ -718,6 +736,288 @@ export function PartnerPage() {
                         return a.distance - b.distance;
                       });
                       setFilteredPartners(sorted);
+                    }}
+                    className="text-sm"
+                  >
+                    <Navigation className="h-3 w-3 mr-1" />
+                    거리순
+                  </Button>
+                )}
+
+                <div className="ml-auto text-sm text-gray-600">
+                  <span className="font-medium">{filteredPartners.length}</span>개 업체 발견
+                </div>
+              </div>
+            </div>
+
+            {/* 결과 헤더 */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">
+                총 {filteredPartners.length}개 업체 ({currentPage}/{totalPages} 페이지)
+              </h2>
+              <Select
+                value={filters.sortBy}
+                onValueChange={(value) => setFilters(prev => ({ ...prev, sortBy: value }))}
+              >
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="정렬" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recommended">추천순</SelectItem>
+                  <SelectItem value="latest">최신순</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 업체 리스트 - 그리드 형태 (3행 2열) */}
+            <div className="grid grid-cols-2 gap-4">
+              {currentPartners.map((partner) => (
+                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[420px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
+                  {/* 이미지 */}
+                  <div className="relative w-full h-48 flex-shrink-0">
+                    <img
+                      src={partner.image}
+                      alt={partner.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Heart className="h-4 w-4 text-gray-600" />
+                    </button>
+                  </div>
+
+                  {/* 정보 */}
+                  <CardContent className="p-4 flex flex-col flex-1 justify-between">
+                    <div>
+                      <div className="flex items-start gap-2 mb-2">
+                        <h3 className="font-semibold text-base flex-1 line-clamp-1">{partner.name}</h3>
+                        <Badge variant="outline" className="text-xs flex-shrink-0">
+                          {partner.category}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-1 mb-2">
+                        <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
+                        <span className="text-xs text-gray-600 line-clamp-1">{partner.location}</span>
+                      </div>
+
+                      {partner.distance !== undefined && (
+                        <div className="text-xs text-blue-600 mb-2 bg-blue-50 px-2 py-1 rounded inline-block">
+                          {partner.distance < 1
+                            ? `${Math.round(partner.distance * 1000)}m`
+                            : `${partner.distance.toFixed(1)}km`
+                          }
+                        </div>
+                      )}
+
+                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">{partner.description}</p>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-auto pt-2">
+                      {partner.price && (
+                        <div className="text-base font-bold text-[#ff6a3d]">
+                          {partner.price}
+                        </div>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/partners/${partner.id}`);
+                        }}
+                        className={`bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white text-xs px-4 ${!partner.price ? 'ml-auto' : ''}`}
+                      >
+                        상세보기
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* 페이지네이션 */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center mt-8 space-x-2">
+                {/* 이전 페이지 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="flex items-center"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  이전
+                </Button>
+
+                {/* 페이지 번호들 */}
+                <div className="flex items-center space-x-1">
+                  {getVisiblePageNumbers().map((pageNum, index) => (
+                    <React.Fragment key={index}>
+                      {pageNum === '...' ? (
+                        <span className="px-2 py-1 text-gray-500">...</span>
+                      ) : (
+                        <Button
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum as number)}
+                          className={`min-w-[40px] ${
+                            currentPage === pageNum
+                              ? "bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white"
+                              : "text-gray-700 hover:bg-gray-100"
+                          }`}
+                        >
+                          {pageNum}
+                        </Button>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+
+                {/* 다음 페이지 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center"
+                >
+                  다음
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
+
+            {/* 페이지 정보 */}
+            {filteredPartners.length > 0 && (
+              <div className="text-center mt-4 text-sm text-gray-600">
+                {startIndex + 1}-{Math.min(endIndex, filteredPartners.length)} / {filteredPartners.length}개 업체 표시
+              </div>
+            )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="map">
+              {/* 모바일 지도 컨텐츠 */}
+              <Card className="overflow-hidden">
+                {mapError ? (
+                  <div className="w-full h-[500px] flex items-center justify-center bg-gray-100">
+                    <div className="text-center p-8 max-w-sm">
+                      <div className="text-gray-400 mb-4">
+                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-600 mb-2">지도를 불러올 수 없습니다</h3>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Google Maps API 키가 필요합니다.
+                      </p>
+                      <div className="text-xs text-gray-400 bg-gray-50 p-3 rounded border">
+                        <p className="mb-2"><strong>설정 방법:</strong></p>
+                        <p>1. Google Cloud Console에서 Maps JavaScript API 키 발급</p>
+                        <p>2. 환경변수 GOOGLE_MAPS_API_KEY에 키 설정</p>
+                        <p>3. 페이지 새로고침</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    ref={mapRef}
+                    className="w-full h-[500px]"
+                    style={{ minHeight: '500px' }}
+                  />
+                )}
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* 데스크톱: 좌우 분할 */}
+        <div className="hidden lg:flex gap-6">
+          {/* 왼쪽: 필터 + 리스트 */}
+          <div className="flex-1 min-w-[400px]">
+            {/* 필터 바 */}
+            <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-gray-500" />
+                  <span className="font-medium">필터:</span>
+                </div>
+
+                <Select
+                  value={filters.category}
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}
+                >
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue placeholder="카테고리" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체</SelectItem>
+                    <SelectItem value="여행">여행</SelectItem>
+                    <SelectItem value="렌트카">렌트카</SelectItem>
+                    <SelectItem value="숙박">숙박</SelectItem>
+                    <SelectItem value="음식">음식</SelectItem>
+                    <SelectItem value="관광지">관광지</SelectItem>
+                    <SelectItem value="팝업">팝업</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {gpsLoading ? (
+                  <Button
+                    variant="outline"
+                    disabled
+                    className="text-sm"
+                  >
+                    <div className="animate-spin mr-2 h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                    위치 확인 중...
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setGpsLoading(true);
+                      setGpsError(null);
+
+                      if (!navigator.geolocation) {
+                        setGpsError('위치 서비스를 사용할 수 없습니다.');
+                        setGpsLoading(false);
+                        return;
+                      }
+
+                      navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                          const { latitude, longitude } = position.coords;
+                          const newLocation = { lat: latitude, lng: longitude };
+                          setUserLocation(newLocation);
+
+                          // 지도 중심을 사용자 위치로 이동
+                          if (map) {
+                            map.setCenter(newLocation);
+                            map.setZoom(14);
+                          }
+
+                          // 거리순 정렬
+                          const sorted = [...filteredPartners].sort((a, b) => {
+                            if (a.distance === undefined) return 1;
+                            if (b.distance === undefined) return -1;
+                            return a.distance - b.distance;
+                          });
+                          setFilteredPartners(sorted);
+                          setGpsLoading(false);
+                        },
+                        (error) => {
+                          console.error('GPS Error:', error);
+                          setGpsError('위치 권한을 허용해주세요.');
+                          setGpsLoading(false);
+                        },
+                        {
+                          enableHighAccuracy: true,
+                          timeout: 10000,
+                          maximumAge: 0
+                        }
+                      );
                     }}
                     className="text-sm"
                   >
