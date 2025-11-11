@@ -547,8 +547,8 @@ export function PartnerPage() {
         </div>
       </div>
 
-      {/* 검색 바 - 배경 이미지 위에 반쯤 걸쳐진 박스 */}
-      <div className="relative -mt-16 mb-6">
+      {/* 검색 바 - 배경 이미지 위에 반쯤 걸쳐진 박스 (모바일 숨김) */}
+      <div className="hidden lg:block relative -mt-16 mb-6">
         <div className="max-w-[1200px] mx-auto px-4">
           <div className="bg-white rounded-lg shadow-lg p-6">
           {/* GPS 에러 메시지 */}
