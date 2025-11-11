@@ -11,6 +11,7 @@ import { Badge } from './ui/badge';
 import { Calendar } from './ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Separator } from './ui/separator';
+import { Textarea } from './ui/textarea';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import {
   MapPin,
@@ -27,11 +28,13 @@ import {
   Heart,
   Share2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  MessageCircle,
+  ThumbsUp
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { api, type TravelItem } from '../utils/api';
+import { api, type TravelItem, ExtendedReview } from '../utils/api';
 import { formatPrice } from '../utils/translations';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -46,6 +49,18 @@ interface RoomTypeDisplay {
   occupancy: string;
 }
 
+interface Review {
+  id: string;
+  user_id: number;
+  rating: number;
+  comment: string;
+  author: string;
+  date: string;
+  helpful: number;
+  images?: string[];
+  verified?: boolean;
+}
+
 export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: AccommodationDetailPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -57,6 +72,15 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // 리뷰 상태
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [newReview, setNewReview] = useState<{ rating: number; comment: string; images: string[] }>({
+    rating: 5,
+    comment: '',
+    images: []
+  });
 
   // 예약 폼 상태
   const [checkIn, setCheckIn] = useState<Date>();
@@ -115,6 +139,13 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
 
     fetchListing();
   }, [id]);
+
+  // 리뷰 로드
+  useEffect(() => {
+    if (listing?.id) {
+      fetchReviews();
+    }
+  }, [listing?.id]);
 
   // 날짜 선택 시 예약 가능 여부 확인
   useEffect(() => {
@@ -258,6 +289,128 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
     }
   };
 
+  // 리뷰 불러오기
+  const fetchReviews = async () => {
+    if (!listing?.id) return;
+    try {
+      setReviewsLoading(true);
+      const dbReviews = await api.getReviews(Number(listing.id));
+
+      if (Array.isArray(dbReviews) && dbReviews.length > 0) {
+        const formattedReviews: Review[] = dbReviews.map((review) => {
+          const extendedReview = review as ExtendedReview;
+          return {
+            id: extendedReview.id.toString(),
+            user_id: extendedReview.user_id,
+            rating: extendedReview.rating,
+            comment: extendedReview.comment_md || extendedReview.title || '좋은 경험이었습니다.',
+            author: extendedReview.user_name || '익명',
+            date: extendedReview.created_at ? new Date(extendedReview.created_at).toLocaleDateString('ko-KR') : '날짜 없음',
+            helpful: extendedReview.helpful_count || 0,
+            images: extendedReview.images || [],
+            verified: extendedReview.is_verified || false
+          };
+        });
+        setReviews(formattedReviews);
+      } else {
+        setReviews([]);
+      }
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+      setReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  // 리뷰 작성
+  const handleSubmitReview = async () => {
+    if (!newReview.comment.trim()) {
+      toast.error('리뷰 내용을 입력해주세요.');
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    if (!listing) return;
+
+    try {
+      const reviewData = {
+        listing_id: Number(listing.id),
+        user_id: user.id,
+        rating: newReview.rating,
+        title: `${listing.title} 리뷰`,
+        content: newReview.comment.trim(),
+        images: newReview.images
+      };
+
+      const response = await api.createReview(reviewData);
+      if (response.success) {
+        toast.success('리뷰가 성공적으로 등록되었습니다.');
+        setNewReview({ rating: 5, comment: '', images: [] });
+        fetchReviews();
+      } else {
+        throw new Error(response.error || '리뷰 등록 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      const errorMessage = error instanceof Error ? error.message : '리뷰 등록 중 오류가 발생했습니다.';
+      toast.error(errorMessage);
+    }
+  };
+
+  // 리뷰 도움됨 표시
+  const handleMarkHelpful = async (reviewId: string) => {
+    if (!user?.id) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const response = await api.admin.markReviewHelpful(Number(reviewId), user.id);
+      if (response.success) {
+        toast.success(response.message || '좋아요');
+        fetchReviews();
+      } else {
+        throw new Error(response.error || '좋아요 처리 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('Error marking review helpful:', error);
+      const errorMessage = error instanceof Error ? error.message : '좋아요 처리 중 오류가 발생했습니다.';
+      toast.error(errorMessage);
+    }
+  };
+
+  // 리뷰 삭제
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!user?.id) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    if (!confirm('정말 이 리뷰를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const response = await api.deleteReview(Number(reviewId), user.id);
+      if (response.success) {
+        toast.success('리뷰가 삭제되었습니다.');
+        fetchReviews();
+      } else {
+        throw new Error(response.error || '리뷰 삭제 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      const errorMessage = error instanceof Error ? error.message : '리뷰 삭제 중 오류가 발생했습니다.';
+      toast.error(errorMessage);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -286,6 +439,20 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
 
   const images = Array.isArray(listing.images) ? listing.images : [];
   const hasPMSIntegration = listing.highlights?.some(h => h === '실시간 예약');
+
+  // 평균 평점 계산
+  const averageRating = reviews.length > 0
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : 0;
+
+  // 날짜 포맷팅
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
 
   // 페이지네이션 계산
   const totalPages = Math.ceil(roomTypes.length / itemsPerPage);
@@ -542,18 +709,148 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
             )}
 
             {/* 리뷰 섹션 */}
-            {listing.rating_count > 0 && (
+            <div className="space-y-6">
+              {/* 리뷰 요약 */}
               <Card>
-                <CardHeader>
-                  <CardTitle>이용 후기</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 text-gray-500">
-                    리뷰 컴포넌트는 별도로 구현됩니다
+                <CardContent className="p-6">
+                  <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-6">
+                    <div className="text-center">
+                      <div className="text-4xl mb-1">{averageRating.toFixed(1)}</div>
+                      <div className="flex items-center justify-center mb-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${i < Math.round(averageRating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                          />
+                        ))}
+                      </div>
+                      <div className="text-sm text-gray-500">{reviews.length}개 리뷰</div>
+                    </div>
+                    <div className="flex-1">
+                      {[5, 4, 3, 2, 1].map(rating => {
+                        const count = reviews.filter(r => Math.round(r.rating) === rating).length;
+                        const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+                        return (
+                          <div key={rating} className="flex items-center space-x-3 mb-1">
+                            <div className="text-sm w-8">{rating}점</div>
+                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-yellow-400 h-2 rounded-full"
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                            <div className="text-sm w-8 text-gray-500">{count}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            )}
+
+              {/* 리뷰 작성 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <MessageCircle className="h-5 w-5 mr-2" />
+                    리뷰 작성
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm mb-2">평점</label>
+                    <div className="flex items-center space-x-1">
+                      {[1, 2, 3, 4, 5].map(rating => (
+                        <button
+                          key={rating}
+                          onClick={() => setNewReview(prev => ({ ...prev, rating }))}
+                          className="p-1"
+                        >
+                          <Star
+                            className={`h-6 w-6 ${rating <= newReview.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-2">리뷰 내용</label>
+                    <Textarea
+                      placeholder="이용 후기를 남겨주세요..."
+                      value={newReview.comment}
+                      onChange={(e) => setNewReview(prev => ({ ...prev, comment: e.target.value }))}
+                      rows={4}
+                    />
+                  </div>
+                  <Button onClick={handleSubmitReview} className="w-full min-h-[44px]">
+                    리뷰 등록
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* 리뷰 목록 */}
+              <div className="space-y-4">
+                {reviewsLoading ? (
+                  <div className="text-center py-8 text-gray-500">
+                    리뷰를 불러오는 중...
+                  </div>
+                ) : reviews.length > 0 ? (
+                  reviews.map(review => (
+                    <Card key={review.id}>
+                      <CardContent className="p-4 md:p-6">
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-3 space-y-3 md:space-y-0">
+                          <div className="flex-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className="font-medium">{review.author}</span>
+                              <div className="flex items-center">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`h-3 w-3 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                                  />
+                                ))}
+                              </div>
+                              {review.verified && (
+                                <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded">인증됨</span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {formatDate(new Date(review.date))}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-500 hover:text-blue-600 min-h-[44px] md:min-h-[36px]"
+                              onClick={() => handleMarkHelpful(review.id)}
+                            >
+                              <ThumbsUp className="h-4 w-4 mr-1" />
+                              좋아요 {review.helpful}
+                            </Button>
+                            {user && Number(user.userId || user.id) === Number(review.user_id) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 min-h-[44px] md:min-h-[36px]"
+                                onClick={() => handleDeleteReview(review.id)}
+                              >
+                                삭제
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-gray-700 whitespace-pre-wrap">{review.comment}</p>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    아직 작성된 리뷰가 없습니다. 첫 번째 리뷰를 작성해보세요!
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* 예약 사이드바 */}
