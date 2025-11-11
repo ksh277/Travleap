@@ -188,23 +188,32 @@ export function RentcarVendorDetailPage() {
         const result = await response.json();
 
         if (result.success && result.data) {
-          // 렌트카 카테고리 + 시간당 요금 보험만 필터링
+          // 렌트카 카테고리 보험 필터링 (hourly, daily 모두 포함)
           // vendor_id가 일치하거나 null인 경우 (공통 보험)
           const rentcarInsurances = result.data
             .filter((ins: any) =>
               ins.category === 'rentcar' &&
-              ins.pricing_unit === 'hourly' &&
+              (ins.pricing_unit === 'hourly' || ins.pricing_unit === 'daily') &&
               ins.is_active &&
               (!ins.vendor_id || ins.vendor_id === Number(vendorId))
             )
-            .map((ins: any) => ({
-              id: ins.id,
-              name: ins.name,
-              description: ins.description,
-              coverage_details: ins.coverage_details?.items?.join('\n') || null,
-              hourly_rate_krw: ins.price,
-              display_order: ins.id
-            }));
+            .map((ins: any) => {
+              // 시간당 요금 계산
+              let hourlyRate = parseFloat(ins.price);
+              if (ins.pricing_unit === 'daily') {
+                // 일 단위 → 시간당 (24로 나눔)
+                hourlyRate = Math.round(hourlyRate / 24);
+              }
+
+              return {
+                id: ins.id,
+                name: ins.name,
+                description: ins.description,
+                coverage_details: ins.coverage_details?.items?.join('\n') || null,
+                hourly_rate_krw: hourlyRate,
+                display_order: ins.id
+              };
+            });
 
           setInsurances(rentcarInsurances);
         }
