@@ -17,13 +17,8 @@ module.exports = async function handler(req, res) {
     const { partnerId } = req.query;
     const connection = connect({ url: process.env.DATABASE_URL });
 
-    // Get stay category ID
-    const categoryResult = await connection.execute(`SELECT id FROM categories WHERE slug = 'stay' LIMIT 1`);
-    const categoryId = categoryResult.rows?.[0]?.id;
-
-    if (!categoryId) {
-      return res.status(404).json({ success: false, error: '숙박 카테고리를 찾을 수 없습니다.' });
-    }
+    // Stay category ID is 1857 (hardcoded for performance and consistency)
+    const categoryId = 1857;
 
     // 1. Get partner info
     const partnerResult = await connection.execute(`
@@ -55,13 +50,16 @@ module.exports = async function handler(req, res) {
         if (room.images) images = JSON.parse(room.images);
       } catch (e) {}
 
+      // Use base_price_per_night if available, fallback to price_from
+      const pricePerNight = room.base_price_per_night || room.price_from || 0;
+
       return {
         id: room.id,
         name: room.title,
         room_type: room.short_description || '객실',
-        capacity: 2,
-        base_price_per_night: room.price_from || 0,
-        breakfast_included: false,
+        capacity: room.max_occupancy || room.max_capacity || 2,
+        base_price_per_night: pricePerNight,
+        breakfast_included: room.breakfast_included || false,
         is_available: room.is_active && room.is_published,
         images: Array.isArray(images) ? images : [],
         description: room.description_md || room.short_description || '',

@@ -40,11 +40,27 @@ module.exports = async function handler(req, res) {
       payment_status
     } = req.body;
 
+    console.log('📋 숙박 예약 요청:', {
+      listing_id,
+      start_date,
+      end_date,
+      user_email,
+      num_adults,
+      total_amount
+    });
+
     // 필수 필드 검증
     if (!listing_id || !start_date || !end_date || !user_email) {
+      console.error('❌ 필수 필드 누락:', { listing_id, start_date, end_date, user_email });
       return res.status(400).json({
         success: false,
-        error: '필수 필드가 누락되었습니다. (listing_id, start_date, end_date, user_email)'
+        error: '필수 필드가 누락되었습니다. (listing_id, start_date, end_date, user_email)',
+        details: {
+          listing_id: !!listing_id,
+          start_date: !!start_date,
+          end_date: !!end_date,
+          user_email: !!user_email
+        }
       });
     }
 
@@ -54,21 +70,41 @@ module.exports = async function handler(req, res) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    console.log('📅 날짜 검증:', {
+      start_date,
+      end_date,
+      today: today.toISOString().split('T')[0],
+      startDateObj: startDateObj.toISOString().split('T')[0],
+      endDateObj: endDateObj.toISOString().split('T')[0]
+    });
+
     if (startDateObj < today) {
+      console.error('❌ 체크인 날짜가 과거입니다');
       return res.status(400).json({
         success: false,
-        error: '체크인 날짜는 오늘 이후여야 합니다.'
+        error: '체크인 날짜는 오늘 이후여야 합니다.',
+        details: {
+          start_date,
+          today: today.toISOString().split('T')[0]
+        }
       });
     }
 
     if (endDateObj <= startDateObj) {
+      console.error('❌ 체크아웃 날짜가 체크인 날짜 이전입니다');
       return res.status(400).json({
         success: false,
-        error: '체크아웃 날짜는 체크인 날짜 이후여야 합니다.'
+        error: '체크아웃 날짜는 체크인 날짜 이후여야 합니다.',
+        details: {
+          start_date,
+          end_date
+        }
       });
     }
 
     // 객실 정보 조회 (listings 테이블에서)
+    console.log('🔍 객실 조회 시작:', { listing_id, category_id: 1857 });
+
     const roomResult = await connection.execute(
       `SELECT
         l.*,
@@ -81,19 +117,42 @@ module.exports = async function handler(req, res) {
       [listing_id]
     );
 
+    console.log('🔍 객실 조회 결과:', {
+      found: roomResult?.rows?.length > 0,
+      count: roomResult?.rows?.length
+    });
+
     if (!roomResult || !roomResult.rows || roomResult.rows.length === 0) {
-      return res.status(404).json({
+      console.error('❌ 객실을 찾을 수 없습니다:', { listing_id });
+      return res.status(400).json({
         success: false,
-        error: '객실을 찾을 수 없습니다.'
+        error: '객실을 찾을 수 없습니다.',
+        details: {
+          listing_id,
+          category_id: 1857
+        }
       });
     }
 
     const room = roomResult.rows[0];
 
+    console.log('🏨 객실 정보:', {
+      id: room.id,
+      title: room.title,
+      is_active: room.is_active,
+      category_id: room.category_id,
+      partner_id: room.partner_id
+    });
+
     if (!room.is_active) {
+      console.error('❌ 객실이 비활성화 상태입니다');
       return res.status(400).json({
         success: false,
-        error: '이 객실은 현재 예약할 수 없습니다.'
+        error: '이 객실은 현재 예약할 수 없습니다.',
+        details: {
+          listing_id,
+          is_active: room.is_active
+        }
       });
     }
 
