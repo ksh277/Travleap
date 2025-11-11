@@ -206,6 +206,9 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     let booking = null; // 일반 예약 정보 (isBooking일 때 사용)
     let rentcarBooking = null; // 렌트카 예약 정보 (isRentcar일 때 사용)
 
+    // ✅ 카테고리 정보 저장용 변수
+    let categoryName = '주문'; // 기본값
+
     if (isBooking) {
       // 예약 (단일 상품 결제)
       const bookings = await connection.execute(
@@ -220,6 +223,30 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       booking = bookings.rows[0];
       bookingId = booking.id;
       userId = booking.user_id;
+
+      // ✅ 카테고리 이름 조회 (listing_id → category_id → name_ko)
+      if (booking.listing_id) {
+        try {
+          const categoryResult = await connection.execute(
+            `SELECT c.name_ko
+             FROM listings l
+             JOIN categories c ON l.category_id = c.id
+             WHERE l.id = ?`,
+            [booking.listing_id]
+          );
+
+          if (categoryResult && categoryResult.rows && categoryResult.rows.length > 0) {
+            categoryName = categoryResult.rows[0].name_ko || '주문';
+            console.log(`✅ [Category] listing_id=${booking.listing_id} → category="${categoryName}"`);
+          } else {
+            console.warn(`⚠️  [Category] listing_id=${booking.listing_id}의 카테고리를 찾을 수 없습니다. 기본값 사용`);
+          }
+        } catch (catError) {
+          console.warn(`⚠️  [Category] 카테고리 조회 실패 (기본값 사용):`, catError.message);
+        }
+      } else {
+        console.warn(`⚠️  [Category] booking에 listing_id가 없습니다. 기본값 사용`);
+      }
 
       // ✅ 금액 검증 추가 (보안 강화)
       // ⚠️ DECIMAL 타입과 INT 타입 비교 문제 해결: 숫자로 변환 후 오차 허용
@@ -501,7 +528,7 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
       // ✅ notes 생성 (카테고리 정보 포함)
       const paymentNotes = {
-        category: isRentcar ? '렌트카' : (isBooking ? '여행' : '주문')
+        category: isRentcar ? '렌트카' : (isBooking ? categoryName : '주문')
       };
 
       const paymentInsertResult = await connection.execute(
