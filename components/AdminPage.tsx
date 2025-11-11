@@ -744,6 +744,7 @@ export function AdminPage({}: AdminPageProps) {
     priceType: 'fixed',
     location: '',
     address: '',
+    detailedAddress: '',
     coordinates: '',
     images: [],
     description: '',
@@ -3169,6 +3170,23 @@ export function AdminPage({}: AdminPageProps) {
                               </div>
                             )}
                           </div>
+
+                          {/* 상세주소 입력 필드 */}
+                          {newProduct.address && (
+                            <div>
+                              <label className="text-sm font-medium mb-2 block">
+                                상세주소 <span className="text-gray-400">(선택사항)</span>
+                              </label>
+                              <Input
+                                placeholder="건물명, 동/호수 등 상세주소 입력"
+                                value={newProduct.detailedAddress || ''}
+                                onChange={(e) => setNewProduct({ ...newProduct, detailedAddress: e.target.value })}
+                              />
+                              <p className="text-xs text-gray-500 mt-1">
+                                예: 101호, 2층, 지도빌딩 등
+                              </p>
+                            </div>
+                          )}
                         </div>
 
                         {/* 이미지 */}

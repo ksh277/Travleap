@@ -108,9 +108,9 @@ module.exports = async function handler(req, res) {
           location, address, meeting_point, category_id, category, partner_id,
           images, max_capacity, highlights, included, excluded,
           is_active, is_featured, is_published,
-          has_options, min_purchase, max_purchase, stock_enabled, stock, shipping_fee, is_refundable, refund_policy,
+          has_options, min_purchase, max_purchase, stock_enabled, stock, shipping_fee,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           listingData.title,
           listingData.longDescription || listingData.description || '',
@@ -138,9 +138,7 @@ module.exports = async function handler(req, res) {
           listingData.maxPurchase || listingData.max_purchase || null,
           listingData.stockEnabled || listingData.stock_enabled ? 1 : 0,
           listingData.stock || null,
-          listingData.shippingFee || listingData.shipping_fee || null,
-          listingData.isRefundable !== undefined ? (listingData.isRefundable ? 1 : 0) : (listingData.is_refundable !== undefined ? (listingData.is_refundable ? 1 : 0) : 1),
-          listingData.refundPolicy || listingData.refund_policy ? JSON.stringify(listingData.refundPolicy || listingData.refund_policy) : null
+          listingData.shippingFee || listingData.shipping_fee || null
         ]
       );
 
