@@ -117,11 +117,38 @@ export function HotelDetailPage() {
   // 사용자 정보 (항상 최신 상태 가져오기)
   const getUserFromStorage = () => {
     try {
-      const userStr = localStorage.getItem('user');
-      if (!userStr || userStr === 'null' || userStr === 'undefined') {
-        return null;
+      // 1. 소셜 로그인: user_info 키 확인
+      const userInfoStr = localStorage.getItem('user_info');
+      if (userInfoStr && userInfoStr !== 'null' && userInfoStr !== 'undefined') {
+        console.log('✅ user_info에서 사용자 정보 로드 (소셜 로그인)');
+        return JSON.parse(userInfoStr);
       }
-      return JSON.parse(userStr);
+
+      // 2. 일반 로그인: travleap_token에서 JWT 파싱
+      const token = localStorage.getItem('travleap_token') || localStorage.getItem('auth_token');
+      if (token && token !== 'null' && token !== 'undefined') {
+        try {
+          // JWT 페이로드 파싱 (간단한 방법)
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const payload = JSON.parse(window.atob(base64));
+          console.log('✅ JWT 토큰에서 사용자 정보 로드 (일반 로그인):', payload);
+
+          // JWT 페이로드에서 사용자 정보 추출
+          return {
+            id: payload.userId || payload.id,
+            email: payload.email,
+            name: payload.name || payload.username,
+            phone: payload.phone,
+            role: payload.role
+          };
+        } catch (e) {
+          console.error('JWT 파싱 실패:', e);
+        }
+      }
+
+      console.warn('⚠️ 저장된 사용자 정보 없음');
+      return null;
     } catch (error) {
       console.error('Failed to parse user from localStorage:', error);
       return null;
@@ -317,27 +344,19 @@ export function HotelDetailPage() {
 
     // 로그인 체크 (최신 상태 확인)
     const currentUser = getUserFromStorage();
-    const authToken = localStorage.getItem('auth_token');
 
     console.log('🔐 로그인 체크:', {
-      currentUser,
       hasUser: !!currentUser,
       hasEmail: !!currentUser?.email,
-      hasToken: !!authToken,
-      userKeys: currentUser ? Object.keys(currentUser) : [],
-      email: currentUser?.email
+      email: currentUser?.email,
+      source: localStorage.getItem('user_info') ? 'user_info (소셜)' :
+              localStorage.getItem('travleap_token') ? 'travleap_token (일반)' :
+              localStorage.getItem('auth_token') ? 'auth_token' : '없음'
     });
 
-    if (!currentUser) {
-      console.error('❌ 사용자 정보 없음 - localStorage에서 user 조회 실패');
+    if (!currentUser || !currentUser.email) {
+      console.error('❌ 로그인 필요 - 사용자 정보:', currentUser);
       toast.error('로그인이 필요한 서비스입니다');
-      navigate('/login');
-      return;
-    }
-
-    if (!currentUser.email) {
-      console.error('❌ 이메일 정보 없음 - user 객체:', currentUser);
-      toast.error('사용자 이메일 정보가 없습니다. 다시 로그인해주세요.');
       navigate('/login');
       return;
     }

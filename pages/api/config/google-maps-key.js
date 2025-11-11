@@ -3,6 +3,8 @@
  * 런타임 환경변수를 사용하여 API 키 제공
  */
 module.exports = async function handler(req, res) {
+  // CORS 및 Content-Type 헤더 명시적 설정
+  res.setHeader('Content-Type', 'application/json');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
