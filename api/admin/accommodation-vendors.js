@@ -66,13 +66,13 @@ module.exports = async function handler(req, res) {
             SELECT AVG(r.rating)
             FROM reviews r
             INNER JOIN listings l2 ON r.listing_id = l2.id
-            WHERE l2.partner_id = p.id AND r.status = 'approved'
+            WHERE l2.partner_id = p.id AND r.is_hidden = 0
           ) as avg_rating,
           (
             SELECT COUNT(*)
             FROM reviews r
             INNER JOIN listings l2 ON r.listing_id = l2.id
-            WHERE l2.partner_id = p.id AND r.status = 'approved'
+            WHERE l2.partner_id = p.id AND r.is_hidden = 0
           ) as total_reviews
         FROM partners p
         LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = ? AND l.is_published = 1 AND l.is_active = 1
