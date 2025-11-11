@@ -327,6 +327,193 @@ async function startServer() {
     console.log('=========================================\n');
   });
 
+  // ========== 관리자 보험 관리 API ==========
+
+  // ✅ 보험 목록 조회 (관리자)
+  app.get('/api/admin/insurance', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { connect } = await import('@planetscale/database');
+      const connection = connect({ url: process.env.DATABASE_URL! });
+
+      const result = await connection.execute(`
+        SELECT * FROM insurances
+        ORDER BY category, created_at DESC
+      `);
+
+      const insurances = (result.rows || []).map((row: any) => ({
+        ...row,
+        coverage_details: row.coverage_details ? JSON.parse(row.coverage_details) : { items: [], exclusions: [] }
+      }));
+
+      return res.status(200).json({
+        success: true,
+        data: insurances
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin Insurance List] 오류:', error);
+      return res.status(500).json({
+        success: false,
+        error: '보험 목록 조회 실패',
+        message: error.message
+      });
+    }
+  });
+
+  // ✅ 보험 생성 (관리자)
+  app.post('/api/admin/insurance', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { connect } = await import('@planetscale/database');
+      const connection = connect({ url: process.env.DATABASE_URL! });
+
+      const {
+        name,
+        category,
+        price,
+        pricing_unit,
+        coverage_amount,
+        vendor_id,
+        vehicle_id,
+        description,
+        coverage_details,
+        is_active
+      } = req.body;
+
+      // 필수 필드 검증
+      if (!name || !category || price === undefined) {
+        return res.status(400).json({
+          success: false,
+          error: 'name, category, price는 필수입니다.'
+        });
+      }
+
+      const result = await connection.execute(`
+        INSERT INTO insurances (
+          name, category, price, pricing_unit, coverage_amount,
+          vendor_id, vehicle_id, description, coverage_details, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        name,
+        category,
+        price,
+        pricing_unit || 'fixed',
+        coverage_amount || 0,
+        vendor_id || null,
+        vehicle_id || null,
+        description || '',
+        JSON.stringify(coverage_details || { items: [], exclusions: [] }),
+        is_active !== undefined ? is_active : 1
+      ]);
+
+      console.log(`✅ [Admin] 보험 생성 성공: ${name} (ID: ${result.insertId})`);
+
+      return res.status(201).json({
+        success: true,
+        message: '보험이 생성되었습니다.',
+        data: { id: result.insertId }
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin Insurance Create] 오류:', error);
+      return res.status(500).json({
+        success: false,
+        error: '보험 생성 실패',
+        message: error.message
+      });
+    }
+  });
+
+  // ✅ 보험 수정 (관리자)
+  app.put('/api/admin/insurance/:id', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { connect } = await import('@planetscale/database');
+      const connection = connect({ url: process.env.DATABASE_URL! });
+
+      const { id } = req.params;
+      const {
+        name,
+        category,
+        price,
+        pricing_unit,
+        coverage_amount,
+        vendor_id,
+        vehicle_id,
+        description,
+        coverage_details,
+        is_active
+      } = req.body;
+
+      await connection.execute(`
+        UPDATE insurances
+        SET
+          name = ?,
+          category = ?,
+          price = ?,
+          pricing_unit = ?,
+          coverage_amount = ?,
+          vendor_id = ?,
+          vehicle_id = ?,
+          description = ?,
+          coverage_details = ?,
+          is_active = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [
+        name,
+        category,
+        price,
+        pricing_unit || 'fixed',
+        coverage_amount || 0,
+        vendor_id || null,
+        vehicle_id || null,
+        description || '',
+        JSON.stringify(coverage_details || { items: [], exclusions: [] }),
+        is_active !== undefined ? is_active : 1,
+        id
+      ]);
+
+      console.log(`✅ [Admin] 보험 수정 성공: ID ${id}`);
+
+      return res.status(200).json({
+        success: true,
+        message: '보험이 수정되었습니다.'
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin Insurance Update] 오류:', error);
+      return res.status(500).json({
+        success: false,
+        error: '보험 수정 실패',
+        message: error.message
+      });
+    }
+  });
+
+  // ✅ 보험 삭제 (관리자)
+  app.delete('/api/admin/insurance/:id', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const { connect } = await import('@planetscale/database');
+      const connection = connect({ url: process.env.DATABASE_URL! });
+
+      const { id } = req.params;
+
+      await connection.execute(`
+        DELETE FROM insurances WHERE id = ?
+      `, [id]);
+
+      console.log(`✅ [Admin] 보험 삭제 성공: ID ${id}`);
+
+      return res.status(200).json({
+        success: true,
+        message: '보험이 삭제되었습니다.'
+      });
+    } catch (error: any) {
+      console.error('❌ [Admin Insurance Delete] 오류:', error);
+      return res.status(500).json({
+        success: false,
+        error: '보험 삭제 실패',
+        message: error.message
+      });
+    }
+  });
+
   // 임시: 카테고리 변환 엔드포인트 (DB의 영어 카테고리를 한글로 변환)
   app.post('/api/admin/convert-categories', authenticate, requireRole('admin'), async (req, res) => {
     try {
@@ -393,6 +580,75 @@ function setupRoutes() {
       },
       realtime: realtimeServer.getMetrics()
     });
+  });
+
+  // ========== 설정 API ==========
+
+  // ✅ Google Maps API 키 조회 (클라이언트용)
+  app.get('/api/config/google-maps-key', (_req, res) => {
+    const apiKey = process.env.VITE_GOOGLE_MAPS_API_KEY;
+
+    if (!apiKey) {
+      return res.status(200).json({
+        success: false,
+        message: 'Google Maps API key not configured'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      key: apiKey
+    });
+  });
+
+  // ========== 리뷰 API ==========
+
+  // ✅ 최신 리뷰 조회 (공개 API)
+  app.get('/api/reviews/recent', async (req, res) => {
+    try {
+      const { connect } = await import('@planetscale/database');
+      const connection = connect({ url: process.env.DATABASE_URL! });
+
+      const limit = parseInt(req.query.limit as string) || 4;
+
+      const result = await connection.execute(`
+        SELECT
+          r.id,
+          r.listing_id,
+          r.user_id,
+          r.rating,
+          r.title,
+          r.comment_md,
+          r.review_images,
+          r.created_at,
+          r.updated_at,
+          r.helpful_count,
+          r.is_verified
+        FROM reviews r
+        WHERE r.is_hidden = 0
+        ORDER BY r.created_at DESC
+        LIMIT ?
+      `, [limit]);
+
+      const reviews = (result.rows || []).map((row: any) => ({
+        ...row,
+        images: row.review_images ? JSON.parse(row.review_images) : [],
+        review_images: undefined // 클라이언트에는 images로만 전달
+      }));
+
+      return res.status(200).json({
+        success: true,
+        data: reviews,
+        count: reviews.length
+      });
+    } catch (error: any) {
+      console.error('❌ [Recent Reviews API] 오류:', error);
+      return res.status(500).json({
+        success: false,
+        error: '최신 리뷰 조회 실패',
+        message: error.message
+      });
+    }
   });
 
   // 로그인 API 핸들러 함수
@@ -775,6 +1031,73 @@ function setupRoutes() {
   });
 
   // ========== 렌트카 MVP 시스템 API ==========
+
+  // ✅ 렌트카 보험 목록 조회 (공개 API, 인증 불필요)
+  app.get('/api/rentcar/insurances', async (req, res) => {
+    try {
+      const { vendor_id, vehicle_id } = req.query;
+      const { connect } = await import('@planetscale/database');
+      const connection = connect({ url: process.env.DATABASE_URL! });
+
+      // 렌트카 카테고리의 활성 보험만 조회
+      let query = `
+        SELECT
+          id, name, category, price, pricing_unit, coverage_amount,
+          vendor_id, vehicle_id,
+          description, coverage_details,
+          created_at, updated_at
+        FROM insurances
+        WHERE category = 'rentcar'
+          AND is_active = 1
+      `;
+
+      const params: any[] = [];
+
+      // vendor_id 필터링: null(공용) 또는 특정 벤더
+      if (vendor_id) {
+        query += ` AND (vendor_id IS NULL OR vendor_id = ?)`;
+        params.push(parseInt(vendor_id as string));
+      } else {
+        // vendor_id가 없으면 공용 보험만
+        query += ` AND vendor_id IS NULL`;
+      }
+
+      // vehicle_id 필터링: null(전체 차량) 또는 특정 차량
+      if (vehicle_id) {
+        query += ` AND (vehicle_id IS NULL OR vehicle_id = ?)`;
+        params.push(parseInt(vehicle_id as string));
+      } else {
+        // vehicle_id가 없으면 벤더 전체 차량용 보험만
+        query += ` AND vehicle_id IS NULL`;
+      }
+
+      query += ` ORDER BY price ASC`;
+
+      const result = await connection.execute(query, params);
+
+      const insurances = (result.rows || []).map((row: any) => ({
+        ...row,
+        coverage_details: row.coverage_details ? JSON.parse(row.coverage_details) : { items: [], exclusions: [] },
+        is_active: true, // 이미 필터링했으므로 항상 true
+        vendor_id: row.vendor_id || null,
+        vehicle_id: row.vehicle_id || null
+      }));
+
+      return res.status(200).json({
+        success: true,
+        data: insurances,
+        count: insurances.length
+      });
+
+    } catch (error: any) {
+      console.error('❌ [Rentcar Insurances API] 오류:', error);
+      return res.status(500).json({
+        success: false,
+        message: '서버 오류가 발생했습니다.',
+        error: error.message
+      });
+    }
+  });
 
   // ✅ 렌트카 검색 (가용성 + 가격 계산)
   app.get('/api/rentals/search', async (req, res) => {
