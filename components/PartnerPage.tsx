@@ -363,12 +363,46 @@ export function PartnerPage() {
 
   // 모바일에서 지도 탭으로 전환 시 지도 초기화
   useEffect(() => {
+    console.log('📱 Mobile Map useEffect:', {
+      screenWidth: window.innerWidth,
+      mobileTab,
+      mapExists: !!map,
+      mobileMapRefExists: !!mobileMapRef.current,
+      googleMapsLoaded: !!(window as any).google
+    });
+
     // 모바일 환경이 아니거나 지도 탭이 아니면 실행하지 않음
-    if (window.innerWidth >= 1024 || mobileTab !== 'map' || map) return;
+    if (window.innerWidth >= 1024) {
+      console.log('⏭️ Skip: Desktop environment');
+      return;
+    }
+    if (mobileTab !== 'map') {
+      console.log('⏭️ Skip: Not on map tab');
+      return;
+    }
+    if (map) {
+      console.log('⏭️ Skip: Map already exists');
+      return;
+    }
+
+    console.log('✅ Initializing mobile map...');
 
     const initMobileMap = () => {
-      if (!mobileMapRef.current) return;
+      console.log('🗺️ initMobileMap called, mobileMapRef.current:', !!mobileMapRef.current);
+      if (!mobileMapRef.current) {
+        console.error('❌ mobileMapRef.current is null! Retrying in 100ms...');
+        // DOM이 렌더링될 시간을 주고 재시도
+        setTimeout(() => {
+          if (!mobileMapRef.current) {
+            console.error('❌ mobileMapRef.current still null after retry!');
+            return;
+          }
+          initMobileMap();
+        }, 100);
+        return;
+      }
 
+      console.log('📍 Creating Google Map instance...');
       const newMap = new google.maps.Map(mobileMapRef.current, {
         center: { lat: 34.9654, lng: 126.1234 }, // 신안군 중심
         zoom: 11,
@@ -381,36 +415,47 @@ export function PartnerPage() {
         ]
       });
 
+      console.log('✅ Map instance created, setting state...');
       setMap(newMap);
 
       // 마커 추가 (파트너 데이터가 로드된 후)
       if (filteredPartners.length > 0) {
+        console.log(`📍 Adding ${filteredPartners.length} markers...`);
         addMarkers(newMap, filteredPartners);
+      } else {
+        console.log('⚠️ No partners to add markers');
       }
     };
 
     // Google Maps API 로드 (아직 로드되지 않았다면)
     if (!(window as any).google) {
+      console.log('📥 Loading Google Maps API...');
       const apiKey = getGoogleMapsApiKey();
 
       if (!apiKey) {
-        console.error('Google Maps API key is not configured');
+        console.error('❌ Google Maps API key is not configured');
         setMapError(true);
         return;
       }
 
+      console.log('🔑 API Key found:', apiKey.substring(0, 10) + '...');
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
-      script.onload = initMobileMap;
+      script.onload = () => {
+        console.log('✅ Google Maps API loaded');
+        initMobileMap();
+      };
       script.onerror = () => {
-        console.error('Failed to load Google Maps API');
+        console.error('❌ Failed to load Google Maps API');
         setMapError(true);
       };
       document.head.appendChild(script);
     } else {
-      initMobileMap();
+      console.log('✅ Google Maps API already loaded');
+      // DOM 렌더링을 기다림
+      setTimeout(initMobileMap, 50);
     }
   }, [mobileTab, map, filteredPartners]);
 
