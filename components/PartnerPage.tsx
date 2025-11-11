@@ -308,8 +308,11 @@ export function PartnerPage() {
     initializeData();
   }, []);
 
-  // Google Maps 초기화
+  // Google Maps 초기화 (데스크톱용)
   useEffect(() => {
+    // 모바일 환경에서는 실행하지 않음
+    if (window.innerWidth < 1024) return;
+
     const initMap = () => {
       if (!mapRef.current) return;
 
@@ -336,7 +339,7 @@ export function PartnerPage() {
     // Google Maps API 로드
     if (!(window as any).google) {
       const apiKey = getGoogleMapsApiKey();
-      
+
       if (!apiKey) {
         console.error('Google Maps API key is not configured');
         setMapError(true);
@@ -360,8 +363,12 @@ export function PartnerPage() {
 
   // 모바일에서 지도 탭으로 전환 시 지도 초기화
   useEffect(() => {
-    // 모바일 환경이고, 지도 탭이 활성화되고, 지도가 아직 초기화되지 않았을 때
-    if (mobileTab === 'map' && !map && (window as any).google && mobileMapRef.current) {
+    // 모바일 환경이 아니거나 지도 탭이 아니면 실행하지 않음
+    if (window.innerWidth >= 1024 || mobileTab !== 'map' || map) return;
+
+    const initMobileMap = () => {
+      if (!mobileMapRef.current) return;
+
       const newMap = new google.maps.Map(mobileMapRef.current, {
         center: { lat: 34.9654, lng: 126.1234 }, // 신안군 중심
         zoom: 11,
@@ -380,6 +387,30 @@ export function PartnerPage() {
       if (filteredPartners.length > 0) {
         addMarkers(newMap, filteredPartners);
       }
+    };
+
+    // Google Maps API 로드 (아직 로드되지 않았다면)
+    if (!(window as any).google) {
+      const apiKey = getGoogleMapsApiKey();
+
+      if (!apiKey) {
+        console.error('Google Maps API key is not configured');
+        setMapError(true);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initMobileMap;
+      script.onerror = () => {
+        console.error('Failed to load Google Maps API');
+        setMapError(true);
+      };
+      document.head.appendChild(script);
+    } else {
+      initMobileMap();
     }
   }, [mobileTab, map, filteredPartners]);
 
