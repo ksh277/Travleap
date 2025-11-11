@@ -26,6 +26,8 @@ import {
   Share2,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Star,
   MessageCircle,
   Clock
@@ -116,6 +118,7 @@ export function RentcarVendorDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
   // 리뷰 관련 상태
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -955,8 +958,8 @@ export function RentcarVendorDetailPage() {
             </Card>
           </div>
 
-          {/* 예약 사이드바 */}
-          <div className="lg:col-span-1">
+          {/* 예약 사이드바 - 데스크톱만 표시 */}
+          <div className="hidden lg:block lg:col-span-1">
             <div className="lg:sticky lg:top-40 lg:self-start lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto">
               <Card>
                 <CardContent className="p-6">
@@ -1113,6 +1116,218 @@ export function RentcarVendorDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 모바일 Bottom Sheet */}
+      <div className="lg:hidden">
+        {/* 배경 오버레이 */}
+        {isBottomSheetOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsBottomSheetOpen(false)}
+          />
+        )}
+
+        {/* 하단 고정 바 (접힌 상태) */}
+        {!isBottomSheetOpen && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-50">
+            <button
+              onClick={() => setIsBottomSheetOpen(true)}
+              className="w-full p-4 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div>
+                  <div className="text-sm text-gray-600">
+                    {selectedVehicle ? selectedVehicle.display_name : '차량을 선택하세요'}
+                  </div>
+                  <div className="text-lg font-bold text-blue-600">
+                    ₩{selectedVehicle
+                      ? selectedVehicle.daily_rate_krw.toLocaleString()
+                      : minPrice.toLocaleString()}
+                    <span className="text-sm text-gray-500"> /일</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-blue-600 font-medium">예약하기</span>
+                <ChevronUp className="h-5 w-5 text-blue-600" />
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Sheet 패널 (펼쳐진 상태) */}
+        {isBottomSheetOpen && (
+          <div className="fixed inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-2xl z-50 max-h-[85vh] overflow-y-auto animate-slide-up">
+            {/* 드래그 핸들 */}
+            <div className="sticky top-0 bg-white pt-3 pb-2 border-b z-10">
+              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
+              <div className="flex items-center justify-between px-4 pb-2">
+                <h3 className="text-lg font-bold">예약하기</h3>
+                <button
+                  onClick={() => setIsBottomSheetOpen(false)}
+                  className="p-1 rounded-full hover:bg-gray-100"
+                >
+                  <ChevronDown className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* 예약 폼 내용 */}
+            <div className="p-4">
+              {/* 가격 정보 */}
+              <div className="mb-6">
+                <div className="text-sm text-gray-600 mb-1">
+                  {selectedVehicle
+                    ? `${selectedVehicle.display_name} - 1일 기준`
+                    : '1일 기준'}
+                </div>
+                <div className="text-3xl font-bold text-blue-600">
+                  ₩{selectedVehicle
+                    ? selectedVehicle.daily_rate_krw.toLocaleString()
+                    : minPrice.toLocaleString()}
+                  {!selectedVehicle && <span className="text-sm text-gray-500 ml-2">~</span>}
+                </div>
+                {pickupDate && returnDate && selectedVehicle && calculateRentalHours() >= 4 && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    총 {Math.floor(calculateRentalHours())}시간
+                    {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`} = {' '}
+                    <span className="font-semibold text-blue-600">
+                      ₩{Math.ceil((selectedVehicle.hourly_rate_krw || Math.ceil(selectedVehicle.daily_rate_krw / 24)) * calculateRentalHours()).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <Separator className="my-4" />
+
+              {/* 선택된 차량 정보 */}
+              {selectedVehicle && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Car className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-blue-900">선택된 차량</span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedVehicle.display_name}
+                  </p>
+                  {selectedVehicle.description && (
+                    <p className="text-xs text-gray-600 mt-1">{selectedVehicle.description}</p>
+                  )}
+                </div>
+              )}
+
+              <Separator className="my-4" />
+
+              {/* 날짜 및 시간 선택 */}
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">대여 시작</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {pickupDate ? format(pickupDate, 'PPP', { locale: ko }) : '날짜 선택'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={pickupDate}
+                        onSelect={setPickupDate}
+                        locale={ko}
+                        disabled={(date) => date < new Date()}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <select
+                    value={pickupTime}
+                    onChange={(e) => setPickupTime(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md mt-2"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => {
+                      const hour = i.toString().padStart(2, '0');
+                      return (
+                        <option key={`${hour}-00`} value={`${hour}:00`}>{hour}:00</option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">반납 시간</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {returnDate ? format(returnDate, 'PPP', { locale: ko }) : '날짜 선택'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={returnDate}
+                        onSelect={setReturnDate}
+                        locale={ko}
+                        disabled={(date) => date < (pickupDate || new Date())}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <select
+                    value={returnTime}
+                    onChange={(e) => setReturnTime(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-md mt-2"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => {
+                      const hour = i.toString().padStart(2, '0');
+                      return (
+                        <option key={`${hour}-00`} value={`${hour}:00`}>{hour}:00</option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {pickupDate && returnDate && calculateRentalHours() >= 4 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-900">
+                      <strong>총 대여 시간:</strong> {Math.floor(calculateRentalHours())}시간
+                      {calculateRentalHours() % 1 !== 0 && ` ${Math.round((calculateRentalHours() % 1) * 60)}분`}
+                    </p>
+                  </div>
+                )}
+
+                {pickupDate && returnDate && calculateRentalHours() < 4 && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                    <p className="text-sm text-orange-900">
+                      최소 4시간 이상 대여 가능합니다
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                onClick={handleBooking}
+                className="w-full"
+                size="lg"
+                disabled={isBooking || !pickupDate || !returnDate || !selectedVehicle || calculateRentalHours() < 4}
+              >
+                {isBooking ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    예약 처리 중...
+                  </div>
+                ) : (
+                  '바로 예약하기'
+                )}
+              </Button>
+
+              <p className="text-xs text-center text-gray-500 mt-4">
+                예약 버튼을 누르면 차량 상세 페이지로 이동하여<br />
+                즉시 확정됩니다
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
