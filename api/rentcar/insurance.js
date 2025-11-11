@@ -34,25 +34,58 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 활성화된 보험 상품만 조회
+    // insurances 테이블에서 렌트카 보험 조회
+    // vendor_id가 일치하거나 null인 경우 (공통 보험)
     const result = await connection.execute(
       `SELECT
         id,
         name,
         description,
         coverage_details,
-        hourly_rate_krw,
-        is_required,
-        display_order
-       FROM rentcar_insurance
-       WHERE vendor_id = ? AND is_active = TRUE
-       ORDER BY display_order ASC, created_at ASC`,
+        price as hourly_rate_krw,
+        0 as is_required,
+        id as display_order
+       FROM insurances
+       WHERE category = 'rentcar'
+         AND pricing_unit = 'hourly'
+         AND is_active = 1
+         AND (vendor_id IS NULL OR vendor_id = ?)
+       ORDER BY id ASC`,
       [vendor_id]
     );
 
+    // coverage_details를 문자열로 변환
+    const insurances = (result.rows || []).map(insurance => {
+      let coverageText = '';
+
+      // PlanetScale이 JSON을 객체로 반환하는 경우
+      if (insurance.coverage_details && typeof insurance.coverage_details === 'object') {
+        if (insurance.coverage_details.items && Array.isArray(insurance.coverage_details.items)) {
+          coverageText = insurance.coverage_details.items.join('\n');
+        }
+      }
+      // 문자열인 경우 파싱 시도
+      else if (typeof insurance.coverage_details === 'string') {
+        try {
+          const parsed = JSON.parse(insurance.coverage_details);
+          if (parsed.items && Array.isArray(parsed.items)) {
+            coverageText = parsed.items.join('\n');
+          }
+        } catch (e) {
+          coverageText = insurance.coverage_details;
+        }
+      }
+
+      return {
+        ...insurance,
+        coverage_details: coverageText || null,
+        is_required: insurance.is_required === 1 || insurance.is_required === true
+      };
+    });
+
     return res.status(200).json({
       success: true,
-      data: result.rows || []
+      data: insurances
     });
 
   } catch (error) {
