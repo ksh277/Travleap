@@ -65,7 +65,8 @@ interface Insurance {
   name: string;
   description: string | null;
   coverage_details: string | null;
-  hourly_rate_krw: number;
+  price: number;
+  pricing_unit: 'hourly' | 'daily';
   display_order: number;
 }
 
@@ -197,23 +198,15 @@ export function RentcarVendorDetailPage() {
               ins.is_active &&
               (!ins.vendor_id || ins.vendor_id === Number(vendorId))
             )
-            .map((ins: any) => {
-              // 시간당 요금 계산
-              let hourlyRate = parseFloat(ins.price);
-              if (ins.pricing_unit === 'daily') {
-                // 일 단위 → 시간당 (24로 나눔)
-                hourlyRate = Math.round(hourlyRate / 24);
-              }
-
-              return {
-                id: ins.id,
-                name: ins.name,
-                description: ins.description,
-                coverage_details: ins.coverage_details?.items?.join('\n') || null,
-                hourly_rate_krw: hourlyRate,
-                display_order: ins.id
-              };
-            });
+            .map((ins: any) => ({
+              id: ins.id,
+              name: ins.name,
+              description: ins.description,
+              coverage_details: ins.coverage_details?.items?.join('\n') || null,
+              price: parseFloat(ins.price),
+              pricing_unit: ins.pricing_unit,
+              display_order: ins.id
+            }));
 
           setInsurances(rentcarInsurances);
         }
@@ -876,14 +869,15 @@ export function RentcarVendorDetailPage() {
                 <CardContent>
                   <div className="space-y-3">
                     <p className="text-sm text-gray-600 mb-4">
-                      차량 예약 시 선택 가능한 보험 상품입니다. 시간당 요금으로 계산됩니다.
+                      차량 예약 시 선택 가능한 보험 상품입니다.
                     </p>
                     {insurances.map((insurance) => (
                       <div key={insurance.id} className="border rounded-lg p-4 bg-gray-50">
                         <div className="flex justify-between items-start mb-2">
                           <h4 className="font-semibold text-gray-900">{insurance.name}</h4>
                           <span className="text-green-600 font-semibold">
-                            {insurance.hourly_rate_krw.toLocaleString()}원/시간
+                            {insurance.price.toLocaleString()}원/
+                            {insurance.pricing_unit === 'hourly' ? '시간' : '일'}
                           </span>
                         </div>
                         {insurance.description && (
@@ -898,7 +892,7 @@ export function RentcarVendorDetailPage() {
                     ))}
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
                       <p className="text-xs text-blue-700">
-                        💡 <strong>계산 예시:</strong> 24시간 렌트 × 1,000원/시간 = 24,000원 보험료
+                        💡 <strong>안내:</strong> 보험료는 렌트 시간에 따라 자동 계산됩니다.
                       </p>
                     </div>
                   </div>

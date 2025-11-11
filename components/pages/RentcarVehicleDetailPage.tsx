@@ -57,7 +57,8 @@ interface Insurance {
   name: string;
   description: string | null;
   coverage_details: string | null;
-  hourly_rate_krw: number;
+  price: number;
+  pricing_unit: 'hourly' | 'daily';
   is_required?: boolean;
   display_order: number;
 }
@@ -171,6 +172,7 @@ export function RentcarVehicleDetailPage() {
           const insuranceResult = await insuranceResponse.json();
 
           if (insuranceResult.success && insuranceResult.data) {
+            // API에서 price와 pricing_unit을 그대로 받음
             setInsurances(insuranceResult.data);
           }
 
@@ -350,9 +352,17 @@ export function RentcarVehicleDetailPage() {
     if (!selectedInsurance) return 0;
 
     const totalHours = calculateRentalHours();
-    // 소수점 시간을 올림 처리하여 시간당 요금 계산 (예: 25.5시간 -> 26시간)
     const billingHours = Math.ceil(totalHours);
-    return selectedInsurance.hourly_rate_krw * billingHours;
+
+    // pricing_unit에 따라 요금 계산
+    if (selectedInsurance.pricing_unit === 'hourly') {
+      return selectedInsurance.price * billingHours;
+    } else if (selectedInsurance.pricing_unit === 'daily') {
+      const days = Math.ceil(billingHours / 24);
+      return selectedInsurance.price * days;
+    }
+
+    return 0;
   };
 
   // 옵션 선택/수량 변경
@@ -1070,7 +1080,20 @@ export function RentcarVehicleDetailPage() {
                           {insurances.map((insurance) => {
                             const totalHours = calculateRentalHours();
                             const billingHours = Math.ceil(totalHours);
-                            const insuranceFee = insurance.hourly_rate_krw * billingHours;
+
+                            // pricing_unit에 따라 요금 계산
+                            let insuranceFee = 0;
+                            let priceDisplay = '';
+
+                            if (insurance.pricing_unit === 'hourly') {
+                              insuranceFee = insurance.price * billingHours;
+                              priceDisplay = `${insurance.price.toLocaleString()}원/시간 × ${billingHours}시간`;
+                            } else if (insurance.pricing_unit === 'daily') {
+                              const days = Math.ceil(billingHours / 24);
+                              insuranceFee = insurance.price * days;
+                              priceDisplay = `${insurance.price.toLocaleString()}원/일 × ${days}일`;
+                            }
+
                             return (
                               <label
                                 key={insurance.id}
@@ -1106,7 +1129,7 @@ export function RentcarVehicleDetailPage() {
                                       </div>
                                     )}
                                     <div className="text-xs text-gray-500 mt-1">
-                                      {insurance.hourly_rate_krw.toLocaleString()}원/시간 × {billingHours}시간
+                                      {priceDisplay}
                                     </div>
                                   </div>
                                   <div className="text-right">

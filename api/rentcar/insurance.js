@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
       [vendor_id]
     );
 
-    // coverage_details를 문자열로 변환 + 시간당 요금 계산
+    // coverage_details를 문자열로 변환
     const insurances = (result.rows || []).map(insurance => {
       let coverageText = '';
 
@@ -77,22 +77,19 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // 시간당 요금 계산
-      let hourlyRate = parseFloat(insurance.price);
-      if (insurance.pricing_unit === 'daily') {
-        // 일 단위 요금을 시간당으로 변환 (24시간으로 나눔)
-        hourlyRate = Math.round(hourlyRate / 24);
-      } else if (insurance.pricing_unit === 'fixed') {
-        // 고정 요금은 시간당 적용 불가 - 스킵
+      // fixed는 렌트카에 적용 불가 - 스킵
+      if (insurance.pricing_unit === 'fixed') {
         return null;
       }
 
+      // pricing_unit과 price를 그대로 반환 (프론트엔드에서 계산)
       return {
         id: insurance.id,
         name: insurance.name,
         description: insurance.description,
         coverage_details: coverageText || null,
-        hourly_rate_krw: hourlyRate,
+        price: parseFloat(insurance.price),
+        pricing_unit: insurance.pricing_unit, // 'hourly' or 'daily'
         is_required: insurance.is_required === 1 || insurance.is_required === true,
         display_order: insurance.display_order
       };
