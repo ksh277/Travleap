@@ -496,7 +496,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
   try {
     console.log(`💰 [Refund] 환불 요청 시작: paymentKey=${paymentKey}, reason=${cancelReason}`);
 
-    // 1. DB에서 결제 정보 조회 (delivery_status 포함 + rentcar_bookings 지원)
+    // 1. DB에서 결제 정보 조회 (delivery_status 포함 + rentcar_bookings 지원 + 체크인/픽업 상태)
     const paymentResult = await connection.execute(`
       SELECT
         p.*,
@@ -510,11 +510,15 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         b.order_number,
         b.booking_number,
         b.delivery_status,
+        b.status as booking_status,
+        b.check_in_time,
         l.category,
         rb.id as rentcar_booking_id,
         rb.booking_number as rentcar_booking_number,
         rb.pickup_date as rentcar_start_date,
-        rb.total_krw as rentcar_amount
+        rb.total_krw as rentcar_amount,
+        rb.status as rentcar_status,
+        rb.pickup_checked_in_at
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
@@ -532,6 +536,48 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     // 2. 이미 환불된 결제인지 확인
     if (payment.payment_status === 'refunded') {
       throw new Error('ALREADY_REFUNDED: 이미 환불된 결제입니다.');
+    }
+
+    // 2-1. 🚫 체크인/픽업 완료 검증 (skipPolicy가 false일 때만)
+    if (!skipPolicy) {
+      // 숙박 예약: status가 'completed'이면 체크인 완료로 간주
+      if (payment.booking_id && payment.booking_status === 'completed') {
+        throw new Error('CHECKIN_COMPLETED: 체크인이 완료된 예약은 환불할 수 없습니다.');
+      }
+
+      // 렌트카 예약: status가 'picked_up', 'in_use', 'returned', 'completed' 중 하나면 픽업 완료
+      if (payment.rentcar_booking_id) {
+        const pickedUpStatuses = ['picked_up', 'in_use', 'returned', 'completed'];
+        if (pickedUpStatuses.includes(payment.rentcar_status)) {
+          throw new Error('PICKUP_COMPLETED: 픽업이 완료된 렌트카는 환불할 수 없습니다.');
+        }
+      }
+
+      // 2-2. 🚫 날짜/시간 경과 검증 (모든 카테고리)
+      const now = new Date();
+
+      // 숙박/투어/이벤트 등: start_date 확인
+      if (payment.start_date) {
+        const startDate = new Date(payment.start_date);
+        startDate.setHours(0, 0, 0, 0); // 날짜만 비교
+        now.setHours(0, 0, 0, 0);
+
+        if (startDate < now) {
+          throw new Error('DATE_PASSED: 예약 날짜가 지나서 환불할 수 없습니다.');
+        }
+      }
+
+      // 렌트카: pickup_date 확인
+      if (payment.rentcar_start_date) {
+        const pickupDate = new Date(payment.rentcar_start_date);
+        pickupDate.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (pickupDate < today) {
+          throw new Error('PICKUP_DATE_PASSED: 픽업 날짜가 지나서 환불할 수 없습니다.');
+        }
+      }
     }
 
     // 3. 환불 정책 계산 (skipPolicy가 false일 때만)
