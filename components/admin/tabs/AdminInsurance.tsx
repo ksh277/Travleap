@@ -124,8 +124,8 @@ export function AdminInsurance() {
         vendor_id: insurance.vendor_id?.toString() || '',
         vehicle_id: insurance.vehicle_id?.toString() || '',
         description: insurance.description,
-        coverage_items: insurance.coverage_details.items.join('\n'),
-        coverage_exclusions: insurance.coverage_details.exclusions?.join('\n') || '',
+        coverage_items: (insurance.coverage_details?.items || []).join('\n'),
+        coverage_exclusions: (insurance.coverage_details?.exclusions || []).join('\n'),
         is_active: insurance.is_active
       });
     } else {
@@ -399,14 +399,14 @@ export function AdminInsurance() {
                 <div className="border-t pt-3">
                   <div className="text-sm font-semibold text-gray-700 mb-2">보장 내용:</div>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    {insurance.coverage_details.items.slice(0, 3).map((item, idx) => (
+                    {(insurance.coverage_details?.items || []).slice(0, 3).map((item, idx) => (
                       <li key={idx} className="flex items-start gap-1">
                         <CheckCircle2 className="h-3 w-3 text-green-600 mt-0.5 flex-shrink-0" />
                         <span>{item}</span>
                       </li>
                     ))}
-                    {insurance.coverage_details.items.length > 3 && (
-                      <li className="text-gray-400">...외 {insurance.coverage_details.items.length - 3}건</li>
+                    {(insurance.coverage_details?.items?.length || 0) > 3 && (
+                      <li className="text-gray-400">...외 {(insurance.coverage_details?.items?.length || 0) - 3}건</li>
                     )}
                   </ul>
                 </div>

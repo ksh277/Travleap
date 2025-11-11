@@ -271,19 +271,9 @@ module.exports = async function handler(req, res) {
                 } else {
                   displayTitle = firstItemTitle || order.product_title || '주문';
                 }
-
-                // ✅ 디버깅: 상품명이 비어있거나 이상한 경우 로깅
-                if (!firstItemTitle || firstItemTitle.includes('배송지') || firstItemTitle.includes('undefined')) {
-                  console.warn(`⚠️ [Orders] order_id=${order.id}: 이상한 상품명 감지:`, {
-                    firstItemTitle,
-                    item: notesData.items[0],
-                    product_title: order.product_title
-                  });
-                }
               } else if (!displayTitle) {
                 // notes.items도 없고 product_title도 없으면
                 displayTitle = '주문';
-                console.warn(`⚠️ [Orders] order_id=${order.id}: notes.items가 없음, product_title=${order.product_title}`);
               }
             } catch (e) {
               console.error('❌ [Orders] notes 파싱 오류:', e, 'order_id:', order.id);
@@ -293,7 +283,6 @@ module.exports = async function handler(req, res) {
           } else if (!displayTitle) {
             // notes도 없고 product_title도 없으면
             displayTitle = '주문';
-            console.warn(`⚠️ [Orders] order_id=${order.id}: notes가 없음`);
           }
 
           // 🔧 혼합 주문의 경우 모든 bookings 정보 추가
