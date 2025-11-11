@@ -619,11 +619,14 @@ export function PartnerPage() {
 
     // 모바일에서는 지도로 스크롤
     if (window.innerWidth < 1024) {
-      // 지도로 스크롤
-      mobileMapRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
+      // 지도로 스크롤 (지도가 완전히 보이도록 추가 오프셋 적용)
+      if (mobileMapRef.current) {
+        const yOffset = -80; // 80px 추가로 위로 올림
+        const element = mobileMapRef.current;
+        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+
+        window.scrollTo({ top: y, behavior: 'smooth' });
+      }
     }
 
     if (map) {
