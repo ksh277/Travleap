@@ -112,10 +112,35 @@ export function HotelDetailPage() {
 
   // 지도 상태
   const [mapError, setMapError] = useState(false);
+  const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string>('');
 
   // 사용자 정보
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   const isLoggedIn = !!user;
+
+  // Google Maps API 키 로드
+  useEffect(() => {
+    const loadGoogleMapsKey = async () => {
+      try {
+        const response = await fetch('/api/config/google-maps-key');
+        const result = await response.json();
+
+        if (result.success && result.key) {
+          setGoogleMapsApiKey(result.key);
+          if (typeof window !== 'undefined') {
+            window.__GOOGLE_MAPS_API_KEY__ = result.key;
+          }
+          console.log('✅ Google Maps API 키 로드 성공');
+        } else {
+          console.warn('⚠️ Google Maps API 키를 가져올 수 없습니다');
+        }
+      } catch (error) {
+        console.error('❌ Google Maps API 키 로드 실패:', error);
+      }
+    };
+
+    loadGoogleMapsKey();
+  }, []);
 
   // 데이터 로드
   useEffect(() => {
@@ -929,17 +954,13 @@ export function HotelDetailPage() {
                     {/* 구글 지도 */}
                     <div className="w-full">
                       <div className="w-full h-[300px] md:h-[400px] lg:h-[500px] bg-gray-200 rounded-lg overflow-hidden relative">
-                        {(() => {
-                          const apiKey = getGoogleMapsApiKey();
-                          console.log('🗺️ Google Maps API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
-                          return apiKey;
-                        })() ? (
+                        {googleMapsApiKey ? (
                           <>
                             <iframe
                               src={
                                 (hotelData.partner as any).coordinates
-                                  ? `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${(hotelData.partner as any).coordinates}&zoom=15&maptype=roadmap&language=ko`
-                                  : `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent((hotelData.partner.address || hotelData.rooms[0]?.location || hotelData.partner.business_name) + ' 제주')}&zoom=14&maptype=roadmap&language=ko`
+                                  ? `https://www.google.com/maps/embed/v1/place?key=${googleMapsApiKey}&q=${(hotelData.partner as any).coordinates}&zoom=15&maptype=roadmap&language=ko`
+                                  : `https://www.google.com/maps/embed/v1/place?key=${googleMapsApiKey}&q=${encodeURIComponent((hotelData.partner.address || hotelData.rooms[0]?.location || hotelData.partner.business_name) + ' 제주')}&zoom=14&maptype=roadmap&language=ko`
                               }
                               className="w-full h-full border-0"
                               allowFullScreen
