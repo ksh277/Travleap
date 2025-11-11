@@ -350,14 +350,18 @@ export function PartnerPage() {
     };
 
     // Google Maps API 로드
-    if (!(window as any).google) {
-      const apiKey = getGoogleMapsApiKey();
+    const loadGoogleMaps = async () => {
+      if ((window as any).google) {
+        console.log('✅ Google Maps API already loaded');
+        initMap();
+        return;
+      }
+
+      const apiKey = await getGoogleMapsApiKey();
       console.log('🔑 Google Maps API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
 
       if (!apiKey) {
         console.error('❌ Google Maps API key is not configured');
-        console.error('Environment:', import.meta.env.MODE);
-        console.error('VITE_GOOGLE_MAPS_API_KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'EXISTS' : 'MISSING');
         setMapError(true);
         return;
       }
@@ -380,10 +384,9 @@ export function PartnerPage() {
         setMapError(true);
       };
       document.head.appendChild(script);
-    } else {
-      console.log('✅ Google Maps API already loaded');
-      initMap();
-    }
+    };
+
+    loadGoogleMaps();
   }, []);
 
   // 모바일에서 지도 초기화 (컴포넌트 마운트 시)
@@ -448,15 +451,19 @@ export function PartnerPage() {
     };
 
     // Google Maps API 로드 (아직 로드되지 않았다면)
-    if (!(window as any).google) {
+    const loadGoogleMapsForMobile = async () => {
+      if ((window as any).google) {
+        console.log('✅ [MOBILE] Google Maps API already loaded');
+        setTimeout(initMobileMap, 50);
+        return;
+      }
+
       console.log('📥 [MOBILE] Loading Google Maps API...');
-      const apiKey = getGoogleMapsApiKey();
+      const apiKey = await getGoogleMapsApiKey();
       console.log('🔑 [MOBILE] Google Maps API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
 
       if (!apiKey) {
         console.error('❌ [MOBILE] Google Maps API key is not configured');
-        console.error('[MOBILE] Environment:', import.meta.env.MODE);
-        console.error('[MOBILE] VITE_GOOGLE_MAPS_API_KEY:', import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? 'EXISTS' : 'MISSING');
         setMapError(true);
         return;
       }
@@ -479,11 +486,9 @@ export function PartnerPage() {
         setMapError(true);
       };
       document.head.appendChild(script);
-    } else {
-      console.log('✅ Google Maps API already loaded');
-      // DOM 렌더링을 기다림
-      setTimeout(initMobileMap, 50);
-    }
+    };
+
+    loadGoogleMapsForMobile();
   }, [map, filteredPartners]);
 
   // 마커 추가 함수
