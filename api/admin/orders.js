@@ -126,10 +126,10 @@ async function handler(req, res) {
 
         let userMap = new Map();
         if (userIds.length > 0) {
-          // IN 쿼리로 사용자 정보 한번에 조회
+          // IN 쿼리로 사용자 정보 한번에 조회 (전화번호 포함)
           const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
           const usersResult = await poolNeon.query(
-            `SELECT id, name, email FROM users WHERE id IN (${placeholders})`,
+            `SELECT id, name, email, phone FROM users WHERE id IN (${placeholders})`,
             userIds
           );
 
@@ -256,6 +256,7 @@ async function handler(req, res) {
             booking_number: order.booking_number,
             user_name: user?.name || '',
             user_email: user?.email || '',
+            user_phone: user?.phone || '', // ✅ 주문자 전화번호
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,

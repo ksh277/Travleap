@@ -146,6 +146,23 @@ export function HotelDetailPage() {
     const loadGoogleMapsKey = async () => {
       try {
         const response = await fetch('/api/config/google-maps-key');
+
+        // 응답이 JSON인지 확인
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('❌ API가 JSON이 아닌 응답 반환:', contentType);
+          // Fallback: 환경변수에서 직접 가져오기 (빌드 시점)
+          const fallbackKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+          if (fallbackKey) {
+            console.log('✅ Fallback: 빌드 시점 환경변수 사용');
+            setGoogleMapsApiKey(fallbackKey);
+            if (typeof window !== 'undefined') {
+              window.__GOOGLE_MAPS_API_KEY__ = fallbackKey;
+            }
+          }
+          return;
+        }
+
         const result = await response.json();
 
         if (result.success && result.key) {
@@ -155,10 +172,28 @@ export function HotelDetailPage() {
           }
           console.log('✅ Google Maps API 키 로드 성공');
         } else {
-          console.warn('⚠️ Google Maps API 키를 가져올 수 없습니다');
+          console.warn('⚠️ Google Maps API 키를 가져올 수 없습니다:', result.error);
+          // Fallback
+          const fallbackKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+          if (fallbackKey) {
+            console.log('✅ Fallback: 빌드 시점 환경변수 사용');
+            setGoogleMapsApiKey(fallbackKey);
+            if (typeof window !== 'undefined') {
+              window.__GOOGLE_MAPS_API_KEY__ = fallbackKey;
+            }
+          }
         }
       } catch (error) {
         console.error('❌ Google Maps API 키 로드 실패:', error);
+        // Fallback: 환경변수에서 직접 가져오기
+        const fallbackKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+        if (fallbackKey) {
+          console.log('✅ Fallback: 빌드 시점 환경변수 사용');
+          setGoogleMapsApiKey(fallbackKey);
+          if (typeof window !== 'undefined') {
+            window.__GOOGLE_MAPS_API_KEY__ = fallbackKey;
+          }
+        }
       }
     };
 
@@ -282,13 +317,32 @@ export function HotelDetailPage() {
 
     // 로그인 체크 (최신 상태 확인)
     const currentUser = getUserFromStorage();
-    console.log('🔐 로그인 체크:', { currentUser, isLoggedIn, hasEmail: !!currentUser?.email });
+    const authToken = localStorage.getItem('auth_token');
 
-    if (!currentUser || !currentUser.email) {
+    console.log('🔐 로그인 체크:', {
+      currentUser,
+      hasUser: !!currentUser,
+      hasEmail: !!currentUser?.email,
+      hasToken: !!authToken,
+      userKeys: currentUser ? Object.keys(currentUser) : [],
+      email: currentUser?.email
+    });
+
+    if (!currentUser) {
+      console.error('❌ 사용자 정보 없음 - localStorage에서 user 조회 실패');
       toast.error('로그인이 필요한 서비스입니다');
       navigate('/login');
       return;
     }
+
+    if (!currentUser.email) {
+      console.error('❌ 이메일 정보 없음 - user 객체:', currentUser);
+      toast.error('사용자 이메일 정보가 없습니다. 다시 로그인해주세요.');
+      navigate('/login');
+      return;
+    }
+
+    console.log('✅ 로그인 확인 완료 - 예약 진행:', currentUser.email);
 
     try {
       // 숙박 일수 계산

@@ -126,10 +126,10 @@ async function handler(req, res) {
 
         let userMap = new Map();
         if (userIds.length > 0) {
-          // IN 쿼리로 사용자 정보 한번에 조회
+          // IN 쿼리로 사용자 정보 한번에 조회 (전화번호 포함)
           const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
           const usersResult = await poolNeon.query(
-            `SELECT id, name, email FROM users WHERE id IN (${placeholders})`,
+            `SELECT id, name, email, phone FROM users WHERE id IN (${placeholders})`,
             userIds
           );
 
@@ -235,7 +235,6 @@ async function handler(req, res) {
               } else if (!displayTitle) {
                 // notes.items도 없고 product_title도 없으면
                 displayTitle = '주문';
-                console.warn(`⚠️ [Orders] order_id=${order.id}: notes.items가 없음, product_title=${order.product_title}`);
               }
             } catch (e) {
               console.error('❌ [Orders] notes 파싱 오류:', e, 'order_id:', order.id);
@@ -245,7 +244,6 @@ async function handler(req, res) {
           } else if (!displayTitle) {
             // notes도 없고 product_title도 없으면
             displayTitle = '주문';
-            console.warn(`⚠️ [Orders] order_id=${order.id}: notes가 없음`);
           }
 
           // 🔧 혼합 주문의 경우 모든 bookings 정보 추가 (이미 위에서 조회했을 수 있음)
@@ -258,6 +256,7 @@ async function handler(req, res) {
             booking_number: order.booking_number,
             user_name: user?.name || '',
             user_email: user?.email || '',
+            user_phone: user?.phone || '', // ✅ 주문자 전화번호
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,
