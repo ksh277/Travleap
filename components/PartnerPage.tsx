@@ -924,9 +924,9 @@ export function PartnerPage() {
             {/* 업체 리스트 - 그리드 형태 (3행 2열) */}
             <div className="grid grid-cols-2 gap-4">
               {currentPartners.map((partner) => (
-                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[315px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
+                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[315px] lg:h-[420px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
                   {/* 이미지 */}
-                  <div className="relative w-full h-48 flex-shrink-0">
+                  <div className="relative w-full h-32 lg:h-48 flex-shrink-0">
                     <img
                       src={partner.image}
                       alt={partner.name}
@@ -941,22 +941,22 @@ export function PartnerPage() {
                   </div>
 
                   {/* 정보 */}
-                  <CardContent className="p-4 flex flex-col flex-1 justify-between">
+                  <CardContent className="p-2 lg:p-4 flex flex-col flex-1 justify-between">
                     <div>
-                      <div className="flex items-start gap-2 mb-2">
-                        <h3 className="font-semibold text-base flex-1 line-clamp-1">{partner.name}</h3>
+                      <div className="flex items-start gap-2 mb-1 lg:mb-2">
+                        <h3 className="font-semibold text-sm lg:text-base flex-1 line-clamp-1">{partner.name}</h3>
                         <Badge variant="outline" className="text-xs flex-shrink-0">
                           {partner.category}
                         </Badge>
                       </div>
 
-                      <div className="flex items-center gap-1 mb-2">
+                      <div className="flex items-center gap-1 mb-1 lg:mb-2">
                         <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
                         <span className="text-xs text-gray-600 line-clamp-1">{partner.location}</span>
                       </div>
 
                       {partner.distance !== undefined && (
-                        <div className="text-xs text-blue-600 mb-2 bg-blue-50 px-2 py-1 rounded inline-block">
+                        <div className="text-xs text-blue-600 mb-1 lg:mb-2 bg-blue-50 px-2 py-1 rounded inline-block">
                           {partner.distance < 1
                             ? `${Math.round(partner.distance * 1000)}m`
                             : `${partner.distance.toFixed(1)}km`
@@ -964,7 +964,7 @@ export function PartnerPage() {
                         </div>
                       )}
 
-                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">{partner.description}</p>
+                      <p className="text-xs text-gray-600 mb-2 lg:mb-3 line-clamp-2">{partner.description}</p>
                     </div>
 
                     <div className="flex items-center justify-between mt-auto pt-2">
@@ -1172,9 +1172,9 @@ export function PartnerPage() {
             {/* 업체 리스트 - 그리드 형태 (3행 2열) */}
             <div className="grid grid-cols-2 gap-4">
               {currentPartners.map((partner) => (
-                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[315px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
+                <Card key={partner.id} className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-[315px] lg:h-[420px] flex flex-col" onClick={() => handlePartnerClick(partner)}>
                   {/* 이미지 */}
-                  <div className="relative w-full h-48 flex-shrink-0">
+                  <div className="relative w-full h-32 lg:h-48 flex-shrink-0">
                     <img
                       src={partner.image}
                       alt={partner.name}
@@ -1189,22 +1189,22 @@ export function PartnerPage() {
                   </div>
 
                   {/* 정보 */}
-                  <CardContent className="p-4 flex flex-col flex-1 justify-between">
+                  <CardContent className="p-2 lg:p-4 flex flex-col flex-1 justify-between">
                     <div>
-                      <div className="flex items-start gap-2 mb-2">
-                        <h3 className="font-semibold text-base flex-1 line-clamp-1">{partner.name}</h3>
+                      <div className="flex items-start gap-2 mb-1 lg:mb-2">
+                        <h3 className="font-semibold text-sm lg:text-base flex-1 line-clamp-1">{partner.name}</h3>
                         <Badge variant="outline" className="text-xs flex-shrink-0">
                           {partner.category}
                         </Badge>
                       </div>
 
-                      <div className="flex items-center gap-1 mb-2">
+                      <div className="flex items-center gap-1 mb-1 lg:mb-2">
                         <MapPin className="h-3 w-3 text-gray-500 flex-shrink-0" />
                         <span className="text-xs text-gray-600 line-clamp-1">{partner.location}</span>
                       </div>
 
                       {partner.distance !== undefined && (
-                        <div className="text-xs text-blue-600 mb-2 bg-blue-50 px-2 py-1 rounded inline-block">
+                        <div className="text-xs text-blue-600 mb-1 lg:mb-2 bg-blue-50 px-2 py-1 rounded inline-block">
                           {partner.distance < 1
                             ? `${Math.round(partner.distance * 1000)}m`
                             : `${partner.distance.toFixed(1)}km`
@@ -1212,7 +1212,7 @@ export function PartnerPage() {
                         </div>
                       )}
 
-                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">{partner.description}</p>
+                      <p className="text-xs text-gray-600 mb-2 lg:mb-3 line-clamp-2">{partner.description}</p>
                     </div>
 
                     <div className="flex items-center justify-between mt-auto pt-2">
