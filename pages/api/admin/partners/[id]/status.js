@@ -70,7 +70,8 @@ module.exports = async function handler(req, res) {
     console.error('❌ Partner status update error:', error);
     return res.status(500).json({
       success: false,
-      error: error.message
+      error: error?.message || 'Failed to update partner status',
+      message: '파트너 상태 업데이트에 실패했습니다.'
     });
   }
 };
