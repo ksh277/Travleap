@@ -110,6 +110,9 @@ export function HotelDetailPage() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '', images: [] as string[] });
 
+  // 지도 상태
+  const [mapError, setMapError] = useState(false);
+
   // 사용자 정보
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   const isLoggedIn = !!user;
@@ -926,7 +929,11 @@ export function HotelDetailPage() {
                     {/* 구글 지도 */}
                     <div className="w-full">
                       <div className="w-full h-[300px] md:h-[400px] lg:h-[500px] bg-gray-200 rounded-lg overflow-hidden relative">
-                        {getGoogleMapsApiKey() ? (
+                        {(() => {
+                          const apiKey = getGoogleMapsApiKey();
+                          console.log('🗺️ Google Maps API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT FOUND');
+                          return apiKey;
+                        })() ? (
                           <>
                             <iframe
                               src={
@@ -939,10 +946,38 @@ export function HotelDetailPage() {
                               loading="lazy"
                               referrerPolicy="no-referrer-when-downgrade"
                               title={`${hotelData.partner.business_name} 위치 지도`}
-                              onError={() => {
-                                console.error('Google Maps iframe 로드 실패');
+                              onLoad={() => {
+                                console.log('✅ Google Maps iframe loaded successfully');
+                                setMapError(false);
+                              }}
+                              onError={(e) => {
+                                console.error('❌ Google Maps iframe 로드 실패:', e);
+                                setMapError(true);
                               }}
                             />
+                            {/* 지도 로드 에러 오버레이 */}
+                            {mapError && (
+                              <div className="absolute inset-0 bg-white/95 flex items-center justify-center">
+                                <div className="text-center p-6">
+                                  <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                                  <h4 className="text-lg font-semibold text-gray-800 mb-2">지도를 로드할 수 없습니다</h4>
+                                  <p className="text-sm text-gray-600 mb-4">
+                                    Google Maps API 키가 유효하지 않거나<br />
+                                    Maps Embed API가 활성화되지 않았습니다.
+                                  </p>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((hotelData.rooms[0]?.location || hotelData.partner.business_name) + ' 제주')}`;
+                                      window.open(mapUrl, '_blank');
+                                    }}
+                                  >
+                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                    Google Maps에서 보기
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                             {/* 지도 오버레이 버튼들 */}
                             <div className="absolute top-4 right-4 flex flex-col gap-2">
                               <Button
