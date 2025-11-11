@@ -124,13 +124,20 @@ async function getRefundPolicyFromDB(connection, listingId, category) {
  * @param {Object} booking - 예약 정보
  * @param {Object} policy - DB에서 조회한 환불 정책
  * @param {Date} now - 현재 시각
+ * @param {string} category - 카테고리 (숙박/렌트카는 is_refundable 무시)
  * @returns {Object} { refundable: boolean, refundAmount: number, cancellationFee: number }
  */
-function calculateRefundPolicy(booking, policy, now = new Date()) {
+function calculateRefundPolicy(booking, policy, now = new Date(), category = null) {
   const totalAmount = booking.total_amount || booking.amount || 0;
 
-  // 1. 환불 불가 정책인지 확인
-  if (!policy.is_refundable) {
+  // 🔑 숙박과 렌트카는 체크인/픽업 전이면 무조건 환불 가능 (is_refundable 무시)
+  const isAccommodationOrRentcar = category === 'stay' ||
+                                    category === 'accommodation' ||
+                                    category === 'rentcar' ||
+                                    category === '숙박';
+
+  // 1. 환불 불가 정책인지 확인 (단, 숙박/렌트카는 제외)
+  if (!policy.is_refundable && !isAccommodationOrRentcar) {
     return {
       refundable: false,
       refundAmount: 0,
@@ -586,13 +593,14 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
 
     if (!skipPolicy && (payment.booking_id || payment.rentcar_booking_id)) {
       // 3-1. DB에서 환불 정책 조회
+      const refundCategory = payment.rentcar_booking_id ? 'rentcar' : payment.category;
       const policyFromDB = await getRefundPolicyFromDB(
         connection,
         payment.listing_id,
-        payment.rentcar_booking_id ? 'rentcar' : payment.category
+        refundCategory
       );
 
-      console.log(`📋 [Refund] 적용 정책: ${policyFromDB.policy_name}`);
+      console.log(`📋 [Refund] 적용 정책: ${policyFromDB.policy_name} (카테고리: ${refundCategory})`);
 
       // 3-2. 정책 기반 환불 금액 계산 (렌트카는 rentcar_start_date 사용)
       const refundPaymentData = payment.rentcar_booking_id ? {
@@ -602,7 +610,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         amount: payment.amount
       } : payment;
 
-      policyInfo = calculateRefundPolicy(refundPaymentData, policyFromDB);
+      policyInfo = calculateRefundPolicy(refundPaymentData, policyFromDB, new Date(), refundCategory);
 
       if (!policyInfo.refundable) {
         throw new Error(`REFUND_POLICY_VIOLATION: ${policyInfo.reason}`);
@@ -1146,8 +1154,8 @@ async function getRefundPolicy(paymentKey) {
       payment.category
     );
 
-    // 정책 기반 환불 계산
-    const policy = calculateRefundPolicy(payment, policyFromDB);
+    // 정책 기반 환불 계산 (category 전달)
+    const policy = calculateRefundPolicy(payment, policyFromDB, new Date(), payment.category);
 
     return {
       success: true,
