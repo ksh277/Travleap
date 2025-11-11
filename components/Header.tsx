@@ -238,9 +238,9 @@ export function Header({
                         {item.name}
                         <ChevronDown className="w-3 h-3 ml-1" />
                       </button>
-                      {/* 드롭다운 메뉴 - 2행 4열 */}
-                      <div className="absolute top-full left-0 mt-2 w-[580px] bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                        <div className="grid grid-cols-4 gap-2 p-4">
+                      {/* 드롭다운 메뉴 - 2열 4행 */}
+                      <div className="absolute top-full left-0 mt-2 w-[300px] bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        <div className="grid grid-cols-2 gap-2 p-4">
                           {categories.map((category) => (
                             <button
                               key={category.id}
