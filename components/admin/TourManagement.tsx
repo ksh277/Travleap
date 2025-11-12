@@ -559,8 +559,16 @@ const TourManagement = () => {
                             <td>
                               <div>
                                 <div className="font-semibold">{booking.username}</div>
-                                <div className="text-xs text-gray-500">{booking.user_email}</div>
-                                <div className="text-xs text-gray-500">{booking.user_phone}</div>
+                                <div className="text-xs text-gray-500">
+                                  <a href={`mailto:${booking.user_email}`} className="text-blue-600 hover:underline">
+                                    {booking.user_email}
+                                  </a>
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  <a href={`tel:${booking.user_phone}`} className="text-blue-600 hover:underline">
+                                    {booking.user_phone}
+                                  </a>
+                                </div>
                               </div>
                             </td>
                             <td>

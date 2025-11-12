@@ -450,13 +450,21 @@ export function ExperienceVendorDashboard() {
                             </TableCell>
                             <TableCell>{booking.experience_name}</TableCell>
                             <TableCell>
-                              <div>
+                              <div className="space-y-1">
                                 <div className="font-medium">{booking.customer_name}</div>
                                 {booking.customer_email && (
-                                  <div className="text-xs text-gray-500">{booking.customer_email}</div>
+                                  <div className="text-xs text-gray-500">
+                                    <a href={`mailto:${booking.customer_email}`} className="text-blue-600 hover:underline">
+                                      {booking.customer_email}
+                                    </a>
+                                  </div>
                                 )}
                                 {booking.customer_phone && (
-                                  <div className="text-xs text-gray-500">{booking.customer_phone}</div>
+                                  <div className="text-xs text-gray-500">
+                                    <a href={`tel:${booking.customer_phone}`} className="text-blue-600 hover:underline">
+                                      {booking.customer_phone}
+                                    </a>
+                                  </div>
                                 )}
                               </div>
                             </TableCell>

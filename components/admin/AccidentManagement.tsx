@@ -358,7 +358,11 @@ export default function AccidentManagement() {
                     </TableCell>
                     <TableCell className="text-sm">
                       <div>{report.customer_name}</div>
-                      <div className="text-xs text-muted-foreground">{report.customer_phone}</div>
+                      <div className="text-xs text-muted-foreground">
+                        <a href={`tel:${report.customer_phone}`} className="text-blue-600 hover:underline">
+                          {report.customer_phone}
+                        </a>
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm">{report.vendor.name}</TableCell>
                     <TableCell>
@@ -423,7 +427,11 @@ export default function AccidentManagement() {
                 <div>
                   <Label>업체</Label>
                   <p>{selectedReport.vendor.name}</p>
-                  <p className="text-sm text-muted-foreground">{selectedReport.vendor.phone}</p>
+                  <p className="text-sm text-muted-foreground">
+                    <a href={`tel:${selectedReport.vendor.phone}`} className="text-blue-600 hover:underline">
+                      {selectedReport.vendor.phone}
+                    </a>
+                  </p>
                 </div>
               </div>
               {selectedReport.insurance_claim_filed && (

@@ -277,7 +277,13 @@ export function AdminActivityLogs() {
                       <td className="p-3">
                         <div>
                           <p className="font-medium">{log.user_name || `User #${log.user_id}`}</p>
-                          <p className="text-xs text-gray-500">{log.user_email || 'N/A'}</p>
+                          <p className="text-xs text-gray-500">
+                            {log.user_email ? (
+                              <a href={`mailto:${log.user_email}`} className="text-blue-600 hover:underline">
+                                {log.user_email}
+                              </a>
+                            ) : 'N/A'}
+                          </p>
                         </div>
                       </td>
                       <td className="p-3">

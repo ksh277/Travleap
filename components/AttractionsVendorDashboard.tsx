@@ -444,13 +444,21 @@ export function AttractionsVendorDashboard() {
                             </TableCell>
                             <TableCell>{order.attraction_name}</TableCell>
                             <TableCell>
-                              <div>
+                              <div className="space-y-1">
                                 <div className="font-medium">{order.customer_name}</div>
                                 {order.customer_email && (
-                                  <div className="text-xs text-gray-500">{order.customer_email}</div>
+                                  <div className="text-xs text-gray-500">
+                                    <a href={`mailto:${order.customer_email}`} className="text-blue-600 hover:underline">
+                                      {order.customer_email}
+                                    </a>
+                                  </div>
                                 )}
                                 {order.customer_phone && (
-                                  <div className="text-xs text-gray-500">{order.customer_phone}</div>
+                                  <div className="text-xs text-gray-500">
+                                    <a href={`tel:${order.customer_phone}`} className="text-blue-600 hover:underline">
+                                      {order.customer_phone}
+                                    </a>
+                                  </div>
                                 )}
                               </div>
                             </TableCell>

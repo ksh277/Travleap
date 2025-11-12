@@ -412,13 +412,17 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                               {booking.departure_date} {booking.departure_time}
                             </td>
                             <td>
-                              <div>
-                                <div>{booking.username}</div>
+                              <div className="space-y-1">
+                                <div className="font-medium">{booking.username}</div>
                                 <div className="text-sm text-gray-500">
-                                  {booking.user_email}
+                                  <a href={`mailto:${booking.user_email}`} className="text-blue-600 hover:underline">
+                                    {booking.user_email}
+                                  </a>
                                 </div>
                                 <div className="text-sm text-gray-500">
-                                  {booking.user_phone}
+                                  <a href={`tel:${booking.user_phone}`} className="text-blue-600 hover:underline">
+                                    {booking.user_phone}
+                                  </a>
                                 </div>
                               </div>
                             </td>

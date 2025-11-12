@@ -378,8 +378,16 @@ export function AdminRentcarPage() {
                           <TableCell className="font-medium">
                             {vendor.name}
                           </TableCell>
-                          <TableCell>{vendor.contact_email}</TableCell>
-                          <TableCell>{vendor.contact_phone}</TableCell>
+                          <TableCell>
+                            <a href={`mailto:${vendor.contact_email}`} className="text-blue-600 hover:underline">
+                              {vendor.contact_email}
+                            </a>
+                          </TableCell>
+                          <TableCell>
+                            <a href={`tel:${vendor.contact_phone}`} className="text-blue-600 hover:underline">
+                              {vendor.contact_phone}
+                            </a>
+                          </TableCell>
                           <TableCell>{vendor.vehicle_count}대</TableCell>
                           <TableCell>
                             <Badge variant={vendor.is_verified ? 'default' : 'secondary'}>
@@ -589,7 +597,11 @@ export function AdminRentcarPage() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Users className="w-4 h-4 text-gray-500" />
-                                  <span>{booking.customer_name} ({booking.customer_phone})</span>
+                                  <span>{booking.customer_name} (
+                                    <a href={`tel:${booking.customer_phone}`} className="text-blue-600 hover:underline">
+                                      {booking.customer_phone}
+                                    </a>
+                                  )</span>
                                 </div>
                               </div>
 

@@ -835,7 +835,11 @@ export function VendorLodgingDashboard() {
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">{booking.guest_name}</div>
-                            <div className="text-sm text-gray-500">{booking.guest_phone}</div>
+                            <div className="text-sm text-gray-500">
+                              <a href={`tel:${booking.guest_phone}`} className="text-blue-600 hover:underline">
+                                {booking.guest_phone}
+                              </a>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">

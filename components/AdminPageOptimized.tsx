@@ -1,7 +1,10 @@
 import React, { Suspense, lazy } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent } from './ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldAlert } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { Button } from './ui/button';
 
 // Lazy load all admin tab components
 const AdminDashboard = lazy(() => import('./admin/tabs/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
@@ -33,6 +36,42 @@ const LoadingFallback = () => (
 );
 
 export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimizedProps) {
+  const { isLoggedIn, isAdmin, sessionRestored } = useAuth();
+
+  // 세션 복원 중
+  if (!sessionRestored) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-purple-600 mb-4" />
+            <p className="text-gray-600 font-medium">세션을 확인하는 중...</p>
+            <p className="text-sm text-gray-500 mt-2">잠시만 기다려주세요</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 권한 없음 - 로그인하지 않았거나 관리자가 아님
+  if (!isLoggedIn || !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <ShieldAlert className="h-16 w-16 text-red-500 mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">접근 권한 없음</h2>
+            <p className="text-gray-600 text-center mb-6">
+              이 페이지는 관리자만 접근할 수 있습니다.
+            </p>
+            <Navigate to="/login" replace />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // 관리자 권한 확인 완료 - 대시보드 표시
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">

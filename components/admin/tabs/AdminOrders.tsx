@@ -304,9 +304,19 @@ export function AdminOrders() {
                           {/* 주문자 정보 */}
                           <div>
                             <div className="font-medium text-gray-900">{order.user_name || '-'}</div>
-                            <div className="text-gray-500 text-xs">{order.user_email || '-'}</div>
+                            <div className="text-gray-500 text-xs">
+                              {order.user_email ? (
+                                <a href={`mailto:${order.user_email}`} className="text-blue-600 hover:underline">
+                                  {order.user_email}
+                                </a>
+                              ) : '-'}
+                            </div>
                             {order.user_phone && (
-                              <div className="text-gray-500 text-xs">{order.user_phone}</div>
+                              <div className="text-gray-500 text-xs">
+                                <a href={`tel:${order.user_phone}`} className="text-blue-600 hover:underline">
+                                  {order.user_phone}
+                                </a>
+                              </div>
                             )}
                           </div>
                           {/* 배송지 정보 (팝업 상품인 경우) */}
@@ -319,7 +329,11 @@ export function AdminOrders() {
                                     <div className="text-xs text-gray-700 font-medium">{order.shipping_name}</div>
                                   )}
                                   {order.shipping_phone && (
-                                    <div className="text-xs text-gray-500">{order.shipping_phone}</div>
+                                    <div className="text-xs text-gray-500">
+                                      <a href={`tel:${order.shipping_phone}`} className="text-blue-600 hover:underline">
+                                        {order.shipping_phone}
+                                      </a>
+                                    </div>
                                   )}
                                   <div className="text-xs text-gray-500">
                                     ({order.shipping_zipcode}) {order.shipping_address}

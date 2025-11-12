@@ -1004,8 +1004,16 @@ export default function RentcarVendorDashboard() {
                             <p className="text-sm text-gray-600">예약 번호: <span className="font-medium">{booking.booking_number}</span></p>
                             <p className="text-sm text-gray-600">차량 번호: <span className="font-medium">{booking.vehicle_code}</span></p>
                             <p className="text-sm text-gray-600">고객: <span className="font-medium">{booking.customer_name}</span></p>
-                            <p className="text-sm text-gray-600">이메일: <span className="font-medium">{booking.customer_email || '-'}</span></p>
-                            <p className="text-sm text-gray-600">전화: <span className="font-medium">{booking.customer_phone || '-'}</span></p>
+                            <p className="text-sm text-gray-600">이메일:
+                              {booking.customer_email ? (
+                                <a href={`mailto:${booking.customer_email}`} className="font-medium text-blue-600 hover:underline">{booking.customer_email}</a>
+                              ) : <span className="font-medium">-</span>}
+                            </p>
+                            <p className="text-sm text-gray-600">전화:
+                              {booking.customer_phone ? (
+                                <a href={`tel:${booking.customer_phone}`} className="font-medium text-blue-600 hover:underline">{booking.customer_phone}</a>
+                              ) : <span className="font-medium">-</span>}
+                            </p>
                             <p className="text-sm text-gray-600">운전자: <span className="font-medium">{booking.driver_name}</span></p>
                             <p className="text-sm text-gray-600">면허: <span className="font-medium">{booking.driver_license_no}</span></p>
                             {booking.driver_birth && (

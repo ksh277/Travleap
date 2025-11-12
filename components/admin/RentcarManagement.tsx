@@ -774,7 +774,11 @@ export const RentcarManagement: React.FC = () => {
                       <TableCell>{vendor.business_name}</TableCell>
                       <TableCell>{vendor.brand_name || '-'}</TableCell>
                       <TableCell>{vendor.contact_name}</TableCell>
-                      <TableCell>{vendor.contact_email}</TableCell>
+                      <TableCell>
+                        <a href={`mailto:${vendor.contact_email}`} className="text-blue-600 hover:underline">
+                          {vendor.contact_email}
+                        </a>
+                      </TableCell>
                       <TableCell>
                         <Select
                           value={vendor.status}
@@ -1155,8 +1159,16 @@ export const RentcarManagement: React.FC = () => {
                     <TableRow key={booking.id}>
                       <TableCell className="font-medium">{booking.booking_number}</TableCell>
                       <TableCell>{booking.customer_name}</TableCell>
-                      <TableCell>{booking.customer_email}</TableCell>
-                      <TableCell>{booking.customer_phone}</TableCell>
+                      <TableCell>
+                        <a href={`mailto:${booking.customer_email}`} className="text-blue-600 hover:underline">
+                          {booking.customer_email}
+                        </a>
+                      </TableCell>
+                      <TableCell>
+                        <a href={`tel:${booking.customer_phone}`} className="text-blue-600 hover:underline">
+                          {booking.customer_phone}
+                        </a>
+                      </TableCell>
                       <TableCell>{booking.pickup_date}</TableCell>
                       <TableCell>{booking.dropoff_date}</TableCell>
                       <TableCell>{booking.rental_days}일</TableCell>
