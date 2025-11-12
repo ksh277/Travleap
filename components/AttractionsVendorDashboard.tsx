@@ -26,7 +26,8 @@ import {
   Search,
   Filter,
   Loader2,
-  MapPin
+  MapPin,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -381,8 +382,22 @@ export function AttractionsVendorDashboard() {
           <TabsContent value="orders" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>티켓 주문 목록</CardTitle>
-                <CardDescription>판매된 입장권을 관리하세요</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>티켓 주문 목록</CardTitle>
+                    <CardDescription>판매된 입장권을 관리하세요</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadDashboardData}
+                    disabled={isLoading}
+                    className="gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    새로고침
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {/* 필터 */}

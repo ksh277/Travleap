@@ -28,7 +28,8 @@ import {
   Filter,
   Eye,
   Loader2,
-  Clock
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -387,8 +388,22 @@ export function ExperienceVendorDashboard() {
           <TabsContent value="bookings" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>예약 목록</CardTitle>
-                <CardDescription>고객 예약 내역을 관리하세요</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>예약 목록</CardTitle>
+                    <CardDescription>고객 예약 내역을 관리하세요</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadDashboardData}
+                    disabled={isLoading}
+                    className="gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    새로고침
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {/* 필터 */}

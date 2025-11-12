@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Clock, DollarSign, MapPin, Info } from 'lucide-react';
+import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw } from 'lucide-react';
+import { Button } from './ui/button';
 
 interface TourPackage {
   id: number;
@@ -195,6 +196,13 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
     }
   };
 
+  // 새로고침 처리
+  const handleRefresh = () => {
+    if (activeTab === 'packages') loadPackages();
+    else if (activeTab === 'schedules') loadSchedules();
+    else if (activeTab === 'bookings') loadBookings();
+  };
+
   useEffect(() => {
     if (activeTab === 'packages') loadPackages();
     else if (activeTab === 'schedules') loadSchedules();
@@ -213,9 +221,21 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
 
   return (
     <div className="tour-vendor-dashboard">
-      <div className="dashboard-header">
-        <h2>투어 관리</h2>
-        <p className="text-gray-600">내 투어 패키지와 예약을 관리하세요</p>
+      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2>투어 관리</h2>
+          <p className="text-gray-600">내 투어 패키지와 예약을 관리하세요</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={loading}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          새로고침
+        </Button>
       </div>
 
       {/* 통계 카드 */}

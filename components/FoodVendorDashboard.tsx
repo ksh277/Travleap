@@ -27,7 +27,8 @@ import {
   Search,
   Filter,
   Loader2,
-  ChefHat
+  ChefHat,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -391,8 +392,22 @@ export function FoodVendorDashboard() {
           <TabsContent value="orders" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>주문 목록</CardTitle>
-                <CardDescription>고객 주문 내역을 관리하세요</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>주문 목록</CardTitle>
+                    <CardDescription>고객 주문 내역을 관리하세요</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadDashboardData}
+                    disabled={isLoading}
+                    className="gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    새로고침
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {/* 필터 */}

@@ -32,7 +32,8 @@ import {
   X,
   Upload,
   Download,
-  Link as LinkIcon
+  Link as LinkIcon,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -798,8 +799,22 @@ export function VendorLodgingDashboard() {
           <TabsContent value="bookings">
             <Card>
               <CardHeader>
-                <CardTitle>예약 목록</CardTitle>
-                <CardDescription>등록된 예약 {bookings.length}건</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>예약 목록</CardTitle>
+                    <CardDescription>등록된 예약 {bookings.length}건</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadVendorData}
+                    disabled={isLoading}
+                    className="gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    새로고침
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {bookings.length === 0 ? (
