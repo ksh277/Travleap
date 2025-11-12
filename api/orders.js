@@ -29,17 +29,35 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       // 날짜 필터 파라미터
-      const { start_date, end_date } = req.query;
+      let { start_date, end_date } = req.query;
 
-      // WHERE 절 조건 생성
+      // 날짜 형식 검증 (YYYY-MM-DD) - SQL Injection 방지
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (start_date && !dateRegex.test(start_date)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid start_date format. Expected YYYY-MM-DD'
+        });
+      }
+      if (end_date && !dateRegex.test(end_date)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid end_date format. Expected YYYY-MM-DD'
+        });
+      }
+
+      // WHERE 절 조건 및 파라미터 배열
       let whereConditions = `p.payment_status IN ('paid', 'completed', 'refunded')
           AND (p.notes IS NULL OR JSON_EXTRACT(p.notes, '$.category') != '렌트카')`;
+      const params = [];
 
       if (start_date) {
-        whereConditions += ` AND DATE(p.created_at) >= '${start_date}'`;
+        whereConditions += ` AND DATE(p.created_at) >= ?`;
+        params.push(start_date);
       }
       if (end_date) {
-        whereConditions += ` AND DATE(p.created_at) <= '${end_date}'`;
+        whereConditions += ` AND DATE(p.created_at) <= ?`;
+        params.push(end_date);
       }
 
       // payments 테이블 기반으로 주문 정보 조회
@@ -84,17 +102,19 @@ module.exports = async function handler(req, res) {
         LEFT JOIN categories c ON l.category_id = c.id
         WHERE ${whereConditions}
         ORDER BY p.created_at DESC
-      `);
+      `, params);
 
       // ✅ 렌트카 주문 추가 조회
-      // WHERE 절 조건 생성 (렌트카용)
       let rentcarWhereConditions = `rb.payment_status IN ('paid', 'completed', 'refunded')`;
+      const rentcarParams = [];
 
       if (start_date) {
-        rentcarWhereConditions += ` AND DATE(rb.created_at) >= '${start_date}'`;
+        rentcarWhereConditions += ` AND DATE(rb.created_at) >= ?`;
+        rentcarParams.push(start_date);
       }
       if (end_date) {
-        rentcarWhereConditions += ` AND DATE(rb.created_at) <= '${end_date}'`;
+        rentcarWhereConditions += ` AND DATE(rb.created_at) <= ?`;
+        rentcarParams.push(end_date);
       }
 
       const rentcarResult = await connection.execute(`
@@ -136,7 +156,7 @@ module.exports = async function handler(req, res) {
         LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
         WHERE ${rentcarWhereConditions}
         ORDER BY rb.created_at DESC
-      `);
+      `, rentcarParams);
 
       // ✅ 일반 주문 + 렌트카 주문 통합
       const allOrders = [...(result.rows || []), ...(rentcarResult.rows || [])]
