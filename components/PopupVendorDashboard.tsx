@@ -32,7 +32,8 @@ import {
   Download,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -148,6 +149,29 @@ export function PopupVendorDashboard() {
     applyFilters();
   }, [orders, searchQuery, statusFilter, deliveryStatusFilter, startDate, endDate, sortField, sortDirection]);
 
+  // 날짜 필터 유효성 검사
+  useEffect(() => {
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (start > end) {
+        toast.error('시작일은 종료일보다 이전이어야 합니다.');
+      }
+    }
+
+    // 미래 날짜 체크
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    if (endDate) {
+      const end = new Date(endDate);
+      if (end > today) {
+        toast.warning('종료일이 미래 날짜입니다.');
+      }
+    }
+  }, [startDate, endDate]);
+
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
@@ -158,6 +182,14 @@ export function PopupVendorDashboard() {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
+
+      // JWT 만료 처리
+      if (productsResponse.status === 401) {
+        toast.error('세션이 만료되었습니다. 다시 로그인해주세요.');
+        logout();
+        navigate('/login');
+        return;
+      }
 
       if (productsResponse.ok) {
         const productsData = await productsResponse.json();
@@ -172,6 +204,14 @@ export function PopupVendorDashboard() {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }
       });
+
+      // JWT 만료 처리
+      if (ordersResponse.status === 401) {
+        toast.error('세션이 만료되었습니다. 다시 로그인해주세요.');
+        logout();
+        navigate('/login');
+        return;
+      }
 
       if (ordersResponse.ok) {
         const ordersData = await ordersResponse.json();
@@ -357,6 +397,18 @@ export function PopupVendorDashboard() {
       : <ArrowDown className="h-3 w-3 ml-1 inline text-blue-600" />;
   };
 
+  const getAriaSort = (field: typeof sortField): 'ascending' | 'descending' | 'none' => {
+    if (sortField !== field) return 'none';
+    return sortDirection === 'asc' ? 'ascending' : 'descending';
+  };
+
+  const handleSortKeyDown = (e: React.KeyboardEvent, field: typeof sortField) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSort(field);
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -494,7 +546,10 @@ export function PopupVendorDashboard() {
                       variant="outline"
                       size="sm"
                       onClick={loadDashboardData}
+                      disabled={isLoading}
+                      className="gap-2"
                     >
+                      <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                       새로고침
                     </Button>
                   </div>
@@ -571,45 +626,80 @@ export function PopupVendorDashboard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        role="button"
+                        tabIndex={0}
+                        aria-sort={getAriaSort('order_number')}
+                        aria-label="주문번호로 정렬"
+                        className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
                         onClick={() => handleSort('order_number')}
+                        onKeyDown={(e) => handleSortKeyDown(e, 'order_number')}
                       >
                         주문번호 {getSortIcon('order_number')}
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        role="button"
+                        tabIndex={0}
+                        aria-sort={getAriaSort('product_name')}
+                        aria-label="상품명으로 정렬"
+                        className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
                         onClick={() => handleSort('product_name')}
+                        onKeyDown={(e) => handleSortKeyDown(e, 'product_name')}
                       >
                         상품명 {getSortIcon('product_name')}
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        role="button"
+                        tabIndex={0}
+                        aria-sort={getAriaSort('customer_name')}
+                        aria-label="고객명으로 정렬"
+                        className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
                         onClick={() => handleSort('customer_name')}
+                        onKeyDown={(e) => handleSortKeyDown(e, 'customer_name')}
                       >
                         고객 정보 {getSortIcon('customer_name')}
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        role="button"
+                        tabIndex={0}
+                        aria-sort={getAriaSort('total_amount')}
+                        aria-label="금액으로 정렬"
+                        className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
                         onClick={() => handleSort('total_amount')}
+                        onKeyDown={(e) => handleSortKeyDown(e, 'total_amount')}
                       >
                         금액 {getSortIcon('total_amount')}
                       </TableHead>
                       <TableHead>결제 수단</TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        role="button"
+                        tabIndex={0}
+                        aria-sort={getAriaSort('payment_status')}
+                        aria-label="결제 상태로 정렬"
+                        className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
                         onClick={() => handleSort('payment_status')}
+                        onKeyDown={(e) => handleSortKeyDown(e, 'payment_status')}
                       >
                         결제 상태 {getSortIcon('payment_status')}
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        role="button"
+                        tabIndex={0}
+                        aria-sort={getAriaSort('delivery_status')}
+                        aria-label="배송 상태로 정렬"
+                        className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
                         onClick={() => handleSort('delivery_status')}
+                        onKeyDown={(e) => handleSortKeyDown(e, 'delivery_status')}
                       >
                         배송 상태 {getSortIcon('delivery_status')}
                       </TableHead>
                       <TableHead
-                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        role="button"
+                        tabIndex={0}
+                        aria-sort={getAriaSort('created_at')}
+                        aria-label="주문일시로 정렬"
+                        className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
                         onClick={() => handleSort('created_at')}
+                        onKeyDown={(e) => handleSortKeyDown(e, 'created_at')}
                       >
                         주문일시 {getSortIcon('created_at')}
                       </TableHead>
