@@ -52,6 +52,7 @@ interface Order {
   tickets: any;
   total_amount: number;
   payment_status: string;
+  payment_key?: string;
   status: string;
   created_at: string;
 }
@@ -143,6 +144,44 @@ export function AttractionsVendorDashboard() {
       toast.error('데이터를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRefund = async (order: Order) => {
+    if (!order.payment_key) {
+      toast.error('결제 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (!confirm(`${order.attraction_name} 티켓 주문을 환불하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/payments/refund', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          paymentKey: order.payment_key,
+          cancelReason: '벤더 요청 환불',
+          skipPolicy: true
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('환불이 완료되었습니다.');
+        loadDashboardData();
+      } else {
+        toast.error(result.message || '환불에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('환불 오류:', error);
+      toast.error('환불 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -347,12 +386,13 @@ export function AttractionsVendorDashboard() {
                         <TableHead>금액</TableHead>
                         <TableHead>결제상태</TableHead>
                         <TableHead>주문상태</TableHead>
+                        <TableHead>액션</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredOrders.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                          <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                             주문 내역이 없습니다.
                           </TableCell>
                         </TableRow>
@@ -391,6 +431,19 @@ export function AttractionsVendorDashboard() {
                             </TableCell>
                             <TableCell>{getPaymentStatusBadge(order.payment_status)}</TableCell>
                             <TableCell>{getStatusBadge(order.status)}</TableCell>
+                            <TableCell>
+                              {order.payment_status === 'paid' &&
+                               order.status !== 'canceled' &&
+                               order.status !== 'completed' && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleRefund(order)}
+                                >
+                                  환불
+                                </Button>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))
                       )}

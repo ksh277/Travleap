@@ -54,6 +54,7 @@ interface Booking {
   participant_count: number;
   total_amount: number;
   payment_status: string;
+  payment_key?: string;
   status: string;
   created_at: string;
 }
@@ -148,6 +149,44 @@ export function ExperienceVendorDashboard() {
       toast.error('데이터를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRefund = async (booking: Booking) => {
+    if (!booking.payment_key) {
+      toast.error('결제 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (!confirm(`${booking.experience_name} 예약을 환불하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/payments/refund', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          paymentKey: booking.payment_key,
+          cancelReason: '벤더 요청 환불',
+          skipPolicy: true
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('환불이 완료되었습니다.');
+        loadDashboardData();
+      } else {
+        toast.error(result.message || '환불에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('환불 오류:', error);
+      toast.error('환불 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -353,12 +392,13 @@ export function ExperienceVendorDashboard() {
                         <TableHead>금액</TableHead>
                         <TableHead>결제상태</TableHead>
                         <TableHead>예약상태</TableHead>
+                        <TableHead>액션</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredBookings.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                          <TableCell colSpan={9} className="text-center py-8 text-gray-500">
                             예약 내역이 없습니다.
                           </TableCell>
                         </TableRow>
@@ -394,6 +434,19 @@ export function ExperienceVendorDashboard() {
                             </TableCell>
                             <TableCell>{getPaymentStatusBadge(booking.payment_status)}</TableCell>
                             <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                            <TableCell>
+                              {booking.payment_status === 'paid' &&
+                               booking.status !== 'canceled' &&
+                               booking.status !== 'completed' && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleRefund(booking)}
+                                >
+                                  환불
+                                </Button>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))
                       )}

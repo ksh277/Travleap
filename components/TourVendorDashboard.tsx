@@ -28,6 +28,7 @@ interface TourSchedule {
 
 interface TourBooking {
   id: number;
+  booking_number?: string;
   package_name: string;
   departure_date: string;
   departure_time: string;
@@ -36,6 +37,8 @@ interface TourBooking {
   infant_count: number;
   total_price_krw: number;
   status: string;
+  payment_status?: string;
+  payment_key?: string;
   username: string;
   user_email: string;
   user_phone: string;
@@ -109,6 +112,45 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
       console.error('예약 로드 실패:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 환불 처리
+  const handleRefund = async (booking: TourBooking) => {
+    if (!booking.payment_key) {
+      alert('결제 정보를 찾을 수 없습니다.');
+      return;
+    }
+
+    if (!confirm(`${booking.package_name} 예약을 환불하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/payments/refund', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          paymentKey: booking.payment_key,
+          cancelReason: '벤더 요청 환불',
+          skipPolicy: true
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert('환불이 완료되었습니다.');
+        loadBookings();
+      } else {
+        alert(result.message || '환불에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('환불 오류:', error);
+      alert('환불 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -318,6 +360,7 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                           <th>인원</th>
                           <th>금액</th>
                           <th>상태</th>
+                          <th>액션</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -356,6 +399,18 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                               )}
                               {booking.status === 'canceled' && (
                                 <span className="badge badge-danger">취소</span>
+                              )}
+                            </td>
+                            <td>
+                              {booking.payment_status === 'paid' &&
+                               booking.status !== 'canceled' &&
+                               booking.status !== 'completed' && (
+                                <button
+                                  onClick={() => handleRefund(booking)}
+                                  className="refund-btn"
+                                >
+                                  환불
+                                </button>
                               )}
                             </td>
                           </tr>
@@ -597,6 +652,26 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
 
         .text-gray-600 {
           color: #4b5563;
+        }
+
+        .refund-btn {
+          padding: 6px 12px;
+          background: #ef4444;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .refund-btn:hover {
+          background: #dc2626;
+        }
+
+        .refund-btn:active {
+          transform: scale(0.98);
         }
       `}</style>
     </div>
