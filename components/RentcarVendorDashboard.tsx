@@ -147,11 +147,10 @@ export default function RentcarVendorDashboard() {
     setError('');
 
     try {
-      const today = new Date();
-      const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-      const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+      // 오늘 날짜를 YYYY-MM-DD 형식으로 전송
+      const today = format(new Date(), 'yyyy-MM-dd');
 
-      const response = await fetch(`/api/rentcar/bookings/today?start=${startOfDay}&end=${endOfDay}`, {
+      const response = await fetch(`/api/rentcar/bookings/today?start=${today}&end=${today}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         }

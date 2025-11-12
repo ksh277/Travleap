@@ -85,19 +85,21 @@ module.exports = async function handler(req, res) {
     // 날짜 파라미터 (옵션)
     const { start, end } = req.query;
 
-    // 오늘 날짜 계산 (파라미터가 없으면 오늘 날짜 사용)
-    let startDate, endDate;
+    // 날짜 문자열 (YYYY-MM-DD 형식)
+    let startDateStr, endDateStr;
     if (start && end) {
-      startDate = new Date(start);
-      endDate = new Date(end);
+      // 클라이언트에서 이미 YYYY-MM-DD 형식으로 전송
+      startDateStr = start;
+      endDateStr = end;
     } else {
+      // 파라미터가 없으면 오늘 날짜 사용
       const today = new Date();
-      startDate = new Date(today.setHours(0, 0, 0, 0));
-      endDate = new Date(today.setHours(23, 59, 59, 999));
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      startDateStr = `${year}-${month}-${day}`;
+      endDateStr = startDateStr;
     }
-
-    const startDateStr = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
-    const endDateStr = endDate.toISOString().split('T')[0];
 
     console.log('📅 오늘 예약 조회:', {
       vendorId,
