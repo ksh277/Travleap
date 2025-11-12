@@ -140,8 +140,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 예약 번호 생성
-    const bookingNumber = `FOOD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    // 예약 번호 생성 (FOOD-YYYYMMDD-XXXX 형식)
+    const today_str = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const bookingNumber = `FOOD-${today_str}-${randomNum}`;
 
     // customer_info JSON 생성
     const customerInfo = JSON.stringify({

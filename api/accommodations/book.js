@@ -245,8 +245,10 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 예약 번호 생성 (다른 카테고리와 일관된 형식)
-    const bookingNumber = `BK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    // 예약 번호 생성 (STAY-YYYYMMDD-XXXX 형식)
+    const today_str = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const bookingNumber = `STAY-${today_str}-${randomNum}`;
 
     // customer_info JSON 생성
     const customerInfo = JSON.stringify({

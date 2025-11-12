@@ -193,10 +193,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 예약 번호 생성 (EVT-timestamp-random)
-    const timestamp = Date.now();
-    const randomNum = Math.floor(100 + Math.random() * 900);
-    const bookingNumber = `EVT-${timestamp}-${randomNum}`;
+    // 예약 번호 생성 (EVT-YYYYMMDD-XXXX 형식)
+    const today_str = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const bookingNumber = `EVT-${today_str}-${randomNum}`;
 
     // customer_info JSON 생성 (이벤트 특화 정보 포함)
     const customerInfo = JSON.stringify({
