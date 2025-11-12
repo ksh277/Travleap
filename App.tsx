@@ -67,6 +67,7 @@ import VendorPricingSettings from './components/VendorPricingSettings';
 import VendorLodgingDashboard from './components/VendorLodgingDashboard';
 import VendorPMSSettings from './components/VendorPMSSettings';
 import LockTestPage from './components/LockTestPage';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
@@ -171,7 +172,9 @@ function AppContent() {
           {/* 렌트카 업체 대시보드 (강화 버전) */}
           <Route path="/vendor/dashboard" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <VendorDashboardPageEnhanced />
+              <ErrorBoundary>
+                <VendorDashboardPageEnhanced />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
@@ -180,7 +183,9 @@ function AppContent() {
           {/* 팝업 벤더 대시보드 */}
           <Route path="/vendor/popup" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <PopupVendorDashboard />
+              <ErrorBoundary>
+                <PopupVendorDashboard />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
@@ -189,7 +194,9 @@ function AppContent() {
           {/* 체험 벤더 대시보드 */}
           <Route path="/vendor/experience" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <ExperienceVendorDashboard />
+              <ErrorBoundary>
+                <ExperienceVendorDashboard />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
@@ -198,7 +205,9 @@ function AppContent() {
           {/* 음식점 벤더 대시보드 */}
           <Route path="/vendor/food" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <FoodVendorDashboard />
+              <ErrorBoundary>
+                <FoodVendorDashboard />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
@@ -207,7 +216,9 @@ function AppContent() {
           {/* 관광지 벤더 대시보드 */}
           <Route path="/vendor/attractions" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <AttractionsVendorDashboard />
+              <ErrorBoundary>
+                <AttractionsVendorDashboard />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
@@ -216,7 +227,9 @@ function AppContent() {
           {/* 행사 벤더 대시보드 */}
           <Route path="/vendor/events" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <EventsVendorDashboard />
+              <ErrorBoundary>
+                <EventsVendorDashboard />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
@@ -225,7 +238,9 @@ function AppContent() {
           {/* 숙박 파트너 대시보드 */}
           <Route path="/partner/dashboard" element={
             isLoggedIn && user?.role === 'partner' ? (
-              <PartnerDashboardPageEnhanced />
+              <ErrorBoundary>
+                <PartnerDashboardPageEnhanced />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
@@ -234,7 +249,9 @@ function AppContent() {
           {/* 렌트카 업체 요금/보험/옵션 설정 */}
           <Route path="/vendor/pricing" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <VendorPricingSettings />
+              <ErrorBoundary>
+                <VendorPricingSettings />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
@@ -243,7 +260,9 @@ function AppContent() {
           {/* 렌트카 업체 PMS 연동 설정 */}
           <Route path="/vendor/pms" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <VendorPMSSettings />
+              <ErrorBoundary>
+                <VendorPMSSettings />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
@@ -252,7 +271,9 @@ function AppContent() {
           {/* 숙박 업체 대시보드 */}
           <Route path="/vendor/lodging" element={
             isLoggedIn && user?.role === 'vendor' ? (
-              <VendorLodgingDashboard />
+              <ErrorBoundary>
+                <VendorLodgingDashboard />
+              </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
             )
