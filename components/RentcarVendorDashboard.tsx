@@ -47,6 +47,13 @@ interface RentcarBooking {
     damage_notes: string;
     images: string[];
   };
+  return_vehicle_condition?: {
+    condition: string;
+    fuel_level: string;
+    mileage: number;
+    damage_notes: string;
+    images: string[];
+  };
   extras?: Array<{
     extra_id: number;
     name: string;
@@ -824,17 +831,14 @@ export default function RentcarVendorDashboard() {
 
   // View return record
   const viewReturnRecord = async (booking: RentcarBooking) => {
-    if (!booking.pickup_vehicle_condition ||
-        !(booking.pickup_vehicle_condition as any).return_condition) {
+    if (!booking.return_vehicle_condition) {
       alert('반납 기록이 없습니다.');
       return;
     }
 
-    const pickupCond = typeof booking.pickup_vehicle_condition === 'string'
-      ? JSON.parse(booking.pickup_vehicle_condition)
-      : booking.pickup_vehicle_condition;
-
-    const returnCond = pickupCond.return_condition;
+    const returnCond = typeof booking.return_vehicle_condition === 'string'
+      ? JSON.parse(booking.return_vehicle_condition)
+      : booking.return_vehicle_condition;
 
     let message = `=== 반납 기록 ===\n\n`;
     message += `예약번호: ${booking.booking_number}\n`;

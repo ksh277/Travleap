@@ -116,14 +116,10 @@ module.exports = async function handler(req, res) {
         b.status,
         b.payment_status,
         b.voucher_code,
-        b.check_in_at,
-        b.check_out_at,
-        b.vehicle_condition_checkin,
-        b.fuel_level_checkin,
-        b.mileage_checkin,
-        b.vehicle_condition_checkout,
-        b.fuel_level_checkout,
-        b.mileage_checkout,
+        b.pickup_checked_in_at,
+        b.return_checked_out_at,
+        b.pickup_vehicle_condition,
+        b.return_vehicle_condition,
         b.late_return_hours,
         b.late_return_fee_krw,
         b.created_at,
@@ -169,8 +165,8 @@ module.exports = async function handler(req, res) {
     }
 
     // 체크인 여부 확인
-    const isCheckedIn = !!row.check_in_at;
-    const isCheckedOut = !!row.check_out_at;
+    const isCheckedIn = !!row.pickup_checked_in_at;
+    const isCheckedOut = !!row.return_checked_out_at;
 
     console.log('✅ 바우처 인증 성공:', {
       bookingNumber: row.booking_number,
@@ -201,7 +197,7 @@ module.exports = async function handler(req, res) {
       dropoff_time: row.dropoff_time,
       pickup_at_utc: `${row.pickup_date}T${row.pickup_time || '09:00:00'}Z`,
       return_at_utc: `${row.dropoff_date}T${row.dropoff_time || '18:00:00'}Z`,
-      actual_return_at_utc: row.check_out_at,
+      actual_return_at_utc: row.return_checked_out_at,
       pickup_location: '제주공항', // TODO: 실제 픽업 위치
       total_price_krw: parseInt(row.total_krw) || 0,
       insurance_name: row.insurance_name,
@@ -209,14 +205,10 @@ module.exports = async function handler(req, res) {
       late_return_hours: row.late_return_hours,
       late_return_fee_krw: parseInt(row.late_return_fee_krw) || 0,
       voucher_code: row.voucher_code,
-      check_in_at: row.check_in_at,
-      check_out_at: row.check_out_at,
-      vehicle_condition_checkin: row.vehicle_condition_checkin,
-      fuel_level_checkin: row.fuel_level_checkin,
-      mileage_checkin: row.mileage_checkin,
-      vehicle_condition_checkout: row.vehicle_condition_checkout,
-      fuel_level_checkout: row.fuel_level_checkout,
-      mileage_checkout: row.mileage_checkout,
+      pickup_checked_in_at: row.pickup_checked_in_at,
+      return_checked_out_at: row.return_checked_out_at,
+      pickup_vehicle_condition: row.pickup_vehicle_condition,
+      return_vehicle_condition: row.return_vehicle_condition,
       payment_status: row.payment_status,
       is_checked_in: isCheckedIn,
       is_checked_out: isCheckedOut
