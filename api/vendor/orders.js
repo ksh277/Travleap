@@ -80,10 +80,14 @@ module.exports = async function handler(req, res) {
         b.delivered_at,
         b.created_at,
         b.start_date,
-        b.num_adults
+        b.num_adults,
+        p.payment_method,
+        p.card_company,
+        p.virtual_account_bank
       FROM bookings b
       INNER JOIN listings l ON b.listing_id = l.id
       LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN payments p ON b.id = p.booking_id
       WHERE l.user_id = ?
         AND l.category = '팝업'
       ORDER BY b.created_at DESC

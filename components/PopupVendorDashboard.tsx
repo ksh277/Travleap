@@ -67,6 +67,9 @@ interface Order {
   user_postal_code?: string;
   total_amount: number;
   payment_status: string;
+  payment_method?: string;
+  card_company?: string;
+  virtual_account_bank?: string;
   status: string;
   delivery_status?: string;
   tracking_number?: string;
@@ -194,6 +197,38 @@ export function PopupVendorDashboard() {
     }
   };
 
+  // 결제 수단 표시 포맷팅
+  const formatPaymentMethod = (method?: string, cardCompany?: string, bankName?: string) => {
+    if (!method) return '-';
+
+    const methodMap: Record<string, string> = {
+      'card': '카드',
+      'bank_transfer': '계좌이체',
+      'kakaopay': '카카오페이',
+      'toss_pay': '토스페이',
+      'payco': '페이코',
+      'naver_pay': '네이버페이',
+      'samsung_pay': '삼성페이',
+      'virtual_account': '가상계좌',
+      'mobile_carrier': '휴대폰',
+      'easy_payment': '간편결제'
+    };
+
+    let displayText = methodMap[method] || method;
+
+    // 카드인 경우 카드사 표시
+    if (method === 'card' && cardCompany) {
+      displayText += ` (${cardCompany})`;
+    }
+
+    // 가상계좌인 경우 은행명 표시
+    if (method === 'virtual_account' && bankName) {
+      displayText += ` (${bankName})`;
+    }
+
+    return displayText;
+  };
+
   const applyFilters = () => {
     let filtered = [...orders];
 
@@ -233,6 +268,7 @@ export function PopupVendorDashboard() {
       '고객명': order.customer_info?.name || order.user_name || '-',
       '고객전화': order.customer_info?.phone || order.user_phone || '-',
       '주문금액': order.total_amount,
+      '결제수단': formatPaymentMethod(order.payment_method, order.card_company, order.virtual_account_bank),
       '결제상태': order.payment_status === 'completed' ? '결제완료' : order.payment_status === 'pending' ? '대기중' : '실패',
       '배송상태': order.delivery_status || '-',
       '송장번호': order.tracking_number || '-',
@@ -418,6 +454,7 @@ export function PopupVendorDashboard() {
                       <TableHead>상품명</TableHead>
                       <TableHead>고객 정보</TableHead>
                       <TableHead>금액</TableHead>
+                      <TableHead>결제 수단</TableHead>
                       <TableHead>결제 상태</TableHead>
                       <TableHead>배송 상태</TableHead>
                       <TableHead>주문일시</TableHead>
@@ -452,6 +489,9 @@ export function PopupVendorDashboard() {
                         </TableCell>
                         <TableCell className="font-semibold">
                           ₩{order.total_amount?.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {formatPaymentMethod(order.payment_method, order.card_company, order.virtual_account_bank)}
                         </TableCell>
                         <TableCell>
                           <Badge variant={
