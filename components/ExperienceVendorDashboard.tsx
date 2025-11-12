@@ -372,6 +372,9 @@ export function ExperienceVendorDashboard() {
                             <TableCell>
                               <div>
                                 <div className="font-medium">{booking.customer_name}</div>
+                                {booking.customer_email && (
+                                  <div className="text-xs text-gray-500">{booking.customer_email}</div>
+                                )}
                                 {booking.customer_phone && (
                                   <div className="text-xs text-gray-500">{booking.customer_phone}</div>
                                 )}

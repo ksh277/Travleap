@@ -49,6 +49,7 @@ interface Order {
   order_number: string;
   event_title: string;
   customer_name: string;
+  customer_email?: string;
   customer_phone?: string;
   start_datetime: string;
   ticket_type: string;
@@ -372,6 +373,9 @@ export function EventsVendorDashboard() {
                             <TableCell>
                               <div>
                                 <div className="font-medium">{order.customer_name}</div>
+                                {order.customer_email && (
+                                  <div className="text-xs text-gray-500">{order.customer_email}</div>
+                                )}
                                 {order.customer_phone && (
                                   <div className="text-xs text-gray-500">{order.customer_phone}</div>
                                 )}

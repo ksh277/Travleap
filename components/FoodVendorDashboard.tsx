@@ -46,6 +46,7 @@ interface Order {
   order_number: string;
   restaurant_name: string;
   customer_name: string;
+  customer_email?: string;
   customer_phone?: string;
   reservation_datetime: string;
   party_size: number;
@@ -365,6 +366,9 @@ export function FoodVendorDashboard() {
                             <TableCell>
                               <div>
                                 <div className="font-medium">{order.customer_name}</div>
+                                {order.customer_email && (
+                                  <div className="text-xs text-gray-500">{order.customer_email}</div>
+                                )}
                                 {order.customer_phone && (
                                   <div className="text-xs text-gray-500">{order.customer_phone}</div>
                                 )}

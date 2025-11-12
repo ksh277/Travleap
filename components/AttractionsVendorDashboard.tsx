@@ -46,6 +46,7 @@ interface Order {
   order_number: string;
   attraction_name: string;
   customer_name: string;
+  customer_email?: string;
   customer_phone?: string;
   visit_date: string;
   tickets: any;
@@ -365,6 +366,9 @@ export function AttractionsVendorDashboard() {
                             <TableCell>
                               <div>
                                 <div className="font-medium">{order.customer_name}</div>
+                                {order.customer_email && (
+                                  <div className="text-xs text-gray-500">{order.customer_email}</div>
+                                )}
                                 {order.customer_phone && (
                                   <div className="text-xs text-gray-500">{order.customer_phone}</div>
                                 )}
