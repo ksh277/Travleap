@@ -83,7 +83,10 @@ module.exports = async function handler(req, res) {
         b.num_adults,
         p.payment_method,
         p.card_company,
-        p.virtual_account_bank
+        p.virtual_account_bank,
+        p.refund_amount,
+        p.refund_reason,
+        p.refunded_at
       FROM bookings b
       INNER JOIN listings l ON b.listing_id = l.id
       LEFT JOIN users u ON b.user_id = u.id

@@ -70,6 +70,9 @@ interface Order {
   payment_method?: string;
   card_company?: string;
   virtual_account_bank?: string;
+  refund_amount?: number;
+  refund_reason?: string;
+  refunded_at?: string;
   status: string;
   delivery_status?: string;
   tracking_number?: string;
@@ -269,7 +272,9 @@ export function PopupVendorDashboard() {
       '고객전화': order.customer_info?.phone || order.user_phone || '-',
       '주문금액': order.total_amount,
       '결제수단': formatPaymentMethod(order.payment_method, order.card_company, order.virtual_account_bank),
-      '결제상태': order.payment_status === 'completed' ? '결제완료' : order.payment_status === 'pending' ? '대기중' : '실패',
+      '결제상태': order.payment_status === 'completed' ? '결제완료' : order.payment_status === 'refunded' ? '환불완료' : order.payment_status === 'pending' ? '대기중' : '실패',
+      '환불금액': order.refund_amount || '',
+      '환불사유': order.refund_reason || '',
       '배송상태': order.delivery_status || '-',
       '송장번호': order.tracking_number || '-',
       '주문일시': order.created_at ? new Date(order.created_at).toLocaleString('ko-KR') : '-'
@@ -496,12 +501,24 @@ export function PopupVendorDashboard() {
                         <TableCell>
                           <Badge variant={
                             order.payment_status === 'completed' ? 'default' :
+                            order.payment_status === 'refunded' ? 'destructive' :
                             order.payment_status === 'pending' ? 'secondary' :
                             'destructive'
                           }>
                             {order.payment_status === 'completed' ? '결제완료' :
+                             order.payment_status === 'refunded' ? '환불완료' :
                              order.payment_status === 'pending' ? '대기중' : '실패'}
                           </Badge>
+                          {order.payment_status === 'refunded' && order.refund_amount && (
+                            <div className="text-xs text-red-600 font-semibold mt-1">
+                              환불금액: ₩{order.refund_amount.toLocaleString()}
+                            </div>
+                          )}
+                          {order.refund_reason && (
+                            <div className="text-xs text-gray-500 mt-1 max-w-xs">
+                              사유: {order.refund_reason}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           {getDeliveryStatusBadge(order.delivery_status)}
