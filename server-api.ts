@@ -2340,6 +2340,27 @@ function setupRoutes() {
         return res.status(401).json({ success: false, message: '인증이 필요합니다' });
       }
 
+      // ✅ Neon PostgreSQL에서 사용자 정보 조회
+      const { Pool } = await import('@neondatabase/serverless');
+      const poolNeon = new Pool({
+        connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+      });
+
+      let userInfo = null;
+      try {
+        const userResult = await poolNeon.query(
+          `SELECT id, name, email, phone FROM users WHERE id = $1 LIMIT 1`,
+          [userId]
+        );
+        if (userResult.rows && userResult.rows.length > 0) {
+          userInfo = userResult.rows[0];
+        }
+      } catch (userError) {
+        console.warn('⚠️ [API] Failed to fetch user info from Neon:', userError);
+      } finally {
+        await poolNeon.end();
+      }
+
       const payments = await db.query(`
         SELECT
           p.id,
@@ -2369,9 +2390,17 @@ function setupRoutes() {
         LIMIT 100
       `, [userId]);
 
+      // ✅ 각 결제 내역에 사용자 정보 추가
+      const paymentsWithUserInfo = payments.map(payment => ({
+        ...payment,
+        user_name: userInfo?.name || '정보없음',
+        user_email: userInfo?.email || null,
+        user_phone: userInfo?.phone || null
+      }));
+
       res.json({
         success: true,
-        data: payments
+        data: paymentsWithUserInfo
       });
     } catch (error) {
       console.error('❌ [API] Get user payments error:', error);

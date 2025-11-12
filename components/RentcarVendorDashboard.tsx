@@ -67,7 +67,7 @@ interface RentcarBooking {
   extras_total?: number;
 }
 
-type TabType = 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras';
+type TabType = 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles';
 
 export default function RentcarVendorDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('today');
@@ -139,6 +139,8 @@ export default function RentcarVendorDashboard() {
       fetchVehiclesAndBlocks();
     } else if (activeTab === 'extras') {
       fetchExtras();
+    } else if (activeTab === 'vehicles') {
+      fetchVehiclesForStock();
     }
   }, [activeTab]);
 
@@ -285,6 +287,66 @@ export default function RentcarVendorDashboard() {
       setError(err.message || '서버 오류가 발생했습니다.');
     } finally {
       setExtrasLoading(false);
+    }
+  };
+
+  // Fetch vehicles for stock management
+  const fetchVehiclesForStock = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/vendor/rentcar/vehicles', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setVehicles(result.data || []);
+      } else {
+        setError(result.message || '차량 목록을 불러오는데 실패했습니다.');
+      }
+    } catch (err: any) {
+      setError(err.message || '서버 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update vehicle stock
+  const updateVehicleStock = async (vehicleId: number, newStock: number) => {
+    if (newStock < 0) {
+      alert('재고는 0 이상이어야 합니다.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/vendor/rentcar/vehicles/stock', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+          vehicle_id: vehicleId,
+          stock: newStock
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // 목록 새로고침
+        fetchVehiclesForStock();
+        alert('재고가 업데이트되었습니다.');
+      } else {
+        alert(result.message || '재고 업데이트에 실패했습니다.');
+      }
+    } catch (err: any) {
+      alert(err.message || '서버 오류가 발생했습니다.');
     }
   };
 
@@ -954,6 +1016,16 @@ export default function RentcarVendorDashboard() {
               }`}
             >
               ⚙️ 옵션 관리
+            </button>
+            <button
+              onClick={() => setActiveTab('vehicles')}
+              className={`flex-1 py-4 px-6 text-center font-medium transition ${
+                activeTab === 'vehicles'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              🚗 차량 재고
             </button>
           </div>
         </div>
@@ -2238,6 +2310,122 @@ export default function RentcarVendorDashboard() {
                   <li>• 가격 유형을 선택하여 일당/예약당/시간당/개당 요금을 설정할 수 있습니다.</li>
                   <li>• 재고 관리를 활성화하면 옵션의 수량을 제한할 수 있습니다.</li>
                   <li>• 등록된 옵션은 차량별로 연결하여 사용자에게 제공됩니다.</li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Vehicles Stock Management Tab */}
+          {activeTab === 'vehicles' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">🚗 차량 재고 관리</h2>
+                <button
+                  onClick={fetchVehiclesForStock}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  disabled={loading}
+                >
+                  {loading ? '로딩중...' : '새로고침'}
+                </button>
+              </div>
+
+              {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  {error}
+                </div>
+              )}
+
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="mt-4 text-gray-600">로딩 중...</p>
+                </div>
+              ) : vehicles.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">등록된 차량이 없습니다.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          ID
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          차량 정보
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          차종
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                          현재 재고
+                        </th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                          재고 수정
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {vehicles.map((vehicle) => (
+                        <tr key={vehicle.id}>
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            #{vehicle.id}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="font-medium text-gray-900">
+                              {vehicle.brand} {vehicle.model}
+                            </div>
+                            {vehicle.display_name && (
+                              <div className="text-sm text-gray-500">{vehicle.display_name}</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-700">
+                            {vehicle.vehicle_type || '-'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                              {vehicle.stock || 0}대
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-center space-x-2">
+                              <input
+                                type="number"
+                                min="0"
+                                defaultValue={vehicle.stock || 0}
+                                className="w-20 px-3 py-1 border border-gray-300 rounded-lg text-center"
+                                id={`stock-${vehicle.id}`}
+                              />
+                              <button
+                                onClick={() => {
+                                  const input = document.getElementById(`stock-${vehicle.id}`) as HTMLInputElement;
+                                  const newStock = parseInt(input.value);
+                                  if (!isNaN(newStock)) {
+                                    updateVehicleStock(vehicle.id, newStock);
+                                  }
+                                }}
+                                className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition"
+                              >
+                                저장
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Help Text */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+                <h4 className="font-bold text-blue-900 mb-2">💡 재고 관리 안내</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• 각 차량 종류별로 보유하고 있는 대수를 설정할 수 있습니다.</li>
+                  <li>• 예약 시 해당 기간에 재고가 부족하면 예약이 불가능합니다.</li>
+                  <li>• 재고는 0 이상의 숫자로 입력해주세요.</li>
+                  <li>• 변경 후 반드시 "저장" 버튼을 클릭해야 적용됩니다.</li>
                 </ul>
               </div>
             </div>

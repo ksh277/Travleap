@@ -243,6 +243,34 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               </div>
             </div>
 
+            {/* 주문자 정보 */}
+            {(payment.user_name || payment.user_email || payment.user_phone) && (
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <span className="text-gray-600 font-medium text-sm">주문자 정보</span>
+                <div className="mt-2 space-y-1">
+                  {payment.user_name && payment.user_name !== '정보없음' && (
+                    <p className="font-medium text-gray-900 text-sm">
+                      {payment.user_name}
+                    </p>
+                  )}
+                  {payment.user_email && (
+                    <p className="text-xs text-gray-600">
+                      <a href={`mailto:${payment.user_email}`} className="hover:text-purple-600">
+                        {payment.user_email}
+                      </a>
+                    </p>
+                  )}
+                  {payment.user_phone && (
+                    <p className="text-xs text-gray-600">
+                      <a href={`tel:${payment.user_phone}`} className="hover:text-purple-600">
+                        {payment.user_phone}
+                      </a>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 포인트 & 쿠폰 정보 */}
             {notesData && (notesData.pointsUsed > 0 || notesData.pointsEarned > 0 || notesData.couponDiscount > 0) && (
               <div className="mt-3 p-2 bg-purple-50 rounded-lg space-y-1">
