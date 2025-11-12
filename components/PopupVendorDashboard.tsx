@@ -29,7 +29,10 @@ import {
   Filter,
   Eye,
   Loader2,
-  Download
+  Download,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -116,6 +119,10 @@ export function PopupVendorDashboard() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // 정렬
+  const [sortField, setSortField] = useState<'order_number' | 'product_name' | 'customer_name' | 'total_amount' | 'payment_status' | 'delivery_status' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // 페이지네이션
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -136,10 +143,10 @@ export function PopupVendorDashboard() {
     loadDashboardData();
   }, [user]);
 
-  // 필터 적용
+  // 필터 및 정렬 적용
   useEffect(() => {
     applyFilters();
-  }, [orders, searchQuery, statusFilter, deliveryStatusFilter, startDate, endDate]);
+  }, [orders, searchQuery, statusFilter, deliveryStatusFilter, startDate, endDate, sortField, sortDirection]);
 
   const loadDashboardData = async () => {
     try {
@@ -278,8 +285,76 @@ export function PopupVendorDashboard() {
       });
     }
 
+    // 정렬 적용
+    filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'order_number':
+          aValue = a.order_number || '';
+          bValue = b.order_number || '';
+          break;
+        case 'product_name':
+          aValue = a.product_name || '';
+          bValue = b.product_name || '';
+          break;
+        case 'customer_name':
+          aValue = a.customer_info?.name || a.user_name || '';
+          bValue = b.customer_info?.name || b.user_name || '';
+          break;
+        case 'total_amount':
+          aValue = a.total_amount || 0;
+          bValue = b.total_amount || 0;
+          break;
+        case 'payment_status':
+          aValue = a.payment_status || '';
+          bValue = b.payment_status || '';
+          break;
+        case 'delivery_status':
+          aValue = a.delivery_status || '';
+          bValue = b.delivery_status || '';
+          break;
+        case 'created_at':
+          aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+          bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      // 문자열 또는 숫자 비교
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const comparison = aValue.localeCompare(bValue, 'ko-KR');
+        return sortDirection === 'asc' ? comparison : -comparison;
+      } else {
+        const comparison = aValue - bValue;
+        return sortDirection === 'asc' ? comparison : -comparison;
+      }
+    });
+
     setFilteredOrders(filtered);
     setCurrentPage(1); // 필터 변경 시 첫 페이지로 리셋
+  };
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      // 같은 필드를 클릭하면 방향 토글
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // 다른 필드를 클릭하면 해당 필드로 변경하고 기본 내림차순
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (field: typeof sortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-30" />;
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1 inline text-blue-600" />
+      : <ArrowDown className="h-3 w-3 ml-1 inline text-blue-600" />;
   };
 
   const handleLogout = () => {
@@ -495,14 +570,49 @@ export function PopupVendorDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>주문번호</TableHead>
-                      <TableHead>상품명</TableHead>
-                      <TableHead>고객 정보</TableHead>
-                      <TableHead>금액</TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        onClick={() => handleSort('order_number')}
+                      >
+                        주문번호 {getSortIcon('order_number')}
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        onClick={() => handleSort('product_name')}
+                      >
+                        상품명 {getSortIcon('product_name')}
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        onClick={() => handleSort('customer_name')}
+                      >
+                        고객 정보 {getSortIcon('customer_name')}
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        onClick={() => handleSort('total_amount')}
+                      >
+                        금액 {getSortIcon('total_amount')}
+                      </TableHead>
                       <TableHead>결제 수단</TableHead>
-                      <TableHead>결제 상태</TableHead>
-                      <TableHead>배송 상태</TableHead>
-                      <TableHead>주문일시</TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        onClick={() => handleSort('payment_status')}
+                      >
+                        결제 상태 {getSortIcon('payment_status')}
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        onClick={() => handleSort('delivery_status')}
+                      >
+                        배송 상태 {getSortIcon('delivery_status')}
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-gray-50 select-none"
+                        onClick={() => handleSort('created_at')}
+                      >
+                        주문일시 {getSortIcon('created_at')}
+                      </TableHead>
                       <TableHead>작업</TableHead>
                     </TableRow>
                   </TableHeader>
