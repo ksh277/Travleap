@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Eye, Search, RefreshCw } from 'lucide-react';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface Listing {
   id: number;
@@ -38,6 +39,8 @@ export function VendorDashboard({ categoryFilter, categoryName }: VendorDashboar
   const [searchQuery, setSearchQuery] = useState('');
   const [editingListing, setEditingListing] = useState<Listing | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [listingToDelete, setListingToDelete] = useState<number | null>(null);
 
   const loadListings = async () => {
     try {
@@ -81,14 +84,17 @@ export function VendorDashboard({ categoryFilter, categoryName }: VendorDashboar
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('정말로 이 상품을 삭제하시겠습니까?')) {
-      return;
-    }
+  const handleDeleteClick = (id: number) => {
+    setListingToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!listingToDelete) return;
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/vendor/listings/${id}`, {
+      const response = await fetch(`/api/vendor/listings/${listingToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -106,6 +112,8 @@ export function VendorDashboard({ categoryFilter, categoryName }: VendorDashboar
     } catch (error: any) {
       console.error('Failed to delete listing:', error);
       toast.error(error.message || '상품 삭제에 실패했습니다');
+    } finally {
+      setListingToDelete(null);
     }
   };
 
@@ -247,7 +255,7 @@ export function VendorDashboard({ categoryFilter, categoryName }: VendorDashboar
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(listing.id)}
+                            onClick={() => handleDeleteClick(listing.id)}
                           >
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
@@ -294,6 +302,18 @@ export function VendorDashboard({ categoryFilter, categoryName }: VendorDashboar
           </CardContent>
         </Card>
       )}
+
+      {/* 삭제 확인 다이얼로그 */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirm={handleDeleteConfirm}
+        title="상품 삭제"
+        description="정말로 이 상품을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        cancelText="취소"
+        variant="destructive"
+      />
     </div>
   );
 }
