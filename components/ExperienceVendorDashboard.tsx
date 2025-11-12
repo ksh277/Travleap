@@ -29,10 +29,15 @@ import {
   Eye,
   Loader2,
   Clock,
-  RefreshCw
+  RefreshCw,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 
 interface Experience {
   id: number;
@@ -86,6 +91,14 @@ export function ExperienceVendorDashboard() {
   // 필터
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // 정렬
+  const [sortField, setSortField] = useState<'booking_number' | 'experience_name' | 'customer_name' | 'total_amount' | 'payment_status' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // 페이지네이션
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     if (!user) {
@@ -231,9 +244,9 @@ export function ExperienceVendorDashboard() {
     }
   };
 
-  // 필터링
+  // 필터링 및 정렬
   useEffect(() => {
-    let filtered = bookings;
+    let filtered = [...bookings];
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(b => b.status === statusFilter);
@@ -247,8 +260,105 @@ export function ExperienceVendorDashboard() {
       );
     }
 
+    // 정렬 적용
+    filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'booking_number':
+          aValue = a.booking_number || '';
+          bValue = b.booking_number || '';
+          break;
+        case 'experience_name':
+          aValue = a.experience_name || '';
+          bValue = b.experience_name || '';
+          break;
+        case 'customer_name':
+          aValue = a.customer_name || '';
+          bValue = b.customer_name || '';
+          break;
+        case 'total_amount':
+          aValue = a.total_amount || 0;
+          bValue = b.total_amount || 0;
+          break;
+        case 'payment_status':
+          aValue = a.payment_status || '';
+          bValue = b.payment_status || '';
+          break;
+        case 'created_at':
+          aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+          bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      // 문자열 또는 숫자 비교
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const comparison = aValue.localeCompare(bValue, 'ko-KR');
+        return sortDirection === 'asc' ? comparison : -comparison;
+      } else {
+        const comparison = aValue - bValue;
+        return sortDirection === 'asc' ? comparison : -comparison;
+      }
+    });
+
     setFilteredBookings(filtered);
-  }, [searchQuery, statusFilter, bookings]);
+    setCurrentPage(1); // 필터 변경 시 첫 페이지로 리셋
+  }, [searchQuery, statusFilter, bookings, sortField, sortDirection]);
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      // 같은 필드를 클릭하면 방향 토글
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // 다른 필드를 클릭하면 해당 필드로 변경하고 기본 내림차순
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (field: typeof sortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-30" />;
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1 inline text-blue-600" />
+      : <ArrowDown className="h-3 w-3 ml-1 inline text-blue-600" />;
+  };
+
+  const getAriaSort = (field: typeof sortField): 'ascending' | 'descending' | 'none' => {
+    if (sortField !== field) return 'none';
+    return sortDirection === 'asc' ? 'ascending' : 'descending';
+  };
+
+  const handleSortKeyDown = (e: React.KeyboardEvent, field: typeof sortField) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSort(field);
+    }
+  };
+
+  const handleExportCSV = () => {
+    const exportData = filteredBookings.map(booking => ({
+      '예약번호': booking.booking_number,
+      '체험명': booking.experience_name,
+      '고객명': booking.customer_name,
+      '전화번호': booking.customer_phone || '-',
+      '이메일': booking.customer_email || '-',
+      '체험일시': booking.slot_datetime ? new Date(booking.slot_datetime).toLocaleString('ko-KR') : '-',
+      '인원': booking.participant_count,
+      '금액': booking.total_amount,
+      '결제상태': booking.payment_status === 'paid' ? '결제완료' : booking.payment_status === 'pending' ? '결제대기' : booking.payment_status === 'failed' ? '결제실패' : booking.payment_status === 'refunded' ? '환불완료' : booking.payment_status,
+      '예약상태': booking.status === 'pending' ? '대기중' : booking.status === 'confirmed' ? '확정' : booking.status === 'completed' ? '완료' : booking.status === 'canceled' ? '취소' : booking.status,
+      '예약일시': booking.created_at ? new Date(booking.created_at).toLocaleString('ko-KR') : '-'
+    }));
+
+    const filename = generateCSVFilename('experience_bookings');
+    exportToCSV(exportData, filename);
+    toast.success('CSV 파일이 다운로드되었습니다.');
+  };
 
   const handleLogout = () => {
     logout();
@@ -393,16 +503,27 @@ export function ExperienceVendorDashboard() {
                     <CardTitle>예약 목록</CardTitle>
                     <CardDescription>고객 예약 내역을 관리하세요</CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadDashboardData}
-                    disabled={isLoading}
-                    className="gap-2"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    새로고침
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportCSV}
+                      className="gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      CSV 내보내기
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadDashboardData}
+                      disabled={isLoading}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      새로고침
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -439,13 +560,63 @@ export function ExperienceVendorDashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>예약번호</TableHead>
-                        <TableHead>체험명</TableHead>
-                        <TableHead>고객명</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('booking_number')}
+                          aria-label="예약번호로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('booking_number')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'booking_number')}
+                        >
+                          예약번호 {getSortIcon('booking_number')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('experience_name')}
+                          aria-label="체험명으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('experience_name')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'experience_name')}
+                        >
+                          체험명 {getSortIcon('experience_name')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('customer_name')}
+                          aria-label="고객명으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('customer_name')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'customer_name')}
+                        >
+                          고객명 {getSortIcon('customer_name')}
+                        </TableHead>
                         <TableHead>날짜/시간</TableHead>
                         <TableHead>인원</TableHead>
-                        <TableHead>금액</TableHead>
-                        <TableHead>결제상태</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('total_amount')}
+                          aria-label="금액으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('total_amount')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'total_amount')}
+                        >
+                          금액 {getSortIcon('total_amount')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('payment_status')}
+                          aria-label="결제상태로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('payment_status')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'payment_status')}
+                        >
+                          결제상태 {getSortIcon('payment_status')}
+                        </TableHead>
                         <TableHead>예약상태</TableHead>
                         <TableHead>액션</TableHead>
                       </TableRow>
@@ -458,7 +629,13 @@ export function ExperienceVendorDashboard() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredBookings.map((booking) => (
+                        (() => {
+                          // 페이지네이션 계산
+                          const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
+                          const startIndex = (currentPage - 1) * itemsPerPage;
+                          const paginatedBookings = filteredBookings.slice(startIndex, startIndex + itemsPerPage);
+
+                          return paginatedBookings.map((booking) => (
                           <TableRow key={booking.id}>
                             <TableCell className="font-mono text-sm">
                               {booking.booking_number}
@@ -542,11 +719,52 @@ export function ExperienceVendorDashboard() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))
+                        ));
+                        })()
                       )}
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* 페이지네이션 */}
+                {filteredBookings.length > 0 && (
+                  <div className="mt-6">
+                    <div className="text-center mb-4">
+                      <p className="text-sm text-gray-500">
+                        총 {filteredBookings.length}개의 예약
+                        {searchQuery || statusFilter !== 'all'
+                          ? ` (전체 ${bookings.length}개)`
+                          : ''}
+                      </p>
+                    </div>
+
+                    {Math.ceil(filteredBookings.length / itemsPerPage) > 1 && (
+                      <div className="flex items-center justify-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          이전
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-gray-600">
+                            페이지 {currentPage} / {Math.ceil(filteredBookings.length / itemsPerPage)}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredBookings.length / itemsPerPage), prev + 1))}
+                          disabled={currentPage === Math.ceil(filteredBookings.length / itemsPerPage)}
+                        >
+                          다음
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

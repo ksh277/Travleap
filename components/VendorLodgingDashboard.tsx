@@ -33,11 +33,15 @@ import {
   Upload,
   Download,
   Link as LinkIcon,
-  RefreshCw
+  RefreshCw,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { PMSIntegrationManager } from '../utils/pms-integrations';
+import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 
 interface Lodging {
   id: number;
@@ -78,6 +82,7 @@ interface Booking {
   status: string;
   payment_status: string;
   created_at: string;
+  order_number?: string;
 }
 
 export function VendorLodgingDashboard() {
@@ -88,6 +93,14 @@ export function VendorLodgingDashboard() {
   const [lodgings, setLodgings] = useState<Lodging[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [activeTab, setActiveTab] = useState('lodgings');
+
+  // 정렬 상태
+  const [sortField, setSortField] = useState<'booking_number' | 'lodging_name' | 'customer_name' | 'total_amount' | 'payment_status' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // 숙소 추가/수정 Dialog
   const [isLodgingDialogOpen, setIsLodgingDialogOpen] = useState(false);
@@ -286,6 +299,69 @@ export function VendorLodgingDashboard() {
     logout();
     navigate('/login');
     toast.success('로그아웃되었습니다.');
+  };
+
+  // 정렬 함수
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      // 같은 필드를 클릭하면 방향 토글
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // 다른 필드를 클릭하면 해당 필드로 변경하고 기본 내림차순
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (field: typeof sortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-30" />;
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1 inline text-blue-600" />
+      : <ArrowDown className="h-3 w-3 ml-1 inline text-blue-600" />;
+  };
+
+  const getAriaSort = (field: typeof sortField): 'ascending' | 'descending' | 'none' => {
+    if (sortField !== field) return 'none';
+    return sortDirection === 'asc' ? 'ascending' : 'descending';
+  };
+
+  const handleSortKeyDown = (e: React.KeyboardEvent, field: typeof sortField) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSort(field);
+    }
+  };
+
+  // CSV Export 함수
+  const handleExportCSV = () => {
+    const exportData = paginatedBookings.map(booking => ({
+      '예약번호': booking.order_number || `#${booking.id}`,
+      '숙소명': booking.lodging_name,
+      '고객명': booking.guest_name,
+      '고객전화': booking.guest_phone,
+      '고객이메일': booking.guest_email,
+      '체크인': booking.checkin_date ? new Date(booking.checkin_date).toLocaleDateString('ko-KR') : '-',
+      '체크아웃': booking.checkout_date ? new Date(booking.checkout_date).toLocaleDateString('ko-KR') : '-',
+      '숙박일수': `${booking.nights}박`,
+      '인원': `${booking.guest_count}명`,
+      '총금액': booking.total_price,
+      '결제상태': booking.payment_status === 'paid' || booking.payment_status === 'captured' ? '결제완료' :
+                   booking.payment_status === 'pending' ? '대기중' :
+                   booking.payment_status === 'refunded' ? '환불' :
+                   booking.payment_status,
+      '예약상태': booking.status === 'confirmed' || booking.status === 'CONFIRMED' ? '확정' :
+                  booking.status === 'completed' || booking.status === 'COMPLETED' ? '완료' :
+                  booking.status === 'pending' || booking.status === 'PENDING' ? '대기' :
+                  booking.status === 'cancelled' || booking.status === 'CANCELLED' ? '취소' :
+                  booking.status,
+      '예약일시': booking.created_at ? new Date(booking.created_at).toLocaleString('ko-KR') : '-'
+    }));
+
+    const filename = generateCSVFilename('lodging_bookings');
+    exportToCSV(exportData, filename);
+    toast.success('CSV 파일이 다운로드되었습니다.');
   };
 
   const handleDeleteLodging = async (lodgingId: number) => {
@@ -605,6 +681,55 @@ export function VendorLodgingDashboard() {
     }
   };
 
+  // 정렬된 예약 목록
+  const sortedBookings = [...bookings].sort((a, b) => {
+    let aValue: any;
+    let bValue: any;
+
+    switch (sortField) {
+      case 'booking_number':
+        aValue = a.order_number || `#${a.id}`;
+        bValue = b.order_number || `#${b.id}`;
+        break;
+      case 'lodging_name':
+        aValue = a.lodging_name || '';
+        bValue = b.lodging_name || '';
+        break;
+      case 'customer_name':
+        aValue = a.guest_name || '';
+        bValue = b.guest_name || '';
+        break;
+      case 'total_amount':
+        aValue = a.total_price || 0;
+        bValue = b.total_price || 0;
+        break;
+      case 'payment_status':
+        aValue = a.payment_status || '';
+        bValue = b.payment_status || '';
+        break;
+      case 'created_at':
+        aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+        bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
+        break;
+      default:
+        return 0;
+    }
+
+    // 문자열 또는 숫자 비교
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      const comparison = aValue.localeCompare(bValue, 'ko-KR');
+      return sortDirection === 'asc' ? comparison : -comparison;
+    } else {
+      const comparison = aValue - bValue;
+      return sortDirection === 'asc' ? comparison : -comparison;
+    }
+  });
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(sortedBookings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedBookings = sortedBookings.slice(startIndex, startIndex + itemsPerPage);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -804,16 +929,28 @@ export function VendorLodgingDashboard() {
                     <CardTitle>예약 목록</CardTitle>
                     <CardDescription>등록된 예약 {bookings.length}건</CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadVendorData}
-                    disabled={isLoading}
-                    className="gap-2"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    새로고침
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportCSV}
+                      className="gap-2"
+                      disabled={bookings.length === 0}
+                    >
+                      <Download className="h-4 w-4" />
+                      CSV 내보내기
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadVendorData}
+                      disabled={loading}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                      새로고침
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -826,21 +963,71 @@ export function VendorLodgingDashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>예약번호</TableHead>
-                        <TableHead>숙소/객실</TableHead>
-                        <TableHead>투숙객</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('booking_number')}
+                          aria-label="예약번호로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('booking_number')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'booking_number')}
+                        >
+                          예약번호 {getSortIcon('booking_number')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('lodging_name')}
+                          aria-label="숙소명으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('lodging_name')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'lodging_name')}
+                        >
+                          숙소/객실 {getSortIcon('lodging_name')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('customer_name')}
+                          aria-label="고객명으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('customer_name')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'customer_name')}
+                        >
+                          투숙객 {getSortIcon('customer_name')}
+                        </TableHead>
                         <TableHead>체크인/아웃</TableHead>
-                        <TableHead>금액</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('total_amount')}
+                          aria-label="금액으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('total_amount')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'total_amount')}
+                        >
+                          금액 {getSortIcon('total_amount')}
+                        </TableHead>
                         <TableHead>상태</TableHead>
-                        <TableHead>결제</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('payment_status')}
+                          aria-label="결제상태로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('payment_status')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'payment_status')}
+                        >
+                          결제 {getSortIcon('payment_status')}
+                        </TableHead>
                         <TableHead>관리</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {bookings.map((booking) => (
+                      {paginatedBookings.map((booking) => (
                         <TableRow key={booking.id}>
                           <TableCell className="font-mono text-sm">
-                            #{booking.id}
+                            {booking.order_number || `#${booking.id}`}
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">{booking.lodging_name}</div>
@@ -928,6 +1115,43 @@ export function VendorLodgingDashboard() {
                       ))}
                     </TableBody>
                   </Table>
+                )}
+
+                {/* 페이지네이션 */}
+                {bookings.length > 0 && (
+                  <div className="mt-6">
+                    <div className="text-center mb-4">
+                      <p className="text-sm text-gray-500">
+                        총 {bookings.length}개의 예약
+                      </p>
+                    </div>
+
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          이전
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-gray-600">
+                            페이지 {currentPage} / {totalPages}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                        >
+                          다음
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>

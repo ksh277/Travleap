@@ -27,10 +27,15 @@ import {
   Filter,
   Loader2,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  Download,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 
 interface Attraction {
   id: number;
@@ -82,6 +87,14 @@ export function AttractionsVendorDashboard() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // 정렬
+  const [sortField, setSortField] = useState<'order_number' | 'attraction_name' | 'customer_name' | 'total_amount' | 'payment_status' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // 페이지네이션
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     if (!user) {
@@ -241,12 +254,109 @@ export function AttractionsVendorDashboard() {
       );
     }
 
+    // 정렬 적용
+    filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'order_number':
+          aValue = a.order_number || '';
+          bValue = b.order_number || '';
+          break;
+        case 'attraction_name':
+          aValue = a.attraction_name || '';
+          bValue = b.attraction_name || '';
+          break;
+        case 'customer_name':
+          aValue = a.customer_name || '';
+          bValue = b.customer_name || '';
+          break;
+        case 'total_amount':
+          aValue = a.total_amount || 0;
+          bValue = b.total_amount || 0;
+          break;
+        case 'payment_status':
+          aValue = a.payment_status || '';
+          bValue = b.payment_status || '';
+          break;
+        case 'created_at':
+          aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+          bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      // 문자열 또는 숫자 비교
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const comparison = aValue.localeCompare(bValue, 'ko-KR');
+        return sortDirection === 'asc' ? comparison : -comparison;
+      } else {
+        const comparison = aValue - bValue;
+        return sortDirection === 'asc' ? comparison : -comparison;
+      }
+    });
+
     setFilteredOrders(filtered);
-  }, [searchQuery, statusFilter, orders]);
+    setCurrentPage(1); // 필터 변경 시 첫 페이지로 리셋
+  }, [searchQuery, statusFilter, orders, sortField, sortDirection]);
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      // 같은 필드를 클릭하면 방향 토글
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // 다른 필드를 클릭하면 해당 필드로 변경하고 기본 내림차순
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (field: typeof sortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-30" />;
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1 inline text-blue-600" />
+      : <ArrowDown className="h-3 w-3 ml-1 inline text-blue-600" />;
+  };
+
+  const getAriaSort = (field: typeof sortField): 'ascending' | 'descending' | 'none' => {
+    if (sortField !== field) return 'none';
+    return sortDirection === 'asc' ? 'ascending' : 'descending';
+  };
+
+  const handleSortKeyDown = (e: React.KeyboardEvent, field: typeof sortField) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSort(field);
+    }
+  };
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleExportCSV = () => {
+    const exportData = filteredOrders.map(order => ({
+      '예약번호': order.order_number,
+      '관광지명': order.attraction_name,
+      '고객명': order.customer_name,
+      '고객전화': order.customer_phone || '-',
+      '고객이메일': order.customer_email || '-',
+      '방문일시': order.visit_date ? new Date(order.visit_date).toLocaleString('ko-KR') : '-',
+      '티켓정보': Array.isArray(order.tickets) ? order.tickets.map((t: any) => `${t.type_name} ${t.count}매`).join(', ') : '티켓 정보',
+      '금액': order.total_amount,
+      '결제상태': order.payment_status === 'paid' ? '결제완료' : order.payment_status === 'pending' ? '대기중' : order.payment_status === 'refunded' ? '환불완료' : '실패',
+      '주문상태': order.status === 'confirmed' ? '확정' : order.status === 'completed' ? '완료' : order.status === 'canceled' ? '취소' : '대기중',
+      '주문일시': order.created_at ? new Date(order.created_at).toLocaleString('ko-KR') : '-'
+    }));
+
+    const filename = generateCSVFilename('attractions_tickets');
+    exportToCSV(exportData, filename);
+    toast.success('CSV 파일이 다운로드되었습니다.');
   };
 
   const getStatusBadge = (status: string) => {
@@ -303,6 +413,11 @@ export function AttractionsVendorDashboard() {
       </div>
     );
   }
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -426,6 +541,14 @@ export function AttractionsVendorDashboard() {
                       <SelectItem value="canceled">취소</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Button
+                    variant="outline"
+                    onClick={handleExportCSV}
+                    className="gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    CSV 내보내기
+                  </Button>
                 </div>
 
                 {/* 주문 테이블 */}
@@ -433,26 +556,87 @@ export function AttractionsVendorDashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>주문번호</TableHead>
-                        <TableHead>관광지</TableHead>
-                        <TableHead>고객명</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('order_number')}
+                          aria-label="주문번호로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('order_number')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'order_number')}
+                        >
+                          주문번호 {getSortIcon('order_number')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('attraction_name')}
+                          aria-label="관광지명으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('attraction_name')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'attraction_name')}
+                        >
+                          관광지 {getSortIcon('attraction_name')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('customer_name')}
+                          aria-label="고객명으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('customer_name')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'customer_name')}
+                        >
+                          고객명 {getSortIcon('customer_name')}
+                        </TableHead>
                         <TableHead>방문일</TableHead>
                         <TableHead>티켓</TableHead>
-                        <TableHead>금액</TableHead>
-                        <TableHead>결제상태</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('total_amount')}
+                          aria-label="금액으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('total_amount')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'total_amount')}
+                        >
+                          금액 {getSortIcon('total_amount')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('payment_status')}
+                          aria-label="결제상태로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('payment_status')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'payment_status')}
+                        >
+                          결제상태 {getSortIcon('payment_status')}
+                        </TableHead>
                         <TableHead>주문상태</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('created_at')}
+                          aria-label="주문일시로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('created_at')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'created_at')}
+                        >
+                          주문일시 {getSortIcon('created_at')}
+                        </TableHead>
                         <TableHead>액션</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredOrders.length === 0 ? (
+                      {paginatedOrders.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                          <TableCell colSpan={10} className="text-center py-8 text-gray-500">
                             주문 내역이 없습니다.
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredOrders.map((order) => (
+                        paginatedOrders.map((order) => (
                           <TableRow key={order.id}>
                             <TableCell className="font-mono text-sm">
                               {order.order_number}
@@ -494,6 +678,11 @@ export function AttractionsVendorDashboard() {
                             </TableCell>
                             <TableCell>{getPaymentStatusBadge(order.payment_status)}</TableCell>
                             <TableCell>{getStatusBadge(order.status)}</TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                {order.created_at ? new Date(order.created_at).toLocaleDateString('ko-KR') : '-'}
+                              </div>
+                            </TableCell>
                             <TableCell>
                               <div className="flex gap-2 flex-wrap">
                                 {order.status === 'pending' && (
@@ -543,6 +732,44 @@ export function AttractionsVendorDashboard() {
                       )}
                     </TableBody>
                   </Table>
+                </div>
+
+                <div className="mt-4">
+                  <div className="text-center mb-4">
+                    <p className="text-sm text-gray-500">
+                      총 {filteredOrders.length}개의 주문
+                      {searchQuery || statusFilter !== 'all'
+                        ? ` (전체 ${orders.length}개)`
+                        : ''}
+                    </p>
+                  </div>
+
+                  {/* 페이지네이션 */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        이전
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-gray-600">
+                          페이지 {currentPage} / {totalPages}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        다음
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

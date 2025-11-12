@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw } from 'lucide-react';
+import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw, Download, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { Button } from './ui/button';
+import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 
 interface TourPackage {
   id: number;
@@ -52,6 +53,14 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
   const [schedules, setSchedules] = useState<TourSchedule[]>([]);
   const [bookings, setBookings] = useState<TourBooking[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // 정렬 상태
+  const [sortField, setSortField] = useState<'booking_number' | 'tour_name' | 'customer_name' | 'total_amount' | 'payment_status' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // 패키지 목록 로드 (JWT에서 vendorId 자동 추출)
   const loadPackages = async () => {
@@ -196,6 +205,62 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
     }
   };
 
+  // 정렬 처리
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      // 같은 필드를 클릭하면 방향 토글
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // 다른 필드를 클릭하면 해당 필드로 변경하고 기본 내림차순
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (field: typeof sortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-30" />;
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1 inline text-blue-600" />
+      : <ArrowDown className="h-3 w-3 ml-1 inline text-blue-600" />;
+  };
+
+  const getAriaSort = (field: typeof sortField): 'ascending' | 'descending' | 'none' => {
+    if (sortField !== field) return 'none';
+    return sortDirection === 'asc' ? 'ascending' : 'descending';
+  };
+
+  const handleSortKeyDown = (e: React.KeyboardEvent, field: typeof sortField) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSort(field);
+    }
+  };
+
+  // CSV 내보내기
+  const handleExportCSV = () => {
+    const exportData = sortedBookings.map(booking => ({
+      '예약번호': booking.booking_number || '-',
+      '투어명': booking.package_name,
+      '고객명': booking.username,
+      '전화번호': booking.user_phone,
+      '이메일': booking.user_email,
+      '투어일시': `${booking.departure_date} ${booking.departure_time}`,
+      '성인': booking.adult_count,
+      '아동': booking.child_count,
+      '유아': booking.infant_count,
+      '총인원': booking.adult_count + booking.child_count + booking.infant_count,
+      '금액': booking.total_price_krw,
+      '결제상태': booking.payment_status === 'paid' ? '결제완료' : booking.payment_status === 'refunded' ? '환불완료' : booking.payment_status === 'pending' ? '대기중' : booking.payment_status || '-',
+      '예약상태': booking.status === 'pending' ? '대기' : booking.status === 'confirmed' ? '확정' : booking.status === 'completed' ? '완료' : booking.status === 'canceled' ? '취소' : booking.status,
+      '예약일시': booking.created_at ? new Date(booking.created_at).toLocaleString('ko-KR') : '-'
+    }));
+
+    const filename = generateCSVFilename('tour_bookings');
+    exportToCSV(exportData, filename);
+  };
+
   // 새로고침 처리
   const handleRefresh = () => {
     if (activeTab === 'packages') loadPackages();
@@ -208,6 +273,55 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
     else if (activeTab === 'schedules') loadSchedules();
     else if (activeTab === 'bookings') loadBookings();
   }, [activeTab, vendorId]);
+
+  // 정렬된 예약 목록
+  const sortedBookings = [...bookings].sort((a, b) => {
+    let aValue: any;
+    let bValue: any;
+
+    switch (sortField) {
+      case 'booking_number':
+        aValue = a.booking_number || '';
+        bValue = b.booking_number || '';
+        break;
+      case 'tour_name':
+        aValue = a.package_name || '';
+        bValue = b.package_name || '';
+        break;
+      case 'customer_name':
+        aValue = a.username || '';
+        bValue = b.username || '';
+        break;
+      case 'total_amount':
+        aValue = a.total_price_krw || 0;
+        bValue = b.total_price_krw || 0;
+        break;
+      case 'payment_status':
+        aValue = a.payment_status || '';
+        bValue = b.payment_status || '';
+        break;
+      case 'created_at':
+        aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+        bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
+        break;
+      default:
+        return 0;
+    }
+
+    // 문자열 또는 숫자 비교
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      const comparison = aValue.localeCompare(bValue, 'ko-KR');
+      return sortDirection === 'asc' ? comparison : -comparison;
+    } else {
+      const comparison = aValue - bValue;
+      return sortDirection === 'asc' ? comparison : -comparison;
+    }
+  });
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(sortedBookings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedBookings = sortedBookings.slice(startIndex, startIndex + itemsPerPage);
 
   // 통계 계산
   const stats = {
@@ -411,22 +525,96 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                     <p>예약 내역이 없습니다.</p>
                   </div>
                 ) : (
-                  <div className="table-container">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>투어명</th>
-                          <th>출발일시</th>
-                          <th>예약자</th>
-                          <th>인원</th>
-                          <th>금액</th>
-                          <th>상태</th>
-                          <th>액션</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bookings.map((booking) => (
+                  <>
+                    <div className="table-actions" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        variant="outline"
+                        onClick={handleExportCSV}
+                        className="gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        CSV 내보내기
+                      </Button>
+                    </div>
+                    <div className="table-container">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th
+                              role="button"
+                              tabIndex={0}
+                              aria-sort={getAriaSort('booking_number')}
+                              aria-label="예약번호로 정렬"
+                              className="sortable-header"
+                              onClick={() => handleSort('booking_number')}
+                              onKeyDown={(e) => handleSortKeyDown(e, 'booking_number')}
+                            >
+                              예약번호 {getSortIcon('booking_number')}
+                            </th>
+                            <th
+                              role="button"
+                              tabIndex={0}
+                              aria-sort={getAriaSort('tour_name')}
+                              aria-label="투어명으로 정렬"
+                              className="sortable-header"
+                              onClick={() => handleSort('tour_name')}
+                              onKeyDown={(e) => handleSortKeyDown(e, 'tour_name')}
+                            >
+                              투어명 {getSortIcon('tour_name')}
+                            </th>
+                            <th>출발일시</th>
+                            <th
+                              role="button"
+                              tabIndex={0}
+                              aria-sort={getAriaSort('customer_name')}
+                              aria-label="예약자로 정렬"
+                              className="sortable-header"
+                              onClick={() => handleSort('customer_name')}
+                              onKeyDown={(e) => handleSortKeyDown(e, 'customer_name')}
+                            >
+                              예약자 {getSortIcon('customer_name')}
+                            </th>
+                            <th>인원</th>
+                            <th
+                              role="button"
+                              tabIndex={0}
+                              aria-sort={getAriaSort('total_amount')}
+                              aria-label="금액으로 정렬"
+                              className="sortable-header"
+                              onClick={() => handleSort('total_amount')}
+                              onKeyDown={(e) => handleSortKeyDown(e, 'total_amount')}
+                            >
+                              금액 {getSortIcon('total_amount')}
+                            </th>
+                            <th
+                              role="button"
+                              tabIndex={0}
+                              aria-sort={getAriaSort('payment_status')}
+                              aria-label="결제상태로 정렬"
+                              className="sortable-header"
+                              onClick={() => handleSort('payment_status')}
+                              onKeyDown={(e) => handleSortKeyDown(e, 'payment_status')}
+                            >
+                              결제상태 {getSortIcon('payment_status')}
+                            </th>
+                            <th
+                              role="button"
+                              tabIndex={0}
+                              aria-sort={getAriaSort('created_at')}
+                              aria-label="예약일시로 정렬"
+                              className="sortable-header"
+                              onClick={() => handleSort('created_at')}
+                              onKeyDown={(e) => handleSortKeyDown(e, 'created_at')}
+                            >
+                              예약일시 {getSortIcon('created_at')}
+                            </th>
+                            <th>액션</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedBookings.map((booking) => (
                           <tr key={booking.id}>
+                            <td className="font-medium text-blue-600">{booking.booking_number || '-'}</td>
                             <td>{booking.package_name}</td>
                             <td>
                               {booking.departure_date} {booking.departure_time}
@@ -453,18 +641,23 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                             </td>
                             <td>{booking.total_price_krw.toLocaleString()}원</td>
                             <td>
-                              {booking.status === 'pending' && (
-                                <span className="badge badge-warning">대기</span>
+                              {booking.payment_status === 'paid' && (
+                                <span className="badge badge-success">결제완료</span>
                               )}
-                              {booking.status === 'confirmed' && (
-                                <span className="badge badge-success">확정</span>
+                              {booking.payment_status === 'refunded' && (
+                                <span className="badge badge-danger">환불완료</span>
                               )}
-                              {booking.status === 'completed' && (
-                                <span className="badge badge-secondary">완료</span>
+                              {booking.payment_status === 'pending' && (
+                                <span className="badge badge-warning">대기중</span>
                               )}
-                              {booking.status === 'canceled' && (
-                                <span className="badge badge-danger">취소</span>
+                              {!booking.payment_status && (
+                                <span className="badge badge-secondary">-</span>
                               )}
+                            </td>
+                            <td>
+                              <div className="text-sm">
+                                {booking.created_at ? new Date(booking.created_at).toLocaleDateString('ko-KR') : '-'}
+                              </div>
                             </td>
                             <td>
                               <div className="action-buttons">
@@ -509,7 +702,43 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                         ))}
                       </tbody>
                     </table>
+
+                    {/* 페이지네이션 */}
+                    <div className="pagination-container">
+                      <div className="text-center mb-4">
+                        <p className="text-sm text-gray-500">
+                          총 {sortedBookings.length}개의 예약
+                        </p>
+                      </div>
+
+                      {totalPages > 1 && (
+                        <div className="pagination-controls">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            이전
+                          </Button>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm text-gray-600">
+                              페이지 {currentPage} / {totalPages}
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPage === totalPages}
+                          >
+                            다음
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                </>
                 )}
               </div>
             )}
@@ -687,6 +916,21 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
           border-bottom: 2px solid #e5e7eb;
         }
 
+        .sortable-header {
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.2s;
+        }
+
+        .sortable-header:hover {
+          background: #f3f4f6;
+        }
+
+        .sortable-header:focus-visible {
+          outline: 2px solid #3b82f6;
+          outline-offset: 2px;
+        }
+
         .data-table td {
           padding: 12px;
           border-bottom: 1px solid #e5e7eb;
@@ -808,6 +1052,25 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
         .status-btn:active,
         .refund-btn:active {
           transform: scale(0.95);
+        }
+
+        .pagination-container {
+          margin-top: 24px;
+        }
+
+        .pagination-controls {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .font-medium {
+          font-weight: 500;
+        }
+
+        .space-y-1 > * + * {
+          margin-top: 0.25rem;
         }
       `}</style>
     </div>

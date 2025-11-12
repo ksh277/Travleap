@@ -27,10 +27,15 @@ import {
   Filter,
   Loader2,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  Download,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 
 interface Event {
   id: number;
@@ -86,6 +91,14 @@ export function EventsVendorDashboard() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // 정렬
+  const [sortField, setSortField] = useState<'order_number' | 'event_title' | 'customer_name' | 'total_amount' | 'payment_status' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // 페이지네이션
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     if (!user) {
@@ -248,12 +261,114 @@ export function EventsVendorDashboard() {
       );
     }
 
+    // 정렬 적용
+    filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'order_number':
+          aValue = a.order_number || '';
+          bValue = b.order_number || '';
+          break;
+        case 'event_title':
+          aValue = a.event_title || '';
+          bValue = b.event_title || '';
+          break;
+        case 'customer_name':
+          aValue = a.customer_name || '';
+          bValue = b.customer_name || '';
+          break;
+        case 'total_amount':
+          aValue = a.total_amount || 0;
+          bValue = b.total_amount || 0;
+          break;
+        case 'payment_status':
+          aValue = a.payment_status || '';
+          bValue = b.payment_status || '';
+          break;
+        case 'created_at':
+          aValue = a.created_at ? new Date(a.created_at).getTime() : 0;
+          bValue = b.created_at ? new Date(b.created_at).getTime() : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      // 문자열 또는 숫자 비교
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const comparison = aValue.localeCompare(bValue, 'ko-KR');
+        return sortDirection === 'asc' ? comparison : -comparison;
+      } else {
+        const comparison = aValue - bValue;
+        return sortDirection === 'asc' ? comparison : -comparison;
+      }
+    });
+
     setFilteredOrders(filtered);
-  }, [searchQuery, statusFilter, orders]);
+    setCurrentPage(1); // 필터 변경 시 첫 페이지로 리셋
+  }, [searchQuery, statusFilter, orders, sortField, sortDirection]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      // 같은 필드를 클릭하면 방향 토글
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // 다른 필드를 클릭하면 해당 필드로 변경하고 기본 내림차순
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (field: typeof sortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 inline opacity-30" />;
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1 inline text-blue-600" />
+      : <ArrowDown className="h-3 w-3 ml-1 inline text-blue-600" />;
+  };
+
+  const getAriaSort = (field: typeof sortField): 'ascending' | 'descending' | 'none' => {
+    if (sortField !== field) return 'none';
+    return sortDirection === 'asc' ? 'ascending' : 'descending';
+  };
+
+  const handleSortKeyDown = (e: React.KeyboardEvent, field: typeof sortField) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSort(field);
+    }
+  };
+
+  const handleExportCSV = () => {
+    const exportData = filteredOrders.map(order => ({
+      '예약번호': order.order_number,
+      '이벤트명': order.event_title,
+      '고객명': order.customer_name,
+      '전화번호': order.customer_phone || '-',
+      '이메일': order.customer_email || '-',
+      '이벤트일시': order.start_datetime ? new Date(order.start_datetime).toLocaleString('ko-KR') : '-',
+      '티켓종류': order.ticket_type === 'general' ? '일반석' : 'VIP석',
+      '수량': order.quantity,
+      '금액': order.total_amount,
+      '결제상태': order.payment_status === 'paid' ? '결제완료' :
+                   order.payment_status === 'pending' ? '결제대기' :
+                   order.payment_status === 'failed' ? '결제실패' : '환불완료',
+      '주문상태': order.status === 'pending' ? '대기중' :
+                  order.status === 'confirmed' ? '확정' :
+                  order.status === 'completed' ? '완료' : '취소',
+      '주문일시': order.created_at ? new Date(order.created_at).toLocaleString('ko-KR') : '-'
+    }));
+
+    const filename = generateCSVFilename('event_tickets');
+    exportToCSV(exportData, filename);
+    toast.success('CSV 파일이 다운로드되었습니다.');
   };
 
   const getStatusBadge = (status: string) => {
@@ -394,16 +509,27 @@ export function EventsVendorDashboard() {
                     <CardTitle>티켓 주문 목록</CardTitle>
                     <CardDescription>판매된 티켓을 관리하세요</CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadDashboardData}
-                    disabled={isLoading}
-                    className="gap-2"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    새로고침
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportCSV}
+                      className="gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      CSV 내보내기
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadDashboardData}
+                      disabled={isLoading}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                      새로고침
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -440,13 +566,63 @@ export function EventsVendorDashboard() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>주문번호</TableHead>
-                        <TableHead>행사명</TableHead>
-                        <TableHead>고객명</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('order_number')}
+                          aria-label="주문번호로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('order_number')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'order_number')}
+                        >
+                          주문번호 {getSortIcon('order_number')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('event_title')}
+                          aria-label="행사명으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('event_title')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'event_title')}
+                        >
+                          행사명 {getSortIcon('event_title')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('customer_name')}
+                          aria-label="고객명으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('customer_name')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'customer_name')}
+                        >
+                          고객명 {getSortIcon('customer_name')}
+                        </TableHead>
                         <TableHead>행사일시</TableHead>
                         <TableHead>좌석/수량</TableHead>
-                        <TableHead>금액</TableHead>
-                        <TableHead>결제상태</TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('total_amount')}
+                          aria-label="금액으로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('total_amount')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'total_amount')}
+                        >
+                          금액 {getSortIcon('total_amount')}
+                        </TableHead>
+                        <TableHead
+                          role="button"
+                          tabIndex={0}
+                          aria-sort={getAriaSort('payment_status')}
+                          aria-label="결제상태로 정렬"
+                          className="cursor-pointer hover:bg-gray-50 select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2"
+                          onClick={() => handleSort('payment_status')}
+                          onKeyDown={(e) => handleSortKeyDown(e, 'payment_status')}
+                        >
+                          결제상태 {getSortIcon('payment_status')}
+                        </TableHead>
                         <TableHead>주문상태</TableHead>
                         <TableHead>액션</TableHead>
                       </TableRow>
@@ -459,7 +635,7 @@ export function EventsVendorDashboard() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredOrders.map((order) => (
+                        filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((order) => (
                           <TableRow key={order.id}>
                             <TableCell className="font-mono text-sm">
                               {order.order_number}
@@ -548,6 +724,46 @@ export function EventsVendorDashboard() {
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* 페이지네이션 */}
+                {filteredOrders.length > 0 && (
+                  <div className="mt-6">
+                    <div className="text-center mb-4">
+                      <p className="text-sm text-gray-500">
+                        총 {filteredOrders.length}개의 주문
+                        {searchQuery || statusFilter !== 'all'
+                          ? ` (전체 ${orders.length}개)`
+                          : ''}
+                      </p>
+                    </div>
+
+                    {Math.ceil(filteredOrders.length / itemsPerPage) > 1 && (
+                      <div className="flex items-center justify-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                        >
+                          이전
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm text-gray-600">
+                            페이지 {currentPage} / {Math.ceil(filteredOrders.length / itemsPerPage)}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredOrders.length / itemsPerPage), prev + 1))}
+                          disabled={currentPage === Math.ceil(filteredOrders.length / itemsPerPage)}
+                        >
+                          다음
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
