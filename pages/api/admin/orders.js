@@ -60,11 +60,12 @@ async function handler(req, res) {
           b.shipping_address_detail,
           b.shipping_zipcode,
           l.title as product_title,
-          l.category,
+          COALESCE(c.name_ko, l.category, '주문') as category,
           l.images
         FROM payments p
         LEFT JOIN bookings b ON p.booking_id = b.id
         LEFT JOIN listings l ON b.listing_id = l.id
+        LEFT JOIN categories c ON l.category_id = c.id
         WHERE p.payment_status IN ('paid', 'completed', 'refunded')
         ORDER BY p.created_at DESC
       `);
@@ -157,9 +158,10 @@ async function handler(req, res) {
                 b.delivery_status,
                 b.guests,
                 l.title as product_title,
-                l.category
+                COALESCE(c.name_ko, l.category, '기타') as category
               FROM bookings b
               LEFT JOIN listings l ON b.listing_id = l.id
+              LEFT JOIN categories c ON l.category_id = c.id
               WHERE b.order_number = ? AND b.status != 'cancelled'
               ORDER BY b.created_at ASC
             `, [orderNumber]);
