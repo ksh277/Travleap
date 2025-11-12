@@ -53,10 +53,16 @@ interface Order {
     name: string;
     email: string;
     phone: string;
+    address?: string;
+    detailed_address?: string;
+    postal_code?: string;
   };
   user_name?: string;
   user_email?: string;
   user_phone?: string;
+  user_address?: string;
+  user_detailed_address?: string;
+  user_postal_code?: string;
   total_amount: number;
   payment_status: string;
   status: string;
@@ -393,8 +399,17 @@ export function PopupVendorDashboard() {
                               {order.customer_info?.name || order.user_name || '-'}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {order.customer_info?.phone || order.user_phone || '-'}
+                              <a href={`tel:${order.customer_info?.phone || order.user_phone}`} className="text-blue-600 hover:underline">
+                                {order.customer_info?.phone || order.user_phone || '-'}
+                              </a>
                             </div>
+                            {(order.customer_info?.address || order.user_address) && (
+                              <div className="text-xs text-gray-600 mt-1 max-w-xs">
+                                <span className="font-semibold">배송지:</span> {order.customer_info?.postal_code || order.user_postal_code ? `(${order.customer_info?.postal_code || order.user_postal_code}) ` : ''}
+                                {order.customer_info?.address || order.user_address}
+                                {(order.customer_info?.detailed_address || order.user_detailed_address) && `, ${order.customer_info?.detailed_address || order.user_detailed_address}`}
+                              </div>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="font-semibold">

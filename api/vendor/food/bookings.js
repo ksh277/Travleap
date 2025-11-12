@@ -142,6 +142,7 @@ module.exports = async function handler(req, res) {
     const bookings = (result.rows || []).map(booking => {
       let customerInfo = null;
       let reservationTime = '';
+      let menuItems = [];
 
       if (booking.customer_info) {
         try {
@@ -151,6 +152,9 @@ module.exports = async function handler(req, res) {
 
           // 예약 시간 추출
           reservationTime = customerInfo.reservation_time || '';
+
+          // 메뉴 정보 추출
+          menuItems = customerInfo.menu_items || customerInfo.order_items || customerInfo.items || [];
         } catch (e) {
           console.warn(`Failed to parse customer_info for booking ${booking.id}`);
         }
@@ -160,6 +164,7 @@ module.exports = async function handler(req, res) {
         ...booking,
         customer_info: customerInfo,
         reservation_time: reservationTime,
+        menu_items: menuItems,
         // 고객 정보 병합 (customer_info 우선, users 테이블 백업)
         customer_name: customerInfo?.name || booking.customer_name,
         customer_phone: customerInfo?.phone || booking.customer_phone,

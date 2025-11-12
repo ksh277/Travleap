@@ -41,6 +41,13 @@ interface Restaurant {
   is_active: boolean;
 }
 
+interface MenuItem {
+  name: string;
+  quantity: number;
+  price?: number;
+  options?: string;
+}
+
 interface Order {
   id: number;
   order_number: string;
@@ -49,7 +56,10 @@ interface Order {
   customer_email?: string;
   customer_phone?: string;
   reservation_datetime: string;
+  reservation_time?: string;
   party_size: number;
+  menu_items?: MenuItem[];
+  special_requests?: string;
   total_amount: number;
   payment_status: string;
   payment_key?: string;
@@ -444,13 +454,39 @@ export function FoodVendorDashboard() {
                             </TableCell>
                             <TableCell>{order.restaurant_name}</TableCell>
                             <TableCell>
-                              <div>
+                              <div className="space-y-1">
                                 <div className="font-medium">{order.customer_name}</div>
                                 {order.customer_email && (
-                                  <div className="text-xs text-gray-500">{order.customer_email}</div>
+                                  <div className="text-xs text-gray-500">
+                                    <a href={`mailto:${order.customer_email}`} className="text-blue-600 hover:underline">
+                                      {order.customer_email}
+                                    </a>
+                                  </div>
                                 )}
                                 {order.customer_phone && (
-                                  <div className="text-xs text-gray-500">{order.customer_phone}</div>
+                                  <div className="text-xs text-gray-500">
+                                    <a href={`tel:${order.customer_phone}`} className="text-blue-600 hover:underline">
+                                      {order.customer_phone}
+                                    </a>
+                                  </div>
+                                )}
+                                {order.menu_items && order.menu_items.length > 0 && (
+                                  <div className="text-xs text-gray-700 mt-1 pt-1 border-t">
+                                    <span className="font-semibold text-orange-700">주문 메뉴:</span>
+                                    <div className="mt-0.5">
+                                      {order.menu_items.map((item, idx) => (
+                                        <div key={idx} className="text-gray-600">
+                                          • {item.name} x{item.quantity}
+                                          {item.options && <span className="text-gray-500 ml-1">({item.options})</span>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {order.special_requests && (
+                                  <div className="text-xs text-gray-600 italic mt-1">
+                                    💬 {order.special_requests}
+                                  </div>
                                 )}
                               </div>
                             </TableCell>
