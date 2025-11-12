@@ -277,32 +277,59 @@ export function MyPage() {
 
       // 예약 내역 처리
       if (Array.isArray(bookingsResponse)) {
-        const formattedBookings = bookingsResponse.map((booking: any) => ({
-          id: booking.id.toString(),
-          title: booking.listing?.title || '상품명 없음',
-          category: booking.listing?.category || '카테고리 없음',
-          date: booking.start_date || '',
-          time: '시간 정보 없음',
-          guests: booking.num_adults + booking.num_children + booking.num_seniors,
-          price: booking.total_amount || 0,
-          status: booking.status === 'confirmed' ? 'confirmed' as const :
-                  booking.status === 'cancelled' ? 'cancelled' as const : 'pending' as const,
-          image: Array.isArray(booking.listing?.images) && booking.listing.images.length > 0
-            ? booking.listing.images[0]
-            : getDefaultImage(booking.listing?.category),
-          location: booking.listing?.location || '위치 정보 없음',
-          // ✅ 배송 정보 추가 (팝업 상품용)
-          delivery_status: booking.delivery_status,
-          tracking_number: booking.tracking_number,
-          courier_company: booking.courier_company,
-          shipping_name: booking.shipping_name,
-          shipping_phone: booking.shipping_phone,
-          shipping_address: booking.shipping_address,
-          shipping_address_detail: booking.shipping_address_detail,
-          shipping_zipcode: booking.shipping_zipcode,
-          shipped_at: booking.shipped_at,
-          delivered_at: booking.delivered_at
-        }));
+        const formattedBookings = bookingsResponse.map((booking: any) => {
+          // 시간 정보 추출 (카테고리별로 다른 필드 사용)
+          let timeInfo = '시간 미정';
+          if (booking.check_in_time) {
+            // 숙박: 체크인 시간
+            timeInfo = `체크인 ${booking.check_in_time}`;
+            if (booking.check_out_time) {
+              timeInfo += ` ~ 체크아웃 ${booking.check_out_time}`;
+            }
+          } else if (booking.pickup_time) {
+            // 렌트카: 픽업 시간
+            timeInfo = `픽업 ${booking.pickup_time}`;
+            if (booking.return_time) {
+              timeInfo += ` ~ 반납 ${booking.return_time}`;
+            }
+          } else if (booking.departure_time) {
+            // 투어: 출발 시간
+            timeInfo = `출발 ${booking.departure_time}`;
+          } else if (booking.start_time) {
+            // 기타: 시작 시간
+            timeInfo = booking.start_time;
+            if (booking.end_time) {
+              timeInfo += ` ~ ${booking.end_time}`;
+            }
+          }
+
+          return {
+            id: booking.id.toString(),
+            title: booking.listing?.title || '상품명 없음',
+            category: booking.listing?.category || '카테고리 없음',
+            date: booking.start_date || '',
+            time: timeInfo,
+            guests: booking.num_adults + booking.num_children + booking.num_seniors,
+            price: booking.total_amount || 0,
+            status: booking.status === 'confirmed' ? 'confirmed' as const :
+                    booking.status === 'cancelled' ? 'cancelled' as const : 'pending' as const,
+            image: Array.isArray(booking.listing?.images) && booking.listing.images.length > 0
+              ? booking.listing.images[0]
+              : getDefaultImage(booking.listing?.category),
+            location: booking.listing?.location || '위치 정보 없음',
+            // ✅ 배송 정보 추가 (팝업 상품용)
+            delivery_status: booking.delivery_status,
+            tracking_number: booking.tracking_number,
+            courier_company: booking.courier_company,
+            shipping_name: booking.shipping_name,
+            shipping_phone: booking.shipping_phone,
+            shipping_address: booking.shipping_address,
+            shipping_address_detail: booking.shipping_address_detail,
+            shipping_zipcode: booking.shipping_zipcode,
+            shipped_at: booking.shipped_at,
+            delivered_at: booking.delivered_at
+          };
+        });
         setBookings(formattedBookings);
       } else {
         setBookings([]);
@@ -1226,7 +1253,7 @@ export function MyPage() {
                                      point.point_type === 'expire' ? '만료' : '관리자'}
                                   </Badge>
                                   <span className="text-sm text-gray-600">
-                                    {new Date(point.created_at).toLocaleDateString('ko-KR', {
+                                    {new Date(point.created_at).toLocaleString('ko-KR', {
                                       year: 'numeric',
                                       month: 'long',
                                       day: 'numeric',
