@@ -98,6 +98,7 @@ module.exports = async function handler(req, res) {
           NULL as delivery_status,
           rb.customer_name as shipping_name,
           rb.customer_phone as shipping_phone,
+          rb.customer_email as shipping_email,
           NULL as shipping_address,
           NULL as shipping_address_detail,
           NULL as shipping_zipcode,
@@ -315,10 +316,10 @@ module.exports = async function handler(req, res) {
           // 2순위: users 테이블 (회원 정보)
           // 3순위: bookings 테이블의 shipping 정보 (배송지로 입력한 정보)
           const finalUserName = billingName || user?.name || order.shipping_name || '';
-          const finalUserEmail = billingEmail || user?.email || '';
+          const finalUserEmail = billingEmail || user?.email || order.shipping_email || '';
           const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || '';
 
-          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (billing="${billingName}", user="${user?.name || 'null'}", shipping="${order.shipping_name || 'null'}")`);
+          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (billing="${billingName}", user="${user?.name || 'null'}", user.email="${user?.email || 'null'}", user.phone="${user?.phone || 'null'}", shipping="${order.shipping_name || 'null'}")`);
 
           return {
             id: parseInt(order.id) || order.id, // ✅ FIX: 문자열 → 숫자 변환
