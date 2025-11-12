@@ -108,9 +108,9 @@ module.exports = async function handler(req, res) {
     const roomResult = await connection.execute(
       `SELECT
         l.*,
-        p.business_name,
-        p.check_in_time as default_check_in,
-        p.check_out_time as default_check_out
+        l.default_check_in_time,
+        l.default_check_out_time,
+        p.business_name
       FROM listings l
       LEFT JOIN partners p ON l.partner_id = p.id
       WHERE l.id = ? AND l.category_id = 1857`,
@@ -217,7 +217,7 @@ module.exports = async function handler(req, res) {
 
           const insertResult = await poolNeon.query(
             `INSERT INTO users (username, email, password_hash, name, phone, role, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, 'customer', NOW(), NOW())
+             VALUES ($1, $2, $3, $4, $5, 'user', NOW(), NOW())
              RETURNING id`,
             [username, user_email, placeholderPassword, user_name || 'Guest', user_phone || '']
           );
@@ -275,8 +275,8 @@ module.exports = async function handler(req, res) {
         finalUserId,
         start_date,
         end_date,
-        check_in_time || room.default_check_in || '15:00',
-        check_out_time || room.default_check_out || '11:00',
+        check_in_time || room.default_check_in_time || '16:00',
+        check_out_time || room.default_check_out_time || '12:00',
         adultsCount,
         childrenCount,
         seniorsCount,

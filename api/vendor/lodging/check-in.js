@@ -137,10 +137,11 @@ module.exports = async function handler(req, res) {
       checked_in_at: new Date().toISOString()
     };
 
-    // 체크인 처리
+    // 체크인 처리 (실제 체크인 시간 기록)
     await connection.execute(
       `UPDATE bookings
-       SET status = 'in_use',
+       SET status = 'completed',
+           check_in_time = NOW(),
            check_in_info = ?,
            updated_at = NOW()
        WHERE id = ?`,
@@ -169,7 +170,8 @@ module.exports = async function handler(req, res) {
       data: {
         booking_id: booking.id,
         booking_number: booking.booking_number,
-        status: 'in_use',
+        status: 'completed',
+        check_in_time: new Date().toISOString(),
         check_in_info: checkInInfo
       }
     });
