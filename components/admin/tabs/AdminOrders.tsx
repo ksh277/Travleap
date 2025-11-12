@@ -341,25 +341,42 @@ export function AdminOrders() {
                 <tbody>
                   {filteredOrders.map((order) => (
                     <tr key={`${order.id}-${order.category}-${order.booking_number || order.order_number}`} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4 font-mono text-sm">#{order.id}</td>
+                      <td className="py-3 px-4">
+                        <div className="font-mono text-sm space-y-1">
+                          <div className="font-semibold">#{order.id}</div>
+                          {order.order_number && (
+                            <div className="text-xs text-gray-500 break-all max-w-[150px]">
+                              {order.order_number.substring(0, 20)}{order.order_number.length > 20 ? '...' : ''}
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-3 px-4">
                         <div className="text-sm space-y-1">
                           {/* 주문자 정보 */}
                           <div>
-                            <div className="font-medium text-gray-900">{order.user_name || '-'}</div>
+                            <div className="font-medium text-gray-900">
+                              {order.user_name && order.user_name !== '정보없음' ? order.user_name : (
+                                <span className="text-red-600 text-xs">⚠️ 이름 없음</span>
+                              )}
+                            </div>
                             <div className="text-gray-500 text-xs">
                               {order.user_email ? (
                                 <a href={`mailto:${order.user_email}`} className="text-blue-600 hover:underline">
                                   {order.user_email}
                                 </a>
-                              ) : '-'}
+                              ) : (
+                                <span className="text-red-600">⚠️ 이메일 없음</span>
+                              )}
                             </div>
-                            {order.user_phone && (
+                            {order.user_phone ? (
                               <div className="text-gray-500 text-xs">
                                 <a href={`tel:${order.user_phone}`} className="text-blue-600 hover:underline">
                                   {order.user_phone}
                                 </a>
                               </div>
+                            ) : (
+                              <div className="text-red-600 text-xs">⚠️ 전화번호 없음</div>
                             )}
                           </div>
                           {/* 배송지 정보 (팝업 상품인 경우) */}

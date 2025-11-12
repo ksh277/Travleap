@@ -366,15 +366,20 @@ module.exports = async function handler(req, res) {
           const finalUserEmail = billingEmail || user?.email || order.shipping_email || '';
           const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || '';
 
+          // ⚠️ 사용자 정보가 완전히 없는 경우 경고
+          if (!finalUserName && !finalUserEmail && !finalUserPhone) {
+            console.warn(`⚠️ [Orders] order_id=${order.id}: 사용자 정보 없음! user_id=${order.user_id}, billing=null, user=null, shipping=null`);
+          }
+
           console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (billing="${billingName}", user="${user?.name || 'null'}", user.email="${user?.email || 'null'}", user.phone="${user?.phone || 'null'}", shipping="${order.shipping_name || 'null'}")`);
 
           return {
             id: parseInt(order.id) || order.id, // ✅ FIX: 문자열 → 숫자 변환
             booking_id: order.booking_id, // ✅ 환불 시 필요
             booking_number: order.booking_number,
-            user_name: finalUserName, // ✅ FIX: notes → users → bookings 순서로 우선순위
-            user_email: finalUserEmail, // ✅ FIX: notes → users 순서로 우선순위
-            user_phone: finalUserPhone, // ✅ FIX: notes → users → bookings 순서로 우선순위
+            user_name: finalUserName || '정보없음', // ✅ FIX: 빈 문자열 대신 명확한 표시
+            user_email: finalUserEmail || null, // ✅ FIX: 빈 문자열 대신 null
+            user_phone: finalUserPhone || null, // ✅ FIX: 빈 문자열 대신 null
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,
