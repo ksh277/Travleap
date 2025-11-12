@@ -5,11 +5,12 @@
 
 const { connect } = require('@planetscale/database');
 const multiparty = require('multiparty');
+const jwt = require('jsonwebtoken');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -19,6 +20,35 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
+  // JWT 인증 (관리자 권한 확인)
+  const authHeader = req.headers.authorization || req.headers.Authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized - No token provided'
+    });
+  }
+
+  const token = authHeader.substring(7);
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key-change-in-production');
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized - Invalid token'
+    });
+  }
+
+  // 관리자 권한 확인
+  if (decoded.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden - Admin role required'
+    });
+  }
+
+  const adminUserId = decoded.userId;
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
@@ -70,25 +100,27 @@ module.exports = async function handler(req, res) {
         });
 
         try {
-          // vendor_code 자동 생성
-          const vendorCode = row.vendor_code || `ACC${Date.now()}_${i}`;
+          // user_id: CSV에서 제공되면 사용, 없으면 업로드한 관리자 ID 사용
+          const userId = row.user_id ? parseInt(row.user_id) : adminUserId;
 
           await connection.execute(
-            `INSERT INTO accommodation_vendors (
-              vendor_code, business_name, brand_name, business_number,
-              contact_name, contact_email, contact_phone, description,
-              status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            `INSERT INTO partners (
+              user_id, business_name, contact_name, email, phone,
+              mobile_phone, business_number, business_address, description,
+              partner_type, status, is_active,
+              created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'lodging', ?, 1, NOW(), NOW())`,
             [
-              vendorCode,
+              userId,
               row.business_name || '이름없음',
-              row.brand_name || row.business_name || '브랜드없음',
-              row.business_number,
-              row.contact_name,
-              row.contact_email,
-              row.contact_phone,
-              row.description,
-              row.status || 'active'
+              row.contact_name || '담당자',
+              row.contact_email || null,
+              row.contact_phone || null,
+              row.mobile_phone || row.contact_phone || null,
+              row.business_number || null,
+              row.business_address || null,
+              row.description || null,
+              row.status === 'approved' ? 'approved' : 'pending'
             ]
           );
 

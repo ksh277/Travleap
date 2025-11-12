@@ -62,6 +62,20 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      // 숙박 카테고리 ID 조회
+      const categoryResult = await connection.execute(
+        `SELECT id FROM categories WHERE slug IN ('stay', 'accommodation') LIMIT 1`
+      );
+
+      if (!categoryResult.rows || categoryResult.rows.length === 0) {
+        return res.status(500).json({
+          success: false,
+          error: '시스템 설정 오류: 숙박 카테고리를 찾을 수 없습니다.'
+        });
+      }
+
+      const accommodationCategoryId = categoryResult.rows[0].id;
+
       // 헤더 파싱
       const headers = lines[0].split(',').map(h => h.trim());
 
@@ -79,19 +93,22 @@ module.exports = async function handler(req, res) {
 
         try {
           await connection.execute(
-            `INSERT INTO accommodation_rooms (
-              vendor_id, room_name, room_type, capacity,
-              base_price_per_night, breakfast_included, description,
+            `INSERT INTO listings (
+              partner_id, category_id, category, title, description_md,
+              base_price_per_night, breakfast_included, max_occupancy,
+              bed_type, is_published, is_active,
               created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())`,
             [
               vendorId,
+              accommodationCategoryId,
+              'stay',
               row.room_name || '이름없음',
-              row.room_type || 'standard',
-              parseInt(row.capacity) || 2,
+              row.description || '',
               parseFloat(row.base_price) || 0,
-              row.breakfast_included === 'true' || row.breakfast_included === '1',
-              row.description,
+              row.breakfast_included === 'true' || row.breakfast_included === '1' ? 1 : 0,
+              parseInt(row.capacity) || 2,
+              row.room_type || 'standard',
             ]
           );
 

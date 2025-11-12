@@ -30,12 +30,26 @@ module.exports = async function handler(req, res) {
 
     const partner = partnerResult.rows[0];
 
+    // 숙박 카테고리 ID 조회
+    const categoryResult = await connection.execute(`
+      SELECT id FROM categories WHERE slug IN ('stay', 'accommodation') LIMIT 1
+    `);
+
+    if (!categoryResult.rows || categoryResult.rows.length === 0) {
+      return res.status(500).json({
+        success: false,
+        error: '시스템 설정 오류: 숙박 카테고리를 찾을 수 없습니다.'
+      });
+    }
+
+    const accommodationCategoryId = categoryResult.rows[0].id;
+
     // 객실 목록 조회
     const roomsResult = await connection.execute(`
       SELECT * FROM listings
-      WHERE partner_id = ? AND category_id = 1857 AND is_published = 1 AND is_active = 1
+      WHERE partner_id = ? AND category_id = ? AND is_published = 1 AND is_active = 1
       ORDER BY price_from ASC
-    `, [partnerId]);
+    `, [partnerId, accommodationCategoryId]);
 
     const rooms = (roomsResult.rows || []).map(room => {
       let images = [];

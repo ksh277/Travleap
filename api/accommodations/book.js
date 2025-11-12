@@ -102,8 +102,24 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // 숙박 카테고리 ID 조회
+    const categoryResult = await connection.execute(
+      `SELECT id FROM categories WHERE slug IN ('stay', 'accommodation') LIMIT 1`
+    );
+
+    if (!categoryResult.rows || categoryResult.rows.length === 0) {
+      console.error('❌ 숙박 카테고리를 찾을 수 없습니다');
+      return res.status(500).json({
+        success: false,
+        error: '시스템 설정 오류: 숙박 카테고리를 찾을 수 없습니다.'
+      });
+    }
+
+    const accommodationCategoryId = categoryResult.rows[0].id;
+    console.log('✅ 숙박 카테고리 ID:', accommodationCategoryId);
+
     // 객실 정보 조회 (listings 테이블에서)
-    console.log('🔍 객실 조회 시작:', { listing_id, category_id: 1857 });
+    console.log('🔍 객실 조회 시작:', { listing_id, category_id: accommodationCategoryId });
 
     const roomResult = await connection.execute(
       `SELECT
@@ -113,8 +129,8 @@ module.exports = async function handler(req, res) {
         p.business_name
       FROM listings l
       LEFT JOIN partners p ON l.partner_id = p.id
-      WHERE l.id = ? AND l.category_id = 1857`,
-      [listing_id]
+      WHERE l.id = ? AND l.category_id = ?`,
+      [listing_id, accommodationCategoryId]
     );
 
     console.log('🔍 객실 조회 결과:', {
@@ -129,7 +145,7 @@ module.exports = async function handler(req, res) {
         error: '객실을 찾을 수 없습니다.',
         details: {
           listing_id,
-          category_id: 1857
+          category_id: accommodationCategoryId
         }
       });
     }

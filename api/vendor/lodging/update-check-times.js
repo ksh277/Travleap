@@ -87,13 +87,27 @@ module.exports = async function handler(req, res) {
 
     const partnerId = vendorResult.rows[0].partner_id;
 
+    // 숙박 카테고리 ID 조회
+    const categoryResult = await connection.execute(
+      `SELECT id FROM categories WHERE slug IN ('stay', 'accommodation') LIMIT 1`
+    );
+
+    if (!categoryResult.rows || categoryResult.rows.length === 0) {
+      return res.status(500).json({
+        success: false,
+        error: '시스템 설정 오류: 숙박 카테고리를 찾을 수 없습니다.'
+      });
+    }
+
+    const accommodationCategoryId = categoryResult.rows[0].id;
+
     // 상품 확인 및 권한 검증
     const listingResult = await connection.execute(
       `SELECT id, title, partner_id, default_check_in_time, default_check_out_time
        FROM listings
-       WHERE id = ? AND category_id = 1857
+       WHERE id = ? AND category_id = ?
        LIMIT 1`,
-      [listing_id]
+      [listing_id, accommodationCategoryId]
     );
 
     if (!listingResult.rows || listingResult.rows.length === 0) {
