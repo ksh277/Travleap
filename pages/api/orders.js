@@ -79,11 +79,12 @@ module.exports = async function handler(req, res) {
           b.tracking_number,
           b.courier_company,
           l.title as product_title,
-          l.category,
+          COALESCE(c.name_ko, l.category, '주문') as category,
           l.images
         FROM payments p
         LEFT JOIN bookings b ON p.booking_id = b.id
         LEFT JOIN listings l ON b.listing_id = l.id
+        LEFT JOIN categories c ON l.category_id = c.id
         WHERE p.payment_status IN ('paid', 'completed', 'refunded')
           AND (p.notes IS NULL OR JSON_EXTRACT(p.notes, '$.category') != '렌트카')
         ORDER BY p.created_at DESC
@@ -190,9 +191,10 @@ module.exports = async function handler(req, res) {
               b.shipping_address_detail,
               b.shipping_zipcode,
               l.title as product_title,
-              l.category
+              COALESCE(c.name_ko, l.category, '기타') as category
             FROM bookings b
             LEFT JOIN listings l ON b.listing_id = l.id
+            LEFT JOIN categories c ON l.category_id = c.id
             WHERE b.order_number IN (${placeholders}) AND b.status != 'cancelled'
             ORDER BY b.order_number, b.created_at ASC
           `, orderNumbersForCart);
