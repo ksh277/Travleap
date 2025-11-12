@@ -113,6 +113,8 @@ export function PopupVendorDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // 페이지네이션
   const [currentPage, setCurrentPage] = useState(1);
@@ -137,7 +139,7 @@ export function PopupVendorDashboard() {
   // 필터 적용
   useEffect(() => {
     applyFilters();
-  }, [orders, searchQuery, statusFilter, deliveryStatusFilter]);
+  }, [orders, searchQuery, statusFilter, deliveryStatusFilter, startDate, endDate]);
 
   const loadDashboardData = async () => {
     try {
@@ -253,6 +255,27 @@ export function PopupVendorDashboard() {
     // 배송 상태 필터
     if (deliveryStatusFilter !== 'all') {
       filtered = filtered.filter(order => order.delivery_status === deliveryStatusFilter);
+    }
+
+    // 날짜 범위 필터
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(order => {
+        if (!order.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        return orderDate >= start;
+      });
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(order => {
+        if (!order.created_at) return false;
+        const orderDate = new Date(order.created_at);
+        return orderDate <= end;
+      });
     }
 
     setFilteredOrders(filtered);
@@ -441,6 +464,23 @@ export function PopupVendorDashboard() {
                       <SelectItem value="CANCELED">취소</SelectItem>
                     </SelectContent>
                   </Select>
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-[150px]"
+                      placeholder="시작일"
+                    />
+                    <span className="text-gray-500">~</span>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-[150px]"
+                      placeholder="종료일"
+                    />
+                  </div>
                   <Button
                     variant="outline"
                     onClick={handleExportCSV}
