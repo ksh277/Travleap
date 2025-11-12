@@ -154,6 +154,47 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
     }
   };
 
+  // 예약 상태 변경
+  const handleUpdateStatus = async (booking: TourBooking, newStatus: string) => {
+    const statusMessages = {
+      confirmed: '확정',
+      canceled: '취소',
+      completed: '완료'
+    };
+
+    const message = statusMessages[newStatus as keyof typeof statusMessages] || newStatus;
+
+    if (!confirm(`${booking.package_name} 예약을 ${message}하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/vendor/tour/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          booking_id: booking.id,
+          status: newStatus
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert(`예약이 ${message}되었습니다.`);
+        loadBookings();
+      } else {
+        alert(result.message || `${message} 처리에 실패했습니다.`);
+      }
+    } catch (error) {
+      console.error('상태 변경 오류:', error);
+      alert('상태 변경 중 오류가 발생했습니다.');
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'packages') loadPackages();
     else if (activeTab === 'schedules') loadSchedules();
@@ -402,16 +443,43 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                               )}
                             </td>
                             <td>
-                              {booking.payment_status === 'paid' &&
-                               booking.status !== 'canceled' &&
-                               booking.status !== 'completed' && (
-                                <button
-                                  onClick={() => handleRefund(booking)}
-                                  className="refund-btn"
-                                >
-                                  환불
-                                </button>
-                              )}
+                              <div className="action-buttons">
+                                {booking.status === 'pending' && (
+                                  <button
+                                    onClick={() => handleUpdateStatus(booking, 'confirmed')}
+                                    className="status-btn confirm-btn"
+                                  >
+                                    확정
+                                  </button>
+                                )}
+                                {booking.status === 'confirmed' && (
+                                  <button
+                                    onClick={() => handleUpdateStatus(booking, 'completed')}
+                                    className="status-btn complete-btn"
+                                  >
+                                    완료
+                                  </button>
+                                )}
+                                {booking.status !== 'canceled' &&
+                                 booking.status !== 'completed' && (
+                                  <button
+                                    onClick={() => handleUpdateStatus(booking, 'canceled')}
+                                    className="status-btn cancel-btn"
+                                  >
+                                    취소
+                                  </button>
+                                )}
+                                {booking.payment_status === 'paid' &&
+                                 booking.status !== 'canceled' &&
+                                 booking.status !== 'completed' && (
+                                  <button
+                                    onClick={() => handleRefund(booking)}
+                                    className="refund-btn"
+                                  >
+                                    환불
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -654,13 +722,56 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
           color: #4b5563;
         }
 
+        .action-buttons {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .status-btn {
+          padding: 5px 10px;
+          border: none;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .confirm-btn {
+          background: #3b82f6;
+          color: white;
+        }
+
+        .confirm-btn:hover {
+          background: #2563eb;
+        }
+
+        .complete-btn {
+          background: #10b981;
+          color: white;
+        }
+
+        .complete-btn:hover {
+          background: #059669;
+        }
+
+        .cancel-btn {
+          background: #f59e0b;
+          color: white;
+        }
+
+        .cancel-btn:hover {
+          background: #d97706;
+        }
+
         .refund-btn {
-          padding: 6px 12px;
+          padding: 5px 10px;
           background: #ef4444;
           color: white;
           border: none;
-          border-radius: 6px;
-          font-size: 13px;
+          border-radius: 4px;
+          font-size: 12px;
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
@@ -670,8 +781,9 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
           background: #dc2626;
         }
 
+        .status-btn:active,
         .refund-btn:active {
-          transform: scale(0.98);
+          transform: scale(0.95);
         }
       `}</style>
     </div>

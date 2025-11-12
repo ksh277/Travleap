@@ -190,6 +190,46 @@ export function ExperienceVendorDashboard() {
     }
   };
 
+  const handleUpdateStatus = async (booking: Booking, newStatus: string) => {
+    const statusMessages = {
+      confirmed: '확정',
+      canceled: '취소',
+      completed: '완료'
+    };
+
+    const message = statusMessages[newStatus as keyof typeof statusMessages] || newStatus;
+
+    if (!confirm(`${booking.experience_name} 예약을 ${message}하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/vendor/experience/update-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          booking_id: booking.id,
+          status: newStatus
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success(`예약이 ${message}되었습니다.`);
+        loadDashboardData();
+      } else {
+        toast.error(result.message || `${message} 처리에 실패했습니다.`);
+      }
+    } catch (error) {
+      console.error('상태 변경 오류:', error);
+      toast.error('상태 변경 중 오류가 발생했습니다.');
+    }
+  };
+
   // 필터링
   useEffect(() => {
     let filtered = bookings;
@@ -435,17 +475,48 @@ export function ExperienceVendorDashboard() {
                             <TableCell>{getPaymentStatusBadge(booking.payment_status)}</TableCell>
                             <TableCell>{getStatusBadge(booking.status)}</TableCell>
                             <TableCell>
-                              {booking.payment_status === 'paid' &&
-                               booking.status !== 'canceled' &&
-                               booking.status !== 'completed' && (
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleRefund(booking)}
-                                >
-                                  환불
-                                </Button>
-                              )}
+                              <div className="flex gap-2 flex-wrap">
+                                {booking.status === 'pending' && (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleUpdateStatus(booking, 'confirmed')}
+                                  >
+                                    확정
+                                  </Button>
+                                )}
+                                {booking.status === 'confirmed' && (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => handleUpdateStatus(booking, 'completed')}
+                                  >
+                                    완료
+                                  </Button>
+                                )}
+                                {booking.status !== 'canceled' &&
+                                 booking.status !== 'completed' && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => handleUpdateStatus(booking, 'canceled')}
+                                  >
+                                    취소
+                                  </Button>
+                                )}
+                                {booking.payment_status === 'paid' &&
+                                 booking.status !== 'canceled' &&
+                                 booking.status !== 'completed' && (
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleRefund(booking)}
+                                  >
+                                    환불
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
