@@ -106,6 +106,10 @@ export function PopupVendorDashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('all');
 
+  // 페이지네이션
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // 초기 데이터 로드
   useEffect(() => {
     if (!user) {
@@ -212,6 +216,7 @@ export function PopupVendorDashboard() {
     }
 
     setFilteredOrders(filtered);
+    setCurrentPage(1); // 필터 변경 시 첫 페이지로 리셋
   };
 
   const handleLogout = () => {
@@ -241,6 +246,11 @@ export function PopupVendorDashboard() {
       </div>
     );
   }
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -387,7 +397,7 @@ export function PopupVendorDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredOrders.length > 0 ? filteredOrders.map((order) => (
+                    {paginatedOrders.length > 0 ? paginatedOrders.map((order) => (
                       <TableRow key={order.id}>
                         <TableCell className="font-medium text-blue-600">
                           {order.order_number}
@@ -467,13 +477,42 @@ export function PopupVendorDashboard() {
                   </TableBody>
                 </Table>
 
-                <div className="mt-4 text-center">
-                  <p className="text-sm text-gray-500">
-                    총 {filteredOrders.length}개의 주문
-                    {searchQuery || statusFilter !== 'all' || deliveryStatusFilter !== 'all'
-                      ? ` (전체 ${orders.length}개)`
-                      : ''}
-                  </p>
+                <div className="mt-4">
+                  <div className="text-center mb-4">
+                    <p className="text-sm text-gray-500">
+                      총 {filteredOrders.length}개의 주문
+                      {searchQuery || statusFilter !== 'all' || deliveryStatusFilter !== 'all'
+                        ? ` (전체 ${orders.length}개)`
+                        : ''}
+                    </p>
+                  </div>
+
+                  {/* 페이지네이션 */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        이전
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-gray-600">
+                          페이지 {currentPage} / {totalPages}
+                        </span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        다음
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
