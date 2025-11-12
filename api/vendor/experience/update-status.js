@@ -79,8 +79,8 @@ module.exports = async function handler(req, res) {
       vendor_id = null;
     } else {
       const vendorResult = await connection.execute(
-        'SELECT id FROM experience_vendors WHERE user_id = ? LIMIT 1',
-        [decoded.userId]
+        'SELECT id FROM partners WHERE user_id = ? AND partner_type = ? LIMIT 1',
+        [decoded.userId, 'experience']
       );
 
       if (!vendorResult.rows || vendorResult.rows.length === 0) {
