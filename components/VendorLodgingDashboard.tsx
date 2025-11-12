@@ -64,13 +64,12 @@ interface VendorInfo {
 
 interface Booking {
   id: number;
-  room_id: number;
-  lodging_id: number;
+  listing_id: number;
   lodging_name: string;
-  room_name: string;
   guest_name: string;
   guest_phone: string;
   guest_email: string;
+  guest_count: number;
   checkin_date: string;
   checkout_date: string;
   nights: number;
@@ -312,6 +311,71 @@ export function VendorLodgingDashboard() {
     } catch (error) {
       console.error('숙소 삭제 실패:', error);
       toast.error('숙소 삭제에 실패했습니다.');
+    }
+  };
+
+  // 체크인 처리
+  const handleCheckIn = async (bookingId: number) => {
+    if (!confirm('체크인 처리하시겠습니까?')) return;
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      const response = await fetch('/api/vendor/lodging/check-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          booking_id: bookingId,
+          room_condition: 'good',
+          notes: '',
+          actual_guests_count: null
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('체크인이 완료되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.error || '체크인 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('체크인 처리 실패:', error);
+      toast.error('체크인 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 체크아웃 처리
+  const handleCheckOut = async (bookingId: number) => {
+    if (!confirm('체크아웃 처리하시겠습니까?')) return;
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      const response = await fetch('/api/vendor/lodging/check-out', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          booking_id: bookingId,
+          room_condition: 'good',
+          notes: ''
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('체크아웃이 완료되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.error || '체크아웃 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('체크아웃 처리 실패:', error);
+      toast.error('체크아웃 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -631,7 +695,7 @@ export function VendorLodgingDashboard() {
             <CardContent>
               <div className="text-3xl font-bold">{bookings.length}건</div>
               <p className="text-xs text-gray-500 mt-1">
-                CONFIRMED: {bookings.filter(b => b.status === 'CONFIRMED').length}건
+                확정: {bookings.filter(b => b.status === 'confirmed' || b.status === 'CONFIRMED').length}건
               </p>
             </CardContent>
           </Card>
@@ -754,6 +818,7 @@ export function VendorLodgingDashboard() {
                         <TableHead>금액</TableHead>
                         <TableHead>상태</TableHead>
                         <TableHead>결제</TableHead>
+                        <TableHead>관리</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -764,7 +829,9 @@ export function VendorLodgingDashboard() {
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">{booking.lodging_name}</div>
-                            <div className="text-sm text-gray-500">{booking.room_name}</div>
+                            <div className="text-sm text-gray-500">
+                              {booking.guest_count || '-'}명
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">{booking.guest_name}</div>
@@ -785,25 +852,58 @@ export function VendorLodgingDashboard() {
                           <TableCell>
                             <Badge
                               variant={
-                                booking.status === 'CONFIRMED' ? 'default' :
-                                booking.status === 'HOLD' ? 'secondary' :
-                                booking.status === 'CANCELLED' ? 'destructive' :
+                                (booking.status === 'confirmed' || booking.status === 'CONFIRMED') ? 'default' :
+                                (booking.status === 'completed' || booking.status === 'COMPLETED') ? 'default' :
+                                (booking.status === 'pending' || booking.status === 'PENDING') ? 'secondary' :
+                                (booking.status === 'cancelled' || booking.status === 'CANCELLED') ? 'destructive' :
                                 'outline'
                               }
                             >
-                              {booking.status}
+                              {booking.status === 'confirmed' ? '확정' :
+                               booking.status === 'completed' ? '완료' :
+                               booking.status === 'pending' ? '대기' :
+                               booking.status === 'cancelled' ? '취소' :
+                               booking.status}
                             </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge
                               variant={
-                                booking.payment_status === 'captured' ? 'default' :
+                                (booking.payment_status === 'paid' || booking.payment_status === 'captured') ? 'default' :
                                 booking.payment_status === 'pending' ? 'secondary' :
+                                booking.payment_status === 'refunded' ? 'destructive' :
                                 'outline'
                               }
                             >
-                              {booking.payment_status}
+                              {booking.payment_status === 'paid' ? '결제완료' :
+                               booking.payment_status === 'captured' ? '결제완료' :
+                               booking.payment_status === 'pending' ? '대기' :
+                               booking.payment_status === 'refunded' ? '환불' :
+                               booking.payment_status}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {(booking.status === 'confirmed' || booking.status === 'CONFIRMED') &&
+                               (booking.payment_status === 'paid' || booking.payment_status === 'captured') && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCheckIn(booking.id)}
+                                >
+                                  체크인
+                                </Button>
+                              )}
+                              {(booking.status === 'completed' || booking.status === 'COMPLETED') && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCheckOut(booking.id)}
+                                >
+                                  체크아웃
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
