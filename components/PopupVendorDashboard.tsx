@@ -28,11 +28,13 @@ import {
   Search,
   Filter,
   Eye,
-  Loader2
+  Loader2,
+  Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { ShippingManagementDialog } from './ShippingManagementDialog';
+import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 
 interface Product {
   id: number;
@@ -224,6 +226,24 @@ export function PopupVendorDashboard() {
     navigate('/login');
   };
 
+  const handleExportCSV = () => {
+    const exportData = filteredOrders.map(order => ({
+      '주문번호': order.order_number,
+      '상품명': order.product_name,
+      '고객명': order.customer_info?.name || order.user_name || '-',
+      '고객전화': order.customer_info?.phone || order.user_phone || '-',
+      '주문금액': order.total_amount,
+      '결제상태': order.payment_status === 'completed' ? '결제완료' : order.payment_status === 'pending' ? '대기중' : '실패',
+      '배송상태': order.delivery_status || '-',
+      '송장번호': order.tracking_number || '-',
+      '주문일시': order.created_at ? new Date(order.created_at).toLocaleString('ko-KR') : '-'
+    }));
+
+    const filename = generateCSVFilename('popup_orders');
+    exportToCSV(exportData, filename);
+    toast.success('CSV 파일이 다운로드되었습니다.');
+  };
+
   const getDeliveryStatusBadge = (status?: string) => {
     if (!status) return null;
 
@@ -380,6 +400,14 @@ export function PopupVendorDashboard() {
                       <SelectItem value="CANCELED">취소</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Button
+                    variant="outline"
+                    onClick={handleExportCSV}
+                    className="gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    CSV 내보내기
+                  </Button>
                 </div>
 
                 {/* 주문 테이블 */}
