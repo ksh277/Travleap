@@ -54,6 +54,7 @@ interface Vehicle {
   hourly_rate_krw?: number;
   images: string[];
   is_available: boolean;
+  stock?: number;
   created_at: string;
   // Optional fields (kept for backward compatibility, not displayed in UI)
   deposit_krw?: number;
@@ -768,6 +769,45 @@ export function VendorDashboardPageEnhanced() {
     }
   };
 
+  const updateVehicleStock = async (vehicleId: number, newStock: number) => {
+    if (newStock < 0) {
+      toast.error('재고는 0 이상이어야 합니다.');
+      return;
+    }
+
+    const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+    if (!token) {
+      toast.error('로그인이 필요합니다.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/vendor/rentcar/vehicles/stock', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          vehicle_id: vehicleId,
+          stock: newStock
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('재고가 성공적으로 업데이트되었습니다.');
+        loadVendorData(); // 차량 목록 새로고침
+      } else {
+        toast.error(result.message || '재고 업데이트에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('재고 업데이트 실패:', error);
+      toast.error('재고 업데이트에 실패했습니다.');
+    }
+  };
+
   // CSV 업로드
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1451,6 +1491,7 @@ export function VendorDashboardPageEnhanced() {
                       <TableRow>
                         <TableHead>차량명</TableHead>
                         <TableHead>시간/일일 요금</TableHead>
+                        <TableHead>재고</TableHead>
                         <TableHead>상태</TableHead>
                         <TableHead>관리</TableHead>
                       </TableRow>
@@ -1465,6 +1506,30 @@ export function VendorDashboardPageEnhanced() {
                             <div className="text-sm">
                               <div className="text-gray-600">시간: ₩{vehicle.hourly_rate_krw?.toLocaleString() || 'N/A'}</div>
                               <div className="font-medium">일일: ₩{vehicle.daily_rate_krw.toLocaleString()}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                defaultValue={vehicle.stock || 0}
+                                className="w-20 text-center"
+                                id={`stock-${vehicle.id}`}
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const input = document.getElementById(`stock-${vehicle.id}`) as HTMLInputElement;
+                                  const newStock = parseInt(input.value);
+                                  if (!isNaN(newStock)) {
+                                    updateVehicleStock(vehicle.id, newStock);
+                                  }
+                                }}
+                              >
+                                저장
+                              </Button>
                             </div>
                           </TableCell>
                           <TableCell>

@@ -131,6 +131,7 @@ module.exports = async function handler(req, res) {
           self_insurance_krw,
           insurance_options,
           available_options,
+          COALESCE(stock, 0) as stock,
           is_active as is_available,
           is_featured,
           total_bookings,
