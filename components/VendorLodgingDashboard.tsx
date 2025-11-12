@@ -1094,7 +1094,7 @@ export function VendorLodgingDashboard() {
                                   체크인
                                 </Button>
                               )}
-                              {(booking.status === 'completed' || booking.status === 'COMPLETED') && (
+                              {(booking.status === 'in_use' || booking.status === 'IN_USE') && (
                                 <Button
                                   variant="outline"
                                   size="sm"

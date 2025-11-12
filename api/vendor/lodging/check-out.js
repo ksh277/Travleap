@@ -104,11 +104,11 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 체크아웃 가능 상태 확인
-    if (booking.status !== 'in_use' && booking.status !== 'confirmed') {
+    // 체크아웃 가능 상태 확인 (체크인 완료 상태여야 함)
+    if (booking.status !== 'in_use') {
       return res.status(400).json({
         success: false,
-        error: `체크아웃할 수 없는 상태입니다. (현재 상태: ${booking.status})`
+        error: `체크아웃할 수 없는 상태입니다. 체크인이 완료되어야 합니다. (현재 상태: ${booking.status})`
       });
     }
 

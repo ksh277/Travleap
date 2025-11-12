@@ -140,7 +140,7 @@ module.exports = async function handler(req, res) {
     // 체크인 처리 (실제 체크인 시간 기록)
     await connection.execute(
       `UPDATE bookings
-       SET status = 'completed',
+       SET status = 'in_use',
            check_in_time = NOW(),
            check_in_info = ?,
            updated_at = NOW()
