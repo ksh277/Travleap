@@ -28,6 +28,20 @@ module.exports = async function handler(req, res) {
   // GET: 관리자 주문 목록 조회 (payments 기반)
   if (req.method === 'GET') {
     try {
+      // 날짜 필터 파라미터
+      const { start_date, end_date } = req.query;
+
+      // WHERE 절 조건 생성
+      let whereConditions = `p.payment_status IN ('paid', 'completed', 'refunded')
+          AND (p.notes IS NULL OR JSON_EXTRACT(p.notes, '$.category') != '렌트카')`;
+
+      if (start_date) {
+        whereConditions += ` AND DATE(p.created_at) >= '${start_date}'`;
+      }
+      if (end_date) {
+        whereConditions += ` AND DATE(p.created_at) <= '${end_date}'`;
+      }
+
       // payments 테이블 기반으로 주문 정보 조회
       const result = await connection.execute(`
         SELECT
@@ -68,12 +82,21 @@ module.exports = async function handler(req, res) {
         LEFT JOIN bookings b ON p.booking_id = b.id
         LEFT JOIN listings l ON b.listing_id = l.id
         LEFT JOIN categories c ON l.category_id = c.id
-        WHERE p.payment_status IN ('paid', 'completed', 'refunded')
-          AND (p.notes IS NULL OR JSON_EXTRACT(p.notes, '$.category') != '렌트카')
+        WHERE ${whereConditions}
         ORDER BY p.created_at DESC
       `);
 
       // ✅ 렌트카 주문 추가 조회
+      // WHERE 절 조건 생성 (렌트카용)
+      let rentcarWhereConditions = `rb.payment_status IN ('paid', 'completed', 'refunded')`;
+
+      if (start_date) {
+        rentcarWhereConditions += ` AND DATE(rb.created_at) >= '${start_date}'`;
+      }
+      if (end_date) {
+        rentcarWhereConditions += ` AND DATE(rb.created_at) <= '${end_date}'`;
+      }
+
       const rentcarResult = await connection.execute(`
         SELECT
           rb.id as id,
@@ -111,7 +134,7 @@ module.exports = async function handler(req, res) {
           v.images
         FROM rentcar_bookings rb
         LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
-        WHERE rb.payment_status IN ('paid', 'completed', 'refunded')
+        WHERE ${rentcarWhereConditions}
         ORDER BY rb.created_at DESC
       `);
 

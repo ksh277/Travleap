@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
 import { Button } from '../../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Badge } from '../../ui/badge';
@@ -66,6 +67,8 @@ export function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -78,7 +81,15 @@ export function AdminOrders() {
       setIsLoading(true);
       // ✅ Authorization 헤더 추가 (관리자 인증 필요)
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/orders?page=${page}&limit=20`, {
+
+      // 날짜 필터 파라미터 추가
+      const params = new URLSearchParams();
+      params.append('page', page.toString());
+      params.append('limit', '20');
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+
+      const response = await fetch(`/api/orders?${params.toString()}`, {
         headers: {
           ...(token && { 'Authorization': `Bearer ${token}` })
         }
@@ -249,29 +260,61 @@ export function AdminOrders() {
 
       <Card>
         <CardHeader>
-          <div className="flex gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <CardTitle>필터</CardTitle>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
+            <div>
+              <Label>시작일</Label>
               <Input
-                placeholder="주문번호, 고객명 또는 이메일 검색"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="전체" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">전체</SelectItem>
-                <SelectItem value="pending">대기중</SelectItem>
-                <SelectItem value="confirmed">확정</SelectItem>
-                <SelectItem value="completed">완료</SelectItem>
-                <SelectItem value="refund_requested">환불대기</SelectItem>
-                <SelectItem value="cancelled">취소</SelectItem>
-              </SelectContent>
-            </Select>
+            <div>
+              <Label>종료일</Label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>고객 검색</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="주문번호, 고객명, 이메일"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div>
+              <Label>상태 필터</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="전체" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="pending">대기중</SelectItem>
+                  <SelectItem value="confirmed">확정</SelectItem>
+                  <SelectItem value="completed">완료</SelectItem>
+                  <SelectItem value="refund_requested">환불대기</SelectItem>
+                  <SelectItem value="cancelled">취소</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={() => loadOrders(1)}
+                className="w-full"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                조회
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
