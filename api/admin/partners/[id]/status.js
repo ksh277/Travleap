@@ -43,11 +43,11 @@ module.exports = async function handler(req, res) {
   try {
     // 파트너 상태 업데이트
     await connection.execute(
-      \`UPDATE partners
+      `UPDATE partners
        SET status = ?,
            is_active = ?,
            updated_at = NOW()
-       WHERE id = ?\`,
+       WHERE id = ?`,
       [
         status,
         status === 'approved' ? 1 : 0,
@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
       ]
     );
 
-    console.log(\`✅ Partner \${id} status updated to \${status}\`);
+    console.log(`✅ Partner ${id} status updated to ${status}`);
 
     return res.status(200).json({
       success: true,

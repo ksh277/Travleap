@@ -42,13 +42,10 @@ module.exports = async function handler(req, res) {
         p.email,
         COUNT(DISTINCT pay.id) as total_orders,
         SUM(CASE
-          WHEN pay.payment_status = 'completed' THEN pay.amount
+          WHEN pay.payment_status IN ('paid', 'completed') THEN pay.amount
           ELSE 0
         END) as total_sales,
-        SUM(CASE
-          WHEN pay.payment_status = 'refunded' THEN pay.amount
-          ELSE 0
-        END) as total_refunded,
+        SUM(COALESCE(pay.refund_amount, 0)) as total_refunded,
         MIN(pay.created_at) as first_order_date,
         MAX(pay.created_at) as last_order_date
       FROM partners p
