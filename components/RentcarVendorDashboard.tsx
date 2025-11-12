@@ -26,6 +26,7 @@ interface RentcarBooking {
   vehicle_code: string;
   vehicle_image?: string;
   customer_name: string;
+  customer_email: string;
   customer_phone: string;
   driver_name: string;
   driver_birth?: string;  // 생년월일
@@ -88,6 +89,7 @@ export default function RentcarVendorDashboard() {
   const [returnFuelLevel, setReturnFuelLevel] = useState('');
   const [returnMileage, setReturnMileage] = useState('');
   const [returnDamageNotes, setReturnDamageNotes] = useState('');
+  const [returnImages, setReturnImages] = useState<string[]>([]);  // 반납 시 이미지
   const [calculatedLateFee, setCalculatedLateFee] = useState(0);
 
   // Refunds state
@@ -541,6 +543,49 @@ export default function RentcarVendorDashboard() {
     setPickupImages(pickupImages.filter((_, i) => i !== index));
   };
 
+  // 반납 이미지 업로드 핸들러
+  const handleReturnImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingImage(true);
+
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch('/api/upload-image', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.url) {
+          uploadedUrls.push(result.url);
+        } else {
+          console.error('이미지 업로드 실패:', result.error);
+        }
+      }
+
+      setReturnImages([...returnImages, ...uploadedUrls]);
+      alert(`${uploadedUrls.length}개 이미지가 업로드되었습니다.`);
+    } catch (err: any) {
+      alert('이미지 업로드 중 오류가 발생했습니다: ' + err.message);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // 반납 이미지 삭제 핸들러
+  const removeReturnImage = (index: number) => {
+    setReturnImages(returnImages.filter((_, i) => i !== index));
+  };
+
   // Perform check-in
   const performCheckIn = async () => {
     if (!checkInBooking) return;
@@ -660,7 +705,8 @@ export default function RentcarVendorDashboard() {
           vehicle_condition: returnCondition,
           fuel_level: returnFuelLevel,
           mileage: parseInt(returnMileage),
-          damage_notes: returnDamageNotes || ''
+          damage_notes: returnDamageNotes || '',
+          return_images: returnImages  // 반납 이미지 추가
         })
       });
 
@@ -701,6 +747,7 @@ export default function RentcarVendorDashboard() {
         setReturnFuelLevel('');
         setReturnMileage('');
         setReturnDamageNotes('');
+        setReturnImages([]);
         setCalculatedLateFee(0);
         setActiveTab('today');
         fetchTodayBookings();
@@ -712,6 +759,100 @@ export default function RentcarVendorDashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle refund
+  const handleRefund = async (booking: RentcarBooking) => {
+    if (!confirm(`예약 ${booking.booking_number}을(를) 환불하시겠습니까?`)) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`/api/rentcar/refund`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+          booking_number: booking.booking_number
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('환불이 완료되었습니다!');
+        fetchTodayBookings();
+      } else {
+        alert(result.message || '환불에 실패했습니다.');
+      }
+    } catch (err: any) {
+      alert(err.message || '서버 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // View pickup record
+  const viewPickupRecord = async (booking: RentcarBooking) => {
+    if (!booking.pickup_vehicle_condition) {
+      alert('픽업 기록이 없습니다.');
+      return;
+    }
+
+    const condition = typeof booking.pickup_vehicle_condition === 'string'
+      ? JSON.parse(booking.pickup_vehicle_condition)
+      : booking.pickup_vehicle_condition;
+
+    let message = `=== 픽업 기록 ===\n\n`;
+    message += `예약번호: ${booking.booking_number}\n`;
+    message += `차량: ${booking.vehicle_model}\n\n`;
+    message += `차량 상태: ${condition.condition || '-'}\n`;
+    message += `연료량: ${condition.fuel_level || '-'}\n`;
+    message += `주행거리: ${condition.mileage || '-'} km\n`;
+    message += `파손/손상: ${condition.damage_notes || '없음'}\n`;
+
+    if (condition.images && condition.images.length > 0) {
+      message += `\n이미지: ${condition.images.length}장\n`;
+    }
+
+    alert(message);
+  };
+
+  // View return record
+  const viewReturnRecord = async (booking: RentcarBooking) => {
+    if (!booking.pickup_vehicle_condition ||
+        !(booking.pickup_vehicle_condition as any).return_condition) {
+      alert('반납 기록이 없습니다.');
+      return;
+    }
+
+    const pickupCond = typeof booking.pickup_vehicle_condition === 'string'
+      ? JSON.parse(booking.pickup_vehicle_condition)
+      : booking.pickup_vehicle_condition;
+
+    const returnCond = pickupCond.return_condition;
+
+    let message = `=== 반납 기록 ===\n\n`;
+    message += `예약번호: ${booking.booking_number}\n`;
+    message += `차량: ${booking.vehicle_model}\n\n`;
+    message += `차량 상태: ${returnCond.condition || '-'}\n`;
+    message += `연료량: ${returnCond.fuel_level || '-'}\n`;
+    message += `주행거리: ${returnCond.mileage || '-'} km\n`;
+    message += `파손/손상: ${returnCond.damage_notes || '없음'}\n`;
+
+    if (returnCond.images && returnCond.images.length > 0) {
+      message += `\n이미지: ${returnCond.images.length}장\n`;
+    }
+
+    if (booking.late_return_hours && booking.late_return_hours > 0) {
+      message += `\n⚠️ 연체: ${booking.late_return_hours}시간 (₩${booking.late_return_fee_krw?.toLocaleString()})\n`;
+    }
+
+    alert(message);
   };
 
   const getStatusBadge = (status: string) => {
@@ -859,7 +1000,8 @@ export default function RentcarVendorDashboard() {
                             <p className="text-sm text-gray-600">예약 번호: <span className="font-medium">{booking.booking_number}</span></p>
                             <p className="text-sm text-gray-600">차량 번호: <span className="font-medium">{booking.vehicle_code}</span></p>
                             <p className="text-sm text-gray-600">고객: <span className="font-medium">{booking.customer_name}</span></p>
-                            <p className="text-sm text-gray-600">전화: <span className="font-medium">{booking.customer_phone}</span></p>
+                            <p className="text-sm text-gray-600">이메일: <span className="font-medium">{booking.customer_email || '-'}</span></p>
+                            <p className="text-sm text-gray-600">전화: <span className="font-medium">{booking.customer_phone || '-'}</span></p>
                             <p className="text-sm text-gray-600">운전자: <span className="font-medium">{booking.driver_name}</span></p>
                             <p className="text-sm text-gray-600">면허: <span className="font-medium">{booking.driver_license_no}</span></p>
                             {booking.driver_birth && (
@@ -922,23 +1064,55 @@ export default function RentcarVendorDashboard() {
 
                           <div className="flex items-center gap-2 mt-4">
                             {booking.status === 'confirmed' && (
-                              <button
-                                onClick={() => {
-                                  setCheckInBooking(booking);
-                                  setActiveTab('check-in');
-                                }}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"
-                              >
-                                체크인 시작
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setCheckInBooking(booking);
+                                    setActiveTab('check-in');
+                                  }}
+                                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"
+                                >
+                                  픽업 처리
+                                </button>
+                                <button
+                                  onClick={() => handleRefund(booking)}
+                                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+                                >
+                                  환불
+                                </button>
+                              </>
                             )}
                             {booking.status === 'picked_up' && (
-                              <button
-                                onClick={() => startCheckOut(booking)}
-                                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition text-sm"
-                              >
-                                체크아웃 시작
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => startCheckOut(booking)}
+                                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition text-sm"
+                                >
+                                  반납 처리
+                                </button>
+                                <button
+                                  onClick={() => handleRefund(booking)}
+                                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+                                >
+                                  환불
+                                </button>
+                              </>
+                            )}
+                            {(booking.status === 'returned' || booking.status === 'completed') && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => viewPickupRecord(booking)}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                                >
+                                  픽업 기록
+                                </button>
+                                <button
+                                  onClick={() => viewReturnRecord(booking)}
+                                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm"
+                                >
+                                  반납 기록
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1316,6 +1490,44 @@ export default function RentcarVendorDashboard() {
                       />
                     </div>
 
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        반납 차량 상태 이미지 (선택)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleReturnImageUpload}
+                        disabled={uploadingImage}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        * 반납 시 차량 외관, 파손 부위 등을 촬영하여 업로드하세요
+                      </p>
+                      {uploadingImage && (
+                        <p className="text-sm text-blue-600 mt-2">이미지 업로드 중...</p>
+                      )}
+                      {returnImages.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-sm font-medium text-gray-700">업로드된 이미지 ({returnImages.length}개):</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {returnImages.map((url, idx) => (
+                              <div key={idx} className="relative">
+                                <img src={url} alt={`반납 차량 이미지 ${idx + 1}`} className="w-full h-24 object-cover rounded border" />
+                                <button
+                                  onClick={() => removeReturnImage(idx)}
+                                  className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-700"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex gap-3 pt-4">
                       <button
                         onClick={() => {
@@ -1324,6 +1536,7 @@ export default function RentcarVendorDashboard() {
                           setReturnFuelLevel('');
                           setReturnMileage('');
                           setReturnDamageNotes('');
+                          setReturnImages([]);
                           setCalculatedLateFee(0);
                           setActiveTab('today');
                         }}
