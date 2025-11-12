@@ -10,6 +10,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
+import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -731,14 +732,7 @@ export function VendorLodgingDashboard() {
   const paginatedBookings = sortedBookings.slice(startIndex, startIndex + itemsPerPage);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">데이터를 불러오는 중...</p>
-        </div>
-      </div>
-    );
+    return <VendorDashboardSkeleton />;
   }
 
   if (!vendorInfo) {

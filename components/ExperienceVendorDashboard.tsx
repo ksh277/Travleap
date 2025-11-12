@@ -17,6 +17,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
 import {
   Sparkles,
   Calendar,
@@ -410,14 +411,7 @@ export function ExperienceVendorDashboard() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
-          <p className="text-gray-600">대시보드를 불러오는 중...</p>
-        </div>
-      </div>
-    );
+    return <VendorDashboardSkeleton />;
   }
 
   return (

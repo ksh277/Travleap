@@ -37,6 +37,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
+import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
 
 interface Restaurant {
   id: number;
@@ -412,14 +413,7 @@ export function FoodVendorDashboard() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
-          <p className="text-gray-600">대시보드를 불러오는 중...</p>
-        </div>
-      </div>
-    );
+    return <VendorDashboardSkeleton />;
   }
 
   return (

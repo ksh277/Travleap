@@ -39,6 +39,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { ShippingManagementDialog } from './ShippingManagementDialog';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
+import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
 
 interface Product {
   id: number;
@@ -451,11 +452,7 @@ export function PopupVendorDashboard() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-      </div>
-    );
+    return <VendorDashboardSkeleton />;
   }
 
   // 페이지네이션 계산

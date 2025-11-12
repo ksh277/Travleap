@@ -226,7 +226,10 @@
       "Bash(node:*)",
       "Bash(rm:*)",
       "Bash(git revert:*)",
-      "Bash(del nul)"
+      "Bash(del nul)",
+      "Bash(for file in components/*VendorDashboard.tsx)",
+      "Bash(npx tsc:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []
