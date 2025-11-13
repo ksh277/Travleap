@@ -446,7 +446,50 @@ module.exports = async function handler(req, res) {
       } catch (neonError) {
         console.error('❌ [Orders] Neon DB 조회 중 오류 발생:', neonError);
         console.error('❌ [Orders] 오류 상세:', neonError.message);
-        // Neon DB 조회 실패 시에도 API는 계속 작동 (사용자 정보 없이)
+
+        // ✅ CRITICAL: Neon DB 조회 실패 시에도 주문은 표시 (사용자 정보 없이)
+        ordersWithUserInfo = allOrders.map(order => ({
+          id: parseInt(order.id) || order.id,
+          booking_id: order.booking_id,
+          booking_number: order.booking_number,
+          user_name: order.shipping_name || null,
+          user_email: order.shipping_email || null,
+          user_phone: order.shipping_phone || null,
+          product_name: order.product_title || '주문',
+          product_title: order.product_title || '주문',
+          listing_id: order.listing_id,
+          amount: parseFloat(order.amount),
+          total_amount: parseFloat(order.amount),
+          subtotal: parseFloat(order.amount),
+          delivery_fee: 0,
+          items_info: null,
+          bookings_list: null,
+          item_count: 1,
+          total_quantity: 1,
+          status: order.booking_status || 'pending',
+          payment_status: order.payment_status,
+          created_at: order.created_at,
+          start_date: order.start_date,
+          end_date: order.end_date,
+          num_adults: order.adults || order.guests || 0,
+          guests: order.adults || order.guests || 0,
+          num_children: order.children || 0,
+          num_seniors: 0,
+          category: order.category,
+          is_popup: order.category === '팝업',
+          has_popup_product: false,
+          order_number: order.gateway_transaction_id || order.order_number,
+          delivery_status: order.delivery_status,
+          shipping_name: order.shipping_name || '',
+          shipping_phone: order.shipping_phone || '',
+          shipping_address: order.shipping_address || '',
+          shipping_address_detail: order.shipping_address_detail || '',
+          shipping_zipcode: order.shipping_zipcode || '',
+          tracking_number: order.tracking_number || null,
+          courier_company: order.courier_company || null
+        }));
+
+        console.warn(`⚠️ [Orders] Neon DB 에러로 인해 ${ordersWithUserInfo.length}건 주문을 기본 정보만으로 반환`);
       } finally {
         await poolNeon.end();
       }
