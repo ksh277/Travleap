@@ -24,6 +24,7 @@ export default async function handler(req, res) {
         rb.vehicle_id,
         rb.customer_name,
         rb.customer_phone,
+        rb.customer_email,
         rb.driver_name,
         rb.driver_birth,
         rb.driver_license_no,
@@ -36,11 +37,15 @@ export default async function handler(req, res) {
         rb.late_return_hours,
         rb.late_return_fee_krw,
         rb.voucher_code,
+        rb.insurance_id,
+        rb.insurance_fee_krw,
         rv.model as vehicle_model,
         rv.vehicle_code,
-        rv.primary_image as vehicle_image
+        rv.primary_image as vehicle_image,
+        ri.name as insurance_name
       FROM rentcar_bookings rb
       LEFT JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
+      LEFT JOIN rentcar_insurance ri ON rb.insurance_id = ri.id
       WHERE rb.status IN ('confirmed', 'in_progress')
       AND (
         (rb.pickup_at_utc >= ? AND rb.pickup_at_utc <= ?)
