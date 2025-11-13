@@ -5,8 +5,9 @@ import { Label } from '../../ui/label';
 import { Button } from '../../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Badge } from '../../ui/badge';
-import { Search, RefreshCw, DollarSign, Eye, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, RefreshCw, DollarSign, Eye, Download, ArrowUpDown, ArrowUp, ArrowDown, X, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface OrderItem {
   title?: string;
@@ -79,6 +80,9 @@ export function AdminOrders() {
     total: 0,
     total_pages: 1
   });
+  const [showRevenueChart, setShowRevenueChart] = useState(false);
+  const [revenueData, setRevenueData] = useState<any[]>([]);
+  const [loadingChart, setLoadingChart] = useState(false);
 
   const loadOrders = async (page: number = 1) => {
     try {
@@ -260,6 +264,31 @@ export function AdminOrders() {
     toast.success('CSV 파일이 다운로드되었습니다.');
   };
 
+  // 매출 차트 데이터 로드
+  const loadRevenueChart = async () => {
+    setLoadingChart(true);
+    try {
+      const response = await fetch('/api/admin/revenue-chart');
+      const data = await response.json();
+
+      if (data.success) {
+        setRevenueData(data.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load revenue chart:', error);
+      toast.error('차트 데이터를 불러오는데 실패했습니다.');
+    } finally {
+      setLoadingChart(false);
+    }
+  };
+
+  const handleRevenueCardClick = () => {
+    setShowRevenueChart(true);
+    if (revenueData.length === 0) {
+      loadRevenueChart();
+    }
+  };
+
   useEffect(() => {
     let filtered = orders;
 
@@ -347,7 +376,10 @@ export function AdminOrders() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card
+          className="cursor-pointer hover:scale-105 hover:shadow-lg transition-all"
+          onClick={handleRevenueCardClick}
+        >
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">총 매출</CardTitle>
           </CardHeader>
@@ -358,6 +390,7 @@ export function AdminOrders() {
                 .reduce((sum, o) => sum + (o.total_amount || o.amount || 0), 0)
                 .toLocaleString()}원
             </div>
+            <p className="text-xs text-gray-500 mt-1">클릭하여 차트 보기</p>
           </CardContent>
         </Card>
         <Card>
@@ -808,6 +841,124 @@ export function AdminOrders() {
           )}
         </CardContent>
       </Card>
+
+      {/* Revenue Chart Modal */}
+      {showRevenueChart && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  매출 추이
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">최근 30일간의 매출 데이터</p>
+              </div>
+              <button
+                onClick={() => setShowRevenueChart(false)}
+                className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {loadingChart ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="ml-3 text-gray-600">차트 데이터를 불러오는 중...</p>
+                </div>
+              ) : revenueData.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">매출 데이터가 없습니다.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Line Chart */}
+                  <div>
+                    <h4 className="text-lg font-semibold mb-4">일별 매출 추이 (선 그래프)</h4>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={revenueData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip
+                          formatter={(value: number) => `₩${value.toLocaleString()}`}
+                          labelFormatter={(label) => `날짜: ${label}`}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          name="매출"
+                          dot={{ fill: '#10b981', r: 4 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="orders"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                          name="주문 수"
+                          dot={{ fill: '#3b82f6', r: 4 }}
+                          yAxisId="right"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Bar Chart */}
+                  <div>
+                    <h4 className="text-lg font-semibold mb-4">일별 매출 (막대 그래프)</h4>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={revenueData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip
+                          formatter={(value: number) => `₩${value.toLocaleString()}`}
+                          labelFormatter={(label) => `날짜: ${label}`}
+                        />
+                        <Legend />
+                        <Bar dataKey="revenue" fill="#10b981" name="매출" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-sm text-gray-500">총 매출</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          ₩{revenueData.reduce((sum, d) => sum + d.revenue, 0).toLocaleString()}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-sm text-gray-500">평균 일매출</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          ₩{Math.round(revenueData.reduce((sum, d) => sum + d.revenue, 0) / revenueData.length).toLocaleString()}
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-sm text-gray-500">총 주문 수</div>
+                        <div className="text-2xl font-bold text-purple-600">
+                          {revenueData.reduce((sum, d) => sum + d.orders, 0)}건
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

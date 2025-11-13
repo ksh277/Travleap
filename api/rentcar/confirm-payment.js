@@ -72,6 +72,7 @@ module.exports = async function handler(req, res) {
         booking_number,
         vendor_id,
         vehicle_id,
+        user_id,
         total_price_krw,
         deposit_amount_krw,
         status,
@@ -330,6 +331,98 @@ module.exports = async function handler(req, res) {
         ]);
       } catch (eventError) {
         console.warn('⚠️  Event log failed (non-critical)');
+      }
+
+      // 8-5. 렌트카 포인트 적립 (2%)
+      if (rental.user_id) {
+        try {
+          const { connect } = require('@planetscale/database');
+          const { Pool } = require('@neondatabase/serverless');
+
+          const connection = connect({ url: process.env.DATABASE_URL });
+          const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+          try {
+            console.log(`💰 [포인트] 렌트카 포인트 적립 시작 (rental_id: ${rental.id}, user_id: ${rental.user_id})`);
+
+            // 트랜잭션 시작
+            await poolNeon.query('BEGIN');
+
+            // PlanetScale user_points의 최신 balance_after 조회
+            const latestBalanceResult = await connection.execute(`
+              SELECT balance_after
+              FROM user_points
+              WHERE user_id = ?
+              ORDER BY created_at DESC, id DESC
+              LIMIT 1
+            `, [rental.user_id]);
+
+            let currentPoints = 0;
+            if (latestBalanceResult.rows && latestBalanceResult.rows.length > 0) {
+              currentPoints = latestBalanceResult.rows[0].balance_after || 0;
+              console.log(`💰 [포인트] PlanetScale 최신 balance_after 사용: ${currentPoints}P`);
+            } else {
+              // 포인트 내역이 없으면 Neon fallback
+              const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [rental.user_id]);
+              currentPoints = userResult.rows?.[0]?.total_points || 0;
+              console.log(`💰 [포인트] Neon fallback 사용: ${currentPoints}P`);
+            }
+
+            // 사용자 정보 조회 (FOR UPDATE 락)
+            const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [rental.user_id]);
+
+            if (userResult.rows && userResult.rows.length > 0) {
+              // 포인트 적립 (2%, 렌트카는 배송비 없음)
+              const totalAmount = parseFloat(rental.total_price_krw || 0);
+              const pointsToEarn = Math.floor(totalAmount * 0.02);
+
+              if (pointsToEarn > 0) {
+                const newBalance = currentPoints + pointsToEarn;
+                const expiresAt = new Date();
+                expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
+
+                // PlanetScale user_points 테이블에 적립 기록
+                await connection.execute(`
+                  INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
+                  VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+                `, [
+                  rental.user_id,
+                  pointsToEarn,
+                  `렌트카 예약 적립 (booking_number: ${rental.booking_number})`,
+                  String(rental.id), // rental_id를 related_order_id로 저장
+                  newBalance,
+                  expiresAt
+                ]);
+
+                // Neon users 테이블 total_points 업데이트
+                await poolNeon.query(`
+                  UPDATE users SET total_points = $1 WHERE id = $2
+                `, [newBalance, rental.user_id]);
+
+                console.log(`✅ [포인트] 렌트카 ${pointsToEarn}P 적립 완료 (예약: ${rental.booking_number}, 잔액: ${newBalance}P)`);
+              } else {
+                console.log(`ℹ️  [포인트] 렌트카 적립할 포인트 없음 (금액: ${totalAmount}원)`);
+              }
+            }
+
+            // 트랜잭션 커밋
+            await poolNeon.query('COMMIT');
+          } catch (pointsError) {
+            console.error('❌ [포인트] 렌트카 적립 실패 (계속 진행):', pointsError);
+            try {
+              await poolNeon.query('ROLLBACK');
+            } catch (rollbackError) {
+              console.error('❌ [포인트] 롤백 실패:', rollbackError);
+            }
+            // 포인트 적립 실패해도 결제는 성공 처리
+          } finally {
+            await poolNeon.end();
+          }
+        } catch (outerError) {
+          console.error('❌ [포인트] 렌트카 포인트 적립 실패 (계속 진행):', outerError);
+        }
+      } else {
+        console.log('⚠️  [포인트] user_id 없음, 포인트 적립 스킵');
       }
 
     } catch (dbError) {

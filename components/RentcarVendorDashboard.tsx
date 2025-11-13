@@ -85,6 +85,8 @@ export default function RentcarVendorDashboard() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedDetailBooking, setSelectedDetailBooking] = useState<RentcarBooking | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Voucher verification
   const [voucherCode, setVoucherCode] = useState('');
@@ -1011,6 +1013,25 @@ export default function RentcarVendorDashboard() {
       });
     }
 
+    // Search filtering
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(booking =>
+        booking.customer_name?.toLowerCase().includes(query) ||
+        booking.booking_number?.toLowerCase().includes(query) ||
+        booking.customer_email?.toLowerCase().includes(query) ||
+        booking.customer_phone?.toLowerCase().includes(query) ||
+        booking.vehicle_model?.toLowerCase().includes(query) ||
+        booking.vehicle_code?.toLowerCase().includes(query) ||
+        booking.driver_name?.toLowerCase().includes(query)
+      );
+    }
+
+    // Status filtering
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(booking => booking.status === statusFilter);
+    }
+
     // Sorting
     filtered.sort((a, b) => {
       let compareA: any, compareB: any;
@@ -1274,6 +1295,106 @@ export default function RentcarVendorDashboard() {
               {/* Filters and Controls */}
               {!loading && !error && bookings.length > 0 && (
                 <div className="bg-white border rounded-lg p-4 mb-6">
+                  {/* Search Bar */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">검색</label>
+                    <input
+                      type="text"
+                      placeholder="고객명, 예약번호, 전화번호, 이메일, 차량명..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Status Filter Buttons */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">상태</label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => {
+                          setStatusFilter('all');
+                          setCurrentPage(1);
+                        }}
+                        className={`px-4 py-2 rounded-lg transition ${
+                          statusFilter === 'all'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        전체
+                      </button>
+                      <button
+                        onClick={() => {
+                          setStatusFilter('confirmed');
+                          setCurrentPage(1);
+                        }}
+                        className={`px-4 py-2 rounded-lg transition ${
+                          statusFilter === 'confirmed'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        확정
+                      </button>
+                      <button
+                        onClick={() => {
+                          setStatusFilter('in_use');
+                          setCurrentPage(1);
+                        }}
+                        className={`px-4 py-2 rounded-lg transition ${
+                          statusFilter === 'in_use'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        이용중
+                      </button>
+                      <button
+                        onClick={() => {
+                          setStatusFilter('completed');
+                          setCurrentPage(1);
+                        }}
+                        className={`px-4 py-2 rounded-lg transition ${
+                          statusFilter === 'completed'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        완료
+                      </button>
+                      <button
+                        onClick={() => {
+                          setStatusFilter('cancelled');
+                          setCurrentPage(1);
+                        }}
+                        className={`px-4 py-2 rounded-lg transition ${
+                          statusFilter === 'cancelled'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={() => {
+                          setStatusFilter('refunded');
+                          setCurrentPage(1);
+                        }}
+                        className={`px-4 py-2 rounded-lg transition ${
+                          statusFilter === 'refunded'
+                            ? 'bg-orange-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        환불
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Date Range */}
                     <div>
@@ -1354,6 +1475,8 @@ export default function RentcarVendorDashboard() {
                     </button>
                     <button
                       onClick={() => {
+                        setSearchQuery('');
+                        setStatusFilter('all');
                         setStartDate('');
                         setEndDate('');
                         setSortBy('date');
