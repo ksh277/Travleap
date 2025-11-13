@@ -88,9 +88,6 @@ module.exports = async function handler(req, res) {
           b.driver_license_no,
           b.status,
           b.payment_status,
-          b.refund_amount_krw,
-          b.refund_reason,
-          b.refunded_at,
           b.created_at,
           b.pickup_checked_in_at,
           b.return_checked_out_at,
@@ -403,17 +400,14 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // 4. DB에 환불 정보 저장 (실제 결제 금액으로)
+      // 4. DB에 환불 정보 저장
       await connection.execute(
         `UPDATE rentcar_bookings
          SET status = 'cancelled',
              payment_status = 'refunded',
-             refund_amount_krw = ?,
-             refund_reason = ?,
-             refunded_at = NOW(),
              updated_at = NOW()
          WHERE id = ?`,
-        [finalRefundAmount, refund_reason || '벤더 요청', bookingId]
+        [bookingId]
       );
 
       // 5. 차량 재고 복구
