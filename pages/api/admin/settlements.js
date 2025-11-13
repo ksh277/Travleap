@@ -41,12 +41,15 @@ module.exports = async function handler(req, res) {
         rv.business_name,
         'rentcar' as partner_type,
         rv.contact_email as email,
-        COUNT(DISTINCT rb.id) as total_orders,
-        SUM(CASE
-          WHEN rb.payment_status IN ('paid', 'captured') THEN rb.total_krw
+        COUNT(DISTINCT CASE WHEN rb.payment_status = 'paid' THEN rb.id END) as total_orders,
+        COALESCE(SUM(CASE
+          WHEN rb.payment_status = 'paid' THEN rb.total_krw
           ELSE 0
-        END) as total_sales,
-        0 as total_refunded,
+        END), 0) as total_sales,
+        COALESCE(SUM(CASE
+          WHEN rb.payment_status = 'refunded' THEN rb.total_krw
+          ELSE 0
+        END), 0) as total_refunded,
         MIN(rb.created_at) as first_order_date,
         MAX(rb.created_at) as last_order_date
       FROM rentcar_vendors rv
