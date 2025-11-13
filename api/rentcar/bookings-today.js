@@ -107,6 +107,8 @@ export default async function handler(req, res) {
         customer_email: decryptEmail(booking.customer_email),
         customer_phone: decryptPhone(booking.customer_phone),
         driver_name: booking.driver_name ? decrypt(booking.driver_name) : null,
+        driver_license_no: booking.driver_license_no ? decrypt(booking.driver_license_no) : null,
+        driver_birth: booking.driver_birth ? decrypt(booking.driver_birth) : null,
         extras: bookingExtras,
         extras_count: bookingExtras.length,
         extras_total: bookingExtras.reduce((sum, e) => sum + e.total_price, 0)
