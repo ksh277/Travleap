@@ -9,7 +9,8 @@ const jwt = require('jsonwebtoken');
  *   vehicle_condition: string,
  *   fuel_level: string,
  *   mileage: number,
- *   damage_notes?: string
+ *   damage_notes?: string,
+ *   return_images?: string[] (차량 반납 상태 이미지 base64 배열)
  * }
  */
 module.exports = async function handler(req, res) {
@@ -44,7 +45,7 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ success: false, message: '벤더 권한이 필요합니다.' });
     }
 
-    const { booking_number, vehicle_condition, fuel_level, mileage, damage_notes } = req.body;
+    const { booking_number, vehicle_condition, fuel_level, mileage, damage_notes, return_images } = req.body;
 
     if (!booking_number || !vehicle_condition || !fuel_level || !mileage) {
       return res.status(400).json({ success: false, message: '필수 항목을 모두 입력해주세요.' });
@@ -108,22 +109,34 @@ module.exports = async function handler(req, res) {
       lateReturnFee = lateReturnHours * 10000;
     }
 
+    // 반납 시 차량 상태 JSON
+    const returnVehicleConditionData = {
+      condition: vehicle_condition,
+      fuel_level: fuel_level,
+      mileage: parseInt(mileage),
+      damage_notes: damage_notes || '',
+      images: return_images || []
+    };
+
     await connection.execute(
       `UPDATE rentcar_bookings
        SET status = 'completed',
-           check_out_at = NOW(),
-           vehicle_condition_checkout = ?,
-           fuel_level_checkout = ?,
-           mileage_checkout = ?,
-           damage_notes_checkout = ?,
+           return_checked_out_at = NOW(),
+           return_vehicle_condition = ?,
            late_return_hours = ?,
            late_return_fee_krw = ?,
            updated_at = NOW()
        WHERE id = ?`,
-      [vehicle_condition, fuel_level, mileage, damage_notes || '', lateReturnHours, lateReturnFee, booking.id]
+      [JSON.stringify(returnVehicleConditionData), lateReturnHours, lateReturnFee, booking.id]
     );
 
-    console.log('✅ 체크아웃 완료:', { bookingId: booking.id, bookingNumber: booking_number, lateReturnHours, lateReturnFee });
+    console.log('✅ 체크아웃 완료:', {
+      bookingId: booking.id,
+      bookingNumber: booking_number,
+      lateReturnHours,
+      lateReturnFee,
+      hasImages: (return_images && return_images.length > 0)
+    });
 
     // 보증금 정산
     const depositAmount = 100000;

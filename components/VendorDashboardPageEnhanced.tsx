@@ -233,6 +233,18 @@ export function VendorDashboardPageEnhanced() {
         return;
       }
 
+      // 이미지를 base64로 변환
+      const pickup_images: string[] = [];
+      for (const file of pickupForm.images) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        pickup_images.push(base64);
+      }
+
       const response = await fetch('/api/rentcar/check-in', {
         method: 'POST',
         headers: {
@@ -241,9 +253,11 @@ export function VendorDashboardPageEnhanced() {
         },
         body: JSON.stringify({
           booking_number: pickupBooking.booking_number || pickupBooking.id,
+          vehicle_condition: 'good',
           mileage: pickupForm.mileage,
           fuel_level: pickupForm.fuel_level,
           damage_notes: pickupForm.damage_notes || undefined,
+          pickup_images: pickup_images.length > 0 ? pickup_images : undefined,
           checked_in_by: user?.name || user?.email
         })
       });
@@ -302,6 +316,18 @@ export function VendorDashboardPageEnhanced() {
         return;
       }
 
+      // 이미지를 base64로 변환
+      const return_images: string[] = [];
+      for (const file of returnForm.images) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        return_images.push(base64);
+      }
+
       const response = await fetch('/api/rentcar/check-out', {
         method: 'POST',
         headers: {
@@ -310,9 +336,11 @@ export function VendorDashboardPageEnhanced() {
         },
         body: JSON.stringify({
           booking_number: selectedBooking.booking_number || selectedBooking.id,
+          vehicle_condition: 'good',
           mileage: returnForm.mileage,
           fuel_level: returnForm.fuel_level,
           damage_notes: returnForm.damage_notes || undefined,
+          return_images: return_images.length > 0 ? return_images : undefined,
           additional_charges: returnForm.additional_charges || 0,
           checked_out_by: user?.name || user?.email
         })
