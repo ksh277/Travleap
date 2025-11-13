@@ -1590,6 +1590,25 @@ export default function RentcarVendorDashboard() {
                                 <p className="font-medium">{selectedDetailBooking.driver_birth}</p>
                               </div>
                             )}
+                            {selectedDetailBooking.driver_birth && (() => {
+                              const birthDate = new Date(selectedDetailBooking.driver_birth);
+                              const today = new Date();
+                              let age = today.getFullYear() - birthDate.getFullYear();
+                              const monthDiff = today.getMonth() - birthDate.getMonth();
+                              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                                age--;
+                              }
+                              return (
+                                <div className="col-span-2">
+                                  <p className="text-sm text-gray-500">운전자 나이</p>
+                                  <p className="font-medium">
+                                    만 {age}세
+                                    {age < 21 && <span className="ml-2 text-red-600 font-bold">⚠️ 만 21세 미만 - 렌트 제한 확인 필요</span>}
+                                    {age < 26 && age >= 21 && <span className="ml-2 text-orange-600">ℹ️ 만 26세 미만 - 추가 보험료 발생 가능</span>}
+                                  </p>
+                                </div>
+                              );
+                            })()}
                             <div>
                               <p className="text-sm text-gray-500">면허번호</p>
                               <p className="font-medium">{selectedDetailBooking.driver_license_no}</p>
@@ -1910,7 +1929,7 @@ export default function RentcarVendorDashboard() {
                           <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">연락처</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">운전자</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">면허</th>
-                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">생년월일</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">나이</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">픽업일시</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">반납일시</th>
                           <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">보험</th>
@@ -1937,7 +1956,24 @@ export default function RentcarVendorDashboard() {
                             </td>
                             <td className="px-3 py-2 text-xs">{booking.driver_name || '-'}</td>
                             <td className="px-3 py-2 text-xs">{booking.driver_license_no || '-'}</td>
-                            <td className="px-3 py-2 text-xs">{booking.driver_birth || '-'}</td>
+                            <td className="px-3 py-2 text-xs">
+                              {booking.driver_birth ? (() => {
+                                const birthDate = new Date(booking.driver_birth);
+                                const today = new Date();
+                                let age = today.getFullYear() - birthDate.getFullYear();
+                                const monthDiff = today.getMonth() - birthDate.getMonth();
+                                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                                  age--;
+                                }
+                                return (
+                                  <div>
+                                    <div>만 {age}세</div>
+                                    {age < 21 && <div className="text-red-600 font-bold text-xs">⚠️ 제한</div>}
+                                    {age < 26 && age >= 21 && <div className="text-orange-600 text-xs">ℹ️ 보험</div>}
+                                  </div>
+                                );
+                              })() : '-'}
+                            </td>
                             <td className="px-3 py-2 text-xs">
                               {format(new Date(booking.pickup_at_utc), 'yyyy. MM. dd. HH:mm', { locale: ko })}
                             </td>
@@ -2334,6 +2370,22 @@ export default function RentcarVendorDashboard() {
                       {checkInBooking.driver_birth && (
                         <p><span className="font-medium">생년월일:</span> {checkInBooking.driver_birth}</p>
                       )}
+                      {checkInBooking.driver_birth && (() => {
+                        const birthDate = new Date(checkInBooking.driver_birth);
+                        const today = new Date();
+                        let age = today.getFullYear() - birthDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                          age--;
+                        }
+                        return (
+                          <p className="col-span-2">
+                            <span className="font-medium">나이:</span> 만 {age}세
+                            {age < 21 && <span className="ml-2 text-red-600 font-bold">⚠️ 만 21세 미만 - 렌트 제한 확인 필요</span>}
+                            {age < 26 && age >= 21 && <span className="ml-2 text-orange-600 font-medium">ℹ️ 만 26세 미만 - 추가 보험료 발생 가능</span>}
+                          </p>
+                        );
+                      })()}
                       <p><span className="font-medium">차량 번호:</span> {checkInBooking.vehicle_code}</p>
                       <p className="col-span-2">
                         <span className="font-medium">인수 예정:</span>{' '}
