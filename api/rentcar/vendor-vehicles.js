@@ -254,6 +254,43 @@ async function getVendorBookings(vendorId, userId) {
       }
     }
 
+    // 안전한 복호화 함수 (평문/NULL 처리)
+    const safeDecrypt = (value) => {
+      if (!value) return null;
+      try {
+        if (typeof value === 'string' && value.length > 50) {
+          return decrypt(value);
+        }
+        return value;
+      } catch (err) {
+        return value;
+      }
+    };
+
+    const safeDecryptPhone = (value) => {
+      if (!value) return null;
+      try {
+        if (typeof value === 'string' && value.length > 50) {
+          return decryptPhone(value);
+        }
+        return value;
+      } catch (err) {
+        return value;
+      }
+    };
+
+    const safeDecryptEmail = (value) => {
+      if (!value) return null;
+      try {
+        if (typeof value === 'string' && value.length > 50) {
+          return decryptEmail(value);
+        }
+        return value;
+      } catch (err) {
+        return value;
+      }
+    };
+
     // extras를 각 예약에 매핑 및 고객 정보 복호화
     const bookingsWithExtras = (bookingsResult || []).map(booking => {
       const bookingExtras = extrasData
@@ -270,13 +307,13 @@ async function getVendorBookings(vendorId, userId) {
 
       return {
         ...booking,
-        // 고객 정보 복호화 (PIPA 준수)
-        customer_name: booking.customer_name ? decrypt(booking.customer_name) : '',
-        customer_email: booking.customer_email ? decryptEmail(booking.customer_email) : '',
-        customer_phone: booking.customer_phone ? decryptPhone(booking.customer_phone) : '',
-        driver_name: booking.driver_name ? decrypt(booking.driver_name) : null,
-        driver_license_no: booking.driver_license_no ? decrypt(booking.driver_license_no) : null,
-        driver_birth: booking.driver_birth ? decrypt(booking.driver_birth) : null,
+        // 고객 정보 안전 복호화 (평문/NULL 처리)
+        customer_name: safeDecrypt(booking.customer_name),
+        customer_email: safeDecryptEmail(booking.customer_email),
+        customer_phone: safeDecryptPhone(booking.customer_phone),
+        driver_name: safeDecrypt(booking.driver_name),
+        driver_license_no: safeDecrypt(booking.driver_license_no),
+        driver_birth: booking.driver_birth ? String(booking.driver_birth).substring(0, 10) : null,
         extras: bookingExtras,
         extras_count: bookingExtras.length,
         extras_total: bookingExtras.reduce((sum, e) => sum + e.total_price, 0)
