@@ -158,6 +158,13 @@ module.exports = async function handler(req, res) {
         ORDER BY rb.created_at DESC
       `, rentcarParams);
 
+      // 🔍 렌트카 데이터 디버깅
+      console.log(`🚗 [Orders] 렌트카 주문 ${rentcarResult.rows?.length || 0}건 조회`);
+      rentcarResult.rows?.slice(0, 3).forEach(row => {
+        console.log(`  - ID: ${row.id}, 예약번호: ${row.booking_number}`);
+        console.log(`    이름: "${row.shipping_name || 'NULL'}", 이메일: "${row.shipping_email || 'NULL'}", 전화: "${row.shipping_phone || 'NULL ❌'}"`);
+      });
+
       // ✅ 일반 주문 + 렌트카 주문 통합
       const allOrders = [...(result.rows || []), ...(rentcarResult.rows || [])]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
