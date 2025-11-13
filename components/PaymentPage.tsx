@@ -123,12 +123,12 @@ export function PaymentPage() {
     false;
 
   // 최종 결제 금액 계산 (배송비 + 보험료 + 포인트 차감 후)
-  const orderTotal = orderData ? orderData.total : parseInt(booking?.totalPrice || amount || totalAmount || '0');
+  const orderTotal = orderData ? Number(orderData.total) : parseInt(booking?.totalPrice || amount || totalAmount || '0');
   // orderData.deliveryFee가 있으면 이미 orderData.total에 배송비 포함됨 (장바구니에서 온 경우)
-  const totalWithDelivery = orderData?.deliveryFee !== undefined ? orderTotal : orderTotal + deliveryFee;
-  const insuranceFee = selectedInsurance ? selectedInsurance.price : 0;
+  const totalWithDelivery = orderData?.deliveryFee !== undefined ? orderTotal : orderTotal + Number(deliveryFee);
+  const insuranceFee = selectedInsurance ? Number(selectedInsurance.price) : 0;
   const totalWithInsurance = totalWithDelivery + insuranceFee;
-  const finalAmount = Math.max(0, totalWithInsurance - pointsToUse);
+  const finalAmount = Math.max(0, totalWithInsurance - Number(pointsToUse));
 
   // 🐛 디버깅 로그
   useEffect(() => {
@@ -1016,7 +1016,7 @@ export function PaymentPage() {
                       <Separator />
                       <div className="flex justify-between font-medium text-lg">
                         <span>주문 금액</span>
-                        <span className="text-gray-700">{(orderData.total + insuranceFee).toLocaleString()}원</span>
+                        <span className="text-gray-700">{(Number(orderData.total) + Number(insuranceFee)).toLocaleString()}원</span>
                       </div>
                     </>
                   ) : (
@@ -1048,7 +1048,7 @@ export function PaymentPage() {
                       <Separator />
                       <div className="flex justify-between font-medium text-lg">
                         <span>주문 금액</span>
-                        <span className="text-gray-700">{(parseInt(booking?.totalPrice || amount || totalAmount || '0') + deliveryFee + insuranceFee).toLocaleString()}원</span>
+                        <span className="text-gray-700">{(parseInt(booking?.totalPrice || amount || totalAmount || '0') + Number(deliveryFee) + Number(insuranceFee)).toLocaleString()}원</span>
                       </div>
                     </>
                   )}
