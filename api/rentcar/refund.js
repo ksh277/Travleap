@@ -76,7 +76,7 @@ module.exports = async function handler(req, res) {
 
     // 예약 조회
     const bookingResult = await connection.execute(
-      `SELECT id, booking_number, vendor_id, status, payment_status, payment_key, total_krw
+      `SELECT id, booking_number, vendor_id, vehicle_id, status, payment_status, payment_key, total_krw
        FROM rentcar_bookings
        WHERE booking_number = ?
        LIMIT 1`,
@@ -181,6 +181,23 @@ module.exports = async function handler(req, res) {
       bookingNumber: booking_number,
       refundAmount: refundResult.data?.refund_amount
     });
+
+    // 재고 복귀 (환불 시 차량 재고 1 증가)
+    if (booking.vehicle_id) {
+      try {
+        console.log(`📦 [재고] 차량 재고 복귀 시작 (vehicle_id: ${booking.vehicle_id})`);
+
+        await connection.execute(
+          'UPDATE rentcar_vehicles SET stock = stock + 1, updated_at = NOW() WHERE id = ?',
+          [booking.vehicle_id]
+        );
+
+        console.log(`✅ [재고] 차량 재고 복귀 완료 (vehicle_id: ${booking.vehicle_id}, +1)`);
+      } catch (stockError) {
+        console.error('❌ [재고] 재고 복귀 실패:', stockError);
+        // 재고 복귀 실패해도 환불은 이미 완료됨
+      }
+    }
 
     return res.status(200).json({
       success: true,

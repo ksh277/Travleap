@@ -425,6 +425,43 @@ module.exports = async function handler(req, res) {
         console.log('⚠️  [포인트] user_id 없음, 포인트 적립 스킵');
       }
 
+      // 8-6. 재고 차감 (예약 확정 시 차량 재고 1 차감)
+      if (rental.vehicle_id) {
+        try {
+          console.log(`📦 [재고] 차량 재고 차감 시작 (vehicle_id: ${rental.vehicle_id})`);
+
+          const { connect } = require('@planetscale/database');
+          const connection = connect({ url: process.env.DATABASE_URL });
+
+          // 현재 재고 조회
+          const vehicleResult = await connection.execute(
+            'SELECT id, stock FROM rentcar_vehicles WHERE id = ? FOR UPDATE',
+            [rental.vehicle_id]
+          );
+
+          if (vehicleResult.rows && vehicleResult.rows.length > 0) {
+            const vehicle = vehicleResult.rows[0];
+            const currentStock = vehicle.stock || 0;
+
+            if (currentStock > 0) {
+              // 재고 1 차감
+              await connection.execute(
+                'UPDATE rentcar_vehicles SET stock = stock - 1, updated_at = NOW() WHERE id = ?',
+                [rental.vehicle_id]
+              );
+              console.log(`✅ [재고] 차량 재고 차감 완료 (vehicle_id: ${rental.vehicle_id}, ${currentStock} -> ${currentStock - 1})`);
+            } else {
+              console.warn(`⚠️  [재고] 차량 재고 부족 (vehicle_id: ${rental.vehicle_id}, stock: ${currentStock}) - 예약은 계속 진행`);
+            }
+          } else {
+            console.warn(`⚠️  [재고] 차량 정보 없음 (vehicle_id: ${rental.vehicle_id})`);
+          }
+        } catch (stockError) {
+          console.error('❌ [재고] 재고 차감 실패 (계속 진행):', stockError);
+          // 재고 차감 실패해도 예약은 계속 진행
+        }
+      }
+
     } catch (dbError) {
       console.error('❌ Database update failed:', dbError);
 

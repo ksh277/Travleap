@@ -56,6 +56,7 @@ module.exports = async function handler(req, res) {
         rb.id,
         rb.booking_number,
         rb.vendor_id,
+        rb.vehicle_id,
         rb.user_id,
         rb.status,
         rb.payment_status,
@@ -379,7 +380,27 @@ module.exports = async function handler(req, res) {
 
     console.log(`✅ [Cancel-Rental] Rental ${bookingNumber} canceled successfully`);
 
-    // 12. 성공 응답
+    // 12. 재고 복귀 (취소 시 차량 재고 1 증가)
+    if (rental.vehicle_id) {
+      try {
+        console.log(`📦 [재고] 차량 재고 복귀 시작 (vehicle_id: ${rental.vehicle_id})`);
+
+        const { connect } = require('@planetscale/database');
+        const connection = connect({ url: process.env.DATABASE_URL });
+
+        await connection.execute(
+          'UPDATE rentcar_vehicles SET stock = stock + 1, updated_at = NOW() WHERE id = ?',
+          [rental.vehicle_id]
+        );
+
+        console.log(`✅ [재고] 차량 재고 복귀 완료 (vehicle_id: ${rental.vehicle_id}, +1)`);
+      } catch (stockError) {
+        console.error('❌ [재고] 재고 복귀 실패:', stockError);
+        // 재고 복귀 실패해도 취소는 이미 완료됨
+      }
+    }
+
+    // 13. 성공 응답
     return res.status(200).json({
       success: true,
       data: {
