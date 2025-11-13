@@ -42,6 +42,16 @@ interface SettlementStats {
   total_settlement: number;
 }
 
+interface PeriodStats {
+  total_orders: number;
+  total_sales: number;
+  total_refunded: number;
+  net_sales: number;
+  commission_rate: number;
+  commission_amount: number;
+  settlement_amount: number;
+}
+
 export function AdminSettlements() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [stats, setStats] = useState<SettlementStats>({
@@ -58,6 +68,19 @@ export function AdminSettlements() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'rentcar' | 'lodging'>('all');
+  const [periodStats, setPeriodStats] = useState<{
+    today: PeriodStats | null;
+    this_week: PeriodStats | null;
+    this_month: PeriodStats | null;
+    total: PeriodStats | null;
+  }>({
+    today: null,
+    this_week: null,
+    this_month: null,
+    total: null
+  });
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'this_week' | 'this_month' | 'total'>('total');
 
   // 정산 데이터 로드
   const loadSettlements = async () => {
@@ -97,6 +120,38 @@ export function AdminSettlements() {
   useEffect(() => {
     loadSettlements();
   }, []);
+
+  // 상세 정보 로드
+  useEffect(() => {
+    if (selectedSettlement) {
+      loadPeriodStats();
+    }
+  }, [selectedSettlement]);
+
+  const loadPeriodStats = async () => {
+    if (!selectedSettlement) return;
+
+    try {
+      setIsLoadingDetail(true);
+
+      const response = await fetch(
+        `/api/admin/settlements/detail?partner_id=${selectedSettlement.partner_id}&partner_type=${selectedSettlement.partner_type}`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setPeriodStats(data.data.period_stats);
+        toast.success('기간별 매출 로드 완료');
+      } else {
+        toast.error('기간별 매출 로드 실패');
+      }
+    } catch (error) {
+      console.error('기간별 매출 로드 오류:', error);
+      toast.error('기간별 매출을 불러오는 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
 
   // 필터링된 정산 데이터
   const filteredSettlements = settlements.filter(s => {
@@ -407,7 +462,7 @@ export function AdminSettlements() {
       {/* 상세보기 모달 */}
       {selectedSettlement && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -415,7 +470,7 @@ export function AdminSettlements() {
                     <Building2 className="h-5 w-5" />
                     {selectedSettlement.business_name}
                   </CardTitle>
-                  <p className="text-sm text-gray-500 mt-1">정산 상세 정보</p>
+                  <p className="text-sm text-gray-500 mt-1">정산 상세 정보 - 기간별 매출</p>
                 </div>
                 <Button
                   variant="ghost"
@@ -451,58 +506,87 @@ export function AdminSettlements() {
                 </div>
               </div>
 
-              {/* 주문 정보 */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg border-b pb-2">주문 정보</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">총 주문 건수</p>
-                    <p className="text-2xl font-bold">{selectedSettlement.total_orders}건</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">주문 기간</p>
-                    <p className="text-sm font-medium">
-                      {selectedSettlement.first_order_date
-                        ? new Date(selectedSettlement.first_order_date).toLocaleDateString('ko-KR')
-                        : '-'}
-                      {' ~ '}
-                      {selectedSettlement.last_order_date
-                        ? new Date(selectedSettlement.last_order_date).toLocaleDateString('ko-KR')
-                        : '-'}
-                    </p>
-                  </div>
+              {/* 기간 선택 탭 */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg border-b pb-2">기간별 매출</h3>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setSelectedPeriod('today')}
+                    variant={selectedPeriod === 'today' ? 'default' : 'outline'}
+                    size="sm"
+                  >
+                    하루
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedPeriod('this_week')}
+                    variant={selectedPeriod === 'this_week' ? 'default' : 'outline'}
+                    size="sm"
+                  >
+                    한주
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedPeriod('this_month')}
+                    variant={selectedPeriod === 'this_month' ? 'default' : 'outline'}
+                    size="sm"
+                  >
+                    한달
+                  </Button>
+                  <Button
+                    onClick={() => setSelectedPeriod('total')}
+                    variant={selectedPeriod === 'total' ? 'default' : 'outline'}
+                    size="sm"
+                  >
+                    전체
+                  </Button>
                 </div>
-              </div>
 
-              {/* 정산 금액 */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-lg border-b pb-2">정산 금액</h3>
-                <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">총 매출</span>
-                    <span className="text-lg font-bold">₩{selectedSettlement.total_sales.toLocaleString()}</span>
+                {/* 로딩 중 */}
+                {isLoadingDetail && (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
                   </div>
-                  {selectedSettlement.total_refunded > 0 && (
-                    <div className="flex justify-between items-center text-red-600">
-                      <span>환불 금액</span>
-                      <span className="font-medium">-₩{selectedSettlement.total_refunded.toLocaleString()}</span>
+                )}
+
+                {/* 기간별 통계 */}
+                {!isLoadingDetail && periodStats[selectedPeriod] && (
+                  <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">주문 건수</span>
+                      <span className="text-lg font-bold">{periodStats[selectedPeriod]!.total_orders}건</span>
                     </div>
-                  )}
-                  <div className="flex justify-between items-center pt-2 border-t">
-                    <span className="font-medium">순 매출</span>
-                    <span className="text-lg font-bold">₩{selectedSettlement.net_sales.toLocaleString()}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">총 매출</span>
+                      <span className="text-lg font-bold">₩{periodStats[selectedPeriod]!.total_sales.toLocaleString()}</span>
+                    </div>
+                    {periodStats[selectedPeriod]!.total_refunded > 0 && (
+                      <div className="flex justify-between items-center text-red-600">
+                        <span>환불 금액</span>
+                        <span className="font-medium">-₩{periodStats[selectedPeriod]!.total_refunded.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="font-medium">순 매출</span>
+                      <span className="text-lg font-bold">₩{periodStats[selectedPeriod]!.net_sales.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-orange-600">
+                      <span>플랫폼 수수료 ({periodStats[selectedPeriod]!.commission_rate}%)</span>
+                      <span className="font-medium">-₩{periodStats[selectedPeriod]!.commission_amount.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
+                      <span className="text-lg font-bold">정산 금액</span>
+                      <span className="text-2xl font-bold text-green-600">
+                        ₩{periodStats[selectedPeriod]!.settlement_amount.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-orange-600">
-                    <span>플랫폼 수수료 ({selectedSettlement.commission_rate}%)</span>
-                    <span className="font-medium">-₩{selectedSettlement.commission_amount.toLocaleString()}</span>
+                )}
+
+                {/* 데이터 없음 */}
+                {!isLoadingDetail && !periodStats[selectedPeriod] && (
+                  <div className="text-center py-8 text-gray-500">
+                    해당 기간의 데이터가 없습니다.
                   </div>
-                  <div className="flex justify-between items-center pt-3 border-t-2 border-gray-300">
-                    <span className="text-lg font-bold">정산 금액</span>
-                    <span className="text-2xl font-bold text-green-600">
-                      ₩{selectedSettlement.settlement_amount.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* 상태 */}

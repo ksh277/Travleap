@@ -82,31 +82,7 @@ module.exports = async function handler(req, res) {
           [vendorId, targetYear, targetMonth]
         );
 
-        // 2. 월별 보증금 환불 합계
-        const depositRefundResult = await connection.execute(
-          `SELECT COALESCE(SUM(d.refund_amount_krw), 0) as deposit_refund
-          FROM rentcar_rental_deposits d
-          INNER JOIN rentcar_bookings b ON d.rental_id = b.id
-          WHERE b.vendor_id = ?
-            AND d.status IN ('refunded', 'released')
-            AND YEAR(d.refunded_at) = ?
-            AND MONTH(d.refunded_at) = ?`,
-          [vendorId, targetYear, targetMonth]
-        );
-
-        // 3. 월별 보증금 차감 합계
-        const depositDeductionResult = await connection.execute(
-          `SELECT COALESCE(SUM(d.captured_amount_krw), 0) as deposit_deduction
-          FROM rentcar_rental_deposits d
-          INNER JOIN rentcar_bookings b ON d.rental_id = b.id
-          WHERE b.vendor_id = ?
-            AND d.status IN ('partial_captured', 'fully_captured')
-            AND YEAR(d.captured_at) = ?
-            AND MONTH(d.captured_at) = ?`,
-          [vendorId, targetYear, targetMonth]
-        );
-
-        // 4. 월별 추가 결제 합계 (지연 수수료, 파손 수수료 등)
+        // 2. 월별 추가 결제 합계 (지연 수수료, 파손 수수료 등)
         const additionalPaymentResult = await connection.execute(
           `SELECT COALESCE(SUM(late_return_fee_krw), 0) as late_fees,
                   COALESCE(SUM(other_charges_krw), 0) as other_charges
@@ -119,14 +95,12 @@ module.exports = async function handler(req, res) {
         );
 
         const rentalRevenue = Number(rentalRevenueResult.rows[0]?.rental_revenue || 0);
-        const depositRefund = Number(depositRefundResult.rows[0]?.deposit_refund || 0);
-        const depositDeduction = Number(depositDeductionResult.rows[0]?.deposit_deduction || 0);
         const lateFees = Number(additionalPaymentResult.rows[0]?.late_fees || 0);
         const otherCharges = Number(additionalPaymentResult.rows[0]?.other_charges || 0);
         const additionalPayment = lateFees + otherCharges;
 
-        const totalRevenue = rentalRevenue + depositDeduction + additionalPayment;
-        const netRevenue = totalRevenue - depositRefund;
+        const totalRevenue = rentalRevenue + additionalPayment;
+        const netRevenue = totalRevenue;
 
         return res.status(200).json({
           success: true,
@@ -137,8 +111,6 @@ module.exports = async function handler(req, res) {
             },
             summary: {
               rental_revenue: rentalRevenue,
-              deposit_refund: depositRefund,
-              deposit_deduction: depositDeduction,
               additional_payment: additionalPayment,
               total_revenue: totalRevenue,
               net_revenue: netRevenue
@@ -146,9 +118,7 @@ module.exports = async function handler(req, res) {
             breakdown: {
               rental_fees: rentalRevenue,
               late_fees: lateFees,
-              other_charges: otherCharges,
-              deposit_settled: depositDeduction,
-              deposit_refunded: depositRefund
+              other_charges: otherCharges
             }
           }
         });

@@ -132,15 +132,6 @@ module.exports = async function handler(req, res) {
 
     console.log('✅ 체크아웃 완료:', { bookingId: booking.id, bookingNumber: booking_number, lateReturnHours, lateReturnFee });
 
-    // 보증금 정산
-    const depositAmount = 100000;
-    const depositSettlement = {
-      status: lateReturnFee > 0 ? (lateReturnFee >= depositAmount ? 'additional_payment_required' : 'partial_refunded') : 'refunded',
-      deposit_captured: Math.min(lateReturnFee, depositAmount),
-      deposit_refunded: Math.max(0, depositAmount - lateReturnFee),
-      additional_payment_required: Math.max(0, lateReturnFee - depositAmount)
-    };
-
     return res.status(200).json({
       success: true,
       message: '체크아웃이 완료되었습니다.',
@@ -149,8 +140,7 @@ module.exports = async function handler(req, res) {
         booking_number: booking_number,
         checked_out_at: now.toISOString(),
         late_return_hours: lateReturnHours,
-        late_return_fee_krw: lateReturnFee,
-        deposit_settlement: depositSettlement
+        late_return_fee_krw: lateReturnFee
       }
     });
 

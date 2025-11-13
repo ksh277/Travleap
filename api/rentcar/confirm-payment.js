@@ -74,7 +74,6 @@ module.exports = async function handler(req, res) {
         vehicle_id,
         user_id,
         total_price_krw,
-        deposit_amount_krw,
         status,
         payment_status,
         hold_expires_at

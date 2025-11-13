@@ -844,29 +844,12 @@ export default function RentcarVendorDashboard() {
 
       if (result.success) {
         const finalLateFee = result.data.late_return_fee_krw || 0;
-        const depositSettlement = result.data.deposit_settlement;
 
         let message = '체크아웃이 완료되었습니다!';
 
         // 연체료 표시
         if (finalLateFee > 0) {
           message += `\n\n연체료: ₩${finalLateFee.toLocaleString()}`;
-        }
-
-        // 보증금 정산 결과 표시
-        if (depositSettlement) {
-          message += '\n\n[보증금 정산]';
-
-          if (depositSettlement.status === 'refunded') {
-            message += `\n✅ 보증금 전액 환불: ₩${depositSettlement.deposit_refunded.toLocaleString()}`;
-          } else if (depositSettlement.status === 'partial_refunded') {
-            message += `\n💰 보증금 차감: ₩${depositSettlement.deposit_captured.toLocaleString()}`;
-            message += `\n✅ 보증금 환불: ₩${depositSettlement.deposit_refunded.toLocaleString()}`;
-          } else if (depositSettlement.status === 'additional_payment_required') {
-            message += `\n⚠️ 보증금 전액 차감: ₩${depositSettlement.deposit_captured.toLocaleString()}`;
-            message += `\n🚨 추가 결제 필요: ₩${depositSettlement.additional_payment_required.toLocaleString()}`;
-            message += '\n\n고객에게 추가 결제를 요청하세요!';
-          }
         }
 
         alert(message);
@@ -2701,19 +2684,12 @@ export default function RentcarVendorDashboard() {
               {!loading && !error && refundsData && (
                 <div className="space-y-6">
                   {/* 통계 요약 */}
-                  <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <div className="text-sm text-blue-600 mb-1">취소된 예약</div>
                       <div className="text-2xl font-bold text-blue-900">{refundsData.stats?.total_canceled || 0}건</div>
                       <div className="text-xs text-blue-700 mt-1">
                         환불 완료: {refundsData.stats?.total_refunded || 0}건
-                      </div>
-                    </div>
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <div className="text-sm text-purple-600 mb-1">보증금 정산</div>
-                      <div className="text-2xl font-bold text-purple-900">{refundsData.stats?.total_deposit_settlements || 0}건</div>
-                      <div className="text-xs text-purple-700 mt-1">
-                        환불: ₩{(refundsData.stats?.total_deposit_refund_amount || 0).toLocaleString()}
                       </div>
                     </div>
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -2730,9 +2706,6 @@ export default function RentcarVendorDashboard() {
                     <div className="flex gap-4">
                       <button className="px-4 py-2 border-b-2 border-blue-600 text-blue-600 font-medium">
                         취소 환불 ({refundsData.canceled_rentals?.length || 0})
-                      </button>
-                      <button className="px-4 py-2 text-gray-600 hover:text-gray-900">
-                        보증금 정산 ({refundsData.deposit_settlements?.length || 0})
                       </button>
                       <button className="px-4 py-2 text-gray-600 hover:text-gray-900">
                         추가 결제 ({refundsData.additional_payments?.length || 0})
@@ -2786,68 +2759,6 @@ export default function RentcarVendorDashboard() {
                       ))
                     ) : (
                       <div className="text-center py-8 text-gray-500">취소된 예약이 없습니다.</div>
-                    )}
-                  </div>
-
-                  {/* 보증금 정산 목록 */}
-                  <div className="space-y-3 mt-8">
-                    <h3 className="font-semibold text-gray-900">보증금 정산 내역</h3>
-                    {refundsData.deposit_settlements && refundsData.deposit_settlements.length > 0 ? (
-                      refundsData.deposit_settlements.map((deposit: any) => (
-                        <div key={deposit.id} className="border rounded-lg p-4 hover:shadow-md transition bg-purple-50">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <div className="font-semibold text-gray-900">{deposit.vehicle?.display_name}</div>
-                              <div className="text-sm text-gray-600">예약번호: {deposit.booking_number}</div>
-                              <div className="text-sm text-gray-600">고객: {deposit.customer?.name}</div>
-                            </div>
-                            <div className="text-right">
-                              <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                                deposit.status === 'refunded'
-                                  ? 'bg-green-100 text-green-800'
-                                  : deposit.status === 'partial_refunded'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {deposit.status === 'refunded' ? '전액 환불' : deposit.status === 'partial_refunded' ? '부분 환불' : '전액 차감'}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm mt-3 pt-3 border-t border-purple-200">
-                            <div>
-                              <span className="text-gray-600">보증금:</span>{' '}
-                              <span className="font-medium">₩{deposit.deposit_amount?.toLocaleString()}</span>
-                            </div>
-                            {deposit.captured_amount > 0 && (
-                              <div>
-                                <span className="text-gray-600">차감:</span>{' '}
-                                <span className="font-medium text-red-600">₩{deposit.captured_amount?.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {deposit.refunded_amount > 0 && (
-                              <div>
-                                <span className="text-gray-600">환불:</span>{' '}
-                                <span className="font-medium text-green-600">₩{deposit.refunded_amount?.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {deposit.rental_info?.late_fee > 0 && (
-                              <div>
-                                <span className="text-gray-600">연체료:</span>{' '}
-                                <span className="font-medium text-orange-600">₩{deposit.rental_info.late_fee?.toLocaleString()}</span>
-                              </div>
-                            )}
-                            <div className="col-span-2">
-                              <span className="text-gray-600">정산 시간:</span>{' '}
-                              <span className="font-medium">
-                                {deposit.refunded_at ? new Date(deposit.refunded_at).toLocaleString('ko-KR') :
-                                 deposit.captured_at ? new Date(deposit.captured_at).toLocaleString('ko-KR') : '-'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">보증금 정산 내역이 없습니다.</div>
                     )}
                   </div>
 
