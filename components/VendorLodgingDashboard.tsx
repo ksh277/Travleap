@@ -103,6 +103,14 @@ export function VendorLodgingDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // 날짜 필터 상태
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // 예약 상세보기 모달
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isBookingDetailOpen, setIsBookingDetailOpen] = useState(false);
+
   // 숙소 추가/수정 Dialog
   const [isLodgingDialogOpen, setIsLodgingDialogOpen] = useState(false);
   const [editingLodging, setEditingLodging] = useState<Lodging | null>(null);
@@ -457,6 +465,62 @@ export function VendorLodgingDashboard() {
     }
   };
 
+  // 예약 확정
+  const handleConfirmBooking = async (bookingId: number) => {
+    if (!confirm('예약을 확정하시겠습니까?')) return;
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      const response = await fetch('/api/vendor/lodging/confirm-booking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ booking_id: bookingId })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('예약이 확정되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.error || '예약 확정에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('예약 확정 실패:', error);
+      toast.error('예약 확정 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 예약 취소
+  const handleCancelBooking = async (bookingId: number) => {
+    if (!confirm('예약을 취소하시겠습니까? 취소 후 환불 처리가 진행됩니다.')) return;
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      const response = await fetch('/api/vendor/lodging/cancel-booking', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ booking_id: bookingId })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('예약이 취소되었습니다.');
+        loadVendorData();
+      } else {
+        toast.error(result.error || '예약 취소에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('예약 취소 실패:', error);
+      toast.error('예약 취소 중 오류가 발생했습니다.');
+    }
+  };
+
   // CSV 파일 선택
   const handleCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -682,8 +746,22 @@ export function VendorLodgingDashboard() {
     }
   };
 
+  // 날짜 필터링된 예약 목록
+  const filteredBookings = bookings.filter(booking => {
+    if (!startDate && !endDate) return true;
+
+    const bookingDate = new Date(booking.created_at);
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    if (start && bookingDate < start) return false;
+    if (end && bookingDate > end) return false;
+
+    return true;
+  });
+
   // 정렬된 예약 목록
-  const sortedBookings = [...bookings].sort((a, b) => {
+  const sortedBookings = [...filteredBookings].sort((a, b) => {
     let aValue: any;
     let bValue: any;
 
@@ -778,7 +856,7 @@ export function VendorLodgingDashboard() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">
@@ -816,6 +894,26 @@ export function VendorLodgingDashboard() {
               <div className="text-3xl font-bold">{bookings.length}건</div>
               <p className="text-xs text-gray-500 mt-1">
                 확정: {bookings.filter(b => b.status === 'confirmed' || b.status === 'CONFIRMED').length}건
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                총 매출
+              </CardTitle>
+              <DollarSign className="w-4 h-4 text-gray-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {bookings
+                  .filter(b => b.payment_status === 'paid' || b.payment_status === 'captured')
+                  .reduce((sum, b) => sum + (b.total_price || 0), 0)
+                  .toLocaleString()}원
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                결제완료 기준
               </p>
             </CardContent>
           </Card>
@@ -946,6 +1044,52 @@ export function VendorLodgingDashboard() {
                     </Button>
                   </div>
                 </div>
+                {/* 날짜 범위 필터 */}
+                <div className="flex items-center gap-4 mt-4 px-6">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="start-date" className="whitespace-nowrap">시작일:</Label>
+                    <Input
+                      id="start-date"
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        setCurrentPage(1); // 필터 변경 시 첫 페이지로
+                      }}
+                      className="w-40"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="end-date" className="whitespace-nowrap">종료일:</Label>
+                    <Input
+                      id="end-date"
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => {
+                        setEndDate(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="w-40"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setStartDate('');
+                      setEndDate('');
+                      setCurrentPage(1);
+                    }}
+                    disabled={!startDate && !endDate}
+                  >
+                    필터 초기화
+                  </Button>
+                  <div className="text-sm text-gray-600 ml-auto">
+                    {filteredBookings.length !== bookings.length && (
+                      <span>필터링됨: {filteredBookings.length}건 / 전체: {bookings.length}건</span>
+                    )}
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {bookings.length === 0 ? (
@@ -1036,6 +1180,13 @@ export function VendorLodgingDashboard() {
                                 {booking.guest_phone}
                               </a>
                             </div>
+                            {booking.guest_email && (
+                              <div className="text-sm text-gray-500">
+                                <a href={`mailto:${booking.guest_email}`} className="text-blue-600 hover:underline">
+                                  {booking.guest_email}
+                                </a>
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">
@@ -1084,16 +1235,48 @@ export function VendorLodgingDashboard() {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
+                              {/* Pending 상태: 확정/취소 버튼 */}
+                              {(booking.status === 'pending' || booking.status === 'PENDING') &&
+                               (booking.payment_status === 'paid' || booking.payment_status === 'captured') && (
+                                <>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleConfirmBooking(booking.id)}
+                                  >
+                                    확정
+                                  </Button>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleCancelBooking(booking.id)}
+                                  >
+                                    취소
+                                  </Button>
+                                </>
+                              )}
+                              {/* Confirmed 상태: 체크인 / 취소 버튼 */}
                               {(booking.status === 'confirmed' || booking.status === 'CONFIRMED') &&
                                (booking.payment_status === 'paid' || booking.payment_status === 'captured') && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleCheckIn(booking.id)}
-                                >
-                                  체크인
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCheckIn(booking.id)}
+                                  >
+                                    체크인
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-700"
+                                    onClick={() => handleCancelBooking(booking.id)}
+                                  >
+                                    취소
+                                  </Button>
+                                </>
                               )}
+                              {/* In Use 상태: 체크아웃 버튼 */}
                               {(booking.status === 'in_use' || booking.status === 'IN_USE') && (
                                 <Button
                                   variant="outline"
