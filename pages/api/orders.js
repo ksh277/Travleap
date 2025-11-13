@@ -1,12 +1,11 @@
 /**
  * 주문 관리 API
- * GET /api/orders - 모든 주문 조회 (관리자 전용)
- * POST /api/orders - 장바구니 주문 생성 (일반 사용자)
+ * GET /api/orders - 모든 주문 조회 (billingInfo 포함)
+ * POST /api/orders - 장바구니 주문 생성
  */
 
 const { connect } = require('@planetscale/database');
 const { randomUUID } = require('crypto');
-const { verifyJWTFromRequest } = require('../../utils/auth-middleware.cjs');
 
 function generateOrderNumber() {
   // UUID 사용으로 완전한 유일성 보장
@@ -28,23 +27,38 @@ module.exports = async function handler(req, res) {
 
   // GET: 관리자 주문 목록 조회 (payments 기반)
   if (req.method === 'GET') {
-    // 관리자 인증 확인
-    const user = verifyJWTFromRequest(req);
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: '관리자 권한이 필요합니다.',
-        orders: []
-      });
-    }
-
     try {
-      // 페이지네이션 파라미터
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 20;
-      const offset = (page - 1) * limit;
+      // 날짜 필터 파라미터
+      let { start_date, end_date } = req.query;
 
-      console.log(`📄 [Orders] 페이지네이션: page=${page}, limit=${limit}, offset=${offset}`);
+      // 날짜 형식 검증 (YYYY-MM-DD) - SQL Injection 방지
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (start_date && !dateRegex.test(start_date)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid start_date format. Expected YYYY-MM-DD'
+        });
+      }
+      if (end_date && !dateRegex.test(end_date)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid end_date format. Expected YYYY-MM-DD'
+        });
+      }
+
+      // WHERE 절 조건 및 파라미터 배열
+      let whereConditions = `p.payment_status IN ('paid', 'completed', 'refunded')
+          AND (p.notes IS NULL OR JSON_EXTRACT(p.notes, '$.category') != '렌트카')`;
+      const params = [];
+
+      if (start_date) {
+        whereConditions += ` AND DATE(p.created_at) >= ?`;
+        params.push(start_date);
+      }
+      if (end_date) {
+        whereConditions += ` AND DATE(p.created_at) <= ?`;
+        params.push(end_date);
+      }
 
       // payments 테이블 기반으로 주문 정보 조회
       const result = await connection.execute(`
@@ -79,18 +93,30 @@ module.exports = async function handler(req, res) {
           b.tracking_number,
           b.courier_company,
           l.title as product_title,
-          COALESCE(c.name_ko, l.category, '주문') as category,
-          l.images
+          COALESCE(c.name_ko, l.category, '주문/기타') as category,
+          l.images,
+          l.category_id
         FROM payments p
         LEFT JOIN bookings b ON p.booking_id = b.id
         LEFT JOIN listings l ON b.listing_id = l.id
         LEFT JOIN categories c ON l.category_id = c.id
-        WHERE p.payment_status IN ('paid', 'completed', 'refunded')
-          AND (p.notes IS NULL OR JSON_EXTRACT(p.notes, '$.category') != '렌트카')
+        WHERE ${whereConditions}
         ORDER BY p.created_at DESC
-      `);
+      `, params);
 
       // ✅ 렌트카 주문 추가 조회
+      let rentcarWhereConditions = `rb.payment_status IN ('paid', 'completed', 'refunded')`;
+      const rentcarParams = [];
+
+      if (start_date) {
+        rentcarWhereConditions += ` AND DATE(rb.created_at) >= ?`;
+        rentcarParams.push(start_date);
+      }
+      if (end_date) {
+        rentcarWhereConditions += ` AND DATE(rb.created_at) <= ?`;
+        rentcarParams.push(end_date);
+      }
+
       const rentcarResult = await connection.execute(`
         SELECT
           rb.id as id,
@@ -128,16 +154,20 @@ module.exports = async function handler(req, res) {
           v.images
         FROM rentcar_bookings rb
         LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
-        WHERE rb.payment_status IN ('paid', 'completed', 'refunded')
+        WHERE ${rentcarWhereConditions}
         ORDER BY rb.created_at DESC
-      `);
+      `, rentcarParams);
+
+      // 🔍 렌트카 데이터 디버깅
+      console.log(`🚗 [Orders] 렌트카 주문 ${rentcarResult.rows?.length || 0}건 조회`);
+      rentcarResult.rows?.slice(0, 3).forEach(row => {
+        console.log(`  - ID: ${row.id}, 예약번호: ${row.booking_number}`);
+        console.log(`    이름: "${row.shipping_name || 'NULL'}", 이메일: "${row.shipping_email || 'NULL'}", 전화: "${row.shipping_phone || 'NULL ❌'}"`);
+      });
 
       // ✅ 일반 주문 + 렌트카 주문 통합
       const allOrders = [...(result.rows || []), ...(rentcarResult.rows || [])]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-      // 총 주문 수
-      const totalOrders = allOrders.length;
 
       // Neon PostgreSQL에서 사용자 정보 조회
       const { Pool } = require('@neondatabase/serverless');
@@ -148,21 +178,34 @@ module.exports = async function handler(req, res) {
       let ordersWithUserInfo = [];
 
       try {
-        // 모든 주문의 user_id 수집
-        const userIds = [...new Set(allOrders.map(order => order.user_id).filter(Boolean))];
+        // 모든 주문의 user_id 수집 (정수로 변환하여 타입 불일치 방지)
+        const userIds = [...new Set(allOrders.map(order => parseInt(order.user_id)).filter(id => !isNaN(id) && id > 0))];
+        console.log(`🔍 [Orders] Neon DB 사용자 조회 시작: ${userIds.length}명 (IDs: ${userIds.join(', ')})`);
 
         let userMap = new Map();
         if (userIds.length > 0) {
           // IN 쿼리로 사용자 정보 한번에 조회
           const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+          console.log(`🔍 [Orders] Neon DB query: SELECT id, name, email, phone FROM users WHERE id IN (${userIds.join(',')})`);
+
           const usersResult = await poolNeon.query(
             `SELECT id, name, email, phone, address, detail_address, postal_code FROM users WHERE id IN (${placeholders})`,
             userIds
           );
 
-          usersResult.rows.forEach(user => {
-            userMap.set(user.id, user);
+          console.log(`✅ [Orders] Neon DB 조회 결과: ${usersResult.rows?.length || 0}명`);
+          usersResult.rows?.forEach(user => {
+            console.log(`  - user_id=${user.id}: name="${user.name}", email="${user.email}", phone="${user.phone}"`);
+            // ✅ FIX: 문자열 key도 지원하도록 두 가지 버전 모두 저장
+            userMap.set(user.id, user);           // 숫자 key
+            userMap.set(String(user.id), user);  // 문자열 key
           });
+
+          if (usersResult.rows?.length === 0) {
+            console.warn(`⚠️ [Orders] Neon DB에서 사용자 정보를 찾지 못했습니다! userIds: ${userIds.join(', ')}`);
+          }
+        } else {
+          console.warn(`⚠️ [Orders] user_id가 없는 주문들입니다.`);
         }
 
         // 🔧 혼합 주문의 모든 bookings 조회 (부분 환불 지원)
@@ -191,7 +234,8 @@ module.exports = async function handler(req, res) {
               b.shipping_address_detail,
               b.shipping_zipcode,
               l.title as product_title,
-              COALESCE(c.name_ko, l.category, '기타') as category
+              COALESCE(c.name_ko, l.category, '주문/기타') as category,
+              l.category_id
             FROM bookings b
             LEFT JOIN listings l ON b.listing_id = l.id
             LEFT JOIN categories c ON l.category_id = c.id
@@ -232,10 +276,11 @@ module.exports = async function handler(req, res) {
           let notesShippingAddress = '';
           let notesShippingAddressDetail = '';
           let notesShippingZipcode = '';
+          let notesData = null; // ✅ CRITICAL: scope 밖에서 참조하기 위해 선언
 
           if (order.notes) {
             try {
-              const notesData = JSON.parse(order.notes);
+              notesData = JSON.parse(order.notes);
 
               // 주문번호 추출
               if (notesData.orderNumber) {
@@ -295,19 +340,9 @@ module.exports = async function handler(req, res) {
                 } else {
                   displayTitle = firstItemTitle || order.product_title || '주문';
                 }
-
-                // ✅ 디버깅: 상품명이 비어있거나 이상한 경우 로깅
-                if (!firstItemTitle || firstItemTitle.includes('배송지') || firstItemTitle.includes('undefined')) {
-                  console.warn(`⚠️ [Orders] order_id=${order.id}: 이상한 상품명 감지:`, {
-                    firstItemTitle,
-                    item: notesData.items[0],
-                    product_title: order.product_title
-                  });
-                }
               } else if (!displayTitle) {
                 // notes.items도 없고 product_title도 없으면
                 displayTitle = '주문';
-                console.warn(`⚠️ [Orders] order_id=${order.id}: notes.items가 없음, product_title=${order.product_title}`);
               }
             } catch (e) {
               console.error('❌ [Orders] notes 파싱 오류:', e, 'order_id:', order.id);
@@ -317,7 +352,6 @@ module.exports = async function handler(req, res) {
           } else if (!displayTitle) {
             // notes도 없고 product_title도 없으면
             displayTitle = '주문';
-            console.warn(`⚠️ [Orders] order_id=${order.id}: notes가 없음`);
           }
 
           // 🔧 혼합 주문의 경우 모든 bookings 정보 추가
@@ -345,23 +379,35 @@ module.exports = async function handler(req, res) {
             }
           }
 
-          // ✅ FIX: 사용자 정보 우선순위
+          // ✅ CRITICAL FIX: 사용자 정보 우선순위 (렌트카 정보 포함)
           // 1순위: notes의 billingInfo (주문 시 입력한 정보)
-          // 2순위: users 테이블 (회원 정보)
-          // 3순위: bookings 테이블의 shipping 정보 (배송지로 입력한 정보)
-          const finalUserName = billingName || user?.name || order.shipping_name || '';
+          // 2순위: users 테이블 (Neon DB 회원 정보)
+          // 3순위: 렌트카 customer 정보 (shipping_email은 렌트카의 customer_email)
+          // 4순위: bookings 테이블의 shipping 정보
+          const finalUserName = billingName || user?.name || order.shipping_name || notesShippingName || '';
           const finalUserEmail = billingEmail || user?.email || order.shipping_email || '';
-          const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || '';
+          const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || notesShippingPhone || '';
 
-          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (billing="${billingName}", user="${user?.name || 'null'}", user.email="${user?.email || 'null'}", user.phone="${user?.phone || 'null'}", shipping="${order.shipping_name || 'null'}")`);
+          // ⚠️ 사용자 정보가 완전히 없는 경우 상세 경고
+          if (!finalUserName && !finalUserEmail && !finalUserPhone) {
+            console.error(`❌❌❌ [Orders] order_id=${order.id}: 모든 소스에서 사용자 정보 없음!`);
+            console.error(`  - user_id: ${order.user_id || 'NULL'}`);
+            console.error(`  - billing: name="${billingName}", email="${billingEmail}", phone="${billingPhone}"`);
+            console.error(`  - user (Neon DB): ${user ? `name="${user.name}", email="${user.email}", phone="${user.phone}"` : 'NULL'}`);
+            console.error(`  - shipping: name="${order.shipping_name || 'NULL'}", email="${order.shipping_email || 'NULL'}", phone="${order.shipping_phone || 'NULL'}"`);
+            console.error(`  - notes.shipping: name="${notesShippingName || 'NULL'}", phone="${notesShippingPhone || 'NULL'}"`);
+            console.error(`  - category: ${order.category}`);
+          }
+
+          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (source: billing="${billingName || 'N'}", user.name="${user?.name || 'N'}", user.email="${user?.email || 'N'}", user.phone="${user?.phone || 'N'}", shipping="${order.shipping_name || 'N'}/${order.shipping_email || 'N'}/${order.shipping_phone || 'N'}")`);
 
           return {
-            id: parseInt(order.id) || order.id, // ✅ FIX: 문자열 → 숫자 변환
-            booking_id: order.booking_id, // ✅ 환불 시 필요
+            id: parseInt(order.id) || order.id,
+            booking_id: order.booking_id,
             booking_number: order.booking_number,
-            user_name: finalUserName, // ✅ FIX: notes → users → bookings 순서로 우선순위
-            user_email: finalUserEmail, // ✅ FIX: notes → users 순서로 우선순위
-            user_phone: finalUserPhone, // ✅ FIX: notes → users → bookings 순서로 우선순위
+            user_name: finalUserName || null,
+            user_email: finalUserEmail || null,
+            user_phone: finalUserPhone || null,
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,
@@ -399,27 +445,62 @@ module.exports = async function handler(req, res) {
             courier_company: order.courier_company || null
           };
         });
+      } catch (neonError) {
+        console.error('❌ [Orders] Neon DB 조회 중 오류 발생:', neonError);
+        console.error('❌ [Orders] 오류 상세:', neonError.message);
+
+        // ✅ CRITICAL: Neon DB 조회 실패 시에도 주문은 표시 (사용자 정보 없이)
+        ordersWithUserInfo = allOrders.map(order => ({
+          id: parseInt(order.id) || order.id,
+          booking_id: order.booking_id,
+          booking_number: order.booking_number,
+          user_name: order.shipping_name || null,
+          user_email: order.shipping_email || null,
+          user_phone: order.shipping_phone || null,
+          product_name: order.product_title || '주문',
+          product_title: order.product_title || '주문',
+          listing_id: order.listing_id,
+          amount: parseFloat(order.amount),
+          total_amount: parseFloat(order.amount),
+          subtotal: parseFloat(order.amount),
+          delivery_fee: 0,
+          items_info: null,
+          bookings_list: null,
+          item_count: 1,
+          total_quantity: 1,
+          status: order.booking_status || 'pending',
+          payment_status: order.payment_status,
+          created_at: order.created_at,
+          start_date: order.start_date,
+          end_date: order.end_date,
+          num_adults: order.adults || order.guests || 0,
+          guests: order.adults || order.guests || 0,
+          num_children: order.children || 0,
+          num_seniors: 0,
+          category: order.category,
+          is_popup: order.category === '팝업',
+          has_popup_product: false,
+          order_number: order.gateway_transaction_id || order.order_number,
+          delivery_status: order.delivery_status,
+          shipping_name: order.shipping_name || '',
+          shipping_phone: order.shipping_phone || '',
+          shipping_address: order.shipping_address || '',
+          shipping_address_detail: order.shipping_address_detail || '',
+          shipping_zipcode: order.shipping_zipcode || '',
+          tracking_number: order.tracking_number || null,
+          courier_company: order.courier_company || null
+        }));
+
+        console.warn(`⚠️ [Orders] Neon DB 에러로 인해 ${ordersWithUserInfo.length}건 주문을 기본 정보만으로 반환`);
       } finally {
         await poolNeon.end();
       }
 
-      // 페이지네이션 적용
-      const paginatedOrders = ordersWithUserInfo.slice(offset, offset + limit);
-      const totalPages = Math.ceil(totalOrders / limit);
-
-      console.log(`📄 [Orders] 총 ${totalOrders}건 중 ${paginatedOrders.length}건 반환 (${page}/${totalPages} 페이지)`);
-
       return res.status(200).json({
         success: true,
-        version: "1.0.2-pagination",
+        version: "1.0.1-billingInfo-debug",
         deployedAt: new Date().toISOString(),
-        orders: paginatedOrders,
-        pagination: {
-          page,
-          limit,
-          total: totalOrders,
-          total_pages: totalPages
-        }
+        orders: ordersWithUserInfo
       });
     } catch (error) {
       console.error('Orders GET API error:', error);
