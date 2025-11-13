@@ -32,7 +32,9 @@ import {
   Download,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
+  Eye,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -107,6 +109,10 @@ export function FoodVendorDashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // 예약 상세보기 모달
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -134,13 +140,34 @@ export function FoodVendorDashboard() {
         setRestaurants(restData.data || []);
       }
 
-      // 주문 목록
-      const ordersResponse = await fetch('/api/vendor/food/orders', {
+      // 주문 목록 (API 경로 수정: bookings)
+      const ordersResponse = await fetch('/api/vendor/food/bookings', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const ordersData = await ordersResponse.json();
       if (ordersData.success) {
-        const ordersList = ordersData.data || [];
+        const bookingsData = ordersData.data?.bookings || [];
+
+        // API 데이터를 UI Order 인터페이스에 맞게 매핑
+        const ordersList = bookingsData.map((b: any) => ({
+          id: b.id,
+          order_number: b.booking_number,
+          restaurant_name: b.restaurant_name,
+          customer_name: b.customer_name,
+          customer_email: b.customer_email,
+          customer_phone: b.customer_phone,
+          reservation_datetime: b.reservation_date + (b.reservation_time ? ' ' + b.reservation_time : ''),
+          reservation_time: b.reservation_time,
+          party_size: b.party_size || b.num_adults || 1,
+          menu_items: b.menu_items || [],
+          special_requests: b.special_requests,
+          total_amount: b.total_amount,
+          payment_status: b.payment_status,
+          payment_key: b.payment_key,
+          status: b.status,
+          created_at: b.created_at
+        }));
+
         setOrders(ordersList);
         setFilteredOrders(ordersList);
 
@@ -693,6 +720,17 @@ export function FoodVendorDashboard() {
                             <TableCell>{getStatusBadge(order.status)}</TableCell>
                             <TableCell>
                               <div className="flex gap-2 flex-wrap">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setIsDetailModalOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  상세보기
+                                </Button>
                                 {order.status === 'pending' && (
                                   <Button
                                     variant="default"
@@ -830,6 +868,183 @@ export function FoodVendorDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* 예약 상세보기 모달 */}
+      {isDetailModalOpen && selectedOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">예약 상세 정보</h2>
+              <button
+                onClick={() => {
+                  setIsDetailModalOpen(false);
+                  setSelectedOrder(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* 예약 기본 정보 */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <UtensilsCrossed className="h-5 w-5 text-orange-600" />
+                  예약 기본 정보
+                </h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-700">주문번호:</span>
+                    <span className="ml-2 text-gray-900 font-mono">{selectedOrder.order_number}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">음식점:</span>
+                    <span className="ml-2 text-gray-900">{selectedOrder.restaurant_name}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">예약일시:</span>
+                    <span className="ml-2 text-gray-900">
+                      {new Date(selectedOrder.reservation_datetime).toLocaleString('ko-KR')}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">인원:</span>
+                    <span className="ml-2 text-gray-900">{selectedOrder.party_size}명</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">주문상태:</span>
+                    <span className="ml-2">{getStatusBadge(selectedOrder.status)}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-700">결제상태:</span>
+                    <span className="ml-2">{getPaymentStatusBadge(selectedOrder.payment_status)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 고객 정보 */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  고객 정보
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-700">이름:</span>
+                    <span className="ml-2 text-gray-900">{selectedOrder.customer_name}</span>
+                  </div>
+                  {selectedOrder.customer_email && (
+                    <div>
+                      <span className="font-medium text-gray-700">이메일:</span>
+                      <a
+                        href={`mailto:${selectedOrder.customer_email}`}
+                        className="ml-2 text-blue-600 hover:underline"
+                      >
+                        {selectedOrder.customer_email}
+                      </a>
+                    </div>
+                  )}
+                  {selectedOrder.customer_phone && (
+                    <div>
+                      <span className="font-medium text-gray-700">전화번호:</span>
+                      <a
+                        href={`tel:${selectedOrder.customer_phone}`}
+                        className="ml-2 text-blue-600 hover:underline"
+                      >
+                        {selectedOrder.customer_phone}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 주문 메뉴 */}
+              {selectedOrder.menu_items && selectedOrder.menu_items.length > 0 && (
+                <div className="bg-orange-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <ChefHat className="h-5 w-5 text-orange-600" />
+                    주문 메뉴
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedOrder.menu_items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-2 bg-white rounded border">
+                        <div>
+                          <div className="font-medium text-gray-900">{item.name}</div>
+                          {item.options && (
+                            <div className="text-xs text-gray-600">옵션: {item.options}</div>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm text-gray-700">x{item.quantity}</div>
+                          {item.price && (
+                            <div className="text-sm font-medium text-gray-900">
+                              {item.price.toLocaleString()}원
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 특별 요청사항 */}
+              {selectedOrder.special_requests && (
+                <div className="bg-yellow-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    💬 특별 요청사항
+                  </h3>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                    {selectedOrder.special_requests}
+                  </p>
+                </div>
+              )}
+
+              {/* 결제 정보 */}
+              <div className="bg-green-50 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-green-600" />
+                  결제 정보
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-gray-700">총 금액:</span>
+                    <span className="text-lg font-bold text-gray-900">
+                      {selectedOrder.total_amount.toLocaleString()}원
+                    </span>
+                  </div>
+                  {selectedOrder.payment_key && (
+                    <div>
+                      <span className="font-medium text-gray-700">결제 키:</span>
+                      <span className="ml-2 text-gray-600 text-xs font-mono">
+                        {selectedOrder.payment_key}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 등록일시 */}
+              <div className="text-xs text-gray-500 text-center pt-2 border-t">
+                등록일시: {new Date(selectedOrder.created_at).toLocaleString('ko-KR')}
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsDetailModalOpen(false);
+                  setSelectedOrder(null);
+                }}
+              >
+                닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
