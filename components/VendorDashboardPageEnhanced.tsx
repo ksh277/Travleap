@@ -1911,7 +1911,9 @@ export function VendorDashboardPageEnhanced() {
                             <div className="flex flex-col gap-1">
                               <Badge
                                 variant={
-                                  booking.status === 'completed'
+                                  booking.payment_status === 'refunded'
+                                    ? 'destructive'
+                                    : booking.status === 'completed'
                                     ? 'default'
                                     : booking.status === 'confirmed'
                                     ? 'secondary'
@@ -1919,8 +1921,11 @@ export function VendorDashboardPageEnhanced() {
                                     ? 'destructive'
                                     : 'outline'
                                 }
+                                className={booking.payment_status === 'refunded' ? 'bg-red-100 text-red-700 border-red-300' : ''}
                               >
-                                {booking.status === 'completed'
+                                {booking.payment_status === 'refunded'
+                                  ? '환불됨'
+                                  : booking.status === 'completed'
                                   ? '완료'
                                   : booking.status === 'confirmed'
                                   ? '확정'
@@ -1930,16 +1935,11 @@ export function VendorDashboardPageEnhanced() {
                                   ? '픽업완료'
                                   : '대기'}
                               </Badge>
-                              {booking.payment_status === 'refunded' && (
-                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
-                                  환불완료
-                                </Badge>
-                              )}
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              {booking.status === 'confirmed' && (
+                              {booking.status === 'confirmed' && booking.payment_status !== 'refunded' && (
                                 <>
                                   <Button
                                     variant="outline"
