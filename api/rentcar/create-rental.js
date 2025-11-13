@@ -252,13 +252,17 @@ module.exports = async function handler(req, res) {
     // 보험 요금 (옵션)
     let insurancePriceKrw = 0;
     if (insurance_plan_id) {
+      // rentcar_insurance 테이블 사용 (hourly_rate_krw 기준)
       const insurancePlans = await db.query(`
-        SELECT daily_price_krw FROM rentcar_insurance_plans WHERE id = ?
+        SELECT hourly_rate_krw FROM rentcar_insurance WHERE id = ?
       `, [insurance_plan_id]);
 
       if (insurancePlans.length > 0) {
-        insurancePriceKrw = insurancePlans[0].daily_price_krw * pricing.rental_days;
+        // 시간당 요금 * 총 시간
+        insurancePriceKrw = Math.ceil(insurancePlans[0].hourly_rate_krw * pricing.total_hours);
       }
+
+      console.log(`   🛡️  Insurance calculated: plan_id=${insurance_plan_id}, hourly_rate=${insurancePlans[0]?.hourly_rate_krw || 0}, total_hours=${pricing.total_hours}, total=${insurancePriceKrw} KRW`);
     }
 
     // 추가 옵션 요금
