@@ -5519,8 +5519,8 @@ function setupRoutes() {
       await db.execute(`
         INSERT INTO rentcar_vehicles (
           vendor_id, display_name, daily_rate_krw, hourly_rate_krw,
-          thumbnail_url, images, is_active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          thumbnail_url, images, stock, is_active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       `, [
         vendorId,
         display_name,
@@ -5528,6 +5528,7 @@ function setupRoutes() {
         calculatedHourlyRate,
         image_urls && image_urls.length > 0 ? image_urls[0] : null,
         imagesJson,
+        10, // 초기 재고 10대
         is_available !== undefined ? (is_available ? 1 : 0) : 1
       ]);
 
