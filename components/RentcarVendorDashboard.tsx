@@ -1916,189 +1916,98 @@ export default function RentcarVendorDashboard() {
 
               {!loading && !error && bookings.length > 0 && (
                 <>
-                  <div className="space-y-4">
-                    {getPaginatedBookings().map((booking) => (
-                    <div key={booking.id} className="border rounded-lg p-4 hover:shadow-md transition">
-                      <div className="flex items-start gap-4">
-                        {booking.vehicle_image && (
-                          <img
-                            src={booking.vehicle_image}
-                            alt={booking.vehicle_model}
-                            className="w-32 h-32 object-cover rounded-lg"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-lg font-bold text-gray-900">{booking.vehicle_model}</h3>
-                            {getStatusBadge(booking.status)}
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-3">
-                            <p className="text-sm text-gray-600">예약 번호: <span className="font-medium">{booking.booking_number}</span></p>
-                            <p className="text-sm text-gray-600">차량 번호: <span className="font-medium">{booking.vehicle_code}</span></p>
-                            <p className="text-sm text-gray-600">고객: <span className="font-medium">{booking.customer_name}</span></p>
-                            <p className="text-sm text-gray-600">이메일:
-                              {booking.customer_email ? (
-                                <a href={`mailto:${booking.customer_email}`} className="font-medium text-blue-600 hover:underline">{booking.customer_email}</a>
-                              ) : <span className="font-medium">-</span>}
-                            </p>
-                            <p className="text-sm text-gray-600">전화:
+                  {/* 테이블 뷰 */}
+                  <div className="bg-white border rounded-lg overflow-hidden mb-6">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">예약번호</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">차량</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">고객명</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">연락처</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">픽업일시</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">반납일시</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">금액</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">상태</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">관리</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {getPaginatedBookings().map((booking) => (
+                          <tr key={booking.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 text-sm">{booking.booking_number}</td>
+                            <td className="px-4 py-3 text-sm">{booking.vehicle_model}</td>
+                            <td className="px-4 py-3 text-sm">{booking.customer_name}</td>
+                            <td className="px-4 py-3 text-sm">
                               {booking.customer_phone ? (
-                                <a href={`tel:${booking.customer_phone}`} className="font-medium text-blue-600 hover:underline">{booking.customer_phone}</a>
-                              ) : <span className="font-medium">-</span>}
-                            </p>
-                            <p className="text-sm text-gray-600">운전자: <span className="font-medium">{booking.driver_name}</span></p>
-                            <p className="text-sm text-gray-600">면허: <span className="font-medium">{booking.driver_license_no}</span></p>
-                            {booking.driver_birth && (
-                              <p className="text-sm text-gray-600">생년월일: <span className="font-medium">{booking.driver_birth}</span></p>
-                            )}
-                          </div>
-
-                          {/* 결제 정보 */}
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <span className="text-xs text-blue-600">총 결제 금액</span>
-                                <p className="text-lg font-bold text-blue-900">₩{booking.total_price_krw.toLocaleString()}</p>
-                              </div>
-                              {booking.pickup_location && (
-                                <div className="text-right">
-                                  <span className="text-xs text-blue-600">픽업 위치</span>
-                                  <p className="text-sm font-medium text-blue-900">{booking.pickup_location}</p>
-                                </div>
+                                <a href={`tel:${booking.customer_phone}`} className="text-blue-600 hover:underline">
+                                  {booking.customer_phone}
+                                </a>
+                              ) : (
+                                <span className="text-gray-400">-</span>
                               )}
-                            </div>
-                          </div>
-
-                          {/* 날짜/시간 정보 */}
-                          <div className="flex items-center gap-4 mb-3">
-                            <div className="flex-1 bg-gray-50 rounded-lg p-2">
-                              <span className="text-xs text-gray-500">인수 예정</span>
-                              <p className="text-sm font-medium">
-                                {format(new Date(booking.pickup_at_utc), 'MM/dd HH:mm', { locale: ko })}
-                              </p>
-                            </div>
-                            <div className="flex-1 bg-gray-50 rounded-lg p-2">
-                              <span className="text-xs text-gray-500">반납 예정</span>
-                              <p className="text-sm font-medium">
-                                {format(new Date(booking.return_at_utc), 'MM/dd HH:mm', { locale: ko })}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* 추가 옵션 정보 */}
-                          {booking.extras && booking.extras.length > 0 && (
-                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-semibold text-purple-700">추가 옵션 ({booking.extras_count}개)</span>
-                                <span className="text-sm font-bold text-purple-900">+₩{booking.extras_total?.toLocaleString()}</span>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {format(new Date(booking.pickup_at_utc), 'yyyy. MM. dd. HH:mm', { locale: ko })}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {format(new Date(booking.return_at_utc), 'yyyy. MM. dd. HH:mm', { locale: ko })}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-medium">
+                              ₩{booking.total_price_krw.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {getStatusBadge(booking.status)}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="flex flex-wrap gap-1">
+                                {booking.status === 'confirmed' && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setCheckInBooking(booking);
+                                        setActiveTab('check-in');
+                                      }}
+                                      className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                                    >
+                                      픽업 처리
+                                    </button>
+                                    <button
+                                      onClick={() => handleRefund(booking)}
+                                      className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                                    >
+                                      환불
+                                    </button>
+                                  </>
+                                )}
+                                {booking.status === 'picked_up' && (
+                                  <>
+                                    <button
+                                      onClick={() => startCheckOut(booking)}
+                                      className="px-2 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700"
+                                    >
+                                      반납 처리
+                                    </button>
+                                    <button
+                                      onClick={() => handleRefund(booking)}
+                                      className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                                    >
+                                      환불
+                                    </button>
+                                  </>
+                                )}
+                                <button
+                                  onClick={() => setSelectedDetailBooking(booking)}
+                                  className="px-2 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700"
+                                >
+                                  상세
+                                </button>
                               </div>
-                              <div className="space-y-1">
-                                {booking.extras.map((extra, idx) => (
-                                  <div key={idx} className="flex items-center justify-between text-xs">
-                                    <span className="text-gray-700">
-                                      • {extra.name}
-                                      {extra.quantity > 1 && <span className="text-gray-500"> x{extra.quantity}</span>}
-                                    </span>
-                                    <span className="text-gray-600">₩{extra.total_price.toLocaleString()}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 보험 정보 */}
-                          {booking.insurance_name && (
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-green-700">보험</span>
-                                <span className="text-sm font-bold text-green-900">+₩{booking.insurance_fee_krw?.toLocaleString()}</span>
-                              </div>
-                              <div className="mt-1">
-                                <span className="text-xs text-gray-700">• {booking.insurance_name}</span>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex items-center flex-wrap gap-2 mt-4">
-                            {booking.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleConfirmBooking(booking)}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-                                >
-                                  예약 확정
-                                </button>
-                                <button
-                                  onClick={() => handleCancelBooking(booking)}
-                                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm"
-                                >
-                                  예약 취소
-                                </button>
-                              </>
-                            )}
-                            {booking.status === 'confirmed' && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setCheckInBooking(booking);
-                                    setActiveTab('check-in');
-                                  }}
-                                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"
-                                >
-                                  픽업 처리
-                                </button>
-                                <button
-                                  onClick={() => handleRefund(booking)}
-                                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
-                                >
-                                  환불
-                                </button>
-                              </>
-                            )}
-                            {booking.status === 'picked_up' && (
-                              <>
-                                <button
-                                  onClick={() => startCheckOut(booking)}
-                                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition text-sm"
-                                >
-                                  반납 처리
-                                </button>
-                                <button
-                                  onClick={() => handleRefund(booking)}
-                                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
-                                >
-                                  환불
-                                </button>
-                              </>
-                            )}
-                            {(booking.status === 'returned' || booking.status === 'completed') && (
-                              <>
-                                <button
-                                  onClick={() => viewPickupRecord(booking)}
-                                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-                                >
-                                  픽업 기록
-                                </button>
-                                <button
-                                  onClick={() => viewReturnRecord(booking)}
-                                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm"
-                                >
-                                  반납 기록
-                                </button>
-                              </>
-                            )}
-                            <button
-                              onClick={() => setSelectedDetailBooking(booking)}
-                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm"
-                            >
-                              상세보기
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
 
                   {/* Pagination */}
