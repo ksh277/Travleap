@@ -561,7 +561,7 @@ export function VendorDashboardPageEnhanced() {
       // 2. 차량 목록 조회 API - JWT 토큰으로 인증
       // /api/vendors는 rentcar_vendors 테이블을 조회하므로 항상 렌트카 벤더
       const isRentcarVendor = true;
-      const vehiclesEndpoint = '/api/vendor/rentcar/vehicles';
+      const vehiclesEndpoint = '/api/vendor/vehicles';
 
       const vehiclesResponse = await fetch(vehiclesEndpoint, { headers });
       const vehiclesData = await vehiclesResponse.json();
