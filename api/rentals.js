@@ -143,12 +143,12 @@ module.exports = async function handler(req, res) {
 
     console.log('   💰 가격 계산: 일일', dailyRate, '원 × ', fullDays, '일 +', hourlyRate, '원 ×', remainingHours, '시간 = ', subtotal, '원');
 
-    // 4. 보험료 계산
+    // 4. 보험료 계산 (rentcar_insurance 테이블 사용)
     let insuranceFee = 0;
     if (insurance_plan_id) {
       const insuranceResult = await connection.execute(
-        'SELECT hourly_rate_krw, is_active FROM rentcar_insurance WHERE id = ? AND vendor_id = ?',
-        [insurance_plan_id, vehicle.vendor_id]
+        'SELECT hourly_rate_krw, is_active FROM rentcar_insurance WHERE id = ?',
+        [insurance_plan_id]
       );
 
       if (insuranceResult.rows && insuranceResult.rows.length > 0) {
@@ -158,8 +158,13 @@ module.exports = async function handler(req, res) {
             error: '선택하신 보험은 현재 제공되지 않습니다'
           });
         }
-        // 시간을 올림 처리하여 시간당 요금 계산 (예: 25.5시간 -> 26시간)
-        insuranceFee = insuranceResult.rows[0].hourly_rate_krw * Math.ceil(rentalHours);
+        const insurance = insuranceResult.rows[0];
+        // rentcar_insurance는 항상 hourly 단위
+        insuranceFee = Math.ceil(insurance.hourly_rate_krw * rentalHours);
+
+        console.log('   🛡️  보험료 계산:', insurance.hourly_rate_krw, '원/시간 ×', rentalHours, '시간 =', insuranceFee, '원');
+      } else {
+        console.warn('   ⚠️  보험 ID', insurance_plan_id, '를 찾을 수 없습니다');
       }
     }
 
