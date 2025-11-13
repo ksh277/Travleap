@@ -1,4 +1,5 @@
 import { db } from '../../utils/database';
+const { decrypt, decryptPhone, decryptEmail } = require('../../utils/encryption.cjs');
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -85,7 +86,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // extras를 각 예약에 매핑
+    // extras를 각 예약에 매핑 및 고객 정보 복호화
     const bookingsWithExtras = bookings.map(booking => {
       const bookingExtras = extrasData
         .filter(e => e.booking_id === booking.id)
@@ -101,6 +102,11 @@ export default async function handler(req, res) {
 
       return {
         ...booking,
+        // 고객 정보 복호화 (PIPA 준수)
+        customer_name: decrypt(booking.customer_name),
+        customer_email: decryptEmail(booking.customer_email),
+        customer_phone: decryptPhone(booking.customer_phone),
+        driver_name: booking.driver_name ? decrypt(booking.driver_name) : null,
         extras: bookingExtras,
         extras_count: bookingExtras.length,
         extras_total: bookingExtras.reduce((sum, e) => sum + e.total_price, 0)
