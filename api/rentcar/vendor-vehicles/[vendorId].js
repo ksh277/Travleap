@@ -17,7 +17,9 @@ module.exports = async function handler(req, res) {
     const connection = connect({ url: process.env.DATABASE_URL });
 
     const result = await connection.execute(
-      `SELECT id, vendor_id, vehicle_code, display_name, category, passengers, daily_rate_krw, fuel_type, transmission, image_url, is_active, created_at
+      `SELECT id, vendor_id, vehicle_code, brand, model, display_name, category, passengers,
+              hourly_rate_krw, daily_rate_krw, stock,
+              fuel_type, transmission, image_url, is_active, created_at
        FROM rentcar_vehicles WHERE vendor_id = ? ORDER BY created_at DESC`,
       [vendorId]
     );
