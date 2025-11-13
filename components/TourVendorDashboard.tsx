@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw, Download, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw, Download, ArrowUp, ArrowDown, ArrowUpDown, Eye, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 
@@ -61,6 +61,10 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // 예약 상세보기 모달
+  const [selectedBooking, setSelectedBooking] = useState<TourBooking | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // 패키지 목록 로드 (JWT에서 vendorId 자동 추출)
   const loadPackages = async () => {
@@ -661,6 +665,17 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                             </td>
                             <td>
                               <div className="action-buttons">
+                                <button
+                                  onClick={() => {
+                                    setSelectedBooking(booking);
+                                    setIsDetailModalOpen(true);
+                                  }}
+                                  className="status-btn"
+                                  style={{ backgroundColor: '#6b7280', marginBottom: '4px' }}
+                                >
+                                  <Eye className="h-4 w-4" style={{ display: 'inline', marginRight: '4px' }} />
+                                  상세보기
+                                </button>
                                 {booking.status === 'pending' && (
                                   <button
                                     onClick={() => handleUpdateStatus(booking, 'confirmed')}
@@ -1073,6 +1088,210 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
           margin-top: 0.25rem;
         }
       `}</style>
+
+      {/* 예약 상세보기 모달 */}
+      {isDetailModalOpen && selectedBooking && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            maxWidth: '600px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{
+              position: 'sticky',
+              top: 0,
+              backgroundColor: 'white',
+              borderBottom: '1px solid #e5e7eb',
+              padding: '16px 24px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827' }}>예약 상세 정보</h2>
+              <button
+                onClick={() => {
+                  setIsDetailModalOpen(false);
+                  setSelectedBooking(null);
+                }}
+                style={{
+                  padding: '8px',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  borderRadius: '9999px'
+                }}
+              >
+                <X style={{ width: '20px', height: '20px' }} />
+              </button>
+            </div>
+
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* 투어 기본 정보 */}
+              <div style={{ backgroundColor: '#f3f4f6', borderRadius: '8px', padding: '16px' }}>
+                <h3 style={{ fontWeight: '600', color: '#111827', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar style={{ width: '20px', height: '20px', color: '#2563eb' }} />
+                  투어 기본 정보
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                  <div>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>예약번호:</span>
+                    <span style={{ marginLeft: '8px', color: '#111827', fontFamily: 'monospace' }}>{selectedBooking.booking_number || '-'}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>투어명:</span>
+                    <span style={{ marginLeft: '8px', color: '#111827' }}>{selectedBooking.package_name}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>출발일시:</span>
+                    <span style={{ marginLeft: '8px', color: '#111827' }}>
+                      {selectedBooking.departure_date} {selectedBooking.departure_time}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>상태:</span>
+                    <span style={{ marginLeft: '8px' }}>
+                      {selectedBooking.status === 'pending' && <span className="badge badge-warning">대기중</span>}
+                      {selectedBooking.status === 'confirmed' && <span className="badge badge-success">확정</span>}
+                      {selectedBooking.status === 'completed' && <span className="badge badge-secondary">완료</span>}
+                      {selectedBooking.status === 'canceled' && <span className="badge badge-danger">취소</span>}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 고객 정보 */}
+              <div style={{ backgroundColor: '#dbeafe', borderRadius: '8px', padding: '16px' }}>
+                <h3 style={{ fontWeight: '600', color: '#111827', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Users style={{ width: '20px', height: '20px', color: '#2563eb' }} />
+                  고객 정보
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px' }}>
+                  <div>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>이름:</span>
+                    <span style={{ marginLeft: '8px', color: '#111827' }}>{selectedBooking.username}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>이메일:</span>
+                    <a
+                      href={`mailto:${selectedBooking.user_email}`}
+                      style={{ marginLeft: '8px', color: '#2563eb', textDecoration: 'underline' }}
+                    >
+                      {selectedBooking.user_email}
+                    </a>
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>전화번호:</span>
+                    <a
+                      href={`tel:${selectedBooking.user_phone}`}
+                      style={{ marginLeft: '8px', color: '#2563eb', textDecoration: 'underline' }}
+                    >
+                      {selectedBooking.user_phone}
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* 인원 정보 */}
+              <div style={{ backgroundColor: '#fef3c7', borderRadius: '8px', padding: '16px' }}>
+                <h3 style={{ fontWeight: '600', color: '#111827', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Users style={{ width: '20px', height: '20px', color: '#f59e0b' }} />
+                  인원 정보
+                </h3>
+                <div style={{ display: 'flex', gap: '16px', fontSize: '14px' }}>
+                  <div>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>성인:</span>
+                    <span style={{ marginLeft: '8px', color: '#111827', fontWeight: '600' }}>{selectedBooking.adult_count}명</span>
+                  </div>
+                  {selectedBooking.child_count > 0 && (
+                    <div>
+                      <span style={{ fontWeight: '500', color: '#374151' }}>아동:</span>
+                      <span style={{ marginLeft: '8px', color: '#111827', fontWeight: '600' }}>{selectedBooking.child_count}명</span>
+                    </div>
+                  )}
+                  {selectedBooking.infant_count > 0 && (
+                    <div>
+                      <span style={{ fontWeight: '500', color: '#374151' }}>유아:</span>
+                      <span style={{ marginLeft: '8px', color: '#111827', fontWeight: '600' }}>{selectedBooking.infant_count}명</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 결제 정보 */}
+              <div style={{ backgroundColor: '#d1fae5', borderRadius: '8px', padding: '16px' }}>
+                <h3 style={{ fontWeight: '600', color: '#111827', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <DollarSign style={{ width: '20px', height: '20px', color: '#10b981' }} />
+                  결제 정보
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>총 금액:</span>
+                    <span style={{ fontSize: '18px', fontWeight: '700', color: '#111827' }}>
+                      {selectedBooking.total_price_krw.toLocaleString()}원
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>결제 상태:</span>
+                    <span style={{ marginLeft: '8px' }}>
+                      {selectedBooking.payment_status === 'paid' && <span className="badge badge-success">결제완료</span>}
+                      {selectedBooking.payment_status === 'refunded' && <span className="badge badge-danger">환불완료</span>}
+                      {selectedBooking.payment_status === 'pending' && <span className="badge badge-warning">대기중</span>}
+                      {!selectedBooking.payment_status && <span className="badge badge-secondary">-</span>}
+                    </span>
+                  </div>
+                  {selectedBooking.payment_key && (
+                    <div>
+                      <span style={{ fontWeight: '500', color: '#374151' }}>결제 키:</span>
+                      <span style={{ marginLeft: '8px', color: '#6b7280', fontSize: '12px', fontFamily: 'monospace' }}>
+                        {selectedBooking.payment_key}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 등록일시 */}
+              <div style={{ fontSize: '12px', color: '#6b7280', textAlign: 'center', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>
+                등록일시: {selectedBooking.created_at ? new Date(selectedBooking.created_at).toLocaleString('ko-KR') : '-'}
+              </div>
+            </div>
+
+            <div style={{
+              position: 'sticky',
+              bottom: 0,
+              backgroundColor: '#f9fafb',
+              padding: '16px 24px',
+              borderTop: '1px solid #e5e7eb',
+              display: 'flex',
+              justifyContent: 'flex-end'
+            }}>
+              <Button
+                onClick={() => {
+                  setIsDetailModalOpen(false);
+                  setSelectedBooking(null);
+                }}
+              >
+                닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
