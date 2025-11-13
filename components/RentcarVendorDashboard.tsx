@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 // JWT 디코딩 헬퍼 함수
@@ -69,7 +69,7 @@ interface RentcarBooking {
   insurance_fee_krw?: number;
 }
 
-type TabType = 'all' | 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles';
+type TabType = 'all' | 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles' | 'calendar';
 
 export default function RentcarVendorDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('today');
@@ -142,6 +142,11 @@ export default function RentcarVendorDashboard() {
     current_stock: ''
   });
 
+  // Calendar state
+  const [selectedVehicleForCalendar, setSelectedVehicleForCalendar] = useState<number | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDateBookings, setSelectedDateBookings] = useState<RentcarBooking[]>([]);
+
   // Fetch data based on active tab
   useEffect(() => {
     if (activeTab === 'all') {
@@ -156,6 +161,11 @@ export default function RentcarVendorDashboard() {
       fetchExtras();
     } else if (activeTab === 'vehicles') {
       fetchVehiclesForStock();
+    } else if (activeTab === 'calendar') {
+      fetchAllBookings();
+      if (vehicles.length === 0) {
+        fetchVehiclesForStock();
+      }
     }
   }, [activeTab]);
 
@@ -1274,6 +1284,16 @@ export default function RentcarVendorDashboard() {
               }`}
             >
               ⚙️ 옵션 관리
+            </button>
+            <button
+              onClick={() => setActiveTab('calendar')}
+              className={`flex-1 py-4 px-6 text-center font-medium transition ${
+                activeTab === 'calendar'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              📅 차량 캘린더
             </button>
             <button
               onClick={() => setActiveTab('vehicles')}
@@ -3370,6 +3390,234 @@ export default function RentcarVendorDashboard() {
                   <li>• 등록된 옵션은 차량별로 연결하여 사용자에게 제공됩니다.</li>
                 </ul>
               </div>
+            </div>
+          )}
+
+          {/* Calendar Tab */}
+          {activeTab === 'calendar' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">📅 차량별 예약 캘린더</h2>
+                <button
+                  onClick={() => {
+                    fetchAllBookings();
+                    fetchVehiclesForStock();
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  🔄 새로고침
+                </button>
+              </div>
+
+              {/* 차량 선택 */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">차량 선택</label>
+                <select
+                  value={selectedVehicleForCalendar || ''}
+                  onChange={(e) => setSelectedVehicleForCalendar(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- 차량을 선택하세요 --</option>
+                  {vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.brand} {vehicle.model} {vehicle.year && `(${vehicle.year})`} - {vehicle.vehicle_code}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedVehicleForCalendar ? (
+                <>
+                  {/* 월 네비게이션 */}
+                  <div className="flex items-center justify-between mb-6">
+                    <button
+                      onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                      className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+                    >
+                      ← 이전 달
+                    </button>
+                    <h3 className="text-xl font-bold">
+                      {format(currentMonth, 'yyyy년 MM월', { locale: ko })}
+                    </h3>
+                    <button
+                      onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                      className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+                    >
+                      다음 달 →
+                    </button>
+                  </div>
+
+                  {/* 캘린더 그리드 */}
+                  <div className="border rounded-lg overflow-hidden">
+                    {/* 요일 헤더 */}
+                    <div className="grid grid-cols-7 bg-gray-100">
+                      {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
+                        <div
+                          key={day}
+                          className={`p-3 text-center font-medium ${
+                            idx === 0 ? 'text-red-600' : idx === 6 ? 'text-blue-600' : 'text-gray-700'
+                          }`}
+                        >
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 날짜 그리드 */}
+                    <div className="grid grid-cols-7">
+                      {(() => {
+                        const monthStart = startOfMonth(currentMonth);
+                        const monthEnd = endOfMonth(currentMonth);
+                        const startDate = new Date(monthStart);
+                        startDate.setDate(startDate.getDate() - monthStart.getDay());
+                        const endDate = new Date(monthEnd);
+                        endDate.setDate(endDate.getDate() + (6 - monthEnd.getDay()));
+                        const days = eachDayOfInterval({ start: startDate, end: endDate });
+
+                        // 선택된 차량의 예약 필터링
+                        const vehicleBookings = bookings.filter(
+                          (b) => b.vehicle_id === selectedVehicleForCalendar
+                        );
+
+                        return days.map((day, dayIdx) => {
+                          const isCurrentMonth = isSameMonth(day, currentMonth);
+                          const isToday = isSameDay(day, new Date());
+
+                          // 해당 날짜에 예약이 있는지 확인
+                          const dayBookings = vehicleBookings.filter((booking) => {
+                            const pickupDate = parseISO(booking.pickup_at_utc);
+                            const returnDate = parseISO(booking.return_at_utc);
+                            return day >= pickupDate && day <= returnDate;
+                          });
+
+                          const hasBookings = dayBookings.length > 0;
+                          const confirmedCount = dayBookings.filter((b) => b.status === 'confirmed' || b.status === 'picked_up').length;
+
+                          return (
+                            <div
+                              key={dayIdx}
+                              onClick={() => {
+                                if (hasBookings) {
+                                  setSelectedDateBookings(dayBookings);
+                                }
+                              }}
+                              className={`
+                                min-h-[100px] p-2 border border-gray-200
+                                ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white'}
+                                ${isToday ? 'ring-2 ring-blue-500' : ''}
+                                ${hasBookings ? 'cursor-pointer hover:bg-blue-50' : ''}
+                              `}
+                            >
+                              <div className={`text-sm font-medium mb-1 ${dayIdx % 7 === 0 ? 'text-red-600' : dayIdx % 7 === 6 ? 'text-blue-600' : ''}`}>
+                                {format(day, 'd')}
+                              </div>
+                              {hasBookings && (
+                                <div className="space-y-1">
+                                  <div className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded">
+                                    예약 {dayBookings.length}건
+                                  </div>
+                                  {confirmedCount > 0 && (
+                                    <div className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
+                                      확정 {confirmedCount}건
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* 범례 */}
+                  <div className="mt-4 flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
+                      <span>예약 있음</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded"></div>
+                      <span>확정된 예약</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 ring-2 ring-blue-500 rounded"></div>
+                      <span>오늘</span>
+                    </div>
+                  </div>
+
+                  {/* 선택된 날짜의 예약 목록 모달 */}
+                  {selectedDateBookings.length > 0 && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-2xl font-bold">선택된 날짜의 예약 목록</h3>
+                          <button
+                            onClick={() => setSelectedDateBookings([])}
+                            className="text-gray-400 hover:text-gray-600 text-2xl"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <div className="space-y-4">
+                          {selectedDateBookings.map((booking) => (
+                            <div key={booking.id} className="border rounded-lg p-4 hover:shadow-md transition">
+                              <div className="flex items-center justify-between mb-2">
+                                <div>
+                                  <h4 className="font-bold">{booking.booking_number}</h4>
+                                  <p className="text-sm text-gray-600">{booking.vehicle_model}</p>
+                                </div>
+                                {getStatusBadge(booking.status)}
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <span className="text-gray-600">고객:</span> {booking.customer_name}
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">전화:</span>{' '}
+                                  <a href={`tel:${booking.customer_phone}`} className="text-blue-600 hover:underline">
+                                    {booking.customer_phone}
+                                  </a>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">픽업:</span> {format(parseISO(booking.pickup_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">반납:</span> {format(parseISO(booking.return_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-gray-600">금액:</span> ₩{booking.total_price_krw.toLocaleString()}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setSelectedDetailBooking(booking);
+                                  setSelectedDateBookings([]);
+                                }}
+                                className="mt-3 w-full px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                              >
+                                상세보기
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        <button
+                          onClick={() => setSelectedDateBookings([])}
+                          className="w-full mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+                        >
+                          닫기
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-12 text-gray-600">
+                  <p className="text-lg">차량을 선택하면 예약 캘린더를 확인할 수 있습니다.</p>
+                </div>
+              )}
             </div>
           )}
 
