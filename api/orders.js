@@ -178,8 +178,8 @@ module.exports = async function handler(req, res) {
       let ordersWithUserInfo = [];
 
       try {
-        // 모든 주문의 user_id 수집
-        const userIds = [...new Set(allOrders.map(order => order.user_id).filter(Boolean))];
+        // 모든 주문의 user_id 수집 (정수로 변환하여 타입 불일치 방지)
+        const userIds = [...new Set(allOrders.map(order => parseInt(order.user_id)).filter(id => !isNaN(id) && id > 0))];
         console.log(`🔍 [Orders] Neon DB 사용자 조회 시작: ${userIds.length}명 (IDs: ${userIds.join(', ')})`);
 
         let userMap = new Map();
@@ -196,7 +196,9 @@ module.exports = async function handler(req, res) {
           console.log(`✅ [Orders] Neon DB 조회 결과: ${usersResult.rows?.length || 0}명`);
           usersResult.rows?.forEach(user => {
             console.log(`  - user_id=${user.id}: name="${user.name}", email="${user.email}", phone="${user.phone}"`);
-            userMap.set(user.id, user);
+            // ✅ FIX: 문자열 key도 지원하도록 두 가지 버전 모두 저장
+            userMap.set(user.id, user);           // 숫자 key
+            userMap.set(String(user.id), user);  // 문자열 key
           });
 
           if (usersResult.rows?.length === 0) {
