@@ -518,7 +518,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         b.booking_number,
         b.delivery_status,
         b.status as booking_status,
-        b.check_in_time,
+        b.checked_in_at,
         l.category,
         rb.id as rentcar_booking_id,
         rb.booking_number as rentcar_booking_number,
@@ -547,8 +547,8 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
 
     // 2-1. 🚫 체크인/픽업 완료 검증 (skipPolicy가 false일 때만)
     if (!skipPolicy) {
-      // 숙박 예약: status가 'completed'이거나 check_in_time이 기록되어 있으면 체크인 완료로 간주
-      if (payment.booking_id && (payment.booking_status === 'completed' || payment.check_in_time)) {
+      // 숙박 예약: status가 'completed'이거나 checked_in_at이 기록되어 있으면 체크인 완료로 간주
+      if (payment.booking_id && (payment.booking_status === 'completed' || payment.checked_in_at)) {
         throw new Error('CHECKIN_COMPLETED: 체크인이 완료된 예약은 환불할 수 없습니다.');
       }
 
