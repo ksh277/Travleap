@@ -89,7 +89,7 @@ module.exports = async function handler(req, res) {
       } = req.body;
 
       const vehicle = await connection.execute(`
-        SELECT daily_rate_krw, hourly_rate_krw, is_active FROM rentcar_vehicles WHERE id = ?
+        SELECT daily_rate_krw, hourly_rate_krw, is_active, stock FROM rentcar_vehicles WHERE id = ?
       `, [vehicle_id]);
 
       if (!vehicle.rows || vehicle.rows.length === 0) {
@@ -103,6 +103,15 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({
           success: false,
           error: '차량이 현재 예약 불가 상태입니다.'
+        });
+      }
+
+      // 재고 확인
+      const currentStock = vehicle.rows[0].stock || 0;
+      if (currentStock <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: '차량 재고가 부족합니다. 다른 차량을 선택해주세요.'
         });
       }
 
@@ -248,6 +257,13 @@ module.exports = async function handler(req, res) {
         special_requests || null
       ]);
 
+      // 예약 성공 시 차량 재고 1 감소
+      await connection.execute(`
+        UPDATE rentcar_vehicles
+        SET stock = stock - 1
+        WHERE id = ? AND stock > 0
+      `, [vehicle_id]);
+
       return res.status(200).json({
         success: true,
         data: { id: result.insertId, booking_number: bookingNumber },
@@ -273,7 +289,7 @@ module.exports = async function handler(req, res) {
 
       // 예약 존재 확인
       const checkBooking = await connection.execute(
-        'SELECT id, status, payment_status FROM rentcar_bookings WHERE id = ?',
+        'SELECT id, status, payment_status, vehicle_id FROM rentcar_bookings WHERE id = ?',
         [bookingId]
       );
 
@@ -283,6 +299,9 @@ module.exports = async function handler(req, res) {
           error: '예약을 찾을 수 없습니다.'
         });
       }
+
+      const oldStatus = checkBooking.rows[0].status;
+      const vehicleId = checkBooking.rows[0].vehicle_id;
 
       // 상태 업데이트
       const updates = [];
@@ -304,6 +323,16 @@ module.exports = async function handler(req, res) {
       const updateQuery = `UPDATE rentcar_bookings SET ${updates.join(', ')} WHERE id = ?`;
 
       await connection.execute(updateQuery, values);
+
+      // 예약 취소 또는 완료(반납) 시 재고 복구
+      if (booking_status && ['cancelled', 'completed'].includes(booking_status) && !['cancelled', 'completed'].includes(oldStatus)) {
+        await connection.execute(`
+          UPDATE rentcar_vehicles
+          SET stock = stock + 1
+          WHERE id = ?
+        `, [vehicleId]);
+        console.log(`✅ [Booking Update] 차량 재고 복구: vehicle_id=${vehicleId}`);
+      }
 
       console.log('✅ [Booking Update] 예약 상태 업데이트 완료:', bookingId);
 
