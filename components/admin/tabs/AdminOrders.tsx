@@ -47,6 +47,8 @@ interface Order {
   created_at: string;
   start_date: string;
   end_date: string;
+  pickup_time?: string; // ✅ 렌트카 픽업 시간
+  dropoff_time?: string; // ✅ 렌트카 반납 시간
   guests: number;
   category: string;
   is_popup: boolean;
@@ -448,10 +450,29 @@ export function AdminOrders() {
                             <>
                               {order.start_date && order.end_date ? (
                                 <>
-                                  <div>{new Date(order.start_date).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' })}</div>
-                                  <div className="text-xs text-gray-500">
-                                    ~ {new Date(order.end_date).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' })}
-                                  </div>
+                                  {order.category === '렌트카' && order.pickup_time && order.dropoff_time ? (
+                                    // 렌트카: 날짜 + 시간 표시
+                                    <>
+                                      <div>
+                                        {new Date(order.start_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Seoul' })}
+                                        {' '}
+                                        {order.pickup_time.substring(0, 5)}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        ~ {new Date(order.end_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Seoul' })}
+                                        {' '}
+                                        {order.dropoff_time.substring(0, 5)}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    // 일반 예약: 날짜와 시간
+                                    <>
+                                      <div>{new Date(order.start_date).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' })}</div>
+                                      <div className="text-xs text-gray-500">
+                                        ~ {new Date(order.end_date).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' })}
+                                      </div>
+                                    </>
+                                  )}
                                 </>
                               ) : (
                                 <div className="text-gray-400">-</div>

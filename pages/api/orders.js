@@ -135,6 +135,8 @@ module.exports = async function handler(req, res) {
           rb.status as booking_status,
           rb.pickup_date as start_date,
           rb.dropoff_date as end_date,
+          rb.pickup_time,
+          rb.dropoff_time,
           1 as guests,
           1 as adults,
           0 as children,
