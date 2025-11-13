@@ -297,8 +297,8 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        // 3-2. 포인트 적립 (결제 금액의 1%)
-        const pointsToEarn = Math.floor(amount * 0.01); // 1% 적립
+        // 3-2. 포인트 적립 (결제 금액의 2%)
+        const pointsToEarn = Math.floor(amount * 0.02); // 2% 적립
 
         if (pointsToEarn > 0) {
           await poolNeon.query(
@@ -307,7 +307,7 @@ module.exports = async function handler(req, res) {
             [userId, pointsToEarn, `결제 완료 적립 (주문번호: ${orderId})`, 'earned', orderId]
           );
 
-          console.log(`🎁 [Payments Confirm] 포인트 적립 완료: user_id=${userId}, points=+${pointsToEarn} (${amount}원의 1%)`);
+          console.log(`🎁 [Payments Confirm] 포인트 적립 완료: user_id=${userId}, points=+${pointsToEarn} (${amount}원의 2%)`);
         }
 
         await poolNeon.end();
