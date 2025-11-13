@@ -82,6 +82,7 @@ module.exports = async function handler(req, res) {
         rb.total_price_krw as total_price,
         rb.insurance_type,
         rb.insurance_price,
+        rb.damage_fee_krw,
         rb.status,
         rb.payment_status,
         rb.created_at,
@@ -112,6 +113,7 @@ module.exports = async function handler(req, res) {
       total_price: Number(row.total_price || 0),
       insurance_type: row.insurance_type,
       insurance_price: Number(row.insurance_price || 0),
+      damage_fee: Number(row.damage_fee_krw || 0),
       status: row.status,
       payment_status: row.payment_status,
       created_at: row.created_at

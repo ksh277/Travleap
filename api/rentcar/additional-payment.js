@@ -26,7 +26,9 @@ export default async function handler(req, res) {
       customer_key,
       amount,
       reason,
-      breakdown // { late_fee: 30000, damage_fee: 50000, other: 10000 }
+      breakdown, // { late_fee: 30000, damage_fee: 50000, other: 10000 }
+      notes, // 상세 설명 (손해 배상 청구 등)
+      damage_images // 손해 증빙 사진 URL 배열
     } = req.body;
 
     if (!booking_number || !amount) {
@@ -56,7 +58,8 @@ export default async function handler(req, res) {
         total_price_krw,
         deposit_amount_krw,
         late_return_fee_krw,
-        total_additional_fee_krw
+        total_additional_fee_krw,
+        damage_fee_krw
       FROM rentcar_bookings
       WHERE booking_number = ?
       LIMIT 1
@@ -147,31 +150,43 @@ export default async function handler(req, res) {
       });
     }
 
-    // 3. 추가 결제 기록 저장
+    // 3. 추가 결제 기록 저장 (notes, damage_images 포함)
+    const providerResponse = {
+      notes: notes || null,
+      damage_images: damage_images || null,
+      breakdown: breakdown || null
+    };
+
     await db.execute(`
       INSERT INTO rentcar_rental_payments
-      (rental_id, payment_type, payment_method, amount_krw, payment_key, order_id, status, paid_at, created_at)
-      VALUES (?, 'additional', ?, ?, ?, ?, 'captured', ?, NOW())
+      (rental_id, payment_type, payment_method, amount_krw, payment_key, order_id, status, paid_at, provider_response, created_at)
+      VALUES (?, 'additional', ?, ?, ?, ?, 'captured', ?, ?, NOW())
     `, [
       booking.id,
       payment_method,
       amount,
       paymentResult.payment_key || null,
       paymentResult.order_id || null,
-      paymentResult.paid_at
+      paymentResult.paid_at,
+      JSON.stringify(providerResponse)
     ]);
 
-    // 4. 예약 테이블 업데이트 (총 추가 비용 누적)
+    // 4. 예약 테이블 업데이트 (총 추가 비용 + damage_fee 누적)
     const currentAdditionalFee = booking.total_additional_fee_krw || 0;
     const newTotalAdditionalFee = currentAdditionalFee + amount;
+
+    const damageFee = breakdown?.damage_fee || 0;
+    const currentDamageFee = booking.damage_fee_krw || 0;
+    const newDamageFee = currentDamageFee + damageFee;
 
     await db.execute(`
       UPDATE rentcar_bookings
       SET
         total_additional_fee_krw = ?,
+        damage_fee_krw = ?,
         updated_at = NOW()
       WHERE id = ?
-    `, [newTotalAdditionalFee, booking.id]);
+    `, [newTotalAdditionalFee, newDamageFee, booking.id]);
 
     // 5. 이벤트 로그 기록
     await db.execute(`

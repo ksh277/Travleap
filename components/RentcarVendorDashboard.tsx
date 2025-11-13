@@ -3917,7 +3917,7 @@ export default function RentcarVendorDashboard() {
                                 late_fee: 0,
                                 other: 0
                               },
-                              payment_method: 'billing',
+                              payment_method: 'cash', // 벤더가 현장에서 청구/수령
                               notes: damageClaimForm.damage_description,
                               damage_images: damageImages
                             };
