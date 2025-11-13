@@ -69,7 +69,7 @@ interface RentcarBooking {
   insurance_fee_krw?: number;
 }
 
-type TabType = 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles';
+type TabType = 'all' | 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles';
 
 export default function RentcarVendorDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('today');
@@ -144,7 +144,9 @@ export default function RentcarVendorDashboard() {
 
   // Fetch data based on active tab
   useEffect(() => {
-    if (activeTab === 'today') {
+    if (activeTab === 'all') {
+      fetchAllBookings();
+    } else if (activeTab === 'today') {
       fetchTodayBookings();
     } else if (activeTab === 'refunds') {
       fetchRefundsData();
@@ -156,6 +158,31 @@ export default function RentcarVendorDashboard() {
       fetchVehiclesForStock();
     }
   }, [activeTab]);
+
+  const fetchAllBookings = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/vendor/rentcar/bookings', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setBookings(result.data || []);
+      } else {
+        setError(result.message || '예약 목록을 불러오는데 실패했습니다.');
+      }
+    } catch (err: any) {
+      setError(err.message || '서버 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchTodayBookings = async () => {
     setLoading(true);
@@ -1169,6 +1196,16 @@ export default function RentcarVendorDashboard() {
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="flex border-b">
             <button
+              onClick={() => setActiveTab('all')}
+              className={`flex-1 py-4 px-6 text-center font-medium transition ${
+                activeTab === 'all'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              전체 예약
+            </button>
+            <button
               onClick={() => setActiveTab('today')}
               className={`flex-1 py-4 px-6 text-center font-medium transition ${
                 activeTab === 'today'
@@ -1253,6 +1290,343 @@ export default function RentcarVendorDashboard() {
 
         {/* Content */}
         <div className="bg-white rounded-lg shadow p-6">
+          {/* All Bookings Tab */}
+          {activeTab === 'all' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">전체 예약 목록</h2>
+                <button
+                  onClick={fetchAllBookings}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  🔄 새로고침
+                </button>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-4">
+                  {error}
+                </div>
+              )}
+
+              {loading ? (
+                <div className="text-center py-8 text-gray-600">예약 목록을 불러오는 중...</div>
+              ) : sortedAndPagedBookings.length > 0 ? (
+                <>
+                  {/* 검색 및 필터 */}
+                  <div className="mb-6 space-y-4">
+                    <div className="flex items-center gap-4">
+                      <input
+                        type="text"
+                        placeholder="고객명, 예약번호, 전화번호, 이메일, 차량명..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="all">전체 상태</option>
+                        <option value="pending">결제대기</option>
+                        <option value="confirmed">확정</option>
+                        <option value="picked_up">대여중</option>
+                        <option value="returned">반납완료</option>
+                        <option value="completed">완료</option>
+                        <option value="canceled">취소</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-700">시작일:</label>
+                        <input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-700">종료일:</label>
+                        <input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">정렬 기준</label>
+                        <select
+                          value={sortBy}
+                          onChange={(e) => setSortBy(e.target.value as any)}
+                          className="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="date">날짜</option>
+                          <option value="customer">고객명</option>
+                          <option value="vehicle">차량</option>
+                          <option value="status">상태</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">정렬 순서</label>
+                        <button
+                          onClick={() =>
+                            sortOrder === 'asc' ? setSortOrder('desc') : setSortOrder('asc')
+                          }
+                          className="px-3 py-2 border rounded-lg hover:bg-gray-50"
+                        >
+                          {sortOrder === 'asc' ? '오름차순 ↑' : '내림차순 ↓'}
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={exportToCSV}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                      >
+                        📥 CSV 내보내기
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 예약 목록 테이블 */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="border p-3 text-left">예약번호</th>
+                          <th className="border p-3 text-left">차량</th>
+                          <th className="border p-3 text-left">고객</th>
+                          <th className="border p-3 text-left">픽업/반납</th>
+                          <th className="border p-3 text-left">금액</th>
+                          <th className="border p-3 text-left">상태</th>
+                          <th className="border p-3 text-left">작업</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedAndPagedBookings.map((booking) => (
+                          <tr key={booking.id} className="hover:bg-gray-50">
+                            <td className="border p-3">{booking.booking_number}</td>
+                            <td className="border p-3">{booking.vehicle_model}</td>
+                            <td className="border p-3">
+                              <div className="space-y-1">
+                                <div>{booking.customer_name}</div>
+                                <a href={`mailto:${booking.customer_email}`} className="font-medium text-blue-600 hover:underline">{booking.customer_email}</a>
+                                <div>
+                                  <a href={`tel:${booking.customer_phone}`} className="font-medium text-blue-600 hover:underline">{booking.customer_phone}</a>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="border p-3">
+                              <div className="space-y-1">
+                                <div className="text-sm">픽업: {format(new Date(booking.pickup_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}</div>
+                                <div className="text-sm">반납: {format(new Date(booking.return_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}</div>
+                              </div>
+                            </td>
+                            <td className="border p-3">₩{booking.total_price_krw.toLocaleString()}</td>
+                            <td className="border p-3">{getStatusBadge(booking.status)}</td>
+                            <td className="border p-3">
+                              <button
+                                onClick={() => setSelectedDetailBooking(booking)}
+                                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                              >
+                                상세보기
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 페이지네이션 */}
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className={`px-4 py-2 border rounded-lg ${
+                          currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        이전
+                      </button>
+
+                      <div className="flex gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`px-4 py-2 border rounded-lg ${
+                                currentPage === pageNum
+                                  ? 'bg-blue-600 text-white'
+                                  : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className={`px-4 py-2 border rounded-lg ${
+                          currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        다음
+                      </button>
+                    </div>
+
+                    <div className="text-sm text-gray-600">
+                      페이지 {currentPage} / {totalPages}
+                    </div>
+                  </div>
+
+                  {/* Detail Modal */}
+                  {selectedDetailBooking && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-2xl font-bold">예약 상세 정보</h3>
+                          <button
+                            onClick={() => setSelectedDetailBooking(null)}
+                            className="text-gray-400 hover:text-gray-600 text-2xl"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-bold text-lg">{selectedDetailBooking.vehicle_model}</h4>
+                              {getStatusBadge(selectedDetailBooking.status)}
+                            </div>
+                            {selectedDetailBooking.vehicle_image && (
+                              <img
+                                src={selectedDetailBooking.vehicle_image}
+                                alt={selectedDetailBooking.vehicle_model}
+                                className="w-32 h-24 object-cover rounded"
+                              />
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                            <div>
+                              <p className="text-sm text-gray-500">예약번호</p>
+                              <p className="font-medium">{selectedDetailBooking.booking_number}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">차량 코드</p>
+                              <p className="font-medium">{selectedDetailBooking.vehicle_code}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">고객명</p>
+                              <p className="font-medium">{selectedDetailBooking.customer_name}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">전화번호</p>
+                              <a href={`tel:${selectedDetailBooking.customer_phone}`} className="font-medium text-blue-600 hover:underline">
+                                {selectedDetailBooking.customer_phone}
+                              </a>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">이메일</p>
+                              <a href={`mailto:${selectedDetailBooking.customer_email}`} className="font-medium text-blue-600 hover:underline">
+                                {selectedDetailBooking.customer_email}
+                              </a>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">운전자명</p>
+                              <p className="font-medium">{selectedDetailBooking.driver_name}</p>
+                            </div>
+                            {selectedDetailBooking.driver_birth && (
+                              <div>
+                                <p className="text-sm text-gray-500">생년월일</p>
+                                <p className="font-medium">{selectedDetailBooking.driver_birth}</p>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm text-gray-500">면허번호</p>
+                              <p className="font-medium">{selectedDetailBooking.driver_license_no}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">픽업 시간</p>
+                              <p className="font-medium">{format(new Date(selectedDetailBooking.pickup_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">반납 시간</p>
+                              <p className="font-medium">{format(new Date(selectedDetailBooking.return_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">픽업 장소</p>
+                              <p className="font-medium">{selectedDetailBooking.pickup_location}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">대여 금액</p>
+                              <p className="font-medium text-xl">₩{selectedDetailBooking.total_price_krw.toLocaleString()}</p>
+                            </div>
+                            {selectedDetailBooking.insurance_name && (
+                              <div>
+                                <p className="text-sm text-gray-500">보험</p>
+                                <p className="font-medium">{selectedDetailBooking.insurance_name} (₩{selectedDetailBooking.insurance_fee_krw?.toLocaleString()})</p>
+                              </div>
+                            )}
+                            {selectedDetailBooking.extras_count && selectedDetailBooking.extras_count > 0 && (
+                              <div className="col-span-2">
+                                <p className="text-sm text-gray-500 mb-2">추가 옵션 ({selectedDetailBooking.extras_count}개)</p>
+                                <div className="space-y-1">
+                                  {selectedDetailBooking.extras?.map((extra, idx) => (
+                                    <div key={idx} className="flex justify-between text-sm">
+                                      <span>{extra.name} x {extra.quantity}</span>
+                                      <span className="font-medium">₩{extra.total_price.toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                                  <div className="flex justify-between font-bold text-sm pt-1 border-t">
+                                    <span>추가 옵션 합계</span>
+                                    <span>₩{selectedDetailBooking.extras_total?.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <button
+                            onClick={() => setSelectedDetailBooking(null)}
+                            className="w-full mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+                          >
+                            닫기
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8 text-gray-600">예약이 없습니다.</div>
+              )}
+            </div>
+          )}
+
           {/* Today's Bookings Tab */}
           {activeTab === 'today' && (
             <div>
