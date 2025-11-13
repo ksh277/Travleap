@@ -131,12 +131,12 @@ export function AttractionsVendorDashboard() {
       }
 
       // 주문 목록
-      const ordersResponse = await fetch('/api/vendor/attractions/tickets', {
+      const ordersResponse = await fetch('/api/vendor/attractions/bookings', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const ordersData = await ordersResponse.json();
       if (ordersData.success) {
-        const ordersList = ordersData.data || [];
+        const ordersList = ordersData.data?.bookings || ordersData.data || [];
         setOrders(ordersList);
         setFilteredOrders(ordersList);
 

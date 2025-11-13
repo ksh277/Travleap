@@ -143,7 +143,7 @@ export function EventsVendorDashboard() {
       }
 
       // 주문 목록
-      const ordersResponse = await fetch('/api/vendor/events/tickets', {
+      const ordersResponse = await fetch('/api/vendor/events/bookings', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const ordersData = await ordersResponse.json();
