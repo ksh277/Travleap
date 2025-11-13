@@ -1427,6 +1427,8 @@ export default function RentcarVendorDashboard() {
                           <th className="border p-3 text-left">차량</th>
                           <th className="border p-3 text-left">고객</th>
                           <th className="border p-3 text-left">픽업/반납</th>
+                          <th className="border p-3 text-left">보험</th>
+                          <th className="border p-3 text-left">옵션</th>
                           <th className="border p-3 text-left">금액</th>
                           <th className="border p-3 text-left">상태</th>
                           <th className="border p-3 text-left">작업</th>
@@ -1440,9 +1442,9 @@ export default function RentcarVendorDashboard() {
                             <td className="border p-3">
                               <div className="space-y-1">
                                 <div>{booking.customer_name}</div>
-                                <a href={`mailto:${booking.customer_email}`} className="font-medium text-blue-600 hover:underline">{booking.customer_email}</a>
+                                <a href={`mailto:${booking.customer_email}`} className="font-medium text-blue-600 hover:underline text-xs">{booking.customer_email}</a>
                                 <div>
-                                  <a href={`tel:${booking.customer_phone}`} className="font-medium text-blue-600 hover:underline">{booking.customer_phone}</a>
+                                  <a href={`tel:${booking.customer_phone}`} className="font-medium text-blue-600 hover:underline text-xs">{booking.customer_phone}</a>
                                 </div>
                               </div>
                             </td>
@@ -1451,6 +1453,32 @@ export default function RentcarVendorDashboard() {
                                 <div className="text-sm">픽업: {format(new Date(booking.pickup_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}</div>
                                 <div className="text-sm">반납: {format(new Date(booking.return_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}</div>
                               </div>
+                            </td>
+                            <td className="border p-3">
+                              {booking.insurance_name ? (
+                                <div className="text-xs">
+                                  <div className="font-medium">{booking.insurance_name}</div>
+                                  <div className="text-gray-500">₩{booking.insurance_fee_krw?.toLocaleString()}</div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
+                            </td>
+                            <td className="border p-3">
+                              {booking.extras && booking.extras.length > 0 ? (
+                                <div className="text-xs">
+                                  {booking.extras.map((extra: any, idx: number) => (
+                                    <div key={idx} className="text-gray-700">
+                                      {extra.name} {extra.quantity > 1 && `x${extra.quantity}`}
+                                    </div>
+                                  ))}
+                                  <div className="text-gray-500 font-medium mt-1">
+                                    합계: ₩{booking.extras_total?.toLocaleString()}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )}
                             </td>
                             <td className="border p-3">₩{booking.total_price_krw.toLocaleString()}</td>
                             <td className="border p-3">{getStatusBadge(booking.status)}</td>
