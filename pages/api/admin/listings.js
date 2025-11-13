@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
           listingData.meetingPoint || '',
           listingData.category_id,
           listingData.category || 'travel',
-          listingData.partner_id || null,
+          null, // ✅ FIX: 상품 관리와 파트너 관리 완전 분리 - partner_id는 항상 NULL
           listingData.images ? JSON.stringify(listingData.images) : '[]',
           listingData.maxCapacity || 10,
           listingData.highlights ? JSON.stringify(listingData.highlights.filter(h => h.trim())) : '[]',
@@ -70,12 +70,9 @@ module.exports = async function handler(req, res) {
       SELECT
         l.*,
         c.name_ko as category_name,
-        c.slug as category_slug,
-        p.business_name as partner_name,
-        p.status as partner_status
+        c.slug as category_slug
       FROM listings l
       LEFT JOIN categories c ON l.category_id = c.id
-      LEFT JOIN partners p ON l.partner_id = p.id
       WHERE c.slug != 'stay' AND c.slug != 'rentcar'
       ORDER BY l.created_at DESC
       `);

@@ -123,7 +123,7 @@ module.exports = async function handler(req, res) {
           listingData.meetingPoint || listingData.meeting_point || '',
           listingData.category_id || null,
           listingData.category,
-          partnerId, // 벤더 자신의 partner_id로 자동 설정
+          null, // ✅ FIX: 상품 관리와 파트너 관리 완전 분리 - partner_id는 항상 NULL
           listingData.images ? JSON.stringify(listingData.images) : '[]',
           listingData.maxCapacity || listingData.max_capacity || 10,
           listingData.highlights ? JSON.stringify(Array.isArray(listingData.highlights) ? listingData.highlights.filter(h => h.trim()) : []) : '[]',
