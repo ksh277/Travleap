@@ -5,7 +5,7 @@ import { Label } from '../../ui/label';
 import { Button } from '../../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import { Badge } from '../../ui/badge';
-import { Search, RefreshCw, DollarSign, Eye } from 'lucide-react';
+import { Search, RefreshCw, DollarSign, Eye, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface OrderItem {
@@ -71,6 +71,8 @@ export function AdminOrders() {
   const [currentPage, setCurrentPage] = useState(1);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [sortField, setSortField] = useState<'created_at' | 'amount' | 'user_name' | 'status'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -213,6 +215,51 @@ export function AdminOrders() {
     loadOrders();
   }, []);
 
+  // 정렬 함수
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortIcon = (field: typeof sortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1 inline" />;
+    return sortDirection === 'asc' ?
+      <ArrowUp className="h-4 w-4 ml-1 inline" /> :
+      <ArrowDown className="h-4 w-4 ml-1 inline" />;
+  };
+
+  // CSV Export 함수
+  const handleExportCSV = () => {
+    const csvData = filteredOrders.map(order => ({
+      '주문번호': order.order_number,
+      '주문자': order.user_name,
+      '이메일': order.user_email,
+      '전화번호': order.user_phone || '-',
+      '상품명': order.product_title || order.product_name || '-',
+      '카테고리': order.category,
+      '금액': order.total_amount || order.amount,
+      '상태': order.status,
+      '결제상태': order.payment_status,
+      '주문일시': new Date(order.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+    }));
+
+    const csv = [
+      Object.keys(csvData[0]).join(','),
+      ...csvData.map(row => Object.values(row).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    toast.success('CSV 파일이 다운로드되었습니다.');
+  };
+
   useEffect(() => {
     let filtered = orders;
 
@@ -228,8 +275,42 @@ export function AdminOrders() {
       filtered = filtered.filter(order => order.status === statusFilter);
     }
 
+    // 정렬 적용
+    filtered = [...filtered].sort((a, b) => {
+      let aValue: any, bValue: any;
+
+      switch (sortField) {
+        case 'created_at':
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
+          break;
+        case 'amount':
+          aValue = a.total_amount || a.amount || 0;
+          bValue = b.total_amount || b.amount || 0;
+          break;
+        case 'user_name':
+          aValue = a.user_name || '';
+          bValue = b.user_name || '';
+          break;
+        case 'status':
+          aValue = a.status || '';
+          bValue = b.status || '';
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aValue === 'string') {
+        return sortDirection === 'asc' ?
+          aValue.localeCompare(bValue) :
+          bValue.localeCompare(aValue);
+      } else {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+    });
+
     setFilteredOrders(filtered);
-  }, [searchQuery, statusFilter, orders]);
+  }, [searchQuery, statusFilter, orders, sortField, sortDirection]);
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -246,6 +327,55 @@ export function AdminOrders() {
 
   return (
     <div className="space-y-6">
+      {/* 매출 통계 카드 */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">총 주문</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pagination.total}건</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">확정 주문</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {orders.filter(o => o.status === 'confirmed').length}건
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">총 매출</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {orders
+                .filter(o => o.payment_status === 'paid' || o.payment_status === 'captured')
+                .reduce((sum, o) => sum + (o.total_amount || o.amount || 0), 0)
+                .toLocaleString()}원
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">평균 주문금액</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {orders.length > 0
+                ? Math.round(
+                    orders.reduce((sum, o) => sum + (o.total_amount || o.amount || 0), 0) / orders.length
+                  ).toLocaleString()
+                : 0}원
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">주문 관리</h2>
@@ -254,10 +384,21 @@ export function AdminOrders() {
             {pagination.total > 0 && ` (현재 페이지: ${orders.length}개)`}
           </p>
         </div>
-        <Button onClick={() => loadOrders(currentPage)} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          새로고침
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleExportCSV}
+            variant="outline"
+            size="sm"
+            disabled={filteredOrders.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            CSV 다운로드
+          </Button>
+          <Button onClick={() => loadOrders(currentPage)} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            새로고침
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -331,12 +472,32 @@ export function AdminOrders() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-3 px-4">주문번호</th>
-                    <th className="text-left py-3 px-4">주문자 정보</th>
+                    <th
+                      className="text-left py-3 px-4 cursor-pointer hover:bg-gray-50 select-none"
+                      onClick={() => handleSort('user_name')}
+                    >
+                      주문자 정보 {getSortIcon('user_name')}
+                    </th>
                     <th className="text-left py-3 px-4">상품명</th>
                     <th className="text-left py-3 px-4">예약일/인원</th>
-                    <th className="text-left py-3 px-4">금액</th>
-                    <th className="text-left py-3 px-4">결제/예약상태</th>
-                    <th className="text-left py-3 px-4">주문일시</th>
+                    <th
+                      className="text-left py-3 px-4 cursor-pointer hover:bg-gray-50 select-none"
+                      onClick={() => handleSort('amount')}
+                    >
+                      금액 {getSortIcon('amount')}
+                    </th>
+                    <th
+                      className="text-left py-3 px-4 cursor-pointer hover:bg-gray-50 select-none"
+                      onClick={() => handleSort('status')}
+                    >
+                      결제/예약상태 {getSortIcon('status')}
+                    </th>
+                    <th
+                      className="text-left py-3 px-4 cursor-pointer hover:bg-gray-50 select-none"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      주문일시 {getSortIcon('created_at')}
+                    </th>
                     <th className="text-right py-3 px-4">작업</th>
                   </tr>
                 </thead>
