@@ -369,28 +369,35 @@ module.exports = async function handler(req, res) {
             }
           }
 
-          // ✅ FIX: 사용자 정보 우선순위
+          // ✅ CRITICAL FIX: 사용자 정보 우선순위 (렌트카 정보 포함)
           // 1순위: notes의 billingInfo (주문 시 입력한 정보)
-          // 2순위: users 테이블 (회원 정보)
-          // 3순위: bookings 테이블의 shipping 정보 (배송지로 입력한 정보)
-          const finalUserName = billingName || user?.name || order.shipping_name || '';
+          // 2순위: users 테이블 (Neon DB 회원 정보)
+          // 3순위: 렌트카 customer 정보 (shipping_email은 렌트카의 customer_email)
+          // 4순위: bookings 테이블의 shipping 정보
+          const finalUserName = billingName || user?.name || order.shipping_name || notesShippingName || '';
           const finalUserEmail = billingEmail || user?.email || order.shipping_email || '';
-          const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || '';
+          const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || notesShippingPhone || '';
 
-          // ⚠️ 사용자 정보가 완전히 없는 경우 경고
+          // ⚠️ 사용자 정보가 완전히 없는 경우 상세 경고
           if (!finalUserName && !finalUserEmail && !finalUserPhone) {
-            console.warn(`⚠️ [Orders] order_id=${order.id}: 사용자 정보 없음! user_id=${order.user_id}, billing=null, user=null, shipping=null`);
+            console.error(`❌❌❌ [Orders] order_id=${order.id}: 모든 소스에서 사용자 정보 없음!`);
+            console.error(`  - user_id: ${order.user_id || 'NULL'}`);
+            console.error(`  - billing: name="${billingName}", email="${billingEmail}", phone="${billingPhone}"`);
+            console.error(`  - user (Neon DB): ${user ? `name="${user.name}", email="${user.email}", phone="${user.phone}"` : 'NULL'}`);
+            console.error(`  - shipping: name="${order.shipping_name || 'NULL'}", email="${order.shipping_email || 'NULL'}", phone="${order.shipping_phone || 'NULL'}"`);
+            console.error(`  - notes.shipping: name="${notesShippingName || 'NULL'}", phone="${notesShippingPhone || 'NULL'}"`);
+            console.error(`  - category: ${order.category}`);
           }
 
-          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (billing="${billingName}", user="${user?.name || 'null'}", user.email="${user?.email || 'null'}", user.phone="${user?.phone || 'null'}", shipping="${order.shipping_name || 'null'}")`);
+          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (source: billing="${billingName || 'N'}", user.name="${user?.name || 'N'}", user.email="${user?.email || 'N'}", user.phone="${user?.phone || 'N'}", shipping="${order.shipping_name || 'N'}/${order.shipping_email || 'N'}/${order.shipping_phone || 'N'}")`);
 
           return {
-            id: parseInt(order.id) || order.id, // ✅ FIX: 문자열 → 숫자 변환
-            booking_id: order.booking_id, // ✅ 환불 시 필요
+            id: parseInt(order.id) || order.id,
+            booking_id: order.booking_id,
             booking_number: order.booking_number,
-            user_name: finalUserName || '정보없음', // ✅ FIX: 빈 문자열 대신 명확한 표시
-            user_email: finalUserEmail || null, // ✅ FIX: 빈 문자열 대신 null
-            user_phone: finalUserPhone || null, // ✅ FIX: 빈 문자열 대신 null
+            user_name: finalUserName || null,
+            user_email: finalUserEmail || null,
+            user_phone: finalUserPhone || null,
             product_name: displayTitle,
             product_title: displayTitle,
             listing_id: order.listing_id,

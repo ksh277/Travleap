@@ -356,8 +356,10 @@ export function AdminOrders() {
                           {/* 주문자 정보 */}
                           <div>
                             <div className="font-medium text-gray-900">
-                              {order.user_name && order.user_name !== '정보없음' ? order.user_name : (
-                                <span className="text-red-600 text-xs">⚠️ 이름 없음</span>
+                              {order.user_name ? (
+                                order.user_name
+                              ) : (
+                                <span className="text-red-600 text-xs font-semibold">⚠️ 이름 정보 없음</span>
                               )}
                             </div>
                             <div className="text-gray-500 text-xs">
@@ -366,7 +368,7 @@ export function AdminOrders() {
                                   {order.user_email}
                                 </a>
                               ) : (
-                                <span className="text-red-600">⚠️ 이메일 없음</span>
+                                <span className="text-red-600 font-semibold">⚠️ 이메일 정보 없음</span>
                               )}
                             </div>
                             {order.user_phone ? (
@@ -376,7 +378,7 @@ export function AdminOrders() {
                                 </a>
                               </div>
                             ) : (
-                              <div className="text-red-600 text-xs">⚠️ 전화번호 없음</div>
+                              <div className="text-red-600 text-xs font-semibold">⚠️ 전화번호 정보 없음</div>
                             )}
                           </div>
                           {/* 배송지 정보 (팝업 상품인 경우) */}
