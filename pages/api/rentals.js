@@ -242,11 +242,28 @@ module.exports = async function handler(req, res) {
     if (extras && extras.length > 0) {
       try {
         for (const extra of extras) {
+          // total_price_krw 계산
+          const quantity = extra.quantity || 1;
+          const unitPrice = extra.unit_price_krw;
+          let totalPrice = 0;
+
+          if (extra.price_type === 'per_rental') {
+            totalPrice = unitPrice * quantity;
+          } else if (extra.price_type === 'per_day') {
+            totalPrice = unitPrice * Math.ceil(rentalHours / 24) * quantity;
+          } else if (extra.price_type === 'per_hour') {
+            totalPrice = unitPrice * Math.ceil(rentalHours) * quantity;
+          } else {
+            totalPrice = unitPrice * quantity;
+          }
+
           await connection.execute(`
             INSERT INTO rentcar_booking_extras (
-              booking_id, extra_id, quantity, unit_price_krw
-            ) VALUES (?, ?, ?, ?)
-          `, [result.insertId, extra.extra_id, extra.quantity, extra.unit_price_krw]);
+              booking_id, extra_id, quantity, unit_price_krw, total_price_krw
+            ) VALUES (?, ?, ?, ?, ?)
+          `, [result.insertId, extra.extra_id, quantity, unitPrice, totalPrice]);
+
+          console.log(`   📦 Extra 저장: ${extra.extra_code || extra.extra_id} - ${extra.price_type} ₩${unitPrice} x ${quantity} = ₩${totalPrice}`);
         }
       } catch (extrasError) {
         // 테이블이 없어도 예약은 진행 (extras는 선택사항)
