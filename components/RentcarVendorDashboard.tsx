@@ -1917,28 +1917,33 @@ export default function RentcarVendorDashboard() {
               {!loading && !error && bookings.length > 0 && (
                 <>
                   {/* 테이블 뷰 */}
-                  <div className="bg-white border rounded-lg overflow-hidden mb-6">
-                    <table className="w-full">
+                  <div className="bg-white border rounded-lg overflow-x-auto mb-6">
+                    <table className="min-w-full w-full">
                       <thead className="bg-gray-50 border-b">
                         <tr>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">예약번호</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">차량</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">고객명</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">연락처</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">픽업일시</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">반납일시</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">금액</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">상태</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">관리</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">예약번호</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">차량</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">고객명</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">연락처</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">운전자</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">면허</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">생년월일</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">픽업일시</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">반납일시</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">보험</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">옵션</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">금액</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">상태</th>
+                          <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">관리</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {getPaginatedBookings().map((booking) => (
                           <tr key={booking.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm">{booking.booking_number}</td>
-                            <td className="px-4 py-3 text-sm">{booking.vehicle_model}</td>
-                            <td className="px-4 py-3 text-sm">{booking.customer_name}</td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="px-3 py-2 text-xs">{booking.booking_number}</td>
+                            <td className="px-3 py-2 text-xs">{booking.vehicle_model}</td>
+                            <td className="px-3 py-2 text-xs">{booking.customer_name}</td>
+                            <td className="px-3 py-2 text-xs">
                               {booking.customer_phone ? (
                                 <a href={`tel:${booking.customer_phone}`} className="text-blue-600 hover:underline">
                                   {booking.customer_phone}
@@ -1947,20 +1952,46 @@ export default function RentcarVendorDashboard() {
                                 <span className="text-gray-400">-</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="px-3 py-2 text-xs">{booking.driver_name || '-'}</td>
+                            <td className="px-3 py-2 text-xs">{booking.driver_license_no || '-'}</td>
+                            <td className="px-3 py-2 text-xs">{booking.driver_birth || '-'}</td>
+                            <td className="px-3 py-2 text-xs">
                               {format(new Date(booking.pickup_at_utc), 'yyyy. MM. dd. HH:mm', { locale: ko })}
                             </td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="px-3 py-2 text-xs">
                               {format(new Date(booking.return_at_utc), 'yyyy. MM. dd. HH:mm', { locale: ko })}
                             </td>
-                            <td className="px-4 py-3 text-sm font-medium">
+                            <td className="px-3 py-2 text-xs">
+                              {booking.insurance_name ? (
+                                <div className="text-xs">
+                                  <div className="font-medium">{booking.insurance_name}</div>
+                                  <div className="text-gray-500">₩{booking.insurance_fee?.toLocaleString()}</div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              {booking.extras && booking.extras.length > 0 ? (
+                                <div className="text-xs">
+                                  {booking.extras.map((extra: any, idx: number) => (
+                                    <div key={idx} className="text-gray-700">
+                                      {extra.name} {extra.quantity > 1 && `x${extra.quantity}`}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-xs font-medium">
                               ₩{booking.total_price_krw.toLocaleString()}
                             </td>
-                            <td className="px-4 py-3 text-sm">
+                            <td className="px-3 py-2 text-xs">
                               {getStatusBadge(booking.status)}
                             </td>
-                            <td className="px-4 py-3 text-sm">
-                              <div className="flex flex-wrap gap-1">
+                            <td className="px-3 py-2 text-xs">
+                              <div className="flex flex-col gap-1">
                                 {booking.status === 'confirmed' && (
                                   <>
                                     <button
@@ -1968,13 +1999,13 @@ export default function RentcarVendorDashboard() {
                                         setCheckInBooking(booking);
                                         setActiveTab('check-in');
                                       }}
-                                      className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                                      className="w-full px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
                                     >
-                                      픽업 처리
+                                      픽업
                                     </button>
                                     <button
                                       onClick={() => handleRefund(booking)}
-                                      className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                                      className="w-full px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
                                     >
                                       환불
                                     </button>
@@ -1984,13 +2015,13 @@ export default function RentcarVendorDashboard() {
                                   <>
                                     <button
                                       onClick={() => startCheckOut(booking)}
-                                      className="px-2 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700"
+                                      className="w-full px-2 py-1 bg-orange-600 text-white rounded text-xs hover:bg-orange-700"
                                     >
-                                      반납 처리
+                                      반납
                                     </button>
                                     <button
                                       onClick={() => handleRefund(booking)}
-                                      className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+                                      className="w-full px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
                                     >
                                       환불
                                     </button>
@@ -1998,7 +2029,7 @@ export default function RentcarVendorDashboard() {
                                 )}
                                 <button
                                   onClick={() => setSelectedDetailBooking(booking)}
-                                  className="px-2 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700"
+                                  className="w-full px-2 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700"
                                 >
                                   상세
                                 </button>
