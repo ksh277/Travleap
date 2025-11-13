@@ -949,6 +949,7 @@ export const RentcarManagement: React.FC = () => {
                     <TableHead>클래스</TableHead>
                     <TableHead>특징</TableHead>
                     <TableHead>일일 요금</TableHead>
+                    <TableHead>재고</TableHead>
                     <TableHead>상태</TableHead>
                     <TableHead>작업</TableHead>
                   </TableRow>
@@ -992,6 +993,9 @@ export const RentcarManagement: React.FC = () => {
                         </div>
                       </TableCell>
                       <TableCell>₩{vehicle.daily_rate_krw.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <span className="font-medium">{vehicle.stock || 0}대</span>
+                      </TableCell>
                       <TableCell>
                         <Badge className={vehicle.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
                           {vehicle.is_active ? '활성' : '비활성'}

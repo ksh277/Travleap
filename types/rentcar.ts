@@ -129,6 +129,7 @@ export interface RentcarVehicle {
   hourly_rate_krw?: number;
   weekly_rate_krw?: number;
   monthly_rate_krw?: number;
+  stock?: number;  // 재고 수량
   is_active: boolean;
   is_featured?: boolean;
   total_bookings?: number;
