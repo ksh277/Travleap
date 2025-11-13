@@ -182,7 +182,8 @@ export function VendorDashboardPageEnhanced() {
   const [pickupForm, setPickupForm] = useState({
     mileage: 0,
     fuel_level: 100,
-    damage_notes: ''
+    damage_notes: '',
+    images: [] as File[]
   });
 
   // 반납 처리 상태
@@ -193,7 +194,8 @@ export function VendorDashboardPageEnhanced() {
     mileage: 0,
     fuel_level: 100,
     damage_notes: '',
-    additional_charges: 0
+    additional_charges: 0,
+    images: [] as File[]
   });
   const [actualReturnDateTime, setActualReturnDateTime] = useState('');
   const [vendorNote, setVendorNote] = useState('');
@@ -252,6 +254,7 @@ export function VendorDashboardPageEnhanced() {
         toast.success('픽업 처리가 완료되었습니다.');
         setPickupModalOpen(false);
         setPickupBooking(null);
+        setPickupForm({ mileage: 0, fuel_level: 100, damage_notes: '', images: [] });
         loadVendorData();
       } else {
         toast.error(result.error || '픽업 처리에 실패했습니다.');
@@ -271,7 +274,8 @@ export function VendorDashboardPageEnhanced() {
       mileage: 0,
       fuel_level: 100,
       damage_notes: '',
-      additional_charges: 0
+      additional_charges: 0,
+      images: []
     });
     setReturnModalOpen(true);
   };
@@ -320,6 +324,7 @@ export function VendorDashboardPageEnhanced() {
         toast.success('반납 처리가 완료되었습니다.');
         setReturnModalOpen(false);
         setSelectedBooking(null);
+        setReturnForm({ mileage: 0, fuel_level: 100, damage_notes: '', additional_charges: 0, images: [] });
         loadVendorData();
       } else {
         toast.error(result.error || '반납 처리에 실패했습니다.');
@@ -2268,6 +2273,27 @@ export function VendorDashboardPageEnhanced() {
                   rows={3}
                 />
               </div>
+
+              {/* 이미지 업로드 */}
+              <div>
+                <Label>차량 상태 사진 업로드 (선택)</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files) {
+                      setPickupForm({ ...pickupForm, images: Array.from(files) });
+                    }
+                  }}
+                />
+                {pickupForm.images.length > 0 && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    {pickupForm.images.length}개 파일 선택됨
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -2277,6 +2303,7 @@ export function VendorDashboardPageEnhanced() {
               onClick={() => {
                 setPickupModalOpen(false);
                 setPickupBooking(null);
+                setPickupForm({ mileage: 0, fuel_level: 100, damage_notes: '', images: [] });
               }}
               disabled={isProcessingPickup}
             >
@@ -2376,6 +2403,27 @@ export function VendorDashboardPageEnhanced() {
                   * 지연 수수료, 파손 수수료, 초과 주행거리 수수료 등
                 </p>
               </div>
+
+              {/* 이미지 업로드 */}
+              <div>
+                <Label>차량 상태 사진 업로드 (선택)</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    const files = e.target.files;
+                    if (files) {
+                      setReturnForm({ ...returnForm, images: Array.from(files) });
+                    }
+                  }}
+                />
+                {returnForm.images.length > 0 && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    {returnForm.images.length}개 파일 선택됨
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -2385,6 +2433,7 @@ export function VendorDashboardPageEnhanced() {
               onClick={() => {
                 setReturnModalOpen(false);
                 setSelectedBooking(null);
+                setReturnForm({ mileage: 0, fuel_level: 100, damage_notes: '', additional_charges: 0, images: [] });
               }}
               disabled={isProcessingReturn}
             >

@@ -229,7 +229,8 @@
       "Bash(del nul)",
       "Bash(for file in components/*VendorDashboard.tsx)",
       "Bash(npx tsc:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(if [ -f \"api/rentals.js\" ])"
     ],
     "deny": [],
     "ask": []

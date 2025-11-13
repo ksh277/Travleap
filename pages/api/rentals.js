@@ -195,9 +195,13 @@ module.exports = async function handler(req, res) {
 
     // 7. pickup_at과 return_at을 date/time으로 분리
     const pickupDateStr = pickupDate.toISOString().split('T')[0];
-    const pickupTimeStr = pickupDate.toTimeString().substring(0, 5);
+    const pickupTimeStr = pickupDate.toISOString().split('T')[1].split('.')[0]; // HH:MM:SS
     const returnDateStr = returnDate.toISOString().split('T')[0];
-    const returnTimeStr = returnDate.toTimeString().substring(0, 5);
+    const returnTimeStr = returnDate.toISOString().split('T')[1].split('.')[0]; // HH:MM:SS
+
+    console.log('   📅 시간 분리:');
+    console.log('      pickup_date:', pickupDateStr, 'pickup_time:', pickupTimeStr);
+    console.log('      return_date:', returnDateStr, 'return_time:', returnTimeStr);
 
     // 8. 고객 정보 암호화
     const encryptedCustomerName = encrypt(customer_name);
