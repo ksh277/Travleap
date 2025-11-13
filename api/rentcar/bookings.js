@@ -1,5 +1,5 @@
 const { connect } = require('@planetscale/database');
-const { decrypt, decryptPhone, decryptEmail } = require('../../utils/encryption.cjs');
+const { encrypt, encryptPhone, encryptEmail, decrypt, decryptPhone, decryptEmail } = require('../../utils/encryption.cjs');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -237,6 +237,11 @@ module.exports = async function handler(req, res) {
 
       const bookingNumber = `RC${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
+      // 고객 정보 암호화 (PIPA 준수)
+      const encryptedCustomerName = customer_name ? encrypt(customer_name) : null;
+      const encryptedCustomerEmail = customer_email ? encryptEmail(customer_email) : null;
+      const encryptedCustomerPhone = customer_phone ? encryptPhone(customer_phone) : null;
+
       const result = await connection.execute(`
         INSERT INTO rentcar_bookings (
           booking_number, vendor_id, vehicle_id, user_id,
@@ -249,7 +254,7 @@ module.exports = async function handler(req, res) {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'pending')
       `, [
         bookingNumber, vendor_id, vehicle_id, user_id,
-        customer_name, customer_email, customer_phone,
+        encryptedCustomerName, encryptedCustomerEmail, encryptedCustomerPhone,
         pickup_location_id, dropoff_location_id,
         pickup_date, pickup_time, dropoff_date, dropoff_time,
         hourlyRate, Math.ceil(rentalHours), subtotal, tax, total,
