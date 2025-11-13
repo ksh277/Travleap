@@ -267,10 +267,11 @@ module.exports = async function handler(req, res) {
           let notesShippingAddress = '';
           let notesShippingAddressDetail = '';
           let notesShippingZipcode = '';
+          let notesData = null; // ✅ CRITICAL: scope 밖에서 참조하기 위해 선언
 
           if (order.notes) {
             try {
-              const notesData = JSON.parse(order.notes);
+              notesData = JSON.parse(order.notes);
 
               // 주문번호 추출
               if (notesData.orderNumber) {
