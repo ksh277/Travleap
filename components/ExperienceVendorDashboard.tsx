@@ -28,6 +28,7 @@ import {
   Search,
   Filter,
   Eye,
+  X,
   Loader2,
   Clock,
   RefreshCw,
@@ -88,6 +89,10 @@ export function ExperienceVendorDashboard() {
     upcoming_bookings: 0,
     completed_bookings: 0
   });
+
+  // 상세보기 모달
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // 필터
   const [searchQuery, setSearchQuery] = useState('');
@@ -670,6 +675,17 @@ export function ExperienceVendorDashboard() {
                             <TableCell>{getStatusBadge(booking.status)}</TableCell>
                             <TableCell>
                               <div className="flex gap-2 flex-wrap">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedBooking(booking);
+                                    setIsDetailModalOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  상세보기
+                                </Button>
                                 {booking.status === 'pending' && (
                                   <Button
                                     variant="default"
@@ -817,6 +833,131 @@ export function ExperienceVendorDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* 예약 상세보기 모달 */}
+        {isDetailModalOpen && selectedBooking && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">예약 상세 정보</h2>
+                <button
+                  onClick={() => setIsDetailModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-6">
+                {/* 예약 기본 정보 */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">예약 기본 정보</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">예약번호:</span>
+                      <span className="font-medium text-blue-600">{selectedBooking.booking_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">체험명:</span>
+                      <span className="font-medium">{selectedBooking.experience_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">체험 일시:</span>
+                      <span className="font-medium">{new Date(selectedBooking.slot_datetime).toLocaleString('ko-KR')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">참가 인원:</span>
+                      <span className="font-medium">{selectedBooking.participant_count}명</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">예약 상태:</span>
+                      <span className="font-medium">
+                        {selectedBooking.status === 'pending' ? '대기중' :
+                         selectedBooking.status === 'confirmed' ? '확정' :
+                         selectedBooking.status === 'completed' ? '완료' : '취소'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 고객 정보 */}
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">고객 정보</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">이름:</span>
+                      <span className="font-medium">{selectedBooking.customer_name}</span>
+                    </div>
+                    {selectedBooking.customer_email && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">이메일:</span>
+                        <a
+                          href={`mailto:${selectedBooking.customer_email}`}
+                          className="font-medium text-blue-600 hover:underline"
+                        >
+                          {selectedBooking.customer_email}
+                        </a>
+                      </div>
+                    )}
+                    {selectedBooking.customer_phone && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">전화번호:</span>
+                        <a
+                          href={`tel:${selectedBooking.customer_phone}`}
+                          className="font-medium text-blue-600 hover:underline"
+                        >
+                          {selectedBooking.customer_phone}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 결제 정보 */}
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">결제 정보</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">결제 금액:</span>
+                      <span className="text-lg font-bold text-purple-700">{selectedBooking.total_amount.toLocaleString()}원</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">결제 상태:</span>
+                      <span className="font-medium">
+                        {selectedBooking.payment_status === 'pending' ? '결제대기' :
+                         selectedBooking.payment_status === 'paid' ? '결제완료' :
+                         selectedBooking.payment_status === 'failed' ? '결제실패' : '환불완료'}
+                      </span>
+                    </div>
+                    {selectedBooking.payment_key && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">결제 키:</span>
+                        <span className="text-xs font-mono text-gray-500">{selectedBooking.payment_key}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 등록일시 */}
+                <div className="text-center text-sm text-gray-500 pt-2 border-t">
+                  예약일시: {new Date(selectedBooking.created_at).toLocaleString('ko-KR')}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="sticky bottom-0 bg-white border-t px-6 py-4">
+                <Button
+                  onClick={() => setIsDetailModalOpen(false)}
+                  className="w-full"
+                >
+                  닫기
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

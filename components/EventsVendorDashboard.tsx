@@ -25,6 +25,8 @@ import {
   LogOut,
   Search,
   Filter,
+  Eye,
+  X,
   Loader2,
   MapPin,
   RefreshCw,
@@ -89,6 +91,10 @@ export function EventsVendorDashboard() {
     upcoming_events: 0,
     completed_orders: 0
   });
+
+  // 상세보기 모달
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -670,6 +676,17 @@ export function EventsVendorDashboard() {
                             <TableCell>{getStatusBadge(order.status)}</TableCell>
                             <TableCell>
                               <div className="flex gap-2 flex-wrap">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedOrder(order);
+                                    setIsDetailModalOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-4 w-4 mr-1" />
+                                  상세보기
+                                </Button>
                                 {order.status === 'pending' && (
                                   <Button
                                     variant="default"
@@ -828,6 +845,142 @@ export function EventsVendorDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* 주문 상세보기 모달 */}
+        {isDetailModalOpen && selectedOrder && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">주문 상세 정보</h2>
+                <button
+                  onClick={() => setIsDetailModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-6">
+                {/* 주문 기본 정보 */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">주문 기본 정보</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">주문번호:</span>
+                      <span className="font-medium text-blue-600">{selectedOrder.order_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">행사명:</span>
+                      <span className="font-medium">{selectedOrder.event_title}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">행사 일시:</span>
+                      <span className="font-medium">{new Date(selectedOrder.start_datetime).toLocaleString('ko-KR')}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">주문 상태:</span>
+                      <span className="font-medium">
+                        {selectedOrder.status === 'pending' ? '대기중' :
+                         selectedOrder.status === 'confirmed' ? '확정' :
+                         selectedOrder.status === 'completed' ? '완료' : '취소'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 티켓 정보 */}
+                <div className="bg-pink-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">티켓 정보</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">티켓 타입:</span>
+                      <span className="font-medium">{selectedOrder.ticket_type === 'general' ? '일반석' : 'VIP석'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">수량:</span>
+                      <span className="font-medium">{selectedOrder.quantity}매</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 고객 정보 */}
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">고객 정보</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">이름:</span>
+                      <span className="font-medium">{selectedOrder.customer_name}</span>
+                    </div>
+                    {selectedOrder.customer_email && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">이메일:</span>
+                        <a
+                          href={`mailto:${selectedOrder.customer_email}`}
+                          className="font-medium text-blue-600 hover:underline"
+                        >
+                          {selectedOrder.customer_email}
+                        </a>
+                      </div>
+                    )}
+                    {selectedOrder.customer_phone && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">전화번호:</span>
+                        <a
+                          href={`tel:${selectedOrder.customer_phone}`}
+                          className="font-medium text-blue-600 hover:underline"
+                        >
+                          {selectedOrder.customer_phone}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 결제 정보 */}
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">결제 정보</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">결제 금액:</span>
+                      <span className="text-lg font-bold text-purple-700">{selectedOrder.total_amount.toLocaleString()}원</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">결제 상태:</span>
+                      <span className="font-medium">
+                        {selectedOrder.payment_status === 'pending' ? '결제대기' :
+                         selectedOrder.payment_status === 'paid' ? '결제완료' :
+                         selectedOrder.payment_status === 'failed' ? '결제실패' : '환불완료'}
+                      </span>
+                    </div>
+                    {selectedOrder.payment_key && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">결제 키:</span>
+                        <span className="text-xs font-mono text-gray-500">{selectedOrder.payment_key}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 등록일시 */}
+                <div className="text-center text-sm text-gray-500 pt-2 border-t">
+                  주문일시: {new Date(selectedOrder.created_at).toLocaleString('ko-KR')}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="sticky bottom-0 bg-white border-t px-6 py-4">
+                <Button
+                  onClick={() => setIsDetailModalOpen(false)}
+                  className="w-full"
+                >
+                  닫기
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

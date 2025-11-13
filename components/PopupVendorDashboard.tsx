@@ -28,6 +28,7 @@ import {
   Search,
   Filter,
   Eye,
+  X,
   Loader2,
   Download,
   ArrowUp,
@@ -113,6 +114,10 @@ export function PopupVendorDashboard() {
   // 배송 관리 다이얼로그
   const [selectedShippingOrder, setSelectedShippingOrder] = useState<Order | null>(null);
   const [isShippingDialogOpen, setIsShippingDialogOpen] = useState(false);
+
+  // 상세보기 모달
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // 필터
   const [searchQuery, setSearchQuery] = useState('');
@@ -772,6 +777,17 @@ export function PopupVendorDashboard() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedOrder(order);
+                                setIsDetailModalOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              상세보기
+                            </Button>
                             {order.delivery_status && (
                               <Button
                                 size="sm"
@@ -846,6 +862,199 @@ export function PopupVendorDashboard() {
               booking={selectedShippingOrder}
               onUpdate={loadDashboardData}
             />
+
+            {/* 주문 상세보기 모달 */}
+            {isDetailModalOpen && selectedOrder && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                  {/* Modal Header */}
+                  <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-gray-900">주문 상세 정보</h2>
+                    <button
+                      onClick={() => setIsDetailModalOpen(false)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X className="h-6 w-6" />
+                    </button>
+                  </div>
+
+                  {/* Modal Content */}
+                  <div className="p-6 space-y-6">
+                    {/* 주문 기본 정보 */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">주문 기본 정보</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">주문번호:</span>
+                          <span className="font-medium text-blue-600">{selectedOrder.order_number}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">상품명:</span>
+                          <span className="font-medium">{selectedOrder.product_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">카테고리:</span>
+                          <span className="font-medium">{selectedOrder.category || '-'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">주문 상태:</span>
+                          <span className="font-medium">
+                            {selectedOrder.status === 'pending' ? '대기' :
+                             selectedOrder.status === 'confirmed' ? '확정' :
+                             selectedOrder.status === 'completed' ? '완료' : '취소'}
+                          </span>
+                        </div>
+                        {selectedOrder.start_date && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">시작일:</span>
+                            <span className="font-medium">{new Date(selectedOrder.start_date).toLocaleDateString('ko-KR')}</span>
+                          </div>
+                        )}
+                        {selectedOrder.num_adults !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">인원:</span>
+                            <span className="font-medium">{selectedOrder.num_adults}명</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 고객 정보 */}
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">고객 정보</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">이름:</span>
+                          <span className="font-medium">{selectedOrder.customer_info?.name || selectedOrder.user_name || '-'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">이메일:</span>
+                          <a
+                            href={`mailto:${selectedOrder.customer_info?.email || selectedOrder.user_email}`}
+                            className="font-medium text-blue-600 hover:underline"
+                          >
+                            {selectedOrder.customer_info?.email || selectedOrder.user_email || '-'}
+                          </a>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">전화번호:</span>
+                          <a
+                            href={`tel:${selectedOrder.customer_info?.phone || selectedOrder.user_phone}`}
+                            className="font-medium text-blue-600 hover:underline"
+                          >
+                            {selectedOrder.customer_info?.phone || selectedOrder.user_phone || '-'}
+                          </a>
+                        </div>
+                        {(selectedOrder.customer_info?.address || selectedOrder.user_address) && (
+                          <div>
+                            <span className="text-gray-600 block mb-1">배송지:</span>
+                            <div className="bg-white rounded p-2 text-gray-800">
+                              {(selectedOrder.customer_info?.postal_code || selectedOrder.user_postal_code) && (
+                                <div className="text-gray-500 text-xs mb-1">
+                                  우편번호: {selectedOrder.customer_info?.postal_code || selectedOrder.user_postal_code}
+                                </div>
+                              )}
+                              <div>{selectedOrder.customer_info?.address || selectedOrder.user_address}</div>
+                              {(selectedOrder.customer_info?.detailed_address || selectedOrder.user_detailed_address) && (
+                                <div className="text-gray-600">{selectedOrder.customer_info?.detailed_address || selectedOrder.user_detailed_address}</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 배송 정보 */}
+                    {selectedOrder.delivery_status && (
+                      <div className="bg-green-50 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-3">배송 정보</h3>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">배송 상태:</span>
+                            <span className="font-medium">
+                              {selectedOrder.delivery_status === 'PENDING' ? '배송 준비중' :
+                               selectedOrder.delivery_status === 'READY' ? '발송 대기' :
+                               selectedOrder.delivery_status === 'SHIPPING' ? '배송중' :
+                               selectedOrder.delivery_status === 'DELIVERED' ? '배송 완료' : '취소'}
+                            </span>
+                          </div>
+                          {selectedOrder.tracking_number && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">송장번호:</span>
+                              <span className="font-medium">{selectedOrder.tracking_number}</span>
+                            </div>
+                          )}
+                          {selectedOrder.courier_company && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">택배사:</span>
+                              <span className="font-medium">{selectedOrder.courier_company}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 결제 정보 */}
+                    <div className="bg-purple-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">결제 정보</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">결제 금액:</span>
+                          <span className="text-lg font-bold text-purple-700">₩{selectedOrder.total_amount?.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">결제 수단:</span>
+                          <span className="font-medium">{formatPaymentMethod(selectedOrder.payment_method, selectedOrder.card_company, selectedOrder.virtual_account_bank)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">결제 상태:</span>
+                          <span className="font-medium">
+                            {selectedOrder.payment_status === 'completed' ? '결제완료' :
+                             selectedOrder.payment_status === 'refunded' ? '환불완료' :
+                             selectedOrder.payment_status === 'pending' ? '대기중' : '실패'}
+                          </span>
+                        </div>
+                        {selectedOrder.payment_status === 'refunded' && selectedOrder.refund_amount && (
+                          <>
+                            <div className="flex justify-between border-t pt-2">
+                              <span className="text-gray-600">환불 금액:</span>
+                              <span className="font-bold text-red-600">₩{selectedOrder.refund_amount.toLocaleString()}</span>
+                            </div>
+                            {selectedOrder.refund_reason && (
+                              <div>
+                                <span className="text-gray-600 block mb-1">환불 사유:</span>
+                                <div className="bg-white rounded p-2 text-gray-800">{selectedOrder.refund_reason}</div>
+                              </div>
+                            )}
+                            {selectedOrder.refunded_at && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">환불 일시:</span>
+                                <span className="text-gray-800">{new Date(selectedOrder.refunded_at).toLocaleString('ko-KR')}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 등록일시 */}
+                    <div className="text-center text-sm text-gray-500 pt-2 border-t">
+                      주문일시: {selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString('ko-KR') : '-'}
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="sticky bottom-0 bg-white border-t px-6 py-4">
+                    <Button
+                      onClick={() => setIsDetailModalOpen(false)}
+                      className="w-full"
+                    >
+                      닫기
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* 내 상품 탭 */}
