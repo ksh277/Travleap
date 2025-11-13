@@ -69,7 +69,7 @@ interface RentcarBooking {
   insurance_fee_krw?: number;
 }
 
-type TabType = 'all' | 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles' | 'calendar';
+type TabType = 'all' | 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles' | 'calendar' | 'damage-claims';
 
 export default function RentcarVendorDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('today');
@@ -147,6 +147,16 @@ export default function RentcarVendorDashboard() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDateBookings, setSelectedDateBookings] = useState<RentcarBooking[]>([]);
 
+  // Damage claims state
+  const [damageClaimForm, setDamageClaimForm] = useState({
+    booking_id: '',
+    damage_amount: '',
+    damage_reason: '',
+    damage_description: ''
+  });
+  const [damageImages, setDamageImages] = useState<string[]>([]);
+  const [submittingClaim, setSubmittingClaim] = useState(false);
+
   // Fetch data based on active tab
   useEffect(() => {
     if (activeTab === 'all') {
@@ -166,6 +176,8 @@ export default function RentcarVendorDashboard() {
       if (vehicles.length === 0) {
         fetchVehiclesForStock();
       }
+    } else if (activeTab === 'damage-claims') {
+      fetchAllBookings();
     }
   }, [activeTab]);
 
@@ -1294,6 +1306,16 @@ export default function RentcarVendorDashboard() {
               }`}
             >
               📅 차량 캘린더
+            </button>
+            <button
+              onClick={() => setActiveTab('damage-claims')}
+              className={`flex-1 py-4 px-6 text-center font-medium transition ${
+                activeTab === 'damage-claims'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              💰 손해 배상 청구
             </button>
             <button
               onClick={() => setActiveTab('vehicles')}
@@ -3616,6 +3638,387 @@ export default function RentcarVendorDashboard() {
               ) : (
                 <div className="text-center py-12 text-gray-600">
                   <p className="text-lg">차량을 선택하면 예약 캘린더를 확인할 수 있습니다.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Damage Claims Tab */}
+          {activeTab === 'damage-claims' && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">💰 손해 배상 청구</h2>
+                <button
+                  onClick={fetchAllBookings}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  🔄 새로고침
+                </button>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-4">
+                  {error}
+                </div>
+              )}
+
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="mt-4 text-gray-600">로딩 중...</p>
+                </div>
+              ) : (
+                <div className="max-w-4xl mx-auto">
+                  <div className="bg-white rounded-lg border p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">손해 배상 청구서 작성</h3>
+
+                    {/* Booking Selection */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        예약 선택 *
+                      </label>
+                      <select
+                        value={damageClaimForm.booking_id}
+                        onChange={(e) => setDamageClaimForm({ ...damageClaimForm, booking_id: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">예약을 선택하세요</option>
+                        {bookings
+                          .filter(b =>
+                            b.status === 'returned' ||
+                            b.status === 'picked_up' ||
+                            b.status === 'completed'
+                          )
+                          .map(booking => (
+                            <option key={booking.id} value={booking.id}>
+                              {booking.booking_number} - {booking.vehicle_name || booking.model} - {booking.customer_name}
+                            </option>
+                          ))}
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">
+                        픽업 완료 또는 반납 완료된 예약만 표시됩니다
+                      </p>
+                    </div>
+
+                    {/* Selected Booking Info */}
+                    {damageClaimForm.booking_id && (
+                      <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                        {(() => {
+                          const selectedBooking = bookings.find(b => b.id === parseInt(damageClaimForm.booking_id));
+                          if (!selectedBooking) return null;
+                          return (
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <span className="font-medium text-gray-700">예약번호:</span>
+                                <span className="ml-2 text-gray-900">{selectedBooking.booking_number}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-700">차량:</span>
+                                <span className="ml-2 text-gray-900">{selectedBooking.vehicle_name || selectedBooking.model}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-700">고객명:</span>
+                                <span className="ml-2 text-gray-900">{selectedBooking.customer_name}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-700">연락처:</span>
+                                <span className="ml-2 text-gray-900">{selectedBooking.customer_phone}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-700">픽업:</span>
+                                <span className="ml-2 text-gray-900">
+                                  {format(new Date(selectedBooking.pickup_at_utc), 'yyyy-MM-dd HH:mm')}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-700">반납:</span>
+                                <span className="ml-2 text-gray-900">
+                                  {format(new Date(selectedBooking.dropoff_at_utc), 'yyyy-MM-dd HH:mm')}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Damage Amount */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        손해 배상 금액 (원) *
+                      </label>
+                      <input
+                        type="number"
+                        value={damageClaimForm.damage_amount}
+                        onChange={(e) => setDamageClaimForm({ ...damageClaimForm, damage_amount: e.target.value })}
+                        placeholder="예: 500000"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        min="0"
+                        step="1000"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        손해 배상으로 청구할 금액을 입력하세요
+                      </p>
+                    </div>
+
+                    {/* Damage Reason (Short) */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        손해 사유 (간단히) *
+                      </label>
+                      <input
+                        type="text"
+                        value={damageClaimForm.damage_reason}
+                        onChange={(e) => setDamageClaimForm({ ...damageClaimForm, damage_reason: e.target.value })}
+                        placeholder="예: 차량 외부 스크래치, 내부 시트 오염 등"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        maxLength={100}
+                      />
+                    </div>
+
+                    {/* Damage Description (Detailed) */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        상세 설명 *
+                      </label>
+                      <textarea
+                        value={damageClaimForm.damage_description}
+                        onChange={(e) => setDamageClaimForm({ ...damageClaimForm, damage_description: e.target.value })}
+                        placeholder="손해 발생 경위 및 상세 내용을 입력하세요..."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32 resize-none"
+                        maxLength={1000}
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        {damageClaimForm.damage_description.length}/1000
+                      </p>
+                    </div>
+
+                    {/* Image Upload */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        손해 증빙 사진
+                      </label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={async (e) => {
+                            const files = Array.from(e.target.files || []);
+                            if (files.length === 0) return;
+
+                            const uploadPromises = files.map(async (file) => {
+                              const formData = new FormData();
+                              formData.append('file', file);
+
+                              try {
+                                const response = await fetch('/api/upload', {
+                                  method: 'POST',
+                                  body: formData
+                                });
+
+                                const result = await response.json();
+                                if (result.success) {
+                                  return result.url;
+                                }
+                                return null;
+                              } catch (err) {
+                                console.error('이미지 업로드 실패:', err);
+                                return null;
+                              }
+                            });
+
+                            const uploadedUrls = await Promise.all(uploadPromises);
+                            const validUrls = uploadedUrls.filter(url => url !== null) as string[];
+
+                            setDamageImages([...damageImages, ...validUrls]);
+                          }}
+                          className="hidden"
+                          id="damage-images-upload"
+                        />
+                        <label
+                          htmlFor="damage-images-upload"
+                          className="cursor-pointer inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                        >
+                          📷 사진 추가
+                        </label>
+                        <p className="mt-2 text-xs text-gray-500">
+                          손해 상태를 증명할 수 있는 사진을 업로드하세요
+                        </p>
+                      </div>
+
+                      {/* Image Preview */}
+                      {damageImages.length > 0 && (
+                        <div className="mt-4 grid grid-cols-3 gap-4">
+                          {damageImages.map((url, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={url}
+                                alt={`손해 증빙 ${index + 1}`}
+                                className="w-full h-32 object-cover rounded-lg border"
+                              />
+                              <button
+                                onClick={() => {
+                                  setDamageImages(damageImages.filter((_, i) => i !== index));
+                                }}
+                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Submit Button */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={async () => {
+                          // Validation
+                          if (!damageClaimForm.booking_id) {
+                            alert('예약을 선택해주세요.');
+                            return;
+                          }
+                          if (!damageClaimForm.damage_amount || parseInt(damageClaimForm.damage_amount) <= 0) {
+                            alert('손해 배상 금액을 입력해주세요.');
+                            return;
+                          }
+                          if (!damageClaimForm.damage_reason.trim()) {
+                            alert('손해 사유를 입력해주세요.');
+                            return;
+                          }
+                          if (!damageClaimForm.damage_description.trim()) {
+                            alert('상세 설명을 입력해주세요.');
+                            return;
+                          }
+
+                          const selectedBooking = bookings.find(b => b.id === parseInt(damageClaimForm.booking_id));
+                          if (!selectedBooking) {
+                            alert('예약 정보를 찾을 수 없습니다.');
+                            return;
+                          }
+
+                          if (!confirm(`${selectedBooking.customer_name}님에게 ${parseInt(damageClaimForm.damage_amount).toLocaleString()}원의 손해 배상을 청구하시겠습니까?`)) {
+                            return;
+                          }
+
+                          setSubmittingClaim(true);
+
+                          try {
+                            const damageAmount = parseInt(damageClaimForm.damage_amount);
+
+                            const requestBody = {
+                              booking_number: selectedBooking.booking_number,
+                              amount: damageAmount,
+                              reason: `차량 손해 배상: ${damageClaimForm.damage_reason}`,
+                              breakdown: {
+                                damage_fee: damageAmount,
+                                late_fee: 0,
+                                other: 0
+                              },
+                              payment_method: 'billing',
+                              notes: damageClaimForm.damage_description,
+                              damage_images: damageImages
+                            };
+
+                            const response = await fetch('/api/rentcar/additional-payment', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                              },
+                              body: JSON.stringify(requestBody)
+                            });
+
+                            const result = await response.json();
+
+                            if (result.success) {
+                              alert('손해 배상 청구가 성공적으로 등록되었습니다.');
+
+                              // Reset form
+                              setDamageClaimForm({
+                                booking_id: '',
+                                damage_amount: '',
+                                damage_reason: '',
+                                damage_description: ''
+                              });
+                              setDamageImages([]);
+
+                              // Refresh bookings
+                              await fetchAllBookings();
+                            } else {
+                              alert(`손해 배상 청구 실패: ${result.message || result.error}`);
+                            }
+                          } catch (err: any) {
+                            console.error('손해 배상 청구 오류:', err);
+                            alert(`오류 발생: ${err.message}`);
+                          } finally {
+                            setSubmittingClaim(false);
+                          }
+                        }}
+                        disabled={submittingClaim}
+                        className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+                      >
+                        {submittingClaim ? '청구 처리 중...' : '💰 손해 배상 청구'}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setDamageClaimForm({
+                            booking_id: '',
+                            damage_amount: '',
+                            damage_reason: '',
+                            damage_description: ''
+                          });
+                          setDamageImages([]);
+                        }}
+                        className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition"
+                      >
+                        초기화
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Claims History (Optional - Simple List) */}
+                  <div className="mt-8 bg-white rounded-lg border p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">최근 손해 배상 청구 내역</h3>
+
+                    {bookings
+                      .filter(b => b.damage_fee && parseInt(b.damage_fee) > 0)
+                      .slice(0, 10)
+                      .map(booking => (
+                        <div key={booking.id} className="border-b last:border-b-0 py-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {booking.booking_number} - {booking.customer_name}
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                {booking.vehicle_name || booking.model}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {format(new Date(booking.created_at), 'yyyy-MM-dd HH:mm')}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-red-600">
+                                {parseInt(booking.damage_fee).toLocaleString()}원
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {booking.payment_status === 'captured' ? '✅ 결제 완료' : '⏳ 대기 중'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                    {bookings.filter(b => b.damage_fee && parseInt(b.damage_fee) > 0).length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        손해 배상 청구 내역이 없습니다.
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
