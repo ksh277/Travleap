@@ -1511,6 +1511,7 @@ export function VendorDashboardPageEnhanced() {
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Input
+                                key={`stock-input-${vehicle.id}-${vehicle.stock || 0}`}
                                 type="number"
                                 min="0"
                                 defaultValue={vehicle.stock || 0}

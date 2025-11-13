@@ -5459,9 +5459,15 @@ function setupRoutes() {
         ORDER BY created_at DESC
       `, [vendorId]);
 
+      // stock 값을 명시적으로 숫자로 변환
+      const formattedVehicles = (vehicles || []).map(v => ({
+        ...v,
+        stock: Number(v.stock) || 0
+      }));
+
       res.json({
         success: true,
-        data: vehicles || []
+        data: formattedVehicles
       });
     } catch (error) {
       console.error('❌ [API] Get vendor vehicles error:', error);
