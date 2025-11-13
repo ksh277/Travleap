@@ -1,5 +1,6 @@
 const { connect } = require('@planetscale/database');
 const jwt = require('jsonwebtoken');
+const { decrypt, decryptPhone, decryptEmail } = require('../../../utils/encryption.cjs');
 
 /**
  * 렌트카 오늘 예약 조회 API
@@ -194,9 +195,9 @@ module.exports = async function handler(req, res) {
         vehicle_code: row.vehicle_code,
         vehicle_image: row.vehicle_image,
         license_plate: row.license_plate,
-        customer_name: row.customer_name,
-        customer_phone: row.customer_phone,
-        customer_email: row.customer_email,
+        customer_name: decrypt(row.customer_name),
+        customer_phone: decryptPhone(row.customer_phone),
+        customer_email: decryptEmail(row.customer_email),
         driver_name: row.driver_name,
         driver_birth: row.driver_birth,
         driver_license_no: row.driver_license_no,

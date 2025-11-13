@@ -65,6 +65,8 @@ interface RentcarBooking {
   }>;
   extras_count?: number;
   extras_total?: number;
+  insurance_name?: string;
+  insurance_fee_krw?: number;
 }
 
 type TabType = 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles';
@@ -74,6 +76,15 @@ export default function RentcarVendorDashboard() {
   const [bookings, setBookings] = useState<RentcarBooking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 정렬, 페이지네이션, 필터
+  const [sortBy, setSortBy] = useState<'date' | 'customer' | 'vehicle' | 'status'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [selectedDetailBooking, setSelectedDetailBooking] = useState<RentcarBooking | null>(null);
 
   // Voucher verification
   const [voucherCode, setVoucherCode] = useState('');
@@ -920,6 +931,195 @@ export default function RentcarVendorDashboard() {
     alert(message);
   };
 
+  // Pending booking handlers
+  const handleConfirmBooking = async (booking: RentcarBooking) => {
+    if (!confirm(`예약 ${booking.booking_number}을(를) 확정하시겠습니까?`)) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/rentcar/bookings/${booking.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({ booking_status: 'confirmed' })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('예약이 확정되었습니다!');
+        fetchTodayBookings();
+      } else {
+        alert(result.error || '예약 확정에 실패했습니다.');
+      }
+    } catch (err: any) {
+      alert(err.message || '서버 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelBooking = async (booking: RentcarBooking) => {
+    const reason = prompt(`예약 ${booking.booking_number}을(를) 취소하시겠습니까?\n\n취소 사유를 입력하세요:`);
+    if (!reason) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/rentcar/bookings/${booking.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({
+          booking_status: 'canceled',
+          cancellation_reason: reason
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('예약이 취소되었습니다.');
+        fetchTodayBookings();
+      } else {
+        alert(result.error || '예약 취소에 실패했습니다.');
+      }
+    } catch (err: any) {
+      alert(err.message || '서버 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sorting and filtering logic
+  const getSortedAndFilteredBookings = () => {
+    let filtered = [...bookings];
+
+    // Date filtering
+    if (startDate || endDate) {
+      filtered = filtered.filter(booking => {
+        const bookingDate = new Date(booking.pickup_at_utc);
+        const start = startDate ? new Date(startDate) : null;
+        const end = endDate ? new Date(endDate) : null;
+
+        if (start && bookingDate < start) return false;
+        if (end && bookingDate > end) return false;
+        return true;
+      });
+    }
+
+    // Sorting
+    filtered.sort((a, b) => {
+      let compareA: any, compareB: any;
+
+      switch (sortBy) {
+        case 'date':
+          compareA = new Date(a.pickup_at_utc).getTime();
+          compareB = new Date(b.pickup_at_utc).getTime();
+          break;
+        case 'customer':
+          compareA = a.customer_name.toLowerCase();
+          compareB = b.customer_name.toLowerCase();
+          break;
+        case 'vehicle':
+          compareA = a.vehicle_model.toLowerCase();
+          compareB = b.vehicle_model.toLowerCase();
+          break;
+        case 'status':
+          compareA = a.status;
+          compareB = b.status;
+          break;
+        default:
+          return 0;
+      }
+
+      if (compareA < compareB) return sortOrder === 'asc' ? -1 : 1;
+      if (compareA > compareB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
+  };
+
+  // Pagination logic
+  const getPaginatedBookings = () => {
+    const filtered = getSortedAndFilteredBookings();
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filtered.slice(startIndex, endIndex);
+  };
+
+  const totalPages = Math.ceil(getSortedAndFilteredBookings().length / itemsPerPage);
+
+  // CSV Export
+  const exportToCSV = () => {
+    const data = getSortedAndFilteredBookings();
+    if (data.length === 0) {
+      alert('내보낼 데이터가 없습니다.');
+      return;
+    }
+
+    const headers = [
+      '예약번호', '차량', '차량번호', '고객명', '전화번호', '이메일',
+      '운전자', '면허번호', '픽업예정', '반납예정', '픽업위치', '결제금액', '상태'
+    ];
+
+    const rows = data.map(booking => [
+      booking.booking_number,
+      booking.vehicle_model,
+      booking.vehicle_code,
+      booking.customer_name,
+      booking.customer_phone,
+      booking.customer_email,
+      booking.driver_name,
+      booking.driver_license_no,
+      format(new Date(booking.pickup_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko }),
+      format(new Date(booking.return_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko }),
+      booking.pickup_location || '-',
+      booking.total_price_krw,
+      booking.status
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `rentcar_bookings_${format(new Date(), 'yyyyMMdd')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Revenue stats
+  const getRevenueStats = () => {
+    const filtered = getSortedAndFilteredBookings();
+    const totalRevenue = filtered.reduce((sum, b) => sum + b.total_price_krw, 0);
+    const confirmedRevenue = filtered
+      .filter(b => b.status === 'confirmed' || b.status === 'picked_up' || b.status === 'returned' || b.status === 'completed')
+      .reduce((sum, b) => sum + b.total_price_krw, 0);
+    const pendingRevenue = filtered
+      .filter(b => b.status === 'pending')
+      .reduce((sum, b) => sum + b.total_price_krw, 0);
+
+    return {
+      totalBookings: filtered.length,
+      totalRevenue,
+      confirmedRevenue,
+      pendingRevenue,
+      confirmedCount: filtered.filter(b => b.status === 'confirmed' || b.status === 'picked_up' || b.status === 'returned' || b.status === 'completed').length,
+      pendingCount: filtered.filter(b => b.status === 'pending').length
+    };
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; className: string }> = {
       pending: { label: '결제대기', className: 'bg-yellow-100 text-yellow-800' },
@@ -1046,6 +1246,128 @@ export default function RentcarVendorDashboard() {
                 </button>
               </div>
 
+              {/* Revenue Stats */}
+              {!loading && !error && bookings.length > 0 && (() => {
+                const stats = getRevenueStats();
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-white border rounded-lg p-4">
+                      <p className="text-sm text-gray-500 mb-1">총 예약</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats.totalBookings}건</p>
+                    </div>
+                    <div className="bg-white border rounded-lg p-4">
+                      <p className="text-sm text-gray-500 mb-1">총 매출</p>
+                      <p className="text-2xl font-bold text-blue-600">₩{stats.totalRevenue.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-white border rounded-lg p-4">
+                      <p className="text-sm text-gray-500 mb-1">확정 매출 ({stats.confirmedCount}건)</p>
+                      <p className="text-2xl font-bold text-green-600">₩{stats.confirmedRevenue.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-white border rounded-lg p-4">
+                      <p className="text-sm text-gray-500 mb-1">대기 매출 ({stats.pendingCount}건)</p>
+                      <p className="text-2xl font-bold text-yellow-600">₩{stats.pendingRevenue.toLocaleString()}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Filters and Controls */}
+              {!loading && !error && bookings.length > 0 && (
+                <div className="bg-white border rounded-lg p-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Date Range */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+                      <input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => {
+                          setStartDate(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+                      <input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => {
+                          setEndDate(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    {/* Sort By */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">정렬 기준</label>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="date">날짜</option>
+                        <option value="customer">고객명</option>
+                        <option value="vehicle">차량</option>
+                        <option value="status">상태</option>
+                      </select>
+                    </div>
+
+                    {/* Sort Order */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">정렬 순서</label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSortOrder('asc')}
+                          className={`flex-1 px-3 py-2 rounded-lg border transition ${
+                            sortOrder === 'asc'
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          오름차순
+                        </button>
+                        <button
+                          onClick={() => setSortOrder('desc')}
+                          className={`flex-1 px-3 py-2 rounded-lg border transition ${
+                            sortOrder === 'desc'
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          내림차순
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={exportToCSV}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                    >
+                      CSV 내보내기
+                    </button>
+                    <button
+                      onClick={() => {
+                        setStartDate('');
+                        setEndDate('');
+                        setSortBy('date');
+                        setSortOrder('desc');
+                        setCurrentPage(1);
+                      }}
+                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
+                    >
+                      필터 초기화
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {loading && <div className="text-center py-8 text-gray-600">로딩 중...</div>}
               {error && <div className="text-center py-8 text-red-600">{error}</div>}
 
@@ -1054,8 +1376,9 @@ export default function RentcarVendorDashboard() {
               )}
 
               {!loading && !error && bookings.length > 0 && (
-                <div className="space-y-4">
-                  {bookings.map((booking) => (
+                <>
+                  <div className="space-y-4">
+                    {getPaginatedBookings().map((booking) => (
                     <div key={booking.id} className="border rounded-lg p-4 hover:shadow-md transition">
                       <div className="flex items-start gap-4">
                         {booking.vehicle_image && (
@@ -1145,7 +1468,36 @@ export default function RentcarVendorDashboard() {
                             </div>
                           )}
 
-                          <div className="flex items-center gap-2 mt-4">
+                          {/* 보험 정보 */}
+                          {booking.insurance_name && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-green-700">보험</span>
+                                <span className="text-sm font-bold text-green-900">+₩{booking.insurance_fee_krw?.toLocaleString()}</span>
+                              </div>
+                              <div className="mt-1">
+                                <span className="text-xs text-gray-700">• {booking.insurance_name}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center flex-wrap gap-2 mt-4">
+                            {booking.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => handleConfirmBooking(booking)}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                                >
+                                  예약 확정
+                                </button>
+                                <button
+                                  onClick={() => handleCancelBooking(booking)}
+                                  className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm"
+                                >
+                                  예약 취소
+                                </button>
+                              </>
+                            )}
                             {booking.status === 'confirmed' && (
                               <>
                                 <button
@@ -1182,7 +1534,7 @@ export default function RentcarVendorDashboard() {
                               </>
                             )}
                             {(booking.status === 'returned' || booking.status === 'completed') && (
-                              <div className="flex items-center gap-2">
+                              <>
                                 <button
                                   onClick={() => viewPickupRecord(booking)}
                                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
@@ -1195,14 +1547,223 @@ export default function RentcarVendorDashboard() {
                                 >
                                   반납 기록
                                 </button>
-                              </div>
+                              </>
                             )}
+                            <button
+                              onClick={() => setSelectedDetailBooking(booking)}
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm"
+                            >
+                              상세보기
+                            </button>
                           </div>
                         </div>
                       </div>
                     </div>
                   ))}
-                </div>
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        이전
+                      </button>
+                      <div className="flex gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`px-3 py-2 border rounded-lg ${
+                                currentPage === pageNum
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        다음
+                      </button>
+                      <span className="ml-4 text-sm text-gray-600">
+                        페이지 {currentPage} / {totalPages}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Detail Modal */}
+                  {selectedDetailBooking && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                          <h3 className="text-xl font-bold">예약 상세 정보</h3>
+                          <button
+                            onClick={() => setSelectedDetailBooking(null)}
+                            className="text-gray-500 hover:text-gray-700"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                          {/* Booking Info */}
+                          <div className="border-b pb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-bold text-lg">{selectedDetailBooking.vehicle_model}</h4>
+                              {getStatusBadge(selectedDetailBooking.status)}
+                            </div>
+                            {selectedDetailBooking.vehicle_image && (
+                              <img
+                                src={selectedDetailBooking.vehicle_image}
+                                alt={selectedDetailBooking.vehicle_model}
+                                className="w-full h-48 object-cover rounded-lg"
+                              />
+                            )}
+                          </div>
+
+                          {/* Basic Info */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-500">예약 번호</p>
+                              <p className="font-medium">{selectedDetailBooking.booking_number}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">차량 번호</p>
+                              <p className="font-medium">{selectedDetailBooking.vehicle_code}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">고객명</p>
+                              <p className="font-medium">{selectedDetailBooking.customer_name}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">전화번호</p>
+                              <a href={`tel:${selectedDetailBooking.customer_phone}`} className="font-medium text-blue-600 hover:underline">
+                                {selectedDetailBooking.customer_phone}
+                              </a>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-sm text-gray-500">이메일</p>
+                              <a href={`mailto:${selectedDetailBooking.customer_email}`} className="font-medium text-blue-600 hover:underline">
+                                {selectedDetailBooking.customer_email}
+                              </a>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">운전자</p>
+                              <p className="font-medium">{selectedDetailBooking.driver_name}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500">면허번호</p>
+                              <p className="font-medium">{selectedDetailBooking.driver_license_no}</p>
+                            </div>
+                            {selectedDetailBooking.driver_birth && (
+                              <div>
+                                <p className="text-sm text-gray-500">생년월일</p>
+                                <p className="font-medium">{selectedDetailBooking.driver_birth}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Rental Period */}
+                          <div className="border-t pt-4">
+                            <h5 className="font-semibold mb-2">대여 기간</h5>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-500">인수 예정</p>
+                                <p className="font-medium">{format(new Date(selectedDetailBooking.pickup_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-500">반납 예정</p>
+                                <p className="font-medium">{format(new Date(selectedDetailBooking.return_at_utc), 'yyyy-MM-dd HH:mm', { locale: ko })}</p>
+                              </div>
+                              {selectedDetailBooking.pickup_location && (
+                                <div className="col-span-2">
+                                  <p className="text-sm text-gray-500">픽업 위치</p>
+                                  <p className="font-medium">{selectedDetailBooking.pickup_location}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Payment Info */}
+                          <div className="border-t pt-4">
+                            <h5 className="font-semibold mb-2">결제 정보</h5>
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <p className="text-sm text-blue-600 mb-1">총 결제 금액</p>
+                              <p className="text-2xl font-bold text-blue-900">₩{selectedDetailBooking.total_price_krw.toLocaleString()}</p>
+                            </div>
+                          </div>
+
+                          {/* Extras */}
+                          {selectedDetailBooking.extras && selectedDetailBooking.extras.length > 0 && (
+                            <div className="border-t pt-4">
+                              <h5 className="font-semibold mb-2">추가 옵션</h5>
+                              <div className="space-y-2">
+                                {selectedDetailBooking.extras.map((extra, idx) => (
+                                  <div key={idx} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                                    <div>
+                                      <p className="font-medium">{extra.name}</p>
+                                      <p className="text-sm text-gray-500">
+                                        {extra.category} • {extra.price_type} {extra.quantity > 1 && `x ${extra.quantity}`}
+                                      </p>
+                                    </div>
+                                    <p className="font-bold">₩{extra.total_price.toLocaleString()}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Insurance */}
+                          {selectedDetailBooking.insurance_name && (
+                            <div className="border-t pt-4">
+                              <h5 className="font-semibold mb-2">보험</h5>
+                              <div className="flex items-center justify-between bg-green-50 border border-green-200 p-3 rounded-lg">
+                                <div>
+                                  <p className="font-medium text-green-900">{selectedDetailBooking.insurance_name}</p>
+                                </div>
+                                <p className="font-bold text-green-900">₩{selectedDetailBooking.insurance_fee_krw?.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Late Return Fee */}
+                          {selectedDetailBooking.late_return_hours && selectedDetailBooking.late_return_hours > 0 && (
+                            <div className="border-t pt-4">
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <p className="text-sm text-red-600 mb-1">연체 정보</p>
+                                <p className="font-medium">연체 시간: {selectedDetailBooking.late_return_hours}시간</p>
+                                <p className="text-lg font-bold text-red-900">연체료: ₩{selectedDetailBooking.late_return_fee_krw?.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

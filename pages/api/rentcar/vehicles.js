@@ -66,7 +66,8 @@ module.exports = async function handler(req, res) {
         transmission,
         seating_capacity,
         thumbnail_url,
-        images
+        images,
+        stock
       } = req.body;
 
       // 필수 필드 검증
@@ -84,8 +85,8 @@ module.exports = async function handler(req, res) {
         INSERT INTO rentcar_vehicles (
           vendor_id, vehicle_code, display_name, daily_rate_krw, hourly_rate_krw,
           brand, model, year, vehicle_class, fuel_type, transmission,
-          seating_capacity, thumbnail_url, images
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          seating_capacity, thumbnail_url, images, stock
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         vendor_id,
         vehicle_code || `V${Date.now()}`,
@@ -100,7 +101,8 @@ module.exports = async function handler(req, res) {
         transmission || null,
         seating_capacity || null,
         thumbnail_url || null,
-        JSON.stringify(images || [])
+        JSON.stringify(images || []),
+        stock !== undefined ? stock : 10  // 기본값 10
       ]);
 
       return res.status(200).json({
