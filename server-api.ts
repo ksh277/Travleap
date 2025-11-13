@@ -9022,6 +9022,79 @@ function setupRoutes() {
     }
   });
 
+  // Update vehicle stock
+  app.put('/api/vendor/rentcar/vehicles/stock', authenticate, async (req, res) => {
+    try {
+      const { vehicle_id, stock } = req.body;
+      const userId = req.user?.userId;
+
+      if (!vehicle_id || stock === undefined || stock === null) {
+        return res.status(400).json({
+          success: false,
+          message: 'vehicle_id와 stock은 필수 항목입니다.'
+        });
+      }
+
+      if (typeof stock !== 'number' || stock < 0) {
+        return res.status(400).json({
+          success: false,
+          message: '재고는 0 이상의 숫자여야 합니다.'
+        });
+      }
+
+      const db = await import('./utils/database.js');
+
+      // user_id로 렌트카 벤더 ID 조회
+      const vendors = await db.query(`SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`, [userId]);
+
+      if (!vendors || vendors.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '렌트카 벤더 정보를 찾을 수 없습니다.'
+        });
+      }
+
+      const vendorId = vendors[0].id;
+
+      // 해당 차량이 벤더의 것인지 확인
+      const vehicleCheck = await db.query(
+        `SELECT id FROM rentcar_vehicles WHERE id = ? AND vendor_id = ? LIMIT 1`,
+        [vehicle_id, vendorId]
+      );
+
+      if (!vehicleCheck || vehicleCheck.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: '해당 차량에 대한 권한이 없습니다.'
+        });
+      }
+
+      // 재고 업데이트
+      await db.query(
+        `UPDATE rentcar_vehicles SET stock = ?, updated_at = NOW() WHERE id = ?`,
+        [stock, vehicle_id]
+      );
+
+      console.log(`✅ [Rentcar Vendor] Vehicle ${vehicle_id} stock updated to ${stock} by vendor ${vendorId}`);
+
+      return res.status(200).json({
+        success: true,
+        message: '재고가 성공적으로 업데이트되었습니다.',
+        data: {
+          vehicle_id,
+          stock
+        }
+      });
+    } catch (error) {
+      console.error('❌ [API] Update vehicle stock error:', error);
+      res.status(500).json({
+        success: false,
+        message: '재고 업데이트 중 오류가 발생했습니다.',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Update vehicle
   app.put('/api/vendor/rentcar/vehicles/:id', authenticate, async (req, res) => {
     try {
