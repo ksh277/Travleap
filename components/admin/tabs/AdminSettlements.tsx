@@ -81,6 +81,8 @@ export function AdminSettlements() {
   });
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'this_week' | 'this_month' | 'total'>('total');
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
 
   // 정산 데이터 로드
   const loadSettlements = async () => {
@@ -125,8 +127,16 @@ export function AdminSettlements() {
   useEffect(() => {
     if (selectedSettlement) {
       loadPeriodStats();
+      loadBookings();
     }
   }, [selectedSettlement]);
+
+  // 기간 변경 시 예약 목록 다시 로드
+  useEffect(() => {
+    if (selectedSettlement) {
+      loadBookings();
+    }
+  }, [selectedPeriod]);
 
   const loadPeriodStats = async () => {
     if (!selectedSettlement) return;
@@ -150,6 +160,45 @@ export function AdminSettlements() {
       toast.error('기간별 매출을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setIsLoadingDetail(false);
+    }
+  };
+
+  // 예약 목록 로드
+  const loadBookings = async () => {
+    if (!selectedSettlement) return;
+
+    try {
+      setIsLoadingBookings(true);
+
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      if (!token) {
+        toast.error('인증 토큰이 없습니다.');
+        return;
+      }
+
+      const response = await fetch(
+        `/api/admin/settlements/bookings?partner_id=${selectedSettlement.partner_id}&partner_type=${selectedSettlement.partner_type}&period=${selectedPeriod}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setBookings(data.data || []);
+        console.log(`✅ 예약 목록 로드: ${data.data?.length || 0}건`);
+      } else {
+        toast.error('예약 목록 로드 실패');
+        setBookings([]);
+      }
+    } catch (error) {
+      console.error('예약 목록 로드 오류:', error);
+      toast.error('예약 목록을 불러오는 중 오류가 발생했습니다.');
+      setBookings([]);
+    } finally {
+      setIsLoadingBookings(false);
     }
   };
 
@@ -597,6 +646,74 @@ export function AdminSettlements() {
                     {selectedSettlement.status === 'pending' ? '정산 대기' : '정산 완료'}
                   </Badge>
                 </div>
+              </div>
+
+              {/* 예약/결제 목록 */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-lg border-b pb-2">
+                  결제 완료 예약 목록 ({bookings.length}건)
+                </h3>
+
+                {isLoadingBookings ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+                  </div>
+                ) : bookings.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    해당 기간의 예약이 없습니다.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr className="border-b">
+                          <th className="text-left p-2">예약번호</th>
+                          <th className="text-left p-2">고객명</th>
+                          <th className="text-left p-2">연락처</th>
+                          {selectedSettlement.partner_type === 'rentcar' && (
+                            <>
+                              <th className="text-left p-2">차량</th>
+                              <th className="text-left p-2">픽업일</th>
+                              <th className="text-left p-2">반납일</th>
+                            </>
+                          )}
+                          <th className="text-right p-2">결제금액</th>
+                          <th className="text-left p-2">결제일시</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bookings.map((booking) => (
+                          <tr key={booking.id} className="border-b hover:bg-gray-50">
+                            <td className="p-2 font-mono text-xs">
+                              {booking.booking_number || `#${booking.id}`}
+                            </td>
+                            <td className="p-2">{booking.customer_name}</td>
+                            <td className="p-2 text-xs">{booking.customer_phone}</td>
+                            {selectedSettlement.partner_type === 'rentcar' && (
+                              <>
+                                <td className="p-2">{booking.vehicle_name || '-'}</td>
+                                <td className="p-2 text-xs">
+                                  {new Date(booking.pickup_date).toLocaleDateString('ko-KR')}
+                                  {booking.pickup_time && <div className="text-gray-500">{booking.pickup_time}</div>}
+                                </td>
+                                <td className="p-2 text-xs">
+                                  {new Date(booking.dropoff_date).toLocaleDateString('ko-KR')}
+                                  {booking.dropoff_time && <div className="text-gray-500">{booking.dropoff_time}</div>}
+                                </td>
+                              </>
+                            )}
+                            <td className="p-2 text-right font-medium">
+                              ₩{(booking.total_amount || 0).toLocaleString()}
+                            </td>
+                            <td className="p-2 text-xs">
+                              {new Date(booking.created_at).toLocaleString('ko-KR')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

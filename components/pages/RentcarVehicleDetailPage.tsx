@@ -111,6 +111,9 @@ export function RentcarVehicleDetailPage() {
   const [driverLicenseNo, setDriverLicenseNo] = useState('');
   const [driverLicenseExp, setDriverLicenseExp] = useState(''); // YYYY-MM-DD 형식
 
+  // 예약자 연락처 (사용자 프로필에서 불러오기)
+  const [customerPhone, setCustomerPhone] = useState(user?.phone || '');
+
   // 보험 상태
   const [insurances, setInsurances] = useState<Insurance[]>([]);
   const [selectedInsuranceId, setSelectedInsuranceId] = useState<number | null>(null);
@@ -123,6 +126,13 @@ export function RentcarVehicleDetailPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '' });
+
+  // 사용자 정보 변경 시 전화번호 동기화
+  useEffect(() => {
+    if (user?.phone && !customerPhone) {
+      setCustomerPhone(user.phone);
+    }
+  }, [user]);
 
   // 업체 페이지에서 전달받은 날짜/가격 정보 초기화
   useEffect(() => {
@@ -239,6 +249,24 @@ export function RentcarVehicleDetailPage() {
       return `${limited.slice(0, 2)}-${limited.slice(2)}`;
     } else {
       return `${limited.slice(0, 2)}-${limited.slice(2, 8)}-${limited.slice(8)}`;
+    }
+  };
+
+  // 전화번호 자동 포맷팅 (010-XXXX-XXXX)
+  const formatPhoneNumber = (value: string) => {
+    // 숫자만 추출
+    const numbers = value.replace(/[^\d]/g, '');
+
+    // 최대 11자리까지만
+    const limited = numbers.slice(0, 11);
+
+    // 자동으로 하이픈 삽입
+    if (limited.length <= 3) {
+      return limited;
+    } else if (limited.length <= 7) {
+      return `${limited.slice(0, 3)}-${limited.slice(3)}`;
+    } else {
+      return `${limited.slice(0, 3)}-${limited.slice(3, 7)}-${limited.slice(7)}`;
     }
   };
 
@@ -452,6 +480,18 @@ export function RentcarVehicleDetailPage() {
       return;
     }
 
+    // 연락처 검증
+    if (!customerPhone.trim()) {
+      toast.error('연락처를 입력해주세요');
+      return;
+    }
+    // 전화번호 형식 검증 (010-XXXX-XXXX 또는 숫자 11자리)
+    const phoneNumbers = customerPhone.replace(/[^\d]/g, '');
+    if (phoneNumbers.length < 10 || phoneNumbers.length > 11) {
+      toast.error('올바른 전화번호를 입력해주세요 (10~11자리)');
+      return;
+    }
+
     // 필수 보험 체크
     const requiredInsurances = insurances.filter(ins => ins.is_required);
     if (requiredInsurances.length > 0 && !selectedInsuranceId) {
@@ -510,7 +550,7 @@ export function RentcarVehicleDetailPage() {
         },
         customer_name: user.name,
         customer_email: user.email,
-        customer_phone: user.phone || '',
+        customer_phone: customerPhone,  // 입력한 전화번호 사용
         insurance_plan_id: selectedInsuranceId,
         extras: selectedExtrasData.length > 0 ? selectedExtrasData : undefined
       };
@@ -909,6 +949,18 @@ export function RentcarVehicleDetailPage() {
                           />
                           <p className="text-xs text-gray-500 mt-1">반납일 이후여야 합니다</p>
                         </div>
+
+                        <div>
+                          <label className="text-sm font-medium mb-1 block">연락처 *</label>
+                          <input
+                            type="tel"
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(formatPhoneNumber(e.target.value))}
+                            placeholder="010-0000-0000"
+                            className="w-full px-3 py-2 border rounded-md"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">숫자만 입력하세요 (하이픈 자동 입력)</p>
+                        </div>
                       </div>
                     </>
                   )}
@@ -1225,7 +1277,9 @@ export function RentcarVehicleDetailPage() {
                       !driverName.trim() ||
                       !driverBirth ||
                       !driverLicenseNo.trim() ||
-                      !driverLicenseExp
+                      !driverLicenseExp ||
+                      !customerPhone.trim() ||
+                      customerPhone.replace(/[^\d]/g, '').length < 10
                     }
                   >
                     {isBooking ? (
@@ -1239,10 +1293,10 @@ export function RentcarVehicleDetailPage() {
                   </Button>
 
                   {pickupDate && returnDate && calculateRentalHours() >= 4 && (
-                    !driverName.trim() || !driverBirth || !driverLicenseNo.trim() || !driverLicenseExp
+                    !driverName.trim() || !driverBirth || !driverLicenseNo.trim() || !driverLicenseExp || !customerPhone.trim()
                   ) && (
                     <p className="text-xs text-center text-orange-600 mt-2">
-                      운전자 정보를 모두 입력해주세요
+                      운전자 정보 및 연락처를 모두 입력해주세요
                     </p>
                   )}
 

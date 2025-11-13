@@ -130,6 +130,17 @@ module.exports = async function handler(req, res) {
       [JSON.stringify(returnVehicleConditionData), lateReturnHours, lateReturnFee, booking.id]
     );
 
+    // 차량 재고 증가
+    try {
+      await connection.execute(
+        'UPDATE rentcar_vehicles SET stock = stock + 1 WHERE id = ?',
+        [booking.vehicle_id]
+      );
+      console.log('📈 [Check-out API] 차량 재고 증가:', booking.vehicle_id);
+    } catch (stockError) {
+      console.warn('⚠️  [Check-out API] 재고 업데이트 실패:', stockError.message);
+    }
+
     console.log('✅ 체크아웃 완료:', {
       bookingId: booking.id,
       bookingNumber: booking_number,

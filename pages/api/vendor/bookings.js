@@ -1,5 +1,6 @@
 const { connect } = require('@planetscale/database');
 const jwt = require('jsonwebtoken');
+const { decrypt, decryptPhone, decryptEmail } = require('../../../utils/encryption.cjs');
 
 module.exports = async function handler(req, res) {
   // CORS 헤더
@@ -82,28 +83,129 @@ module.exports = async function handler(req, res) {
           b.customer_name,
           b.customer_phone,
           b.customer_email,
+          b.driver_name,
+          b.driver_birth,
+          b.driver_license_no,
           b.status,
           b.payment_status,
           b.refund_amount_krw,
           b.refund_reason,
           b.refunded_at,
           b.created_at,
+          b.pickup_checked_in_at,
+          b.return_checked_out_at,
+          b.pickup_vehicle_condition,
+          b.return_vehicle_condition,
           v.display_name as vehicle_name,
           i.name as insurance_name,
-          i.price as insurance_price,
-          i.pricing_unit as insurance_pricing_unit
+          i.hourly_rate_krw as insurance_hourly_rate
         FROM rentcar_bookings b
         LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
-        LEFT JOIN insurances i ON b.insurance_id = i.id AND i.category = 'rentcar'
+        LEFT JOIN rentcar_insurance i ON b.insurance_id = i.id
         WHERE b.vendor_id = ?
           AND b.payment_status IN ('paid', 'refunded')
         ORDER BY b.created_at DESC`,
         [vendorId]
       );
 
+      const bookings = result.rows || [];
+
+      // 안전한 복호화 함수 (평문/NULL 처리)
+      const safeDecrypt = (value) => {
+        if (!value) return null;
+        try {
+          if (typeof value === 'string' && value.length > 50) {
+            return decrypt(value);
+          }
+          return value;
+        } catch (err) {
+          return value;
+        }
+      };
+
+      const safeDecryptPhone = (value) => {
+        if (!value) return null;
+        try {
+          if (typeof value === 'string' && value.length > 50) {
+            return decryptPhone(value);
+          }
+          return value;
+        } catch (err) {
+          return value;
+        }
+      };
+
+      const safeDecryptEmail = (value) => {
+        if (!value) return null;
+        try {
+          if (typeof value === 'string' && value.length > 50) {
+            return decryptEmail(value);
+          }
+          return value;
+        } catch (err) {
+          return value;
+        }
+      };
+
+      // 예약 ID 목록 추출
+      const bookingIds = bookings.map(b => b.id);
+
+      // extras 정보 조회 (있는 경우만)
+      let extrasData = [];
+      if (bookingIds.length > 0) {
+        try {
+          const extrasResult = await connection.execute(
+            `SELECT
+              rbe.booking_id,
+              rbe.extra_id,
+              rbe.quantity,
+              rbe.unit_price_krw,
+              rbe.total_price_krw,
+              re.name as extra_name,
+              re.category,
+              re.price_type
+            FROM rentcar_booking_extras rbe
+            LEFT JOIN rentcar_extras re ON rbe.extra_id = re.id
+            WHERE rbe.booking_id IN (${bookingIds.map(() => '?').join(',')})`,
+            bookingIds
+          );
+
+          extrasData = extrasResult.rows || [];
+        } catch (extrasError) {
+          console.warn('⚠️  extras 조회 실패:', extrasError.message);
+        }
+      }
+
+      // extras를 각 예약에 매핑 + 복호화
+      const bookingsWithExtras = bookings.map(booking => {
+        const bookingExtras = extrasData
+          .filter(e => e.booking_id === booking.id)
+          .map(e => ({
+            extra_id: e.extra_id,
+            name: e.extra_name || '(삭제된 옵션)',
+            category: e.category,
+            price_type: e.price_type,
+            quantity: e.quantity,
+            unit_price: Number(e.unit_price_krw || 0),
+            total_price: Number(e.total_price_krw || 0)
+          }));
+
+        return {
+          ...booking,
+          customer_name: safeDecrypt(booking.customer_name),
+          customer_phone: safeDecryptPhone(booking.customer_phone),
+          customer_email: safeDecryptEmail(booking.customer_email),
+          driver_name: safeDecrypt(booking.driver_name),
+          driver_license_no: safeDecrypt(booking.driver_license_no),
+          extras: bookingExtras,
+          extras_count: bookingExtras.length,
+          extras_total: bookingExtras.reduce((sum, e) => sum + e.total_price, 0)
+        };
+      });
+
       return res.status(200).json({
         success: true,
-        data: result.rows || []
+        data: bookingsWithExtras
       });
     }
 
@@ -249,7 +351,59 @@ module.exports = async function handler(req, res) {
         console.warn('⚠️ paymentKey 또는 TOSS_SECRET_KEY 없음 - DB만 업데이트');
       }
 
-      // 3. DB에 환불 정보 저장 (실제 결제 금액으로)
+      // 3. 포인트 회수 처리 (결제 시 적립된 포인트 회수)
+      let pointsRecovered = 0;
+      if (booking.user_id) {
+        try {
+          const { Pool } = require('@neondatabase/serverless');
+          const poolNeon = new Pool({
+            connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+          });
+
+          try {
+            // 3-1. 해당 예약으로 적립된 포인트 조회 (Neon DB에서 조회)
+            const pointsResult = await poolNeon.query(
+              `SELECT amount FROM points_ledger
+               WHERE user_id = $1
+                 AND transaction_type = 'earned'
+                 AND related_order_id = $2
+               ORDER BY created_at DESC LIMIT 1`,
+              [booking.user_id, booking.booking_number]
+            );
+
+            if (pointsResult.rows && pointsResult.rows.length > 0) {
+              const earnedPoints = pointsResult.rows[0].amount || 0;
+
+              if (earnedPoints > 0) {
+                // 3-2. 포인트 회수 (차감)
+                await poolNeon.query(
+                  `INSERT INTO points_ledger (user_id, amount, description, transaction_type, related_order_id, created_at)
+                   VALUES ($1, $2, $3, $4, $5, NOW())`,
+                  [
+                    booking.user_id,
+                    -earnedPoints,
+                    `환불로 인한 포인트 회수 (주문번호: ${booking.booking_number})`,
+                    'deducted',
+                    booking.booking_number
+                  ]
+                );
+
+                pointsRecovered = earnedPoints;
+                console.log(`🎁 [Refund] 포인트 회수 완료: user_id=${booking.user_id}, points=-${earnedPoints}`);
+              }
+            } else {
+              console.log(`ℹ️  [Refund] 적립된 포인트 없음 (user_id=${booking.user_id}, order=${booking.booking_number})`);
+            }
+          } finally {
+            await poolNeon.end();
+          }
+        } catch (pointsError) {
+          console.error('❌ [Refund] 포인트 회수 실패:', pointsError.message);
+          // 포인트 회수 실패해도 환불은 계속 진행
+        }
+      }
+
+      // 4. DB에 환불 정보 저장 (실제 결제 금액으로)
       await connection.execute(
         `UPDATE rentcar_bookings
          SET status = 'cancelled',
@@ -261,6 +415,24 @@ module.exports = async function handler(req, res) {
          WHERE id = ?`,
         [finalRefundAmount, refund_reason || '벤더 요청', bookingId]
       );
+
+      // 5. 차량 재고 복구
+      try {
+        const vehicleResult = await connection.execute(
+          'SELECT vehicle_id FROM rentcar_bookings WHERE id = ?',
+          [bookingId]
+        );
+        if (vehicleResult.rows && vehicleResult.rows.length > 0) {
+          const vehicleId = vehicleResult.rows[0].vehicle_id;
+          await connection.execute(
+            'UPDATE rentcar_vehicles SET stock = stock + 1 WHERE id = ?',
+            [vehicleId]
+          );
+          console.log('📈 [Refund] 차량 재고 복구:', vehicleId);
+        }
+      } catch (stockError) {
+        console.warn('⚠️  [Refund] 재고 복구 실패:', stockError.message);
+      }
 
       console.log('✅ 환불 완료:', {
         bookingId,
@@ -275,7 +447,8 @@ module.exports = async function handler(req, res) {
           booking_id: bookingId,
           refund_amount: finalRefundAmount,
           actual_paid_amount: actualPaidAmount,
-          pg_refund_processed: !!paymentKey
+          pg_refund_processed: !!paymentKey,
+          points_recovered: pointsRecovered
         }
       });
     }

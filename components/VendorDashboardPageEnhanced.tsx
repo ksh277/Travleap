@@ -67,14 +67,33 @@ interface Booking {
   id: number;
   booking_number?: string;
   vehicle_id: number;
-  vehicle_name: string;
+  vehicle_name?: string;
+  vehicle_model?: string; // 전체 예약 API에서 사용
+  vehicle_image?: string;
   customer_name: string;
   customer_phone: string;
+  customer_email?: string;
+  driver_name?: string;
+  driver_birth?: string;
+  driver_license_no?: string;
   pickup_date: string;
   pickup_time?: string;
   dropoff_date: string;
   dropoff_time?: string;
-  total_amount: number;
+  total_amount?: number;
+  total_price_krw?: number; // 전체 예약 API에서 사용
+  insurance_name?: string;
+  insurance_fee_krw?: number;
+  extras?: Array<{
+    extra_id: number;
+    name: string;
+    category: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+  }>;
+  extras_count?: number;
+  extras_total?: number;
   status: string;
   payment_status?: string;
   refund_amount_krw?: number;
@@ -83,6 +102,10 @@ interface Booking {
   created_at: string;
   picked_up_at?: string;
   returned_at?: string;
+  pickup_checked_in_at?: string;
+  return_checked_out_at?: string;
+  pickup_vehicle_condition?: any; // JSON 형식: { condition, fuel_level, mileage, damage_notes, images }
+  return_vehicle_condition?: any; // JSON 형식: { condition, fuel_level, mileage, damage_notes, images, additional_charges }
 }
 
 interface Insurance {
@@ -139,9 +162,12 @@ export function VendorDashboardPageEnhanced() {
   const [loading, setLoading] = useState(true);
   const [vendorInfo, setVendorInfo] = useState<VendorInfo | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]); // 오늘의 예약
+  const [allBookings, setAllBookings] = useState<Booking[]>([]); // 전체 예약
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [activeTab, setActiveTab] = useState('vehicles');
+  const [bookingView, setBookingView] = useState<'today' | 'all' | 'calendar'>('today'); // 예약 관리 내 뷰 전환
+  const [expandedBookingId, setExpandedBookingId] = useState<number | null>(null); // 예약 상세보기 확장
   const [revenueData, setRevenueData] = useState<Array<{ date: string; revenue: number }>>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -200,13 +226,26 @@ export function VendorDashboardPageEnhanced() {
   const [actualReturnDateTime, setActualReturnDateTime] = useState('');
   const [vendorNote, setVendorNote] = useState('');
 
+  // 픽업/반납 상세 정보 보기 모달
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [detailType, setDetailType] = useState<'pickup' | 'return'>('pickup');
+  const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
+
+  // 픽업/반납 상세 정보 보기
+  const handleViewDetails = (booking: Booking, type: 'pickup' | 'return') => {
+    setDetailBooking(booking);
+    setDetailType(type);
+    setDetailModalOpen(true);
+  };
+
   // 픽업 처리 모달 열기
   const handlePickup = (booking: Booking) => {
     setPickupBooking(booking);
     setPickupForm({
       mileage: 0,
       fuel_level: 100,
-      damage_notes: ''
+      damage_notes: '',
+      images: []
     });
     setPickupModalOpen(true);
   };
@@ -553,21 +592,37 @@ export function VendorDashboardPageEnhanced() {
         setVehicles([]);
       }
 
-      // 3. 예약 목록 조회 API - JWT 토큰으로 인증
+      // 3. 예약 목록 조회 API - JWT 토큰으로 인증 (오늘의 예약)
       const bookingsResponse = await fetch(`/api/vendor/bookings`, { headers });
       const bookingsData = await bookingsResponse.json();
 
       if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 [DEBUG] 예약 API 응답:', bookingsData);
+        console.log('🔍 [DEBUG] 오늘 예약 API 응답:', bookingsData);
       }
 
       if (bookingsData.success && bookingsData.data) {
         setBookings(bookingsData.data);
-        setFilteredBookings(bookingsData.data);
-        console.log('✅ 예약 데이터 로드 완료:', bookingsData.data.length, '건');
+        console.log('✅ 오늘 예약 데이터 로드 완료:', bookingsData.data.length, '건');
       } else {
-        console.warn('⚠️ 예약 데이터 없음');
+        console.warn('⚠️ 오늘 예약 데이터 없음');
         setBookings([]);
+      }
+
+      // 3-1. 전체 예약 목록 조회 API - 렌트카 벤더용
+      const allBookingsResponse = await fetch(`/api/vendor/rentcar/bookings`, { headers });
+      const allBookingsData = await allBookingsResponse.json();
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [DEBUG] 전체 예약 API 응답:', allBookingsData);
+      }
+
+      if (allBookingsData.success && allBookingsData.data) {
+        setAllBookings(allBookingsData.data);
+        setFilteredBookings(allBookingsData.data);
+        console.log('✅ 전체 예약 데이터 로드 완료:', allBookingsData.data.length, '건');
+      } else {
+        console.warn('⚠️ 전체 예약 데이터 없음');
+        setAllBookings([]);
         setFilteredBookings([]);
       }
 
@@ -1586,14 +1641,19 @@ export function VendorDashboardPageEnhanced() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={vehicle.is_available}
-                                onCheckedChange={() => toggleVehicleAvailability(vehicle.id, vehicle.is_available)}
-                              />
-                              <Badge variant={vehicle.is_available ? 'default' : 'secondary'}>
-                                {vehicle.is_available ? '예약 가능' : '예약 불가'}
-                              </Badge>
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={vehicle.is_available}
+                                  onCheckedChange={() => toggleVehicleAvailability(vehicle.id, vehicle.is_available)}
+                                />
+                                <Badge variant={(vehicle.stock > 0 && vehicle.is_available) ? 'default' : 'secondary'}>
+                                  {vehicle.stock === 0 ? '재고 없음' : vehicle.is_available ? '예약 가능' : '예약 불가'}
+                                </Badge>
+                              </div>
+                              <span className="text-xs text-gray-600">
+                                재고: {vehicle.stock || 0}대
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -1625,13 +1685,44 @@ export function VendorDashboardPageEnhanced() {
 
           {/* 예약 관리 */}
           <TabsContent value="bookings">
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>예약 검색 및 필터</CardTitle>
-                <CardDescription>
-                  총 {bookings.length}건 중 {filteredBookings.length}건 표시
-                </CardDescription>
-              </CardHeader>
+            {/* 뷰 전환 버튼 */}
+            <div className="flex gap-2 mb-6">
+              <Button
+                variant={bookingView === 'today' ? 'default' : 'outline'}
+                onClick={() => {
+                  setBookingView('today');
+                  setFilteredBookings(bookings);
+                }}
+              >
+                오늘 예약
+              </Button>
+              <Button
+                variant={bookingView === 'all' ? 'default' : 'outline'}
+                onClick={() => {
+                  setBookingView('all');
+                  setFilteredBookings(allBookings);
+                }}
+              >
+                전체 예약
+              </Button>
+              <Button
+                variant={bookingView === 'calendar' ? 'default' : 'outline'}
+                onClick={() => setBookingView('calendar')}
+              >
+                차량 캘린더
+              </Button>
+            </div>
+
+            {/* 오늘 예약 / 전체 예약 뷰 */}
+            {(bookingView === 'today' || bookingView === 'all') && (
+              <>
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle>예약 검색 및 필터</CardTitle>
+                    <CardDescription>
+                      {bookingView === 'today' ? '오늘' : '전체'} {bookingView === 'today' ? bookings.length : allBookings.length}건 중 {filteredBookings.length}건 표시
+                    </CardDescription>
+                  </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
@@ -1723,46 +1814,99 @@ export function VendorDashboardPageEnhanced() {
                     <p className="text-gray-600">예약 내역이 없습니다.</p>
                   </div>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>예약번호</TableHead>
-                        <TableHead>차량</TableHead>
-                        <TableHead>고객명</TableHead>
-                        <TableHead>연락처</TableHead>
-                        <TableHead>픽업일시</TableHead>
-                        <TableHead>반납일시</TableHead>
-                        <TableHead>금액</TableHead>
-                        <TableHead>상태</TableHead>
-                        <TableHead>관리</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredBookings.map((booking) => (
-                        <TableRow key={booking.id}>
-                          <TableCell>#{booking.id}</TableCell>
-                          <TableCell className="font-medium">
-                            {booking.vehicle_name}
-                          </TableCell>
-                          <TableCell>{booking.customer_name}</TableCell>
-                          <TableCell>{booking.customer_phone}</TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <div>{new Date(booking.pickup_date).toLocaleDateString('ko-KR')}</div>
-                              {booking.pickup_time && (
-                                <div className="text-gray-500 text-xs">{booking.pickup_time}</div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <div>{new Date(booking.dropoff_date).toLocaleDateString('ko-KR')}</div>
-                              {booking.dropoff_time && (
-                                <div className="text-gray-500 text-xs">{booking.dropoff_time}</div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>{booking.total_amount.toLocaleString()}원</TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>예약번호</TableHead>
+                          <TableHead>차량</TableHead>
+                          <TableHead>고객명</TableHead>
+                          <TableHead>연락처</TableHead>
+                          <TableHead>운전자 정보</TableHead>
+                          <TableHead>픽업일시</TableHead>
+                          <TableHead>반납일시</TableHead>
+                          <TableHead>보험</TableHead>
+                          <TableHead>옵션</TableHead>
+                          <TableHead>금액</TableHead>
+                          <TableHead>상태</TableHead>
+                          <TableHead>관리</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredBookings.map((booking) => (
+                          <React.Fragment key={booking.id}>
+                            <TableRow>
+                            <TableCell>#{booking.booking_number || booking.id}</TableCell>
+                            <TableCell className="font-medium">
+                              {booking.vehicle_name || booking.vehicle_model}
+                            </TableCell>
+                            <TableCell>{booking.customer_name}</TableCell>
+                            <TableCell>{booking.customer_phone}</TableCell>
+                            <TableCell>
+                              <div className="text-sm space-y-1">
+                                {booking.driver_name ? (
+                                  <>
+                                    <div className="font-medium">{booking.driver_name}</div>
+                                    {booking.driver_birth && (
+                                      <div className="text-gray-500 text-xs">생년월일: {booking.driver_birth}</div>
+                                    )}
+                                    {booking.driver_license_no && (
+                                      <div className="text-gray-500 text-xs">면허: {booking.driver_license_no}</div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{new Date(booking.pickup_date).toLocaleDateString('ko-KR')}</div>
+                                {booking.pickup_time && (
+                                  <div className="text-gray-500 text-xs">{booking.pickup_time}</div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{new Date(booking.dropoff_date).toLocaleDateString('ko-KR')}</div>
+                                {booking.dropoff_time && (
+                                  <div className="text-gray-500 text-xs">{booking.dropoff_time}</div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm space-y-1">
+                                {booking.insurance_name ? (
+                                  <>
+                                    <div className="font-medium">{booking.insurance_name}</div>
+                                    {booking.insurance_fee_krw && (
+                                      <div className="text-gray-500 text-xs">+{booking.insurance_fee_krw.toLocaleString()}원</div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm space-y-1">
+                                {booking.extras && booking.extras.length > 0 ? (
+                                  <>
+                                    <div className="font-medium">{booking.extras.length}개</div>
+                                    {booking.extras_total && (
+                                      <div className="text-gray-500 text-xs">+{booking.extras_total.toLocaleString()}원</div>
+                                    )}
+                                    <div className="text-xs text-blue-600 cursor-pointer" onClick={() => setExpandedBookingId(expandedBookingId === booking.id ? null : booking.id)}>
+                                      상세보기
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span className="text-gray-400">-</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>{(booking.total_amount || booking.total_price_krw || 0).toLocaleString()}원</TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1">
                               <Badge
@@ -1796,31 +1940,76 @@ export function VendorDashboardPageEnhanced() {
                           <TableCell>
                             <div className="flex gap-2">
                               {booking.status === 'confirmed' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handlePickup(booking)}
-                                >
-                                  픽업 처리
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handlePickup(booking)}
+                                  >
+                                    픽업 처리
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRefundBooking(booking)}
+                                    className="text-red-600 border-red-300 hover:bg-red-50"
+                                  >
+                                    환불
+                                  </Button>
+                                </>
                               )}
                               {booking.status === 'picked_up' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleProcessReturn(booking)}
-                                >
-                                  반납 처리
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleProcessReturn(booking)}
+                                  >
+                                    반납 처리
+                                  </Button>
+                                  {booking.pickup_vehicle_condition && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleViewDetails(booking, 'pickup')}
+                                      className="text-blue-600"
+                                    >
+                                      픽업 정보
+                                    </Button>
+                                  )}
+                                </>
                               )}
                               {booking.status === 'completed' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleRefundBooking(booking)}
-                                >
-                                  환불
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleRefundBooking(booking)}
+                                    className="text-red-600 border-red-300 hover:bg-red-50"
+                                  >
+                                    환불
+                                  </Button>
+                                  {booking.pickup_vehicle_condition && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleViewDetails(booking, 'pickup')}
+                                      className="text-blue-600"
+                                    >
+                                      픽업 정보
+                                    </Button>
+                                  )}
+                                  {booking.return_vehicle_condition && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleViewDetails(booking, 'return')}
+                                      className="text-green-600"
+                                    >
+                                      반납 정보
+                                    </Button>
+                                  )}
+                                </>
                               )}
                               <Button
                                 variant="destructive"
@@ -1832,12 +2021,135 @@ export function VendorDashboardPageEnhanced() {
                             </div>
                           </TableCell>
                         </TableRow>
+                        {/* 옵션 상세보기 확장 행 */}
+                        {expandedBookingId === booking.id && booking.extras && booking.extras.length > 0 && (
+                          <TableRow>
+                            <TableCell colSpan={12} className="bg-gray-50 p-4">
+                              <div className="space-y-2">
+                                <h4 className="font-semibold text-sm">선택한 옵션 상세</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  {booking.extras.map((extra, idx) => (
+                                    <div key={idx} className="border rounded p-2 bg-white text-sm">
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <div className="font-medium">{extra.name}</div>
+                                          <div className="text-xs text-gray-500">{extra.category}</div>
+                                        </div>
+                                        <div className="text-right">
+                                          <div className="font-medium">{extra.total_price.toLocaleString()}원</div>
+                                          <div className="text-xs text-gray-500">
+                                            {extra.unit_price.toLocaleString()}원 × {extra.quantity}개
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
                       ))}
                     </TableBody>
                   </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>
+              </>
+            )}
+
+            {/* 차량 캘린더 뷰 */}
+            {bookingView === 'calendar' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>차량별 예약 캘린더</CardTitle>
+                  <CardDescription>차량을 선택하여 예약 현황을 확인하세요</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* 차량 선택 */}
+                    <div>
+                      <Label>차량 선택</Label>
+                      <select className="w-full p-2 border rounded">
+                        <option value="">전체 차량</option>
+                        {vehicles.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.display_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 캘린더 UI - 간단한 테이블 형식 */}
+                    <div className="border rounded-lg p-4">
+                      <h3 className="text-lg font-semibold mb-4">예약 현황</h3>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>날짜</TableHead>
+                            <TableHead>차량</TableHead>
+                            <TableHead>고객명</TableHead>
+                            <TableHead>픽업 시간</TableHead>
+                            <TableHead>반납 시간</TableHead>
+                            <TableHead>상태</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {allBookings.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                                예약 내역이 없습니다.
+                              </TableCell>
+                            </TableRow>
+                          ) : (
+                            allBookings.map((booking) => (
+                              <TableRow key={booking.id}>
+                                <TableCell>
+                                  {new Date(booking.pickup_date).toLocaleDateString('ko-KR')}
+                                </TableCell>
+                                <TableCell>{booking.vehicle_name || booking.vehicle_model}</TableCell>
+                                <TableCell>{booking.customer_name}</TableCell>
+                                <TableCell>
+                                  {booking.pickup_time || '-'}
+                                </TableCell>
+                                <TableCell>
+                                  {booking.dropoff_time || '-'}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      booking.status === 'completed'
+                                        ? 'default'
+                                        : booking.status === 'confirmed'
+                                        ? 'secondary'
+                                        : booking.status === 'cancelled'
+                                        ? 'destructive'
+                                        : 'outline'
+                                    }
+                                  >
+                                    {booking.status === 'completed'
+                                      ? '완료'
+                                      : booking.status === 'confirmed'
+                                      ? '확정'
+                                      : booking.status === 'cancelled'
+                                      ? '취소됨'
+                                      : booking.status === 'picked_up'
+                                      ? '픽업완료'
+                                      : '대기'}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* 보험 관리 */}
@@ -2479,6 +2791,160 @@ export function VendorDashboardPageEnhanced() {
               ) : (
                 '반납 완료'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 픽업/반납 상세 정보 모달 */}
+      <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {detailType === 'pickup' ? '픽업' : '반납'} 처리 상세 정보
+            </DialogTitle>
+            <DialogDescription>
+              {detailBooking && `예약번호: #${detailBooking.booking_number || detailBooking.id} | ${detailBooking.vehicle_name}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailBooking && (
+            <div className="space-y-4">
+              {/* 예약 기본 정보 */}
+              <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                <h3 className="font-semibold text-lg mb-3">예약 정보</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-sm text-gray-600">고객명</span>
+                    <p className="font-medium">{detailBooking.customer_name}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">연락처</span>
+                    <p className="font-medium">{detailBooking.customer_phone}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">차량</span>
+                    <p className="font-medium">{detailBooking.vehicle_name}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">예약 금액</span>
+                    <p className="font-medium">₩{(detailBooking.total_amount || detailBooking.total_price_krw || 0).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 픽업/반납 상세 정보 */}
+              {(() => {
+                const condition = detailType === 'pickup'
+                  ? detailBooking.pickup_vehicle_condition
+                  : detailBooking.return_vehicle_condition;
+
+                if (!condition) {
+                  return (
+                    <div className="p-4 bg-yellow-50 rounded-lg text-center">
+                      <p className="text-gray-600">
+                        {detailType === 'pickup' ? '픽업' : '반납'} 처리 정보가 없습니다.
+                      </p>
+                    </div>
+                  );
+                }
+
+                // JSON 파싱 (문자열인 경우)
+                const data = typeof condition === 'string' ? JSON.parse(condition) : condition;
+
+                return (
+                  <>
+                    {/* 차량 상태 정보 */}
+                    <div className="p-4 bg-blue-50 rounded-lg space-y-3">
+                      <h3 className="font-semibold text-lg mb-3">차량 상태</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <span className="text-sm text-gray-600">주행거리</span>
+                          <p className="font-medium text-lg">{data.mileage?.toLocaleString() || 'N/A'} km</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-600">연료 상태</span>
+                          <p className="font-medium text-lg">{data.fuel_level || 'N/A'}%</p>
+                        </div>
+                        {data.condition && (
+                          <div className="col-span-2">
+                            <span className="text-sm text-gray-600">차량 상태</span>
+                            <p className="font-medium">{data.condition}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 파손/특이사항 */}
+                    {data.damage_notes && (
+                      <div className="p-4 bg-orange-50 rounded-lg">
+                        <h3 className="font-semibold mb-2">파손/특이사항</h3>
+                        <p className="text-gray-700 whitespace-pre-wrap">{data.damage_notes}</p>
+                      </div>
+                    )}
+
+                    {/* 추가 요금 (반납 시) */}
+                    {detailType === 'return' && data.additional_charges > 0 && (
+                      <div className="p-4 bg-red-50 rounded-lg">
+                        <h3 className="font-semibold mb-2">추가 요금</h3>
+                        <p className="text-2xl font-bold text-red-600">
+                          ₩{data.additional_charges.toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          지연 수수료, 파손 수수료 등이 포함될 수 있습니다.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 사진 */}
+                    {data.images && data.images.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="font-semibold">차량 상태 사진 ({data.images.length}장)</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {data.images.map((img: string, idx: number) => (
+                            <div key={idx} className="relative aspect-video rounded-lg overflow-hidden border">
+                              <img
+                                src={img}
+                                alt={`차량 상태 ${idx + 1}`}
+                                className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition"
+                                onClick={() => window.open(img, '_blank')}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500">클릭하면 원본 크기로 볼 수 있습니다.</p>
+                      </div>
+                    )}
+
+                    {/* 처리 시간 */}
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <h3 className="font-semibold mb-2">처리 일시</h3>
+                      <p className="text-gray-700">
+                        {detailType === 'pickup'
+                          ? detailBooking.pickup_checked_in_at
+                            ? new Date(detailBooking.pickup_checked_in_at).toLocaleString('ko-KR')
+                            : 'N/A'
+                          : detailBooking.return_checked_out_at
+                            ? new Date(detailBooking.return_checked_out_at).toLocaleString('ko-KR')
+                            : 'N/A'
+                        }
+                      </p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDetailModalOpen(false);
+                setDetailBooking(null);
+              }}
+            >
+              닫기
             </Button>
           </DialogFooter>
         </DialogContent>

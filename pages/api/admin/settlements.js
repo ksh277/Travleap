@@ -43,7 +43,7 @@ module.exports = async function handler(req, res) {
         rv.contact_email as email,
         COUNT(DISTINCT rb.id) as total_orders,
         SUM(CASE
-          WHEN rb.payment_status IN ('paid', 'captured') THEN rb.total_price_krw
+          WHEN rb.payment_status IN ('paid', 'captured') THEN rb.total_krw
           ELSE 0
         END) as total_sales,
         0 as total_refunded,

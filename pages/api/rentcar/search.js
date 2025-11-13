@@ -117,9 +117,11 @@ module.exports = async function handler(req, res) {
         v.thumbnail_url,
         v.images,
         v.daily_rate_krw,
-        v.hourly_rate_krw
+        v.hourly_rate_krw,
+        COALESCE(v.stock, 0) as stock
       FROM rentcar_vehicles v
       WHERE v.is_active = 1
+        AND COALESCE(v.stock, 0) > 0
     `;
 
     const queryParams = [];

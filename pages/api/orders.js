@@ -6,6 +6,7 @@
 
 const { connect } = require('@planetscale/database');
 const { randomUUID } = require('crypto');
+const { decrypt, decryptPhone, decryptEmail } = require('../../utils/encryption.cjs');
 
 function generateOrderNumber() {
   // UUID 사용으로 완전한 유일성 보장
@@ -160,6 +161,51 @@ module.exports = async function handler(req, res) {
         ORDER BY rb.created_at DESC
       `, rentcarParams);
 
+      // 안전한 복호화 함수
+      const safeDecrypt = (value) => {
+        if (!value) return null;
+        try {
+          if (typeof value === 'string' && value.length > 50) {
+            return decrypt(value);
+          }
+          return value;
+        } catch (err) {
+          return value;
+        }
+      };
+
+      const safeDecryptPhone = (value) => {
+        if (!value) return null;
+        try {
+          if (typeof value === 'string' && value.length > 50) {
+            return decryptPhone(value);
+          }
+          return value;
+        } catch (err) {
+          return value;
+        }
+      };
+
+      const safeDecryptEmail = (value) => {
+        if (!value) return null;
+        try {
+          if (typeof value === 'string' && value.length > 50) {
+            return decryptEmail(value);
+          }
+          return value;
+        } catch (err) {
+          return value;
+        }
+      };
+
+      // 렌트카 데이터 복호화
+      const decryptedRentcarRows = (rentcarResult.rows || []).map(row => ({
+        ...row,
+        shipping_name: safeDecrypt(row.shipping_name),
+        shipping_phone: safeDecryptPhone(row.shipping_phone),
+        shipping_email: safeDecryptEmail(row.shipping_email)
+      }));
+
       // 🔍 렌트카 데이터 디버깅
       console.log(`🚗 [Orders] 렌트카 주문 ${rentcarResult.rows?.length || 0}건 조회`);
       rentcarResult.rows?.slice(0, 3).forEach(row => {
@@ -167,8 +213,8 @@ module.exports = async function handler(req, res) {
         console.log(`    이름: "${row.shipping_name || 'NULL'}", 이메일: "${row.shipping_email || 'NULL'}", 전화: "${row.shipping_phone || 'NULL ❌'}"`);
       });
 
-      // ✅ 일반 주문 + 렌트카 주문 통합
-      const allOrders = [...(result.rows || []), ...(rentcarResult.rows || [])]
+      // ✅ 일반 주문 + 렌트카 주문 (복호화된 데이터) 통합
+      const allOrders = [...(result.rows || []), ...decryptedRentcarRows]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       // Neon PostgreSQL에서 사용자 정보 조회

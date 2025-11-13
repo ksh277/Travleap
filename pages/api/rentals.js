@@ -277,6 +277,32 @@ module.exports = async function handler(req, res) {
 
     console.log('✅ [Rentals API] 예약 생성 완료:', bookingNumber);
 
+    // 10.5. 사용자 전화번호 업데이트 (user_id와 customer_phone이 있는 경우)
+    if (user_id && customer_phone) {
+      try {
+        await connection.execute(
+          'UPDATE users SET phone = ? WHERE id = ?',
+          [encryptedCustomerPhone, user_id]
+        );
+        console.log('📞 [Rentals API] 사용자 전화번호 업데이트 완료:', user_id);
+      } catch (phoneUpdateError) {
+        // 전화번호 업데이트 실패는 예약 진행에 영향 없음
+        console.warn('⚠️  [Rentals API] 전화번호 업데이트 실패:', phoneUpdateError.message);
+      }
+    }
+
+    // 10.6. 차량 재고 감소
+    try {
+      await connection.execute(
+        'UPDATE rentcar_vehicles SET stock = GREATEST(stock - 1, 0) WHERE id = ?',
+        [vehicle_id]
+      );
+      console.log('📉 [Rentals API] 차량 재고 감소:', vehicle_id);
+    } catch (stockError) {
+      // 재고 업데이트 실패는 예약 진행에 영향 없음 (관리자가 수동 조정 가능)
+      console.warn('⚠️  [Rentals API] 재고 업데이트 실패:', stockError.message);
+    }
+
     // 11. 응답 반환
     return res.status(200).json({
       success: true,
