@@ -454,18 +454,24 @@ export function VendorDashboardPageEnhanced() {
       if (process.env.NODE_ENV === 'development') {
         console.log('🔍 [DEBUG] 전체 벤더 목록:', vendorData.data);
         console.log('🔍 [DEBUG] 벤더 이메일들:', vendorData.data.map((v: any) => v.contact_email));
+        console.log('🔍 [DEBUG] User ID:', user.id);
       }
 
-      // 현재 로그인한 사용자의 이메일로 벤더 찾기
-      const vendor = vendorData.data.find((v: any) => v.contact_email === user.email);
+      // 현재 로그인한 사용자의 user_id로 벤더 찾기 (이메일보다 정확함)
+      let vendor = vendorData.data.find((v: any) => v.user_id === user.id);
+
+      // user_id로 못 찾으면 이메일로 시도
+      if (!vendor) {
+        vendor = vendorData.data.find((v: any) => v.contact_email === user.email);
+      }
 
       if (process.env.NODE_ENV === 'development') {
         console.log('🔍 [DEBUG] 매칭된 벤더:', vendor);
       }
 
       if (!vendor) {
-        console.error('❌ 벤더를 찾을 수 없습니다. User email:', user.email);
-        toast.error(`해당 이메일(${user.email})의 업체 정보를 찾을 수 없습니다.`);
+        console.error('❌ 벤더를 찾을 수 없습니다. User ID:', user.id, 'User email:', user.email);
+        toast.error(`해당 계정의 업체 정보를 찾을 수 없습니다.`);
         navigate('/login');
         return;
       }
@@ -481,11 +487,16 @@ export function VendorDashboardPageEnhanced() {
       }
 
       // 2. 차량 목록 조회 API - JWT 토큰으로 인증
-      const vehiclesResponse = await fetch(`/api/vendor/vehicles`, { headers });
+      // /api/vendors는 rentcar_vendors 테이블을 조회하므로 항상 렌트카 벤더
+      const isRentcarVendor = true;
+      const vehiclesEndpoint = '/api/vendor/rentcar/vehicles';
+
+      const vehiclesResponse = await fetch(vehiclesEndpoint, { headers });
       const vehiclesData = await vehiclesResponse.json();
 
       if (process.env.NODE_ENV === 'development') {
         console.log('🔍 [DEBUG] 차량 API 응답:', vehiclesData);
+        console.log('🔍 [DEBUG] 렌트카 벤더:', isRentcarVendor);
       }
 
       if (vehiclesData.success && vehiclesData.data) {
@@ -496,6 +507,14 @@ export function VendorDashboardPageEnhanced() {
         }));
         setVehicles(parsedVehicles);
         console.log('✅ 차량 데이터 로드 완료:', parsedVehicles.length, '대');
+      } else if (vehiclesData.success && vehiclesData.vehicles) {
+        // 렌트카 API는 vehicles 필드 사용
+        const parsedVehicles = vehiclesData.vehicles.map((v: any) => ({
+          ...v,
+          images: typeof v.images === 'string' ? JSON.parse(v.images) : v.images
+        }));
+        setVehicles(parsedVehicles);
+        console.log('✅ 렌트카 차량 데이터 로드 완료:', parsedVehicles.length, '대');
       } else {
         console.warn('⚠️ 차량 데이터 없음');
         setVehicles([]);
