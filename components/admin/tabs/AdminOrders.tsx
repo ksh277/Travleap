@@ -665,16 +665,30 @@ export function AdminOrders() {
                         </div>
                       </td>
                       <td className="py-3 px-4 text-sm">
-                        {order.created_at ? (
-                          new Date(order.created_at).toLocaleString('ko-KR', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            timeZone: 'Asia/Seoul'
-                          })
-                        ) : '-'}
+                        <div>
+                          {order.created_at ? (
+                            new Date(order.created_at).toLocaleString('ko-KR', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              timeZone: 'Asia/Seoul'
+                            })
+                          ) : '-'}
+                        </div>
+                        {order.refunded_at && (order.status === 'cancelled' || order.payment_status === 'refunded') && (
+                          <div className="text-xs text-red-600 mt-1">
+                            환불: {new Date(order.refunded_at).toLocaleString('ko-KR', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              timeZone: 'Asia/Seoul'
+                            })}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex justify-end gap-2 flex-col items-end">
