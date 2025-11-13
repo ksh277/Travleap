@@ -193,9 +193,10 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     console.log('🔒 [Database] DB 작업 시작');
 
     // 2. orderId로 예약 또는 주문 찾기
-    // orderId는 booking_number (BK-, FOOD-, ATR-, EXP-, TOUR-, EVT-), RC (렌트카), 또는 ORDER_... 형식
+    // orderId는 booking_number (BK-, FOOD-, ATR-, EXP-, TOUR-, EVT-, STAY-), RC (렌트카), 또는 ORDER_... 형식
     // ✅ TOUR-와 EVT-도 bookings 테이블 사용 (tour_bookings, event_tickets 테이블 없음)
-    const isBooking = orderId.startsWith('BK-') || orderId.startsWith('FOOD-') || orderId.startsWith('ATR-') || orderId.startsWith('EXP-') || orderId.startsWith('TOUR-') || orderId.startsWith('EVT-');
+    // ✅ STAY-는 숙박 예약 (api/accommodations/book.js에서 생성)
+    const isBooking = orderId.startsWith('BK-') || orderId.startsWith('FOOD-') || orderId.startsWith('ATR-') || orderId.startsWith('EXP-') || orderId.startsWith('TOUR-') || orderId.startsWith('EVT-') || orderId.startsWith('STAY-');
     const isOrder = orderId.startsWith('ORDER_');
     const isRentcar = orderId.startsWith('RC');
 
@@ -1081,7 +1082,8 @@ async function handlePaymentFailure(orderId, reason) {
     console.log('❌ [결제 실패] 처리:', { orderId, reason });
 
     // orderId로 예약 또는 주문 찾기
-    const isBooking = orderId.startsWith('BK-');
+    // ✅ STAY-는 숙박 예약 (FOOD-, ATR-, EXP-, TOUR-, EVT-도 예약)
+    const isBooking = orderId.startsWith('BK-') || orderId.startsWith('FOOD-') || orderId.startsWith('ATR-') || orderId.startsWith('EXP-') || orderId.startsWith('TOUR-') || orderId.startsWith('EVT-') || orderId.startsWith('STAY-');
     const isOrder = orderId.startsWith('ORDER_');
 
     if (isBooking) {
