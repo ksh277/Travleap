@@ -93,6 +93,7 @@ module.exports = async function handler(req, res) {
           b.shipping_zipcode,
           b.tracking_number,
           b.courier_company,
+          b.customer_info,
           l.title as product_title,
           COALESCE(c.name_ko, l.category, '주문/기타') as category,
           l.images,
@@ -427,14 +428,35 @@ module.exports = async function handler(req, res) {
             }
           }
 
-          // ✅ CRITICAL FIX: 사용자 정보 우선순위 (렌트카 정보 포함)
+          // ✅ customer_info 파싱 (투어/음식/관광지/이벤트/체험 예약 정보)
+          let customerInfoName = '';
+          let customerInfoEmail = '';
+          let customerInfoPhone = '';
+
+          if (order.customer_info) {
+            try {
+              const customerInfo = JSON.parse(order.customer_info);
+              customerInfoName = customerInfo.name || '';
+              customerInfoEmail = customerInfo.email || '';
+              customerInfoPhone = customerInfo.phone || '';
+
+              if (customerInfoName || customerInfoEmail || customerInfoPhone) {
+                console.log(`✅ [Orders] order_id=${order.id}: customer_info 파싱 성공 - name="${customerInfoName}", email="${customerInfoEmail}", phone="${customerInfoPhone}"`);
+              }
+            } catch (e) {
+              console.warn(`⚠️ [Orders] order_id=${order.id}: customer_info 파싱 실패:`, e.message);
+            }
+          }
+
+          // ✅ CRITICAL FIX: 사용자 정보 우선순위
           // 1순위: notes의 billingInfo (주문 시 입력한 정보)
           // 2순위: users 테이블 (Neon DB 회원 정보)
-          // 3순위: 렌트카 customer 정보 (shipping_email은 렌트카의 customer_email)
-          // 4순위: bookings 테이블의 shipping 정보
-          const finalUserName = billingName || user?.name || order.shipping_name || notesShippingName || '';
-          const finalUserEmail = billingEmail || user?.email || order.shipping_email || '';
-          const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || notesShippingPhone || '';
+          // 3순위: customer_info (투어/음식/관광지/이벤트/체험 예약 정보)
+          // 4순위: 렌트카 customer 정보 (shipping_email은 렌트카의 customer_email)
+          // 5순위: bookings 테이블의 shipping 정보
+          const finalUserName = billingName || user?.name || customerInfoName || order.shipping_name || notesShippingName || '';
+          const finalUserEmail = billingEmail || user?.email || customerInfoEmail || order.shipping_email || '';
+          const finalUserPhone = billingPhone || user?.phone || customerInfoPhone || order.shipping_phone || notesShippingPhone || '';
 
           // ⚠️ 사용자 정보가 완전히 없는 경우 상세 경고
           if (!finalUserName && !finalUserEmail && !finalUserPhone) {
@@ -442,12 +464,13 @@ module.exports = async function handler(req, res) {
             console.error(`  - user_id: ${order.user_id || 'NULL'}`);
             console.error(`  - billing: name="${billingName}", email="${billingEmail}", phone="${billingPhone}"`);
             console.error(`  - user (Neon DB): ${user ? `name="${user.name}", email="${user.email}", phone="${user.phone}"` : 'NULL'}`);
+            console.error(`  - customer_info: name="${customerInfoName || 'NULL'}", email="${customerInfoEmail || 'NULL'}", phone="${customerInfoPhone || 'NULL'}"`);
             console.error(`  - shipping: name="${order.shipping_name || 'NULL'}", email="${order.shipping_email || 'NULL'}", phone="${order.shipping_phone || 'NULL'}"`);
             console.error(`  - notes.shipping: name="${notesShippingName || 'NULL'}", phone="${notesShippingPhone || 'NULL'}"`);
             console.error(`  - category: ${order.category}`);
           }
 
-          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (source: billing="${billingName || 'N'}", user.name="${user?.name || 'N'}", user.email="${user?.email || 'N'}", user.phone="${user?.phone || 'N'}", shipping="${order.shipping_name || 'N'}/${order.shipping_email || 'N'}/${order.shipping_phone || 'N'}")`);
+          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (source: billing="${billingName || 'N'}", user.name="${user?.name || 'N'}", customer_info="${customerInfoName || 'N'}/${customerInfoEmail || 'N'}/${customerInfoPhone || 'N'}", shipping="${order.shipping_name || 'N'}/${order.shipping_email || 'N'}/${order.shipping_phone || 'N'}")`);
 
           return {
             id: parseInt(order.id) || order.id,
