@@ -77,7 +77,11 @@ async function handler(req, res) {
           images: Array.isArray(images) ? images : [],
           selected_options: selectedOptions,
           validationStatus,
-          validationMessage
+          validationMessage,
+          // ✅ camelCase 변환 (클라이언트 호환성)
+          adultPrice: item.adult_price,
+          childPrice: item.child_price,
+          infantPrice: item.infant_price
         };
       });
 

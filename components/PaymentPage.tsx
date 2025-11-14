@@ -469,7 +469,11 @@ export function PaymentPage() {
             selectedDate: item.selectedDate,
             adults: item.adults,
             children: item.children,
-            infants: item.infants
+            infants: item.infants,
+            // ✅ 인원별 가격 정보 (서버 검증용)
+            adultPrice: item.adultPrice,
+            childPrice: item.childPrice,
+            infantPrice: item.infantPrice
           };
         });
 
