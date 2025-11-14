@@ -120,6 +120,14 @@ export function useCartStore() {
               location: item.location || '',
               date: item.selected_date,
               guests: item.num_adults || 1,
+              // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
+              adults: item.num_adults || undefined,
+              children: item.num_children || undefined,
+              infants: item.num_infants || undefined,
+              // ✅ 연령대별 가격 정보
+              adultPrice: item.adult_price || undefined,
+              childPrice: item.child_price || undefined,
+              infantPrice: item.infant_price || undefined,
               inStock: item.is_active === 1 || item.is_active === true,
               validationStatus: item.validationStatus,
               validationMessage: item.validationMessage
@@ -194,9 +202,14 @@ export function useCartStore() {
             quantity: item.quantity || 1,
             selected_date: item.date || null,
             selected_options: item.selectedOption || null,
-            num_adults: item.guests || 1,
-            num_children: 0,
-            num_seniors: 0,
+            // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
+            num_adults: item.adults || (item.guests && !item.adults ? item.guests : 1),
+            num_children: item.children || 0,
+            num_infants: item.infants || 0,
+            // ✅ 연령대별 가격 정보
+            adult_price: item.adultPrice || item.price || 0,
+            child_price: item.childPrice || 0,
+            infant_price: item.infantPrice || 0,
             price_snapshot: item.price || 0
           })
         });
@@ -255,6 +268,14 @@ export function useCartStore() {
               location: item.location || '',
               date: item.selected_date,
               guests: item.num_adults || 1,
+              // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
+              adults: item.num_adults || undefined,
+              children: item.num_children || undefined,
+              infants: item.num_infants || undefined,
+              // ✅ 연령대별 가격 정보
+              adultPrice: item.adult_price || undefined,
+              childPrice: item.child_price || undefined,
+              infantPrice: item.infant_price || undefined,
               inStock: item.is_active === 1 || item.is_active === true
             };
           });

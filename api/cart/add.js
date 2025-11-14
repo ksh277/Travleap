@@ -32,7 +32,10 @@ async function handler(req, res) {
     selected_options,
     num_adults = 1,
     num_children = 0,
-    num_seniors = 0,
+    num_infants = 0,
+    adult_price = 0,
+    child_price = 0,
+    infant_price = 0,
     price_snapshot
   } = req.body;
 
@@ -74,8 +77,9 @@ async function handler(req, res) {
     const result = await connection.execute(
       `INSERT INTO cart_items (
         user_id, listing_id, quantity, selected_date, selected_options,
-        num_adults, num_children, num_seniors, price_snapshot, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        num_adults, num_children, num_infants, num_seniors,
+        adult_price, child_price, infant_price, price_snapshot, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         userId,
         listing_id,
@@ -84,7 +88,11 @@ async function handler(req, res) {
         JSON.stringify(selected_options || {}),
         num_adults,
         num_children,
-        num_seniors,
+        num_infants,
+        0, // num_seniors (not used for tour/food/attractions/events/experience)
+        adult_price,
+        child_price,
+        infant_price,
         price_snapshot || null
       ]
     );

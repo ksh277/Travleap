@@ -842,7 +842,7 @@ export function DetailPage() {
     const cartItem = {
       id: item.id,
       title: item.title || '상품',
-      price: itemPrice,  // ✅ 1개당 가격 (옵션 제외)
+      price: itemPrice,  // ✅ 성인 1명 기준 가격
       quantity: item.category === '팝업' ? quantity : 1,  // ✅ 수량 추가
       image: item.images?.[0] || '',
       category: item.category || '',
@@ -850,6 +850,14 @@ export function DetailPage() {
       date: item.category === '팝업' ? '' : selectedDate!.toISOString().split('T')[0],
       guests: item.category === '팝업' ? quantity : totalGuests,
       checkInTime: startTime || undefined,  // ✅ 예약/체크인 시간 (음식점/체험/숙박)
+      // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
+      adults: item.category === '팝업' ? undefined : adults,
+      children: item.category === '팝업' ? undefined : children,
+      infants: item.category === '팝업' ? undefined : infants,
+      // ✅ 연령대별 가격 정보
+      adultPrice: item.category === '팝업' ? undefined : (item.price || 0),
+      childPrice: item.category === '팝업' ? undefined : (item.childPrice || item.price * 0.7),
+      infantPrice: item.category === '팝업' ? undefined : (item.infantPrice || item.price * 0.3),
       selectedOption: selectedOption ? {
         id: selectedOption.id,
         name: selectedOption.option_name,

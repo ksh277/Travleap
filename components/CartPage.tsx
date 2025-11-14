@@ -47,6 +47,14 @@ interface CartItem {
   location?: string;
   date?: string;
   guests?: number;
+  // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
+  adults?: number;
+  children?: number;
+  infants?: number;
+  // ✅ 연령대별 가격 정보
+  adultPrice?: number;
+  childPrice?: number;
+  infantPrice?: number;
   rating?: number;
   reviewCount?: number;
   isPartner?: boolean;
@@ -203,11 +211,23 @@ export function CartPage() {
 
   // Memoized calculations
   const calculations = useMemo(() => {
-    // 🔧 CRITICAL FIX: 옵션 가격 포함 (백엔드와 일치)
+    // 🔧 CRITICAL FIX: 옵션 가격 포함 + 인원별 가격 계산
     const subtotal = cartItems.reduce((sum, item) => {
-      const itemPrice = item.price || 0;
+      let itemPrice = 0;
+
+      // ✅ 투어/음식/관광지/이벤트/체험: 인원별 가격 계산
+      if (item.adults !== undefined || item.children !== undefined || item.infants !== undefined) {
+        itemPrice =
+          ((item.adults || 0) * (item.adultPrice || 0)) +
+          ((item.children || 0) * (item.childPrice || 0)) +
+          ((item.infants || 0) * (item.infantPrice || 0));
+      } else {
+        // 팝업 스토어: 기본 가격 × 수량
+        itemPrice = (item.price || 0) * item.quantity;
+      }
+
       const optionPrice = item.selectedOption?.priceAdjustment || 0;
-      return sum + (itemPrice + optionPrice) * item.quantity;
+      return sum + itemPrice + (optionPrice * item.quantity);
     }, 0);
 
     // 🔧 팝업 상품만의 합계 계산 (배송비 판단용 - 포인트/쿠폰 차감 전 금액)
@@ -697,12 +717,49 @@ export function CartPage() {
                                   <span>{item.date}</span>
                                 </div>
                               )}
-                              {item.guests && (
+                              {/* ✅ 투어/음식/관광지/이벤트/체험: 인원별 상세 표시 */}
+                              {(item.adults !== undefined || item.children !== undefined || item.infants !== undefined) ? (
+                                <div className="space-y-2">
+                                  {item.adults !== undefined && item.adults > 0 && (
+                                    <div className="flex items-center gap-2">
+                                      <Users className="h-3 w-3 flex-shrink-0" />
+                                      <span className="text-xs">성인 {item.adults}명</span>
+                                      {item.adultPrice && (
+                                        <span className="text-xs text-gray-500">
+                                          × {item.adultPrice.toLocaleString()}원 = {(item.adults * item.adultPrice).toLocaleString()}원
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {item.children !== undefined && item.children > 0 && (
+                                    <div className="flex items-center gap-2">
+                                      <Users className="h-3 w-3 flex-shrink-0" />
+                                      <span className="text-xs">어린이 {item.children}명</span>
+                                      {item.childPrice && (
+                                        <span className="text-xs text-gray-500">
+                                          × {item.childPrice.toLocaleString()}원 = {(item.children * item.childPrice).toLocaleString()}원
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {item.infants !== undefined && item.infants > 0 && (
+                                    <div className="flex items-center gap-2">
+                                      <Users className="h-3 w-3 flex-shrink-0" />
+                                      <span className="text-xs">유아 {item.infants}명</span>
+                                      {item.infantPrice && (
+                                        <span className="text-xs text-gray-500">
+                                          × {item.infantPrice.toLocaleString()}원 = {(item.infants * item.infantPrice).toLocaleString()}원
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : item.guests ? (
                                 <div className="flex items-center gap-1">
                                   <Users className="h-3 w-3 flex-shrink-0" />
                                   <span>{item.guests}{item.category === '팝업' ? '개' : '명'}</span>
                                 </div>
-                              )}
+                              ) : null}
                               {item.selectedOption && (
                                 <div className="flex items-center gap-1">
                                   <Package className="h-3 w-3 flex-shrink-0 text-purple-600" />
@@ -734,10 +791,22 @@ export function CartPage() {
                                     </span>
                                   )}
                                   <span className="font-medium text-gray-800">
-                                    {(item.price || 0).toLocaleString()}원
+                                    {(() => {
+                                      // ✅ 투어/음식/관광지/이벤트/체험: 인원별 가격 합계
+                                      if (item.adults !== undefined || item.children !== undefined || item.infants !== undefined) {
+                                        const total =
+                                          ((item.adults || 0) * (item.adultPrice || 0)) +
+                                          ((item.children || 0) * (item.childPrice || 0)) +
+                                          ((item.infants || 0) * (item.infantPrice || 0)) +
+                                          ((item.selectedOption?.priceAdjustment || 0) * item.quantity);
+                                        return total.toLocaleString();
+                                      }
+                                      // 팝업 스토어: 기본 가격
+                                      return (item.price || 0).toLocaleString();
+                                    })()}원
                                   </span>
                                 </div>
-                                {(item.quantity > 1 || item.selectedOption) && (
+                                {(item.quantity > 1 || item.selectedOption) && item.category === '팝업' && (
                                   <div className="text-xs text-gray-500 mt-1">
                                     총 {(((item.price || 0) + (item.selectedOption?.priceAdjustment || 0)) * item.quantity).toLocaleString()}원
                                   </div>

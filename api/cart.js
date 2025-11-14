@@ -114,7 +114,11 @@ async function handler(req, res) {
         selected_options,
         num_adults = 1,
         num_children = 0,
+        num_infants = 0,
         num_seniors = 0,
+        adult_price = 0,
+        child_price = 0,
+        infant_price = 0,
         price_snapshot
       } = req.body;
 
@@ -165,9 +169,10 @@ async function handler(req, res) {
       const result = await connection.execute(`
         INSERT INTO cart_items (
           user_id, listing_id, quantity, selected_date, selected_options,
-          num_adults, num_children, num_seniors, price_snapshot, created_at
+          num_adults, num_children, num_infants, num_seniors,
+          adult_price, child_price, infant_price, price_snapshot, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `, [
         userId,
         listing_id,
@@ -176,7 +181,11 @@ async function handler(req, res) {
         JSON.stringify(selected_options || {}),
         num_adults,
         num_children,
+        num_infants,
         num_seniors,
+        adult_price,
+        child_price,
+        infant_price,
         price_snapshot || null
       ]);
 
@@ -197,7 +206,11 @@ async function handler(req, res) {
         selected_options,
         num_adults,
         num_children,
+        num_infants,
         num_seniors,
+        adult_price,
+        child_price,
+        infant_price,
         price_snapshot
       } = req.body;
 
@@ -209,7 +222,11 @@ async function handler(req, res) {
           selected_options = COALESCE(?, selected_options),
           num_adults = COALESCE(?, num_adults),
           num_children = COALESCE(?, num_children),
+          num_infants = COALESCE(?, num_infants),
           num_seniors = COALESCE(?, num_seniors),
+          adult_price = COALESCE(?, adult_price),
+          child_price = COALESCE(?, child_price),
+          infant_price = COALESCE(?, infant_price),
           price_snapshot = COALESCE(?, price_snapshot),
           updated_at = NOW()
         WHERE id = ? AND user_id = ?
@@ -219,7 +236,11 @@ async function handler(req, res) {
         selected_options ? JSON.stringify(selected_options) : null,
         num_adults,
         num_children,
+        num_infants,
         num_seniors,
+        adult_price,
+        child_price,
+        infant_price,
         price_snapshot,
         itemId,
         userId

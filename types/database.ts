@@ -37,6 +37,14 @@ export interface CartItem {
   location?: string;
   date?: string;
   guests?: number;
+  // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
+  adults?: number;
+  children?: number;
+  infants?: number;
+  // ✅ 연령대별 가격
+  adultPrice?: number;
+  childPrice?: number;
+  infantPrice?: number;
   rating?: number;
   reviewCount?: number;
   isPartner?: boolean;
