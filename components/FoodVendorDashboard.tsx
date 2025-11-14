@@ -67,6 +67,9 @@ interface Order {
   reservation_datetime: string;
   reservation_time?: string;
   party_size: number;
+  adults?: number;
+  children?: number;
+  infants?: number;
   menu_items?: MenuItem[];
   special_requests?: string;
   total_amount: number;
@@ -159,6 +162,9 @@ export function FoodVendorDashboard() {
           reservation_datetime: b.reservation_date + (b.reservation_time ? ' ' + b.reservation_time : ''),
           reservation_time: b.reservation_time,
           party_size: b.party_size || b.num_adults || 1,
+          adults: b.adults || b.num_adults,
+          children: b.children || b.num_children,
+          infants: b.infants || b.num_infants,
           menu_items: b.menu_items || [],
           special_requests: b.special_requests,
           total_amount: b.total_amount,
@@ -378,8 +384,12 @@ export function FoodVendorDashboard() {
       '식당명': order.restaurant_name,
       '고객명': order.customer_name || '-',
       '전화번호': order.customer_phone || '-',
+      '이메일': order.customer_email || '-',
       '예약시간': order.reservation_datetime ? new Date(order.reservation_datetime).toLocaleString('ko-KR') : '-',
-      '인원': order.party_size ? `${order.party_size}명` : '-',
+      '성인': order.adults || 0,
+      '어린이': order.children || 0,
+      '유아': order.infants || 0,
+      '총인원': (order.adults || 0) + (order.children || 0) + (order.infants || 0) || order.party_size || 0,
       '금액': order.total_amount ? `${order.total_amount.toLocaleString()}원` : '-',
       '결제상태': order.payment_status === 'paid' ? '결제완료' : order.payment_status === 'pending' ? '결제대기' : order.payment_status === 'failed' ? '결제실패' : order.payment_status === 'refunded' ? '환불완료' : order.payment_status,
       '예약일시': order.created_at ? new Date(order.created_at).toLocaleString('ko-KR') : '-'
@@ -708,9 +718,21 @@ export function FoodVendorDashboard() {
                               {new Date(order.reservation_datetime).toLocaleString('ko-KR')}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Users className="h-4 w-4 text-gray-400" />
-                                {order.party_size}명
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1">
+                                  <Users className="h-4 w-4 text-gray-400" />
+                                  {(order.adults !== undefined && order.adults > 0) ||
+                                   (order.children !== undefined && order.children > 0) ||
+                                   (order.infants !== undefined && order.infants > 0) ? (
+                                    <div className="text-sm">
+                                      {order.adults > 0 && `성인 ${order.adults}명`}
+                                      {order.children > 0 && `${order.adults > 0 ? ', ' : ''}어린이 ${order.children}명`}
+                                      {order.infants > 0 && `${(order.adults > 0 || order.children > 0) ? ', ' : ''}유아 ${order.infants}명`}
+                                    </div>
+                                  ) : (
+                                    <span>{order.party_size}명</span>
+                                  )}
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell className="font-semibold">
@@ -910,7 +932,19 @@ export function FoodVendorDashboard() {
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">인원:</span>
-                    <span className="ml-2 text-gray-900">{selectedOrder.party_size}명</span>
+                    <span className="ml-2 text-gray-900">
+                      {(selectedOrder.adults !== undefined && selectedOrder.adults > 0) ||
+                       (selectedOrder.children !== undefined && selectedOrder.children > 0) ||
+                       (selectedOrder.infants !== undefined && selectedOrder.infants > 0) ? (
+                        <>
+                          {selectedOrder.adults > 0 && `성인 ${selectedOrder.adults}명`}
+                          {selectedOrder.children > 0 && `${selectedOrder.adults > 0 ? ', ' : ''}어린이 ${selectedOrder.children}명`}
+                          {selectedOrder.infants > 0 && `${(selectedOrder.adults > 0 || selectedOrder.children > 0) ? ', ' : ''}유아 ${selectedOrder.infants}명`}
+                        </>
+                      ) : (
+                        `${selectedOrder.party_size}명`
+                      )}
+                    </span>
                   </div>
                   <div>
                     <span className="font-medium text-gray-700">주문상태:</span>
