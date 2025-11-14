@@ -33,6 +33,9 @@ module.exports = async function handler(req, res) {
       experience_date,    // 체험 날짜
       experience_time,    // 체험 시간
       num_participants = 1, // 참가 인원
+      num_adults,         // ✅ 성인 수 (선택)
+      num_children,       // ✅ 어린이 수 (선택)
+      num_infants,        // ✅ 유아 수 (선택)
       special_requests,   // 특별 요청사항
       total_amount        // 프론트엔드에서 계산된 금액
     } = req.body;
@@ -145,13 +148,21 @@ module.exports = async function handler(req, res) {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const bookingNumber = `EXP-${today_str}-${randomNum}`;
 
+    // ✅ 인원 정보 처리 (있으면 사용, 없으면 참가자 수 기준)
+    const adultsCount = num_adults !== undefined ? parseInt(num_adults) : participantCount;
+    const childrenCount = num_children !== undefined ? parseInt(num_children) : 0;
+    const infantsCount = num_infants !== undefined ? parseInt(num_infants) : 0;
+
     // customer_info JSON 생성
     const customerInfo = JSON.stringify({
       name: user_name || 'Guest',
       email: user_email || '',
       phone: user_phone || '',
       experience_time: experience_time || '',
-      num_participants: participantCount
+      num_participants: participantCount,
+      adults: adultsCount,
+      children: childrenCount,
+      infants: infantsCount
     });
 
     // bookings 테이블에 예약 생성
@@ -163,6 +174,9 @@ module.exports = async function handler(req, res) {
         start_date,
         num_adults,
         num_children,
+        adults,
+        children,
+        infants,
         price_adult,
         price_child,
         subtotal,
@@ -177,7 +191,7 @@ module.exports = async function handler(req, res) {
         created_at,
         updated_at
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
       )`,
       [
         bookingNumber,
@@ -185,7 +199,10 @@ module.exports = async function handler(req, res) {
         finalUserId,
         experience_date,
         participantCount,
-        0,  // num_children (체험에선 미사용)
+        0,  // num_children (하위 호환성)
+        adultsCount,  // ✅ adults 컬럼
+        childrenCount,  // ✅ children 컬럼
+        infantsCount,  // ✅ infants 컬럼
         Math.floor(pricePerPerson),
         0,  // price_child
         Math.floor(subtotal),

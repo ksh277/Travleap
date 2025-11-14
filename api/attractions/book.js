@@ -33,6 +33,7 @@ module.exports = async function handler(req, res) {
       visit_date,        // 방문 날짜 (start_date로 저장)
       num_adults = 1,    // 성인 수
       num_children = 0,  // 아동 수
+      num_infants = 0,   // ✅ 유아 수 추가
       special_requests,
       total_amount       // 프론트엔드에서 계산된 금액
     } = req.body;
@@ -154,7 +155,10 @@ module.exports = async function handler(req, res) {
     const customerInfo = JSON.stringify({
       name: user_name || 'Guest',
       email: user_email || '',
-      phone: user_phone || ''
+      phone: user_phone || '',
+      num_adults: adultsCount,
+      num_children: childrenCount,
+      num_infants: parseInt(num_infants) || 0
     });
 
     // bookings 테이블에 예약 생성
@@ -166,6 +170,9 @@ module.exports = async function handler(req, res) {
         start_date,
         num_adults,
         num_children,
+        adults,
+        children,
+        infants,
         price_adult,
         price_child,
         subtotal,
@@ -180,7 +187,7 @@ module.exports = async function handler(req, res) {
         created_at,
         updated_at
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
       )`,
       [
         bookingNumber,
@@ -189,6 +196,9 @@ module.exports = async function handler(req, res) {
         visit_date,
         adultsCount,
         childrenCount,
+        adultsCount,  // ✅ adults 컬럼
+        childrenCount,  // ✅ children 컬럼
+        parseInt(num_infants) || 0,  // ✅ infants 컬럼
         Math.floor(priceAdult),
         Math.floor(priceChild),
         Math.floor(subtotal),

@@ -49,6 +49,9 @@ module.exports = async function handler(req, res) {
       event_date,
       ticket_type = 'standard',
       num_tickets = 1,
+      num_adults,      // ✅ 성인 수 (선택)
+      num_children,    // ✅ 어린이 수 (선택)
+      num_infants,     // ✅ 유아 수 (선택)
       price_per_ticket = 0,
       special_requests = '',
       total_amount
@@ -198,6 +201,11 @@ module.exports = async function handler(req, res) {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const bookingNumber = `EVT-${today_str}-${randomNum}`;
 
+    // ✅ 인원 정보 처리 (있으면 사용, 없으면 티켓 수량 기준)
+    const adultsCount = num_adults !== undefined ? parseInt(num_adults) : numTicketsCount;
+    const childrenCount = num_children !== undefined ? parseInt(num_children) : 0;
+    const infantsCount = num_infants !== undefined ? parseInt(num_infants) : 0;
+
     // customer_info JSON 생성 (이벤트 특화 정보 포함)
     const customerInfo = JSON.stringify({
       name: user_name || 'Guest',
@@ -205,6 +213,9 @@ module.exports = async function handler(req, res) {
       phone: user_phone || '',
       ticket_type: ticket_type,
       num_tickets: numTicketsCount,
+      adults: adultsCount,
+      children: childrenCount,
+      infants: infantsCount,
       event_type: event.event_type || '',
       venue_info: event.venue_info || '',
       venue_address: event.venue_address || '',
@@ -221,6 +232,9 @@ module.exports = async function handler(req, res) {
         start_date,
         num_adults,
         num_children,
+        adults,
+        children,
+        infants,
         price_adult,
         price_child,
         subtotal,
@@ -235,15 +249,18 @@ module.exports = async function handler(req, res) {
         created_at,
         updated_at
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
       )`,
       [
         bookingNumber,
         listing_id,
         finalUserId,
         event_date,
-        numTicketsCount,  // num_adults에 티켓 수량 저장
-        0,  // num_children (이벤트에선 미사용)
+        numTicketsCount,  // num_adults에 티켓 수량 저장 (하위 호환성)
+        0,  // num_children (하위 호환성)
+        adultsCount,  // ✅ adults 컬럼
+        childrenCount,  // ✅ children 컬럼
+        infantsCount,  // ✅ infants 컬럼
         Math.floor(pricePerTicket),
         0,  // price_child
         Math.floor(subtotal),
