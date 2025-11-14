@@ -526,7 +526,9 @@ module.exports = async function handler(req, res) {
         total,
         status,
         paymentMethod,
-        shippingInfo
+        shippingInfo,
+        insurance,
+        billingInfo
       } = req.body;
 
       console.log('🛒 [Orders] 주문 생성 요청:', {
@@ -538,7 +540,9 @@ module.exports = async function handler(req, res) {
         couponCode,
         pointsUsed,
         total,
-        hasShipping: !!shippingInfo
+        hasShipping: !!shippingInfo,
+        hasInsurance: !!insurance,
+        insuranceFee: insurance?.price || 0
       });
 
       // 필수 파라미터 검증
@@ -767,8 +771,19 @@ module.exports = async function handler(req, res) {
         serverPointsUsed = 0;
       }
 
+      // 🛡️ 보험료 서버 검증
+      const serverInsuranceFee = insurance ? Number(insurance.price) || 0 : 0;
+      if (insurance && serverInsuranceFee <= 0) {
+        console.error(`❌ [Orders] 잘못된 보험료: ${serverInsuranceFee}원`);
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_INSURANCE',
+          message: '유효하지 않은 보험 정보입니다.'
+        });
+      }
+
       // 서버 측 최종 금액 계산 (서버가 재계산한 subtotal 사용)
-      const expectedTotal = serverCalculatedSubtotal - serverCouponDiscount + serverDeliveryFee - serverPointsUsed;
+      const expectedTotal = serverCalculatedSubtotal - serverCouponDiscount + serverDeliveryFee + serverInsuranceFee - serverPointsUsed;
 
       // 1원 이하 오차 허용 (부동소수점 연산 오차)
       if (Math.abs(expectedTotal - total) > 1) {
@@ -778,6 +793,7 @@ module.exports = async function handler(req, res) {
           - 차이: ${Math.abs(expectedTotal - total)}원
           - serverSubtotal: ${serverCalculatedSubtotal}
           - deliveryFee: ${serverDeliveryFee}
+          - insuranceFee: ${serverInsuranceFee}
           - couponDiscount: ${serverCouponDiscount}
           - pointsUsed: ${serverPointsUsed}`);
 
@@ -790,7 +806,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      console.log(`✅ [Orders] 금액 검증 통과: ${total.toLocaleString()}원`);
+      console.log(`✅ [Orders] 금액 검증 통과: ${total.toLocaleString()}원 (subtotal=${serverCalculatedSubtotal}, deliveryFee=${serverDeliveryFee}, insuranceFee=${serverInsuranceFee}, couponDiscount=${serverCouponDiscount}, pointsUsed=${serverPointsUsed})`);
 
       // 🔍 주문 생성 전 모든 상품 유효성 검증
       console.log('🔍 [Orders] 받은 items 배열:', JSON.stringify(items, null, 2));
@@ -901,12 +917,13 @@ module.exports = async function handler(req, res) {
           // 배송비는 팝업 카테고리에만 적용
           const categoryDeliveryFee = category === '팝업' ? serverDeliveryFee : 0;
 
-          // 쿠폰/포인트는 첫 번째 카테고리에만 적용
+          // 쿠폰/포인트/보험료는 첫 번째 카테고리에만 적용
           const categoryCouponDiscount = isFirstCategory ? serverCouponDiscount : 0;
           const categoryPointsUsed = isFirstCategory ? serverPointsUsed : 0;
           const categoryCouponCode = isFirstCategory ? (couponCode || null) : null;
+          const categoryInsuranceFee = isFirstCategory ? serverInsuranceFee : 0;
 
-          const categoryTotal = categorySubtotal + categoryDeliveryFee - categoryCouponDiscount - categoryPointsUsed;
+          const categoryTotal = categorySubtotal + categoryDeliveryFee + categoryInsuranceFee - categoryCouponDiscount - categoryPointsUsed;
 
           const insertResult = await connection.execute(`
             INSERT INTO payments (
@@ -930,15 +947,26 @@ module.exports = async function handler(req, res) {
               items: categoryItems,
               subtotal: categorySubtotal,
               deliveryFee: categoryDeliveryFee,
+              insuranceFee: categoryInsuranceFee,
+              insurance: isFirstCategory && insurance ? {
+                id: insurance.id,
+                name: insurance.name,
+                price: insurance.price,
+                coverage_amount: insurance.coverage_amount
+              } : null,
               couponDiscount: categoryCouponDiscount,
               couponCode: categoryCouponCode,
               pointsUsed: categoryPointsUsed,
               shippingInfo: shippingInfo || null, // ✅ FIX: 카테고리 무관하게 항상 저장
-              billingInfo: shippingInfo ? {
+              billingInfo: billingInfo ? {
+                name: billingInfo.name,
+                email: billingInfo.email || null,
+                phone: billingInfo.phone
+              } : (shippingInfo ? {
                 name: shippingInfo.name,
                 email: shippingInfo.email || null,
                 phone: shippingInfo.phone
-              } : null
+              } : null)
             })
           ]);
 
