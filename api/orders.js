@@ -563,9 +563,9 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        // SECURITY FIX: DB에서 실제 가격 조회
+        // SECURITY FIX: DB에서 실제 가격 조회 (category_id 포함)
         const listingResult = await connection.execute(
-          'SELECT price_from as price, title FROM listings WHERE id = ? AND is_active = 1',
+          'SELECT price_from as price, title, category_id FROM listings WHERE id = ? AND is_active = 1',
           [item.listingId]
         );
 
@@ -578,9 +578,14 @@ module.exports = async function handler(req, res) {
         }
 
         const actualItemPrice = listingResult.rows[0].price;
+        const categoryId = listingResult.rows[0].category_id;
+
+        // 예약 기반 카테고리 (투어/음식/관광지/행사/체험) - 보험료 등 추가 옵션이 있을 수 있음
+        const isBookingCategory = [1855, 1858, 1859, 1861, 1862].includes(categoryId);
 
         // SECURITY FIX: 클라이언트가 보낸 가격과 DB 가격 비교
-        if (item.price && Math.abs(actualItemPrice - item.price) > 1) {
+        // 예약 기반 상품은 보험료 등 추가 옵션이 있으므로 기본 가격만 확인
+        if (!isBookingCategory && item.price && Math.abs(actualItemPrice - item.price) > 1) {
           console.error(`❌ [Orders] 가격 조작 감지!
             - 상품: ${listingResult.rows[0].title}
             - DB 가격: ${actualItemPrice}원
@@ -620,21 +625,30 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        // 실제 DB 가격으로 계산
-        const totalItemPrice = (actualItemPrice + actualOptionPrice) * item.quantity;
-        serverCalculatedSubtotal += totalItemPrice;
+        // 실제 DB 가격으로 계산 (예약 기반 상품은 기본 가격만 계산)
+        let totalItemPrice;
+        if (isBookingCategory) {
+          // 예약 기반 상품: 클라이언트가 보낸 가격 사용 (보험료 등 포함 가능)
+          totalItemPrice = (item.price || actualItemPrice) * item.quantity;
+          console.log(`✅ [Orders] 예약 상품 가격 확인: ${listingResult.rows[0].title} = ${item.price}원 (기본: ${actualItemPrice}원)`);
+        } else {
+          // 팝업 상품: DB 가격으로 엄격하게 검증
+          totalItemPrice = (actualItemPrice + actualOptionPrice) * item.quantity;
+          console.log(`✅ [Orders] 팝업 상품 가격 검증 완료: ${listingResult.rows[0].title} = ${actualItemPrice}원 + 옵션 ${actualOptionPrice}원`);
+        }
 
-        console.log(`✅ [Orders] 상품 가격 검증 완료: ${listingResult.rows[0].title} = ${actualItemPrice}원 + 옵션 ${actualOptionPrice}원`);
+        serverCalculatedSubtotal += totalItemPrice;
       }
 
       console.log(`🔒 [Orders] 서버 측 subtotal 재계산: ${serverCalculatedSubtotal}원 (클라이언트: ${subtotal}원)`);
 
-      // 클라이언트가 보낸 subtotal과 서버 계산이 다르면 거부
-      if (Math.abs(serverCalculatedSubtotal - (subtotal || 0)) > 1) {
+      // 클라이언트가 보낸 subtotal과 서버 계산이 다르면 거부 (10원 이내 허용)
+      const subtotalDifference = Math.abs(serverCalculatedSubtotal - (subtotal || 0));
+      if (subtotalDifference > 10) {
         console.error(`❌ [Orders] Subtotal 조작 감지!
           - 클라이언트 subtotal: ${subtotal}원
           - 서버 계산 subtotal: ${serverCalculatedSubtotal}원
-          - 차이: ${Math.abs(serverCalculatedSubtotal - (subtotal || 0))}원`);
+          - 차이: ${subtotalDifference}원`);
 
         return res.status(400).json({
           success: false,

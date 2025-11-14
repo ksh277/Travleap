@@ -100,6 +100,26 @@ module.exports = async function handler(req, res) {
     const subtotal = participantCount * pricePerPerson;
     const finalTotalAmount = Number(total_amount) || Math.floor(subtotal);
 
+    // 🔒 SECURITY: 가격 검증 (보험료 등 추가 옵션으로 인한 차이는 30% 이내 허용)
+    const calculatedSubtotal = Math.floor(subtotal);
+    const priceDifference = Math.abs(finalTotalAmount - calculatedSubtotal);
+    const allowedDifference = Math.max(calculatedSubtotal * 0.3, 10000);
+
+    if (priceDifference > allowedDifference) {
+      console.error(`❌ [Experience Book] 가격 검증 실패!
+        - 계산된 subtotal: ${calculatedSubtotal}원
+        - 클라이언트 total: ${finalTotalAmount}원
+        - 차이: ${priceDifference}원`);
+
+      return res.status(400).json({
+        success: false,
+        error: 'PRICE_VERIFICATION_FAILED',
+        message: '가격이 유효하지 않습니다. 페이지를 새로고침해주세요.'
+      });
+    }
+
+    console.log(`✅ [Experience Book] 가격 검증 완료: subtotal=${calculatedSubtotal}원, total=${finalTotalAmount}원`);
+
     // user_id 확인 (필수)
     let finalUserId = user_id;
     if (!finalUserId && user_email) {
