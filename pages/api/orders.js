@@ -613,7 +613,7 @@ module.exports = async function handler(req, res) {
 
         // SECURITY FIX: DB에서 실제 가격 조회
         const listingResult = await connection.execute(
-          'SELECT price_from as price, title FROM listings WHERE id = ? AND is_active = 1',
+          'SELECT price_from as price, title, category_id FROM listings WHERE id = ? AND is_active = 1',
           [item.listingId]
         );
 
@@ -626,9 +626,15 @@ module.exports = async function handler(req, res) {
         }
 
         const actualItemPrice = listingResult.rows[0].price;
+        const categoryId = listingResult.rows[0].category_id;
 
-        // SECURITY FIX: 클라이언트가 보낸 가격과 DB 가격 비교
-        if (item.price && Math.abs(actualItemPrice - item.price) > 1) {
+        // ✅ 투어/음식/관광지/이벤트/체험 등은 인원/날짜에 따라 가격이 다름
+        // 이들은 별도 예약 API에서 이미 가격 계산 완료했으므로 검증 스킵
+        const bookingBasedCategories = [1855, 1858, 1859, 1861, 1862]; // 투어, 음식, 관광지, 이벤트, 체험
+        const isBookingBased = bookingBasedCategories.includes(categoryId);
+
+        // SECURITY FIX: 클라이언트가 보낸 가격과 DB 가격 비교 (팝업 스토어 상품만)
+        if (!isBookingBased && item.price && Math.abs(actualItemPrice - item.price) > 1) {
           console.error(`❌ [Orders] 가격 조작 감지!
             - 상품: ${listingResult.rows[0].title}
             - DB 가격: ${actualItemPrice}원
@@ -639,6 +645,10 @@ module.exports = async function handler(req, res) {
             error: 'PRICE_TAMPERED',
             message: '상품 가격이 변경되었습니다. 페이지를 새로고침해주세요.'
           });
+        }
+
+        if (isBookingBased) {
+          console.log(`ℹ️  [Orders] 예약 기반 상품 (category: ${categoryId}) - 클라이언트 가격 신뢰: ${item.price}원`);
         }
 
         // SECURITY FIX: 옵션 가격도 DB에서 검증
@@ -668,11 +678,18 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        // 실제 DB 가격으로 계산
-        const totalItemPrice = (actualItemPrice + actualOptionPrice) * item.quantity;
+        // 가격 계산: 예약 기반 상품은 클라이언트 가격 사용, 팝업 스토어는 DB 가격 사용
+        let totalItemPrice;
+        if (isBookingBased) {
+          // 투어/음식/관광지 등은 이미 별도 API에서 가격 계산 완료
+          totalItemPrice = (item.price || 0) * item.quantity;
+        } else {
+          // 팝업 스토어 상품은 DB 가격으로 재계산
+          totalItemPrice = (actualItemPrice + actualOptionPrice) * item.quantity;
+        }
         serverCalculatedSubtotal += totalItemPrice;
 
-        console.log(`✅ [Orders] 상품 가격 검증 완료: ${listingResult.rows[0].title} = ${actualItemPrice}원 + 옵션 ${actualOptionPrice}원`);
+        console.log(`✅ [Orders] 상품 가격 검증 완료: ${listingResult.rows[0].title} = ${isBookingBased ? item.price + '원 (예약 기반)' : actualItemPrice + '원 + 옵션 ' + actualOptionPrice + '원'}`);
       }
 
       console.log(`🔒 [Orders] 서버 측 subtotal 재계산: ${serverCalculatedSubtotal}원 (클라이언트: ${subtotal}원)`);
