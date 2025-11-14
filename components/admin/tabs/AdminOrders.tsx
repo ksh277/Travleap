@@ -22,6 +22,9 @@ interface BookingItem {
   status: string;
   delivery_status: string | null;
   guests: number;
+  adults?: number;
+  children?: number;
+  infants?: number;
   product_title: string;
   category: string;
 }
@@ -51,6 +54,9 @@ interface Order {
   pickup_time?: string; // ✅ 렌트카 픽업 시간
   dropoff_time?: string; // ✅ 렌트카 반납 시간
   guests: number;
+  adults?: number; // ✅ 투어/음식/관광지/이벤트/체험 성인 수
+  children?: number; // ✅ 어린이 수
+  infants?: number; // ✅ 유아 수
   category: string;
   is_popup: boolean;
   order_number: string;
@@ -672,7 +678,24 @@ export function AdminOrders() {
                                 <div className="text-gray-400">-</div>
                               )}
                               <div className="text-xs text-gray-500 mt-1">
-                                {order.guests ? `${order.guests}명` : '-'}
+                                {/* ✅ 투어/음식/관광지/이벤트/체험: 성인/어린이/유아 상세 표시 */}
+                                {(order.adults !== undefined && order.adults > 0) ||
+                                 (order.children !== undefined && order.children > 0) ||
+                                 (order.infants !== undefined && order.infants > 0) ? (
+                                  <div className="space-y-0.5">
+                                    {order.adults !== undefined && order.adults > 0 && (
+                                      <div>성인 {order.adults}명</div>
+                                    )}
+                                    {order.children !== undefined && order.children > 0 && (
+                                      <div>어린이 {order.children}명</div>
+                                    )}
+                                    {order.infants !== undefined && order.infants > 0 && (
+                                      <div>유아 {order.infants}명</div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  order.guests ? `${order.guests}명` : '-'
+                                )}
                               </div>
                             </>
                           )}
