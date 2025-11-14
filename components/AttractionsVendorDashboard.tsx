@@ -59,6 +59,9 @@ interface Order {
   customer_phone?: string;
   visit_date: string;
   tickets: any;
+  adults?: number;
+  children?: number;
+  infants?: number;
   total_amount: number;
   payment_status: string;
   payment_key?: string;
@@ -136,7 +139,16 @@ export function AttractionsVendorDashboard() {
       });
       const ordersData = await ordersResponse.json();
       if (ordersData.success) {
-        const ordersList = ordersData.data?.bookings || ordersData.data || [];
+        const bookingsData = ordersData.data?.bookings || ordersData.data || [];
+
+        // API 데이터를 UI Order 인터페이스에 맞게 매핑
+        const ordersList = bookingsData.map((b: any) => ({
+          ...b,
+          adults: b.adults || b.num_adults,
+          children: b.children || b.num_children,
+          infants: b.infants || b.num_infants
+        }));
+
         setOrders(ordersList);
         setFilteredOrders(ordersList);
 
@@ -355,6 +367,10 @@ export function AttractionsVendorDashboard() {
       '고객이메일': order.customer_email || '-',
       '방문일시': order.visit_date ? new Date(order.visit_date).toLocaleString('ko-KR') : '-',
       '티켓정보': Array.isArray(order.tickets) ? order.tickets.map((t: any) => `${t.type_name} ${t.count}매`).join(', ') : '티켓 정보',
+      '성인': order.adults || 0,
+      '어린이': order.children || 0,
+      '유아': order.infants || 0,
+      '총인원': (order.adults || 0) + (order.children || 0) + (order.infants || 0),
       '금액': order.total_amount,
       '결제상태': order.payment_status === 'paid' ? '결제완료' : order.payment_status === 'pending' ? '대기중' : order.payment_status === 'refunded' ? '환불완료' : '실패',
       '주문상태': order.status === 'confirmed' ? '확정' : order.status === 'completed' ? '완료' : order.status === 'canceled' ? '취소' : '대기중',
@@ -671,6 +687,12 @@ export function AttractionsVendorDashboard() {
                                     <div key={i}>{t.type_name} {t.count}매</div>
                                   ))}
                                 </div>
+                              ) : (order.adults !== undefined || order.children !== undefined || order.infants !== undefined) ? (
+                                <div className="text-sm space-y-0.5">
+                                  {order.adults > 0 && <div>성인 {order.adults}명</div>}
+                                  {order.children > 0 && <div>어린이 {order.children}명</div>}
+                                  {order.infants > 0 && <div>유아 {order.infants}명</div>}
+                                </div>
                               ) : '티켓 정보'}
                             </TableCell>
                             <TableCell className="font-semibold">
@@ -898,6 +920,41 @@ export function AttractionsVendorDashboard() {
                           <span className="font-medium">{ticket.count}매</span>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 인원 정보 */}
+                {((selectedOrder.adults !== undefined && selectedOrder.adults > 0) ||
+                  (selectedOrder.children !== undefined && selectedOrder.children > 0) ||
+                  (selectedOrder.infants !== undefined && selectedOrder.infants > 0)) && (
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">인원 정보</h3>
+                    <div className="space-y-2 text-sm">
+                      {selectedOrder.adults > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">성인:</span>
+                          <span className="font-medium">{selectedOrder.adults}명</span>
+                        </div>
+                      )}
+                      {selectedOrder.children > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">어린이:</span>
+                          <span className="font-medium">{selectedOrder.children}명</span>
+                        </div>
+                      )}
+                      {selectedOrder.infants > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">유아:</span>
+                          <span className="font-medium">{selectedOrder.infants}명</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-2 border-t border-orange-200">
+                        <span className="text-gray-700 font-semibold">총 인원:</span>
+                        <span className="font-bold text-orange-700">
+                          {(selectedOrder.adults || 0) + (selectedOrder.children || 0) + (selectedOrder.infants || 0)}명
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}

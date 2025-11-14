@@ -117,6 +117,10 @@ module.exports = async function handler(req, res) {
         b.user_id,
         b.start_date as experience_date,
         b.num_adults as num_participants,
+        b.num_children,
+        b.adults,
+        b.children,
+        b.infants,
         b.price_adult as price_per_person,
         b.total_amount,
         b.payment_status,
@@ -163,7 +167,11 @@ module.exports = async function handler(req, res) {
         // 고객 정보 병합 (customer_info 우선, users 테이블 백업)
         customer_name: customerInfo?.name || booking.customer_name,
         customer_phone: customerInfo?.phone || booking.customer_phone,
-        customer_email: customerInfo?.email || booking.customer_email
+        customer_email: customerInfo?.email || booking.customer_email,
+        // 인원 정보 추가
+        adults: booking.adults || customerInfo?.adults,
+        children: booking.children || customerInfo?.children,
+        infants: booking.infants || customerInfo?.infants
       };
     });
 

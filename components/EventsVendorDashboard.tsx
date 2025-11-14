@@ -63,6 +63,9 @@ interface Order {
   start_datetime: string;
   ticket_type: string;
   quantity: number;
+  adults?: number;
+  children?: number;
+  infants?: number;
   total_amount: number;
   payment_status: string;
   payment_key?: string;
@@ -363,6 +366,10 @@ export function EventsVendorDashboard() {
       '이벤트일시': order.start_datetime ? new Date(order.start_datetime).toLocaleString('ko-KR') : '-',
       '티켓종류': order.ticket_type === 'general' ? '일반석' : 'VIP석',
       '수량': order.quantity,
+      '성인': order.adults || 0,
+      '어린이': order.children || 0,
+      '유아': order.infants || 0,
+      '총인원': (order.adults || 0) + (order.children || 0) + (order.infants || 0),
       '금액': order.total_amount,
       '결제상태': order.payment_status === 'paid' ? '결제완료' :
                    order.payment_status === 'pending' ? '결제대기' :
@@ -664,10 +671,23 @@ export function EventsVendorDashboard() {
                               {new Date(order.start_datetime).toLocaleString('ko-KR')}
                             </TableCell>
                             <TableCell>
-                              <div className="text-sm">
-                                <div>{order.ticket_type === 'general' ? '일반석' : 'VIP석'}</div>
-                                <div className="text-gray-500">{order.quantity}매</div>
-                              </div>
+                              {(order.adults !== undefined && order.adults > 0) ||
+                               (order.children !== undefined && order.children > 0) ||
+                               (order.infants !== undefined && order.infants > 0) ? (
+                                <div className="text-sm space-y-0.5">
+                                  {order.adults > 0 && <div>성인 {order.adults}명</div>}
+                                  {order.children > 0 && <div>어린이 {order.children}명</div>}
+                                  {order.infants > 0 && <div>유아 {order.infants}명</div>}
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {order.ticket_type === 'general' ? '일반석' : 'VIP석'}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-sm">
+                                  <div>{order.ticket_type === 'general' ? '일반석' : 'VIP석'}</div>
+                                  <div className="text-gray-500">{order.quantity}매</div>
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell className="font-semibold">
                               {order.total_amount.toLocaleString()}원
@@ -904,6 +924,41 @@ export function EventsVendorDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {/* 인원 정보 */}
+                {((selectedOrder.adults !== undefined && selectedOrder.adults > 0) ||
+                  (selectedOrder.children !== undefined && selectedOrder.children > 0) ||
+                  (selectedOrder.infants !== undefined && selectedOrder.infants > 0)) && (
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">인원 정보</h3>
+                    <div className="space-y-2 text-sm">
+                      {selectedOrder.adults > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">성인:</span>
+                          <span className="font-medium">{selectedOrder.adults}명</span>
+                        </div>
+                      )}
+                      {selectedOrder.children > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">어린이:</span>
+                          <span className="font-medium">{selectedOrder.children}명</span>
+                        </div>
+                      )}
+                      {selectedOrder.infants > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">유아:</span>
+                          <span className="font-medium">{selectedOrder.infants}명</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-2 border-t border-orange-200">
+                        <span className="text-gray-700 font-semibold">총 인원:</span>
+                        <span className="font-bold text-orange-700">
+                          {(selectedOrder.adults || 0) + (selectedOrder.children || 0) + (selectedOrder.infants || 0)}명
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 고객 정보 */}
                 <div className="bg-blue-50 rounded-lg p-4">

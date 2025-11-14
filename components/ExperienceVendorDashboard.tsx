@@ -60,6 +60,9 @@ interface Booking {
   customer_phone?: string;
   slot_datetime: string;
   participant_count: number;
+  adults?: number;
+  children?: number;
+  infants?: number;
   total_amount: number;
   payment_status: string;
   payment_key?: string;
@@ -139,7 +142,12 @@ export function ExperienceVendorDashboard() {
       });
       const bookingsData = await bookingsResponse.json();
       if (bookingsData.success) {
-        const bookingsList = bookingsData.data || [];
+        const bookingsList = (bookingsData.data?.bookings || bookingsData.data || []).map((b: any) => ({
+          ...b,
+          adults: b.adults,
+          children: b.children,
+          infants: b.infants
+        }));
         setBookings(bookingsList);
         setFilteredBookings(bookingsList);
 
@@ -355,6 +363,10 @@ export function ExperienceVendorDashboard() {
       '이메일': booking.customer_email || '-',
       '체험일시': booking.slot_datetime ? new Date(booking.slot_datetime).toLocaleString('ko-KR') : '-',
       '인원': booking.participant_count,
+      '성인': booking.adults || 0,
+      '어린이': booking.children || 0,
+      '유아': booking.infants || 0,
+      '총인원': (booking.adults || 0) + (booking.children || 0) + (booking.infants || 0),
       '금액': booking.total_amount,
       '결제상태': booking.payment_status === 'paid' ? '결제완료' : booking.payment_status === 'pending' ? '결제대기' : booking.payment_status === 'failed' ? '결제실패' : booking.payment_status === 'refunded' ? '환불완료' : booking.payment_status,
       '예약상태': booking.status === 'pending' ? '대기중' : booking.status === 'confirmed' ? '확정' : booking.status === 'completed' ? '완료' : booking.status === 'canceled' ? '취소' : booking.status,
@@ -663,10 +675,20 @@ export function ExperienceVendorDashboard() {
                               {new Date(booking.slot_datetime).toLocaleString('ko-KR')}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Users className="h-4 w-4 text-gray-400" />
-                                {booking.participant_count}명
-                              </div>
+                              {(booking.adults !== undefined && booking.adults > 0) ||
+                               (booking.children !== undefined && booking.children > 0) ||
+                               (booking.infants !== undefined && booking.infants > 0) ? (
+                                <div className="text-sm space-y-0.5">
+                                  {booking.adults > 0 && <div>성인 {booking.adults}명</div>}
+                                  {booking.children > 0 && <div>어린이 {booking.children}명</div>}
+                                  {booking.infants > 0 && <div>유아 {booking.infants}명</div>}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <Users className="h-4 w-4 text-gray-400" />
+                                  {booking.participant_count}명
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell className="font-semibold">
                               {booking.total_amount.toLocaleString()}원
@@ -881,6 +903,41 @@ export function ExperienceVendorDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {/* 인원 정보 */}
+                {((selectedBooking.adults !== undefined && selectedBooking.adults > 0) ||
+                  (selectedBooking.children !== undefined && selectedBooking.children > 0) ||
+                  (selectedBooking.infants !== undefined && selectedBooking.infants > 0)) && (
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">인원 상세</h3>
+                    <div className="space-y-2 text-sm">
+                      {selectedBooking.adults > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">성인:</span>
+                          <span className="font-medium">{selectedBooking.adults}명</span>
+                        </div>
+                      )}
+                      {selectedBooking.children > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">어린이:</span>
+                          <span className="font-medium">{selectedBooking.children}명</span>
+                        </div>
+                      )}
+                      {selectedBooking.infants > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">유아:</span>
+                          <span className="font-medium">{selectedBooking.infants}명</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between pt-2 border-t border-orange-200">
+                        <span className="text-gray-700 font-semibold">총 인원:</span>
+                        <span className="font-bold text-orange-700">
+                          {(selectedBooking.adults || 0) + (selectedBooking.children || 0) + (selectedBooking.infants || 0)}명
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 고객 정보 */}
                 <div className="bg-blue-50 rounded-lg p-4">
