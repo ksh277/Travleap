@@ -625,12 +625,30 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        // 실제 DB 가격으로 계산 (예약 기반 상품은 기본 가격만 계산)
+        // 실제 DB 가격으로 계산 (예약 기반 상품은 인원별 가격 계산)
         let totalItemPrice;
         if (isBookingCategory) {
-          // 예약 기반 상품: 클라이언트가 보낸 가격 사용 (보험료 등 포함 가능)
-          totalItemPrice = (item.price || actualItemPrice) * item.quantity;
-          console.log(`✅ [Orders] 예약 상품 가격 확인: ${listingResult.rows[0].title} = ${item.price}원 (기본: ${actualItemPrice}원)`);
+          // 예약 기반 상품: 성인/어린이/유아 가격 계산 또는 클라이언트 총액 사용
+          if (item.adultPrice !== undefined && item.adults !== undefined) {
+            // 성인/어린이/유아 가격이 모두 있으면 서버에서 재계산
+            const adults = parseInt(item.adults) || 0;
+            const children = parseInt(item.children) || 0;
+            const infants = parseInt(item.infants) || 0;
+            const adultPrice = Number(item.adultPrice) || 0;
+            const childPrice = Number(item.childPrice) || 0;
+            const infantPrice = Number(item.infantPrice) || 0;
+
+            totalItemPrice = (adults * adultPrice) + (children * childPrice) + (infants * infantPrice);
+            console.log(`✅ [Orders] 예약 상품 인원별 계산: ${listingResult.rows[0].title}
+              - 성인 ${adults}명 × ${adultPrice}원 = ${adults * adultPrice}원
+              - 어린이 ${children}명 × ${childPrice}원 = ${children * childPrice}원
+              - 유아 ${infants}명 × ${infantPrice}원 = ${infants * infantPrice}원
+              - 합계: ${totalItemPrice}원`);
+          } else {
+            // 인원 정보가 없으면 기본 가격 × 수량
+            totalItemPrice = (item.price || actualItemPrice) * item.quantity;
+            console.log(`✅ [Orders] 예약 상품 기본 계산: ${listingResult.rows[0].title} = ${item.price || actualItemPrice}원 × ${item.quantity}`);
+          }
         } else {
           // 팝업 상품: DB 가격으로 엄격하게 검증
           totalItemPrice = (actualItemPrice + actualOptionPrice) * item.quantity;
