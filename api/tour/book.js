@@ -244,6 +244,9 @@ module.exports = async function handler(req, res) {
         start_date,
         num_adults,
         num_children,
+        adults,
+        children,
+        infants,
         price_adult,
         price_child,
         subtotal,
@@ -258,7 +261,7 @@ module.exports = async function handler(req, res) {
         created_at,
         updated_at
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
       )`,
       [
         bookingNumber,
@@ -266,7 +269,10 @@ module.exports = async function handler(req, res) {
         finalUserId,
         tour_date,
         adultCount,
-        childCount + infantCount,  // num_children에 child + infant 합산
+        childCount + infantCount,  // num_children에 child + infant 합산 (하위 호환성)
+        adultCount,  // ✅ adults 컬럼에 성인 수
+        childCount,  // ✅ children 컬럼에 어린이 수
+        infantCount, // ✅ infants 컬럼에 유아 수
         Math.floor(priceAdultNum),
         Math.floor(priceChildNum),
         Math.floor(subtotal),

@@ -33,6 +33,9 @@ module.exports = async function handler(req, res) {
       reservation_date,   // 예약 날짜
       reservation_time,   // 예약 시간
       party_size = 2,     // 인원 수
+      adults,             // ✅ 성인 수 (선택)
+      children,           // ✅ 어린이 수 (선택)
+      infants,            // ✅ 유아 수 (선택)
       special_requests,   // 특별 요청사항
       total_amount        // 프론트엔드에서 계산된 금액
     } = req.body;
@@ -145,13 +148,21 @@ module.exports = async function handler(req, res) {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const bookingNumber = `FOOD-${today_str}-${randomNum}`;
 
+    // ✅ 인원 정보 처리 (adults/children/infants 또는 party_size)
+    const adultsCount = adults !== undefined ? parseInt(adults) : partySizeCount;
+    const childrenCount = children !== undefined ? parseInt(children) : 0;
+    const infantsCount = infants !== undefined ? parseInt(infants) : 0;
+
     // customer_info JSON 생성
     const customerInfo = JSON.stringify({
       name: user_name || 'Guest',
       email: user_email || '',
       phone: user_phone || '',
       reservation_time: reservation_time || '',
-      party_size: partySizeCount
+      party_size: partySizeCount,
+      adults: adultsCount,
+      children: childrenCount,
+      infants: infantsCount
     });
 
     // bookings 테이블에 예약 생성
@@ -163,6 +174,9 @@ module.exports = async function handler(req, res) {
         start_date,
         num_adults,
         num_children,
+        adults,
+        children,
+        infants,
         price_adult,
         price_child,
         subtotal,
@@ -177,7 +191,7 @@ module.exports = async function handler(req, res) {
         created_at,
         updated_at
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
       )`,
       [
         bookingNumber,
@@ -185,7 +199,10 @@ module.exports = async function handler(req, res) {
         finalUserId,
         reservation_date,
         partySizeCount,
-        0,  // num_children (음식점 예약에선 미사용)
+        0,  // num_children (하위 호환성)
+        adultsCount,  // ✅ adults 컬럼
+        childrenCount, // ✅ children 컬럼
+        infantsCount,  // ✅ infants 컬럼
         Math.floor(pricePerPerson),
         0,  // price_child
         Math.floor(subtotal),
