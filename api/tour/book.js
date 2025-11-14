@@ -62,13 +62,18 @@ module.exports = async function handler(req, res) {
       total_amount
     } = req.body;
 
+    // ✅ 타입 안전성: 수량 필드 숫자 변환
+    const adultCount = parseInt(adult_count) || 0;
+    const childCount = parseInt(child_count) || 0;
+    const infantCount = parseInt(infant_count) || 0;
+
     console.log('📋 [Tour Booking] 요청 받음:', {
       listing_id,
       user_id,
       tour_date,
-      adult_count,
-      child_count,
-      infant_count
+      adultCount,
+      childCount,
+      infantCount
     });
 
     // 필수 필드 확인
@@ -122,8 +127,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 가격 계산
-    const totalParticipants = adult_count + child_count + infant_count;
+    // ✅ 가격 계산 (타입 안전성 개선)
+    const totalParticipants = adultCount + childCount + infantCount;
     if (totalParticipants === 0) {
       return res.status(400).json({
         success: false,
@@ -131,15 +136,16 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const priceAdult = price_adult || tour.price_from || 0;
-    const priceChild = price_child || Math.floor(priceAdult * 0.7) || 0;
-    const priceInfant = price_infant || 0;
+    // 가격 필드 숫자 변환
+    const priceAdultNum = Number(price_adult) || Number(tour.price_from) || 0;
+    const priceChildNum = Number(price_child) || Math.floor(priceAdultNum * 0.7) || 0;
+    const priceInfantNum = Number(price_infant) || 0;
 
-    const subtotal = (adult_count * priceAdult) +
-                     (child_count * priceChild) +
-                     (infant_count * priceInfant);
+    const subtotal = (adultCount * priceAdultNum) +
+                     (childCount * priceChildNum) +
+                     (infantCount * priceInfantNum);
 
-    const finalTotalAmount = total_amount || Math.floor(subtotal);
+    const finalTotalAmount = Number(total_amount) || Math.floor(subtotal);
 
     // 최소 금액 검증
     if (finalTotalAmount <= 0) {
@@ -207,9 +213,9 @@ module.exports = async function handler(req, res) {
       listing_id,
       tour_date,
       participants: totalParticipants,
-      adult_count,
-      child_count,
-      infant_count
+      adult_count: adultCount,
+      child_count: childCount,
+      infant_count: infantCount
     });
     const qrCode = await QRCode.toDataURL(qrData);
 
@@ -219,9 +225,9 @@ module.exports = async function handler(req, res) {
       email: user_email || '',
       phone: user_phone || '',
       participants: participants || [],
-      adult_count,
-      child_count,
-      infant_count,
+      adult_count: adultCount,
+      child_count: childCount,
+      infant_count: infantCount,
       voucher_code: voucherCode,
       qr_code: qrCode,
       tour_type: tour.tour_type || '',
@@ -259,14 +265,14 @@ module.exports = async function handler(req, res) {
         listing_id,
         finalUserId,
         tour_date,
-        adult_count,
-        child_count + infant_count,  // num_children에 child + infant 합산
-        Math.floor(priceAdult),
-        Math.floor(priceChild),
+        adultCount,
+        childCount + infantCount,  // num_children에 child + infant 합산
+        Math.floor(priceAdultNum),
+        Math.floor(priceChildNum),
         Math.floor(subtotal),
         0,  // discount_amount
         0,  // tax_amount
-        finalTotalAmount,
+        Math.floor(finalTotalAmount),
         'card',
         'pending',
         'pending',
@@ -292,10 +298,10 @@ module.exports = async function handler(req, res) {
         qr_code: qrCode,
         tour_name: tour.title,
         tour_date,
-        adult_count,
-        child_count,
-        infant_count,
-        total_amount: finalTotalAmount,
+        adult_count: adultCount,
+        child_count: childCount,
+        infant_count: infantCount,
+        total_amount: Math.floor(finalTotalAmount),
         status: 'pending',
         payment_status: 'pending'
       }

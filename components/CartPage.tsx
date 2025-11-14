@@ -384,7 +384,8 @@ export function CartPage() {
 
       const finalHasPopupProduct = finalPopupSubtotal > 0;
       const finalShippingFee = finalHasPopupProduct && finalPopupSubtotal >= 50000 ? 0 : (finalHasPopupProduct ? 3000 : 0);
-      const finalTotal = subtotal + finalShippingFee;
+      // ✅ finalTotal은 할인 전 금액 (쿠폰/포인트는 결제 페이지에서 적용)
+      const finalTotal = Number(subtotal) + Number(finalShippingFee);
 
       // 🔍 디버깅 로그
       console.log('📦 [CartPage] 배송비 계산:', {
@@ -396,14 +397,14 @@ export function CartPage() {
         '최종 total': finalTotal
       });
 
-      // Create comprehensive order summary
+      // ✅ Create comprehensive order summary (쿠폰/포인트는 결제 페이지에서 적용)
       const orderSummary: OrderSummary = {
         items: mappedItems,
-        subtotal,
-        couponDiscount: 0,
+        subtotal: Number(subtotal),
+        couponDiscount: 0,  // 결제 페이지에서 쿠폰 적용
         couponCode: null,
-        deliveryFee: finalShippingFee,
-        total: finalTotal
+        deliveryFee: Number(finalShippingFee),
+        total: Math.floor(finalTotal)  // 할인 전 금액 (결제 페이지에서 최종 금액 계산)
       };
 
       // Validate order summary (finalTotal 사용)
@@ -419,7 +420,7 @@ export function CartPage() {
       // Navigate to payment with order data
       const orderParams = new URLSearchParams({
         orderData: JSON.stringify(orderSummary),
-        totalAmount: finalTotal.toString(),
+        totalAmount: Math.floor(finalTotal).toString(),
         userId: user?.id?.toString() || '',
         timestamp: Date.now().toString()
       });

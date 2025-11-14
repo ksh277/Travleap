@@ -129,7 +129,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 가격 계산
+    // ✅ 가격 계산 (타입 안전성 개선)
     const numTicketsCount = parseInt(num_tickets) || 1;
     if (numTicketsCount <= 0) {
       return res.status(400).json({
@@ -138,9 +138,9 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const pricePerTicket = price_per_ticket || event.price_from || 0;
+    const pricePerTicket = Number(price_per_ticket) || Number(event.price_from) || 0;
     const subtotal = numTicketsCount * pricePerTicket;
-    const finalTotalAmount = total_amount || Math.floor(subtotal);
+    const finalTotalAmount = Number(total_amount) || Math.floor(subtotal);
 
     // 최소 금액 검증
     if (finalTotalAmount <= 0) {
@@ -249,7 +249,7 @@ module.exports = async function handler(req, res) {
         Math.floor(subtotal),
         0,  // discount_amount
         0,  // tax_amount
-        finalTotalAmount,
+        Math.floor(finalTotalAmount),
         'card',
         'pending',
         'pending',
@@ -274,7 +274,7 @@ module.exports = async function handler(req, res) {
         event_date,
         ticket_type,
         num_tickets: numTicketsCount,
-        total_amount: finalTotalAmount,
+        total_amount: Math.floor(finalTotalAmount),
         status: 'pending',
         payment_status: 'pending'
       }

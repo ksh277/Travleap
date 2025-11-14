@@ -196,18 +196,27 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 가격 계산
+    // ✅ 가격 계산 (타입 안전성 개선)
     const nights = Math.ceil((endDateObj - startDateObj) / (1000 * 60 * 60 * 24));
-    const adultsCount = num_adults || 2;
-    const childrenCount = num_children || 0;
-    const seniorsCount = num_seniors || 0;
+
+    // 박수 검증 추가
+    if (nights <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: '최소 1박 이상 예약해야 합니다.'
+      });
+    }
+
+    const adultsCount = parseInt(num_adults) || 2;
+    const childrenCount = parseInt(num_children) || 0;
+    const seniorsCount = parseInt(num_seniors) || 0;
 
     // 기본 가격 계산 (1박 기준 가격 * 박수)
-    const basePrice = (room.base_price_per_night || 0) * nights;
-    const weekendSurcharge = (room.weekend_surcharge || 0) * nights;
+    const basePrice = Number(room.base_price_per_night || 0) * nights;
+    const weekendSurcharge = Number(room.weekend_surcharge || 0) * nights;
     const subtotal = basePrice + weekendSurcharge;
 
-    const finalTotalAmount = total_amount || subtotal;
+    const finalTotalAmount = Number(total_amount) || Math.floor(subtotal);
 
     // user_id 확인 (필수)
     let finalUserId = user_id;
@@ -298,13 +307,13 @@ module.exports = async function handler(req, res) {
         adultsCount,
         childrenCount,
         seniorsCount,
-        room.base_price_per_night || 0,  // price_adult (1인당 가격으로 간주)
-        room.base_price_per_night ? Math.floor(room.base_price_per_night * 0.7) : 0,  // price_child (70%)
-        room.base_price_per_night || 0,  // price_senior (동일)
-        subtotal,
+        Math.floor(Number(room.base_price_per_night) || 0),  // price_adult (1인당 가격으로 간주)
+        room.base_price_per_night ? Math.floor(Number(room.base_price_per_night) * 0.7) : 0,  // price_child (70%)
+        Math.floor(Number(room.base_price_per_night) || 0),  // price_senior (동일)
+        Math.floor(subtotal),
         0,  // discount_amount
         0,  // tax_amount
-        finalTotalAmount,
+        Math.floor(finalTotalAmount),
         payment_method || 'card',
         payment_status || 'pending',
         'pending',
@@ -325,7 +334,7 @@ module.exports = async function handler(req, res) {
         check_in: start_date,
         check_out: end_date,
         nights,
-        total_amount: finalTotalAmount,
+        total_amount: Math.floor(finalTotalAmount),
         status: 'pending'
       }
     });

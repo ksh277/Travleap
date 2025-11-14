@@ -91,11 +91,11 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 가격 계산
+    // ✅ 가격 계산 (타입 안전성 개선)
     const partySizeCount = parseInt(party_size) || 2;
-    const pricePerPerson = restaurant.price_from || 0;
+    const pricePerPerson = Number(restaurant.price_from) || 0;
     const subtotal = partySizeCount * pricePerPerson;
-    const finalTotalAmount = total_amount || Math.floor(subtotal);
+    const finalTotalAmount = Number(total_amount) || Math.floor(subtotal);
 
     // user_id 확인 (필수)
     let finalUserId = user_id;
@@ -191,7 +191,7 @@ module.exports = async function handler(req, res) {
         Math.floor(subtotal),
         0,  // discount_amount
         0,  // tax_amount
-        finalTotalAmount,
+        Math.floor(finalTotalAmount),
         'card',
         'pending',
         'pending',
@@ -216,7 +216,7 @@ module.exports = async function handler(req, res) {
         reservation_date,
         reservation_time: reservation_time || '',
         party_size: partySizeCount,
-        total_amount: finalTotalAmount,
+        total_amount: Math.floor(finalTotalAmount),
         status: 'pending'
       }
     });

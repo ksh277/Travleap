@@ -91,16 +91,16 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 가격 계산
+    // ✅ 가격 계산 (타입 안전성 개선)
     const adultsCount = parseInt(num_adults) || 1;
     const childrenCount = parseInt(num_children) || 0;
 
     // listings 테이블의 가격 정보 사용
-    const priceAdult = attraction.price_from || 0;
-    const priceChild = attraction.child_price || (priceAdult * 0.7); // 아동 가격: 성인의 70%
+    const priceAdult = Number(attraction.price_from) || 0;
+    const priceChild = Number(attraction.child_price) || Math.floor(priceAdult * 0.7); // 아동 가격: 성인의 70%
 
     const subtotal = (adultsCount * priceAdult) + (childrenCount * priceChild);
-    const finalTotalAmount = total_amount || Math.floor(subtotal);
+    const finalTotalAmount = Number(total_amount) || Math.floor(subtotal);
 
     // user_id 확인 (필수)
     let finalUserId = user_id;
@@ -194,7 +194,7 @@ module.exports = async function handler(req, res) {
         Math.floor(subtotal),
         0,  // discount_amount
         0,  // tax_amount
-        finalTotalAmount,
+        Math.floor(finalTotalAmount),
         'card',
         'pending',
         'pending',
@@ -219,7 +219,7 @@ module.exports = async function handler(req, res) {
         visit_date,
         num_adults: adultsCount,
         num_children: childrenCount,
-        total_amount: finalTotalAmount,
+        total_amount: Math.floor(finalTotalAmount),
         status: 'pending'
       }
     });
