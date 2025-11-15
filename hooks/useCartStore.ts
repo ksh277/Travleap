@@ -121,13 +121,16 @@ export function useCartStore() {
               date: item.selected_date,
               guests: item.num_adults || 1,
               // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
-              adults: item.num_adults || undefined,
-              children: item.num_children || undefined,
-              infants: item.num_infants || undefined,
+              // ⚠️ CRITICAL: || 사용하면 0이 undefined로 변환됨! 그냥 값 그대로 전달
+              adults: item.num_adults,
+              children: item.num_children,
+              infants: item.num_infants,
+              seniors: item.num_seniors,
               // ✅ 연령대별 가격 정보
-              adultPrice: item.adult_price || undefined,
-              childPrice: item.child_price || undefined,
-              infantPrice: item.infant_price || undefined,
+              adultPrice: item.adult_price,
+              childPrice: item.child_price,
+              infantPrice: item.infant_price,
+              seniorPrice: item.senior_price,
               inStock: item.is_active === 1 || item.is_active === true,
               validationStatus: item.validationStatus,
               validationMessage: item.validationMessage
@@ -269,13 +272,16 @@ export function useCartStore() {
               date: item.selected_date,
               guests: item.num_adults || 1,
               // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
-              adults: item.num_adults || undefined,
-              children: item.num_children || undefined,
-              infants: item.num_infants || undefined,
+              // ⚠️ CRITICAL: || 사용하면 0이 undefined로 변환됨! 그냥 값 그대로 전달
+              adults: item.num_adults,
+              children: item.num_children,
+              infants: item.num_infants,
+              seniors: item.num_seniors,
               // ✅ 연령대별 가격 정보
-              adultPrice: item.adult_price || undefined,
-              childPrice: item.child_price || undefined,
-              infantPrice: item.infant_price || undefined,
+              adultPrice: item.adult_price,
+              childPrice: item.child_price,
+              infantPrice: item.infant_price,
+              seniorPrice: item.senior_price,
               inStock: item.is_active === 1 || item.is_active === true
             };
           });
