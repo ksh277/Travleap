@@ -207,20 +207,42 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                 <p className="text-xs text-gray-600 mb-2 font-semibold">주문 상품 목록</p>
                 <div className="space-y-2">
                   {notesData.items.map((item: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <div className="flex-1">
-                        <span className="text-gray-700">
-                          {item.title || item.name || item.productTitle || '상품'}
-                        </span>
-                        {item.selectedOption && item.selectedOption.name && (
-                          <span className="text-xs text-gray-500 ml-2">
-                            ({item.selectedOption.name})
+                    <div key={index} className="text-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <span className="text-gray-700 font-medium">
+                            {item.title || item.name || item.productTitle || '상품'}
                           </span>
-                        )}
+                          {item.selectedOption && item.selectedOption.name && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              ({item.selectedOption.name})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-gray-600 ml-3">
+                          {/* 연령별 인원 표시 (투어/관광지/체험/음식점 등) */}
+                          {(item.adults !== undefined || item.children !== undefined || item.infants !== undefined || item.seniors !== undefined) ? (
+                            <div className="flex items-center gap-1">
+                              <Users className="w-3 h-3 text-blue-600" />
+                              <span className="text-xs">
+                                {item.adults > 0 && `성인 ${item.adults}`}
+                                {item.children > 0 && `${item.adults > 0 ? ', ' : ''}어린이 ${item.children}`}
+                                {item.infants > 0 && `${(item.adults > 0 || item.children > 0) ? ', ' : ''}유아 ${item.infants}`}
+                                {item.seniors > 0 && `${(item.adults > 0 || item.children > 0 || item.infants > 0) ? ', ' : ''}경로 ${item.seniors}`}
+                              </span>
+                            </div>
+                          ) : (
+                            /* 일반 상품 수량 표시 (팝업 스토어 등) */
+                            <strong className="text-purple-700">x {item.quantity || 1}</strong>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-gray-600 ml-3">
-                        <strong className="text-purple-700">x {item.quantity || 1}</strong>
-                      </div>
+                      {/* 보험료 표시 (렌트카 등) */}
+                      {item.insuranceFee && item.insuranceFee > 0 && (
+                        <div className="mt-1 text-xs text-gray-500 flex items-center">
+                          <span className="ml-4">🛡️ 보험료: {item.insuranceFee.toLocaleString()}원</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
