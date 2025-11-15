@@ -422,6 +422,61 @@ export function useCartStore() {
     }
   };
 
+  // 연령별 인원 수 업데이트
+  const updateAgeCounts = async (itemId: number, updates: {
+    adults?: number;
+    children?: number;
+    infants?: number;
+    seniors?: number;
+  }) => {
+    console.log(`👥 [연령별 인원 변경] listing_id: ${itemId}`, updates);
+
+    // 로그인한 사용자는 API를 통해 업데이트
+    if (isLoggedIn && user?.id) {
+      try {
+        const response = await fetch(`/api/cart/update`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            listingId: itemId,
+            num_adults: updates.adults,
+            num_children: updates.children,
+            num_infants: updates.infants,
+            num_seniors: updates.seniors
+          })
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.message || '연령별 인원 업데이트 실패');
+        }
+
+        console.log('✅ [연령별 인원 변경] API 업데이트 성공');
+
+        // 상태 업데이트
+        setCartState((prev) => ({
+          cartItems: prev.cartItems.map((item) =>
+            item.id === itemId ? { ...item, ...updates } : item
+          ),
+        }));
+      } catch (error) {
+        console.error('❌ [연령별 인원 변경] API 업데이트 실패:', error);
+        throw error;
+      }
+    } else {
+      // 비로그인 사용자는 상태만 업데이트
+      setCartState((prev) => ({
+        cartItems: prev.cartItems.map((item) =>
+          item.id === itemId ? { ...item, ...updates } : item
+        ),
+      }));
+    }
+  };
+
   const clearCart = async () => {
     console.log('🗑️ [장바구니 전체 삭제] 시작');
 
@@ -477,6 +532,7 @@ export function useCartStore() {
     updateCart,
     removeFromCart,
     updateQuantity,
+    updateAgeCounts,
     clearCart,
     checkout,
     getTotalPrice,
