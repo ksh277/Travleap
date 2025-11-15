@@ -1015,17 +1015,23 @@ module.exports = async function handler(req, res) {
             let itemTotal = 0;
 
             // 🎫 연령별 예약 상품인 경우 (투어/관광지/체험/음식점 등)
-            if (item.adults !== undefined || item.children !== undefined || item.infants !== undefined || item.seniors !== undefined) {
-              const adultPrice = item.adultPrice || item.price || 0;
-              const childPrice = item.childPrice || 0;
-              const infantPrice = item.infantPrice || 0;
-              const seniorPrice = item.seniorPrice || 0;
+            // ⚠️ Cart는 num_adults, num_children 등을 사용하므로 둘 다 체크
+            const adults = item.adults ?? item.num_adults;
+            const children = item.children ?? item.num_children;
+            const infants = item.infants ?? item.num_infants;
+            const seniors = item.seniors ?? item.num_seniors;
+
+            if (adults !== undefined || children !== undefined || infants !== undefined || seniors !== undefined) {
+              const adultPrice = item.adultPrice || item.adult_price || item.price || 0;
+              const childPrice = item.childPrice || item.child_price || 0;
+              const infantPrice = item.infantPrice || item.infant_price || 0;
+              const seniorPrice = item.seniorPrice || item.senior_price || 0;
 
               itemTotal =
-                (item.adults || 0) * adultPrice +
-                (item.children || 0) * childPrice +
-                (item.infants || 0) * infantPrice +
-                (item.seniors || 0) * seniorPrice;
+                (adults || 0) * adultPrice +
+                (children || 0) * childPrice +
+                (infants || 0) * infantPrice +
+                (seniors || 0) * seniorPrice;
 
               // 🛡️ 보험료 추가 (렌트카 등)
               if (item.insuranceFee) {
@@ -1034,10 +1040,10 @@ module.exports = async function handler(req, res) {
 
               console.log(`🎫 [Orders] 연령별 상품 금액 계산:`, {
                 item: item.title || item.listingId,
-                adults: item.adults,
-                children: item.children,
-                infants: item.infants,
-                seniors: item.seniors,
+                adults,
+                children,
+                infants,
+                seniors,
                 adultPrice,
                 childPrice,
                 infantPrice,
