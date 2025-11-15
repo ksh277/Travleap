@@ -51,10 +51,12 @@ interface CartItem {
   adults?: number;
   children?: number;
   infants?: number;
+  seniors?: number;
   // ✅ 연령대별 가격 정보
   adultPrice?: number;
   childPrice?: number;
   infantPrice?: number;
+  seniorPrice?: number;
   rating?: number;
   reviewCount?: number;
   isPartner?: boolean;
@@ -946,11 +948,12 @@ export function CartPage() {
                                   <span className="font-medium text-gray-800">
                                     {(() => {
                                       // ✅ 투어/음식/관광지/이벤트/체험: 인원별 가격 합계
-                                      if (item.adults !== undefined || item.children !== undefined || item.infants !== undefined) {
+                                      if (item.adults !== undefined || item.children !== undefined || item.infants !== undefined || item.seniors !== undefined) {
                                         const total =
                                           ((item.adults || 0) * (item.adultPrice || 0)) +
                                           ((item.children || 0) * (item.childPrice || 0)) +
                                           ((item.infants || 0) * (item.infantPrice || 0)) +
+                                          ((item.seniors || 0) * (item.seniorPrice || 0)) +
                                           ((item.selectedOption?.priceAdjustment || 0) * item.quantity);
                                         return total.toLocaleString();
                                       }

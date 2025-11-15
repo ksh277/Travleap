@@ -41,10 +41,12 @@ export interface CartItem {
   adults?: number;
   children?: number;
   infants?: number;
+  seniors?: number;
   // ✅ 연령대별 가격
   adultPrice?: number;
   childPrice?: number;
   infantPrice?: number;
+  seniorPrice?: number;
   rating?: number;
   reviewCount?: number;
   isPartner?: boolean;
