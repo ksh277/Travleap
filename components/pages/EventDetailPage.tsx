@@ -91,37 +91,46 @@ export function EventDetailPage() {
     }
 
     try {
-      // 주문 생성 API 호출
-      const response = await fetch('/api/events/orders', {
+      const userName = localStorage.getItem('user_name') || 'Guest';
+      const userEmail = localStorage.getItem('user_email') || '';
+      const totalAmount = calculateTotal();
+
+      // ✅ 예약 생성 API 호출 (올바른 엔드포인트 사용)
+      const response = await fetch('/api/events/book', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
         },
         body: JSON.stringify({
-          event_id: event.id,
-          ticket_type: ticketType,
-          quantity
+          listing_id: event.id,
+          user_name: userName,
+          user_email: userEmail,
+          event_date: event.start_datetime,
+          // ✅ 연령별 인원 (현재는 전체를 성인으로 처리)
+          num_adults: quantity,
+          num_children: 0,
+          num_infants: 0,
+          total_amount: totalAmount
         })
       });
 
       const result = await response.json();
 
       if (!result.success) {
-        toast.error(result.message || '주문 생성에 실패했습니다');
+        toast.error(result.message || '예약 생성에 실패했습니다');
         return;
       }
 
       // 결제 페이지로 이동
-      const orderData = result.data;
-      const totalAmount = orderData.total_amount;
-      const userName = localStorage.getItem('user_name') || 'Guest';
-      const userEmail = localStorage.getItem('user_email') || '';
+      const bookingData = result.data;
+      const bookingId = bookingData.booking_id || bookingData.id;
+      const bookingNumber = bookingData.booking_number;
 
       navigate(
         `/payment?` +
-        `bookingId=${orderData.order_id}&` +
-        `bookingNumber=${orderData.order_number}&` +
+        `bookingId=${bookingId}&` +
+        `bookingNumber=${bookingNumber}&` +
         `amount=${totalAmount}&` +
         `title=${encodeURIComponent(`${event.title} ${ticketType === 'vip' ? 'VIP' : '일반'}석`)}&` +
         `customerName=${encodeURIComponent(userName)}&` +
@@ -129,7 +138,7 @@ export function EventDetailPage() {
         `category=event`
       );
 
-      toast.success('주문이 생성되었습니다!');
+      toast.success('예약이 생성되었습니다!');
 
     } catch (error) {
       console.error('티켓 예매 오류:', error);

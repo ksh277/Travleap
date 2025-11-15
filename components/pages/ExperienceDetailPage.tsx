@@ -144,7 +144,10 @@ export function ExperienceDetailPage() {
           user_phone: userPhone,
           experience_date: selectedSlot.date,
           experience_time: selectedSlot.start_time,
-          num_participants: participantCount,
+          // ✅ 백엔드가 기대하는 연령별 필드 사용 (현재는 전체를 성인으로 처리)
+          num_adults: participantCount,
+          num_children: 0,
+          num_infants: 0,
           special_requests: specialRequests.join(', '),
           total_amount: totalAmount
         })
