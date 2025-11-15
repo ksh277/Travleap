@@ -17,7 +17,7 @@
 
 const crypto = require('crypto');
 const { db } = require('../../utils/database.cjs');
-const { getTossWebhookSecret, getTossMode } = require('../../utils/toss-config');
+const { getTossWebhookSecret, getTossMode } = require('../../utils/toss-config.cjs');
 const { notifyError, notifyPaymentFailure, notifyWebhookFailure, notifyOrderCompleted } = require('../../utils/slack-notifier.cjs');
 
 // TOSS_MODE에 따라 자동으로 TEST/LIVE webhook secret 선택

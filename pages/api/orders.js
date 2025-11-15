@@ -1012,9 +1012,55 @@ module.exports = async function handler(req, res) {
 
           // 카테고리별 상품 금액 계산
           const categorySubtotal = categoryItems.reduce((sum, item) => {
-            const itemPrice = item.price || 0;
-            const optionPrice = item.selectedOption?.priceAdjustment || 0;  // ✅ priceAdjustment 사용
-            return sum + (itemPrice + optionPrice) * item.quantity;
+            let itemTotal = 0;
+
+            // 🎫 연령별 예약 상품인 경우 (투어/관광지/체험/음식점 등)
+            if (item.adults !== undefined || item.children !== undefined || item.infants !== undefined || item.seniors !== undefined) {
+              const adultPrice = item.adultPrice || item.price || 0;
+              const childPrice = item.childPrice || 0;
+              const infantPrice = item.infantPrice || 0;
+              const seniorPrice = item.seniorPrice || 0;
+
+              itemTotal =
+                (item.adults || 0) * adultPrice +
+                (item.children || 0) * childPrice +
+                (item.infants || 0) * infantPrice +
+                (item.seniors || 0) * seniorPrice;
+
+              // 🛡️ 보험료 추가 (렌트카 등)
+              if (item.insuranceFee) {
+                itemTotal += item.insuranceFee;
+              }
+
+              console.log(`🎫 [Orders] 연령별 상품 금액 계산:`, {
+                item: item.title || item.listingId,
+                adults: item.adults,
+                children: item.children,
+                infants: item.infants,
+                seniors: item.seniors,
+                adultPrice,
+                childPrice,
+                infantPrice,
+                seniorPrice,
+                insuranceFee: item.insuranceFee || 0,
+                itemTotal
+              });
+            } else {
+              // 📦 일반 상품 (팝업 스토어 등)
+              const itemPrice = item.price || 0;
+              const optionPrice = item.selectedOption?.priceAdjustment || 0;
+              itemTotal = (itemPrice + optionPrice) * item.quantity;
+
+              console.log(`📦 [Orders] 일반 상품 금액 계산:`, {
+                item: item.title || item.listingId,
+                itemPrice,
+                optionPrice,
+                quantity: item.quantity,
+                itemTotal
+              });
+            }
+
+            return sum + itemTotal;
           }, 0);
 
           // 배송비는 팝업 카테고리에만 적용
