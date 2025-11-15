@@ -279,6 +279,7 @@ async function handler(req, res) {
             num_adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
             guests: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
             num_children: order.children || 0,
+            num_infants: order.infants || 0,
             num_seniors: 0,
             category: order.category,
             is_popup: order.category === '팝업',

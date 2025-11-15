@@ -4282,6 +4282,7 @@ export function AdminPage({}: AdminPageProps) {
                               <div className="text-xs text-gray-500">
                                 성인 {order.num_adults}명
                                 {order.num_children > 0 ? `, 아동 ${order.num_children}명` : ''}
+                                {order.num_infants > 0 ? `, 유아 ${order.num_infants}명` : ''}
                                 {order.num_seniors > 0 ? `, 경로 ${order.num_seniors}명` : ''}
                               </div>
                             )}

@@ -637,9 +637,19 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        // SECURITY FIX: DB에서 실제 가격 조회
+        // SECURITY FIX: DB에서 실제 가격 조회 (연령별 가격 포함)
         const listingResult = await connection.execute(
-          'SELECT price_from as price, title, category_id FROM listings WHERE id = ? AND is_active = 1',
+          `SELECT
+            price_from as price,
+            title,
+            category_id,
+            child_price,
+            infant_price,
+            admission_fee_adult,
+            admission_fee_child,
+            admission_fee_senior,
+            admission_fee_infant
+          FROM listings WHERE id = ? AND is_active = 1`,
           [item.listingId]
         );
 
@@ -651,18 +661,68 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        const actualItemPrice = listingResult.rows[0].price;
-        const categoryId = listingResult.rows[0].category_id;
+        const listing = listingResult.rows[0];
+        const actualItemPrice = listing.price;
+        const categoryId = listing.category_id;
 
         // ✅ 투어/음식/관광지/이벤트/체험 등은 인원/날짜에 따라 가격이 다름
-        // 이들은 별도 예약 API에서 이미 가격 계산 완료했으므로 검증 스킵
         const bookingBasedCategories = [1855, 1858, 1859, 1861, 1862]; // 투어, 음식, 관광지, 이벤트, 체험
         const isBookingBased = bookingBasedCategories.includes(categoryId);
+
+        // 🔒 CRITICAL FIX: 연령별 가격 서버 검증
+        if (isBookingBased && (item.adults || item.children || item.infants || item.seniors)) {
+          // 투어/관광지/체험 등: 성인/어린이/유아/경로 가격 검증
+          const serverAdultPrice = listing.admission_fee_adult || listing.price || 0;
+          const serverChildPrice = listing.admission_fee_child || listing.child_price || 0;
+          const serverInfantPrice = listing.admission_fee_infant || listing.infant_price || 0;
+          const serverSeniorPrice = listing.admission_fee_senior || 0;
+
+          const serverCalculatedItemPrice =
+            (item.adults || 0) * serverAdultPrice +
+            (item.children || 0) * serverChildPrice +
+            (item.infants || 0) * serverInfantPrice +
+            (item.seniors || 0) * serverSeniorPrice;
+
+          const clientItemPrice = item.price || item.subtotal || 0;
+
+          console.log(`🔒 [Orders] 연령별 가격 검증:`, {
+            item: listing.title,
+            adults: item.adults,
+            children: item.children,
+            infants: item.infants,
+            seniors: item.seniors,
+            serverAdultPrice,
+            serverChildPrice,
+            serverInfantPrice,
+            serverSeniorPrice,
+            serverCalculated: serverCalculatedItemPrice,
+            clientProvided: clientItemPrice
+          });
+
+          // 가격 검증 (1원 이하 오차 허용)
+          if (Math.abs(serverCalculatedItemPrice - clientItemPrice) > 1) {
+            console.error(`❌ [Orders] 연령별 가격 조작 감지!
+              - 상품: ${listing.title}
+              - 서버 계산: ${serverCalculatedItemPrice}원
+              - 클라이언트: ${clientItemPrice}원
+              - 차이: ${Math.abs(serverCalculatedItemPrice - clientItemPrice)}원`);
+
+            return res.status(400).json({
+              success: false,
+              error: 'AGE_BASED_PRICE_TAMPERED',
+              message: '티켓 가격이 변경되었습니다. 페이지를 새로고침해주세요.',
+              expected: serverCalculatedItemPrice,
+              received: clientItemPrice
+            });
+          }
+
+          console.log(`✅ [Orders] 연령별 가격 검증 통과`);
+        }
 
         // SECURITY FIX: 클라이언트가 보낸 가격과 DB 가격 비교 (팝업 스토어 상품만)
         if (!isBookingBased && item.price && Math.abs(actualItemPrice - item.price) > 1) {
           console.error(`❌ [Orders] 가격 조작 감지!
-            - 상품: ${listingResult.rows[0].title}
+            - 상품: ${listing.title}
             - DB 가격: ${actualItemPrice}원
             - 클라이언트 가격: ${item.price}원`);
 
@@ -674,7 +734,7 @@ module.exports = async function handler(req, res) {
         }
 
         if (isBookingBased) {
-          console.log(`ℹ️  [Orders] 예약 기반 상품 (category: ${categoryId}) - 클라이언트 가격 신뢰: ${item.price}원`);
+          console.log(`ℹ️  [Orders] 예약 기반 상품 (category: ${categoryId}) - 가격 검증 완료: ${item.price}원`);
         }
 
         // SECURITY FIX: 옵션 가격도 DB에서 검증
@@ -1013,10 +1073,22 @@ module.exports = async function handler(req, res) {
       for (const item of items) {
         const bookingNumber = `BK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-        // ✅ 실제 주문 수량 계산
-        // 🔒 CRITICAL: 재고 차감 로직(line 202)과 정확히 동일한 계산식 사용!
-        // 재고 복구 시 이 값을 사용하므로 일치해야 함
-        const actualQuantity = item.quantity || 1;
+        // ✅ CRITICAL FIX: 실제 주문 수량 계산 (카테고리별 차별화)
+        // 🔒 재고 차감 로직과 정확히 동일한 계산식 사용!
+        let actualQuantity;
+        let totalGuests;
+
+        // 투어/관광지/체험 등: 성인+어린이+유아+경로 합산
+        if (item.adults !== undefined || item.children !== undefined || item.infants !== undefined || item.seniors !== undefined) {
+          totalGuests = (item.adults || 0) + (item.children || 0) + (item.infants || 0) + (item.seniors || 0);
+          actualQuantity = item.quantity || 1; // 재고는 quantity 사용 (팝업 호환)
+          console.log(`👥 [Orders] 인원 기반 상품: adults=${item.adults}, children=${item.children}, infants=${item.infants}, seniors=${item.seniors}, totalGuests=${totalGuests}`);
+        } else {
+          // 팝업 스토어: quantity 사용
+          actualQuantity = item.quantity || 1;
+          totalGuests = actualQuantity;
+          console.log(`📦 [Orders] 수량 기반 상품: quantity=${actualQuantity}`);
+        }
 
         // ✅ FIX: 배송지 정보는 카테고리 무관하게 저장 (팝업뿐만 아니라 모든 상품)
         const shippingData = shippingInfo ? {
@@ -1042,6 +1114,7 @@ module.exports = async function handler(req, res) {
             adults,
             children,
             infants,
+            seniors,
             guests,
             selected_option_id,
             special_requests,
@@ -1053,7 +1126,7 @@ module.exports = async function handler(req, res) {
             shipping_zipcode,
             created_at,
             updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `, [
           userId,
           item.listingId,
@@ -1068,7 +1141,8 @@ module.exports = async function handler(req, res) {
           item.adults || 0,
           item.children || 0,
           item.infants || 0,
-          actualQuantity, // ✅ 실제 주문 수량 (재고 차감/복구에 사용)
+          item.seniors || 0,
+          totalGuests, // ✅ CRITICAL FIX: 실제 총 인원 수 (팝업=수량, 투어=인원 합산)
           item.selectedOption?.id || null, // ✅ 옵션 ID 저장 (재고 복구에 사용)
           JSON.stringify(item.selectedOption || {}),
           item.category === '팝업' ? (deliveryFee || 0) / items.length : 0,

@@ -118,6 +118,7 @@ module.exports = async function handler(req, res) {
         b.start_date,
         b.num_adults,
         b.num_children,
+        b.num_infants,
         b.adults,
         b.children,
         b.infants,
@@ -195,7 +196,7 @@ module.exports = async function handler(req, res) {
         SUM(CASE WHEN b.status = 'pending' THEN 1 ELSE 0 END) as pending_count,
         SUM(CASE WHEN b.status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count,
         SUM(CASE WHEN b.payment_status = 'paid' THEN b.total_amount ELSE 0 END) as total_revenue,
-        SUM(b.num_adults + b.num_children) as total_tickets
+        SUM(COALESCE(b.num_adults, 0) + COALESCE(b.num_children, 0) + COALESCE(b.num_infants, 0)) as total_tickets
        FROM bookings b
        INNER JOIN listings l ON b.listing_id = l.id
        WHERE l.partner_id = ? AND l.category_id = 1862`,

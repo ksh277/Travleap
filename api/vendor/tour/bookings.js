@@ -121,6 +121,7 @@ module.exports = async function handler(req, res) {
         tb.total_price_krw,
         tb.status,
         tb.payment_status,
+        tb.payment_key,
         tb.checked_in_at,
         tb.created_at,
         ts.departure_date,

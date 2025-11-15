@@ -309,7 +309,7 @@ export function MyPage() {
             category: booking.listing?.category || '카테고리 없음',
             date: booking.start_date || '',
             time: timeInfo,
-            guests: booking.num_adults + booking.num_children + booking.num_seniors,
+            guests: booking.num_adults + booking.num_children + (booking.num_infants || 0) + booking.num_seniors,
             price: booking.total_amount || 0,
             status: booking.status === 'confirmed' ? 'confirmed' as const :
                     booking.status === 'cancelled' ? 'cancelled' as const : 'pending' as const,

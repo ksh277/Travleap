@@ -207,11 +207,20 @@ async function restoreStock(connection, bookingId) {
   try {
     console.log(`📦 [재고 복구] booking_id=${bookingId} 재고 복구 시작`);
 
-    // 1. booking 정보 조회
+    // 1. booking 정보 조회 (✅ 연령별 인원 정보 추가)
     const bookingResult = await connection.execute(`
-      SELECT listing_id, selected_option_id, guests
-      FROM bookings
-      WHERE id = ?
+      SELECT
+        b.listing_id,
+        b.selected_option_id,
+        b.guests,
+        b.adults,
+        b.children,
+        b.infants,
+        b.seniors,
+        l.category_id
+      FROM bookings b
+      LEFT JOIN listings l ON b.listing_id = l.id
+      WHERE b.id = ?
     `, [bookingId]);
 
     if (!bookingResult.rows || bookingResult.rows.length === 0) {
@@ -221,6 +230,10 @@ async function restoreStock(connection, bookingId) {
 
     const booking = bookingResult.rows[0];
     const quantity = booking.guests || 1;
+
+    // ✅ 카테고리 확인: 투어/관광지/이벤트/체험은 연령별 티켓 재고 관리 가능
+    const ageBasedCategories = [1855, 1858, 1859, 1861, 1862]; // 투어, 음식, 관광지, 이벤트, 체험
+    const isAgeBased = ageBasedCategories.includes(booking.category_id);
 
     // 2. 옵션 재고 복구
     if (booking.selected_option_id) {
@@ -249,6 +262,87 @@ async function restoreStock(connection, bookingId) {
         console.log(`✅ [재고 복구] 상품 재고 복구 완료: listing_id=${booking.listing_id}, +${quantity}개`);
       } else {
         console.log(`ℹ️ [재고 복구] 상품 재고 관리 비활성화 (listing_id=${booking.listing_id})`);
+      }
+    }
+
+    // ✅ 4. 연령별 티켓 재고 복구 (투어/관광지/이벤트/체험)
+    if (isAgeBased && booking.listing_id) {
+      console.log(`👥 [연령별 재고 복구] 카테고리: ${booking.category_id}, listing_id: ${booking.listing_id}`);
+
+      const adults = booking.adults || 0;
+      const children = booking.children || 0;
+      const infants = booking.infants || 0;
+      const seniors = booking.seniors || 0;
+
+      if (adults > 0 || children > 0 || infants > 0 || seniors > 0) {
+        console.log(`   - 성인: ${adults}명, 어린이: ${children}명, 유아: ${infants}명, 경로: ${seniors}명`);
+
+        // ✅ 연령별 티켓 재고 테이블 확인 및 복구 시도
+        // 주의: tour_ticket_inventory 테이블이 없을 수 있으므로 try-catch로 감싸기
+        try {
+          // 테이블 존재 여부 확인
+          const tableCheckResult = await connection.execute(`
+            SHOW TABLES LIKE 'tour_ticket_inventory'
+          `);
+
+          if (tableCheckResult.rows && tableCheckResult.rows.length > 0) {
+            // 테이블이 존재하면 연령별 티켓 재고 복구
+            console.log(`📊 [연령별 재고 복구] tour_ticket_inventory 테이블 발견`);
+
+            // 성인 티켓 복구
+            if (adults > 0) {
+              await connection.execute(`
+                UPDATE tour_ticket_inventory
+                SET adult_tickets_sold = GREATEST(0, adult_tickets_sold - ?),
+                    adult_tickets_available = adult_tickets_available + ?
+                WHERE listing_id = ?
+              `, [adults, adults, booking.listing_id]);
+              console.log(`   ✅ 성인 티켓 ${adults}매 복구 완료`);
+            }
+
+            // 어린이 티켓 복구
+            if (children > 0) {
+              await connection.execute(`
+                UPDATE tour_ticket_inventory
+                SET child_tickets_sold = GREATEST(0, child_tickets_sold - ?),
+                    child_tickets_available = child_tickets_available + ?
+                WHERE listing_id = ?
+              `, [children, children, booking.listing_id]);
+              console.log(`   ✅ 어린이 티켓 ${children}매 복구 완료`);
+            }
+
+            // 유아 티켓 복구
+            if (infants > 0) {
+              await connection.execute(`
+                UPDATE tour_ticket_inventory
+                SET infant_tickets_sold = GREATEST(0, infant_tickets_sold - ?),
+                    infant_tickets_available = infant_tickets_available + ?
+                WHERE listing_id = ?
+              `, [infants, infants, booking.listing_id]);
+              console.log(`   ✅ 유아 티켓 ${infants}매 복구 완료`);
+            }
+
+            // 경로 티켓 복구
+            if (seniors > 0) {
+              await connection.execute(`
+                UPDATE tour_ticket_inventory
+                SET senior_tickets_sold = GREATEST(0, senior_tickets_sold - ?),
+                    senior_tickets_available = senior_tickets_available + ?
+                WHERE listing_id = ?
+              `, [seniors, seniors, booking.listing_id]);
+              console.log(`   ✅ 경로 티켓 ${seniors}매 복구 완료`);
+            }
+
+            console.log(`✅ [연령별 재고 복구] 완료`);
+          } else {
+            console.log(`ℹ️ [연령별 재고 복구] tour_ticket_inventory 테이블 없음 - 스킵`);
+          }
+        } catch (tableError) {
+          // 테이블이 없거나 컬럼이 없는 경우 무시
+          console.log(`ℹ️ [연령별 재고 복구] 테이블/컬럼 없음 또는 에러 - 스킵:`, tableError.message);
+        }
+      } else {
+        console.log(`ℹ️ [연령별 재고 복구] 연령별 인원 정보 없음 - 스킵`);
       }
     }
 
