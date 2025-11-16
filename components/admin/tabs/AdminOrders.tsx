@@ -14,6 +14,10 @@ interface OrderItem {
   name?: string;
   quantity: number;
   price?: number;
+  selectedOption?: {
+    name?: string;
+    priceAdjustment?: number;
+  };
 }
 
 interface BookingItem {
@@ -708,6 +712,16 @@ export function AdminOrders() {
                         {order.subtotal && (
                           <div className="text-xs text-gray-500 mt-1 space-y-0.5">
                             <div>상품 {order.subtotal.toLocaleString()}원</div>
+                            {(() => {
+                              // 옵션 가격 계산
+                              const optionsTotalPrice = order.items_info?.reduce((sum, item) => {
+                                const optionPrice = (item.selectedOption?.priceAdjustment || 0) * item.quantity;
+                                return sum + optionPrice;
+                              }, 0) || 0;
+                              return optionsTotalPrice > 0 && (
+                                <div>옵션 {optionsTotalPrice.toLocaleString()}원</div>
+                              );
+                            })()}
                             {order.insurance_fee && order.insurance_fee > 0 && (
                               <div>보험 {order.insurance_fee.toLocaleString()}원</div>
                             )}
