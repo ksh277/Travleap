@@ -1297,6 +1297,16 @@ export function AdminPage({}: AdminPageProps) {
         '여행': 1855, '렌트카': 1856, '숙박': 1857, '음식': 1858, '관광지': 1859, '팝업': 1860, '행사': 1861, '체험': 1862
       };
 
+      // 카테고리 한글 → 영문 slug 변환
+      const categorySlug = newProduct.category === '여행' ? 'tour' :
+                      newProduct.category === '숙박' ? 'stay' :
+                      newProduct.category === '음식' ? 'food' :
+                      newProduct.category === '렌트카' ? 'rentcar' :
+                      newProduct.category === '관광지' ? 'tourist' :
+                      newProduct.category === '팝업' ? 'popup' :
+                      newProduct.category === '행사' ? 'event' :
+                      newProduct.category === '체험' ? 'experience' : 'tour';
+
       // API가 받는 필드 모두 보내기
       const listingData = {
         title: newProduct.title,
@@ -1313,7 +1323,7 @@ export function AdminPage({}: AdminPageProps) {
         detailedAddress: newProduct.address || '',
         meetingPoint: newProduct.meetingPoint || '',
         category_id: categoryMap[newProduct.category] || 1855,
-        category: newProduct.category || '여행',
+        category: categorySlug,  // ✅ 영문 slug로 저장
         partner_id: null, // 나중에 파트너 선택 기능 추가 가능
         images: newProduct.images.filter(img => img.trim() !== ''),
         maxCapacity: newProduct.maxCapacity ? parseInt(newProduct.maxCapacity) : 20,
@@ -1420,6 +1430,16 @@ export function AdminPage({}: AdminPageProps) {
         '관광지': 1859, '팝업': 1860, '행사': 1861, '체험': 1862
       };
 
+      // 카테고리 한글 → 영문 slug 변환
+      const categorySlug = editingProduct.category === '여행' ? 'tour' :
+                      editingProduct.category === '숙박' ? 'stay' :
+                      editingProduct.category === '음식' ? 'food' :
+                      editingProduct.category === '렌트카' ? 'rentcar' :
+                      editingProduct.category === '관광지' ? 'tourist' :
+                      editingProduct.category === '팝업' ? 'popup' :
+                      editingProduct.category === '행사' ? 'event' :
+                      editingProduct.category === '체험' ? 'experience' : 'tour';
+
       const updateData = {
         title: editingProduct.title,
         description: editingProduct.description || '',
@@ -1433,7 +1453,7 @@ export function AdminPage({}: AdminPageProps) {
         detailedAddress: '',
         meetingPoint: '',
         category_id: categoryMap[editingProduct.category] || 1855,
-        category: editingProduct.category,
+        category: categorySlug,  // ✅ 영문 slug로 저장
         partner_id: null,
         images: [editingProduct.image].filter(img => img && img.trim() !== ''),
         maxCapacity: 20,
