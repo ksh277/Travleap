@@ -67,35 +67,22 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     rollupOptions: {
       // Don't use broad external patterns - handled by custom plugin instead
       output: {
-        manualChunks: (id) => {
-          // React and React-DOM in one chunk
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'vendor-react';
-          }
-          // React Router in separate chunk
-          if (id.includes('node_modules/react-router-dom')) {
-            return 'vendor-router';
-          }
-          // All Radix UI components together
-          if (id.includes('node_modules/@radix-ui')) {
-            return 'vendor-ui';
-          }
-          // Lucide icons
-          if (id.includes('node_modules/lucide-react')) {
-            return 'vendor-icons';
-          }
-          // Date utilities
-          if (id.includes('node_modules/date-fns')) {
-            return 'vendor-date';
-          }
-          // Other vendor dependencies
-          if (id.includes('node_modules')) {
-            return 'vendor-libs';
-          }
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-select',
+            '@radix-ui/react-checkbox',
+            '@radix-ui/react-tabs'
+          ],
+          icons: ['lucide-react'],
+          utils: ['clsx', 'tailwind-merge'],
+          router: ['react-router-dom'],
+          'date-utils': ['date-fns']
         }
       }
     },
