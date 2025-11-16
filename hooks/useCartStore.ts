@@ -222,7 +222,7 @@ export function useCartStore() {
       try {
         console.log('💾 [장바구니 추가] API 호출 시작');
 
-        const response = await fetch(`/api/cart/add`, {
+        const response = await fetch(`/api/cart`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
