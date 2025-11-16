@@ -83,6 +83,7 @@ module.exports = async function handler(req, res) {
         weekly_rate_krw,
         monthly_rate_krw,
         stock,
+        stock AS current_stock,
         is_active,
         is_featured,
         created_at,
