@@ -232,9 +232,9 @@ export function useCartStore() {
             selected_date: item.date || null,
             selected_options: item.selectedOption || null,
             // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
-            num_adults: item.adults || (item.guests && !item.adults ? item.guests : 1),
-            num_children: item.children || 0,
-            num_infants: item.infants || 0,
+            num_adults: item.adults !== undefined ? item.adults : (item.guests || 1),
+            num_children: item.children !== undefined ? item.children : 0,
+            num_infants: item.infants !== undefined ? item.infants : 0,
             // ✅ 연령대별 가격 정보
             adult_price: item.adultPrice || item.price || 0,
             child_price: item.childPrice || 0,

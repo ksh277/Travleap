@@ -76,6 +76,7 @@ interface CartItem {
     value: string;
     priceAdjustment: number;
   };
+  insuranceFee?: number;  // ✅ 보험료
 }
 
 interface Coupon {
