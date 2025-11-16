@@ -573,7 +573,7 @@ export function DetailPage() {
 
   const validateBookingForm = useCallback(() => {
     // 팝업이 아닐 때만 날짜 검증
-    if (item?.category !== '팝업' && !selectedDate) {
+    if (!isPopupProduct(item) && !selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return false;
     }
@@ -591,7 +591,7 @@ export function DetailPage() {
     }
 
     // 팝업이 아닐 때만 인원 검증
-    if (item?.category !== '팝업') {
+    if (!isPopupProduct(item)) {
       const totalGuests = adults + children + infants;
       if (totalGuests < 1 || totalGuests > (item?.maxCapacity || 10)) {
         toast.error(`인원은 1명부터 ${item?.maxCapacity || 10}명까지 가능합니다.`);
@@ -621,7 +621,7 @@ export function DetailPage() {
     }
 
     // 팝업이 아닐 때만 날짜 선택 검증
-    if (item.category !== '팝업' && !selectedDate) {
+    if (!isPopupProduct(item) && !selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return;
     }
@@ -823,7 +823,7 @@ export function DetailPage() {
     }
 
     // 팝업이 아닐 때만 날짜 검증
-    if (item.category !== '팝업' && !selectedDate) {
+    if (!isPopupProduct(item) && !selectedDate) {
       toast.error('날짜를 선택해주세요.');
       return;
     }
@@ -1205,7 +1205,7 @@ export function DetailPage() {
                 <div className="flex-1">
                   <h1 className="text-xl md:text-2xl lg:text-3xl mb-2 font-semibold">{item.title}</h1>
                   {/* 팝업 상품이 아닐 때만 위치, 시간, 리뷰 정보 표시 */}
-                  {item?.category !== '팝업' && (
+                  {!isPopupProduct(item) && (
                     <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 text-sm md:text-base text-gray-600">
                       <div className="flex items-center space-x-1">
                         <MapPin className="h-4 w-4 flex-shrink-0" />
@@ -1226,11 +1226,11 @@ export function DetailPage() {
                   )}
                 </div>
                 <div className="text-left md:text-right flex-shrink-0">
-                  {item?.category !== '팝업' && (
+                  {!isPopupProduct(item) && (
                     <div className="text-xs md:text-sm text-gray-500">부터</div>
                   )}
                   <div className="text-xl md:text-2xl lg:text-3xl text-blue-600 font-bold">{(item.price || 0).toLocaleString()}원</div>
-                  {item?.category !== '팝업' && (
+                  {!isPopupProduct(item) && (
                     <div className="text-xs md:text-sm text-gray-500">/ 1인</div>
                   )}
                 </div>
@@ -1238,7 +1238,7 @@ export function DetailPage() {
             </div>
 
             {/* 예약 옵션 선택 - 팝업 카테고리가 아닐 때만 표시 */}
-            {item?.category !== '팝업' && (
+            {!isPopupProduct(item) && (
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle>상품 옵션 선택</CardTitle>
@@ -1320,7 +1320,7 @@ export function DetailPage() {
                 >
                   소개
                 </button>
-                {item?.category !== '팝업' && (
+                {!isPopupProduct(item) && (
                   <button
                     onClick={() => scrollToSection('location')}
                     className={`py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
@@ -1385,7 +1385,7 @@ export function DetailPage() {
                     ) : null}
 
                     {/* 팝업 카테고리가 아닐 때만 특징 표시 */}
-                    {item.category !== '팝업' && (
+                    {!isPopupProduct(item) && (
                       <div className="mt-6 space-y-4">
                         <div>
                           <h4 className="text-lg mb-2">특징</h4>
@@ -1412,7 +1412,7 @@ export function DetailPage() {
 
 
               {/* 팝업 카테고리가 아닐 때만 위치 섹션 표시 */}
-              {item?.category !== '팝업' && (
+              {!isPopupProduct(item) && (
                 <div id="location" className="space-y-6 scroll-mt-24">
                 <Card>
                   <CardHeader>
@@ -2568,7 +2568,7 @@ export function DetailPage() {
 
                           navigate(`/payment?${paymentParams.toString()}`);
                         }}
-                        disabled={item?.category !== '팝업' && !selectedDate}
+                        disabled={!isPopupProduct(item) && !selectedDate}
                       >
                         결제하기
                       </Button>
