@@ -86,6 +86,14 @@ interface Booking {
   order_number?: string;
 }
 
+interface ListingWithStock {
+  id: number;
+  title: string;
+  category: string;
+  stock: number | null;
+  stock_enabled: boolean;
+}
+
 export function VendorLodgingDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -93,6 +101,7 @@ export function VendorLodgingDashboard() {
   const [vendorInfo, setVendorInfo] = useState<VendorInfo | null>(null);
   const [lodgings, setLodgings] = useState<Lodging[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [listings, setListings] = useState<ListingWithStock[]>([]);
   const [activeTab, setActiveTab] = useState('lodgings');
 
   // 정렬 상태
@@ -206,6 +215,64 @@ export function VendorLodgingDashboard() {
       toast.error('데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 재고 관리 함수
+  const fetchListingsForStock = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      const response = await fetch('/api/vendor/listings?category=lodging&include_stock=true', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setListings(result.data);
+      } else {
+        toast.error(result.message || '상품 목록을 불러오는데 실패했습니다.');
+      }
+    } catch (error: any) {
+      toast.error(error.message || '서버 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateListingStock = async (listingId: number, newStock: number) => {
+    if (newStock < 0) {
+      toast.error('재고는 0 이상이어야 합니다.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      const response = await fetch('/api/vendor/stock', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          listing_id: listingId,
+          stock: newStock
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('재고가 업데이트되었습니다.');
+        fetchListingsForStock(); // 재로드
+      } else {
+        toast.error(result.message || '재고 업데이트에 실패했습니다.');
+      }
+    } catch (error: any) {
+      toast.error(error.message || '서버 오류가 발생했습니다.');
     }
   };
 
@@ -924,6 +991,7 @@ export function VendorLodgingDashboard() {
           <TabsList className="mb-6">
             <TabsTrigger value="lodgings">숙소 관리</TabsTrigger>
             <TabsTrigger value="bookings">예약 관리</TabsTrigger>
+            <TabsTrigger value="stock">재고 관리</TabsTrigger>
           </TabsList>
 
           {/* 숙소 관리 */}
@@ -1328,6 +1396,115 @@ export function VendorLodgingDashboard() {
                         </Button>
                       </div>
                     )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 재고 관리 */}
+          <TabsContent value="stock">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>📦 숙소 재고 관리</CardTitle>
+                    <CardDescription>숙소별 재고를 확인하고 관리할 수 있습니다.</CardDescription>
+                  </div>
+                  <Button
+                    onClick={fetchListingsForStock}
+                    disabled={loading}
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                    새로고침
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
+                    <p className="mt-4 text-gray-600">로딩 중...</p>
+                  </div>
+                ) : listings.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">등록된 숙소 상품이 없습니다.</p>
+                    <Button
+                      onClick={fetchListingsForStock}
+                      variant="outline"
+                      className="mt-4"
+                    >
+                      재고 정보 불러오기
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-20">ID</TableHead>
+                            <TableHead>상품명</TableHead>
+                            <TableHead className="w-32">카테고리</TableHead>
+                            <TableHead className="w-32 text-center">현재 재고</TableHead>
+                            <TableHead className="w-48 text-center">재고 수정</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {listings.map((listing) => (
+                            <TableRow key={listing.id}>
+                              <TableCell className="font-medium">#{listing.id}</TableCell>
+                              <TableCell>
+                                <div className="font-medium text-gray-900">{listing.title}</div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{listing.category}</Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                                  {listing.stock !== null ? `${listing.stock}개` : '무제한'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center justify-center gap-2">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    defaultValue={listing.stock || 0}
+                                    className="w-24 text-center"
+                                    id={`stock-${listing.id}`}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      const input = document.getElementById(`stock-${listing.id}`) as HTMLInputElement;
+                                      const newStock = parseInt(input.value);
+                                      if (!isNaN(newStock)) {
+                                        updateListingStock(listing.id, newStock);
+                                      }
+                                    }}
+                                  >
+                                    저장
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    {/* 도움말 */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+                      <h4 className="font-semibold text-blue-900 mb-2">💡 재고 관리 안내</h4>
+                      <ul className="text-sm text-blue-800 space-y-1">
+                        <li>• 각 숙소 상품별로 보유하고 있는 재고를 설정할 수 있습니다.</li>
+                        <li>• 예약 시 해당 기간에 재고가 부족하면 예약이 불가능합니다.</li>
+                        <li>• 재고는 0 이상의 숫자로 입력해주세요.</li>
+                        <li>• 변경 후 반드시 "저장" 버튼을 클릭해야 적용됩니다.</li>
+                        <li>• 예약 만료 시 자동으로 재고가 복구됩니다.</li>
+                      </ul>
+                    </div>
                   </div>
                 )}
               </CardContent>

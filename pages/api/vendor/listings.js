@@ -66,19 +66,36 @@ module.exports = async function handler(req, res) {
 
     // GET - 벤더의 상품 목록 조회
     if (req.method === 'GET') {
-      const result = await connection.execute(`
+      const { category: filterCategory } = req.query;
+
+      // 카테고리 필터 적용
+      let query = `
         SELECT
-          l.*,
+          l.id,
+          l.title,
+          l.category,
+          l.stock,
+          l.stock_enabled,
+          l.is_active,
+          l.created_at,
           COUNT(DISTINCT r.id) as review_count,
           AVG(r.rating) as avg_rating
         FROM listings l
         LEFT JOIN reviews r ON l.id = r.listing_id
         WHERE l.partner_id = ?
-        GROUP BY l.id
-        ORDER BY l.created_at DESC
-      `, [partnerId]);
+      `;
+      const params = [partnerId];
 
-      console.log(`📋 [Vendor Listings] ${result.rows?.length || 0}개 상품 조회`);
+      if (filterCategory) {
+        query += ` AND l.category = ?`;
+        params.push(filterCategory);
+      }
+
+      query += ` GROUP BY l.id ORDER BY l.created_at DESC`;
+
+      const result = await connection.execute(query, params);
+
+      console.log(`📋 [Vendor Listings] ${result.rows?.length || 0}개 상품 조회${filterCategory ? ` (category: ${filterCategory})` : ''}`);
 
       return res.status(200).json({
         success: true,

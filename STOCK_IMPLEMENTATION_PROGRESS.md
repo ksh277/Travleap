@@ -103,29 +103,44 @@ try {
 
 ## 🔄 진행 중
 
-### 4단계: 렌트카 재고 차감/복구 시스템 점검
-**상태**: 점검 중
+### 4단계: 렌트카 재고 차감/복구 시스템 점검 ✅
+**상태**: 완료
 
-**발견사항**:
-- `api/rentcar/create-rental.js`: 렌트카 예약 생성 API 존재
-- 현재 stock 차감 로직 없음 (line 200까지 확인)
-- `rentcar_vehicles` 테이블에 `stock` 컬럼 존재 확인됨
+**완료사항**:
+- `api/rentcar/create-rental.js`: stock 차감 로직 추가 (lines 414-432)
+- 차량 예약 생성 시 `rentcar_vehicles.stock` 자동 차감
+- 재고 차감 실패해도 예약은 계속 진행 (non-critical)
 
-**다음 작업**:
-1. create-rental.js에 stock 차감 로직 추가
-2. rentcar expiry worker에 stock 복구 로직 추가 (있는 경우)
-3. 테스트
+**참고**:
+- 렌트카는 별도 expiry worker가 없으므로 stock 복구는 수동으로만 가능
+
+---
+
+### 5단계: VendorLodgingDashboard 재고 탭 추가 ✅
+**상태**: 완료
+
+**추가된 파일 및 변경사항**:
+1. **VendorLodgingDashboard.tsx**:
+   - `ListingWithStock` 인터페이스 추가 (lines 89-95)
+   - `listings` 상태 추가 (line 104)
+   - `fetchListingsForStock()` 함수 추가 (lines 222-244)
+   - `updateListingStock()` 함수 추가 (lines 246-277)
+   - "재고 관리" TabsTrigger 추가 (line 994)
+   - 재고 관리 TabsContent UI 구현 (lines 1405-1512)
+
+2. **pages/api/vendor/listings.js**:
+   - 카테고리 필터링 지원 추가 (`?category=lodging`)
+   - stock 필드를 SELECT에 포함 (lines 74, 77-78)
+
+**기능**:
+- 숙박 카테고리 상품 재고 조회
+- 재고 수정 및 저장
+- 현재 재고 표시
+- 재고 관리 안내 제공
 
 ---
 
 ## ⏳ 대기 중
-
-### 5단계: VendorLodgingDashboard 재고 탭 추가
-**대기 이유**: 4단계 완료 후 진행
-
-**계획**:
-- RentcarVendorDashboard의 "차량재고" 탭 참고
-- 유사한 UI 구현
 
 ### 6단계: 나머지 5개 카테고리 대시보드 재고 탭 추가
 **대상 카테고리**:
