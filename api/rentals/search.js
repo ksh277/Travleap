@@ -10,7 +10,7 @@
  * 권한: 공개 (인증 불필요)
  */
 
-const { connect } = require('@planetscale/database');
+const { db } = require('../../utils/database.cjs');
 
 /**
  * 시간제 요금 계산
@@ -62,8 +62,6 @@ function calculateAge(birthDate, referenceDate) {
 }
 
 module.exports = async function handler(req, res) {
-  const connection = connect({ url: process.env.DATABASE_URL });
-
   try {
     // 1. GET 메서드만 허용
     if (req.method !== 'GET') {
@@ -133,8 +131,7 @@ module.exports = async function handler(req, res) {
 
     vehicleQuery += ' ORDER BY v.created_at DESC';
 
-    const vehiclesResult = await connection.execute(vehicleQuery, queryParams);
-    const vehicles = vehiclesResult.rows || [];
+    const vehicles = await db.query(vehicleQuery, queryParams);
 
     console.log(`   Found ${vehicles.length} vehicles (before availability check)`);
 
@@ -152,12 +149,11 @@ module.exports = async function handler(req, res) {
         LIMIT 1
       `;
 
-      const overlapsResult = await connection.execute(overlapQuery, [
+      const overlaps = await db.query(overlapQuery, [
         vehicle.id,
         pickup_at,
         return_at
       ]);
-      const overlaps = overlapsResult.rows || [];
 
       if (overlaps.length > 0) {
         console.log(`   ⏭️  Vehicle ${vehicle.id} - Overlap with existing booking`);
@@ -174,12 +170,11 @@ module.exports = async function handler(req, res) {
         LIMIT 1
       `;
 
-      const blocksResult = await connection.execute(blockQuery, [
+      const blocks = await db.query(blockQuery, [
         vehicle.id,
         pickup_at,
         return_at
       ]);
-      const blocks = blocksResult.rows || [];
 
       if (blocks.length > 0) {
         console.log(`   ⏭️  Vehicle ${vehicle.id} - Blocked (maintenance/damage)`);
