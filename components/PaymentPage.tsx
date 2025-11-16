@@ -69,15 +69,16 @@ export function PaymentPage() {
     name: ''
   });
   // ✅ localStorage에서 저장된 청구정보 불러오기 (있으면 우선 사용)
+  // ✅ FIX: useState 초기화 함수에서 user 참조 제거 (TDZ 에러 방지)
   const [billingInfo, setBillingInfo] = useState(() => {
     if (typeof window === 'undefined') {
       return {
-        name: user?.name || '',
-        email: user?.email || '',
-        phone: user?.phone || '',
-        postalCode: user?.postal_code || '',
-        address: user?.address || '',
-        detailAddress: user?.detail_address || ''
+        name: '',
+        email: '',
+        phone: '',
+        postalCode: '',
+        address: '',
+        detailAddress: ''
       };
     }
 
@@ -87,12 +88,12 @@ export function PaymentPage() {
         const parsed = JSON.parse(saved);
         console.log('✅ [청구정보] localStorage에서 불러옴:', parsed);
         return {
-          name: parsed.name || user?.name || '',
-          email: parsed.email || user?.email || '',
-          phone: parsed.phone || user?.phone || '',
-          postalCode: parsed.postalCode || user?.postal_code || '',
-          address: parsed.address || user?.address || '',
-          detailAddress: parsed.detailAddress || user?.detail_address || ''
+          name: parsed.name || '',
+          email: parsed.email || '',
+          phone: parsed.phone || '',
+          postalCode: parsed.postalCode || '',
+          address: parsed.address || '',
+          detailAddress: parsed.detailAddress || ''
         };
       }
     } catch (e) {
@@ -100,12 +101,12 @@ export function PaymentPage() {
     }
 
     return {
-      name: user?.name || '',
-      email: user?.email || '',
-      phone: user?.phone || '',
-      postalCode: user?.postal_code || '',
-      address: user?.address || '',
-      detailAddress: user?.detail_address || ''
+      name: '',
+      email: '',
+      phone: '',
+      postalCode: '',
+      address: '',
+      detailAddress: ''
     };
   });
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
