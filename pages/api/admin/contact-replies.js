@@ -32,7 +32,7 @@ module.exports = async function handler(req, res) {
 
       // 1. 문의가 존재하는지 확인 및 정보 조회
       const contactResult = await connection.execute(
-        'SELECT id, name, email, subject, message FROM contacts WHERE id = ?',
+        'SELECT id, name, email, subject, message FROM contact_submissions WHERE id = ?',
         [contact_id]
       );
 
@@ -46,16 +46,14 @@ module.exports = async function handler(req, res) {
       const contact = contactResult.rows[0];
 
       // 2. 답변 저장
-      // contacts 테이블에 reply 컬럼이 있다고 가정
       await connection.execute(`
-        UPDATE contacts
-        SET reply = ?,
-            reply_admin = ?,
-            replied_at = NOW(),
-            status = 'answered',
+        UPDATE contact_submissions
+        SET response = ?,
+            responded_at = NOW(),
+            status = 'resolved',
             updated_at = NOW()
         WHERE id = ?
-      `, [reply_text, admin_name || '관리자', contact_id]);
+      `, [reply_text, contact_id]);
 
       console.log(`✅ 문의 #${contact_id}에 답변 추가 완료`);
 
@@ -158,7 +156,7 @@ module.exports = async function handler(req, res) {
       }
 
       // 유효한 상태 확인
-      const validStatuses = ['pending', 'in_progress', 'answered', 'closed'];
+      const validStatuses = ['new', 'in_progress', 'resolved', 'closed'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
@@ -167,7 +165,7 @@ module.exports = async function handler(req, res) {
       }
 
       await connection.execute(`
-        UPDATE contacts
+        UPDATE contact_submissions
         SET status = ?,
             updated_at = NOW()
         WHERE id = ?
@@ -193,8 +191,8 @@ module.exports = async function handler(req, res) {
       }
 
       await connection.execute(`
-        UPDATE contacts
-        SET reply = ?,
+        UPDATE contact_submissions
+        SET response = ?,
             updated_at = NOW()
         WHERE id = ?
       `, [reply_text, id]);

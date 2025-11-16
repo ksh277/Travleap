@@ -495,7 +495,7 @@ export function PopupVendorDashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₩{stats.total_sales.toLocaleString()}</div>
+              <div className="text-2xl font-bold">₩{(stats.total_sales || 0).toLocaleString()}</div>
             </CardContent>
           </Card>
 
@@ -735,7 +735,7 @@ export function PopupVendorDashboard() {
                           </div>
                         </TableCell>
                         <TableCell className="font-semibold">
-                          ₩{order.total_amount?.toLocaleString()}
+                          ₩{(order.total_amount || 0).toLocaleString()}
                         </TableCell>
                         <TableCell className="text-sm">
                           {formatPaymentMethod(order.payment_method, order.card_company, order.virtual_account_bank)}
@@ -753,7 +753,7 @@ export function PopupVendorDashboard() {
                           </Badge>
                           {order.payment_status === 'refunded' && order.refund_amount && (
                             <div className="text-xs text-red-600 font-semibold mt-1">
-                              환불금액: ₩{order.refund_amount.toLocaleString()}
+                              환불금액: ₩{(order.refund_amount || 0).toLocaleString()}
                             </div>
                           )}
                           {order.refund_reason && (
@@ -1000,7 +1000,7 @@ export function PopupVendorDashboard() {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-600">결제 금액:</span>
-                          <span className="text-lg font-bold text-purple-700">₩{selectedOrder.total_amount?.toLocaleString()}</span>
+                          <span className="text-lg font-bold text-purple-700">₩{(selectedOrder.total_amount || 0).toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">결제 수단:</span>
@@ -1018,7 +1018,7 @@ export function PopupVendorDashboard() {
                           <>
                             <div className="flex justify-between border-t pt-2">
                               <span className="text-gray-600">환불 금액:</span>
-                              <span className="font-bold text-red-600">₩{selectedOrder.refund_amount.toLocaleString()}</span>
+                              <span className="font-bold text-red-600">₩{(selectedOrder.refund_amount || 0).toLocaleString()}</span>
                             </div>
                             {selectedOrder.refund_reason && (
                               <div>
@@ -1081,7 +1081,7 @@ export function PopupVendorDashboard() {
                         <TableRow key={product.id}>
                           <TableCell className="font-medium">{product.title}</TableCell>
                           <TableCell>{product.category}</TableCell>
-                          <TableCell>₩{product.price.toLocaleString()}</TableCell>
+                          <TableCell>₩{(product.price || 0).toLocaleString()}</TableCell>
                           <TableCell>
                             {product.stock !== undefined ? `${product.stock}개` : '무제한'}
                           </TableCell>

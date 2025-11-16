@@ -1,6 +1,6 @@
 /**
  * 문의 관리 API
- * GET /api/contacts - 모든 문의 조회
+ * GET /api/contacts - 모든 문의 조회 (contact_submissions 테이블)
  * DELETE /api/contacts?id=123 - 문의 삭제
  */
 
@@ -20,13 +20,63 @@ module.exports = async function handler(req, res) {
   try {
     // GET - 모든 문의 조회
     if (req.method === 'GET') {
-      const result = await connection.execute(
-        `SELECT * FROM contacts ORDER BY created_at DESC`
-      );
+      const { status, category, limit, offset } = req.query;
+
+      let query = `SELECT * FROM contact_submissions WHERE 1=1`;
+      const params = [];
+
+      // 상태 필터
+      if (status && status !== 'all') {
+        query += ` AND status = ?`;
+        params.push(status);
+      }
+
+      // 카테고리 필터
+      if (category && category !== 'all') {
+        query += ` AND category = ?`;
+        params.push(category);
+      }
+
+      query += ` ORDER BY created_at DESC`;
+
+      // 페이지네이션
+      if (limit) {
+        query += ` LIMIT ?`;
+        params.push(parseInt(limit));
+
+        if (offset) {
+          query += ` OFFSET ?`;
+          params.push(parseInt(offset));
+        }
+      }
+
+      const result = await connection.execute(query, params);
+
+      // 전체 개수 조회 (페이지네이션용)
+      let countQuery = `SELECT COUNT(*) as total FROM contact_submissions WHERE 1=1`;
+      const countParams = [];
+
+      if (status && status !== 'all') {
+        countQuery += ` AND status = ?`;
+        countParams.push(status);
+      }
+
+      if (category && category !== 'all') {
+        countQuery += ` AND category = ?`;
+        countParams.push(category);
+      }
+
+      const countResult = await connection.execute(countQuery, countParams);
+      const total = countResult.rows[0].total;
 
       return res.status(200).json({
         success: true,
-        data: result.rows || []
+        data: result.rows || [],
+        pagination: {
+          total: parseInt(total),
+          limit: limit ? parseInt(limit) : null,
+          offset: offset ? parseInt(offset) : 0
+        }
       });
     }
 
@@ -42,7 +92,7 @@ module.exports = async function handler(req, res) {
       }
 
       const result = await connection.execute(
-        `DELETE FROM contacts WHERE id = ?`,
+        `DELETE FROM contact_submissions WHERE id = ?`,
         [id]
       );
 
