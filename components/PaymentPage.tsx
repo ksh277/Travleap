@@ -116,6 +116,19 @@ export function PaymentPage() {
   const [pointsToUse, setPointsToUse] = useState(0);
   const [pointsLoading, setPointsLoading] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(0);
+
+  // ✅ FIX: 포인트 변경 시 즉시 preparedAmount 업데이트
+  useEffect(() => {
+    if (preparedOrderNumber) {
+      const newAmount = Math.max(0, totalWithInsurance - Number(pointsToUse));
+      setPreparedAmount(newAmount);
+      console.log('🔄 [PaymentPage] 포인트 변경으로 preparedAmount 업데이트:', {
+        totalWithInsurance,
+        pointsToUse,
+        newAmount
+      });
+    }
+  }, [pointsToUse, totalWithInsurance, preparedOrderNumber]);
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
   const [availableInsurances, setAvailableInsurances] = useState<any[]>([]);
   const [selectedInsurance, setSelectedInsurance] = useState<any>(null);

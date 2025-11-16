@@ -277,6 +277,8 @@ module.exports = async function handler(req, res) {
           let notesShippingAddressDetail = '';
           let notesShippingZipcode = '';
           let notesData = null; // ✅ CRITICAL: scope 밖에서 참조하기 위해 선언
+          let insuranceFeeFromNotes = 0; // ✅ 보험료
+          let insuranceInfoFromNotes = null; // ✅ 보험 상세 정보
 
           if (order.notes) {
             try {
@@ -326,6 +328,10 @@ module.exports = async function handler(req, res) {
                 totalQuantity = notesData.items.reduce((sum, item) => {
                   return sum + (item.quantity || 1);
                 }, 0);
+
+                // ✅ 보험 정보 추출
+                insuranceFeeFromNotes = notesData.insuranceFee || 0;
+                insuranceInfoFromNotes = notesData.insurance || null;
 
                 // ✅ 팝업 상품 포함 여부 체크
                 hasPopupProduct = notesData.items.some(item => item.category === '팝업');
@@ -415,6 +421,8 @@ module.exports = async function handler(req, res) {
             total_amount: parseFloat(order.amount), // ✅ FIX: 문자열 → 숫자 변환
             subtotal: parseFloat(subtotal || (order.amount - deliveryFee)),
             delivery_fee: parseFloat(deliveryFee),
+            insurance_fee: insuranceFeeFromNotes, // ✅ 보험료 추가
+            insurance_info: insuranceInfoFromNotes, // ✅ 보험 상세 정보 추가
             items_info: itemsInfo, // ✅ 주문 상품 상세 정보 (배송 관리용)
             bookings_list: bookingsList, // 🔧 혼합 주문의 모든 bookings (부분 환불용)
             item_count: itemCount, // ✅ 상품 종류 수

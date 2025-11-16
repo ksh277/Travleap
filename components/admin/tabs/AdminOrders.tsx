@@ -42,6 +42,8 @@ interface Order {
   total_amount?: number; // ✅ API에서 사용
   subtotal?: number; // ✅ 상품 금액
   delivery_fee?: number; // ✅ 배송비
+  insurance_fee?: number; // ✅ 보험료
+  insurance_info?: any; // ✅ 보험 상세 정보
   items_info?: OrderItem[]; // ✅ 주문 상품 상세 정보
   bookings_list?: BookingItem[]; // 🔧 혼합 주문의 모든 bookings (부분 환불용)
   item_count?: number; // ✅ 상품 종류 수
@@ -703,10 +705,15 @@ export function AdminOrders() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="font-semibold">₩{order.amount?.toLocaleString() || '0'}</div>
-                        {order.subtotal && order.delivery_fee !== undefined && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            상품 {order.subtotal.toLocaleString()}원
-                            {order.delivery_fee > 0 && ` + 배송비 ${order.delivery_fee.toLocaleString()}원`}
+                        {order.subtotal && (
+                          <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                            <div>상품 {order.subtotal.toLocaleString()}원</div>
+                            {order.insurance_fee && order.insurance_fee > 0 && (
+                              <div>보험 {order.insurance_fee.toLocaleString()}원</div>
+                            )}
+                            {order.delivery_fee && order.delivery_fee > 0 && (
+                              <div>배송비 {order.delivery_fee.toLocaleString()}원</div>
+                            )}
                           </div>
                         )}
                       </td>
