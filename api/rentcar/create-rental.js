@@ -411,6 +411,26 @@ module.exports = async function handler(req, res) {
 
     console.log(`✅ [Create-Rental] Rental created: ${bookingNumber} (ID: ${rentalId})`);
 
+    // 11.5. 차량 재고 차감 (if stock management enabled)
+    try {
+      const vehicleStock = await db.query(
+        `SELECT stock FROM rentcar_vehicles WHERE id = ?`,
+        [vehicle_id]
+      );
+
+      if (vehicleStock && vehicleStock[0] && vehicleStock[0].stock !== null && vehicleStock[0].stock > 0) {
+        // 재고가 있는 경우 차감
+        await db.execute(
+          `UPDATE rentcar_vehicles SET stock = stock - 1 WHERE id = ? AND stock > 0`,
+          [vehicle_id]
+        );
+        console.log(`✅ [Stock] Vehicle stock decreased: ${vehicle_id} (-1)`);
+      }
+    } catch (stockError) {
+      console.warn(`⚠️  [Stock] Failed to decrease vehicle stock:`, stockError);
+      // 재고 차감 실패는 치명적이지 않으므로 계속 진행
+    }
+
     // 12. 상태 전이 로그
     try {
       await db.execute(`

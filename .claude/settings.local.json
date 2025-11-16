@@ -234,7 +234,13 @@
       "Bash(if [ -f \"pages/api/vendor/rentcar/bookings.js\" ])",
       "Bash(if [ -d \"pages/api/vendor/rentcar\" ])",
       "Bash(NUL)",
-      "Bash(del nul 2)"
+      "Bash(del nul 2)",
+      "Bash(for category in attractions events experience)",
+      "Bash(do:*)",
+      "Bash(file=\"api/vendor/$category/bookings.js\")",
+      "Bash(if grep -q \"LEFT JOIN payments\" \"$file\")",
+      "Bash(then)",
+      "Bash(else)"
     ],
     "deny": [],
     "ask": []

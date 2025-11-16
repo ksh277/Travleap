@@ -107,14 +107,35 @@ async function expireBooking(booking: ExpiredBooking): Promise<boolean> {
 
     console.log(`✅ [Expiry] Booking expired: ${booking_number}`);
 
-    // 2. 재고 복구 (available_spots++)
-    // 주의: 재고 차감을 별도 관리하는 경우만 필요
-    // 현재 구조는 예약 count로 재고 계산하므로 별도 작업 불필요
-    // await db.execute(`
-    //   UPDATE listings
-    //   SET available_spots = available_spots + 1
-    //   WHERE id = ?
-    // `, [listing_id]);
+    // 2. 재고 복구 (stock_enabled인 경우만)
+    try {
+      const listingStockCheck = await db.query(
+        `SELECT stock, stock_enabled FROM listings WHERE id = ?`,
+        [listing_id]
+      );
+
+      if (listingStockCheck && listingStockCheck[0] && listingStockCheck[0].stock_enabled) {
+        // 예약에서 사용한 수량 확인
+        const bookingQty = await db.query(
+          `SELECT num_adults, num_children FROM bookings WHERE id = ?`,
+          [id]
+        );
+
+        if (bookingQty && bookingQty[0]) {
+          const restoreQty = (bookingQty[0].num_adults || 0) + (bookingQty[0].num_children || 0);
+
+          // 재고 복구
+          await db.execute(
+            `UPDATE listings SET stock = stock + ? WHERE id = ?`,
+            [restoreQty, listing_id]
+          );
+          console.log(`✅ [Stock] Listing stock restored: ${listing_id} (+${restoreQty})`);
+        }
+      }
+    } catch (stockError) {
+      console.warn(`⚠️  [Stock] Failed to restore stock for listing ${listing_id}:`, stockError);
+      // 재고 복구 실패는 치명적이지 않으므로 계속 진행
+    }
 
     // 3. 락 키 정리 (혹시 남아있는 경우)
     const lockKey = inventoryLock.lockKeyBooking(

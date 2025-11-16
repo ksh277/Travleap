@@ -121,6 +121,44 @@ async function createBookingWithLock(bookingData) {
       console.log(`✅ [Stock] Option stock decreased: ${bookingData.selected_option.id} (-${bookingData.num_adults})`);
     }
 
+    // 4.5. Listing 재고 차감 (stock_enabled인 경우만)
+    const listingStockCheck = await db.query(
+      `SELECT stock, stock_enabled FROM listings WHERE id = ?`,
+      [bookingData.listing_id]
+    );
+
+    if (listingStockCheck && listingStockCheck[0] && listingStockCheck[0].stock_enabled) {
+      const currentStock = listingStockCheck[0].stock;
+      const requestedQty = bookingData.num_adults + (bookingData.num_children || 0);
+
+      if (currentStock !== null && currentStock < requestedQty) {
+        // 이미 예약이 생성되었으므로, 롤백 필요
+        await db.execute('DELETE FROM bookings WHERE id = ?', [bookingId]);
+
+        // 옵션 재고도 롤백
+        if (bookingData.selected_option) {
+          await db.execute(
+            `UPDATE product_options SET stock = stock + ? WHERE id = ?`,
+            [bookingData.num_adults, bookingData.selected_option.id]
+          );
+        }
+
+        await lockManager.releaseLock(lockKey);
+        return {
+          success: false,
+          message: `재고가 부족합니다. (현재 재고: ${currentStock}개)`,
+          code: 'INSUFFICIENT_STOCK'
+        };
+      }
+
+      // 재고 차감
+      await db.execute(
+        `UPDATE listings SET stock = stock - ? WHERE id = ?`,
+        [requestedQty, bookingData.listing_id]
+      );
+      console.log(`✅ [Stock] Listing stock decreased: ${bookingData.listing_id} (-${requestedQty})`);
+    }
+
     // 5. Lock 해제
     await lockManager.releaseLock(lockKey);
     console.log(`✅ [Lock] Released: ${lockKey}`);
