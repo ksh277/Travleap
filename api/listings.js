@@ -24,7 +24,9 @@ module.exports = async function handler(req, res) {
         c.name_ko as category_name,
         c.slug as category_slug,
         p.business_name as partner_name,
-        p.status as partner_status
+        p.status as partner_status,
+        (SELECT COUNT(*) FROM reviews r WHERE r.listing_id = l.id AND r.is_hidden != 1) as actual_review_count,
+        (SELECT AVG(r.rating) FROM reviews r WHERE r.listing_id = l.id AND r.is_hidden != 1) as actual_rating_avg
       FROM listings l
       LEFT JOIN categories c ON l.category_id = c.id
       LEFT JOIN partners p ON l.partner_id = p.id
@@ -82,11 +84,21 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(sql, params);
 
-    // ✅ category_slug를 category로 복사 (backward compatibility)
-    const listings = (result.rows || []).map(listing => ({
-      ...listing,
-      category: listing.category_slug
-    }));
+    // ✅ 실제 리뷰 데이터 우선 사용, 없으면 listings 테이블 fallback
+    const listings = (result.rows || []).map(listing => {
+      const actualCount = Number(listing.actual_review_count) || 0;
+      const actualAvg = Number(listing.actual_rating_avg) || 0;
+      const fallbackCount = Number(listing.rating_count) || 0;
+      const fallbackAvg = Number(listing.rating_avg) || 0;
+
+      return {
+        ...listing,
+        category: listing.category_slug,
+        // ✅ 실제 리뷰가 있으면 사용, 없으면 0 (하드코딩 제거)
+        rating_count: actualCount,
+        rating_avg: actualAvg > 0 ? actualAvg : 0
+      };
+    });
 
     return res.status(200).json({
       success: true,

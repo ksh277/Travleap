@@ -72,7 +72,9 @@ module.exports = async function handler(req, res) {
         c.name_ko as category_name,
         c.slug as category_slug,
         p.business_name as partner_name,
-        p.status as partner_status
+        p.status as partner_status,
+        (SELECT COUNT(*) FROM reviews r WHERE r.listing_id = l.id AND r.is_hidden != 1) as actual_review_count,
+        (SELECT AVG(r.rating) FROM reviews r WHERE r.listing_id = l.id AND r.is_hidden != 1) as actual_rating_avg
       FROM listings l
       LEFT JOIN categories c ON l.category_id = c.id
       LEFT JOIN partners p ON l.partner_id = p.id
@@ -80,9 +82,21 @@ module.exports = async function handler(req, res) {
       ORDER BY l.created_at DESC
       `);
 
+      // ✅ 실제 리뷰 데이터 사용
+      const listings = (result.rows || []).map(listing => {
+        const actualCount = Number(listing.actual_review_count) || 0;
+        const actualAvg = Number(listing.actual_rating_avg) || 0;
+
+        return {
+          ...listing,
+          rating_count: actualCount,
+          rating_avg: actualAvg > 0 ? actualAvg : 0
+        };
+      });
+
       return res.status(200).json({
         success: true,
-        data: result.rows || []
+        data: listings
       });
     }
 

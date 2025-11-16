@@ -31,7 +31,9 @@ export async function GET(
 
     const sql = `
       SELECT l.*, c.slug as category_slug, c.name_ko as category_name,
-             p.business_name, p.contact_name, p.email, p.phone, p.tier, p.is_verified
+             p.business_name, p.contact_name, p.email, p.phone, p.tier, p.is_verified,
+             (SELECT COUNT(*) FROM reviews r WHERE r.listing_id = l.id AND r.is_hidden != 1) as actual_review_count,
+             (SELECT AVG(r.rating) FROM reviews r WHERE r.listing_id = l.id AND r.is_hidden != 1) as actual_rating_avg
       FROM listings l
       LEFT JOIN categories c ON l.category_id = c.id
       LEFT JOIN partners p ON l.partner_id = p.id
@@ -64,9 +66,17 @@ export async function GET(
       return field;
     };
 
+    // ✅ 실제 리뷰 데이터 우선 사용
+    const actualCount = Number(listing.actual_review_count) || 0;
+    const actualAvg = Number(listing.actual_rating_avg) || 0;
+
     const parsedListing = {
       ...listing,
       category: listing.category_slug,  // ✅ slug를 category로 사용 (backward compatibility)
+      // ✅ 실제 리뷰 데이터 사용 (하드코딩 제거)
+      rating_count: actualCount,
+      rating_avg: actualAvg > 0 ? actualAvg : 0,
+      // JSON 필드 파싱
       images: parseJsonField(listing.images),
       amenities: parseJsonField(listing.amenities),
       highlights: parseJsonField(listing.highlights),
