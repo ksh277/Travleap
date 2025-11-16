@@ -126,10 +126,13 @@ export function PaymentPage() {
   const orderTotal = orderData ? Number(orderData.total) : parseInt(booking?.totalPrice || amount || totalAmount || '0');
   // orderData.deliveryFee가 있으면 이미 orderData.total에 배송비 포함됨 (장바구니에서 온 경우)
   const totalWithDelivery = orderData?.deliveryFee !== undefined ? orderTotal : orderTotal + Number(deliveryFee);
-  // ✅ 장바구니에서 전달된 보험료 우선 사용, 없으면 결제 페이지에서 선택한 보험 사용
+  // ✅ 보험료 계산:
+  // - 렌트카(bookingNumber 있음): amount에 이미 보험료 포함됨 → 추가 안함
+  // - 장바구니: orderData.insuranceFee 사용
+  // - 결제 페이지에서 직접 선택: selectedInsurance 사용
   const cartInsuranceFee = orderData?.insuranceFee || 0;
   const pageInsuranceFee = selectedInsurance ? Number(selectedInsurance.price) : 0;
-  const insuranceFee = cartInsuranceFee || pageInsuranceFee;
+  const insuranceFee = bookingNumber ? 0 : (cartInsuranceFee || pageInsuranceFee);
   const totalWithInsurance = totalWithDelivery + insuranceFee;
   const finalAmount = Math.max(0, totalWithInsurance - Number(pointsToUse));
 
