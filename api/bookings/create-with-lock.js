@@ -79,9 +79,9 @@ async function createBookingWithLock(bookingData) {
       }
     }
 
-    // 3. HOLD 상태로 예약 생성 (10분 TTL)
+    // 3. HOLD 상태로 예약 생성 (5분 TTL)
     const bookingNumber = generateBookingNumber();
-    const holdExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10분 후
+    const holdExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5분 후
 
     const bookingInsert = {
       booking_number: bookingNumber,

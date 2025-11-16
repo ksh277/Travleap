@@ -85,7 +85,7 @@ module.exports = async function handler(req, res) {
     }
 
     // 예약 가능 여부 확인 (중복 예약 체크)
-    // ✅ pending 예약은 15분 이내의 것만 체크 (오래된 결제 실패 예약 무시)
+    // ✅ pending 예약은 5분 이내의 것만 체크 (오래된 결제 실패 예약 무시)
     const conflictCheck = await connection.execute(
       `SELECT
          id,
@@ -98,7 +98,7 @@ module.exports = async function handler(req, res) {
        WHERE listing_id = ?
        AND (
          status = 'confirmed'
-         OR (status = 'pending' AND created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE))
+         OR (status = 'pending' AND created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE))
        )
        AND (
          (start_date <= ? AND end_date > ?)
