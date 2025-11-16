@@ -53,6 +53,7 @@ import { ShippingManagementDialog } from './ShippingManagementDialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import type { Listing, User } from '../types/database';
 import type { AdminProductFormData } from '../utils/pms/admin-integration';
+import { saveProductToDB } from '../utils/pms/admin-integration';
 import { previewPrice, sanitizePriceInput } from '../utils/price-formatter';
 import { formatKoreanDateTime } from '../utils/date-utils';
 
@@ -1218,7 +1219,7 @@ export function AdminPage({}: AdminPageProps) {
     try {
       // === PMS 연동 상품인 경우 특별 처리 ===
       if (newProduct.isPMSProduct && newProduct.pmsFormData) {
-        const { saveProductToDB } = await import('../utils/pms/admin-integration');
+        // Static import moved to top of file
 
         console.log('🏨 PMS 상품 저장 시작...', newProduct.pmsFormData);
         const result = await saveProductToDB(newProduct.pmsFormData);
