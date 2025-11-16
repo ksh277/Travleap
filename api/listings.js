@@ -82,7 +82,12 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(sql, params);
 
-    const listings = result.rows || [];
+    // ✅ category_slug를 category로 복사 (backward compatibility)
+    const listings = (result.rows || []).map(listing => ({
+      ...listing,
+      category: listing.category_slug
+    }));
+
     return res.status(200).json({
       success: true,
       data: listings,

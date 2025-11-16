@@ -66,6 +66,7 @@ export async function GET(
 
     const parsedListing = {
       ...listing,
+      category: listing.category_slug,  // ✅ slug를 category로 사용 (backward compatibility)
       images: parseJsonField(listing.images),
       amenities: parseJsonField(listing.amenities),
       highlights: parseJsonField(listing.highlights),
