@@ -127,6 +127,7 @@ module.exports = async function handler(req, res) {
         b.total_amount,
         b.payment_status,
         b.payment_key,
+        b.payment_method,
         b.status,
         b.customer_info,
         b.special_requests,
@@ -135,10 +136,14 @@ module.exports = async function handler(req, res) {
         l.images as restaurant_images,
         u.name as customer_name,
         u.phone as customer_phone,
-        u.email as customer_email
+        u.email as customer_email,
+        p.method as payment_method_detail,
+        p.card_company,
+        p.virtual_account_bank
        FROM bookings b
        INNER JOIN listings l ON b.listing_id = l.id
        LEFT JOIN users u ON b.user_id = u.id
+       LEFT JOIN payments p ON b.id = p.booking_id
        WHERE ${whereClause}
        ORDER BY b.created_at DESC, b.start_date DESC
        LIMIT ? OFFSET ?`,
