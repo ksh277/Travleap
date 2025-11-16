@@ -101,7 +101,14 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
       }
 
       const currentPoints = userResult.rows[0].total_points || 0;
-      const newBalance = Math.max(0, currentPoints - pointsToDeduct);
+      const newBalance = currentPoints - pointsToDeduct;  // 🔧 FIX: Math.max 제거 - 음수 허용
+
+      // 🔒 음수 잔액 경고 (데이터 무결성 유지)
+      if (newBalance < 0) {
+        console.warn(`⚠️ [포인트 회수] 음수 잔액 발생: ${currentPoints}P → ${newBalance}P`);
+        console.warn(`   회수 대상: ${pointsToDeduct}P, 부족: ${Math.abs(newBalance)}P`);
+        console.warn(`   사용자는 ${Math.abs(newBalance)}P 빚 상태 (다음 적립 시 자동 상쇄)`);
+      }
 
       await poolNeon.query(`UPDATE users SET total_points = $1 WHERE id = $2`, [newBalance, userId]);
 
@@ -112,7 +119,11 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
 
       await poolNeon.query('COMMIT');
 
-      console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료`);
+      if (newBalance < 0) {
+        console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (음수 잔액: ${newBalance}P - 정상 처리됨)`);
+      } else {
+        console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (잔액: ${newBalance}P)`);
+      }
       return pointsToDeduct;
 
     } catch (error) {

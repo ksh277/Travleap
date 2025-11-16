@@ -256,7 +256,7 @@ module.exports = async function handler(req, res) {
                 await poolNeon.query('BEGIN');
 
                 try {
-                  // 현재 포인트 조회
+                  // 현재 포인트 조회 (FOR UPDATE로 Lock)
                   const userResult = await poolNeon.query(
                     `SELECT total_points FROM users WHERE id = $1 FOR UPDATE`,
                     [userId]
@@ -264,20 +264,35 @@ module.exports = async function handler(req, res) {
 
                   if (userResult.rows && userResult.rows.length > 0) {
                     const currentPoints = userResult.rows[0].total_points || 0;
+
+                    // 🔒 CRITICAL: Race Condition 방지를 위한 재검증
+                    if (currentPoints < pointsUsed) {
+                      await poolNeon.query('ROLLBACK');
+                      console.error(`❌ [Payments Confirm] 포인트 부족 (Race Condition): 보유=${currentPoints}P, 사용=${pointsUsed}P`);
+                      // 포인트 부족은 결제 실패로 처리하지 않음 (수동 환불 필요)
+                      return;
+                    }
+
                     const newBalance = currentPoints - pointsUsed;
 
-                    // users 테이블 포인트 차감
+                    // 1. Neon users 테이블 포인트 차감
                     await poolNeon.query(
                       `UPDATE users SET total_points = $1 WHERE id = $2`,
                       [newBalance, userId]
                     );
 
-                    // points_ledger에 기록
+                    // 2. Neon points_ledger에 기록
                     await poolNeon.query(
                       `INSERT INTO points_ledger (user_id, amount, description, transaction_type, related_order_id, created_at)
                        VALUES ($1, $2, $3, $4, $5, NOW())`,
                       [userId, -pointsUsed, `결제 완료 - 포인트 사용 (주문번호: ${orderId})`, 'used', orderId]
                     );
+
+                    // 3. 🔧 FIX: PlanetScale user_points에도 기록
+                    await connection.execute(`
+                      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+                      VALUES (?, ?, 'use', ?, ?, ?, NOW())
+                    `, [userId, -pointsUsed, `결제 완료 - 포인트 사용 (주문번호: ${orderId})`, orderId, newBalance]);
 
                     await poolNeon.query('COMMIT');
 
@@ -300,14 +315,51 @@ module.exports = async function handler(req, res) {
         // 3-2. 포인트 적립 (결제 금액의 2%)
         const pointsToEarn = Math.floor(amount * 0.02); // 2% 적립
 
-        if (pointsToEarn > 0) {
-          await poolNeon.query(
-            `INSERT INTO points_ledger (user_id, amount, description, transaction_type, related_order_id, created_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())`,
-            [userId, pointsToEarn, `결제 완료 적립 (주문번호: ${orderId})`, 'earned', orderId]
-          );
+        if (pointsToEarn > 0 && userId) {
+          try {
+            await poolNeon.query('BEGIN');
 
-          console.log(`🎁 [Payments Confirm] 포인트 적립 완료: user_id=${userId}, points=+${pointsToEarn} (${amount}원의 2%)`);
+            // 현재 포인트 조회 (FOR UPDATE로 Lock - Race Condition 방지)
+            const userResult = await poolNeon.query(
+              `SELECT total_points FROM users WHERE id = $1 FOR UPDATE`,
+              [userId]
+            );
+
+            if (userResult.rows && userResult.rows.length > 0) {
+              const currentPoints = userResult.rows[0].total_points || 0;
+              const newBalance = currentPoints + pointsToEarn;
+
+              // 1. Neon users 테이블 업데이트
+              await poolNeon.query(
+                `UPDATE users SET total_points = $1 WHERE id = $2`,
+                [newBalance, userId]
+              );
+
+              // 2. Neon points_ledger 기록
+              await poolNeon.query(
+                `INSERT INTO points_ledger (user_id, amount, description, transaction_type, related_order_id, created_at)
+                 VALUES ($1, $2, $3, $4, $5, NOW())`,
+                [userId, pointsToEarn, `결제 완료 적립 (주문번호: ${orderId})`, 'earned', orderId]
+              );
+
+              // 3. 🔧 CRITICAL FIX: PlanetScale user_points 기록
+              await connection.execute(`
+                INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+                VALUES (?, ?, 'earn', ?, ?, ?, NOW())
+              `, [userId, pointsToEarn, `결제 완료 적립 (주문번호: ${orderId})`, orderId, newBalance]);
+
+              await poolNeon.query('COMMIT');
+
+              console.log(`🎁 [Payments Confirm] 포인트 적립 완료: user_id=${userId}, points=+${pointsToEarn}, balance=${currentPoints}P → ${newBalance}P`);
+            } else {
+              await poolNeon.query('ROLLBACK');
+              console.error(`❌ [Payments Confirm] 사용자를 찾을 수 없음: user_id=${userId}`);
+            }
+          } catch (earnError) {
+            await poolNeon.query('ROLLBACK');
+            console.error('❌ [Payments Confirm] 포인트 적립 실패:', earnError);
+            // 적립 실패는 결제 성공에 영향 없음 (수동 처리 필요)
+          }
         }
 
         await poolNeon.end();

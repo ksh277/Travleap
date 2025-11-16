@@ -454,7 +454,14 @@ export function PaymentPage() {
             'item.id': item.id,
             'item.listingId': item.listingId,
             '→ listingId': listingId,
-            name: item.name || item.title
+            name: item.name || item.title,
+            '🔍 price': item.price,
+            '🔍 adults': item.adults,
+            '🔍 children': item.children,
+            '🔍 infants': item.infants,
+            '🔍 adultPrice': item.adultPrice,
+            '🔍 childPrice': item.childPrice,
+            '🔍 infantPrice': item.infantPrice
           });
           return {
             listingId, // ✅ 실제 상품 ID 사용

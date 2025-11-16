@@ -109,11 +109,37 @@ export function useCartStore() {
               }
             }
 
+            // 🔒 CRITICAL FIX: 연령별 인원이 있으면 총 가격 계산
+            const hasAgeData = item.num_adults || item.num_children || item.num_infants || item.num_seniors;
+            const calculatedPrice = hasAgeData ? (
+              (item.num_adults || 0) * (item.adult_price || item.price_from || 0) +
+              (item.num_children || 0) * (item.child_price || 0) +
+              (item.num_infants || 0) * (item.infant_price || 0) +
+              (item.num_seniors || 0) * (item.senior_price || 0)
+            ) : (item.price_from || 0);
+
+            // 🔍 DEBUG: 가격 계산 로그
+            console.log(`💰 [장바구니] 가격 계산:`, {
+              title: item.title,
+              hasAgeData,
+              num_adults: item.num_adults,
+              num_children: item.num_children,
+              num_infants: item.num_infants,
+              adult_price: item.adult_price,
+              child_price: item.child_price,
+              infant_price: item.infant_price,
+              price_from: item.price_from,
+              calculatedPrice,
+              calculation: hasAgeData ?
+                `${item.num_adults || 0} * ${item.adult_price || item.price_from || 0} + ${item.num_children || 0} * ${item.child_price || 0} + ${item.num_infants || 0} * ${item.infant_price || 0}` :
+                `price_from: ${item.price_from}`
+            });
+
             const transformed = {
               id: item.id,                    // cart_items 테이블의 id
               listingId: item.listing_id,     // ✅ 실제 상품 ID 추가
               title: item.title || '상품',
-              price: item.price_from || 0,
+              price: calculatedPrice,         // ✅ 연령별 총 가격 계산
               quantity: item.quantity || 1,
               image: images[0] || '/placeholder.jpg',
               category: category,
@@ -423,18 +449,18 @@ export function useCartStore() {
   };
 
   // 연령별 인원 수 업데이트
-  const updateAgeCounts = async (itemId: number, updates: {
+  const updateAgeCounts = async (cartItemId: number, updates: {
     adults?: number;
     children?: number;
     infants?: number;
     seniors?: number;
   }) => {
-    console.log(`👥 [연령별 인원 변경] listing_id: ${itemId}`, updates);
+    console.log(`👥 [연령별 인원 변경] cart_item_id: ${cartItemId}`, updates);
 
     // 로그인한 사용자는 API를 통해 업데이트
     if (isLoggedIn && user?.id) {
       try {
-        const response = await fetch(`/api/cart/update`, {
+        const response = await fetch(`/api/cart/update?itemId=${cartItemId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -442,7 +468,6 @@ export function useCartStore() {
           },
           body: JSON.stringify({
             userId: user.id,
-            listingId: itemId,
             num_adults: updates.adults,
             num_children: updates.children,
             num_infants: updates.infants,
@@ -460,7 +485,7 @@ export function useCartStore() {
         // 상태 업데이트
         setCartState((prev) => ({
           cartItems: prev.cartItems.map((item) =>
-            item.id === itemId ? { ...item, ...updates } : item
+            item.id === cartItemId ? { ...item, ...updates } : item
           ),
         }));
       } catch (error) {
@@ -471,7 +496,7 @@ export function useCartStore() {
       // 비로그인 사용자는 상태만 업데이트
       setCartState((prev) => ({
         cartItems: prev.cartItems.map((item) =>
-          item.id === itemId ? { ...item, ...updates } : item
+          item.id === cartItemId ? { ...item, ...updates } : item
         ),
       }));
     }

@@ -600,7 +600,8 @@ module.exports = async function handler(req, res) {
         total,
         status,
         paymentMethod,
-        shippingInfo
+        shippingInfo,
+        insurance
       } = req.body;
 
       console.log('🛒 [Orders] 주문 생성 요청:', {
@@ -669,15 +670,16 @@ module.exports = async function handler(req, res) {
         const bookingBasedCategories = [1855, 1858, 1859, 1861, 1862]; // 투어, 음식, 관광지, 이벤트, 체험
         const isBookingBased = bookingBasedCategories.includes(categoryId);
 
-        // 🔒 CRITICAL FIX: 연령별 가격 서버 검증
+        // 🔒 CRITICAL FIX: 연령별 가격 서버 검증 (변수를 밖으로 빼서 나중에 재사용)
+        let serverCalculatedItemPrice = 0;
         if (isBookingBased && (item.adults || item.children || item.infants || item.seniors)) {
           // 투어/관광지/체험 등: 성인/어린이/유아/경로 가격 검증
-          const serverAdultPrice = listing.admission_fee_adult || listing.price || 0;
+          const serverAdultPrice = listing.admission_fee_adult || listing.adult_price || listing.price || 0;
           const serverChildPrice = listing.admission_fee_child || listing.child_price || 0;
           const serverInfantPrice = listing.admission_fee_infant || listing.infant_price || 0;
-          const serverSeniorPrice = listing.admission_fee_senior || 0;
+          const serverSeniorPrice = listing.admission_fee_senior || listing.senior_price || 0;
 
-          const serverCalculatedItemPrice =
+          serverCalculatedItemPrice =
             (item.adults || 0) * serverAdultPrice +
             (item.children || 0) * serverChildPrice +
             (item.infants || 0) * serverInfantPrice +
@@ -687,16 +689,19 @@ module.exports = async function handler(req, res) {
 
           console.log(`🔒 [Orders] 연령별 가격 검증:`, {
             item: listing.title,
-            adults: item.adults,
-            children: item.children,
-            infants: item.infants,
-            seniors: item.seniors,
-            serverAdultPrice,
-            serverChildPrice,
-            serverInfantPrice,
-            serverSeniorPrice,
-            serverCalculated: serverCalculatedItemPrice,
-            clientProvided: clientItemPrice
+            '👥 adults': item.adults,
+            '👶 children': item.children,
+            '🍼 infants': item.infants,
+            '👴 seniors': item.seniors,
+            '💰 serverAdultPrice': serverAdultPrice,
+            '💰 serverChildPrice': serverChildPrice,
+            '💰 serverInfantPrice': serverInfantPrice,
+            '🔍 listing.adult_price': listing.adult_price,
+            '🔍 listing.child_price': listing.child_price,
+            '🔍 listing.price': listing.price,
+            '✅ serverCalculated': serverCalculatedItemPrice,
+            '📱 clientProvided': clientItemPrice,
+            '📊 calculation': `${item.adults || 0} * ${serverAdultPrice} + ${item.children || 0} * ${serverChildPrice} + ${item.infants || 0} * ${serverInfantPrice}`
           });
 
           // 가격 검증 (1원 이하 오차 허용)
@@ -764,11 +769,16 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        // 가격 계산: 예약 기반 상품은 클라이언트 가격 사용, 팝업 스토어는 DB 가격 사용
+        // 🔒 CRITICAL FIX: 가격 계산 - 연령별 데이터가 있으면 서버 계산 값 사용
         let totalItemPrice;
         if (isBookingBased) {
-          // 투어/음식/관광지 등은 이미 별도 API에서 가격 계산 완료
-          totalItemPrice = (item.price || 0) * item.quantity;
+          // 연령별 데이터가 있으면 서버가 계산한 값 사용 (이미 검증됨)
+          if (serverCalculatedItemPrice > 0) {
+            totalItemPrice = serverCalculatedItemPrice * item.quantity;
+          } else {
+            // 연령별 데이터 없으면 클라이언트 가격 사용 (기존 로직)
+            totalItemPrice = (item.price || 0) * item.quantity;
+          }
         } else {
           // 팝업 스토어 상품은 DB 가격으로 재계산
           totalItemPrice = (actualItemPrice + actualOptionPrice) * item.quantity;
@@ -886,8 +896,19 @@ module.exports = async function handler(req, res) {
         serverPointsUsed = 0;
       }
 
-      // 서버 측 최종 금액 계산 (서버가 재계산한 subtotal 사용)
-      const expectedTotal = serverCalculatedSubtotal - serverCouponDiscount + serverDeliveryFee - serverPointsUsed;
+      // 🔒 CRITICAL FIX: 보험료 검증 및 계산
+      let serverInsuranceFee = 0;
+      if (insurance && insurance.price) {
+        serverInsuranceFee = insurance.price;
+        console.log(`💼 [Orders] 보험 적용:`, {
+          name: insurance.name,
+          price: serverInsuranceFee,
+          coverage_amount: insurance.coverage_amount
+        });
+      }
+
+      // 서버 측 최종 금액 계산 (서버가 재계산한 subtotal 사용 + 보험료 포함)
+      const expectedTotal = serverCalculatedSubtotal - serverCouponDiscount + serverDeliveryFee + serverInsuranceFee - serverPointsUsed;
 
       // 1원 이하 오차 허용 (부동소수점 연산 오차)
       if (Math.abs(expectedTotal - total) > 1) {
@@ -897,6 +918,7 @@ module.exports = async function handler(req, res) {
           - 차이: ${Math.abs(expectedTotal - total)}원
           - serverSubtotal: ${serverCalculatedSubtotal}
           - deliveryFee: ${serverDeliveryFee}
+          - insuranceFee: ${serverInsuranceFee}
           - couponDiscount: ${serverCouponDiscount}
           - pointsUsed: ${serverPointsUsed}`);
 
@@ -1104,6 +1126,7 @@ module.exports = async function handler(req, res) {
               couponDiscount: categoryCouponDiscount,
               couponCode: categoryCouponCode,
               pointsUsed: categoryPointsUsed,
+              insurance: insurance || null, // ✅ FIX: 보험 정보 저장
               shippingInfo: shippingInfo || null, // ✅ FIX: 카테고리 무관하게 항상 저장
               billingInfo: shippingInfo ? {
                 name: shippingInfo.name,
@@ -1306,11 +1329,18 @@ module.exports = async function handler(req, res) {
           if (userResult.rows && userResult.rows.length > 0) {
             const currentPoints = userResult.rows[0].total_points || 0;
 
-            if (currentPoints < pointsUsed) {
-              throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용 요청: ${pointsUsed}P)`);
+            // 🔒 음수 잔액 처리: 사용 가능한 포인트는 0 이상만
+            const availablePoints = Math.max(0, currentPoints);
+
+            if (availablePoints < pointsUsed) {
+              if (currentPoints < 0) {
+                throw new Error(`포인트가 부족합니다. (미정산 금액: ${Math.abs(currentPoints)}P, 사용 가능: 0P, 사용 요청: ${pointsUsed}P)`);
+              } else {
+                throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용 요청: ${pointsUsed}P)`);
+              }
             }
 
-            console.log(`✅ [Orders] 포인트 사용 가능 확인: ${pointsUsed}P (현재 잔액: ${currentPoints}P)`);
+            console.log(`✅ [Orders] 포인트 사용 가능 확인: ${pointsUsed}P (현재 잔액: ${currentPoints}P, 사용가능: ${availablePoints}P)`);
             console.log(`ℹ️ [Orders] 포인트 차감은 결제 확정 후 수행됩니다.`);
           } else {
             throw new Error('사용자를 찾을 수 없습니다.');

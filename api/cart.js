@@ -32,6 +32,10 @@ async function handler(req, res) {
           l.category,
           l.is_active,
           l.location,
+          l.adult_price,
+          l.child_price,
+          l.infant_price,
+          l.senior_price,
           COALESCE(l.category, cat.name_ko, '') AS category_name
         FROM cart_items c
         LEFT JOIN listings l ON c.listing_id = l.id
