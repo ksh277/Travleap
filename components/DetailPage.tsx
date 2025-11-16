@@ -149,7 +149,7 @@ interface BookingFormData {
 // ✅ 팝업 상품 판별 헬퍼 함수 (category_id === 3 또는 category === '팝업')
 const isPopupProduct = (item: DetailItem | null): boolean => {
   if (!item) return false;
-  return item.category_id === 3 || isPopupProduct(item);
+  return item.category_id === 3 || item.category === '팝업' || item.category === 'popup';
 };
 
 export function DetailPage() {
