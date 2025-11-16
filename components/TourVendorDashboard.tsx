@@ -47,11 +47,20 @@ interface TourBooking {
   created_at: string;
 }
 
+interface ListingWithStock {
+  id: number;
+  title: string;
+  category: string;
+  stock: number | null;
+  stock_enabled: boolean;
+}
+
 const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
-  const [activeTab, setActiveTab] = useState<'packages' | 'schedules' | 'bookings'>('packages');
+  const [activeTab, setActiveTab] = useState<'packages' | 'schedules' | 'bookings' | 'stock'>('packages');
   const [packages, setPackages] = useState<TourPackage[]>([]);
   const [schedules, setSchedules] = useState<TourSchedule[]>([]);
   const [bookings, setBookings] = useState<TourBooking[]>([]);
+  const [listings, setListings] = useState<ListingWithStock[]>([]);
   const [loading, setLoading] = useState(false);
 
   // 정렬 상태
@@ -126,6 +135,64 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
       console.error('예약 로드 실패:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 재고 관리 함수
+  const fetchListingsForStock = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/vendor/listings?category=tour&include_stock=true', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setListings(result.data);
+      } else {
+        alert(result.message || '상품 목록을 불러오는데 실패했습니다.');
+      }
+    } catch (error: any) {
+      alert(error.message || '서버 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateListingStock = async (listingId: number, newStock: number) => {
+    if (newStock < 0) {
+      alert('재고는 0 이상이어야 합니다.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/vendor/stock', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          listing_id: listingId,
+          stock: newStock
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('재고가 업데이트되었습니다.');
+        fetchListingsForStock(); // 재로드
+      } else {
+        alert(result.message || '재고 업데이트에 실패했습니다.');
+      }
+    } catch (error: any) {
+      alert(error.message || '서버 오류가 발생했습니다.');
     }
   };
 
@@ -403,6 +470,12 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
         >
           <Users size={18} />
           예약 관리
+        </button>
+        <button
+          className={`tab ${activeTab === 'stock' ? 'active' : ''}`}
+          onClick={() => setActiveTab('stock')}
+        >
+          📦 재고 관리
         </button>
       </div>
 
@@ -757,6 +830,91 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                 )}
               </div>
             )}
+
+            {/* 재고 관리 탭 */}
+            {activeTab === 'stock' && (
+              <div className="stock-management">
+                <div className="section-header">
+                  <h2>📦 투어 재고 관리</h2>
+                  <Button onClick={fetchListingsForStock} disabled={loading}>
+                    <RefreshCw size={16} style={{ marginRight: '8px' }} />
+                    새로고침
+                  </Button>
+                </div>
+
+                {listings.length === 0 ? (
+                  <div className="empty-state">
+                    <Info size={48} />
+                    <p>등록된 투어 상품이 없습니다.</p>
+                    <Button onClick={fetchListingsForStock} variant="outline">
+                      재고 정보 불러오기
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="stock-table-container">
+                    <table className="stock-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>상품명</th>
+                          <th>카테고리</th>
+                          <th>현재 재고</th>
+                          <th>재고 수정</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listings.map((listing) => (
+                          <tr key={listing.id}>
+                            <td>#{listing.id}</td>
+                            <td>{listing.title}</td>
+                            <td><span className="category-badge">{listing.category}</span></td>
+                            <td>
+                              <span className="stock-badge">
+                                {listing.stock !== null ? `${listing.stock}개` : '무제한'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="stock-controls">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  defaultValue={listing.stock || 0}
+                                  className="stock-input"
+                                  id={`stock-${listing.id}`}
+                                />
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    const input = document.getElementById(`stock-${listing.id}`) as HTMLInputElement;
+                                    const newStock = parseInt(input.value);
+                                    if (!isNaN(newStock)) {
+                                      updateListingStock(listing.id, newStock);
+                                    }
+                                  }}
+                                >
+                                  저장
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    <div className="help-box">
+                      <h4>💡 재고 관리 안내</h4>
+                      <ul>
+                        <li>• 각 투어 상품별로 보유하고 있는 재고를 설정할 수 있습니다.</li>
+                        <li>• 예약 시 해당 기간에 재고가 부족하면 예약이 불가능합니다.</li>
+                        <li>• 재고는 0 이상의 숫자로 입력해주세요.</li>
+                        <li>• 변경 후 반드시 "저장" 버튼을 클릭해야 적용됩니다.</li>
+                        <li>• 예약 만료 시 자동으로 재고가 복구됩니다.</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -1086,6 +1244,105 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
 
         .space-y-1 > * + * {
           margin-top: 0.25rem;
+        }
+
+        /* 재고 관리 스타일 */
+        .stock-management {
+          background: white;
+          border-radius: 8px;
+          padding: 24px;
+        }
+
+        .stock-table-container {
+          overflow-x: auto;
+        }
+
+        .stock-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 16px;
+        }
+
+        .stock-table th {
+          background: #f9fafb;
+          padding: 12px;
+          text-align: left;
+          font-weight: 600;
+          color: #374151;
+          border-bottom: 2px solid #e5e7eb;
+        }
+
+        .stock-table td {
+          padding: 12px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .category-badge {
+          display: inline-block;
+          padding: 4px 12px;
+          background: #f3f4f6;
+          border-radius: 12px;
+          font-size: 14px;
+          color: #374151;
+        }
+
+        .stock-badge {
+          display: inline-block;
+          padding: 4px 12px;
+          background: #dbeafe;
+          color: #1e40af;
+          border-radius: 12px;
+          font-weight: 500;
+          font-size: 14px;
+        }
+
+        .stock-controls {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .stock-input {
+          width: 80px;
+          padding: 6px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          text-align: center;
+          font-size: 14px;
+        }
+
+        .stock-input:focus {
+          outline: none;
+          border-color: #3b82f6;
+          ring: 2px;
+          ring-color: #93c5fd;
+        }
+
+        .help-box {
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          border-radius: 8px;
+          padding: 16px;
+          margin-top: 24px;
+        }
+
+        .help-box h4 {
+          font-weight: 600;
+          color: #1e3a8a;
+          margin-bottom: 8px;
+        }
+
+        .help-box ul {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .help-box li {
+          font-size: 14px;
+          color: #1e40af;
+          margin-top: 4px;
         }
       `}</style>
 
