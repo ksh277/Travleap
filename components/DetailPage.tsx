@@ -72,6 +72,7 @@ interface DetailItem {
   address?: string;
   duration: string;
   category: string;
+  category_id?: number;  // ✅ 팝업 판별용 (category_id === 3)
   rating: number;
   reviewCount: number;
   images: string[];
@@ -144,6 +145,12 @@ interface BookingFormData {
   dietaryRestrictions?: string;
   specialNeeds?: string;
 }
+
+// ✅ 팝업 상품 판별 헬퍼 함수 (category_id === 3 또는 category === '팝업')
+const isPopupProduct = (item: DetailItem | null): boolean => {
+  if (!item) return false;
+  return item.category_id === 3 || isPopupProduct(item);
+};
 
 export function DetailPage() {
   const { id: itemId } = useParams<{ id: string }>();
@@ -310,6 +317,7 @@ export function DetailPage() {
           address: data.address || categoryDetails?.address || '',
           duration: data.duration || categoryDetails?.duration || '1시간',
           category: data.category || '투어',
+          category_id: data.category_id,  // ✅ 팝업 판별용
           rating: data.rating_avg || 0,
           reviewCount: data.rating_count || 0,
           images: Array.isArray(data.images) && data.images.length > 0
@@ -499,7 +507,7 @@ export function DetailPage() {
       if (!item?.id) return;
 
       // @ts-ignore - Check if item has hasOptions property
-      if (item.category === '팝업' && item.hasOptions) {
+      if (isPopupProduct(item) && item.hasOptions) {
         try {
           const response = await fetch(`/api/listings/${item.id}/options`);
           const result = await response.json();
@@ -641,8 +649,8 @@ export function DetailPage() {
       }
 
       // ✅ 팝업 상품의 경우 옵션 가격 반영
-      let finalAmount = item.category === '팝업' ? (item.price || 0) * quantity : priceCalculation.total;
-      if (item.category === '팝업' && selectedOption) {
+      let finalAmount = isPopupProduct(item) ? (item.price || 0) * quantity : priceCalculation.total;
+      if (isPopupProduct(item) && selectedOption) {
         // 옵션 추가금을 수량에 곱해서 반영
         finalAmount += selectedOption.price_adjustment * quantity;
       }
@@ -650,22 +658,22 @@ export function DetailPage() {
       const bookingRequest = {
         listing_id: Number(item.id),
         user_id: user?.id || 1,
-        num_adults: item.category === '팝업' ? quantity : adults,
-        num_children: item.category === '팝업' ? 0 : children,
-        num_seniors: item.category === '팝업' ? 0 : infants,
+        num_adults: isPopupProduct(item) ? quantity : adults,
+        num_children: isPopupProduct(item) ? 0 : children,
+        num_seniors: isPopupProduct(item) ? 0 : infants,
         start_time: startTime || '09:00',
         guest_name: bookingData.name.trim(),
         guest_phone: bookingData.phone.trim(),
         guest_email: bookingData.email.trim(),
-        booking_date: item.category === '팝업' ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
-        guest_count: item.category === '팝업' ? quantity : totalGuests,
+        booking_date: isPopupProduct(item) ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
+        guest_count: isPopupProduct(item) ? quantity : totalGuests,
         special_requests: bookingData.requests.trim() || '',
         total_amount: finalAmount,
         emergency_contact: bookingData.emergencyContact?.trim() || '',
         dietary_restrictions: bookingData.dietaryRestrictions?.trim() || '',
         special_needs: bookingData.specialNeeds?.trim() || '',
         // ✅ 팝업 상품 옵션 정보 추가
-        ...(item.category === '팝업' && selectedOption && {
+        ...(isPopupProduct(item) && selectedOption && {
           selected_option: {
             id: selectedOption.id,
             name: selectedOption.option_name,
@@ -701,8 +709,8 @@ export function DetailPage() {
           bookingNumber: response.data.booking_number,
           amount: response.data.total_amount.toString(),
           title: item.title,
-          date: item.category === '팝업' ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
-          guests: item.category === '팝업' ? quantity.toString() : totalGuests.toString(),
+          date: isPopupProduct(item) ? new Date().toISOString().split('T')[0] : selectedDate.toISOString().split('T')[0],
+          guests: isPopupProduct(item) ? quantity.toString() : totalGuests.toString(),
           customerName: response.data.guest_name,
           customerEmail: response.data.guest_email
         });
@@ -829,7 +837,7 @@ export function DetailPage() {
     }
 
     // 팝업 상품 옵션 검증
-    if (item.category === '팝업' && productOptions.length > 0 && !selectedOption) {
+    if (isPopupProduct(item) && productOptions.length > 0 && !selectedOption) {
       toast.error('옵션을 선택해주세요.');
       return;
     }
@@ -837,27 +845,28 @@ export function DetailPage() {
     // 옵션 가격 계산
     const optionPrice = selectedOption ? (selectedOption.price_adjustment || 0) : 0;
     const basePrice = item.price || 0;
-    const itemPrice = item.category === '팝업' ? basePrice : (priceCalculation.basePrice || item.price || 0);
+    const itemPrice = isPopupProduct(item) ? basePrice : (priceCalculation.basePrice || item.price || 0);
 
     const cartItem = {
       id: item.id,
       title: item.title || '상품',
       price: itemPrice,  // ✅ 성인 1명 기준 가격
-      quantity: item.category === '팝업' ? quantity : 1,  // ✅ 수량 추가
+      quantity: isPopupProduct(item) ? quantity : 1,  // ✅ 수량 추가
       image: item.images?.[0] || '',
       category: item.category || '',
+      category_id: item.category_id,  // ✅ 팝업 판별용
       location: item.location || '',
-      date: item.category === '팝업' ? '' : selectedDate!.toISOString().split('T')[0],
-      guests: item.category === '팝업' ? quantity : totalGuests,
+      date: isPopupProduct(item) ? '' : selectedDate!.toISOString().split('T')[0],
+      guests: isPopupProduct(item) ? quantity : totalGuests,
       checkInTime: startTime || undefined,  // ✅ 예약/체크인 시간 (음식점/체험/숙박)
       // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
-      adults: item.category === '팝업' ? undefined : adults,
-      children: item.category === '팝업' ? undefined : children,
-      infants: item.category === '팝업' ? undefined : infants,
+      adults: isPopupProduct(item) ? undefined : adults,
+      children: isPopupProduct(item) ? undefined : children,
+      infants: isPopupProduct(item) ? undefined : infants,
       // ✅ 연령대별 가격 정보
-      adultPrice: item.category === '팝업' ? undefined : (item.price || 0),
-      childPrice: item.category === '팝업' ? undefined : (item.childPrice || item.price * 0.7),
-      infantPrice: item.category === '팝업' ? undefined : (item.infantPrice || item.price * 0.3),
+      adultPrice: isPopupProduct(item) ? undefined : (item.price || 0),
+      childPrice: isPopupProduct(item) ? undefined : (item.childPrice || item.price * 0.7),
+      infantPrice: isPopupProduct(item) ? undefined : (item.infantPrice || item.price * 0.3),
       selectedOption: selectedOption ? {
         id: selectedOption.id,
         name: selectedOption.option_name,
@@ -1296,7 +1305,7 @@ export function DetailPage() {
 
             {/* Navigation Tabs (Sticky) */}
             <div className="sticky top-16 z-10 bg-white border-b shadow-sm mb-6 -mx-4 px-4">
-              <div className={`grid w-full ${item?.category === '팝업' ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-1 max-w-6xl mx-auto`}>
+              <div className={`grid w-full ${isPopupProduct(item) ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-1 max-w-6xl mx-auto`}>
                 <button
                   onClick={() => scrollToSection('description')}
                   className={`py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 ${
@@ -1528,7 +1537,7 @@ export function DetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {item?.category === '팝업' ? (
+                    {isPopupProduct(item) ? (
                       <>
                         {/* 팝업 스토어 상품 (배송형) */}
                         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-3">
@@ -1827,7 +1836,7 @@ export function DetailPage() {
                       </ul>
                     </div>
                     {/* 팝업 상품 배송비 정책 */}
-                    {item?.category === '팝업' && (
+                    {isPopupProduct(item) && (
                       <div>
                         <h4 className="font-semibold mb-2">배송비 정책</h4>
                         <ul className="space-y-1 text-gray-700">
@@ -1841,7 +1850,7 @@ export function DetailPage() {
                     <div>
                       <h4 className="font-semibold mb-2">반품 배송비</h4>
                       <p className="text-gray-700">
-                        {item?.category === '팝업'
+                        {isPopupProduct(item)
                           ? '제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 반품 배송비(3,000원)가 부과됩니다.'
                           : '제품 하자가 아닌 소비자의 단순 변심에 따른 반품 시 반품 배송비(3,000원)가 부과됩니다.'
                         }
@@ -2110,7 +2119,7 @@ export function DetailPage() {
                   {!showBookingForm ? (
                     <>
                       {/* 팝업 카테고리: 옵션 + 수량 선택 */}
-                      {item?.category === '팝업' ? (
+                      {isPopupProduct(item) ? (
                         <div className="space-y-4">
                           {/* 옵션 선택 */}
                           {productOptions.length > 0 && (
@@ -2425,7 +2434,7 @@ export function DetailPage() {
                       )}
 
                       <div className="border-t pt-4 space-y-2">
-                        {item?.category === '팝업' ? (
+                        {isPopupProduct(item) ? (
                           <>
                             {/* 팝업: 수량 x 가격 */}
                             <div className="flex justify-between items-center text-sm">
@@ -2503,11 +2512,11 @@ export function DetailPage() {
 
                           // ✅ 바로 PaymentPage로 이동
                           // 🔒 배송비 계산 (팝업 상품만)
-                          const itemSubtotal = item.category === '팝업'
+                          const itemSubtotal = isPopupProduct(item)
                             ? (item.price || 0) * quantity + (selectedOption ? selectedOption.price_adjustment * quantity : 0)
                             : priceCalculation.total;
 
-                          const isPopup = item.category === '팝업';
+                          const isPopup = isPopupProduct(item);
                           const deliveryFee = isPopup ? (itemSubtotal >= 50000 ? 0 : 3000) : 0;
                           const totalWithDelivery = itemSubtotal + deliveryFee;
 
@@ -2522,15 +2531,15 @@ export function DetailPage() {
                             items: [{
                               id: item.id,
                               title: item.title,
-                              price: item.category === '팝업' ? item.price : priceCalculation.basePrice,
-                              quantity: item.category === '팝업' ? quantity : 1,
+                              price: isPopupProduct(item) ? item.price : priceCalculation.basePrice,
+                              quantity: isPopupProduct(item) ? quantity : 1,
                               image: Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : '',
                               category: item.category,
-                              selectedDate: item.category === '팝업' ? null : selectedDate?.toISOString().split('T')[0],
-                              adults: item.category === '팝업' ? quantity : adults,
-                              children: item.category === '팝업' ? 0 : children,
-                              infants: item.category === '팝업' ? 0 : infants,
-                              selectedOption: item.category === '팝업' && selectedOption ? {
+                              selectedDate: isPopupProduct(item) ? null : selectedDate?.toISOString().split('T')[0],
+                              adults: isPopupProduct(item) ? quantity : adults,
+                              children: isPopupProduct(item) ? 0 : children,
+                              infants: isPopupProduct(item) ? 0 : infants,
+                              selectedOption: isPopupProduct(item) && selectedOption ? {
                                 id: selectedOption.id,
                                 name: selectedOption.option_name,
                                 value: selectedOption.option_value,
@@ -2604,7 +2613,7 @@ export function DetailPage() {
 
                       <div className="border-t pt-4">
                         <div className="text-sm text-gray-600 mb-4 space-y-1">
-                          {item?.category === '팝업' ? (
+                          {isPopupProduct(item) ? (
                             <>
                               <div>수량: {quantity}개</div>
                               <div>총 금액: {((item.price || 0) * quantity).toLocaleString()}원</div>

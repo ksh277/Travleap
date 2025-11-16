@@ -35,6 +35,11 @@ import { useCartStore } from '../hooks/useCartStore';
 import { addToFavorites, removeFromFavorites, getFavorites } from '../utils/api';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
+// ✅ 팝업 상품 판별 헬퍼 함수
+const isPopupProduct = (item: any): boolean => {
+  return item.category_id === 3 || item.category === '팝업' || item.category === 'popup';
+};
+
 interface CartItem {
   id: number;
   name?: string;
@@ -44,6 +49,7 @@ interface CartItem {
   quantity: number;
   image: string;
   category: string;
+  category_id?: number;
   location?: string;
   date?: string;
   guests?: number;
@@ -237,8 +243,8 @@ export function CartPage() {
     // ✅ FIX: category 필드 없는 경우도 이름으로 감지
     const popupSubtotal = cartItems
       .filter(item =>
-        item.category === '팝업' ||
-        item.category === 'popup' ||
+        isPopupProduct(item) ||
+        isPopupProduct(item) ||
         (item.name || item.title || '').toLowerCase().includes('popup') ||
         (item.name || item.title || '').includes('팝업')
       )
@@ -252,8 +258,8 @@ export function CartPage() {
     // ✅ FIX: category 필드가 없는 경우 대비 (localStorage 기존 데이터)
     // popupSubtotal > 0이면 팝업 상품이 있다고 판단
     const hasPopupProduct = popupSubtotal > 0 || cartItems.some(item =>
-      item.category === '팝업' ||
-      item.category === 'popup' ||
+      isPopupProduct(item) ||
+      isPopupProduct(item) ||
       (item.name || item.title || '').toLowerCase().includes('popup') ||
       (item.name || item.title || '').includes('팝업')
     );
@@ -436,7 +442,7 @@ export function CartPage() {
       });
 
       // 🔒 매핑된 items로 배송비 재계산 (서버와 동일한 로직)
-      const popupItems = mappedItems.filter(item => item.category === '팝업' || item.category === 'popup');
+      const popupItems = mappedItems.filter(item => isPopupProduct(item) || isPopupProduct(item));
       const finalPopupSubtotal = popupItems.reduce((sum, item) => {
         const itemPrice = item.price || 0;
         const optionPrice = item.selectedOption?.priceAdjustment || 0;
@@ -487,7 +493,7 @@ export function CartPage() {
       // Navigate to payment with order data
       const orderParams = new URLSearchParams({
         orderData: JSON.stringify(orderSummary),
-        totalAmount: Math.floor(finalTotal).toString(),
+        totalAmount: Math.floor(finalTotal + totalInsuranceFee).toString(),  // ✅ 보험료 포함
         userId: user?.id?.toString() || '',
         timestamp: Date.now().toString()
       });
@@ -919,7 +925,7 @@ export function CartPage() {
                               ) : item.guests ? (
                                 <div className="flex items-center gap-1">
                                   <Users className="h-3 w-3 flex-shrink-0" />
-                                  <span>{item.guests}{item.category === '팝업' ? '개' : '명'}</span>
+                                  <span>{item.guests}{isPopupProduct(item) ? '개' : '명'}</span>
                                 </div>
                               ) : null}
                               {item.selectedOption && (
@@ -969,7 +975,7 @@ export function CartPage() {
                                     })()}원
                                   </span>
                                 </div>
-                                {(item.quantity > 1 || item.selectedOption) && item.category === '팝업' && (
+                                {(item.quantity > 1 || item.selectedOption) && isPopupProduct(item) && (
                                   <div className="text-xs text-gray-500 mt-1">
                                     총 {(((item.price || 0) + (item.selectedOption?.priceAdjustment || 0)) * item.quantity).toLocaleString()}원
                                   </div>

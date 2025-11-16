@@ -22,6 +22,11 @@ import { useAuth } from '../hooks/useAuth';
 import PaymentWidget from './PaymentWidget';
 import { AddressSearchModal } from './AddressSearchModal';
 
+// ✅ 팝업 상품 판별 헬퍼 함수
+const isPopupProduct = (item: any): boolean => {
+  return item?.category_id === 3 || item?.category === '팝업' || item?.category === 'popup';
+};
+
 export function PaymentPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -118,8 +123,8 @@ export function PaymentPage() {
 
   // 팝업 상품 여부 확인 (배송지 필요 여부 판단용)
   const hasPopupProducts =
-    orderData?.items?.some((item: any) => item.category === '팝업') || // 장바구니 주문
-    booking?.listing?.category === '팝업' || // 단일 상품 주문
+    orderData?.items?.some((item: any) => isPopupProduct(item)) || // 장바구니 주문
+    isPopupProduct(booking?.listing) || // 단일 상품 주문
     false;
 
   // 최종 결제 금액 계산 (배송비 + 보험료 + 포인트 차감 후)
@@ -791,8 +796,9 @@ export function PaymentPage() {
                   {(orderData?.items?.[0]?.category || booking?.listing?.category) && (
                     <p className="text-sm text-gray-600 mt-1">
                       {(() => {
-                        const category = orderData?.items?.[0]?.category || booking?.listing?.category;
-                        if (category === '팝업' || category === 'popup') return '팝업 상품';
+                        const item = orderData?.items?.[0] || booking?.listing;
+                        if (isPopupProduct(item)) return '팝업 상품';
+                        const category = item?.category;
                         if (category === '숙박' || category === 'stay') return '숙박';
                         if (category === '투어' || category === 'tour') return '투어';
                         if (category === '렌트카' || category === 'rentcar') return '렌트카';

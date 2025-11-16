@@ -34,6 +34,7 @@ export interface CartItem {
   maxQuantity?: number;
   image: string;
   category: string;
+  category_id?: number;  // ✅ 팝업 판별용 (category_id === 3)
   location?: string;
   date?: string;
   guests?: number;
