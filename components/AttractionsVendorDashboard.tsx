@@ -76,6 +76,14 @@ interface DashboardStats {
   completed_orders: number;
 }
 
+interface ListingWithStock {
+  id: number;
+  title: string;
+  category: string;
+  stock: number | null;
+  stock_enabled: boolean;
+}
+
 export function AttractionsVendorDashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -90,6 +98,7 @@ export function AttractionsVendorDashboard() {
     upcoming_visits: 0,
     completed_orders: 0
   });
+  const [listings, setListings] = useState<ListingWithStock[]>([]);
 
   // 상세보기 모달
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -215,6 +224,73 @@ export function AttractionsVendorDashboard() {
     } catch (error) {
       console.error('환불 오류:', error);
       toast.error('환불 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const fetchListingsForStock = async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      if (!token) {
+        toast.error('인증 토큰이 없습니다.');
+        return;
+      }
+
+      const response = await fetch('/api/vendor/listings?category=attractions&include_stock=true', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+      if (result.success && result.data) {
+        setListings(result.data);
+      } else {
+        toast.error(result.message || '상품 목록을 불러오는데 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('재고 목록 로드 실패:', error);
+      toast.error(error.message || '서버 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateListingStock = async (listingId: number, newStock: number) => {
+    if (newStock < 0) {
+      toast.error('재고는 0 이상이어야 합니다.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      if (!token) {
+        toast.error('인증 토큰이 없습니다.');
+        return;
+      }
+
+      const response = await fetch('/api/vendor/stock', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          listing_id: listingId,
+          stock: newStock
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('재고가 업데이트되었습니다.');
+        fetchListingsForStock(); // 목록 새로고침
+      } else {
+        toast.error(result.message || '재고 업데이트에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('재고 업데이트 오류:', error);
+      toast.error(error.message || '서버 오류가 발생했습니다.');
     }
   };
 
@@ -507,6 +583,7 @@ export function AttractionsVendorDashboard() {
           <TabsList>
             <TabsTrigger value="orders">티켓 주문</TabsTrigger>
             <TabsTrigger value="attractions">관광지 정보</TabsTrigger>
+            <TabsTrigger value="stock">재고 관리</TabsTrigger>
           </TabsList>
 
           {/* 티켓 주문 탭 */}
@@ -860,6 +937,100 @@ export function AttractionsVendorDashboard() {
                     ))
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* 재고 관리 탭 */}
+          <TabsContent value="stock" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>📦 관광지 티켓 재고 관리</CardTitle>
+                    <CardDescription>등록된 관광지 티켓의 재고를 관리하세요</CardDescription>
+                  </div>
+                  <Button
+                    onClick={fetchListingsForStock}
+                    disabled={isLoading}
+                    variant="outline"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                    새로고침
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* 재고 관리 안내 */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h4 className="font-semibold text-blue-900 mb-2">💡 재고 관리 안내</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• 재고를 설정하면 예약 시 자동으로 차감됩니다.</li>
+                    <li>• 예약 시간이 만료되면 재고가 자동으로 복구됩니다.</li>
+                    <li>• 재고가 0이 되면 더 이상 예약을 받을 수 없습니다.</li>
+                    <li>• 무제한 재고로 운영하려면 재고를 비워두세요.</li>
+                  </ul>
+                </div>
+
+                {/* 재고 테이블 */}
+                {listings.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <p className="mb-4">등록된 관광지 티켓이 없습니다.</p>
+                    <Button onClick={fetchListingsForStock} variant="outline">
+                      목록 새로고침
+                    </Button>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-20">ID</TableHead>
+                        <TableHead>티켓명</TableHead>
+                        <TableHead className="w-32 text-center">현재 재고</TableHead>
+                        <TableHead className="w-48">재고 수정</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {listings.map((listing) => (
+                        <TableRow key={listing.id}>
+                          <TableCell className="font-mono text-sm">#{listing.id}</TableCell>
+                          <TableCell className="font-medium">{listing.title}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={listing.stock === null ? 'secondary' : listing.stock > 10 ? 'default' : listing.stock > 0 ? 'outline' : 'destructive'}>
+                              {listing.stock !== null ? `${listing.stock}개` : '무제한'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                step="1"
+                                defaultValue={listing.stock || 0}
+                                className="w-24"
+                                id={`stock-${listing.id}`}
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  const input = document.getElementById(`stock-${listing.id}`) as HTMLInputElement;
+                                  const newStock = parseInt(input.value);
+                                  if (!isNaN(newStock)) {
+                                    updateListingStock(listing.id, newStock);
+                                  } else {
+                                    toast.error('올바른 숫자를 입력하세요.');
+                                  }
+                                }}
+                              >
+                                저장
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
