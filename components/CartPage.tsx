@@ -772,7 +772,8 @@ export function CartPage() {
                                 </div>
                               )}
                               {/* ✅ 투어/음식/관광지/이벤트/체험: 인원별 상세 표시 + 수정 */}
-                              {(item.adults !== undefined || item.children !== undefined || item.infants !== undefined) ? (
+                              {/* ⚠️ 팝업 상품은 인원이 아닌 수량으로 표시 */}
+                              {!isPopupProduct(item) && (item.adults !== undefined || item.children !== undefined || item.infants !== undefined) ? (
                                 <div className="space-y-3 mt-2">
                                   {/* 성인 */}
                                   {(item.adults !== undefined || item.adultPrice) && (
@@ -923,12 +924,38 @@ export function CartPage() {
                                     </div>
                                   )}
                                 </div>
-                              ) : item.guests ? (
-                                <div className="flex items-center gap-1">
-                                  <Users className="h-3 w-3 flex-shrink-0" />
-                                  <span>{item.guests}{isPopupProduct(item) ? '개' : '명'}</span>
+                              ) : (
+                                // ✅ 팝업 상품: 수량 표시 (quantity 사용)
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Package className="h-3 w-3 flex-shrink-0 text-blue-600" />
+                                    <span className="text-sm font-medium">수량</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleQuantityUpdate(item.id, -1)}
+                                      disabled={item.inStock === false || item.quantity <= 1}
+                                      className="h-6 w-6 p-0 hover:bg-gray-100"
+                                      aria-label="수량 감소"
+                                    >
+                                      <Minus className="h-3 w-3" />
+                                    </Button>
+                                    <span className="w-8 text-center text-sm font-medium">{item.quantity || 1}개</span>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleQuantityUpdate(item.id, 1)}
+                                      disabled={item.inStock === false}
+                                      className="h-6 w-6 p-0 hover:bg-gray-100"
+                                      aria-label="수량 증가"
+                                    >
+                                      <Plus className="h-3 w-3" />
+                                    </Button>
+                                  </div>
                                 </div>
-                              ) : null}
+                              )}
                               {item.selectedOption && (
                                 <div className="flex items-center gap-1">
                                   <Package className="h-3 w-3 flex-shrink-0 text-purple-600" />
@@ -961,6 +988,10 @@ export function CartPage() {
                                   )}
                                   <span className="font-medium text-gray-800">
                                     {(() => {
+                                      // ✅ 팝업 상품: quantity × price (개당 가격 표시)
+                                      if (isPopupProduct(item)) {
+                                        return (item.price || 0).toLocaleString();
+                                      }
                                       // ✅ 투어/음식/관광지/이벤트/체험: 인원별 가격 합계
                                       if (item.adults !== undefined || item.children !== undefined || item.infants !== undefined || item.seniors !== undefined) {
                                         const total =
@@ -971,9 +1002,9 @@ export function CartPage() {
                                           ((item.selectedOption?.priceAdjustment || 0) * item.quantity);
                                         return total.toLocaleString();
                                       }
-                                      // 팝업 스토어: 기본 가격
+                                      // 기타: 기본 가격
                                       return (item.price || 0).toLocaleString();
-                                    })()}원
+                                    })()}원{isPopupProduct(item) ? '/개' : ''}
                                   </span>
                                 </div>
                                 {(item.quantity > 1 || item.selectedOption) && isPopupProduct(item) && (
@@ -983,8 +1014,8 @@ export function CartPage() {
                                 )}
                               </div>
 
-                              {/* ⚠️ 연령별 예약 상품은 위에서 +/- 버튼 제공, 팝업 스토어만 여기서 수량 조절 */}
-                              {!(item.adults !== undefined || item.children !== undefined || item.infants !== undefined) && (
+                              {/* ⚠️ 수량 조절 버튼은 위쪽에서 이미 제공됨 (팝업/투어 모두 처리됨) */}
+                              {false && (
                                 <div className="flex items-center gap-2">
                                   <Button
                                     variant="outline"
