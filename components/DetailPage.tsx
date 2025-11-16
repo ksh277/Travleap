@@ -72,7 +72,7 @@ interface DetailItem {
   address?: string;
   duration: string;
   category: string;
-  category_id?: number;  // ✅ 팝업 판별용 (category_id === 3)
+  category_id?: number;  // ✅ 팝업 판별용 (category_id === 1860)
   rating: number;
   reviewCount: number;
   images: string[];
@@ -146,10 +146,11 @@ interface BookingFormData {
   specialNeeds?: string;
 }
 
-// ✅ 팝업 상품 판별 헬퍼 함수 (category_id === 3 또는 category === '팝업')
+// ✅ 팝업 상품 판별 헬퍼 함수 (category_id === 1860 또는 category === 'popup')
 const isPopupProduct = (item: DetailItem | null): boolean => {
   if (!item) return false;
-  return item.category_id === 3 || item.category === '팝업' || item.category === 'popup';
+  // category_id는 1860 (popup 카테고리 ID)
+  return item.category_id === 1860 || item.category === '팝업' || item.category === 'popup';
 };
 
 export function DetailPage() {

@@ -21,7 +21,7 @@ import { TrackingDetailDialog } from './TrackingDetailDialog';
 
 // ✅ 팝업 상품 판별 헬퍼 함수
 const isPopupProduct = (item: any): boolean => {
-  return item?.category_id === 3 || item?.category === '팝업' || item?.category === 'popup';
+  return item?.category_id === 1860 || item?.category === '팝업' || item?.category === 'popup';
 };
 
 interface PaymentHistoryCardProps {
