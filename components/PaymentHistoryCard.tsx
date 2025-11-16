@@ -21,7 +21,7 @@ import { TrackingDetailDialog } from './TrackingDetailDialog';
 
 // ✅ 팝업 상품 판별 헬퍼 함수
 const isPopupProduct = (item: any): boolean => {
-  return item?.category_id === 3 || item?.isPopupProduct({ category, category_id: payment.category_id }) || item?.category === 'popup';
+  return item?.category_id === 3 || item?.category === '팝업' || item?.category === 'popup';
 };
 
 interface PaymentHistoryCardProps {
@@ -338,7 +338,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
             )}
 
             {/* 배송지 정보 (팝업 상품만) */}
-            {notesData?.shippingInfo && (isPopupProduct({ category, category_id: payment.category_id }) || notesData.isPopupProduct({ category, category_id: payment.category_id }) || payment.category === 'popup') && (
+            {notesData?.shippingInfo && isPopupProduct({ category, category_id: payment.category_id }) && (
               <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm">
                 <div className="flex items-start">
                   <Package className="w-4 h-4 mr-2 text-gray-600 mt-0.5 flex-shrink-0" />
@@ -466,7 +466,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                 <div className="text-sm text-yellow-800">
                   <p className="font-semibold mb-1">환불 전 확인사항</p>
                   <ul className="list-disc list-inside space-y-1 text-xs">
-                    {payment.isPopupProduct({ category, category_id: payment.category_id }) ? (
+                    {isPopupProduct({ category, category_id: payment.category_id }) ? (
                       <>
                         <li>배송 시작 전: 전액 환불 (배송비 포함)</li>
                         <li>배송 중/완료: 배송비(3,000원) + 반품비(3,000원) 차감 후 환불</li>
@@ -513,7 +513,7 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
               <div className="text-xs text-gray-600 mt-2">
                 <p className="font-medium mb-1">💡 환불 금액 안내</p>
                 <p className="text-gray-500">
-                  {payment.isPopupProduct({ category, category_id: payment.category_id }) ? (
+                  {isPopupProduct({ category, category_id: payment.category_id }) ? (
                     <>배송 상태 및 환불 정책에 따라 자동 계산됩니다.</>
                   ) : (
                     <>예약 시작일까지 남은 기간 및 환불 정책에 따라 자동 계산됩니다.</>
