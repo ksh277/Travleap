@@ -140,12 +140,16 @@ module.exports = async function handler(req, res) {
 
     for (const vehicle of vehicles) {
       // 5-1. 기존 예약과 겹침 체크
+      // ✅ FIX: 올바른 컬럼명 사용 (pickup_date/time, dropoff_date/time)
       const overlapQuery = `
         SELECT 1
         FROM rentcar_bookings
         WHERE vehicle_id = ?
           AND status IN ('hold', 'confirmed', 'in_progress')
-          AND NOT (dropoff_at_utc <= ? OR ? <= pickup_at_utc)
+          AND NOT (
+            CONCAT(dropoff_date, ' ', dropoff_time) <= ?
+            OR ? <= CONCAT(pickup_date, ' ', pickup_time)
+          )
         LIMIT 1
       `;
 
