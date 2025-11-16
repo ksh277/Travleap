@@ -780,7 +780,7 @@ export function CartPage() {
                                       <div className="flex items-center gap-2 flex-1">
                                         <Users className="h-3 w-3 flex-shrink-0 text-blue-600" />
                                         <span className="text-xs font-medium">성인</span>
-                                        {item.adultPrice && (
+                                        {item.adultPrice !== undefined && item.adultPrice !== null && (
                                           <span className="text-xs text-gray-500">
                                             {item.adultPrice.toLocaleString()}원/명
                                           </span>
@@ -817,7 +817,7 @@ export function CartPage() {
                                       <div className="flex items-center gap-2 flex-1">
                                         <Users className="h-3 w-3 flex-shrink-0 text-green-600" />
                                         <span className="text-xs font-medium">어린이</span>
-                                        {item.childPrice && (
+                                        {item.childPrice !== undefined && item.childPrice !== null && (
                                           <span className="text-xs text-gray-500">
                                             {item.childPrice.toLocaleString()}원/명
                                           </span>
@@ -854,7 +854,7 @@ export function CartPage() {
                                       <div className="flex items-center gap-2 flex-1">
                                         <Users className="h-3 w-3 flex-shrink-0 text-orange-600" />
                                         <span className="text-xs font-medium">유아</span>
-                                        {item.infantPrice !== undefined && (
+                                        {item.infantPrice !== undefined && item.infantPrice !== null && (
                                           <span className="text-xs text-gray-500">
                                             {item.infantPrice.toLocaleString()}원/명
                                           </span>
@@ -891,7 +891,7 @@ export function CartPage() {
                                       <div className="flex items-center gap-2 flex-1">
                                         <Users className="h-3 w-3 flex-shrink-0 text-purple-600" />
                                         <span className="text-xs font-medium">경로</span>
-                                        {item.seniorPrice && (
+                                        {item.seniorPrice !== undefined && item.seniorPrice !== null && (
                                           <span className="text-xs text-gray-500">
                                             {item.seniorPrice.toLocaleString()}원/명
                                           </span>
@@ -942,7 +942,7 @@ export function CartPage() {
                                   </span>
                                 </div>
                               )}
-                              {item.rating && item.rating > 0 && item.reviewCount && item.reviewCount > 0 && (
+                              {item.rating && item.rating > 0 && item.reviewCount !== undefined && item.reviewCount !== null && item.reviewCount > 0 && (
                                 <div className="flex items-center gap-1">
                                   <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />
                                   <span>{item.rating.toFixed(1)} ({item.reviewCount.toLocaleString()}개 리뷰)</span>
