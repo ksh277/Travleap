@@ -89,6 +89,7 @@ interface OrderSummary {
   couponDiscount: number;
   couponCode: string | null;
   deliveryFee: number;
+  insuranceFee?: number;  // ✅ 보험료 추가
   total: number;
 }
 
@@ -457,6 +458,11 @@ export function CartPage() {
         '최종 total': finalTotal
       });
 
+      // ✅ 보험료 합계 계산
+      const totalInsuranceFee = mappedItems.reduce((sum, item) => {
+        return sum + (item.insuranceFee || 0);
+      }, 0);
+
       // ✅ Create comprehensive order summary (쿠폰/포인트는 결제 페이지에서 적용)
       const orderSummary: OrderSummary = {
         items: mappedItems,
@@ -464,7 +470,8 @@ export function CartPage() {
         couponDiscount: 0,  // 결제 페이지에서 쿠폰 적용
         couponCode: null,
         deliveryFee: Number(finalShippingFee),
-        total: Math.floor(finalTotal)  // 할인 전 금액 (결제 페이지에서 최종 금액 계산)
+        insuranceFee: totalInsuranceFee,  // ✅ 보험료 추가
+        total: Math.floor(finalTotal + totalInsuranceFee)  // 보험료 포함
       };
 
       // Validate order summary (finalTotal 사용)

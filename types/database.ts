@@ -62,6 +62,14 @@ export interface CartItem {
     value: string;
     priceAdjustment: number;
   };
+  // ✅ 보험 정보
+  selectedInsurance?: {
+    id: number;
+    name: string;
+    price: number;
+    coverage_amount?: number;
+  };
+  insuranceFee?: number;
 }
 
 export interface Category {

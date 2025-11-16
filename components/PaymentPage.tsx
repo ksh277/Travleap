@@ -126,7 +126,10 @@ export function PaymentPage() {
   const orderTotal = orderData ? Number(orderData.total) : parseInt(booking?.totalPrice || amount || totalAmount || '0');
   // orderData.deliveryFee가 있으면 이미 orderData.total에 배송비 포함됨 (장바구니에서 온 경우)
   const totalWithDelivery = orderData?.deliveryFee !== undefined ? orderTotal : orderTotal + Number(deliveryFee);
-  const insuranceFee = selectedInsurance ? Number(selectedInsurance.price) : 0;
+  // ✅ 장바구니에서 전달된 보험료 우선 사용, 없으면 결제 페이지에서 선택한 보험 사용
+  const cartInsuranceFee = orderData?.insuranceFee || 0;
+  const pageInsuranceFee = selectedInsurance ? Number(selectedInsurance.price) : 0;
+  const insuranceFee = cartInsuranceFee || pageInsuranceFee;
   const totalWithInsurance = totalWithDelivery + insuranceFee;
   const finalAmount = Math.max(0, totalWithInsurance - Number(pointsToUse));
 
@@ -1015,13 +1018,13 @@ export function PaymentPage() {
                           <span>{orderData.deliveryFee.toLocaleString()}원</span>
                         </div>
                       )}
-                      {selectedInsurance && (
+                      {(selectedInsurance || cartInsuranceFee > 0) && (
                         <div className="flex justify-between text-blue-600">
                           <span className="flex items-center gap-1">
                             <Shield className="h-4 w-4" />
-                            {selectedInsurance.name}
+                            {selectedInsurance ? selectedInsurance.name : '보험'}
                           </span>
-                          <span>+{selectedInsurance.price.toLocaleString()}원</span>
+                          <span>+{insuranceFee.toLocaleString()}원</span>
                         </div>
                       )}
                       <Separator />
@@ -1047,13 +1050,13 @@ export function PaymentPage() {
                           </span>
                         </div>
                       )}
-                      {selectedInsurance && (
+                      {(selectedInsurance || cartInsuranceFee > 0) && (
                         <div className="flex justify-between text-blue-600">
                           <span className="flex items-center gap-1">
                             <Shield className="h-4 w-4" />
-                            {selectedInsurance.name}
+                            {selectedInsurance ? selectedInsurance.name : '보험'}
                           </span>
-                          <span>+{selectedInsurance.price.toLocaleString()}원</span>
+                          <span>+{insuranceFee.toLocaleString()}원</span>
                         </div>
                       )}
                       <Separator />
