@@ -130,13 +130,15 @@ async function handler(req, res) {
         selected_options,
         selected_insurance,
         insurance_fee = 0,
-        num_adults = 1,
-        num_children = 0,
-        num_infants = 0,
-        num_seniors = 0,
-        adult_price = 0,
-        child_price = 0,
-        infant_price = 0,
+        // ⚠️ CRITICAL FIX: 팝업 상품은 인원 정보가 없으므로 기본값 제거
+        // 투어/음식/관광지만 인원 정보를 명시적으로 전송
+        num_adults,
+        num_children,
+        num_infants,
+        num_seniors,
+        adult_price,
+        child_price,
+        infant_price,
         price_snapshot
       } = req.body;
 
@@ -201,13 +203,14 @@ async function handler(req, res) {
         JSON.stringify(selected_options || {}),
         selected_insurance ? JSON.stringify(selected_insurance) : null,
         insurance_fee || 0,
-        num_adults,
-        num_children,
-        num_infants,
-        num_seniors,
-        adult_price,
-        child_price,
-        infant_price,
+        // ⚠️ CRITICAL FIX: undefined를 null로 변환 (팝업 상품은 인원 정보 없음)
+        num_adults !== undefined ? num_adults : null,
+        num_children !== undefined ? num_children : null,
+        num_infants !== undefined ? num_infants : null,
+        num_seniors !== undefined ? num_seniors : null,
+        adult_price !== undefined ? adult_price : null,
+        child_price !== undefined ? child_price : null,
+        infant_price !== undefined ? infant_price : null,
         price_snapshot || null
       ]);
 
