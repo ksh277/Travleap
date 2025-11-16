@@ -232,7 +232,9 @@
       "mcp__ide__getDiagnostics",
       "Bash(if [ -f \"api/rentals.js\" ])",
       "Bash(if [ -f \"pages/api/vendor/rentcar/bookings.js\" ])",
-      "Bash(if [ -d \"pages/api/vendor/rentcar\" ])"
+      "Bash(if [ -d \"pages/api/vendor/rentcar\" ])",
+      "Bash(NUL)",
+      "Bash(del nul 2)"
     ],
     "deny": [],
     "ask": []

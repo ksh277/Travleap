@@ -30,6 +30,8 @@ async function handler(req, res) {
     quantity = 1,
     selected_date,
     selected_options,
+    selected_insurance,
+    insurance_fee = 0,
     num_adults = 1,
     num_children = 0,
     num_infants = 0,
@@ -73,19 +75,22 @@ async function handler(req, res) {
       });
     }
 
-    // 장바구니에 추가
+    // ✅ 장바구니에 추가 (보험 및 옵션 포함)
     const result = await connection.execute(
       `INSERT INTO cart_items (
         user_id, listing_id, quantity, selected_date, selected_options,
+        selected_insurance, insurance_fee,
         num_adults, num_children, num_infants, num_seniors,
         adult_price, child_price, infant_price, price_snapshot, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         userId,
         listing_id,
         quantity,
         selected_date || null,
         JSON.stringify(selected_options || {}),
+        selected_insurance ? JSON.stringify(selected_insurance) : null,
+        insurance_fee || 0,
         num_adults,
         num_children,
         num_infants,

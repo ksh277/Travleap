@@ -872,7 +872,10 @@ export function DetailPage() {
         name: selectedOption.option_name,
         value: selectedOption.option_value,
         priceAdjustment: selectedOption.price_adjustment
-      } : undefined
+      } : undefined,
+      // ✅ 보험 정보 (렌트카 등에서 전달될 수 있음)
+      selectedInsurance: undefined,  // 향후 렌트카 페이지에서 전달 가능
+      insuranceFee: 0
     };
 
     console.log('🛒 [DetailPage] 장바구니 추가 시작:', cartItem);

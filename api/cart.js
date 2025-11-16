@@ -20,7 +20,7 @@ async function handler(req, res) {
       console.log('🛒 [Cart] GET request, userId:', userId, 'type:', typeof userId);
       console.log('🛒 [Cart] DATABASE_URL exists:', !!process.env.DATABASE_URL);
 
-      // 장바구니 조회 (검증 포함)
+      // 장바구니 조회 (검증 포함) - ✅ 보험 및 옵션 필드 포함
       const result = await connection.execute(`
         SELECT
           c.*,
@@ -55,13 +55,18 @@ async function handler(req, res) {
       const items = (result.rows || []).map(item => {
         let images = [];
         let selectedOptions = {};
+        let selectedInsurance = null;
         let validationStatus = 'valid';
         let validationMessage = '';
 
         try {
           if (item.images) images = JSON.parse(item.images);
           if (item.selected_options) selectedOptions = JSON.parse(item.selected_options);
-        } catch (e) {}
+          // ✅ 보험 정보 파싱
+          if (item.selected_insurance) selectedInsurance = JSON.parse(item.selected_insurance);
+        } catch (e) {
+          console.error('❌ [Cart] JSON parsing error:', e);
+        }
 
         // 🔍 상품 존재 여부 확인
         if (!item.listing_exists) {
@@ -80,6 +85,9 @@ async function handler(req, res) {
           ...item,
           images: Array.isArray(images) ? images : [],
           selected_options: selectedOptions,
+          // ✅ 보험 정보 추가
+          selectedInsurance: selectedInsurance,
+          insuranceFee: item.insurance_fee || 0,
           validationStatus,
           validationMessage,
           // ✅ camelCase 변환 (클라이언트 호환성)
@@ -114,12 +122,14 @@ async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      // 장바구니 추가
+      // 장바구니 추가 - ✅ 보험 및 옵션 지원
       const {
         listing_id,
         quantity = 1,
         selected_date,
         selected_options,
+        selected_insurance,
+        insurance_fee = 0,
         num_adults = 1,
         num_children = 0,
         num_infants = 0,
@@ -174,19 +184,23 @@ async function handler(req, res) {
         });
       }
 
+      // ✅ 보험 및 옵션 포함하여 장바구니에 추가
       const result = await connection.execute(`
         INSERT INTO cart_items (
           user_id, listing_id, quantity, selected_date, selected_options,
+          selected_insurance, insurance_fee,
           num_adults, num_children, num_infants, num_seniors,
           adult_price, child_price, infant_price, price_snapshot, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       `, [
         userId,
         listing_id,
         quantity,
         selected_date || null,
         JSON.stringify(selected_options || {}),
+        selected_insurance ? JSON.stringify(selected_insurance) : null,
+        insurance_fee || 0,
         num_adults,
         num_children,
         num_infants,
@@ -206,12 +220,14 @@ async function handler(req, res) {
     }
 
     if (req.method === 'PUT') {
-      // 장바구니 수정
+      // 장바구니 수정 - ✅ 보험 및 옵션 지원
       const { itemId } = req.query;
       const {
         quantity,
         selected_date,
         selected_options,
+        selected_insurance,
+        insurance_fee,
         num_adults,
         num_children,
         num_infants,
@@ -228,6 +244,8 @@ async function handler(req, res) {
           quantity = COALESCE(?, quantity),
           selected_date = COALESCE(?, selected_date),
           selected_options = COALESCE(?, selected_options),
+          selected_insurance = COALESCE(?, selected_insurance),
+          insurance_fee = COALESCE(?, insurance_fee),
           num_adults = COALESCE(?, num_adults),
           num_children = COALESCE(?, num_children),
           num_infants = COALESCE(?, num_infants),
@@ -242,6 +260,8 @@ async function handler(req, res) {
         quantity,
         selected_date,
         selected_options ? JSON.stringify(selected_options) : null,
+        selected_insurance ? JSON.stringify(selected_insurance) : null,
+        insurance_fee,
         num_adults,
         num_children,
         num_infants,

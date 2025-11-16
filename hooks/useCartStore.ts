@@ -157,6 +157,9 @@ export function useCartStore() {
               childPrice: item.child_price,
               infantPrice: item.infant_price,
               seniorPrice: item.senior_price,
+              // ✅ 보험 정보 추가
+              selectedInsurance: item.selectedInsurance || undefined,
+              insuranceFee: item.insuranceFee || 0,
               inStock: item.is_active === 1 || item.is_active === true,
               validationStatus: item.validationStatus,
               validationMessage: item.validationMessage
@@ -231,6 +234,9 @@ export function useCartStore() {
             quantity: item.quantity || 1,
             selected_date: item.date || null,
             selected_options: item.selectedOption || null,
+            // ✅ 보험 정보 추가
+            selected_insurance: item.selectedInsurance || null,
+            insurance_fee: item.insuranceFee || 0,
             // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
             num_adults: item.adults !== undefined ? item.adults : (item.guests || 1),
             num_children: item.children !== undefined ? item.children : 0,
@@ -308,6 +314,9 @@ export function useCartStore() {
               childPrice: item.child_price,
               infantPrice: item.infant_price,
               seniorPrice: item.senior_price,
+              // ✅ 보험 정보 추가
+              selectedInsurance: item.selectedInsurance || undefined,
+              insuranceFee: item.insuranceFee || 0,
               inStock: item.is_active === 1 || item.is_active === true
             };
           });
