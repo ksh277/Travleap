@@ -135,14 +135,11 @@ export function useCartStore() {
                 `price_from: ${item.price_from}`
             });
 
-            // ⚠️ CRITICAL FIX: 팝업 상품인 경우 인원 정보 제거
-            const isPopup = category === '팝업' || category === 'popup';
-
             const transformed = {
               id: item.id,                    // cart_items 테이블의 id
               listingId: item.listing_id,     // ✅ 실제 상품 ID 추가
               title: item.title || '상품',
-              price: isPopup ? (item.price_from || 0) : calculatedPrice,  // 팝업은 개당 가격
+              price: calculatedPrice,         // ✅ 연령별 총 가격 계산
               quantity: item.quantity || 1,
               image: images[0] || '/placeholder.jpg',
               category: category,
@@ -150,16 +147,16 @@ export function useCartStore() {
               date: item.selected_date,
               guests: item.num_adults || 1,
               // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
-              // ⚠️ CRITICAL FIX: 팝업 상품은 인원 정보 없이 수량만 사용
-              adults: isPopup ? undefined : item.num_adults,
-              children: isPopup ? undefined : item.num_children,
-              infants: isPopup ? undefined : item.num_infants,
-              seniors: isPopup ? undefined : item.num_seniors,
+              // ⚠️ CRITICAL: || 사용하면 0이 undefined로 변환됨! 그냥 값 그대로 전달
+              adults: item.num_adults,
+              children: item.num_children,
+              infants: item.num_infants,
+              seniors: item.num_seniors,
               // ✅ 연령대별 가격 정보
-              adultPrice: isPopup ? undefined : item.adult_price,
-              childPrice: isPopup ? undefined : item.child_price,
-              infantPrice: isPopup ? undefined : item.infant_price,
-              seniorPrice: isPopup ? undefined : item.senior_price,
+              adultPrice: item.adult_price,
+              childPrice: item.child_price,
+              infantPrice: item.infant_price,
+              seniorPrice: item.senior_price,
               // ✅ 보험 정보 추가
               selectedInsurance: item.selectedInsurance || undefined,
               insuranceFee: item.insuranceFee || 0,
@@ -241,17 +238,13 @@ export function useCartStore() {
             selected_insurance: item.selectedInsurance || null,
             insurance_fee: item.insuranceFee || 0,
             // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
-            // ⚠️ CRITICAL FIX: 팝업 상품은 인원 정보 없이 수량만 사용
-            // adults가 명시적으로 설정된 경우에만 인원 정보 전송 (팝업은 전송 안함)
-            num_adults: item.adults,
-            num_children: item.children,
-            num_infants: item.infants,
-            num_seniors: item.seniors,
+            num_adults: item.adults !== undefined ? item.adults : (item.guests || 1),
+            num_children: item.children !== undefined ? item.children : 0,
+            num_infants: item.infants !== undefined ? item.infants : 0,
             // ✅ 연령대별 가격 정보
             adult_price: item.adultPrice || item.price || 0,
             child_price: item.childPrice || 0,
             infant_price: item.infantPrice || 0,
-            senior_price: item.seniorPrice || 0,
             price_snapshot: item.price || 0
           })
         });
@@ -299,23 +292,11 @@ export function useCartStore() {
               }
             }
 
-            // ⚠️ CRITICAL FIX: 팝업 상품인 경우 인원 정보 제거
-            const isPopup = category === '팝업' || category === 'popup';
-
-            // 🔒 CRITICAL FIX: 연령별 인원이 있으면 총 가격 계산
-            const hasAgeData = item.num_adults || item.num_children || item.num_infants || item.num_seniors;
-            const calculatedPrice = hasAgeData ? (
-              (item.num_adults || 0) * (item.adult_price || item.price_from || 0) +
-              (item.num_children || 0) * (item.child_price || 0) +
-              (item.num_infants || 0) * (item.infant_price || 0) +
-              (item.num_seniors || 0) * (item.senior_price || 0)
-            ) : (item.price_from || 0);
-
             return {
               id: item.id,                    // cart_items 테이블의 id
               listingId: item.listing_id,     // ✅ 실제 상품 ID 추가
               title: item.title || '상품',
-              price: isPopup ? (item.price_from || 0) : calculatedPrice,  // 팝업은 개당 가격
+              price: item.price_from || 0,
               quantity: item.quantity || 1,
               image: images[0] || '/placeholder.jpg',
               category: category,
@@ -323,16 +304,16 @@ export function useCartStore() {
               date: item.selected_date,
               guests: item.num_adults || 1,
               // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
-              // ⚠️ CRITICAL FIX: 팝업 상품은 인원 정보 없이 수량만 사용
-              adults: isPopup ? undefined : item.num_adults,
-              children: isPopup ? undefined : item.num_children,
-              infants: isPopup ? undefined : item.num_infants,
-              seniors: isPopup ? undefined : item.num_seniors,
+              // ⚠️ CRITICAL: || 사용하면 0이 undefined로 변환됨! 그냥 값 그대로 전달
+              adults: item.num_adults,
+              children: item.num_children,
+              infants: item.num_infants,
+              seniors: item.num_seniors,
               // ✅ 연령대별 가격 정보
-              adultPrice: isPopup ? undefined : item.adult_price,
-              childPrice: isPopup ? undefined : item.child_price,
-              infantPrice: isPopup ? undefined : item.infant_price,
-              seniorPrice: isPopup ? undefined : item.senior_price,
+              adultPrice: item.adult_price,
+              childPrice: item.child_price,
+              infantPrice: item.infant_price,
+              seniorPrice: item.senior_price,
               // ✅ 보험 정보 추가
               selectedInsurance: item.selectedInsurance || undefined,
               insuranceFee: item.insuranceFee || 0,
