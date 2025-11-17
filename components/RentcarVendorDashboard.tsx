@@ -37,6 +37,7 @@ interface RentcarBooking {
   actual_return_at_utc?: string;
   pickup_location: string;
   total_price_krw: number;
+  points_used?: number;
   late_return_hours?: number;
   late_return_fee_krw?: number;
   voucher_code?: string;
@@ -1480,7 +1481,16 @@ export default function RentcarVendorDashboard() {
                                 <span className="text-gray-400 text-xs">-</span>
                               )}
                             </td>
-                            <td className="border p-3">₩{booking.total_price_krw.toLocaleString()}</td>
+                            <td className="border p-3">
+                              <div>
+                                ₩{booking.total_price_krw.toLocaleString()}
+                                {booking.points_used && booking.points_used > 0 && (
+                                  <div className="text-xs text-red-600 mt-1">
+                                    포인트 사용 -₩{booking.points_used.toLocaleString()}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
                             <td className="border p-3">{getStatusBadge(booking.status)}</td>
                             <td className="border p-3">
                               <button

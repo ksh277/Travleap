@@ -80,6 +80,7 @@ module.exports = async function handler(req, res) {
         b.total_krw,
         b.insurance_id,
         b.insurance_fee_krw,
+        b.discount_krw,
         b.customer_name,
         b.customer_phone,
         b.customer_email,
@@ -100,10 +101,13 @@ module.exports = async function handler(req, res) {
         v.vehicle_code,
         v.thumbnail_url as vehicle_image,
         i.name as insurance_name,
-        i.hourly_rate_krw as insurance_hourly_rate
+        i.hourly_rate_krw as insurance_hourly_rate,
+        p.points_used,
+        p.notes as payment_notes
       FROM rentcar_bookings b
       LEFT JOIN rentcar_vehicles v ON b.vehicle_id = v.id
       LEFT JOIN rentcar_insurance i ON b.insurance_id = i.id
+      LEFT JOIN payments p ON b.payment_key = p.payment_key
       WHERE b.vendor_id = ?
         AND b.payment_status = 'paid'
       ORDER BY b.created_at DESC`,
@@ -175,6 +179,22 @@ module.exports = async function handler(req, res) {
         console.warn('⚠️  return_vehicle_condition JSON 파싱 실패:', e);
       }
 
+      // ✅ points_used 추출 (payments 테이블 또는 notes에서)
+      let pointsUsed = row.points_used || 0;
+
+      // notes에서 추가 정보 추출 (points_used가 없을 경우 대비)
+      if (!pointsUsed && row.payment_notes) {
+        try {
+          const notesData = typeof row.payment_notes === 'string'
+            ? JSON.parse(row.payment_notes)
+            : row.payment_notes;
+
+          pointsUsed = notesData.pointsUsed || 0;
+        } catch (e) {
+          // notes 파싱 실패 시 무시
+        }
+      }
+
       return {
         id: row.id,
         booking_number: row.booking_number,
@@ -207,7 +227,8 @@ module.exports = async function handler(req, res) {
         voucher_code: row.voucher_code,
         pickup_vehicle_condition: pickupCondition,
         return_vehicle_condition: returnCondition,
-        payment_status: row.payment_status
+        payment_status: row.payment_status,
+        points_used: pointsUsed // ✅ 포인트 사용액 추가
       };
     });
 

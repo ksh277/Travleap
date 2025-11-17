@@ -49,13 +49,17 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // JWT에서 vendorId 추출 (쿼리 파라미터 무시)
+    // JWT에서 vendorId 추출
     const vendorId = decoded.userId;
 
-    console.log(`📋 [Vendor Orders] Loading orders for vendor ${vendorId}`);
+    // 카테고리 필터 (쿼리 파라미터로 지정 가능, 없으면 전체)
+    const categoryFilter = req.query.category;
 
-    // 벤더의 주문 목록 조회 (본인이 등록한 팝업 상품의 주문만)
-    const orders = await db.query(`
+    console.log(`📋 [Vendor Orders] Loading orders for vendor ${vendorId}, category: ${categoryFilter || 'all'}`);
+
+    // 벤더의 주문 목록 조회 (본인이 등록한 상품의 주문)
+    // ✅ 모든 카테고리 지원: 팝업, 여행, 음식, 관광지, 행사, 체험
+    let query = `
       SELECT
         b.id,
         b.booking_number as order_number,
@@ -77,16 +81,38 @@ module.exports = async function handler(req, res) {
         b.delivered_at,
         b.created_at,
         b.start_date,
-        b.num_adults
+        b.end_date,
+        b.num_adults,
+        b.num_children,
+        b.num_infants,
+        b.num_seniors,
+        b.order_number as payment_order_number,
+        p.points_used,
+        p.notes as payment_notes,
+        p.amount as payment_amount
       FROM bookings b
       INNER JOIN listings l ON b.listing_id = l.id
       LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN payments p ON (
+        b.order_number = p.order_id_str
+        OR b.booking_number = p.gateway_transaction_id
+      )
       WHERE l.user_id = ?
-        AND l.category = '팝업'
-      ORDER BY b.created_at DESC
-    `, [vendorId]);
+    `;
 
-    // customer_info JSON 파싱
+    const params = [vendorId];
+
+    // 카테고리 필터 적용 (있을 경우에만)
+    if (categoryFilter) {
+      query += ` AND l.category = ?`;
+      params.push(categoryFilter);
+    }
+
+    query += ` ORDER BY b.created_at DESC`;
+
+    const orders = await db.query(query, params);
+
+    // customer_info 및 payment_notes JSON 파싱
     const ordersWithParsedInfo = orders.map(order => {
       let customerInfo = null;
       if (order.customer_info) {
@@ -99,9 +125,26 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // ✅ points_used 추출 (payments 테이블 또는 notes에서)
+      let pointsUsed = order.points_used || 0;
+
+      // notes에서 추가 정보 추출 (points_used가 없을 경우 대비)
+      if (!pointsUsed && order.payment_notes) {
+        try {
+          const notesData = typeof order.payment_notes === 'string'
+            ? JSON.parse(order.payment_notes)
+            : order.payment_notes;
+
+          pointsUsed = notesData.pointsUsed || 0;
+        } catch (e) {
+          // notes 파싱 실패 시 무시
+        }
+      }
+
       return {
         ...order,
-        customer_info: customerInfo
+        customer_info: customerInfo,
+        points_used: pointsUsed
       };
     });
 

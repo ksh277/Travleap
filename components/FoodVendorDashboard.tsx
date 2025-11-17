@@ -73,6 +73,7 @@ interface Order {
   menu_items?: MenuItem[];
   special_requests?: string;
   total_amount: number;
+  points_used?: number;
   payment_status: string;
   payment_key?: string;
   status: string;
@@ -813,7 +814,14 @@ export function FoodVendorDashboard() {
                               </div>
                             </TableCell>
                             <TableCell className="font-semibold">
-                              {order.total_amount.toLocaleString()}원
+                              <div>
+                                {order.total_amount.toLocaleString()}원
+                                {order.points_used && order.points_used > 0 && (
+                                  <div className="text-xs text-red-600 font-normal mt-1">
+                                    포인트 사용 -₩{order.points_used.toLocaleString()}
+                                  </div>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>{getPaymentStatusBadge(order.payment_status)}</TableCell>
                             <TableCell>{getStatusBadge(order.status)}</TableCell>

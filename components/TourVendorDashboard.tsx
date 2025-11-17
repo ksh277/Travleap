@@ -38,6 +38,7 @@ interface TourBooking {
   child_count: number;
   infant_count: number;
   total_price_krw: number;
+  points_used?: number;
   status: string;
   payment_status?: string;
   payment_key?: string;
@@ -716,7 +717,16 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                               {booking.child_count > 0 && `, 아동 ${booking.child_count}`}
                               {booking.infant_count > 0 && `, 유아 ${booking.infant_count}`}
                             </td>
-                            <td>{booking.total_price_krw.toLocaleString()}원</td>
+                            <td>
+                              <div>
+                                {booking.total_price_krw.toLocaleString()}원
+                                {booking.points_used && booking.points_used > 0 && (
+                                  <div className="text-xs text-red-600 mt-1">
+                                    포인트 사용 -₩{booking.points_used.toLocaleString()}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
                             <td>
                               {booking.payment_status === 'paid' && (
                                 <span className="badge badge-success">결제완료</span>
