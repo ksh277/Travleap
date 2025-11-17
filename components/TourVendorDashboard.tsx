@@ -39,6 +39,10 @@ interface TourBooking {
   infant_count: number;
   total_price_krw: number;
   points_used?: number;
+  insurance?: {
+    name: string;
+    price: number;
+  };
   status: string;
   payment_status?: string;
   payment_key?: string;
@@ -720,6 +724,11 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                             <td>
                               <div>
                                 {booking.total_price_krw.toLocaleString()}원
+                                {booking.insurance && booking.insurance.price > 0 && (
+                                  <div className="text-xs text-blue-600 mt-1">
+                                    보험: {booking.insurance.name} +₩{booking.insurance.price.toLocaleString()}
+                                  </div>
+                                )}
                                 {booking.points_used && booking.points_used > 0 && (
                                   <div className="text-xs text-red-600 mt-1">
                                     포인트 사용 -₩{booking.points_used.toLocaleString()}

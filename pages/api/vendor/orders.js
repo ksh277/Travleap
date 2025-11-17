@@ -125,26 +125,53 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // ✅ points_used 추출 (payments 테이블 또는 notes에서)
+      // ✅ notes에서 추가 정보 추출 (인원, 보험, 포인트)
       let pointsUsed = order.points_used || 0;
+      let actualAdults = order.num_adults || 0;
+      let actualChildren = order.num_children || 0;
+      let actualInfants = order.num_infants || 0;
+      let insuranceInfo = null;
 
-      // notes에서 추가 정보 추출 (points_used가 없을 경우 대비)
-      if (!pointsUsed && order.payment_notes) {
+      // notes가 있으면 정확한 정보 추출
+      if (order.payment_notes) {
         try {
           const notesData = typeof order.payment_notes === 'string'
             ? JSON.parse(order.payment_notes)
             : order.payment_notes;
 
-          pointsUsed = notesData.pointsUsed || 0;
+          // 포인트 사용액 (notes가 더 정확함)
+          pointsUsed = notesData.pointsUsed || order.points_used || 0;
+
+          // 인원 정보 (notes.items[0]에서 추출)
+          if (notesData.items && notesData.items.length > 0) {
+            const item = notesData.items[0];
+            actualAdults = item.adults || order.num_adults || 0;
+            actualChildren = item.children || order.num_children || 0;
+            actualInfants = item.infants || order.num_infants || 0;
+          }
+
+          // 보험 정보
+          if (notesData.insurance) {
+            insuranceInfo = {
+              name: notesData.insurance.name,
+              price: parseInt(notesData.insuranceFee || notesData.insurance.price || 0)
+            };
+          }
         } catch (e) {
-          // notes 파싱 실패 시 무시
+          console.warn(`Failed to parse payment_notes for order ${order.id}`);
         }
       }
 
       return {
         ...order,
         customer_info: customerInfo,
-        points_used: pointsUsed
+        points_used: pointsUsed,
+        // 실제 인원 정보로 덮어쓰기
+        num_adults: actualAdults,
+        num_children: actualChildren,
+        num_infants: actualInfants,
+        // 보험 정보 추가
+        insurance: insuranceInfo
       };
     });
 

@@ -73,6 +73,10 @@ interface Order {
   user_postal_code?: string;
   total_amount: number;
   points_used?: number;
+  insurance?: {
+    name: string;
+    price: number;
+  };
   payment_status: string;
   payment_method?: string;
   card_company?: string;
@@ -738,6 +742,11 @@ export function PopupVendorDashboard() {
                         <TableCell className="font-semibold">
                           <div>
                             ₩{(order.total_amount || 0).toLocaleString()}
+                            {order.insurance && order.insurance.price > 0 && (
+                              <div className="text-xs text-blue-600 font-normal mt-1">
+                                보험: {order.insurance.name} +₩{order.insurance.price.toLocaleString()}
+                              </div>
+                            )}
                             {order.points_used && order.points_used > 0 && (
                               <div className="text-xs text-red-600 font-normal mt-1">
                                 포인트 사용 -₩{order.points_used.toLocaleString()}

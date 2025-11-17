@@ -65,6 +65,10 @@ interface Booking {
   infants?: number;
   total_amount: number;
   points_used?: number;
+  insurance?: {
+    name: string;
+    price: number;
+  };
   payment_status: string;
   payment_key?: string;
   status: string;
@@ -771,6 +775,11 @@ export function ExperienceVendorDashboard() {
                             <TableCell className="font-semibold">
                               <div>
                                 {booking.total_amount.toLocaleString()}원
+                                {booking.insurance && booking.insurance.price > 0 && (
+                                  <div className="text-xs text-blue-600 font-normal mt-1">
+                                    보험: {booking.insurance.name} +₩{booking.insurance.price.toLocaleString()}
+                                  </div>
+                                )}
                                 {booking.points_used && booking.points_used > 0 && (
                                   <div className="text-xs text-red-600 font-normal mt-1">
                                     포인트 사용 -₩{booking.points_used.toLocaleString()}
