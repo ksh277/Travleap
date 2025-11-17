@@ -240,7 +240,10 @@
       "Bash(file=\"api/vendor/$category/bookings.js\")",
       "Bash(if grep -q \"LEFT JOIN payments\" \"$file\")",
       "Bash(then)",
-      "Bash(else)"
+      "Bash(else)",
+      "Bash(then echo \"=== 이메일 관련 환경변수 ===\")",
+      "Bash(else echo \"❌ .env 없음\")",
+      "Bash(then grep \"SENDGRID_API_KEY\" .env)"
     ],
     "deny": [],
     "ask": []

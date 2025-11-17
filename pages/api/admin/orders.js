@@ -89,6 +89,8 @@ async function handler(req, res) {
           rb.status as booking_status,
           rb.pickup_date as start_date,
           rb.dropoff_date as end_date,
+          rb.pickup_time,
+          rb.dropoff_time,
           1 as guests,
           1 as adults,
           0 as children,
@@ -294,6 +296,8 @@ async function handler(req, res) {
             created_at: order.created_at,
             start_date: selectedDate || order.start_date, // ✅ notes에서 추출한 예약일 우선 사용
             end_date: order.end_date,
+            pickup_time: order.pickup_time, // ✅ 렌트카 픽업 시간
+            dropoff_time: order.dropoff_time, // ✅ 렌트카 반납 시간
             // ✅ FIX: notes에서 추출한 인원 정보 우선 사용, 없으면 bookings 테이블 값 사용
             num_adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
             guests: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
