@@ -185,6 +185,12 @@ async function handler(req, res) {
           let deliveryFee = 0;
           let subtotal = 0;
           let actualOrderNumber = order.order_number;
+          let insuranceFee = 0; // ✅ 보험료
+          let pointsUsed = 0; // ✅ 포인트 사용액
+          let selectedDate = null; // ✅ 예약일
+          let numAdults = 0; // ✅ 성인 수
+          let numChildren = 0; // ✅ 어린이 수
+          let numInfants = 0; // ✅ 유아 수
 
           if (order.notes) {
             try {
@@ -198,6 +204,10 @@ async function handler(req, res) {
               // 배송비 및 상품 금액 추출
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
+
+              // ✅ 보험료 및 포인트 사용액 추출
+              insuranceFee = notesData.insuranceFee || 0;
+              pointsUsed = notesData.pointsUsed || 0;
 
               // 🔧 카테고리 추출 (카테고리별 주문 분리 대응)
               if (notesData.category) {
@@ -214,7 +224,14 @@ async function handler(req, res) {
                   return sum + (item.quantity || 1);
                 }, 0);
 
-                console.log(`📊 [Orders] order_id=${order.id}: ${itemCount}개 종류, 총 ${totalQuantity}개 수량`);
+                // ✅ 첫 번째 아이템의 예약일 및 인원 정보 추출
+                const firstItem = notesData.items[0];
+                selectedDate = firstItem.selectedDate || firstItem.date || null;
+                numAdults = firstItem.adults || 0;
+                numChildren = firstItem.children || 0;
+                numInfants = firstItem.infants || 0;
+
+                console.log(`📊 [Orders] order_id=${order.id}: ${itemCount}개 종류, 총 ${totalQuantity}개 수량, 인원: 성인${numAdults} 어린이${numChildren} 유아${numInfants}`);
 
                 // 🔧 장바구니 주문의 경우 bookings에서 상품명 가져오기
                 const orderNumber = order.gateway_transaction_id;
@@ -266,6 +283,8 @@ async function handler(req, res) {
             total_amount: order.amount, // ✅ 하위 호환성
             subtotal: subtotal || (order.amount - deliveryFee),
             delivery_fee: deliveryFee,
+            insurance_fee: insuranceFee, // ✅ 보험료
+            points_used: pointsUsed, // ✅ 포인트 사용액
             items_info: itemsInfo, // ✅ 주문 상품 상세 정보 (배송 관리용)
             bookings_list: bookingsList, // 🔧 혼합 주문의 모든 bookings (부분 환불용)
             item_count: itemCount, // ✅ 상품 종류 수
@@ -273,14 +292,18 @@ async function handler(req, res) {
             status: order.booking_status || 'pending',
             payment_status: order.payment_status,
             created_at: order.created_at,
-            start_date: order.start_date,
+            start_date: selectedDate || order.start_date, // ✅ notes에서 추출한 예약일 우선 사용
             end_date: order.end_date,
-            // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
-            num_adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
-            guests: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
-            num_children: order.children || 0,
-            num_infants: order.infants || 0,
+            // ✅ FIX: notes에서 추출한 인원 정보 우선 사용, 없으면 bookings 테이블 값 사용
+            num_adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
+            guests: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
+            num_children: numChildren || order.children || 0,
+            num_infants: numInfants || order.infants || 0,
             num_seniors: 0,
+            // ✅ 프론트엔드 호환성: adults, children, infants 필드 추가
+            adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
+            children: numChildren || order.children || 0,
+            infants: numInfants || order.infants || 0,
             category: order.category,
             is_popup: order.category === '팝업',
             order_number: actualOrderNumber,

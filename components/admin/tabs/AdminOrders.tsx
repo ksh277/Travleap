@@ -47,6 +47,7 @@ interface Order {
   subtotal?: number; // ✅ 상품 금액
   delivery_fee?: number; // ✅ 배송비
   insurance_fee?: number; // ✅ 보험료
+  points_used?: number; // ✅ 포인트 사용액
   insurance_info?: any; // ✅ 보험 상세 정보
   items_info?: OrderItem[]; // ✅ 주문 상품 상세 정보
   bookings_list?: BookingItem[]; // 🔧 혼합 주문의 모든 bookings (부분 환불용)
@@ -727,6 +728,9 @@ export function AdminOrders() {
                             )}
                             {order.delivery_fee && order.delivery_fee > 0 && (
                               <div>배송비 {order.delivery_fee.toLocaleString()}원</div>
+                            )}
+                            {order.points_used && order.points_used > 0 && (
+                              <div className="text-red-600">포인트 사용 -{order.points_used.toLocaleString()}원</div>
                             )}
                           </div>
                         )}
