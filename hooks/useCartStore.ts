@@ -301,22 +301,31 @@ export function useCartStore() {
               }
             }
 
-            // 🔒 CRITICAL FIX: 연령별 인원이 있으면 총 가격 계산 (초기 로드와 동일하게)
-            const hasAgeData = item.num_adults || item.num_children || item.num_infants || item.num_seniors;
-            const calculatedPrice = hasAgeData ? (
-              (item.num_adults || 0) * (item.adult_price || item.price_from || 0) +
-              (item.num_children || 0) * (item.child_price || 0) +
-              (item.num_infants || 0) * (item.infant_price || 0) +
-              (item.num_seniors || 0) * (item.senior_price || 0)
-            ) : (item.price_from || 0);
+            // 🔒 CRITICAL FIX: 팝업 상품은 무조건 단가 × 수량, 일반 상품은 연령별 계산
+            const isPopup = category === '팝업' || category === 'popup';
+
+            let calculatedPrice;
+            if (isPopup) {
+              // 팝업: DB에 뭐가 저장되어 있든 무시하고 무조건 단가만 사용 (수량은 summary에서 곱함)
+              calculatedPrice = item.price_from || 0;
+            } else {
+              // 일반: 연령별 인원이 있으면 연령별 총 가격 계산
+              const hasAgeData = item.num_adults || item.num_children || item.num_infants || item.num_seniors;
+              calculatedPrice = hasAgeData ? (
+                (item.num_adults || 0) * (item.adult_price || item.price_from || 0) +
+                (item.num_children || 0) * (item.child_price || (item.price_from ? item.price_from * 0.7 : 0)) +
+                (item.num_infants || 0) * (item.infant_price || (item.price_from ? item.price_from * 0.3 : 0)) +
+                (item.num_seniors || 0) * (item.senior_price || item.price_from || 0)
+              ) : (item.price_from || 0);
+            }
 
             // 🔍 DEBUG: 가격 계산 로그
             console.log(`💰 [장바구니 추가 후] 가격 계산:`, {
               title: item.title,
-              hasAgeData,
+              category,
+              isPopup,
               price_from: item.price_from,
-              calculatedPrice,
-              category
+              calculatedPrice
             });
 
             return {
