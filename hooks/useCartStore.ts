@@ -161,10 +161,11 @@ export function useCartStore() {
               infants: isPopup ? undefined : item.num_infants,
               seniors: isPopup ? undefined : item.num_seniors,
               // ✅ 연령대별 가격 정보
-              adultPrice: isPopup ? undefined : item.adult_price,
-              childPrice: isPopup ? undefined : item.child_price,
-              infantPrice: isPopup ? undefined : item.infant_price,
-              seniorPrice: isPopup ? undefined : item.senior_price,
+              // 🔒 FALLBACK: adult_price가 null이면 price_from 사용
+              adultPrice: isPopup ? undefined : (item.adult_price || item.price_from || 0),
+              childPrice: isPopup ? undefined : (item.child_price || (item.price_from ? item.price_from * 0.7 : 0)),
+              infantPrice: isPopup ? undefined : (item.infant_price || (item.price_from ? item.price_from * 0.3 : 0)),
+              seniorPrice: isPopup ? undefined : (item.senior_price || item.price_from || 0),
               // ✅ 보험 정보 추가
               selectedInsurance: item.selectedInsurance || undefined,
               insuranceFee: item.insuranceFee || 0,
@@ -336,10 +337,11 @@ export function useCartStore() {
               infants: isPopup ? undefined : item.num_infants,
               seniors: isPopup ? undefined : item.num_seniors,
               // ✅ 연령대별 가격 정보
-              adultPrice: isPopup ? undefined : item.adult_price,
-              childPrice: isPopup ? undefined : item.child_price,
-              infantPrice: isPopup ? undefined : item.infant_price,
-              seniorPrice: isPopup ? undefined : item.senior_price,
+              // 🔒 FALLBACK: adult_price가 null이면 price_from 사용
+              adultPrice: isPopup ? undefined : (item.adult_price || item.price_from || 0),
+              childPrice: isPopup ? undefined : (item.child_price || (item.price_from ? item.price_from * 0.7 : 0)),
+              infantPrice: isPopup ? undefined : (item.infant_price || (item.price_from ? item.price_from * 0.3 : 0)),
+              seniorPrice: isPopup ? undefined : (item.senior_price || item.price_from || 0),
               // ✅ 보험 정보 추가
               selectedInsurance: item.selectedInsurance || undefined,
               insuranceFee: item.insuranceFee || 0,
