@@ -121,6 +121,8 @@ export function PaymentPage() {
   const [availableInsurances, setAvailableInsurances] = useState<any[]>([]);
   const [selectedInsurance, setSelectedInsurance] = useState<any>(null);
   const [insurancesLoading, setInsurancesLoading] = useState(false);
+  // ✅ 결제 버튼 표시 여부 (청구정보 완성 후 표시)
+  const [showPaymentButton, setShowPaymentButton] = useState(false);
 
   // 팝업 상품 여부 확인 (배송지 필요 여부 판단용)
   const hasPopupProducts =
@@ -169,6 +171,7 @@ export function PaymentPage() {
       });
     }
   }, [orderData, deliveryFee, totalWithDelivery, orderTotal, hasPopupProducts]);
+
 
   // ✅ 청구정보 변경 시 localStorage에 자동 저장
   useEffect(() => {
@@ -433,16 +436,16 @@ export function PaymentPage() {
     }
   };
 
-  const handlePreparePayment = async () => {
+  const handlePreparePayment = async (): Promise<boolean> => {
     // 팝업 상품이 있을 때만 배송지 주소 필수
     if (hasPopupProducts && (!billingInfo.address || !billingInfo.postalCode)) {
       toast.error('팝업 상품 배송을 위해 배송지 주소를 입력해주세요.');
       setIsAddressModalOpen(true);
-      return;
+      return false;
     }
 
     if (!validatePaymentInfo()) {
-      return;
+      return false;
     }
 
     setIsProcessing(true);
@@ -453,18 +456,18 @@ export function PaymentPage() {
           if (pointsToUse < 1000) {
             toast.error('최소 1,000P부터 사용 가능합니다.');
             setIsProcessing(false);
-            return;
+            return false;
           }
           if (pointsToUse > totalPoints) {
             toast.error('보유 포인트를 초과하여 사용할 수 없습니다.');
             setIsProcessing(false);
-            return;
+            return false;
           }
           // ✅ 배송비 포함 금액으로 검증
           if (pointsToUse > totalWithDelivery) {
             toast.error('주문 금액을 초과하여 포인트를 사용할 수 없습니다.');
             setIsProcessing(false);
-            return;
+            return false;
           }
         }
 
@@ -583,15 +586,18 @@ export function PaymentPage() {
           } else {
             toast.success('주문이 생성되었습니다. 결제를 진행해주세요.');
           }
+          return true; // ✅ 성공
         } else {
           throw new Error(orderResponse.error || '주문 생성 중 오류가 발생했습니다.');
         }
       } else {
         toast.error('주문 정보가 없습니다.');
+        return false;
       }
     } catch (error) {
       console.error('Order preparation failed:', error);
       toast.error(error instanceof Error ? error.message : '주문 준비 중 오류가 발생했습니다.');
+      return false; // ✅ 실패
     } finally {
       setIsProcessing(false);
     }
@@ -1172,68 +1178,116 @@ export function PaymentPage() {
                   </div>
                 </div>
 
-                {/* Toss Payments Widget 표시 조건:
-                    1. Lock 기반 예약 (bookingNumber가 있는 경우 - 렌트카 등)
-                    2. 장바구니 주문이 준비된 경우 (preparedOrderNumber가 있는 경우)
+                {/* ✅ 결제 단계 구분:
+                    - 1단계: 포인트 설정 → "다음" 버튼 (showPaymentButton = false)
+                    - 2단계: 결제 위젯 표시 (showPaymentButton = true)
                 */}
-                {isLockBasedBooking || preparedOrderNumber ? (
-                  <div className="mt-4">
-                    {pointsToUse > 0 && (
-                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
-                        <div className="flex items-center gap-2 text-sm text-purple-800">
-                          <Coins className="w-4 h-4" />
-                          <span className="font-medium">
-                            {pointsToUse.toLocaleString()}P 차감 적용됨
-                          </span>
-                        </div>
+                {!showPaymentButton ? (
+                  // 1단계: 다음 버튼 표시
+                  <Button
+                    onClick={async () => {
+                      // 청구정보 검증
+                      if (!billingInfo.name || !billingInfo.email || !billingInfo.phone) {
+                        toast.error('이름, 이메일, 전화번호를 입력해주세요.');
+                        return;
+                      }
+                      if (hasPopupProducts && (!billingInfo.postalCode || !billingInfo.address)) {
+                        toast.error('팝업 상품 배송을 위해 배송지 주소를 입력해주세요.');
+                        setIsAddressModalOpen(true);
+                        return;
+                      }
+
+                      // 장바구니 주문인 경우 주문 생성
+                      if (orderData) {
+                        const success = await handlePreparePayment();
+                        if (!success) {
+                          // 주문 생성 실패 시 진행하지 않음
+                          return;
+                        }
+                      }
+
+                      // 다음 단계로 진행 (결제 위젯 표시)
+                      setShowPaymentButton(true);
+                    }}
+                    disabled={isProcessing}
+                    className="w-full bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white py-3"
+                    size="lg"
+                  >
+                    {isProcessing ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        준비 중...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <ArrowLeft className="h-4 w-4 rotate-180" />
+                        다음
                       </div>
                     )}
-                    <PaymentWidget
-                      bookingId={preparedOrderNumber ? 0 : parseInt(bookingId || '0')}
-                      bookingNumber={preparedOrderNumber || bookingNumber || ''}
-                      amount={preparedAmount || parseInt(amount || totalAmount || '0')}
-                      orderName={preparedOrderName || title || '예약 결제'}
-                      customerEmail={billingInfo.email || user?.email || ''}
-                      customerName={billingInfo.name || user?.name || '고객'}
-                      customerMobilePhone={billingInfo.phone || ''}
-                      shippingInfo={{
-                        name: billingInfo.name,
-                        phone: billingInfo.phone,
-                        zipcode: billingInfo.postalCode,
-                        address: billingInfo.address,
-                        addressDetail: billingInfo.detailAddress
-                      }}
-                    />
-                  </div>
+                  </Button>
                 ) : (
+                  // 2단계: 결제 위젯 표시
                   <>
-                    <Button
-                      onClick={orderData ? handlePreparePayment : () => toast.error('결제 정보가 올바르지 않습니다.')}
-                      disabled={isProcessing}
-                      className="w-full bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white py-3"
-                      size="lg"
-                    >
-                      {isProcessing ? (
-                        <div className="flex items-center gap-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          결제 준비 중...
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4" />
-                          {finalAmount.toLocaleString()}원 결제하기
-                        </div>
-                      )}
-                    </Button>
-
-                    <div className="text-xs text-gray-500 text-center">
-                      <div className="flex items-center justify-center gap-1 mb-2">
-                        <AlertCircle className="h-3 w-3" />
-                        <span>결제 시 유의사항</span>
+                    {isLockBasedBooking || preparedOrderNumber ? (
+                      <div className="mt-4">
+                        {pointsToUse > 0 && (
+                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                            <div className="flex items-center gap-2 text-sm text-purple-800">
+                              <Coins className="w-4 h-4" />
+                              <span className="font-medium">
+                                {pointsToUse.toLocaleString()}P 차감 적용됨
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        <PaymentWidget
+                          bookingId={preparedOrderNumber ? 0 : parseInt(bookingId || '0')}
+                          bookingNumber={preparedOrderNumber || bookingNumber || ''}
+                          amount={preparedAmount || parseInt(amount || totalAmount || '0')}
+                          orderName={preparedOrderName || title || '예약 결제'}
+                          customerEmail={billingInfo.email || user?.email || ''}
+                          customerName={billingInfo.name || user?.name || '고객'}
+                          customerMobilePhone={billingInfo.phone || ''}
+                          shippingInfo={{
+                            name: billingInfo.name,
+                            phone: billingInfo.phone,
+                            zipcode: billingInfo.postalCode,
+                            address: billingInfo.address,
+                            addressDetail: billingInfo.detailAddress
+                          }}
+                        />
                       </div>
-                      <p>• 결제 완료 후 즉시 예약이 확정됩니다</p>
-                      <p>• 취소 정책에 따라 수수료가 발생할 수 있습니다</p>
-                    </div>
+                    ) : (
+                      <>
+                        <Button
+                          onClick={orderData ? handlePreparePayment : () => toast.error('결제 정보가 올바르지 않습니다.')}
+                          disabled={isProcessing}
+                          className="w-full bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white py-3"
+                          size="lg"
+                        >
+                          {isProcessing ? (
+                            <div className="flex items-center gap-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              결제 준비 중...
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="h-4 w-4" />
+                              {finalAmount.toLocaleString()}원 결제하기
+                            </div>
+                          )}
+                        </Button>
+
+                        <div className="text-xs text-gray-500 text-center mt-3">
+                          <div className="flex items-center justify-center gap-1 mb-2">
+                            <AlertCircle className="h-3 w-3" />
+                            <span>결제 시 유의사항</span>
+                          </div>
+                          <p>• 결제 완료 후 즉시 예약이 확정됩니다</p>
+                          <p>• 취소 정책에 따라 수수료가 발생할 수 있습니다</p>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </CardContent>
