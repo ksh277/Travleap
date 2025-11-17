@@ -172,15 +172,30 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 예약 가능 여부 확인 (중복 예약 체크)
-    // ✅ pending 예약은 5분 이내의 것만 체크 (오래된 결제 실패 예약 무시)
+    // ✅ FIX: 같은 사용자의 기존 PENDING 예약 자동 취소 (뒤로가기 대응)
+    await connection.execute(
+      `UPDATE bookings
+       SET status = 'cancelled',
+           cancellation_reason = '새 예약 생성으로 자동 취소',
+           updated_at = NOW()
+       WHERE user_id = ?
+         AND listing_id = ?
+         AND status = 'pending'
+         AND (
+           (start_date <= ? AND end_date > ?)
+           OR (start_date < ? AND end_date >= ?)
+           OR (start_date >= ? AND end_date <= ?)
+         )`,
+      [user_id, listing_id, start_date, start_date, end_date, end_date, start_date, end_date]
+    );
+
+    console.log('✅ [Auto Cancel] 같은 사용자의 기존 PENDING 예약 자동 취소 완료');
+
+    // 예약 가능 여부 확인 (CONFIRMED 예약만 체크)
     const conflictCheck = await connection.execute(
       `SELECT id FROM bookings
        WHERE listing_id = ?
-       AND (
-         status = 'confirmed'
-         OR (status = 'pending' AND created_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE))
-       )
+       AND status = 'confirmed'
        AND (
          (start_date <= ? AND end_date > ?)
          OR (start_date < ? AND end_date >= ?)
