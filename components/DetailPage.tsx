@@ -846,13 +846,14 @@ export function DetailPage() {
     // 옵션 가격 계산
     const optionPrice = selectedOption ? (selectedOption.price_adjustment || 0) : 0;
     const basePrice = item.price || 0;
+    // 🔒 CRITICAL FIX: 팝업 상품은 무조건 단가만 전달 (수량과 무관)
     const itemPrice = isPopupProduct(item) ? basePrice : (priceCalculation.basePrice || item.price || 0);
 
     const cartItem = {
       id: item.id,
       title: item.title || '상품',
-      price: itemPrice,  // ✅ 성인 1명 기준 가격
-      quantity: isPopupProduct(item) ? quantity : 1,  // ✅ 수량 추가
+      price: itemPrice,  // ✅ 무조건 단가 (팝업: basePrice, 예약: basePrice per person)
+      quantity: isPopupProduct(item) ? quantity : 1,  // ✅ 팝업은 수량 전달, 예약은 1
       image: item.images?.[0] || '',
       category: item.category || '',
       category_id: item.category_id,  // ✅ 팝업 판별용
