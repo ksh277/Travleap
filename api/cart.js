@@ -173,9 +173,9 @@ async function handler(req, res) {
         num_seniors
       });
 
-      // 🔍 상품 존재 여부 및 활성화 상태 확인
+      // 🔍 상품 존재 여부 및 활성화 상태 확인 + 가격 검증
       const listingCheck = await connection.execute(`
-        SELECT id, is_active
+        SELECT id, is_active, price_from, category_id, category
         FROM listings
         WHERE id = ?
         LIMIT 1
@@ -197,6 +197,40 @@ async function handler(req, res) {
           error: 'LISTING_INACTIVE',
           message: '판매가 중단된 상품입니다.'
         });
+      }
+
+      // 🔒 CRITICAL: 팝업 상품 price_snapshot 검증 및 자동 보정
+      let finalPriceSnapshot = price_snapshot;
+      const isPopupProduct = listing.category_id === 1860 || listing.category === '팝업' || listing.category === 'popup';
+
+      if (isPopupProduct && listing.price_from) {
+        // 팝업 상품: price_snapshot은 단가여야 함
+        if (price_snapshot) {
+          const priceDiff = Math.abs(price_snapshot - listing.price_from);
+          const priceRatio = listing.price_from > 0 ? (priceDiff / listing.price_from) : 0;
+
+          // 10% 이상 차이나면 검증
+          if (priceRatio > 0.1) {
+            console.warn(`⚠️ [Cart] 팝업 상품 가격 불일치 감지:`, {
+              listing_id,
+              price_from: listing.price_from,
+              price_snapshot,
+              quantity,
+              diff: priceDiff,
+              ratio: `${(priceRatio * 100).toFixed(1)}%`
+            });
+
+            // 🔧 AUTO-FIX: price_snapshot이 price_from * quantity라면, 단가로 보정
+            if (quantity > 1 && Math.abs(price_snapshot - (listing.price_from * quantity)) < listing.price_from * 0.1) {
+              console.log(`🔧 [Cart] 총액이 감지되어 단가로 자동 보정: ${price_snapshot} → ${listing.price_from}`);
+              finalPriceSnapshot = listing.price_from;
+            }
+          }
+        } else {
+          // price_snapshot이 없으면 listing.price_from 사용
+          finalPriceSnapshot = listing.price_from;
+          console.log(`📌 [Cart] price_snapshot 없음, listing.price_from 사용: ${finalPriceSnapshot}`);
+        }
       }
 
       // ✅ 보험 및 옵션 포함하여 장바구니에 추가
@@ -223,7 +257,7 @@ async function handler(req, res) {
         adult_price,
         child_price,
         infant_price,
-        price_snapshot || null
+        finalPriceSnapshot || null  // ✅ 보정된 price_snapshot 사용
       ]);
 
       console.log('장바구니 추가 성공:', result.insertId);
