@@ -121,9 +121,9 @@ export function useCartStore() {
               const hasAgeData = item.num_adults || item.num_children || item.num_infants || item.num_seniors;
               calculatedPrice = hasAgeData ? (
                 (item.num_adults || 0) * (item.adult_price || item.price_from || 0) +
-                (item.num_children || 0) * (item.child_price || 0) +
-                (item.num_infants || 0) * (item.infant_price || 0) +
-                (item.num_seniors || 0) * (item.senior_price || 0)
+                (item.num_children || 0) * (item.child_price || (item.price_from ? item.price_from * 0.7 : 0)) +
+                (item.num_infants || 0) * (item.infant_price || (item.price_from ? item.price_from * 0.3 : 0)) +
+                (item.num_seniors || 0) * (item.senior_price || item.price_from || 0)
               ) : (item.price_from || 0);
             }
 

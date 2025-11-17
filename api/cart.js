@@ -23,7 +23,24 @@ async function handler(req, res) {
       // 장바구니 조회 (검증 포함) - ✅ 보험 및 옵션 필드 포함
       const result = await connection.execute(`
         SELECT
-          c.*,
+          c.id,
+          c.user_id,
+          c.listing_id,
+          c.quantity,
+          c.selected_date,
+          c.num_adults,
+          c.num_children,
+          c.num_infants,
+          c.num_seniors,
+          c.price_snapshot,
+          c.selected_options,
+          c.selected_insurance,
+          c.insurance_fee,
+          c.created_at,
+          c.updated_at,
+          COALESCE(c.adult_price, l.adult_price) AS adult_price,
+          COALESCE(c.child_price, l.child_price) AS child_price,
+          COALESCE(c.infant_price, l.infant_price) AS infant_price,
           l.id AS listing_exists,
           l.title,
           l.price_from,
@@ -32,10 +49,6 @@ async function handler(req, res) {
           l.category,
           l.is_active,
           l.location,
-          l.adult_price,
-          l.child_price,
-          l.infant_price,
-          l.senior_price,
           COALESCE(l.category, cat.name_ko, '') AS category_name
         FROM cart_items c
         LEFT JOIN listings l ON c.listing_id = l.id
