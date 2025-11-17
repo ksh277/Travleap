@@ -84,8 +84,10 @@ module.exports = async function handler(req, res) {
         b.end_date,
         b.num_adults,
         b.num_children,
-        b.num_infants,
         b.num_seniors,
+        b.adults,
+        b.children,
+        b.infants,
         b.order_number as payment_order_number,
         p.points_used,
         p.notes as payment_notes,
@@ -127,9 +129,10 @@ module.exports = async function handler(req, res) {
 
       // ✅ notes에서 추가 정보 추출 (인원, 보험, 포인트)
       let pointsUsed = order.points_used || 0;
-      let actualAdults = order.num_adults || 0;
-      let actualChildren = order.num_children || 0;
-      let actualInfants = order.num_infants || 0;
+      // bookings 테이블에는 두 세트의 컬럼이 있음: (num_adults, num_children, num_seniors) 및 (adults, children, infants)
+      let actualAdults = order.adults || order.num_adults || 0;
+      let actualChildren = order.children || order.num_children || 0;
+      let actualInfants = order.infants || 0;
       let insuranceInfo = null;
 
       // notes가 있으면 정확한 정보 추출
