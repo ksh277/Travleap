@@ -292,11 +292,29 @@ export function useCartStore() {
               }
             }
 
+            // 🔒 CRITICAL FIX: 연령별 인원이 있으면 총 가격 계산 (초기 로드와 동일하게)
+            const hasAgeData = item.num_adults || item.num_children || item.num_infants || item.num_seniors;
+            const calculatedPrice = hasAgeData ? (
+              (item.num_adults || 0) * (item.adult_price || item.price_from || 0) +
+              (item.num_children || 0) * (item.child_price || 0) +
+              (item.num_infants || 0) * (item.infant_price || 0) +
+              (item.num_seniors || 0) * (item.senior_price || 0)
+            ) : (item.price_from || 0);
+
+            // 🔍 DEBUG: 가격 계산 로그
+            console.log(`💰 [장바구니 추가 후] 가격 계산:`, {
+              title: item.title,
+              hasAgeData,
+              price_from: item.price_from,
+              calculatedPrice,
+              category
+            });
+
             return {
               id: item.id,                    // cart_items 테이블의 id
               listingId: item.listing_id,     // ✅ 실제 상품 ID 추가
               title: item.title || '상품',
-              price: item.price_from || 0,
+              price: calculatedPrice,         // ✅ FIX: calculatedPrice 사용
               quantity: item.quantity || 1,
               image: images[0] || '/placeholder.jpg',
               category: category,

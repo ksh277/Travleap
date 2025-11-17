@@ -49,6 +49,7 @@ async function handler(req, res) {
       // 🔍 디버그: 첫 번째 row 출력
       if (result.rows && result.rows.length > 0) {
         console.log('🛒 [Cart] Sample row data:', JSON.stringify(result.rows[0], null, 2));
+        console.log('🛒 [Cart] price_from value:', result.rows[0].price_from, 'type:', typeof result.rows[0].price_from);
       }
 
       const invalidItemIds = [];
@@ -81,8 +82,22 @@ async function handler(req, res) {
           invalidItemIds.push(item.id);
         }
 
+        // 🔒 CRITICAL FIX: price_from이 없으면 cart_items.price_snapshot 사용
+        const finalPrice = item.price_from || item.price_snapshot || 0;
+
+        // 🔍 DEBUG: 가격 fallback 로그
+        if (!item.price_from && item.price_snapshot) {
+          console.log(`💰 [Cart] price_from 없음, price_snapshot 사용:`, {
+            title: item.title,
+            price_from: item.price_from,
+            price_snapshot: item.price_snapshot,
+            finalPrice
+          });
+        }
+
         return {
           ...item,
+          price_from: finalPrice,  // ✅ FIX: price_snapshot 대체값 사용
           images: Array.isArray(images) ? images : [],
           selected_options: selectedOptions,
           // ✅ 보험 정보 추가
