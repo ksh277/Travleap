@@ -501,7 +501,7 @@ export function PaymentPage() {
             selectedOption: item.selectedOption, // 팝업 상품 옵션 정보
             // ✅ bookings 테이블에 저장할 필드 추가
             category: item.category,
-            selectedDate: item.selectedDate,
+            selectedDate: item.selectedDate || item.date, // ✅ FIX: date 필드도 체크
             adults: item.adults,
             children: item.children,
             infants: item.infants,

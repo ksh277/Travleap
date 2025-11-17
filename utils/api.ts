@@ -649,6 +649,16 @@ export const api = {
       quantity: number;
       price: number;
       subtotal: number;
+      // ✅ 예약 상품 필드 추가
+      category?: string;
+      selectedDate?: string | null; // ✅ 예약일
+      adults?: number; // ✅ 성인 수
+      children?: number; // ✅ 어린이 수
+      infants?: number; // ✅ 유아 수
+      selectedOption?: any; // 팝업 상품 옵션
+      adultPrice?: number; // 인원별 가격 (서버 검증용)
+      childPrice?: number;
+      infantPrice?: number;
     }[];
     subtotal: number;
     deliveryFee: number;
@@ -658,6 +668,7 @@ export const api = {
     total: number;
     status: 'pending' | 'confirmed' | 'cancelled';
     paymentMethod: string;
+    insurance?: any; // ✅ 보험 정보
     // ✅ 배송 정보 추가 (PG사 심사 필수)
     shippingInfo?: {
       name: string;
