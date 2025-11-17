@@ -759,12 +759,6 @@ export function CartPage() {
 
                             {/* Enhanced product details */}
                             <div className="space-y-1 text-sm text-gray-600 mb-3">
-                              {item.location && (
-                                <div className="flex items-center gap-1">
-                                  <MapPin className="h-3 w-3 flex-shrink-0" />
-                                  <span className="truncate">{item.location}</span>
-                                </div>
-                              )}
                               {item.date && (
                                 <div className="flex items-center gap-1">
                                   <Calendar className="h-3 w-3 flex-shrink-0" />
