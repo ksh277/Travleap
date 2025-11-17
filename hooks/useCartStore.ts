@@ -155,16 +155,16 @@ export function useCartStore() {
               date: item.selected_date,
               guests: item.num_adults || 1,
               // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
-              // ⚠️ CRITICAL: || 사용하면 0이 undefined로 변환됨! 그냥 값 그대로 전달
-              adults: item.num_adults,
-              children: item.num_children,
-              infants: item.num_infants,
-              seniors: item.num_seniors,
+              // 🔒 CRITICAL: 팝업 상품은 무조건 undefined (CartPage에서 인원별 계산 방지)
+              adults: isPopup ? undefined : item.num_adults,
+              children: isPopup ? undefined : item.num_children,
+              infants: isPopup ? undefined : item.num_infants,
+              seniors: isPopup ? undefined : item.num_seniors,
               // ✅ 연령대별 가격 정보
-              adultPrice: item.adult_price,
-              childPrice: item.child_price,
-              infantPrice: item.infant_price,
-              seniorPrice: item.senior_price,
+              adultPrice: isPopup ? undefined : item.adult_price,
+              childPrice: isPopup ? undefined : item.child_price,
+              infantPrice: isPopup ? undefined : item.infant_price,
+              seniorPrice: isPopup ? undefined : item.senior_price,
               // ✅ 보험 정보 추가
               selectedInsurance: item.selectedInsurance || undefined,
               insuranceFee: item.insuranceFee || 0,
@@ -330,16 +330,16 @@ export function useCartStore() {
               date: item.selected_date,
               guests: item.num_adults || 1,
               // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
-              // ⚠️ CRITICAL: || 사용하면 0이 undefined로 변환됨! 그냥 값 그대로 전달
-              adults: item.num_adults,
-              children: item.num_children,
-              infants: item.num_infants,
-              seniors: item.num_seniors,
+              // 🔒 CRITICAL: 팝업 상품은 무조건 undefined (CartPage에서 인원별 계산 방지)
+              adults: isPopup ? undefined : item.num_adults,
+              children: isPopup ? undefined : item.num_children,
+              infants: isPopup ? undefined : item.num_infants,
+              seniors: isPopup ? undefined : item.num_seniors,
               // ✅ 연령대별 가격 정보
-              adultPrice: item.adult_price,
-              childPrice: item.child_price,
-              infantPrice: item.infant_price,
-              seniorPrice: item.senior_price,
+              adultPrice: isPopup ? undefined : item.adult_price,
+              childPrice: isPopup ? undefined : item.child_price,
+              infantPrice: isPopup ? undefined : item.infant_price,
+              seniorPrice: isPopup ? undefined : item.senior_price,
               // ✅ 보험 정보 추가
               selectedInsurance: item.selectedInsurance || undefined,
               insuranceFee: item.insuranceFee || 0,
