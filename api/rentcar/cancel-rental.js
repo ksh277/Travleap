@@ -306,7 +306,143 @@ module.exports = async function handler(req, res) {
         decoded?.email || 'customer'
       ]);
 
-      // 10-4. 이벤트 로그
+      // 10-4. 🔒 CRITICAL: 렌트카 환불 시 포인트 회수
+      if (rental.user_id && refundAmount < rental.total_price_krw) {
+        // 전액 환불이 아닐 때만 포인트 회수 (부분 환불/취소 수수료 발생 시)
+        // 전액 환불이면 아래 10-5에서 적립 포인트 회수
+        try {
+          const { connect } = require('@planetscale/database');
+          const { Pool } = require('@neondatabase/serverless');
+
+          const connection = connect({ url: process.env.DATABASE_URL });
+          const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+          try {
+            console.log(`💰 [포인트 회수] 렌트카 부분 환불 포인트 처리 시작 (rental_id: ${rental.id}, user_id: ${rental.user_id})`);
+
+            await poolNeon.query('BEGIN');
+
+            // 적립된 포인트 찾기 (rental.id로)
+            const earnedPointsResult = await connection.execute(`
+              SELECT points, id, related_order_id
+              FROM user_points
+              WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
+              ORDER BY created_at DESC
+            `, [rental.user_id, String(rental.id)]);
+
+            if (earnedPointsResult.rows && earnedPointsResult.rows.length > 0) {
+              const earnedPoints = earnedPointsResult.rows[0].points;
+
+              // 환불율에 따라 포인트 회수 (부분 회수)
+              const pointsToDeduct = Math.floor(earnedPoints * (cancellationFee / rental.total_price_krw));
+
+              if (pointsToDeduct > 0) {
+                // PlanetScale 최신 balance_after 조회
+                const latestBalanceResult = await connection.execute(`
+                  SELECT balance_after FROM user_points
+                  WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1
+                `, [rental.user_id]);
+
+                const currentPoints = latestBalanceResult.rows?.[0]?.balance_after || 0;
+                const newBalance = currentPoints - pointsToDeduct;
+
+                // 포인트 회수 기록 (PlanetScale)
+                await connection.execute(`
+                  INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+                  VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+                `, [
+                  rental.user_id,
+                  -pointsToDeduct,
+                  `렌트카 환불로 인한 포인트 회수 (booking: ${rental.booking_number}, 환불율: ${refundRate}%)`,
+                  String(rental.id),
+                  newBalance
+                ]);
+
+                // Neon users 테이블 업데이트
+                await poolNeon.query('UPDATE users SET total_points = $1 WHERE id = $2', [newBalance, rental.user_id]);
+
+                console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (잔액: ${newBalance}P)`);
+              }
+            }
+
+            await poolNeon.query('COMMIT');
+          } catch (pointsError) {
+            console.error('❌ [포인트 회수] 실패 (계속 진행):', pointsError);
+            try { await poolNeon.query('ROLLBACK'); } catch (e) {}
+          } finally {
+            await poolNeon.end();
+          }
+        } catch (outerError) {
+          console.error('❌ [포인트 회수] 외부 오류 (계속 진행):', outerError);
+        }
+      }
+
+      // 10-5. 🔒 CRITICAL: 전액 환불 시 적립 포인트 전액 회수
+      if (rental.user_id && refundAmount === rental.total_price_krw) {
+        try {
+          const { connect } = require('@planetscale/database');
+          const { Pool } = require('@neondatabase/serverless');
+
+          const connection = connect({ url: process.env.DATABASE_URL });
+          const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
+
+          try {
+            console.log(`💰 [포인트 전액 회수] 렌트카 전액 환불 포인트 회수 시작 (rental_id: ${rental.id})`);
+
+            await poolNeon.query('BEGIN');
+
+            // 적립된 포인트 찾기
+            const earnedPointsResult = await connection.execute(`
+              SELECT points, id
+              FROM user_points
+              WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
+              ORDER BY created_at DESC
+            `, [rental.user_id, String(rental.id)]);
+
+            if (earnedPointsResult.rows && earnedPointsResult.rows.length > 0) {
+              const earnedPoints = earnedPointsResult.rows[0].points;
+
+              // PlanetScale 최신 balance 조회
+              const latestBalanceResult = await connection.execute(`
+                SELECT balance_after FROM user_points
+                WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1
+              `, [rental.user_id]);
+
+              const currentPoints = latestBalanceResult.rows?.[0]?.balance_after || 0;
+              const newBalance = currentPoints - earnedPoints;
+
+              // 전액 회수
+              await connection.execute(`
+                INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+                VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+              `, [
+                rental.user_id,
+                -earnedPoints,
+                `렌트카 전액 환불로 인한 포인트 회수 (booking: ${rental.booking_number})`,
+                String(rental.id),
+                newBalance
+              ]);
+
+              await poolNeon.query('UPDATE users SET total_points = $1 WHERE id = $2', [newBalance, rental.user_id]);
+
+              console.log(`✅ [포인트 전액 회수] ${earnedPoints}P 회수 완료 (잔액: ${newBalance}P)`);
+            } else {
+              console.log(`ℹ️  [포인트 전액 회수] 적립 내역 없음`);
+            }
+
+            await poolNeon.query('COMMIT');
+          } catch (pointsError) {
+            console.error('❌ [포인트 전액 회수] 실패 (계속 진행):', pointsError);
+            try { await poolNeon.query('ROLLBACK'); } catch (e) {}
+          } finally {
+            await poolNeon.end();
+          }
+        } catch (outerError) {
+          console.error('❌ [포인트 전액 회수] 외부 오류 (계속 진행):', outerError);
+        }
+      }
+
+      // 10-6. 이벤트 로그
       try {
         await db.execute(`
           INSERT INTO rentcar_rental_events (
