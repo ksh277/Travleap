@@ -362,7 +362,8 @@ async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        data: ordersWithUserInfo
+        data: ordersWithUserInfo,
+        version: API_VERSION
       });
     } catch (error) {
       console.error('Orders GET API error:', error);
