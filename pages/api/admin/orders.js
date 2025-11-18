@@ -98,6 +98,9 @@ async function handler(req, res) {
           rb.dropoff_date as end_date,
           rb.pickup_time,
           rb.dropoff_time,
+          rb.insurance_id,
+          rb.insurance_fee_krw,
+          ri.name as insurance_name,
           1 as guests,
           1 as adults,
           0 as children,
@@ -114,6 +117,7 @@ async function handler(req, res) {
           v.images
         FROM rentcar_bookings rb
         LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
+        LEFT JOIN rentcar_insurance ri ON rb.insurance_id = ri.id
         WHERE rb.payment_status IN ('paid', 'completed', 'refunded')
         ORDER BY rb.created_at DESC
       `);
