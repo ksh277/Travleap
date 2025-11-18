@@ -318,6 +318,11 @@ module.exports = async function handler(req, res) {
           let deliveryFee = 0;
           let subtotal = 0;
           let actualOrderNumber = order.order_number;
+          let numAdults = 0;
+          let numChildren = 0;
+          let numInfants = 0;
+          let insuranceFee = 0;
+          let insuranceInfo = null;
           // ✅ notes에서 청구 정보 추출 (결제 페이지에서 입력한 정보)
           let billingName = '';
           let billingEmail = '';
@@ -342,6 +347,37 @@ module.exports = async function handler(req, res) {
               // 배송비 및 상품 금액 추출
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
+
+              // ✅ 인원 정보 추출 (notes.participants 또는 notes.items[0]에서)
+              numAdults = notesData.participants?.adults || notesData.items?.[0]?.adults || 0;
+              numChildren = notesData.participants?.children || notesData.items?.[0]?.children || 0;
+              numInfants = notesData.participants?.infants || notesData.items?.[0]?.infants || 0;
+
+              // ✅ 보험 정보 추출
+              insuranceFee = notesData.insuranceFee || 0;
+              insuranceInfo = notesData.insuranceInfo || null;
+
+              // ✅ 카테고리 매핑 (영문 → 한글)
+              if (notesData.category) {
+                const categoryMap = {
+                  'tour': '여행',
+                  'stay': '숙박',
+                  'accommodation': '숙박',
+                  'rentcar': '렌트카',
+                  'food': '음식',
+                  'tourist': '관광지',
+                  'attractions': '관광지',
+                  'popup': '팝업',
+                  'event': '행사',
+                  'events': '행사',
+                  'experience': '체험'
+                };
+                const mappedCategory = categoryMap[notesData.category.toLowerCase()] || notesData.category;
+                // DB에서 가져온 카테고리가 '주문' 또는 '주문/기타'이면 notes 카테고리로 대체
+                if (order.category === '주문' || order.category === '주문/기타' || !order.category) {
+                  order.category = mappedCategory;
+                }
+              }
 
               // ✅ FIX: 청구 정보 추출 (주문 시 입력한 정보)
               if (notesData.billingInfo) {
@@ -498,11 +534,18 @@ module.exports = async function handler(req, res) {
             created_at: order.created_at,
             start_date: order.start_date,
             end_date: order.end_date,
+            pickup_time: order.pickup_time, // ✅ 렌트카 픽업 시간
+            dropoff_time: order.dropoff_time, // ✅ 렌트카 반납 시간
             // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
-            num_adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
-            guests: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
-            num_children: order.children || 0,
+            // ✅ 인원 정보: notes에서 추출한 값 우선 사용
+            num_adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
+            guests: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
+            num_children: numChildren || order.children || 0,
+            num_infants: numInfants || order.infants || 0,
             num_seniors: 0,
+            // ✅ 보험 정보
+            insurance_fee: insuranceFee,
+            insurance_info: insuranceInfo,
             category: order.category,
             is_popup: order.category === '팝업',
             has_popup_product: hasPopupProduct, // ✅ 장바구니 주문에 팝업 상품 포함 여부
