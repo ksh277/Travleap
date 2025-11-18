@@ -315,8 +315,8 @@ module.exports = async function handler(req, res) {
         let rentcarExtrasMap = new Map(); // booking_id → [extras]
         const rentcarBookingIds = allOrders
           .filter(o => o.booking_id && o.category === '렌트카')
-          .map(o => o.booking_id)
-          .filter(id => id);
+          .map(o => parseInt(o.booking_id)) // ✅ 정수로 변환
+          .filter(id => id && !isNaN(id));
 
         console.log(`🚗 [Orders] 렌트카 주문 중 booking_id 있는 주문: ${allOrders.filter(o => o.category === '렌트카').length}건`);
         console.log(`🚗 [Orders] 렌트카 booking_ids:`, rentcarBookingIds);
@@ -348,10 +348,11 @@ module.exports = async function handler(req, res) {
 
           // booking_id별로 그룹화
           (extrasResult.rows || []).forEach(extra => {
-            if (!rentcarExtrasMap.has(extra.booking_id)) {
-              rentcarExtrasMap.set(extra.booking_id, []);
+            const bookingId = parseInt(extra.booking_id); // ✅ 정수로 변환
+            if (!rentcarExtrasMap.has(bookingId)) {
+              rentcarExtrasMap.set(bookingId, []);
             }
-            rentcarExtrasMap.get(extra.booking_id).push({
+            rentcarExtrasMap.get(bookingId).push({
               extra_id: extra.extra_id,
               name: extra.extra_name,
               description: extra.extra_description,
@@ -602,7 +603,7 @@ module.exports = async function handler(req, res) {
             rentcar_insurance_description: order.insurance_description,
             rentcar_insurance_fee: order.insurance_fee_krw ? parseInt(order.insurance_fee_krw) : 0,
             // ✅ 렌트카 추가 옵션
-            rentcar_extras: order.category === '렌트카' && order.booking_id ? (rentcarExtrasMap.get(order.booking_id) || []) : [],
+            rentcar_extras: order.category === '렌트카' && order.booking_id ? (rentcarExtrasMap.get(parseInt(order.booking_id)) || []) : [],
             // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
             // ✅ 인원 정보: notes에서 추출한 값 우선 사용
             num_adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
