@@ -189,6 +189,9 @@ async function handler(req, res) {
           let deliveryFee = 0;
           let subtotal = 0;
           let actualOrderNumber = order.order_number;
+          let numAdults = 0;
+          let numChildren = 0;
+          let numInfants = 0;
 
           if (order.notes) {
             try {
@@ -202,6 +205,11 @@ async function handler(req, res) {
               // 배송비 및 상품 금액 추출
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
+
+              // ✅ 인원 정보 추출 (notes.participants에서)
+              numAdults = notesData.participants?.adults || 0;
+              numChildren = notesData.participants?.children || 0;
+              numInfants = notesData.participants?.infants || 0;
 
               // 🔧 카테고리 추출 (카테고리별 주문 분리 대응)
               if (notesData.category) {
@@ -286,15 +294,16 @@ async function handler(req, res) {
             rentcar_insurance_name: order.insurance_name,
             rentcar_insurance_fee: order.insurance_fee_krw ? parseInt(order.insurance_fee_krw) : 0,
             // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
-            num_adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
-            guests: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
-            num_children: order.children || 0,
-            num_infants: order.infants || 0,
+            // ✅ 인원 정보: notes.participants 우선, 없으면 bookings 테이블 값 사용
+            num_adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
+            guests: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
+            num_children: numChildren || order.children || 0,
+            num_infants: numInfants || order.infants || 0,
             num_seniors: 0,
             // ✅ 프론트엔드 호환성: adults, children, infants 필드 추가
-            adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
-            children: order.children || 0,
-            infants: order.infants || 0,
+            adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
+            children: numChildren || order.children || 0,
+            infants: numInfants || order.infants || 0,
             category: order.category,
             is_popup: order.category === '팝업',
             order_number: actualOrderNumber,
