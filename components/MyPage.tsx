@@ -53,6 +53,16 @@ interface Booking {
   status: 'confirmed' | 'pending' | 'cancelled';
   image: string;
   location: string;
+  // 보험 및 옵션 정보
+  insurance_fee?: number;
+  insurance_name?: string;
+  rentcar_insurance_name?: string;
+  rentcar_insurance_fee?: number;
+  rentcar_extras?: Array<{
+    name: string;
+    unit_price: number;
+    quantity: number;
+  }>;
 }
 
 // Favorite는 TravelItem으로 통일
@@ -327,7 +337,13 @@ export function MyPage() {
             shipping_address_detail: booking.shipping_address_detail,
             shipping_zipcode: booking.shipping_zipcode,
             shipped_at: booking.shipped_at,
-            delivered_at: booking.delivered_at
+            delivered_at: booking.delivered_at,
+            // ✅ 보험 및 옵션 정보 추가
+            insurance_fee: booking.insurance_fee,
+            insurance_name: booking.insurance_name,
+            rentcar_insurance_name: booking.rentcar_insurance_name,
+            rentcar_insurance_fee: booking.rentcar_insurance_fee,
+            rentcar_extras: booking.rentcar_extras
           };
         });
         setBookings(formattedBookings);
