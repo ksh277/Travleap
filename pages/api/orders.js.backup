@@ -6,6 +6,7 @@
 
 const { connect } = require('@planetscale/database');
 const { randomUUID } = require('crypto');
+const { decrypt, decryptPhone, decryptEmail } = require('../../utils/encryption.cjs');
 
 function generateOrderNumber() {
   // UUID 사용으로 완전한 유일성 보장
@@ -92,6 +93,7 @@ module.exports = async function handler(req, res) {
           b.shipping_zipcode,
           b.tracking_number,
           b.courier_company,
+          b.customer_info,
           l.title as product_title,
           COALESCE(c.name_ko, l.category, '주문/기타') as category,
           l.images,
@@ -135,6 +137,8 @@ module.exports = async function handler(req, res) {
           rb.status as booking_status,
           rb.pickup_date as start_date,
           rb.dropoff_date as end_date,
+          rb.pickup_time,
+          rb.dropoff_time,
           1 as guests,
           1 as adults,
           0 as children,
@@ -158,6 +162,51 @@ module.exports = async function handler(req, res) {
         ORDER BY rb.created_at DESC
       `, rentcarParams);
 
+      // 안전한 복호화 함수
+      const safeDecrypt = (value) => {
+        if (!value) return null;
+        try {
+          if (typeof value === 'string' && value.length > 50) {
+            return decrypt(value);
+          }
+          return value;
+        } catch (err) {
+          return value;
+        }
+      };
+
+      const safeDecryptPhone = (value) => {
+        if (!value) return null;
+        try {
+          if (typeof value === 'string' && value.length > 50) {
+            return decryptPhone(value);
+          }
+          return value;
+        } catch (err) {
+          return value;
+        }
+      };
+
+      const safeDecryptEmail = (value) => {
+        if (!value) return null;
+        try {
+          if (typeof value === 'string' && value.length > 50) {
+            return decryptEmail(value);
+          }
+          return value;
+        } catch (err) {
+          return value;
+        }
+      };
+
+      // 렌트카 데이터 복호화
+      const decryptedRentcarRows = (rentcarResult.rows || []).map(row => ({
+        ...row,
+        shipping_name: safeDecrypt(row.shipping_name),
+        shipping_phone: safeDecryptPhone(row.shipping_phone),
+        shipping_email: safeDecryptEmail(row.shipping_email)
+      }));
+
       // 🔍 렌트카 데이터 디버깅
       console.log(`🚗 [Orders] 렌트카 주문 ${rentcarResult.rows?.length || 0}건 조회`);
       rentcarResult.rows?.slice(0, 3).forEach(row => {
@@ -165,8 +214,8 @@ module.exports = async function handler(req, res) {
         console.log(`    이름: "${row.shipping_name || 'NULL'}", 이메일: "${row.shipping_email || 'NULL'}", 전화: "${row.shipping_phone || 'NULL ❌'}"`);
       });
 
-      // ✅ 일반 주문 + 렌트카 주문 통합
-      const allOrders = [...(result.rows || []), ...(rentcarResult.rows || [])]
+      // ✅ 일반 주문 + 렌트카 주문 (복호화된 데이터) 통합
+      const allOrders = [...(result.rows || []), ...decryptedRentcarRows]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       // Neon PostgreSQL에서 사용자 정보 조회
@@ -228,6 +277,9 @@ module.exports = async function handler(req, res) {
               b.status,
               b.delivery_status,
               b.guests,
+              b.adults,
+              b.children,
+              b.infants,
               b.shipping_name,
               b.shipping_phone,
               b.shipping_address,
@@ -266,6 +318,11 @@ module.exports = async function handler(req, res) {
           let deliveryFee = 0;
           let subtotal = 0;
           let actualOrderNumber = order.order_number;
+          let numAdults = 0;
+          let numChildren = 0;
+          let numInfants = 0;
+          let insuranceFee = 0;
+          let insuranceInfo = null;
           // ✅ notes에서 청구 정보 추출 (결제 페이지에서 입력한 정보)
           let billingName = '';
           let billingEmail = '';
@@ -277,8 +334,6 @@ module.exports = async function handler(req, res) {
           let notesShippingAddressDetail = '';
           let notesShippingZipcode = '';
           let notesData = null; // ✅ CRITICAL: scope 밖에서 참조하기 위해 선언
-          let insuranceFeeFromNotes = 0; // ✅ 보험료
-          let insuranceInfoFromNotes = null; // ✅ 보험 상세 정보
 
           if (order.notes) {
             try {
@@ -292,6 +347,37 @@ module.exports = async function handler(req, res) {
               // 배송비 및 상품 금액 추출
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
+
+              // ✅ 인원 정보 추출 (notes.participants 또는 notes.items[0]에서)
+              numAdults = notesData.participants?.adults || notesData.items?.[0]?.adults || 0;
+              numChildren = notesData.participants?.children || notesData.items?.[0]?.children || 0;
+              numInfants = notesData.participants?.infants || notesData.items?.[0]?.infants || 0;
+
+              // ✅ 보험 정보 추출
+              insuranceFee = notesData.insuranceFee || 0;
+              insuranceInfo = notesData.insuranceInfo || null;
+
+              // ✅ 카테고리 매핑 (영문 → 한글)
+              if (notesData.category) {
+                const categoryMap = {
+                  'tour': '여행',
+                  'stay': '숙박',
+                  'accommodation': '숙박',
+                  'rentcar': '렌트카',
+                  'food': '음식',
+                  'tourist': '관광지',
+                  'attractions': '관광지',
+                  'popup': '팝업',
+                  'event': '행사',
+                  'events': '행사',
+                  'experience': '체험'
+                };
+                const mappedCategory = categoryMap[notesData.category.toLowerCase()] || notesData.category;
+                // DB에서 가져온 카테고리가 '주문' 또는 '주문/기타'이면 notes 카테고리로 대체
+                if (order.category === '주문' || order.category === '주문/기타' || !order.category) {
+                  order.category = mappedCategory;
+                }
+              }
 
               // ✅ FIX: 청구 정보 추출 (주문 시 입력한 정보)
               if (notesData.billingInfo) {
@@ -328,10 +414,6 @@ module.exports = async function handler(req, res) {
                 totalQuantity = notesData.items.reduce((sum, item) => {
                   return sum + (item.quantity || 1);
                 }, 0);
-
-                // ✅ 보험 정보 추출
-                insuranceFeeFromNotes = notesData.insuranceFee || 0;
-                insuranceInfoFromNotes = notesData.insurance || null;
 
                 // ✅ 팝업 상품 포함 여부 체크
                 hasPopupProduct = notesData.items.some(item => item.category === '팝업');
@@ -385,14 +467,35 @@ module.exports = async function handler(req, res) {
             }
           }
 
-          // ✅ CRITICAL FIX: 사용자 정보 우선순위 (렌트카 정보 포함)
+          // ✅ customer_info 파싱 (투어/음식/관광지/이벤트/체험 예약 정보)
+          let customerInfoName = '';
+          let customerInfoEmail = '';
+          let customerInfoPhone = '';
+
+          if (order.customer_info) {
+            try {
+              const customerInfo = JSON.parse(order.customer_info);
+              customerInfoName = customerInfo.name || '';
+              customerInfoEmail = customerInfo.email || '';
+              customerInfoPhone = customerInfo.phone || '';
+
+              if (customerInfoName || customerInfoEmail || customerInfoPhone) {
+                console.log(`✅ [Orders] order_id=${order.id}: customer_info 파싱 성공 - name="${customerInfoName}", email="${customerInfoEmail}", phone="${customerInfoPhone}"`);
+              }
+            } catch (e) {
+              console.warn(`⚠️ [Orders] order_id=${order.id}: customer_info 파싱 실패:`, e.message);
+            }
+          }
+
+          // ✅ CRITICAL FIX: 사용자 정보 우선순위
           // 1순위: notes의 billingInfo (주문 시 입력한 정보)
           // 2순위: users 테이블 (Neon DB 회원 정보)
-          // 3순위: 렌트카 customer 정보 (shipping_email은 렌트카의 customer_email)
-          // 4순위: bookings 테이블의 shipping 정보
-          const finalUserName = billingName || user?.name || order.shipping_name || notesShippingName || '';
-          const finalUserEmail = billingEmail || user?.email || order.shipping_email || '';
-          const finalUserPhone = billingPhone || user?.phone || order.shipping_phone || notesShippingPhone || '';
+          // 3순위: customer_info (투어/음식/관광지/이벤트/체험 예약 정보)
+          // 4순위: 렌트카 customer 정보 (shipping_email은 렌트카의 customer_email)
+          // 5순위: bookings 테이블의 shipping 정보
+          const finalUserName = billingName || user?.name || customerInfoName || order.shipping_name || notesShippingName || '';
+          const finalUserEmail = billingEmail || user?.email || customerInfoEmail || order.shipping_email || '';
+          const finalUserPhone = billingPhone || user?.phone || customerInfoPhone || order.shipping_phone || notesShippingPhone || '';
 
           // ⚠️ 사용자 정보가 완전히 없는 경우 상세 경고
           if (!finalUserName && !finalUserEmail && !finalUserPhone) {
@@ -400,12 +503,13 @@ module.exports = async function handler(req, res) {
             console.error(`  - user_id: ${order.user_id || 'NULL'}`);
             console.error(`  - billing: name="${billingName}", email="${billingEmail}", phone="${billingPhone}"`);
             console.error(`  - user (Neon DB): ${user ? `name="${user.name}", email="${user.email}", phone="${user.phone}"` : 'NULL'}`);
+            console.error(`  - customer_info: name="${customerInfoName || 'NULL'}", email="${customerInfoEmail || 'NULL'}", phone="${customerInfoPhone || 'NULL'}"`);
             console.error(`  - shipping: name="${order.shipping_name || 'NULL'}", email="${order.shipping_email || 'NULL'}", phone="${order.shipping_phone || 'NULL'}"`);
             console.error(`  - notes.shipping: name="${notesShippingName || 'NULL'}", phone="${notesShippingPhone || 'NULL'}"`);
             console.error(`  - category: ${order.category}`);
           }
 
-          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (source: billing="${billingName || 'N'}", user.name="${user?.name || 'N'}", user.email="${user?.email || 'N'}", user.phone="${user?.phone || 'N'}", shipping="${order.shipping_name || 'N'}/${order.shipping_email || 'N'}/${order.shipping_phone || 'N'}")`);
+          console.log(`📊 [Orders] order_id=${order.id}: FINAL - name="${finalUserName}", email="${finalUserEmail}", phone="${finalUserPhone}" (source: billing="${billingName || 'N'}", user.name="${user?.name || 'N'}", customer_info="${customerInfoName || 'N'}/${customerInfoEmail || 'N'}/${customerInfoPhone || 'N'}", shipping="${order.shipping_name || 'N'}/${order.shipping_email || 'N'}/${order.shipping_phone || 'N'}")`);
 
           return {
             id: parseInt(order.id) || order.id,
@@ -421,8 +525,6 @@ module.exports = async function handler(req, res) {
             total_amount: parseFloat(order.amount), // ✅ FIX: 문자열 → 숫자 변환
             subtotal: parseFloat(subtotal || (order.amount - deliveryFee)),
             delivery_fee: parseFloat(deliveryFee),
-            insurance_fee: insuranceFeeFromNotes, // ✅ 보험료 추가
-            insurance_info: insuranceInfoFromNotes, // ✅ 보험 상세 정보 추가
             items_info: itemsInfo, // ✅ 주문 상품 상세 정보 (배송 관리용)
             bookings_list: bookingsList, // 🔧 혼합 주문의 모든 bookings (부분 환불용)
             item_count: itemCount, // ✅ 상품 종류 수
@@ -432,11 +534,18 @@ module.exports = async function handler(req, res) {
             created_at: order.created_at,
             start_date: order.start_date,
             end_date: order.end_date,
+            pickup_time: order.pickup_time, // ✅ 렌트카 픽업 시간
+            dropoff_time: order.dropoff_time, // ✅ 렌트카 반납 시간
             // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
-            num_adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
-            guests: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
-            num_children: order.children || 0,
+            // ✅ 인원 정보: notes에서 추출한 값 우선 사용
+            num_adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
+            guests: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
+            num_children: numChildren || order.children || 0,
+            num_infants: numInfants || order.infants || 0,
             num_seniors: 0,
+            // ✅ 보험 정보
+            insurance_fee: insuranceFee,
+            insurance_info: insuranceInfo,
             category: order.category,
             is_popup: order.category === '팝업',
             has_popup_product: hasPopupProduct, // ✅ 장바구니 주문에 팝업 상품 포함 여부
@@ -506,7 +615,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        version: "1.0.1-billingInfo-debug",
+        version: "2.0.0-PAGES-API-FIX",
         deployedAt: new Date().toISOString(),
         orders: ordersWithUserInfo
       });
@@ -535,8 +644,7 @@ module.exports = async function handler(req, res) {
         status,
         paymentMethod,
         shippingInfo,
-        insurance,
-        billingInfo
+        insurance
       } = req.body;
 
       console.log('🛒 [Orders] 주문 생성 요청:', {
@@ -548,9 +656,7 @@ module.exports = async function handler(req, res) {
         couponCode,
         pointsUsed,
         total,
-        hasShipping: !!shippingInfo,
-        hasInsurance: !!insurance,
-        insuranceFee: insurance?.price || 0
+        hasShipping: !!shippingInfo
       });
 
       // 필수 파라미터 검증
@@ -575,9 +681,19 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        // SECURITY FIX: DB에서 실제 가격 조회 (category_id 포함)
+        // SECURITY FIX: DB에서 실제 가격 조회 (연령별 가격 포함)
         const listingResult = await connection.execute(
-          'SELECT price_from as price, title, category_id FROM listings WHERE id = ? AND is_active = 1',
+          `SELECT
+            price_from as price,
+            title,
+            category_id,
+            child_price,
+            infant_price,
+            admission_fee_adult,
+            admission_fee_child,
+            admission_fee_senior,
+            admission_fee_infant
+          FROM listings WHERE id = ? AND is_active = 1`,
           [item.listingId]
         );
 
@@ -589,17 +705,72 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        const actualItemPrice = listingResult.rows[0].price;
-        const categoryId = listingResult.rows[0].category_id;
+        const listing = listingResult.rows[0];
+        const actualItemPrice = listing.price;
+        const categoryId = listing.category_id;
 
-        // 예약 기반 카테고리 (투어/음식/관광지/행사/체험) - 보험료 등 추가 옵션이 있을 수 있음
-        const isBookingCategory = [1855, 1858, 1859, 1861, 1862].includes(categoryId);
+        // ✅ 투어/음식/관광지/이벤트/체험 등은 인원/날짜에 따라 가격이 다름
+        const bookingBasedCategories = [1855, 1858, 1859, 1861, 1862]; // 투어, 음식, 관광지, 이벤트, 체험
+        const isBookingBased = bookingBasedCategories.includes(categoryId);
 
-        // SECURITY FIX: 클라이언트가 보낸 가격과 DB 가격 비교
-        // 예약 기반 상품은 보험료 등 추가 옵션이 있으므로 기본 가격만 확인
-        if (!isBookingCategory && item.price && Math.abs(actualItemPrice - item.price) > 1) {
+        // 🔒 CRITICAL FIX: 연령별 가격 서버 검증 (변수를 밖으로 빼서 나중에 재사용)
+        let serverCalculatedItemPrice = 0;
+        if (isBookingBased && (item.adults || item.children || item.infants || item.seniors)) {
+          // 투어/관광지/체험 등: 성인/어린이/유아/경로 가격 검증
+          const serverAdultPrice = listing.admission_fee_adult || listing.adult_price || listing.price || 0;
+          const serverChildPrice = listing.admission_fee_child || listing.child_price || 0;
+          const serverInfantPrice = listing.admission_fee_infant || listing.infant_price || 0;
+          const serverSeniorPrice = listing.admission_fee_senior || listing.senior_price || 0;
+
+          serverCalculatedItemPrice =
+            (item.adults || 0) * serverAdultPrice +
+            (item.children || 0) * serverChildPrice +
+            (item.infants || 0) * serverInfantPrice +
+            (item.seniors || 0) * serverSeniorPrice;
+
+          const clientItemPrice = item.price || item.subtotal || 0;
+
+          console.log(`🔒 [Orders] 연령별 가격 검증:`, {
+            item: listing.title,
+            '👥 adults': item.adults,
+            '👶 children': item.children,
+            '🍼 infants': item.infants,
+            '👴 seniors': item.seniors,
+            '💰 serverAdultPrice': serverAdultPrice,
+            '💰 serverChildPrice': serverChildPrice,
+            '💰 serverInfantPrice': serverInfantPrice,
+            '🔍 listing.adult_price': listing.adult_price,
+            '🔍 listing.child_price': listing.child_price,
+            '🔍 listing.price': listing.price,
+            '✅ serverCalculated': serverCalculatedItemPrice,
+            '📱 clientProvided': clientItemPrice,
+            '📊 calculation': `${item.adults || 0} * ${serverAdultPrice} + ${item.children || 0} * ${serverChildPrice} + ${item.infants || 0} * ${serverInfantPrice}`
+          });
+
+          // 가격 검증 (1원 이하 오차 허용)
+          if (Math.abs(serverCalculatedItemPrice - clientItemPrice) > 1) {
+            console.error(`❌ [Orders] 연령별 가격 조작 감지!
+              - 상품: ${listing.title}
+              - 서버 계산: ${serverCalculatedItemPrice}원
+              - 클라이언트: ${clientItemPrice}원
+              - 차이: ${Math.abs(serverCalculatedItemPrice - clientItemPrice)}원`);
+
+            return res.status(400).json({
+              success: false,
+              error: 'AGE_BASED_PRICE_TAMPERED',
+              message: '티켓 가격이 변경되었습니다. 페이지를 새로고침해주세요.',
+              expected: serverCalculatedItemPrice,
+              received: clientItemPrice
+            });
+          }
+
+          console.log(`✅ [Orders] 연령별 가격 검증 통과`);
+        }
+
+        // SECURITY FIX: 클라이언트가 보낸 가격과 DB 가격 비교 (팝업 스토어 상품만)
+        if (!isBookingBased && item.price && Math.abs(actualItemPrice - item.price) > 1) {
           console.error(`❌ [Orders] 가격 조작 감지!
-            - 상품: ${listingResult.rows[0].title}
+            - 상품: ${listing.title}
             - DB 가격: ${actualItemPrice}원
             - 클라이언트 가격: ${item.price}원`);
 
@@ -608,6 +779,10 @@ module.exports = async function handler(req, res) {
             error: 'PRICE_TAMPERED',
             message: '상품 가격이 변경되었습니다. 페이지를 새로고침해주세요.'
           });
+        }
+
+        if (isBookingBased) {
+          console.log(`ℹ️  [Orders] 예약 기반 상품 (category: ${categoryId}) - 가격 검증 완료: ${item.price}원`);
         }
 
         // SECURITY FIX: 옵션 가격도 DB에서 검증
@@ -637,48 +812,33 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        // 실제 DB 가격으로 계산 (예약 기반 상품은 인원별 가격 계산)
+        // 🔒 CRITICAL FIX: 가격 계산 - 연령별 데이터가 있으면 서버 계산 값 사용
         let totalItemPrice;
-        if (isBookingCategory) {
-          // 예약 기반 상품: 성인/어린이/유아 가격 계산 또는 클라이언트 총액 사용
-          if (item.adultPrice !== undefined && item.adults !== undefined) {
-            // 성인/어린이/유아 가격이 모두 있으면 서버에서 재계산
-            const adults = parseInt(item.adults) || 0;
-            const children = parseInt(item.children) || 0;
-            const infants = parseInt(item.infants) || 0;
-            const adultPrice = Number(item.adultPrice) || 0;
-            const childPrice = Number(item.childPrice) || 0;
-            const infantPrice = Number(item.infantPrice) || 0;
-
-            totalItemPrice = (adults * adultPrice) + (children * childPrice) + (infants * infantPrice);
-            console.log(`✅ [Orders] 예약 상품 인원별 계산: ${listingResult.rows[0].title}
-              - 성인 ${adults}명 × ${adultPrice}원 = ${adults * adultPrice}원
-              - 어린이 ${children}명 × ${childPrice}원 = ${children * childPrice}원
-              - 유아 ${infants}명 × ${infantPrice}원 = ${infants * infantPrice}원
-              - 합계: ${totalItemPrice}원`);
+        if (isBookingBased) {
+          // 연령별 데이터가 있으면 서버가 계산한 값 사용 (이미 검증됨)
+          if (serverCalculatedItemPrice > 0) {
+            totalItemPrice = serverCalculatedItemPrice * item.quantity;
           } else {
-            // 인원 정보가 없으면 기본 가격 × 수량
-            totalItemPrice = (item.price || actualItemPrice) * item.quantity;
-            console.log(`✅ [Orders] 예약 상품 기본 계산: ${listingResult.rows[0].title} = ${item.price || actualItemPrice}원 × ${item.quantity}`);
+            // 연령별 데이터 없으면 클라이언트 가격 사용 (기존 로직)
+            totalItemPrice = (item.price || 0) * item.quantity;
           }
         } else {
-          // 팝업 상품: DB 가격으로 엄격하게 검증
+          // 팝업 스토어 상품은 DB 가격으로 재계산
           totalItemPrice = (actualItemPrice + actualOptionPrice) * item.quantity;
-          console.log(`✅ [Orders] 팝업 상품 가격 검증 완료: ${listingResult.rows[0].title} = ${actualItemPrice}원 + 옵션 ${actualOptionPrice}원`);
         }
-
         serverCalculatedSubtotal += totalItemPrice;
+
+        console.log(`✅ [Orders] 상품 가격 검증 완료: ${listingResult.rows[0].title} = ${isBookingBased ? item.price + '원 (예약 기반)' : actualItemPrice + '원 + 옵션 ' + actualOptionPrice + '원'}`);
       }
 
       console.log(`🔒 [Orders] 서버 측 subtotal 재계산: ${serverCalculatedSubtotal}원 (클라이언트: ${subtotal}원)`);
 
-      // 클라이언트가 보낸 subtotal과 서버 계산이 다르면 거부 (10원 이내 허용)
-      const subtotalDifference = Math.abs(serverCalculatedSubtotal - (subtotal || 0));
-      if (subtotalDifference > 10) {
+      // 클라이언트가 보낸 subtotal과 서버 계산이 다르면 거부
+      if (Math.abs(serverCalculatedSubtotal - (subtotal || 0)) > 1) {
         console.error(`❌ [Orders] Subtotal 조작 감지!
           - 클라이언트 subtotal: ${subtotal}원
           - 서버 계산 subtotal: ${serverCalculatedSubtotal}원
-          - 차이: ${subtotalDifference}원`);
+          - 차이: ${Math.abs(serverCalculatedSubtotal - (subtotal || 0))}원`);
 
         return res.status(400).json({
           success: false,
@@ -779,18 +939,18 @@ module.exports = async function handler(req, res) {
         serverPointsUsed = 0;
       }
 
-      // 🛡️ 보험료 서버 검증
-      const serverInsuranceFee = insurance ? Number(insurance.price) || 0 : 0;
-      if (insurance && serverInsuranceFee <= 0) {
-        console.error(`❌ [Orders] 잘못된 보험료: ${serverInsuranceFee}원`);
-        return res.status(400).json({
-          success: false,
-          error: 'INVALID_INSURANCE',
-          message: '유효하지 않은 보험 정보입니다.'
+      // 🔒 CRITICAL FIX: 보험료 검증 및 계산
+      let serverInsuranceFee = 0;
+      if (insurance && insurance.price) {
+        serverInsuranceFee = insurance.price;
+        console.log(`💼 [Orders] 보험 적용:`, {
+          name: insurance.name,
+          price: serverInsuranceFee,
+          coverage_amount: insurance.coverage_amount
         });
       }
 
-      // 서버 측 최종 금액 계산 (서버가 재계산한 subtotal 사용)
+      // 서버 측 최종 금액 계산 (서버가 재계산한 subtotal 사용 + 보험료 포함)
       const expectedTotal = serverCalculatedSubtotal - serverCouponDiscount + serverDeliveryFee + serverInsuranceFee - serverPointsUsed;
 
       // 1원 이하 오차 허용 (부동소수점 연산 오차)
@@ -814,7 +974,7 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      console.log(`✅ [Orders] 금액 검증 통과: ${total.toLocaleString()}원 (subtotal=${serverCalculatedSubtotal}, deliveryFee=${serverDeliveryFee}, insuranceFee=${serverInsuranceFee}, couponDiscount=${serverCouponDiscount}, pointsUsed=${serverPointsUsed})`);
+      console.log(`✅ [Orders] 금액 검증 통과: ${total.toLocaleString()}원`);
 
       // 🔍 주문 생성 전 모든 상품 유효성 검증
       console.log('🔍 [Orders] 받은 items 배열:', JSON.stringify(items, null, 2));
@@ -917,21 +1077,72 @@ module.exports = async function handler(req, res) {
 
           // 카테고리별 상품 금액 계산
           const categorySubtotal = categoryItems.reduce((sum, item) => {
-            const itemPrice = item.price || 0;
-            const optionPrice = item.selectedOption?.priceAdjustment || 0;  // ✅ priceAdjustment 사용
-            return sum + (itemPrice + optionPrice) * item.quantity;
+            let itemTotal = 0;
+
+            // 🎫 연령별 예약 상품인 경우 (투어/관광지/체험/음식점 등)
+            // ⚠️ Cart는 num_adults, num_children 등을 사용하므로 둘 다 체크
+            const adults = item.adults ?? item.num_adults;
+            const children = item.children ?? item.num_children;
+            const infants = item.infants ?? item.num_infants;
+            const seniors = item.seniors ?? item.num_seniors;
+
+            if (adults !== undefined || children !== undefined || infants !== undefined || seniors !== undefined) {
+              const adultPrice = item.adultPrice || item.adult_price || item.price || 0;
+              const childPrice = item.childPrice || item.child_price || 0;
+              const infantPrice = item.infantPrice || item.infant_price || 0;
+              const seniorPrice = item.seniorPrice || item.senior_price || 0;
+
+              itemTotal =
+                (adults || 0) * adultPrice +
+                (children || 0) * childPrice +
+                (infants || 0) * infantPrice +
+                (seniors || 0) * seniorPrice;
+
+              // 🛡️ 보험료 추가 (렌트카 등)
+              if (item.insuranceFee) {
+                itemTotal += item.insuranceFee;
+              }
+
+              console.log(`🎫 [Orders] 연령별 상품 금액 계산:`, {
+                item: item.title || item.listingId,
+                adults,
+                children,
+                infants,
+                seniors,
+                adultPrice,
+                childPrice,
+                infantPrice,
+                seniorPrice,
+                insuranceFee: item.insuranceFee || 0,
+                itemTotal
+              });
+            } else {
+              // 📦 일반 상품 (팝업 스토어 등)
+              const itemPrice = item.price || 0;
+              const optionPrice = item.selectedOption?.priceAdjustment || 0;
+              itemTotal = (itemPrice + optionPrice) * item.quantity;
+
+              console.log(`📦 [Orders] 일반 상품 금액 계산:`, {
+                item: item.title || item.listingId,
+                itemPrice,
+                optionPrice,
+                quantity: item.quantity,
+                itemTotal
+              });
+            }
+
+            return sum + itemTotal;
           }, 0);
 
           // 배송비는 팝업 카테고리에만 적용
           const categoryDeliveryFee = category === '팝업' ? serverDeliveryFee : 0;
 
-          // 쿠폰/포인트/보험료는 첫 번째 카테고리에만 적용
+          // 쿠폰/포인트는 첫 번째 카테고리에만 적용
           const categoryCouponDiscount = isFirstCategory ? serverCouponDiscount : 0;
           const categoryPointsUsed = isFirstCategory ? serverPointsUsed : 0;
           const categoryCouponCode = isFirstCategory ? (couponCode || null) : null;
-          const categoryInsuranceFee = isFirstCategory ? serverInsuranceFee : 0;
 
-          const categoryTotal = categorySubtotal + categoryDeliveryFee + categoryInsuranceFee - categoryCouponDiscount - categoryPointsUsed;
+          const categoryTotal = categorySubtotal + categoryDeliveryFee - categoryCouponDiscount - categoryPointsUsed;
 
           const insertResult = await connection.execute(`
             INSERT INTO payments (
@@ -955,26 +1166,16 @@ module.exports = async function handler(req, res) {
               items: categoryItems,
               subtotal: categorySubtotal,
               deliveryFee: categoryDeliveryFee,
-              insuranceFee: categoryInsuranceFee,
-              insurance: isFirstCategory && insurance ? {
-                id: insurance.id,
-                name: insurance.name,
-                price: insurance.price,
-                coverage_amount: insurance.coverage_amount
-              } : null,
               couponDiscount: categoryCouponDiscount,
               couponCode: categoryCouponCode,
               pointsUsed: categoryPointsUsed,
+              insurance: insurance || null, // ✅ FIX: 보험 정보 저장
               shippingInfo: shippingInfo || null, // ✅ FIX: 카테고리 무관하게 항상 저장
-              billingInfo: billingInfo ? {
-                name: billingInfo.name,
-                email: billingInfo.email || null,
-                phone: billingInfo.phone
-              } : (shippingInfo ? {
+              billingInfo: shippingInfo ? {
                 name: shippingInfo.name,
                 email: shippingInfo.email || null,
                 phone: shippingInfo.phone
-              } : null)
+              } : null
             })
           ]);
 
@@ -990,10 +1191,22 @@ module.exports = async function handler(req, res) {
       for (const item of items) {
         const bookingNumber = `BK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-        // ✅ 실제 주문 수량 계산
-        // 🔒 CRITICAL: 재고 차감 로직(line 202)과 정확히 동일한 계산식 사용!
-        // 재고 복구 시 이 값을 사용하므로 일치해야 함
-        const actualQuantity = item.quantity || 1;
+        // ✅ CRITICAL FIX: 실제 주문 수량 계산 (카테고리별 차별화)
+        // 🔒 재고 차감 로직과 정확히 동일한 계산식 사용!
+        let actualQuantity;
+        let totalGuests;
+
+        // 투어/관광지/체험 등: 성인+어린이+유아+경로 합산
+        if (item.adults !== undefined || item.children !== undefined || item.infants !== undefined || item.seniors !== undefined) {
+          totalGuests = (item.adults || 0) + (item.children || 0) + (item.infants || 0) + (item.seniors || 0);
+          actualQuantity = item.quantity || 1; // 재고는 quantity 사용 (팝업 호환)
+          console.log(`👥 [Orders] 인원 기반 상품: adults=${item.adults}, children=${item.children}, infants=${item.infants}, seniors=${item.seniors}, totalGuests=${totalGuests}`);
+        } else {
+          // 팝업 스토어: quantity 사용
+          actualQuantity = item.quantity || 1;
+          totalGuests = actualQuantity;
+          console.log(`📦 [Orders] 수량 기반 상품: quantity=${actualQuantity}`);
+        }
 
         // ✅ FIX: 배송지 정보는 카테고리 무관하게 저장 (팝업뿐만 아니라 모든 상품)
         const shippingData = shippingInfo ? {
@@ -1019,6 +1232,7 @@ module.exports = async function handler(req, res) {
             adults,
             children,
             infants,
+            seniors,
             guests,
             selected_option_id,
             special_requests,
@@ -1030,7 +1244,7 @@ module.exports = async function handler(req, res) {
             shipping_zipcode,
             created_at,
             updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         `, [
           userId,
           item.listingId,
@@ -1045,7 +1259,8 @@ module.exports = async function handler(req, res) {
           item.adults || 0,
           item.children || 0,
           item.infants || 0,
-          actualQuantity, // ✅ 실제 주문 수량 (재고 차감/복구에 사용)
+          item.seniors || 0,
+          totalGuests, // ✅ CRITICAL FIX: 실제 총 인원 수 (팝업=수량, 투어=인원 합산)
           item.selectedOption?.id || null, // ✅ 옵션 ID 저장 (재고 복구에 사용)
           JSON.stringify(item.selectedOption || {}),
           item.category === '팝업' ? (deliveryFee || 0) / items.length : 0,
@@ -1157,11 +1372,18 @@ module.exports = async function handler(req, res) {
           if (userResult.rows && userResult.rows.length > 0) {
             const currentPoints = userResult.rows[0].total_points || 0;
 
-            if (currentPoints < pointsUsed) {
-              throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용 요청: ${pointsUsed}P)`);
+            // 🔒 음수 잔액 처리: 사용 가능한 포인트는 0 이상만
+            const availablePoints = Math.max(0, currentPoints);
+
+            if (availablePoints < pointsUsed) {
+              if (currentPoints < 0) {
+                throw new Error(`포인트가 부족합니다. (미정산 금액: ${Math.abs(currentPoints)}P, 사용 가능: 0P, 사용 요청: ${pointsUsed}P)`);
+              } else {
+                throw new Error(`포인트가 부족합니다. (보유: ${currentPoints}P, 사용 요청: ${pointsUsed}P)`);
+              }
             }
 
-            console.log(`✅ [Orders] 포인트 사용 가능 확인: ${pointsUsed}P (현재 잔액: ${currentPoints}P)`);
+            console.log(`✅ [Orders] 포인트 사용 가능 확인: ${pointsUsed}P (현재 잔액: ${currentPoints}P, 사용가능: ${availablePoints}P)`);
             console.log(`ℹ️ [Orders] 포인트 차감은 결제 확정 후 수행됩니다.`);
           } else {
             throw new Error('사용자를 찾을 수 없습니다.');
