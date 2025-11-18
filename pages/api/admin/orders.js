@@ -61,11 +61,18 @@ async function handler(req, res) {
           b.shipping_zipcode,
           l.title as product_title,
           COALESCE(c.name_ko, l.category, '주문') as category,
-          l.images
+          l.images,
+          rb.pickup_time,
+          rb.dropoff_time,
+          rb.insurance_id,
+          rb.insurance_fee_krw,
+          ri.name as insurance_name
         FROM payments p
         LEFT JOIN bookings b ON p.gateway_transaction_id = b.order_number
         LEFT JOIN listings l ON b.listing_id = l.id
         LEFT JOIN categories c ON l.category_id = c.id
+        LEFT JOIN rentcar_bookings rb ON p.payment_key = rb.payment_key
+        LEFT JOIN rentcar_insurance ri ON rb.insurance_id = ri.id
         WHERE p.payment_status IN ('paid', 'completed', 'refunded')
         ORDER BY p.created_at DESC
       `);
@@ -319,6 +326,10 @@ async function handler(req, res) {
             end_date: order.end_date,
             pickup_time: order.pickup_time, // ✅ 렌트카 픽업 시간
             dropoff_time: order.dropoff_time, // ✅ 렌트카 반납 시간
+            // ✅ 렌트카 보험 정보
+            rentcar_insurance_id: order.insurance_id,
+            rentcar_insurance_name: order.insurance_name,
+            rentcar_insurance_fee: order.insurance_fee_krw ? parseInt(order.insurance_fee_krw) : 0,
             // ✅ FIX: notes에서 추출한 인원 정보 우선 사용, 없으면 bookings 테이블 값 사용
             num_adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
             guests: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용

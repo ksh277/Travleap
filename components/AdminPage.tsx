@@ -4288,20 +4288,31 @@ export function AdminPage({}: AdminPageProps) {
                         <TableCell>
                           <div className="space-y-1 text-sm">
                             {order.category !== '팝업' && order.start_date && (
-                              <div>
-                                {new Date(order.start_date).toLocaleDateString('ko-KR')}
-                                {order.category === '렌트카' && order.pickup_time && typeof order.pickup_time === 'string' && (
-                                  <span className="text-xs text-blue-600 ml-1">{order.pickup_time.substring(0, 5)}</span>
-                                )}
-                                {order.end_date && order.end_date !== order.start_date && (
-                                  <>
-                                    <span> ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}</span>
-                                    {order.category === '렌트카' && order.dropoff_time && typeof order.dropoff_time === 'string' && (
-                                      <span className="text-xs text-blue-600 ml-1">{order.dropoff_time.substring(0, 5)}</span>
+                              <>
+                                <div>
+                                  {new Date(order.start_date).toLocaleDateString('ko-KR')}
+                                  {order.category === '렌트카' && order.pickup_time && typeof order.pickup_time === 'string' && (
+                                    <span className="text-xs text-blue-600 ml-1 font-semibold">{order.pickup_time.substring(0, 5)}</span>
+                                  )}
+                                  {order.end_date && order.end_date !== order.start_date && (
+                                    <>
+                                      <span> ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}</span>
+                                      {order.category === '렌트카' && order.dropoff_time && typeof order.dropoff_time === 'string' && (
+                                        <span className="text-xs text-blue-600 ml-1 font-semibold">{order.dropoff_time.substring(0, 5)}</span>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                                {/* 렌트카 보험 정보 */}
+                                {order.category === '렌트카' && (order as any).rentcar_insurance_name && (
+                                  <div className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded inline-block">
+                                    🛡️ {(order as any).rentcar_insurance_name}
+                                    {(order as any).rentcar_insurance_fee > 0 && (
+                                      <span className="ml-1">({((order as any).rentcar_insurance_fee).toLocaleString()}원)</span>
                                     )}
-                                  </>
+                                  </div>
                                 )}
-                              </div>
+                              </>
                             )}
                             {order.category === '팝업' ? (
                               <div className="text-xs text-gray-500">
