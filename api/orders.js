@@ -311,6 +311,52 @@ module.exports = async function handler(req, res) {
           console.log(`📦 [Orders] ${bookingsResult.rows?.length || 0}개 booking 조회 완료`);
         }
 
+        // 렌트카 추가 옵션 조회
+        let rentcarExtrasMap = new Map(); // booking_id → [extras]
+        const rentcarBookingIds = allOrders
+          .filter(o => o.booking_id && o.category === '렌트카')
+          .map(o => o.booking_id)
+          .filter(id => id);
+
+        if (rentcarBookingIds.length > 0) {
+          console.log(`🚗 [Orders] 렌트카 ${rentcarBookingIds.length}건의 추가 옵션 조회 중...`);
+
+          const extrasPlaceholders = rentcarBookingIds.map(() => '?').join(',');
+          const extrasResult = await connection.execute(`
+            SELECT
+              be.booking_id,
+              be.extra_id,
+              be.quantity,
+              be.unit_price_krw,
+              be.total_price_krw,
+              re.name as extra_name,
+              re.description as extra_description,
+              re.category as extra_category
+            FROM rentcar_booking_extras be
+            LEFT JOIN rentcar_extras re ON be.extra_id = re.id
+            WHERE be.booking_id IN (${extrasPlaceholders})
+            ORDER BY be.booking_id, be.id ASC
+          `, rentcarBookingIds);
+
+          // booking_id별로 그룹화
+          (extrasResult.rows || []).forEach(extra => {
+            if (!rentcarExtrasMap.has(extra.booking_id)) {
+              rentcarExtrasMap.set(extra.booking_id, []);
+            }
+            rentcarExtrasMap.get(extra.booking_id).push({
+              extra_id: extra.extra_id,
+              name: extra.extra_name,
+              description: extra.extra_description,
+              category: extra.extra_category,
+              quantity: extra.quantity,
+              unit_price: parseFloat(extra.unit_price_krw || 0),
+              total_price: parseFloat(extra.total_price_krw || 0)
+            });
+          });
+
+          console.log(`🚗 [Orders] ${extrasResult.rows?.length || 0}개 렌트카 옵션 조회 완료`);
+        }
+
         // 주문 데이터와 사용자 정보 병합
         ordersWithUserInfo = allOrders.map(order => {
           const user = userMap.get(order.user_id);
@@ -546,6 +592,8 @@ module.exports = async function handler(req, res) {
             rentcar_insurance_name: order.insurance_name,
             rentcar_insurance_description: order.insurance_description,
             rentcar_insurance_fee: order.insurance_fee_krw ? parseInt(order.insurance_fee_krw) : 0,
+            // ✅ 렌트카 추가 옵션
+            rentcar_extras: order.category === '렌트카' && order.booking_id ? (rentcarExtrasMap.get(order.booking_id) || []) : [],
             // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
             // ✅ 인원 정보: notes에서 추출한 값 우선 사용
             num_adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
