@@ -279,11 +279,22 @@ async function handler(req, res) {
             created_at: order.created_at,
             start_date: order.start_date,
             end_date: order.end_date,
+            pickup_time: order.pickup_time, // ✅ 렌트카 픽업 시간
+            dropoff_time: order.dropoff_time, // ✅ 렌트카 반납 시간
+            // ✅ 렌트카 보험 정보
+            rentcar_insurance_id: order.insurance_id,
+            rentcar_insurance_name: order.insurance_name,
+            rentcar_insurance_fee: order.insurance_fee_krw ? parseInt(order.insurance_fee_krw) : 0,
             // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
             num_adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
             guests: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0), // ✅ AdminOrders.tsx에서 사용
             num_children: order.children || 0,
+            num_infants: order.infants || 0,
             num_seniors: 0,
+            // ✅ 프론트엔드 호환성: adults, children, infants 필드 추가
+            adults: order.category === '팝업' ? totalQuantity : (order.adults || order.guests || 0),
+            children: order.children || 0,
+            infants: order.infants || 0,
             category: order.category,
             is_popup: order.category === '팝업',
             order_number: actualOrderNumber,
