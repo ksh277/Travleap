@@ -16,6 +16,9 @@ function generateOrderNumber() {
 }
 
 async function handler(req, res) {
+  // API 버전 체크 (디버깅용)
+  const API_VERSION = '2.1.0-rentcar-fix';
+
   // 관리자 권한 확인
   if (req.user.role !== 'admin') {
     return res.status(403).json({
