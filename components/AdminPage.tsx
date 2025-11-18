@@ -4312,6 +4312,22 @@ export function AdminPage({}: AdminPageProps) {
                                     )}
                                   </div>
                                 )}
+                                {/* 렌트카 추가 옵션 */}
+                                {order.category === '렌트카' && (order as any).rentcar_extras && (order as any).rentcar_extras.length > 0 && (
+                                  <div className="mt-1 space-y-1">
+                                    {(order as any).rentcar_extras.map((extra: any, idx: number) => (
+                                      <div key={idx} className="text-xs text-purple-700 bg-purple-50 px-2 py-1 rounded inline-block mr-1">
+                                        ➕ {extra.name}
+                                        {extra.unit_price > 0 && (
+                                          <span className="ml-1">({extra.unit_price.toLocaleString()}원)</span>
+                                        )}
+                                        {extra.quantity > 1 && (
+                                          <span className="ml-1">x{extra.quantity}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </>
                             )}
                             {order.category === '팝업' ? (
