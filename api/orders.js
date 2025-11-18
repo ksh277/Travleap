@@ -6,7 +6,7 @@
 
 const { connect } = require('@planetscale/database');
 const { randomUUID } = require('crypto');
-const { decrypt, decryptPhone, decryptEmail } = require('../../utils/encryption.cjs');
+const { decrypt, decryptPhone, decryptEmail } = require('../utils/encryption.cjs');
 
 function generateOrderNumber() {
   // UUID 사용으로 완전한 유일성 보장
