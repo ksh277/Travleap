@@ -24,5 +24,11 @@
         }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/expire-points",
+      "schedule": "0 15 * * *"
+    }
   ]
 }

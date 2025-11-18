@@ -358,8 +358,9 @@ async function restoreStock(connection, bookingId) {
  * @param {Object} connection - PlanetScale connection
  * @param {number} userId - 사용자 ID
  * @param {string} orderNumber - 주문 번호
+ * @param {number} refundRatio - 환불 비율 (0.0 ~ 1.0, 기본값 1.0 = 전액 환불)
  */
-async function deductEarnedPoints(connection, userId, orderNumber) {
+async function deductEarnedPoints(connection, userId, orderNumber, refundRatio = 1.0) {
   try {
     console.log(`💰 [포인트 회수] user_id=${userId}, order_number=${orderNumber}`);
 
@@ -410,8 +411,16 @@ async function deductEarnedPoints(connection, userId, orderNumber) {
     }
 
     // ✅ 모든 적립 포인트 합산 (여러 적립 내역이 있을 경우 대비)
-    const pointsToDeduct = earnedPointsResult.rows.reduce((sum, row) => sum + (row.points || 0), 0);
-    console.log(`💰 [포인트 회수] 총 ${earnedPointsResult.rows.length}건의 적립 내역, 합계: ${pointsToDeduct}P`);
+    const totalEarnedPoints = earnedPointsResult.rows.reduce((sum, row) => sum + (row.points || 0), 0);
+
+    // ✅ 부분 환불 시 비율 적용
+    const pointsToDeduct = Math.floor(totalEarnedPoints * refundRatio);
+
+    if (refundRatio < 1.0) {
+      console.log(`💰 [포인트 회수] 부분 환불 (${(refundRatio * 100).toFixed(1)}%): 전체 ${totalEarnedPoints}P 중 ${pointsToDeduct}P 회수`);
+    } else {
+      console.log(`💰 [포인트 회수] 총 ${earnedPointsResult.rows.length}건의 적립 내역, 합계: ${pointsToDeduct}P`);
+    }
 
     // 2. Neon PostgreSQL에서 현재 포인트 조회 및 차감
     const { Pool } = require('@neondatabase/serverless');
@@ -850,6 +859,12 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     // 9. 포인트 처리 (적립 포인트 회수 + 사용 포인트 환불) - ✅ FIX: payment_status 업데이트 전에 실행
     console.log(`💰 [Refund] 포인트 처리 시작 - payment_id: ${payment.id}, user_id: ${payment.user_id}, isCartOrder: ${isCartOrder}`);
 
+    // ✅ 부분 환불 비율 계산
+    const refundRatio = payment.amount > 0 ? (actualRefundAmount / payment.amount) : 1.0;
+    if (refundRatio < 1.0) {
+      console.log(`📊 [Refund] 부분 환불 감지: ${actualRefundAmount.toLocaleString()}원 / ${payment.amount.toLocaleString()}원 = ${(refundRatio * 100).toFixed(1)}%`);
+    }
+
     if (payment.user_id) {
       // ✅ FIX: 장바구니 주문이면 모든 카테고리 payments의 포인트 회수
       if (isCartOrder && payment.order_number) {
@@ -873,8 +888,8 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
           const refundOrderId = String(categoryPayment.id);
 
           try {
-            // 10-2-1. 적립된 포인트 회수
-            const deductedPoints = await deductEarnedPoints(connection, categoryPayment.user_id, refundOrderId);
+            // 10-2-1. 적립된 포인트 회수 (✅ 부분 환불 비율 적용)
+            const deductedPoints = await deductEarnedPoints(connection, categoryPayment.user_id, refundOrderId, refundRatio);
             totalDeductedPoints += deductedPoints;
             console.log(`  ✅ [Refund] payment_id=${categoryPayment.id} 포인트 회수: ${deductedPoints}P`);
 
@@ -905,8 +920,8 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         // 단일 상품 환불
         const refundOrderId = String(payment.id);
 
-        // 10-1. 적립된 포인트 회수
-        const deductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId);
+        // 10-1. 적립된 포인트 회수 (✅ 부분 환불 비율 적용)
+        const deductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId, refundRatio);
         console.log(`✅ [Refund] payment_id=${payment.id} 포인트 회수 완료: ${deductedPoints}P`);
 
         // 10-2. 사용한 포인트 환불

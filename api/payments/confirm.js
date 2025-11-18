@@ -357,6 +357,26 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           if (userResult && userResult.rows && userResult.rows.length > 0) {
             const currentPoints = userResult.rows[0].total_points || 0;
 
+            // 2-1. ✅ 포인트 사용 제한 정책 검증
+            const totalAmount = order.amount || 0;
+            const MAX_POINT_USAGE_RATE = parseFloat(process.env.MAX_POINT_USAGE_RATE || '0.5'); // 기본값 50%
+            const MIN_CASH_PAYMENT = parseInt(process.env.MIN_CASH_PAYMENT || '1000'); // 기본값 1,000원
+
+            // 최대 사용 비율 검증
+            const maxPointsAllowed = Math.floor(totalAmount * MAX_POINT_USAGE_RATE);
+            if (pointsUsed > maxPointsAllowed) {
+              const usageRate = (MAX_POINT_USAGE_RATE * 100).toFixed(0);
+              console.error(`❌ [Points] 최대 사용 비율 초과: ${pointsUsed}P > ${maxPointsAllowed}P (${usageRate}%)`);
+              throw new Error(`포인트는 결제 금액의 최대 ${usageRate}%까지만 사용 가능합니다. (최대: ${maxPointsAllowed.toLocaleString()}P)`);
+            }
+
+            // 최소 현금 결제 검증
+            const cashPayment = totalAmount - pointsUsed;
+            if (cashPayment < MIN_CASH_PAYMENT && totalAmount >= MIN_CASH_PAYMENT) {
+              console.error(`❌ [Points] 최소 현금 결제 미달: ${cashPayment}원 < ${MIN_CASH_PAYMENT}원`);
+              throw new Error(`최소 ${MIN_CASH_PAYMENT.toLocaleString()}원은 현금으로 결제해야 합니다.`);
+            }
+
             // 3. 포인트 부족 체크 (동시 사용으로 인한 부족 가능)
             if (currentPoints < pointsUsed) {
               console.error(`❌ [Points] 포인트 부족: 현재 ${currentPoints}P, 필요 ${pointsUsed}P`);

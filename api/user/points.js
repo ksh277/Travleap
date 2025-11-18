@@ -50,11 +50,12 @@ module.exports = async function handler(req, res) {
     // Neon total_points는 Race Condition으로 동기화 안될 수 있음
     // 대신 PlanetScale의 최신 balance_after 사용 (트랜잭션 순서 보장)
 
-    // 최신 포인트 거래의 balance_after 조회
+    // 최신 포인트 거래의 balance_after 조회 (✅ 만료 포인트 제외)
     const balanceResult = await connection.execute(`
       SELECT balance_after
       FROM user_points
       WHERE user_id = ?
+        AND (expires_at IS NULL OR expires_at > NOW())
       ORDER BY created_at DESC, id DESC
       LIMIT 1
     `, [parseInt(userId)]);
