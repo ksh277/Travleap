@@ -63,7 +63,7 @@ async function handler(req, res) {
           COALESCE(c.name_ko, l.category, '주문') as category,
           l.images
         FROM payments p
-        LEFT JOIN bookings b ON p.booking_id = b.id
+        LEFT JOIN bookings b ON p.gateway_transaction_id = b.order_number
         LEFT JOIN listings l ON b.listing_id = l.id
         LEFT JOIN categories c ON l.category_id = c.id
         WHERE p.payment_status IN ('paid', 'completed', 'refunded')
@@ -213,7 +213,28 @@ async function handler(req, res) {
 
               // 🔧 카테고리 추출 (카테고리별 주문 분리 대응)
               if (notesData.category) {
-                order.category = notesData.category;
+                // ✅ 영문 카테고리를 한글로 변환
+                const categoryMap = {
+                  'tour': '여행',
+                  'stay': '숙박',
+                  'accommodation': '숙박',
+                  'rentcar': '렌트카',
+                  'food': '음식',
+                  'tourist': '관광지',
+                  'attractions': '관광지',
+                  'popup': '팝업',
+                  'event': '행사',
+                  'events': '행사',
+                  'experience': '체험'
+                };
+
+                // notes에서 온 카테고리가 영문이면 한글로 변환, 이미 한글이면 그대로 사용
+                const mappedCategory = categoryMap[notesData.category.toLowerCase()] || notesData.category;
+
+                // DB에서 가져온 한글 카테고리가 '주문'이 아니면 유지, '주문'이면 notes 카테고리 사용
+                if (order.category === '주문' || !order.category) {
+                  order.category = mappedCategory;
+                }
               }
 
               // 상품 정보 추출 (우선순위: notes.items > bookings > product_title)
