@@ -31,6 +31,10 @@ interface RentcarBooking {
   driver_name: string;
   driver_birth?: string;  // 생년월일
   driver_license_no: string;
+  pickup_date: string;
+  pickup_time?: string;
+  dropoff_date: string;
+  dropoff_time?: string;
   pickup_at_utc: string;
   return_at_utc: string;
   actual_pickup_at?: string;  // 실제 픽업 시간

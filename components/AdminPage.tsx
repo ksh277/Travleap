@@ -4290,8 +4290,16 @@ export function AdminPage({}: AdminPageProps) {
                             {order.category !== '팝업' && order.start_date && (
                               <div>
                                 {new Date(order.start_date).toLocaleDateString('ko-KR')}
+                                {order.category === '렌트카' && order.pickup_time && typeof order.pickup_time === 'string' && (
+                                  <span className="text-xs text-blue-600 ml-1">{order.pickup_time.substring(0, 5)}</span>
+                                )}
                                 {order.end_date && order.end_date !== order.start_date && (
-                                  <span> ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}</span>
+                                  <>
+                                    <span> ~ {new Date(order.end_date).toLocaleDateString('ko-KR')}</span>
+                                    {order.category === '렌트카' && order.dropoff_time && typeof order.dropoff_time === 'string' && (
+                                      <span className="text-xs text-blue-600 ml-1">{order.dropoff_time.substring(0, 5)}</span>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             )}
