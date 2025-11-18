@@ -615,7 +615,7 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        version: "1.0.1-billingInfo-debug",
+        version: "2.0.0-PAGES-API-FIX",
         deployedAt: new Date().toISOString(),
         orders: ordersWithUserInfo
       });
