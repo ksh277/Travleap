@@ -77,7 +77,7 @@ async function handler(req, res) {
         ORDER BY p.created_at DESC
       `);
 
-      // ✅ 렌트카 주문 추가 조회 (payments와 별도)
+      // ✅ 렌트카 주문 추가 조회 (payments와 별도) - 시간/보험 정보 포함
       const rentcarResult = await connection.execute(`
         SELECT
           NULL as id,
