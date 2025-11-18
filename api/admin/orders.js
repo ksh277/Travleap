@@ -206,10 +206,10 @@ async function handler(req, res) {
               deliveryFee = notesData.deliveryFee || 0;
               subtotal = notesData.subtotal || 0;
 
-              // ✅ 인원 정보 추출 (notes.participants에서)
-              numAdults = notesData.participants?.adults || 0;
-              numChildren = notesData.participants?.children || 0;
-              numInfants = notesData.participants?.infants || 0;
+              // ✅ 인원 정보 추출 (notes.participants 또는 notes.items[0]에서)
+              numAdults = notesData.participants?.adults || notesData.items?.[0]?.adults || 0;
+              numChildren = notesData.participants?.children || notesData.items?.[0]?.children || 0;
+              numInfants = notesData.participants?.infants || notesData.items?.[0]?.infants || 0;
 
               // 🔧 카테고리 추출 (카테고리별 주문 분리 대응)
               if (notesData.category) {
