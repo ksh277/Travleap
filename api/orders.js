@@ -139,6 +139,10 @@ module.exports = async function handler(req, res) {
           rb.dropoff_date as end_date,
           rb.pickup_time,
           rb.dropoff_time,
+          rb.insurance_id,
+          rb.insurance_fee_krw,
+          ri.name as insurance_name,
+          ri.description as insurance_description,
           1 as guests,
           1 as adults,
           0 as children,
@@ -158,6 +162,7 @@ module.exports = async function handler(req, res) {
           v.images
         FROM rentcar_bookings rb
         LEFT JOIN rentcar_vehicles v ON rb.vehicle_id = v.id
+        LEFT JOIN rentcar_insurance ri ON rb.insurance_id = ri.id
         WHERE ${rentcarWhereConditions}
         ORDER BY rb.created_at DESC
       `, rentcarParams);
@@ -536,6 +541,11 @@ module.exports = async function handler(req, res) {
             end_date: order.end_date,
             pickup_time: order.pickup_time, // ✅ 렌트카 픽업 시간
             dropoff_time: order.dropoff_time, // ✅ 렌트카 반납 시간
+            // ✅ 렌트카 보험 정보
+            rentcar_insurance_id: order.insurance_id,
+            rentcar_insurance_name: order.insurance_name,
+            rentcar_insurance_description: order.insurance_description,
+            rentcar_insurance_fee: order.insurance_fee_krw ? parseInt(order.insurance_fee_krw) : 0,
             // ✅ FIX: 팝업 상품은 totalQuantity(실제 수량 합산), 예약 상품은 인원 수
             // ✅ 인원 정보: notes에서 추출한 값 우선 사용
             num_adults: order.category === '팝업' ? totalQuantity : (numAdults || order.adults || order.guests || 0),
