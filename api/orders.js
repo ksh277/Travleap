@@ -318,9 +318,6 @@ module.exports = async function handler(req, res) {
           .map(o => parseInt(o.booking_id)) // ✅ 정수로 변환
           .filter(id => id && !isNaN(id));
 
-        console.log(`🚗 [Orders] 렌트카 주문 중 booking_id 있는 주문: ${allOrders.filter(o => o.category === '렌트카').length}건`);
-        console.log(`🚗 [Orders] 렌트카 booking_ids:`, rentcarBookingIds);
-
         if (rentcarBookingIds.length > 0) {
           console.log(`🚗 [Orders] 렌트카 ${rentcarBookingIds.length}건의 추가 옵션 조회 중...`);
 
@@ -341,11 +338,6 @@ module.exports = async function handler(req, res) {
             ORDER BY be.booking_id, be.id ASC
           `, rentcarBookingIds);
 
-          console.log(`🚗 [Orders] Extras 쿼리 결과: ${extrasResult.rows?.length || 0}개`);
-          if (extrasResult.rows && extrasResult.rows.length > 0) {
-            console.log(`🚗 [Orders] 첫 번째 extra:`, extrasResult.rows[0]);
-          }
-
           // booking_id별로 그룹화
           (extrasResult.rows || []).forEach(extra => {
             const bookingId = parseInt(extra.booking_id); // ✅ 정수로 변환
@@ -364,7 +356,6 @@ module.exports = async function handler(req, res) {
           });
 
           console.log(`🚗 [Orders] ${extrasResult.rows?.length || 0}개 렌트카 옵션 조회 완료`);
-          console.log(`🚗 [Orders] rentcarExtrasMap 크기: ${rentcarExtrasMap.size}`);
         }
 
         // 주문 데이터와 사용자 정보 병합
