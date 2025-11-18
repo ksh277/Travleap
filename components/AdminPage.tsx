@@ -4328,6 +4328,12 @@ export function AdminPage({}: AdminPageProps) {
                                     ))}
                                   </div>
                                 )}
+                                {/* 여행 보험 정보 */}
+                                {order.category === '여행' && (order as any).insurance_fee > 0 && (
+                                  <div className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded inline-block mt-1">
+                                    🛡️ 여행자 보험 ({((order as any).insurance_fee).toLocaleString()}원)
+                                  </div>
+                                )}
                               </>
                             )}
                             {order.category === '팝업' ? (
