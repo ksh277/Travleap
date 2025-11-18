@@ -242,10 +242,26 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                           )}
                         </div>
                       </div>
-                      {/* 보험료 표시 (렌트카 등) */}
-                      {item.insuranceFee && item.insuranceFee > 0 && (
-                        <div className="mt-1 text-xs text-gray-500 flex items-center">
-                          <span className="ml-4">🛡️ 보험료: {item.insuranceFee.toLocaleString()}원</span>
+                      {/* 보험 정보 표시 */}
+                      {(item.insuranceFee > 0 || item.rentcar_insurance_name) && (
+                        <div className="mt-1 ml-4">
+                          <div className="text-xs text-green-700 bg-green-50 px-2 py-1 rounded inline-block">
+                            🛡️ {item.rentcar_insurance_name || '보험'}
+                            {item.insuranceFee > 0 && <span className="ml-1">({item.insuranceFee.toLocaleString()}원)</span>}
+                            {item.rentcar_insurance_fee > 0 && <span className="ml-1">({item.rentcar_insurance_fee.toLocaleString()}원)</span>}
+                          </div>
+                        </div>
+                      )}
+                      {/* 렌트카 추가 옵션 표시 */}
+                      {item.rentcar_extras && item.rentcar_extras.length > 0 && (
+                        <div className="mt-1 ml-4 flex flex-wrap gap-1">
+                          {item.rentcar_extras.map((extra: any, idx: number) => (
+                            <div key={idx} className="text-xs text-purple-700 bg-purple-50 px-2 py-1 rounded inline-block">
+                              ➕ {extra.name}
+                              {extra.unit_price > 0 && <span className="ml-1">({extra.unit_price.toLocaleString()}원)</span>}
+                              {extra.quantity > 1 && <span className="ml-1">x{extra.quantity}</span>}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
