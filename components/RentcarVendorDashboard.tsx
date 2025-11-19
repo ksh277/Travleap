@@ -105,6 +105,7 @@ export default function RentcarVendorDashboard() {
   const [mileage, setMileage] = useState('');
   const [damageNotes, setDamageNotes] = useState('');
   const [actualPickupTime, setActualPickupTime] = useState('');  // 실제 픽업 시간
+  const [actualReturnTime, setActualReturnTime] = useState('');  // 실제 반납 시간
   const [pickupImages, setPickupImages] = useState<string[]>([]);  // 픽업 시 이미지
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -841,7 +842,8 @@ export default function RentcarVendorDashboard() {
           fuel_level: returnFuelLevel,
           mileage: parseInt(returnMileage),
           damage_notes: returnDamageNotes || '',
-          return_images: returnImages  // 반납 이미지 추가
+          return_images: returnImages,  // 반납 이미지
+          actual_return_time: actualReturnTime ? new Date(actualReturnTime).toISOString() : undefined  // 실제 반납 시간
         })
       });
 
@@ -866,6 +868,7 @@ export default function RentcarVendorDashboard() {
         setReturnMileage('');
         setReturnDamageNotes('');
         setReturnImages([]);
+        setActualReturnTime('');
         setCalculatedLateFee(0);
         setActiveTab('today');
         fetchTodayBookings();
@@ -2634,6 +2637,19 @@ export default function RentcarVendorDashboard() {
                         onChange={(e) => setReturnDamageNotes(e.target.value)}
                         rows={3}
                         placeholder="차량의 손상 부위나 특이사항을 기록하세요"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        실제 반납 시간 (선택)
+                        <span className="text-gray-500 text-xs ml-2">입력하지 않으면 현재 시간으로 기록됩니다</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={actualReturnTime}
+                        onChange={(e) => setActualReturnTime(e.target.value)}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>

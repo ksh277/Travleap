@@ -45,7 +45,7 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ success: false, message: '벤더 권한이 필요합니다.' });
     }
 
-    const { booking_number, vehicle_condition, fuel_level, mileage, damage_notes, return_images } = req.body;
+    const { booking_number, vehicle_condition, fuel_level, mileage, damage_notes, return_images, actual_return_time } = req.body;
 
     if (!booking_number || !vehicle_condition || !fuel_level || !mileage) {
       return res.status(400).json({ success: false, message: '필수 항목을 모두 입력해주세요.' });
@@ -96,15 +96,15 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, message: '이미 체크아웃된 예약입니다.' });
     }
 
-    // 연체료 계산
-    const now = new Date();
+    // 연체료 계산 (실제 반납 시간이 있으면 그것을 사용, 없으면 현재 시간 사용)
+    const actualReturnDate = actual_return_time ? new Date(actual_return_time) : new Date();
     const dropoffTime = booking.dropoff_time || '18:00:00';
     const plannedReturnTime = new Date(booking.dropoff_date + 'T' + dropoffTime);
     let lateReturnHours = 0;
     let lateReturnFee = 0;
 
-    if (now > plannedReturnTime) {
-      const lateMs = now.getTime() - plannedReturnTime.getTime();
+    if (actualReturnDate > plannedReturnTime) {
+      const lateMs = actualReturnDate.getTime() - plannedReturnTime.getTime();
       lateReturnHours = Math.ceil(lateMs / (1000 * 60 * 60));
       lateReturnFee = lateReturnHours * 10000;
     }
@@ -118,17 +118,34 @@ module.exports = async function handler(req, res) {
       images: return_images || []
     };
 
-    await connection.execute(
-      `UPDATE rentcar_bookings
-       SET status = 'completed',
-           return_checked_out_at = NOW(),
-           return_vehicle_condition = ?,
-           late_return_hours = ?,
-           late_return_fee_krw = ?,
-           updated_at = NOW()
-       WHERE id = ?`,
-      [JSON.stringify(returnVehicleConditionData), lateReturnHours, lateReturnFee, booking.id]
-    );
+    // 실제 반납 시간 설정 (있으면 사용, 없으면 NOW() 사용)
+    const returnTimeValue = actual_return_time || null;
+
+    if (returnTimeValue) {
+      await connection.execute(
+        `UPDATE rentcar_bookings
+         SET status = 'completed',
+             return_checked_out_at = ?,
+             return_vehicle_condition = ?,
+             late_return_hours = ?,
+             late_return_fee_krw = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [returnTimeValue, JSON.stringify(returnVehicleConditionData), lateReturnHours, lateReturnFee, booking.id]
+      );
+    } else {
+      await connection.execute(
+        `UPDATE rentcar_bookings
+         SET status = 'completed',
+             return_checked_out_at = NOW(),
+             return_vehicle_condition = ?,
+             late_return_hours = ?,
+             late_return_fee_krw = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [JSON.stringify(returnVehicleConditionData), lateReturnHours, lateReturnFee, booking.id]
+      );
+    }
 
     // 차량 재고 증가
     try {
@@ -164,7 +181,7 @@ module.exports = async function handler(req, res) {
       data: {
         booking_id: booking.id,
         booking_number: booking_number,
-        checked_out_at: now.toISOString(),
+        checked_out_at: actualReturnDate.toISOString(),
         late_return_hours: lateReturnHours,
         late_return_fee_krw: lateReturnFee,
         deposit_settlement: depositSettlement
