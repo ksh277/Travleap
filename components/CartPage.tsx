@@ -345,7 +345,7 @@ export function CartPage() {
 
     try {
       await updateAgeCounts(id, { [ageType]: newCount });
-      toast.success(`${ageType === 'adults' ? '성인' : ageType === 'children' ? '어린이' : ageType === 'infants' ? '유아' : '경로'} 인원이 변경되었습니다`);
+      toast.success(`${ageType === 'adults' ? '성인' : ageType === 'children' ? '어린이' : '유아'} 인원이 변경되었습니다`);
     } catch (error) {
       toast.error('인원 변경 중 오류가 발생했습니다');
     }
@@ -874,43 +874,6 @@ export function CartPage() {
                                           disabled={item.inStock === false}
                                           className="h-6 w-6 p-0 hover:bg-gray-100"
                                           aria-label="유아 증가"
-                                        >
-                                          <Plus className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  )}
-                                  {/* 경로 (관광지 등) */}
-                                  {(item.seniors !== undefined || item.seniorPrice) && (
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2 flex-1">
-                                        <Users className="h-3 w-3 flex-shrink-0 text-purple-600" />
-                                        <span className="text-xs font-medium">경로</span>
-                                        {item.seniorPrice !== undefined && item.seniorPrice !== null && (
-                                          <span className="text-xs text-gray-500">
-                                            {item.seniorPrice.toLocaleString()}원/명
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handleAgeCountUpdate(item.id, 'seniors', -1)}
-                                          disabled={item.inStock === false}
-                                          className="h-6 w-6 p-0 hover:bg-gray-100"
-                                          aria-label="경로 감소"
-                                        >
-                                          <Minus className="h-3 w-3" />
-                                        </Button>
-                                        <span className="w-8 text-center text-sm font-medium">{item.seniors || 0}</span>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handleAgeCountUpdate(item.id, 'seniors', 1)}
-                                          disabled={item.inStock === false}
-                                          className="h-6 w-6 p-0 hover:bg-gray-100"
-                                          aria-label="경로 증가"
                                         >
                                           <Plus className="h-3 w-3" />
                                         </Button>

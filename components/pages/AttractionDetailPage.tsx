@@ -58,7 +58,6 @@ export function AttractionDetailPage() {
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
   const [adultCount, setAdultCount] = useState(1);
   const [childCount, setChildCount] = useState(0);
-  const [seniorCount, setSeniorCount] = useState(0);
   const [infantCount, setInfantCount] = useState(0);
 
   useEffect(() => {
@@ -90,7 +89,6 @@ export function AttractionDetailPage() {
     return (
       attraction.admission_fee_adult * adultCount +
       (attraction.admission_fee_child || 0) * childCount +
-      (attraction.admission_fee_senior || 0) * seniorCount +
       attraction.admission_fee_infant * infantCount
     );
   };
@@ -98,7 +96,7 @@ export function AttractionDetailPage() {
   const handlePurchase = async () => {
     if (!attraction) return;
 
-    const totalCount = adultCount + childCount + seniorCount + infantCount;
+    const totalCount = adultCount + childCount + infantCount;
 
     if (totalCount === 0) {
       toast.error('최소 1매 이상 선택해주세요');
@@ -115,7 +113,6 @@ export function AttractionDetailPage() {
       const ticketDetails = [];
       if (adultCount > 0) ticketDetails.push(`성인 ${adultCount}명`);
       if (childCount > 0) ticketDetails.push(`어린이 ${childCount}명`);
-      if (seniorCount > 0) ticketDetails.push(`경로 ${seniorCount}명`);
       if (infantCount > 0) ticketDetails.push(`유아 ${infantCount}명`);
       const specialRequests = `티켓: ${ticketDetails.join(', ')}`;
 
@@ -372,32 +369,6 @@ export function AttractionDetailPage() {
                     </div>
                   )}
 
-                  {attraction.admission_fee_senior > 0 && (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-medium">경로</span>
-                        <div className="text-xs text-gray-500">{attraction.admission_fee_senior.toLocaleString()}원</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSeniorCount(Math.max(0, seniorCount - 1))}
-                        >
-                          -
-                        </Button>
-                        <span className="w-8 text-center">{seniorCount}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSeniorCount(seniorCount + 1)}
-                        >
-                          +
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
                   {attraction.admission_fee_infant === 0 && (
                     <div className="text-xs text-gray-500">
                       * 유아 무료 입장
@@ -414,7 +385,7 @@ export function AttractionDetailPage() {
                     </span>
                   </div>
                   <div className="text-xs text-gray-600">
-                    총 {adultCount + childCount + seniorCount + infantCount}매
+                    총 {adultCount + childCount + infantCount}매
                   </div>
                 </div>
 
@@ -422,7 +393,7 @@ export function AttractionDetailPage() {
                   className="w-full"
                   size="lg"
                   onClick={handlePurchase}
-                  disabled={(adultCount + childCount + seniorCount + infantCount) === 0}
+                  disabled={(adultCount + childCount + infantCount) === 0}
                 >
                   입장권 구매
                 </Button>
