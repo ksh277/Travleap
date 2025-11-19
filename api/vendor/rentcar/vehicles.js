@@ -82,8 +82,8 @@ module.exports = async function handler(req, res) {
         hourly_rate_krw,
         weekly_rate_krw,
         monthly_rate_krw,
-        stock,
-        stock AS current_stock,
+        CAST(stock AS SIGNED) as stock,
+        CAST(stock AS SIGNED) AS current_stock,
         is_active,
         is_featured,
         created_at,
@@ -94,26 +94,24 @@ module.exports = async function handler(req, res) {
       [vendorId]
     );
 
-    // DEBUG: Check raw data from database
-    console.log('🔍 [RAW DATA] Rows count:', vehiclesResult.rows.length);
+    // DEBUG: Check stock values
+    console.log('🔍 [STOCK] Found', vehiclesResult.rows.length, 'vehicles');
     if (vehiclesResult.rows.length > 0) {
       const first = vehiclesResult.rows[0];
-      console.log('🔍 [RAW] stock:', first.stock, 'type:', typeof first.stock);
-      console.log('🔍 [RAW] Full vehicle:', JSON.stringify(first));
+      console.log('🔍 [STOCK] First vehicle:', first.brand, first.model);
+      console.log('🔍 [STOCK] Stock value:', first.stock, 'Type:', typeof first.stock);
     }
 
-    // Ensure stock values are numbers
-    const vehicles = (vehiclesResult.rows || []).map(vehicle => {
-      const stockValue = parseInt(vehicle.stock);
-      console.log(`Vehicle ${vehicle.id}: stock=${vehicle.stock} → ${stockValue}`);
-      return {
-        ...vehicle,
-        stock: stockValue || 0,
-        current_stock: parseInt(vehicle.current_stock) || stockValue || 0,
-        daily_rate_krw: parseFloat(vehicle.daily_rate_krw) || 0,
-        hourly_rate_krw: parseFloat(vehicle.hourly_rate_krw) || 0
-      };
-    });
+    // Ensure numeric types (CAST in SQL should handle this, but double-check)
+    const vehicles = (vehiclesResult.rows || []).map(vehicle => ({
+      ...vehicle,
+      stock: Number(vehicle.stock) || 0,
+      current_stock: Number(vehicle.current_stock) || Number(vehicle.stock) || 0,
+      daily_rate_krw: Number(vehicle.daily_rate_krw) || 0,
+      hourly_rate_krw: Number(vehicle.hourly_rate_krw) || 0
+    }));
+
+    console.log('✅ [STOCK] Returning with stocks:', vehicles.map(v => `${v.brand}:${v.stock}`).join(', '));
 
     return res.status(200).json({
       success: true,
