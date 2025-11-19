@@ -294,7 +294,7 @@ module.exports = async function handler(req, res) {
     // extras를 각 예약에 매핑
     const bookingsWithExtras = bookings.map(booking => {
       const bookingExtras = extrasData
-        .filter(e => e.booking_id === booking.id)
+        .filter(e => Number(e.booking_id) === Number(booking.id))
         .map(e => ({
           extra_id: e.extra_id,
           name: e.extra_name || '(삭제된 옵션)',
