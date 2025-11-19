@@ -1,4 +1,10 @@
 {
+  "rewrites": [
+    {
+      "source": "/:path((?!api|_next|static).*)*",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
