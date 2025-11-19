@@ -54,13 +54,22 @@ module.exports = async function handler(req, res) {
 
     const result = await connection.execute(
       `SELECT id, vendor_id, vehicle_code, brand, model, display_name, category, passengers,
-              hourly_rate_krw, daily_rate_krw, stock,
+              hourly_rate_krw, daily_rate_krw, CAST(stock AS SIGNED) as stock,
               fuel_type, transmission, image_url, is_active, created_at
        FROM rentcar_vehicles WHERE vendor_id = ? ORDER BY created_at DESC`,
       [vendorId]
     );
 
-    return res.status(200).json({ success: true, data: result.rows || [] });
+    // Convert stock values to numbers
+    const vehicles = (result.rows || []).map(vehicle => ({
+      ...vehicle,
+      stock: Number(vehicle.stock) || 0,
+      current_stock: Number(vehicle.stock) || 0,
+      hourly_rate_krw: Number(vehicle.hourly_rate_krw) || 0,
+      daily_rate_krw: Number(vehicle.daily_rate_krw) || 0
+    }));
+
+    return res.status(200).json({ success: true, data: vehicles });
   } catch (error) {
     console.error('❌ [Vendor Vehicles API] 오류:', error);
     return res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.', error: error.message });
