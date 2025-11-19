@@ -150,6 +150,11 @@ module.exports = async function handler(req, res) {
         unlimited_mileage: vehicle.unlimited_mileage === 1,
         smoking_allowed: vehicle.smoking_allowed === 1,
         is_featured: vehicle.is_featured === 1,
+        stock: Number(vehicle.stock) || 0, // 명시적으로 숫자로 변환
+        daily_rate_krw: Number(vehicle.daily_rate_krw) || 0,
+        hourly_rate_krw: Number(vehicle.hourly_rate_krw) || 0,
+        weekly_rate_krw: Number(vehicle.weekly_rate_krw) || 0,
+        monthly_rate_krw: Number(vehicle.monthly_rate_krw) || 0,
         images: vehicle.images ? (typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images) : [],
         features: vehicle.features ? (Array.isArray(vehicle.features) ? vehicle.features : JSON.parse(vehicle.features)) : [],
         insurance_included: true,

@@ -97,8 +97,8 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ success: false, message: '취소된 예약입니다.' });
     }
 
-    if (booking.payment_status !== 'paid') {
-      return res.status(400).json({ success: false, message: '결제가 완료된 예약만 체크인할 수 있습니다.' });
+    if (booking.payment_status !== 'paid' && booking.payment_status !== 'pending') {
+      return res.status(400).json({ success: false, message: '결제가 완료되거나 대기중인 예약만 체크인할 수 있습니다.' });
     }
 
     if (booking.pickup_checked_in_at) {

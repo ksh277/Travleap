@@ -109,7 +109,7 @@ module.exports = async function handler(req, res) {
       LEFT JOIN rentcar_insurance i ON b.insurance_id = i.id
       LEFT JOIN payments p ON b.payment_key = p.payment_key
       WHERE b.vendor_id = ?
-        AND b.payment_status = 'paid'
+        AND b.payment_status IN ('paid', 'pending', 'confirmed')
       ORDER BY b.created_at DESC`,
       [vendorId]
     );

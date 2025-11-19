@@ -439,6 +439,44 @@ export function VendorDashboardPageEnhanced() {
   };
 
   // 예약 환불
+  // 예약 확정 처리
+  const handleConfirmBooking = async (booking: Booking) => {
+    if (!confirm(`예약번호 #${booking.booking_number || booking.id}를 확정하시겠습니까?\n\n고객: ${booking.customer_name}\n차량: ${booking.vehicle_name || booking.vehicle_model}\n\n확정 후 픽업 처리를 진행할 수 있습니다.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0];
+      if (!token) {
+        toast.error('인증 토큰이 없습니다.');
+        return;
+      }
+
+      const response = await fetch(`/api/vendor/rentcar/bookings/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          booking_id: booking.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('예약이 확정되었습니다.');
+        loadVendorData(); // 예약 목록 새로고침
+      } else {
+        toast.error(result.message || '예약 확정에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('예약 확정 오류:', error);
+      toast.error('예약 확정 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleRefundBooking = async (booking: Booking) => {
     if (!confirm(`예약번호 #${booking.id}를 환불 처리하시겠습니까?\n\n고객: ${booking.customer_name}\n금액: ₩${booking.total_amount.toLocaleString()}\n\n환불 후 예약 상태가 'cancelled'로 변경됩니다.`)) {
       return;
@@ -572,21 +610,29 @@ export function VendorDashboardPageEnhanced() {
       }
 
       if (vehiclesData.success && vehiclesData.data) {
-        // Parse images from JSON string to array
+        // Parse images from JSON string to array and ensure stock is number
         const parsedVehicles = vehiclesData.data.map((v: any) => ({
           ...v,
+          stock: Number(v.stock) || 0, // 명시적으로 숫자로 변환
+          daily_rate_krw: Number(v.daily_rate_krw) || 0,
+          hourly_rate_krw: Number(v.hourly_rate_krw) || 0,
           images: typeof v.images === 'string' ? JSON.parse(v.images) : v.images
         }));
         setVehicles(parsedVehicles);
         console.log('✅ 차량 데이터 로드 완료:', parsedVehicles.length, '대');
+        console.log('🔍 [DEBUG] 차량 재고:', parsedVehicles.map((v: any) => `${v.display_name}: ${v.stock}`).join(', '));
       } else if (vehiclesData.success && vehiclesData.vehicles) {
         // 렌트카 API는 vehicles 필드 사용
         const parsedVehicles = vehiclesData.vehicles.map((v: any) => ({
           ...v,
+          stock: Number(v.stock) || 0, // 명시적으로 숫자로 변환
+          daily_rate_krw: Number(v.daily_rate_krw) || 0,
+          hourly_rate_krw: Number(v.hourly_rate_krw) || 0,
           images: typeof v.images === 'string' ? JSON.parse(v.images) : v.images
         }));
         setVehicles(parsedVehicles);
         console.log('✅ 렌트카 차량 데이터 로드 완료:', parsedVehicles.length, '대');
+        console.log('🔍 [DEBUG] 차량 재고:', parsedVehicles.map((v: any) => `${v.display_name}: ${v.stock}`).join(', '));
       } else {
         console.warn('⚠️ 차량 데이터 없음');
         setVehicles([]);
@@ -1939,8 +1985,18 @@ export function VendorDashboardPageEnhanced() {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              {booking.status === 'confirmed' && booking.payment_status !== 'refunded' && (
+                              {(booking.status === 'pending' || booking.status === 'confirmed') && booking.payment_status !== 'refunded' && (
                                 <>
+                                  {booking.status === 'pending' && (
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => handleConfirmBooking(booking)}
+                                      className="bg-green-600 hover:bg-green-700"
+                                    >
+                                      예약 확정
+                                    </Button>
+                                  )}
                                   <Button
                                     variant="outline"
                                     size="sm"
