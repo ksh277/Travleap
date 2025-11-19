@@ -131,6 +131,7 @@ module.exports = async function handler(req, res) {
           self_insurance_krw,
           insurance_options,
           available_options,
+          CAST(COALESCE(stock, 0) AS SIGNED) as stock,
           is_active as is_available,
           is_featured,
           total_bookings,
@@ -149,6 +150,9 @@ module.exports = async function handler(req, res) {
         unlimited_mileage: vehicle.unlimited_mileage === 1,
         smoking_allowed: vehicle.smoking_allowed === 1,
         is_featured: vehicle.is_featured === 1,
+        stock: Number(vehicle.stock) || 0,
+        daily_rate_krw: Number(vehicle.daily_rate_krw) || 0,
+        hourly_rate_krw: Number(vehicle.hourly_rate_krw) || 0,
         images: vehicle.images ? (typeof vehicle.images === 'string' ? JSON.parse(vehicle.images) : vehicle.images) : [],
         features: vehicle.features ? (Array.isArray(vehicle.features) ? vehicle.features : JSON.parse(vehicle.features)) : [],
         insurance_included: true,
@@ -160,6 +164,8 @@ module.exports = async function handler(req, res) {
         max_rental_days: 30,
         instant_booking: true
       }));
+
+      console.log('✅ [STOCK DEBUG] Returning', vehicles.length, 'vehicles with stock:', vehicles.map(v => `${v.display_name}:${v.stock}`).join(', '));
 
       return res.status(200).json({
         success: true,

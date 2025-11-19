@@ -1894,7 +1894,9 @@ export function VendorDashboardPageEnhanced() {
                                   <>
                                     <div className="font-medium">{booking.driver_name}</div>
                                     {booking.driver_birth && (
-                                      <div className="text-gray-500 text-xs">생년월일: {booking.driver_birth}</div>
+                                      <div className="text-gray-500 text-xs">
+                                        생년월일: {new Date(booking.driver_birth).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                                      </div>
                                     )}
                                     {booking.driver_license_no && (
                                       <div className="text-gray-500 text-xs">면허: {booking.driver_license_no}</div>
@@ -1907,17 +1909,17 @@ export function VendorDashboardPageEnhanced() {
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">
-                                <div>{new Date(booking.pickup_date).toLocaleDateString('ko-KR')}</div>
+                                <div className="font-medium">{new Date(booking.pickup_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
                                 {booking.pickup_time && (
-                                  <div className="text-gray-500 text-xs">{booking.pickup_time}</div>
+                                  <div className="text-gray-500 text-xs">🕐 {booking.pickup_time.substring(0, 5)}</div>
                                 )}
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">
-                                <div>{new Date(booking.dropoff_date).toLocaleDateString('ko-KR')}</div>
+                                <div className="font-medium">{new Date(booking.dropoff_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
                                 {booking.dropoff_time && (
-                                  <div className="text-gray-500 text-xs">{booking.dropoff_time}</div>
+                                  <div className="text-gray-500 text-xs">🕐 {booking.dropoff_time.substring(0, 5)}</div>
                                 )}
                               </div>
                             </TableCell>
@@ -2163,15 +2165,15 @@ export function VendorDashboardPageEnhanced() {
                             allBookings.map((booking) => (
                               <TableRow key={booking.id}>
                                 <TableCell>
-                                  {new Date(booking.pickup_date).toLocaleDateString('ko-KR')}
+                                  {new Date(booking.pickup_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
                                 </TableCell>
                                 <TableCell>{booking.vehicle_name || booking.vehicle_model}</TableCell>
                                 <TableCell>{booking.customer_name}</TableCell>
                                 <TableCell>
-                                  {booking.pickup_time || '-'}
+                                  {booking.pickup_time ? booking.pickup_time.substring(0, 5) : '-'}
                                 </TableCell>
                                 <TableCell>
-                                  {booking.dropoff_time || '-'}
+                                  {booking.dropoff_time ? booking.dropoff_time.substring(0, 5) : '-'}
                                 </TableCell>
                                 <TableCell>
                                   <Badge
@@ -2627,7 +2629,7 @@ export function VendorDashboardPageEnhanced() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">픽업 예정일시:</span>
                   <span className="font-medium">
-                    {new Date(pickupBooking.pickup_date).toLocaleDateString('ko-KR')} {pickupBooking.pickup_time || ''}
+                    {new Date(pickupBooking.pickup_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })} {pickupBooking.pickup_time ? pickupBooking.pickup_time.substring(0, 5) : ''}
                   </span>
                 </div>
                 <div className="flex justify-between">

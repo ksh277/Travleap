@@ -131,7 +131,7 @@ module.exports = async function handler(req, res) {
           self_insurance_krw,
           insurance_options,
           available_options,
-          COALESCE(stock, 0) as stock,
+          CAST(COALESCE(stock, 0) AS SIGNED) as stock,
           is_active as is_available,
           is_featured,
           total_bookings,
@@ -166,6 +166,8 @@ module.exports = async function handler(req, res) {
         max_rental_days: 30,
         instant_booking: true
       }));
+
+      console.log('✅ [STOCK DEBUG] Returning', vehicles.length, 'vehicles with stock:', vehicles.map(v => `${v.display_name}:${v.stock}`).join(', '));
 
       return res.status(200).json({
         success: true,
