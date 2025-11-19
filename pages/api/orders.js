@@ -711,79 +711,7 @@ module.exports = async function handler(req, res) {
         const bookingBasedCategories = [1855, 1858, 1859, 1861, 1862]; // 투어, 음식, 관광지, 이벤트, 체험
         const isBookingBased = bookingBasedCategories.includes(categoryId);
 
-        // 🔒 CRITICAL FIX: 연령별 가격 서버 검증 (변수를 밖으로 빼서 나중에 재사용)
-        let serverCalculatedItemPrice = 0;
-        if (isBookingBased && (item.adults || item.children || item.infants || item.seniors)) {
-          // 투어/관광지/체험 등: 성인/어린이/유아/경로 가격 검증
-          const serverAdultPrice = listing.adult_price || listing.price || 0;
-          const serverChildPrice = listing.child_price || 0;
-          const serverInfantPrice = listing.infant_price || 0;
-          const serverSeniorPrice = listing.senior_price || 0;
-
-          serverCalculatedItemPrice =
-            (item.adults || 0) * serverAdultPrice +
-            (item.children || 0) * serverChildPrice +
-            (item.infants || 0) * serverInfantPrice +
-            (item.seniors || 0) * serverSeniorPrice;
-
-          const clientItemPrice = item.price || item.subtotal || 0;
-
-          console.log(`🔒 [Orders] 연령별 가격 검증:`, {
-            item: listing.title,
-            '👥 adults': item.adults,
-            '👶 children': item.children,
-            '🍼 infants': item.infants,
-            '👴 seniors': item.seniors,
-            '💰 serverAdultPrice': serverAdultPrice,
-            '💰 serverChildPrice': serverChildPrice,
-            '💰 serverInfantPrice': serverInfantPrice,
-            '🔍 listing.adult_price': listing.adult_price,
-            '🔍 listing.child_price': listing.child_price,
-            '🔍 listing.price': listing.price,
-            '✅ serverCalculated': serverCalculatedItemPrice,
-            '📱 clientProvided': clientItemPrice,
-            '📊 calculation': `${item.adults || 0} * ${serverAdultPrice} + ${item.children || 0} * ${serverChildPrice} + ${item.infants || 0} * ${serverInfantPrice}`
-          });
-
-          // 가격 검증 (1원 이하 오차 허용)
-          if (Math.abs(serverCalculatedItemPrice - clientItemPrice) > 1) {
-            console.error(`❌ [Orders] 연령별 가격 조작 감지!
-              - 상품: ${listing.title}
-              - 서버 계산: ${serverCalculatedItemPrice}원
-              - 클라이언트: ${clientItemPrice}원
-              - 차이: ${Math.abs(serverCalculatedItemPrice - clientItemPrice)}원`);
-
-            return res.status(400).json({
-              success: false,
-              error: 'AGE_BASED_PRICE_TAMPERED',
-              message: '티켓 가격이 변경되었습니다. 페이지를 새로고침해주세요.',
-              expected: serverCalculatedItemPrice,
-              received: clientItemPrice
-            });
-          }
-
-          console.log(`✅ [Orders] 연령별 가격 검증 통과`);
-        }
-
-        // SECURITY FIX: 클라이언트가 보낸 가격과 DB 가격 비교 (팝업 스토어 상품만)
-        if (!isBookingBased && item.price && Math.abs(actualItemPrice - item.price) > 1) {
-          console.error(`❌ [Orders] 가격 조작 감지!
-            - 상품: ${listing.title}
-            - DB 가격: ${actualItemPrice}원
-            - 클라이언트 가격: ${item.price}원`);
-
-          return res.status(400).json({
-            success: false,
-            error: 'PRICE_TAMPERED',
-            message: '상품 가격이 변경되었습니다. 페이지를 새로고침해주세요.'
-          });
-        }
-
-        if (isBookingBased) {
-          console.log(`ℹ️  [Orders] 예약 기반 상품 (category: ${categoryId}) - 가격 검증 완료: ${item.price}원`);
-        }
-
-        // SECURITY FIX: 옵션 가격도 DB에서 검증
+        // SECURITY FIX: 옵션 가격 먼저 검증
         let actualOptionPrice = 0;
         if (item.selectedOption?.id) {
           const optionResult = await connection.execute(
@@ -808,6 +736,80 @@ module.exports = async function handler(req, res) {
               });
             }
           }
+        }
+
+        // 🔒 CRITICAL FIX: 연령별 가격 서버 검증 (옵션 포함)
+        let serverCalculatedItemPrice = 0;
+        if (isBookingBased && (item.adults || item.children || item.infants || item.seniors)) {
+          // 투어/관광지/체험 등: 성인/어린이/유아/경로 가격 검증
+          const serverAdultPrice = listing.adult_price || listing.price || 0;
+          const serverChildPrice = listing.child_price || 0;
+          const serverInfantPrice = listing.infant_price || 0;
+          const serverSeniorPrice = listing.senior_price || 0;
+
+          // 기본 가격 계산
+          const serverBasePrice =
+            (item.adults || 0) * serverAdultPrice +
+            (item.children || 0) * serverChildPrice +
+            (item.infants || 0) * serverInfantPrice +
+            (item.seniors || 0) * serverSeniorPrice;
+
+          // 옵션 포함한 총 가격
+          serverCalculatedItemPrice = serverBasePrice + actualOptionPrice;
+
+          const clientItemPrice = item.price || item.subtotal || 0;
+
+          console.log(`🔒 [Orders] 연령별 가격 검증 (옵션 포함):`, {
+            item: listing.title,
+            '👥 adults': item.adults,
+            '👶 children': item.children,
+            '🍼 infants': item.infants,
+            '👴 seniors': item.seniors,
+            '💰 serverAdultPrice': serverAdultPrice,
+            '💰 serverChildPrice': serverChildPrice,
+            '💰 serverBasePrice': serverBasePrice,
+            '🎁 optionPrice': actualOptionPrice,
+            '✅ serverCalculated (기본+옵션)': serverCalculatedItemPrice,
+            '📱 clientProvided': clientItemPrice,
+            '📊 calculation': `${item.adults || 0} * ${serverAdultPrice} + ${item.children || 0} * ${serverChildPrice} + 옵션 ${actualOptionPrice}`
+          });
+
+          // 가격 검증 (1원 이하 오차 허용)
+          if (Math.abs(serverCalculatedItemPrice - clientItemPrice) > 1) {
+            console.error(`❌ [Orders] 연령별 가격 조작 감지!
+              - 상품: ${listing.title}
+              - 서버 계산 (기본+옵션): ${serverCalculatedItemPrice}원
+              - 클라이언트: ${clientItemPrice}원
+              - 차이: ${Math.abs(serverCalculatedItemPrice - clientItemPrice)}원`);
+
+            return res.status(400).json({
+              success: false,
+              error: 'AGE_BASED_PRICE_TAMPERED',
+              message: '티켓 가격이 변경되었습니다. 페이지를 새로고침해주세요.',
+              expected: serverCalculatedItemPrice,
+              received: clientItemPrice
+            });
+          }
+
+          console.log(`✅ [Orders] 연령별 가격 검증 통과 (옵션 포함)`);
+        }
+
+        // SECURITY FIX: 클라이언트가 보낸 가격과 DB 가격 비교 (팝업 스토어 상품만)
+        if (!isBookingBased && item.price && Math.abs((actualItemPrice + actualOptionPrice) - item.price) > 1) {
+          console.error(`❌ [Orders] 가격 조작 감지!
+            - 상품: ${listing.title}
+            - DB 가격 (기본+옵션): ${actualItemPrice + actualOptionPrice}원
+            - 클라이언트 가격: ${item.price}원`);
+
+          return res.status(400).json({
+            success: false,
+            error: 'PRICE_TAMPERED',
+            message: '상품 가격이 변경되었습니다. 페이지를 새로고침해주세요.'
+          });
+        }
+
+        if (isBookingBased) {
+          console.log(`ℹ️  [Orders] 예약 기반 상품 (category: ${categoryId}) - 가격 검증 완료: ${item.price}원`);
         }
 
         // 🔒 CRITICAL FIX: 가격 계산 - 연령별 데이터가 있으면 서버 계산 값 사용
