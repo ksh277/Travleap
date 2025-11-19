@@ -195,6 +195,8 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      const totalAmount = parseInt(row.total_krw) || 0;
+
       return {
         id: row.id,
         booking_number: row.booking_number,
@@ -219,7 +221,8 @@ module.exports = async function handler(req, res) {
         actual_pickup_at: row.pickup_checked_in_at,
         actual_return_at_utc: row.return_checked_out_at,
         pickup_location: '제주공항', // TODO: 실제 픽업 위치 필드 추가 필요
-        total_price_krw: parseInt(row.total_krw) || 0,
+        total_amount: totalAmount, // ✅ 프론트엔드 호환을 위해 추가
+        total_price_krw: totalAmount,
         insurance_name: row.insurance_name,
         insurance_fee_krw: parseInt(row.insurance_fee_krw) || 0,
         late_return_hours: row.late_return_hours,
