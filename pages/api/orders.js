@@ -687,12 +687,10 @@ module.exports = async function handler(req, res) {
             price_from as price,
             title,
             category_id,
+            adult_price,
             child_price,
             infant_price,
-            admission_fee_adult,
-            admission_fee_child,
-            admission_fee_senior,
-            admission_fee_infant
+            senior_price
           FROM listings WHERE id = ? AND is_active = 1`,
           [item.listingId]
         );
@@ -717,10 +715,10 @@ module.exports = async function handler(req, res) {
         let serverCalculatedItemPrice = 0;
         if (isBookingBased && (item.adults || item.children || item.infants || item.seniors)) {
           // 투어/관광지/체험 등: 성인/어린이/유아/경로 가격 검증
-          const serverAdultPrice = listing.admission_fee_adult || listing.adult_price || listing.price || 0;
-          const serverChildPrice = listing.admission_fee_child || listing.child_price || 0;
-          const serverInfantPrice = listing.admission_fee_infant || listing.infant_price || 0;
-          const serverSeniorPrice = listing.admission_fee_senior || listing.senior_price || 0;
+          const serverAdultPrice = listing.adult_price || listing.price || 0;
+          const serverChildPrice = listing.child_price || 0;
+          const serverInfantPrice = listing.infant_price || 0;
+          const serverSeniorPrice = listing.senior_price || 0;
 
           serverCalculatedItemPrice =
             (item.adults || 0) * serverAdultPrice +

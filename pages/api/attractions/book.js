@@ -77,10 +77,11 @@ module.exports = async function handler(req, res) {
     const listingResult = await connection.execute(`
       SELECT
         id, title, category_id,
-        admission_fee_adult,
-        admission_fee_child,
-        admission_fee_senior,
-        admission_fee_infant,
+        price_from as adult_price,
+        adult_price as adult_price_direct,
+        child_price,
+        senior_price,
+        infant_price,
         is_active
       FROM listings
       WHERE id = ? AND is_active = 1
@@ -96,10 +97,10 @@ module.exports = async function handler(req, res) {
     const listing = listingResult.rows[0];
 
     // 2. 🔒 서버에서 금액 재계산 (보안: 클라이언트 조작 방지)
-    const serverAdultPrice = listing.admission_fee_adult || 0;
-    const serverChildPrice = listing.admission_fee_child || 0;
-    const serverSeniorPrice = listing.admission_fee_senior || 0;
-    const serverInfantPrice = listing.admission_fee_infant || 0;
+    const serverAdultPrice = listing.adult_price_direct || listing.adult_price || 0;
+    const serverChildPrice = listing.child_price || 0;
+    const serverSeniorPrice = listing.senior_price || 0;
+    const serverInfantPrice = listing.infant_price || 0;
 
     const serverCalculatedTotal =
       (num_adults || 0) * serverAdultPrice +
