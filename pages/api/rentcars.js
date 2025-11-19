@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
         v.average_rating,
         v.is_verified,
         v.images as vendor_images,
-        COUNT(rv.id) as vehicle_count,
+        SUM(COALESCE(rv.stock, 1)) as vehicle_count,
         MIN(rv.daily_rate_krw) as min_price,
         MAX(rv.daily_rate_krw) as max_price,
         MIN(rv.images) as sample_vehicle_images,
