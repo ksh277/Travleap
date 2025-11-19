@@ -60,7 +60,7 @@ async function getVendorVehicles(vendorId, userId) {
         hourly_rate_krw,
         weekly_rate_krw,
         monthly_rate_krw,
-        stock,
+        CAST(stock AS SIGNED) as stock,
         is_active,
         is_featured,
         created_at,
@@ -73,10 +73,21 @@ async function getVendorVehicles(vendorId, userId) {
 
     console.log(`✅ [Vendor Vehicles] Found ${vehiclesResult?.length || 0} vehicles for vendorId: ${vendorId}`);
 
+    // Convert stock values to numbers
+    const vehicles = (vehiclesResult || []).map(vehicle => ({
+      ...vehicle,
+      stock: Number(vehicle.stock) || 0,
+      current_stock: Number(vehicle.stock) || 0,
+      daily_rate_krw: Number(vehicle.daily_rate_krw) || 0,
+      hourly_rate_krw: Number(vehicle.hourly_rate_krw) || 0,
+      weekly_rate_krw: Number(vehicle.weekly_rate_krw) || 0,
+      monthly_rate_krw: Number(vehicle.monthly_rate_krw) || 0
+    }));
+
     return {
       success: true,
-      data: vehiclesResult || [],
-      vehicles: vehiclesResult || [] // 하위 호환성을 위해
+      data: vehicles,
+      vehicles: vehicles // 하위 호환성을 위해
     };
 
   } catch (error) {
