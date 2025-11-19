@@ -206,6 +206,7 @@ export function VendorDashboardPageEnhanced() {
   const [pickupModalOpen, setPickupModalOpen] = useState(false);
   const [pickupBooking, setPickupBooking] = useState<Booking | null>(null);
   const [pickupForm, setPickupForm] = useState({
+    actual_pickup_time: "",
     mileage: 0,
     fuel_level: 100,
     damage_notes: '',
@@ -217,6 +218,7 @@ export function VendorDashboardPageEnhanced() {
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [returnForm, setReturnForm] = useState({
+    actual_return_time: "",
     mileage: 0,
     fuel_level: 100,
     damage_notes: '',
@@ -242,6 +244,7 @@ export function VendorDashboardPageEnhanced() {
   const handlePickup = (booking: Booking) => {
     setPickupBooking(booking);
     setPickupForm({
+      actual_pickup_time: new Date().toISOString().slice(0, 16),
       mileage: 0,
       fuel_level: 100,
       damage_notes: '',
@@ -297,7 +300,8 @@ export function VendorDashboardPageEnhanced() {
           fuel_level: pickupForm.fuel_level,
           damage_notes: pickupForm.damage_notes || undefined,
           pickup_images: pickup_images.length > 0 ? pickup_images : undefined,
-          checked_in_by: user?.name || user?.email
+          checked_in_by: user?.name || user?.email,
+          actual_pickup_time: pickupForm.actual_pickup_time
         })
       });
 
@@ -307,7 +311,7 @@ export function VendorDashboardPageEnhanced() {
         toast.success('픽업 처리가 완료되었습니다.');
         setPickupModalOpen(false);
         setPickupBooking(null);
-        setPickupForm({ mileage: 0, fuel_level: 100, damage_notes: '', images: [] });
+        setPickupForm({ actual_pickup_time: "", mileage: 0, fuel_level: 100, damage_notes: "", images: [] });
         loadVendorData();
       } else {
         toast.error(result.error || '픽업 처리에 실패했습니다.');
@@ -324,6 +328,7 @@ export function VendorDashboardPageEnhanced() {
   const handleProcessReturn = (booking: Booking) => {
     setSelectedBooking(booking);
     setReturnForm({
+      actual_return_time: new Date().toISOString().slice(0, 16),
       mileage: 0,
       fuel_level: 100,
       damage_notes: '',
@@ -381,7 +386,8 @@ export function VendorDashboardPageEnhanced() {
           damage_notes: returnForm.damage_notes || undefined,
           return_images: return_images.length > 0 ? return_images : undefined,
           additional_charges: returnForm.additional_charges || 0,
-          checked_out_by: user?.name || user?.email
+          checked_out_by: user?.name || user?.email,
+          actual_return_time: returnForm.actual_return_time
         })
       });
 
@@ -391,7 +397,7 @@ export function VendorDashboardPageEnhanced() {
         toast.success('반납 처리가 완료되었습니다.');
         setReturnModalOpen(false);
         setSelectedBooking(null);
-        setReturnForm({ mileage: 0, fuel_level: 100, damage_notes: '', additional_charges: 0, images: [] });
+        setReturnForm({ actual_return_time: "", mileage: 0, fuel_level: 100, damage_notes: "", additional_charges: 0, images: [] });
         loadVendorData();
       } else {
         toast.error(result.error || '반납 처리에 실패했습니다.');
@@ -1946,6 +1952,19 @@ export function VendorDashboardPageEnhanced() {
                                 {booking.pickup_time && (
                                   <div className="text-gray-500 text-xs">🕐 {booking.pickup_time.substring(0, 5)}</div>
                                 )}
+                                {(booking.pickup_checked_in_at || booking.actual_pickup_at) && (
+                                  <div className="text-blue-600 text-xs font-medium mt-1">
+                                    ✓ 실제: {(() => {
+                                      const actualTime = booking.pickup_checked_in_at || booking.actual_pickup_at;
+                                      try {
+                                        const date = new Date(actualTime);
+                                        return date.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                                      } catch {
+                                        return actualTime;
+                                      }
+                                    })()}
+                                  </div>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -1975,6 +1994,19 @@ export function VendorDashboardPageEnhanced() {
                                   </>
                                 ) : (
                                   <span className="text-gray-400">-</span>
+                                {(booking.return_checked_out_at || booking.actual_return_at_utc) && (
+                                  <div className="text-green-600 text-xs font-medium mt-1">
+                                    ✓ 실제: {(() => {
+                                      const actualTime = booking.return_checked_out_at || booking.actual_return_at_utc;
+                                      try {
+                                        const date = new Date(actualTime);
+                                        return date.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                                      } catch {
+                                        return actualTime;
+                                      }
+                                    })()}
+                                  </div>
+                                )}
                                 )}
                               </div>
                             </TableCell>
@@ -2685,6 +2717,19 @@ export function VendorDashboardPageEnhanced() {
                 </div>
               </div>
 
+
+              {/* 실제 픽업 시간 입력 */}
+              <div>
+                <Label>실제 픽업 시간 *</Label>
+                <Input
+                  type="datetime-local"
+                  value={pickupForm.actual_pickup_time}
+                  onChange={(e) => setPickupForm({ ...pickupForm, actual_pickup_time: e.target.value })}
+                  className="w-full"
+                />
+                <p className="text-xs text-gray-500 mt-1">고객이 실제로 차량을 인수한 시간을 입력하세요</p>
+              </div>
+
               {/* 차량 상태 입력 */}
               <div>
                 <Label>현재 주행거리 (km) *</Label>
@@ -2748,7 +2793,7 @@ export function VendorDashboardPageEnhanced() {
               onClick={() => {
                 setPickupModalOpen(false);
                 setPickupBooking(null);
-                setPickupForm({ mileage: 0, fuel_level: 100, damage_notes: '', images: [] });
+                setPickupForm({ actual_pickup_time: "", mileage: 0, fuel_level: 100, damage_notes: "", images: [] });
               }}
               disabled={isProcessingPickup}
             >
@@ -2799,6 +2844,19 @@ export function VendorDashboardPageEnhanced() {
                   <span className="text-gray-600">예약 금액:</span>
                   <span className="font-medium">₩{(selectedBooking.total_amount || selectedBooking.total_price_krw || 0).toLocaleString()}</span>
                 </div>
+              </div>
+
+
+              {/* 실제 반납 시간 입력 */}
+              <div>
+                <Label>실제 반납 시간 *</Label>
+                <Input
+                  type="datetime-local"
+                  value={returnForm.actual_return_time}
+                  onChange={(e) => setReturnForm({ ...returnForm, actual_return_time: e.target.value })}
+                  className="w-full"
+                />
+                <p className="text-xs text-gray-500 mt-1">고객이 실제로 차량을 반납한 시간을 입력하세요</p>
               </div>
 
               {/* 차량 상태 입력 */}
@@ -2878,7 +2936,7 @@ export function VendorDashboardPageEnhanced() {
               onClick={() => {
                 setReturnModalOpen(false);
                 setSelectedBooking(null);
-                setReturnForm({ mileage: 0, fuel_level: 100, damage_notes: '', additional_charges: 0, images: [] });
+                setReturnForm({ actual_return_time: "", mileage: 0, fuel_level: 100, damage_notes: "", additional_charges: 0, images: [] });
               }}
               disabled={isProcessingReturn}
             >
