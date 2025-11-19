@@ -94,9 +94,18 @@ module.exports = async function handler(req, res) {
       [vendorId]
     );
 
+    // Ensure stock values are numbers
+    const vehicles = (vehiclesResult.rows || []).map(vehicle => ({
+      ...vehicle,
+      stock: parseInt(vehicle.stock) || 0,
+      current_stock: parseInt(vehicle.current_stock) || parseInt(vehicle.stock) || 0,
+      daily_rate_krw: parseFloat(vehicle.daily_rate_krw) || 0,
+      hourly_rate_krw: parseFloat(vehicle.hourly_rate_krw) || 0
+    }));
+
     return res.status(200).json({
       success: true,
-      data: vehiclesResult.rows || []
+      data: vehicles
     });
 
   } catch (error) {
