@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
       vendorId = vendorResult.rows[0].id;
     }
 
-    console.log('📋 [Rentcar All Bookings API] vendorId:', vendorId);
+    console.log('📋 [Rentcar All Bookings API] vendorId:', vendorId, 'userId:', decoded.userId, 'role:', decoded.role);
 
     // 벤더의 모든 렌트카 예약 목록 조회
     const result = await connection.execute(
@@ -115,6 +115,18 @@ module.exports = async function handler(req, res) {
     );
 
     console.log(`✅ ${result.rows?.length || 0}건 조회 완료`);
+    if (result.rows && result.rows.length > 0) {
+      console.log('첫 번째 예약:', {
+        id: result.rows[0].id,
+        booking_number: result.rows[0].booking_number,
+        status: result.rows[0].status,
+        payment_status: result.rows[0].payment_status,
+        pickup_date: result.rows[0].pickup_date,
+        total_krw: result.rows[0].total_krw
+      });
+    } else {
+      console.log('⚠️ 예약이 없습니다. 확인 필요!');
+    }
 
     // 안전한 복호화 함수 (평문/NULL 처리)
     const safeDecrypt = (value) => {
@@ -209,15 +221,15 @@ module.exports = async function handler(req, res) {
         customer_phone: safeDecryptPhone(row.customer_phone),
         customer_email: safeDecryptEmail(row.customer_email),
         driver_name: safeDecrypt(row.driver_name),
-        driver_birth: row.driver_birth,
+        driver_birth: row.driver_birth ? new Date(row.driver_birth).toISOString().split('T')[0] : null,
         driver_license_no: safeDecrypt(row.driver_license_no),
-        pickup_date: row.pickup_date,
+        pickup_date: row.pickup_date ? new Date(row.pickup_date).toISOString().split('T')[0] : null,
         pickup_time: row.pickup_time,
-        dropoff_date: row.dropoff_date,
+        dropoff_date: row.dropoff_date ? new Date(row.dropoff_date).toISOString().split('T')[0] : null,
         dropoff_time: row.dropoff_time,
         // UTC 형식으로 변환 (프론트엔드 호환)
-        pickup_at_utc: `${row.pickup_date}T${row.pickup_time || '09:00:00'}Z`,
-        return_at_utc: `${row.dropoff_date}T${row.dropoff_time || '18:00:00'}Z`,
+        pickup_at_utc: row.pickup_date ? `${new Date(row.pickup_date).toISOString().split('T')[0]}T${row.pickup_time || '09:00:00'}Z` : null,
+        return_at_utc: row.dropoff_date ? `${new Date(row.dropoff_date).toISOString().split('T')[0]}T${row.dropoff_time || '18:00:00'}Z` : null,
         actual_pickup_at: row.pickup_checked_in_at,
         actual_return_at_utc: row.return_checked_out_at,
         pickup_location: '제주공항', // TODO: 실제 픽업 위치 필드 추가 필요
