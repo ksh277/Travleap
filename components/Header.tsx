@@ -112,6 +112,7 @@ export function Header({
     { name: t('franchise', selectedLanguage), id: "franchise" },
     { name: t('contact', selectedLanguage), id: "contact" },
     { name: t('about', selectedLanguage), id: "about" },
+    { name: t('aiCourse', selectedLanguage), id: "ai-course" },
   ];
 
   const destinations = [

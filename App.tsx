@@ -35,6 +35,7 @@ import { PlaceGoodsPage } from './components/PlaceGoodsPage';
 import { PartnersDiscountPage } from './components/PartnersDiscountPage';
 import { PartnerDetailPage } from './components/PartnerDetailPage';
 import { AIRecommendationPage } from './components/AIRecommendationPage';
+import { AICoursePage } from './components/AICoursePage';
 import { LegalPage } from './components/pages/LegalPage';
 import { TermsPage } from './components/pages/TermsPage';
 import { PrivacyPage } from './components/pages/PrivacyPage';
@@ -369,6 +370,7 @@ function AppContent() {
           <Route path="/partners-discount" element={<PartnersDiscountPage />} />
           <Route path="/ai-recommendations" element={<AIRecommendationPage />} />
           <Route path="/ai-recommendation" element={<AIRecommendationPage />} />
+          <Route path="/ai-course" element={<AICoursePage />} />
 
           {/* Lock 시스템 테스트 페이지 (개발용) */}
           <Route path="/lock-test" element={<LockTestPage />} />
