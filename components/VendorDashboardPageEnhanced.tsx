@@ -478,7 +478,7 @@ export function VendorDashboardPageEnhanced() {
   };
 
   const handleRefundBooking = async (booking: Booking) => {
-    if (!confirm(`예약번호 #${booking.id}를 환불 처리하시겠습니까?\n\n고객: ${booking.customer_name}\n금액: ₩${booking.total_amount.toLocaleString()}\n\n환불 후 예약 상태가 'cancelled'로 변경됩니다.`)) {
+    if (!confirm(`예약번호 #${booking.id}를 환불 처리하시겠습니까?\n\n고객: ${booking.customer_name}\n금액: ₩${(booking.total_amount || booking.total_price_krw || 0).toLocaleString()}\n\n환불 후 예약 상태가 'cancelled'로 변경됩니다.`)) {
       return;
     }
 
@@ -1895,7 +1895,13 @@ export function VendorDashboardPageEnhanced() {
                                     <div className="font-medium">{booking.driver_name}</div>
                                     {booking.driver_birth && (
                                       <div className="text-gray-500 text-xs">
-                                        생년월일: {new Date(booking.driver_birth).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                                        생년월일: {(() => {
+                                          try {
+                                            return new Date(booking.driver_birth).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                                          } catch {
+                                            return booking.driver_birth;
+                                          }
+                                        })()}
                                       </div>
                                     )}
                                     {booking.driver_license_no && (
@@ -1909,7 +1915,15 @@ export function VendorDashboardPageEnhanced() {
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">
-                                <div className="font-medium">{new Date(booking.pickup_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
+                                <div className="font-medium">
+                                  {booking.pickup_date ? (() => {
+                                    try {
+                                      return new Date(booking.pickup_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                                    } catch {
+                                      return '-';
+                                    }
+                                  })() : '-'}
+                                </div>
                                 {booking.pickup_time && (
                                   <div className="text-gray-500 text-xs">🕐 {booking.pickup_time.substring(0, 5)}</div>
                                 )}
@@ -1917,7 +1931,15 @@ export function VendorDashboardPageEnhanced() {
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">
-                                <div className="font-medium">{new Date(booking.dropoff_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
+                                <div className="font-medium">
+                                  {booking.dropoff_date ? (() => {
+                                    try {
+                                      return new Date(booking.dropoff_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                                    } catch {
+                                      return '-';
+                                    }
+                                  })() : '-'}
+                                </div>
                                 {booking.dropoff_time && (
                                   <div className="text-gray-500 text-xs">🕐 {booking.dropoff_time.substring(0, 5)}</div>
                                 )}
@@ -2165,7 +2187,13 @@ export function VendorDashboardPageEnhanced() {
                             allBookings.map((booking) => (
                               <TableRow key={booking.id}>
                                 <TableCell>
-                                  {new Date(booking.pickup_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}
+                                  {booking.pickup_date ? (() => {
+                                    try {
+                                      return new Date(booking.pickup_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+                                    } catch {
+                                      return '-';
+                                    }
+                                  })() : '-'}
                                 </TableCell>
                                 <TableCell>{booking.vehicle_name || booking.vehicle_model}</TableCell>
                                 <TableCell>{booking.customer_name}</TableCell>
@@ -2629,12 +2657,12 @@ export function VendorDashboardPageEnhanced() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">픽업 예정일시:</span>
                   <span className="font-medium">
-                    {new Date(pickupBooking.pickup_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })} {pickupBooking.pickup_time ? pickupBooking.pickup_time.substring(0, 5) : ''}
+                    {pickupBooking.pickup_date ? new Date(pickupBooking.pickup_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '-'} {pickupBooking.pickup_time ? pickupBooking.pickup_time.substring(0, 5) : ''}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">예약 금액:</span>
-                  <span className="font-medium">₩{pickupBooking.total_amount.toLocaleString()}</span>
+                  <span className="font-medium">₩{(pickupBooking.total_amount || pickupBooking.total_price_krw || 0).toLocaleString()}</span>
                 </div>
               </div>
 
@@ -2745,12 +2773,12 @@ export function VendorDashboardPageEnhanced() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">예정 반납일시:</span>
                   <span className="font-medium">
-                    {new Date(selectedBooking.dropoff_date).toLocaleDateString('ko-KR')} {selectedBooking.dropoff_time || ''}
+                    {selectedBooking.dropoff_date ? new Date(selectedBooking.dropoff_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '-'} {selectedBooking.dropoff_time ? selectedBooking.dropoff_time.substring(0, 5) : ''}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">예약 금액:</span>
-                  <span className="font-medium">₩{selectedBooking.total_amount.toLocaleString()}</span>
+                  <span className="font-medium">₩{(selectedBooking.total_amount || selectedBooking.total_price_krw || 0).toLocaleString()}</span>
                 </div>
               </div>
 
