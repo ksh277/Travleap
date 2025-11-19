@@ -4658,6 +4658,41 @@ export const api = {
       };
     }
   },
+
+  // AI 추천
+  getAIRecommendations: async (preferences: any): Promise<ApiResponse<any>> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ai/recommend-course`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ preferences })
+      });
+
+      if (!response.ok) {
+        throw new Error(`AI recommendation API returned ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'AI 추천 생성 실패');
+      }
+
+      return {
+        success: true,
+        data: result.recommendations || []
+      };
+    } catch (error: any) {
+      console.error('Failed to get AI recommendations:', error);
+      return {
+        success: false,
+        error: error.message || 'AI 추천 생성에 실패했습니다.',
+        data: []
+      };
+    }
+  },
 };
 
 export default api;

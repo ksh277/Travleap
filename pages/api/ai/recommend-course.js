@@ -51,15 +51,49 @@ export default async function handler(req, res) {
       LIMIT 50
     `);
 
-    const listings = result.rows.map(listing => ({
-      ...listing,
-      popularityScore: (listing.booking_count || 0) * 1000 + (listing.view_count || 0) * 10 + (listing.rating_avg || 0) * 100,
-      images: typeof listing.images === 'string' ? JSON.parse(listing.images || '[]') : (listing.images || []),
-      tags: typeof listing.tags === 'string' ? JSON.parse(listing.tags || '[]') : (listing.tags || []),
-      highlights: typeof listing.highlights === 'string' ? JSON.parse(listing.highlights || '[]') : (listing.highlights || []),
-    }));
+    const listings = result.rows.map(listing => {
+      let images = [];
+      let tags = [];
+      let highlights = [];
+
+      try {
+        images = typeof listing.images === 'string' ? JSON.parse(listing.images || '[]') : (listing.images || []);
+      } catch (e) {
+        console.warn('Failed to parse images:', e);
+      }
+
+      try {
+        tags = typeof listing.tags === 'string' ? JSON.parse(listing.tags || '[]') : (listing.tags || []);
+      } catch (e) {
+        console.warn('Failed to parse tags:', e);
+      }
+
+      try {
+        highlights = typeof listing.highlights === 'string' ? JSON.parse(listing.highlights || '[]') : (listing.highlights || []);
+      } catch (e) {
+        console.warn('Failed to parse highlights:', e);
+      }
+
+      return {
+        ...listing,
+        popularityScore: (listing.booking_count || 0) * 1000 + (listing.view_count || 0) * 10 + (listing.rating_avg || 0) * 100,
+        images,
+        tags,
+        highlights
+      };
+    });
 
     console.log(`📦 Found ${listings.length} products for AI recommendation`);
+
+    // 상품이 없으면 에러 반환
+    if (listings.length === 0) {
+      console.warn('⚠️  No listings found for AI recommendations');
+      return res.status(200).json({
+        success: true,
+        method: 'fallback',
+        recommendations: []
+      });
+    }
 
     // 2. OpenAI API 키 확인
     const openaiKey = process.env.OPENAI_API_KEY;
@@ -202,12 +236,24 @@ ${JSON.stringify(listings.slice(0, 20).map(l => ({
 
 // 스마트 필터링으로 추천 생성 (OpenAI 없을 때)
 function generateSmartRecommendations(listings, preferences) {
+  // 안전 체크
+  if (!listings || listings.length === 0) {
+    console.warn('⚠️  No listings provided to generateSmartRecommendations');
+    return [];
+  }
+
   const budget = preferences.budget?.[0] || 500000;
   const duration = preferences.duration || 2;
   const perDayBudget = budget / duration;
 
   // 1. 예산 내 상품 필터링
   let filtered = listings.filter(l => (l.price_from || 0) <= perDayBudget * 1.2);
+
+  // 예산 내 상품이 없으면 모든 상품 사용
+  if (filtered.length === 0) {
+    console.warn('⚠️  No listings within budget, using all listings');
+    filtered = [...listings];
+  }
 
   // 2. 관심사 매칭
   if (preferences.interests && preferences.interests.length > 0) {
@@ -249,6 +295,12 @@ function generateSmartRecommendations(listings, preferences) {
     if (selected.length >= targetCount) {
       break;
     }
+  }
+
+  // 선택된 상품이 없으면 빈 배열 반환
+  if (selected.length === 0) {
+    console.warn('⚠️  No products selected after filtering');
+    return [];
   }
 
   // 4. 총 비용 계산

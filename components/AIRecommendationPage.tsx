@@ -304,21 +304,6 @@ export function AIRecommendationPage() {
   const [recommendations, setRecommendations] = useState<RecommendationResult[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedRecommendation, setSelectedRecommendation] = useState<string | null>(null);
-  const [dbListings, setDbListings] = useState<any[]>([]);
-
-  // DB에서 실제 상품 데이터 가져오기
-  useEffect(() => {
-    const fetchListings = async () => {
-      try {
-        const response = await api.getListings({ limit: 100 });
-        setDbListings(response.data || []);
-      } catch (error) {
-        console.error('Failed to fetch listings for AI recommendations:', error);
-        setDbListings([]);
-      }
-    };
-    fetchListings();
-  }, []);
 
   const handleStyleChange = (styleId: string) => {
     setPreferences(prev => ({
@@ -342,46 +327,12 @@ export function AIRecommendationPage() {
     setIsGenerating(true);
 
     try {
-      // AI 추천 시뮬레이션 (실제로는 서버 API 호출)
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // 백엔드 API 호출하여 AI 추천 생성
+      const result = await api.getAIRecommendations(preferences);
 
-      // DB 데이터를 사용하여 실제 추천 생성
-      if (dbListings.length > 0) {
-        // 사용자 선호도에 따라 DB 상품 필터링
-        const budget = preferences.budget[0];
-        let relevantListings = dbListings.filter(listing => {
-          const price = listing.price_from || 0;
-          return price <= budget / preferences.duration;
-        });
-
-        // 관심사에 따른 필터링
-        if (preferences.interests.length > 0) {
-          relevantListings = relevantListings.filter(listing => {
-            const category = listing.category?.toLowerCase() || '';
-            const tags = (listing.tags || []).map((t: string) => t.toLowerCase());
-            return preferences.interests.some(interest =>
-              category.includes(interest) || tags.some((tag: string) => tag.includes(interest))
-            );
-          });
-        }
-
-        // AI 추천 생성 - DB 데이터 기반
-        const aiRecommendations = SAMPLE_RECOMMENDATIONS.map((template, idx) => {
-          // 실제 DB 상품으로 일정 업데이트
-          const selectedListings = relevantListings.slice(idx * 3, (idx + 1) * 3);
-
-          return {
-            ...template,
-            matchPercentage: Math.min(98, 75 + Math.random() * 20),
-            totalCost: selectedListings.reduce((sum, l) => sum + (l.price_from || 0), 0) * preferences.duration,
-            // DB 데이터 기반으로 하이라이트 업데이트
-            highlights: selectedListings.map(l => l.title).slice(0, 4)
-          };
-        });
-
-        setRecommendations(aiRecommendations.sort((a, b) => b.matchPercentage - a.matchPercentage));
-      } else {
-        // DB 데이터 없을 시 샘플 데이터 사용
+      if (!result.success || !result.data || result.data.length === 0) {
+        // API 실패 시 샘플 데이터 사용
+        console.warn('AI API failed, using fallback recommendations');
         let filtered = [...SAMPLE_RECOMMENDATIONS];
         const budget = preferences.budget[0];
         filtered = filtered.filter(rec => rec.totalCost <= budget * 1.2);
@@ -390,13 +341,59 @@ export function AIRecommendationPage() {
           matchPercentage: Math.min(95, rec.matchPercentage + Math.random() * 10)
         })).sort((a, b) => b.matchPercentage - a.matchPercentage);
         setRecommendations(filtered);
+      } else {
+        // API 응답을 프론트엔드 형식으로 변환
+        const apiRecommendations = result.data.map((course: any, idx: number) => {
+          // 백엔드 추천 데이터를 프론트엔드 형식으로 변환
+          const itinerary = course.recommendations?.map((rec: any) => ({
+            day: rec.day || 1,
+            title: rec.listing?.title || '여행 일정',
+            location: rec.listing?.location || '신안',
+            cost: rec.listing?.price_from || 0,
+            activities: [{
+              time: '10:00',
+              name: rec.listing?.title || '활동',
+              location: rec.listing?.location || '신안',
+              description: rec.listing?.short_description || rec.reason || '',
+              cost: rec.listing?.price_from || 0,
+              duration: rec.listing?.duration || '2시간',
+              type: rec.listing?.category?.toLowerCase() || 'activity'
+            }],
+            meals: ['현지 맛집'],
+            accommodation: rec.day === 1 ? undefined : '신안 숙소'
+          })) || [];
+
+          return {
+            id: course.id || `api-${idx}`,
+            title: course.courseName || `신안 ${preferences.duration}일 여행`,
+            description: course.description || '맞춤 추천 여행 코스',
+            matchPercentage: course.matchPercentage || 90,
+            totalCost: course.totalPrice || 0,
+            highlights: course.recommendations?.slice(0, 4).map((r: any) => r.listing?.title || '추천 명소') || [],
+            tips: course.tips || ['즐거운 여행 되세요!'],
+            bestTime: '연중',
+            difficulty: 'easy' as const,
+            images: [],
+            tags: [course.method === 'openai' ? 'AI 추천' : '스마트 추천'],
+            itinerary
+          };
+        });
+
+        setRecommendations(apiRecommendations);
       }
 
       setStep(3);
       toast.success('AI 맞춤 추천이 완성되었습니다!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to generate recommendations:', error);
-      toast.error('추천 생성에 실패했습니다.');
+      toast.error(`추천 생성에 실패했습니다: ${error.message || '알 수 없는 오류'}`);
+
+      // 오류 발생 시에도 샘플 데이터 표시
+      let filtered = [...SAMPLE_RECOMMENDATIONS];
+      const budget = preferences.budget[0];
+      filtered = filtered.filter(rec => rec.totalCost <= budget * 1.2);
+      setRecommendations(filtered.slice(0, 2));
+      setStep(3);
     } finally {
       setIsGenerating(false);
     }
