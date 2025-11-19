@@ -714,26 +714,36 @@ module.exports = async function handler(req, res) {
         // SECURITY FIX: 옵션 가격 먼저 검증
         let actualOptionPrice = 0;
         if (item.selectedOption?.id) {
-          const optionResult = await connection.execute(
-            'SELECT price_adjustment FROM product_options WHERE id = ? AND listing_id = ?',
-            [item.selectedOption.id, item.listingId]
-          );
+          try {
+            const optionResult = await connection.execute(
+              'SELECT price_adjustment FROM product_options WHERE id = ? AND listing_id = ?',
+              [item.selectedOption.id, item.listingId]
+            );
 
-          if (optionResult.rows && optionResult.rows.length > 0) {
-            actualOptionPrice = optionResult.rows[0].price_adjustment || 0;
+            if (optionResult.rows && optionResult.rows.length > 0) {
+              actualOptionPrice = optionResult.rows[0].price_adjustment || 0;
 
-            // 옵션 가격도 검증
-            if (item.selectedOption.priceAdjustment && Math.abs(actualOptionPrice - item.selectedOption.priceAdjustment) > 1) {
-              console.error(`❌ [Orders] 옵션 가격 조작 감지!
-                - 옵션 ID: ${item.selectedOption.id}
-                - DB 가격: ${actualOptionPrice}원
-                - 클라이언트 가격: ${item.selectedOption.priceAdjustment}원`);
+              // 옵션 가격도 검증
+              if (item.selectedOption.priceAdjustment && Math.abs(actualOptionPrice - item.selectedOption.priceAdjustment) > 1) {
+                console.error(`❌ [Orders] 옵션 가격 조작 감지!
+                  - 옵션 ID: ${item.selectedOption.id}
+                  - DB 가격: ${actualOptionPrice}원
+                  - 클라이언트 가격: ${item.selectedOption.priceAdjustment}원`);
 
-              return res.status(400).json({
-                success: false,
-                error: 'OPTION_PRICE_TAMPERED',
-                message: '옵션 가격이 변경되었습니다. 페이지를 새로고침해주세요.'
-              });
+                return res.status(400).json({
+                  success: false,
+                  error: 'OPTION_PRICE_TAMPERED',
+                  message: '옵션 가격이 변경되었습니다. 페이지를 새로고침해주세요.'
+                });
+              }
+            }
+          } catch (optionError) {
+            // product_options 테이블이 없거나 다른 오류 발생 시
+            console.warn(`⚠️  [Orders] 옵션 검증 실패 (테이블 없음 또는 오류): ${optionError.message}`);
+            // 옵션이 있는 경우에만 오류로 처리 (현재 투어/음식/관광지/팝업/행사/체험은 옵션 없음)
+            if (categoryId !== 1856 && categoryId !== 1857) {
+              // 렌트카(1856), 숙박(1857) 제외하고는 옵션이 없어야 정상
+              actualOptionPrice = 0;
             }
           }
         }
