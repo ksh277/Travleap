@@ -249,7 +249,7 @@ module.exports = async function handler(req, res) {
         pickup_location: '제주공항', // TODO: 실제 픽업 위치 필드 추가 필요
         total_price_krw: parseInt(row.total_krw) || 0,
         insurance_name: row.insurance_name,
-        insurance_fee: parseInt(row.insurance_fee_krw) || 0,
+        insurance_fee_krw: parseInt(row.insurance_fee_krw) || 0,
         late_return_hours: row.late_return_hours,
         late_return_fee_krw: parseInt(row.late_return_fee_krw) || 0,
         voucher_code: row.voucher_code,

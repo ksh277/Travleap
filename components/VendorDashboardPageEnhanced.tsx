@@ -1376,7 +1376,12 @@ export function VendorDashboardPageEnhanced() {
               <Car className="w-4 h-4 text-gray-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{vehicles.length}대</div>
+              <div className="text-3xl font-bold">
+                {vehicles.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)}대
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {vehicles.length}개 차종
+              </p>
             </CardContent>
           </Card>
 
@@ -1388,7 +1393,10 @@ export function VendorDashboardPageEnhanced() {
               <Calendar className="w-4 h-4 text-gray-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{bookings.length}건</div>
+              <div className="text-3xl font-bold">{allBookings.length}건</div>
+              <p className="text-xs text-gray-500 mt-1">
+                오늘 {bookings.length}건
+              </p>
             </CardContent>
           </Card>
 
@@ -1401,10 +1409,21 @@ export function VendorDashboardPageEnhanced() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {bookings
-                  .filter(b => b.status === 'completed')
-                  .reduce((sum, b) => sum + b.total_amount, 0)
-                  .toLocaleString()}원
+                {(() => {
+                  const now = new Date();
+                  const currentMonth = now.getMonth();
+                  const currentYear = now.getFullYear();
+
+                  return allBookings
+                    .filter(b => {
+                      const bookingDate = new Date(b.created_at || b.pickup_date);
+                      return bookingDate.getMonth() === currentMonth &&
+                             bookingDate.getFullYear() === currentYear &&
+                             (b.status === 'confirmed' || b.status === 'picked_up' || b.status === 'returned' || b.status === 'completed');
+                    })
+                    .reduce((sum, b) => sum + (Number(b.total_price_krw) || Number(b.total_amount) || 0), 0)
+                    .toLocaleString();
+                })()}원
               </div>
             </CardContent>
           </Card>
