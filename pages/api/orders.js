@@ -1232,7 +1232,7 @@ module.exports = async function handler(req, res) {
             adults,
             children,
             infants,
-            seniors,
+            num_seniors,
             guests,
             selected_option_id,
             special_requests,
