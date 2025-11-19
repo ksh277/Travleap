@@ -2,9 +2,6 @@
   "functions": {
     "api/**/*.js": {
       "runtime": "@vercel/node@3.2.33"
-    },
-    "pages/api/**/*.js": {
-      "runtime": "@vercel/node@3.2.33"
     }
   },
   "rewrites": [
