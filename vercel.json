@@ -4,10 +4,13 @@
       "runtime": "@vercel/node@3.2.33"
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/:path((?!api).*)",
-      "destination": "/index.html"
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ],
   "headers": [
