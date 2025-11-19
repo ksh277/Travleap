@@ -94,14 +94,26 @@ module.exports = async function handler(req, res) {
       [vendorId]
     );
 
+    // DEBUG: Check raw data from database
+    console.log('🔍 [RAW DATA] Rows count:', vehiclesResult.rows.length);
+    if (vehiclesResult.rows.length > 0) {
+      const first = vehiclesResult.rows[0];
+      console.log('🔍 [RAW] stock:', first.stock, 'type:', typeof first.stock);
+      console.log('🔍 [RAW] Full vehicle:', JSON.stringify(first));
+    }
+
     // Ensure stock values are numbers
-    const vehicles = (vehiclesResult.rows || []).map(vehicle => ({
-      ...vehicle,
-      stock: parseInt(vehicle.stock) || 0,
-      current_stock: parseInt(vehicle.current_stock) || parseInt(vehicle.stock) || 0,
-      daily_rate_krw: parseFloat(vehicle.daily_rate_krw) || 0,
-      hourly_rate_krw: parseFloat(vehicle.hourly_rate_krw) || 0
-    }));
+    const vehicles = (vehiclesResult.rows || []).map(vehicle => {
+      const stockValue = parseInt(vehicle.stock);
+      console.log(`Vehicle ${vehicle.id}: stock=${vehicle.stock} → ${stockValue}`);
+      return {
+        ...vehicle,
+        stock: stockValue || 0,
+        current_stock: parseInt(vehicle.current_stock) || stockValue || 0,
+        daily_rate_krw: parseFloat(vehicle.daily_rate_krw) || 0,
+        hourly_rate_krw: parseFloat(vehicle.hourly_rate_krw) || 0
+      };
+    });
 
     return res.status(200).json({
       success: true,

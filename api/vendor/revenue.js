@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
         const dailyRevenueResult = await connection.execute(
           `SELECT
             DATE(created_at) as date,
-            SUM(total_amount) as revenue
+            SUM(total_krw) as revenue
           FROM rentcar_bookings
           WHERE vendor_id = ? AND status IN ('confirmed', 'paid', 'completed')
             AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
