@@ -1,11 +1,4 @@
 {
-  "rewrites": [
-    {
-      "source": "/((?!api/)(?!_next/)(?!static/).*)",
-      "destination": "/index.html"
-    }
-  ],
-  "cleanUrls": true,
   "headers": [
     {
       "source": "/api/(.*)",
