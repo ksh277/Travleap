@@ -77,6 +77,46 @@ module.exports = async function handler(req, res) {
 
     console.log('   ✅ 차량 조회 성공:', vehicle.display_name, '(vendor:', vehicle.vendor_id + ')');
 
+    // 1.2. 재고 확인
+    if (!vehicle.stock || vehicle.stock <= 0) {
+      console.warn('   ❌ 재고 부족:', vehicle.display_name, '(stock:', vehicle.stock + ')');
+      return res.status(400).json({
+        success: false,
+        error: '선택하신 차량의 재고가 부족합니다'
+      });
+    }
+
+    // 1.3. 시간 충돌 확인 (같은 차량에 대한 예약 중복 방지)
+    const conflictCheck = await connection.execute(
+      `SELECT id, booking_number, pickup_at, return_at
+       FROM rentcar_bookings
+       WHERE vehicle_id = ?
+         AND status NOT IN ('cancelled', 'refunded')
+         AND (
+           (pickup_at < ? AND return_at > ?)
+           OR (pickup_at < ? AND return_at > ?)
+           OR (pickup_at >= ? AND return_at <= ?)
+         )
+       LIMIT 1`,
+      [
+        vehicle_id,
+        return_at, pickup_at,  // 기존 예약이 새 픽업 시간을 포함하는 경우
+        return_at, return_at,  // 기존 예약이 새 반납 시간을 포함하는 경우
+        pickup_at, return_at   // 기존 예약이 새 예약 기간 내에 있는 경우
+      ]
+    );
+
+    if (conflictCheck.rows && conflictCheck.rows.length > 0) {
+      const conflict = conflictCheck.rows[0];
+      console.warn('   ❌ 시간 충돌:', conflict.booking_number);
+      return res.status(400).json({
+        success: false,
+        error: '선택하신 시간대에 이미 예약이 있습니다. 다른 시간을 선택해주세요.'
+      });
+    }
+
+    console.log('   ✅ 재고 및 시간 충돌 검사 통과');
+
     // 1.5. location 유효성 검증 및 자동 할당
     let validPickupLocationId = pickup_location_id;
     let validDropoffLocationId = dropoff_location_id;
