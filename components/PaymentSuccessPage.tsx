@@ -83,23 +83,15 @@ export default function PaymentSuccessPage() {
     }
   };
 
+  // QR 표시 여부 (결제 완료 페이지는 모든 주문에 표시)
+  const shouldShowQR = paymentData?.orderId;
+
   // 결제 성공 시 QR 생성
   useEffect(() => {
-    if (status === 'success' && paymentData?.orderId && shouldShowQR) {
+    if (status === 'success' && shouldShowQR) {
       generateQR(paymentData.orderId);
     }
-  }, [status, paymentData]);
-
-  // QR 표시 여부 판단
-  const category = paymentData?.category || '';
-  const isExcludedCategory =
-    category === 'rentcar' ||
-    category === '렌트카' ||
-    category === 'popup' ||
-    category === '팝업';
-
-  // 결제 완료 페이지는 항상 11월 20일 이후이므로 날짜 체크 불필요
-  const shouldShowQR = !isExcludedCategory && paymentData?.orderId;
+  }, [status, paymentData, shouldShowQR]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
