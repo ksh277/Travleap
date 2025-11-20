@@ -1131,7 +1131,7 @@ export function AdminPage({}: AdminPageProps) {
         const response = await fetch('/api/upload-image', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
           },
           body: formData,
         });
