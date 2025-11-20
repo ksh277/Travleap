@@ -1086,12 +1086,17 @@ export function AdminPage({}: AdminPageProps) {
     setFilteredProducts(filtered);
   }, [searchQuery, selectedCategory, selectedStatus, products]);
 
-  // 이미지 업로드 처리 (blob으로 변환)
+  // 이미지 업로드 처리 (Vercel Blob Storage에 실제 업로드)
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    const newImages: string[] = [];
+    const uploadedUrls: string[] = [];
+    let successCount = 0;
+    let errorCount = 0;
+
+    // 업로드 시작 알림
+    toast.info(`${files.length}개의 이미지를 업로드하는 중...`);
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -1099,28 +1104,61 @@ export function AdminPage({}: AdminPageProps) {
       // 파일 크기 체크 (5MB 제한)
       if (file.size > 5 * 1024 * 1024) {
         toast.error(`${file.name}은(는) 5MB보다 큽니다. 더 작은 파일을 선택해주세요.`);
+        errorCount++;
         continue;
       }
 
       // 이미지 파일인지 확인
       if (!file.type.startsWith('image/')) {
         toast.error(`${file.name}은(는) 이미지 파일이 아닙니다.`);
+        errorCount++;
         continue;
       }
 
       try {
-        // 파일을 blob URL로 변환
-        const blobUrl = URL.createObjectURL(file);
-        newImages.push(blobUrl);
+        // FormData 생성
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('category', 'popup');
+
+        // Vercel Blob Storage에 업로드
+        const response = await fetch('/api/upload-image', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Upload failed');
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.url) {
+          uploadedUrls.push(data.url);
+          successCount++;
+          console.log(`✅ Uploaded ${file.name} to:`, data.url);
+        } else {
+          throw new Error('Invalid response format');
+        }
       } catch (error) {
-        console.error('Failed to create blob URL:', error);
-        toast.error(`${file.name} 처리 중 오류가 발생했습니다.`);
+        console.error('Failed to upload image:', error);
+        toast.error(`${file.name} 업로드 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+        errorCount++;
       }
     }
 
-    if (newImages.length > 0) {
-      setNewProduct(prev => ({ ...prev, images: [...prev.images, ...newImages] }));
-      toast.success(`${newImages.length}개의 이미지가 업로드되었습니다.`);
+    // 결과 업데이트
+    if (uploadedUrls.length > 0) {
+      setNewProduct(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
+      toast.success(`✅ ${successCount}개의 이미지가 업로드되었습니다.`);
+    }
+
+    if (errorCount > 0) {
+      toast.error(`❌ ${errorCount}개의 이미지 업로드에 실패했습니다.`);
     }
 
     // 파일 input 초기화
