@@ -91,8 +91,22 @@ module.exports = async function handler(req, res) {
       const fallbackCount = Number(listing.rating_count) || 0;
       const fallbackAvg = Number(listing.rating_avg) || 0;
 
+      // Parse images if stored as JSON string
+      let images = listing.images;
+      if (typeof images === 'string') {
+        try {
+          images = JSON.parse(images);
+        } catch (e) {
+          images = [];
+        }
+      }
+      if (!Array.isArray(images)) {
+        images = [];
+      }
+
       return {
         ...listing,
+        images,
         category: listing.category_slug,
         // ✅ 실제 리뷰가 있으면 사용, 없으면 0 (하드코딩 제거)
         rating_count: actualCount,
