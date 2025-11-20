@@ -9,15 +9,16 @@
  * - 환불 정책 계산
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Receipt, MapPin, Calendar, Clock, Users, Package, Coins, AlertTriangle, Loader2, Trash2, Truck } from 'lucide-react';
+import { Receipt, MapPin, Calendar, Clock, Users, Package, Coins, AlertTriangle, Loader2, Trash2, Truck, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatKoreanDateTime } from '../utils/date-utils';
 import { TrackingDetailDialog } from './TrackingDetailDialog';
+import QRCode from 'qrcode';
 
 // ✅ 팝업 상품 판별 헬퍼 함수
 const isPopupProduct = (item: any): boolean => {
@@ -36,6 +37,8 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
   const [isRefunding, setIsRefunding] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showTrackingDialog, setShowTrackingDialog] = useState(false);
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const qrCodeRef = useRef<HTMLCanvasElement>(null);
 
   // notes 파싱
   let notesData: any = null;
@@ -138,6 +141,47 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
       setIsDeleting(false);
     }
   };
+
+  // QR 코드 생성
+  const generateQR = async (orderNumber: string) => {
+    try {
+      const canvas = qrCodeRef.current;
+      if (canvas) {
+        await QRCode.toCanvas(canvas, orderNumber, {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('QR 생성 오류:', error);
+      toast.error('QR 코드 생성에 실패했습니다.');
+    }
+  };
+
+  // QR 다이얼로그 열릴 때 QR 생성
+  useEffect(() => {
+    if (showQRDialog && orderNumber) {
+      generateQR(orderNumber);
+    }
+  }, [showQRDialog]);
+
+  // QR 표시 여부 판단
+  const cutoffDate = new Date('2024-11-20');
+  const paymentDate = new Date(payment.created_at || payment.approved_at);
+  const isRecentOrder = paymentDate >= cutoffDate;
+
+  const isExcludedCategory =
+    category === 'rentcar' ||
+    category === '렌트카' ||
+    category === 'popup' ||
+    category === '팝업';
+
+  const orderNumber = payment.gateway_transaction_id || payment.order_id_str || '';
+  const showQRButton = isRecentOrder && !isExcludedCategory && orderNumber;
 
   return (
     <>
@@ -412,6 +456,19 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
                 </a>
               )}
 
+              {/* QR 코드 버튼 (11월 20일 이후 주문, 렌트카/팝업 제외) */}
+              {showQRButton && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQRDialog(true)}
+                  className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
+                >
+                  <QrCode className="w-3 h-3 mr-1" />
+                  QR 보기
+                </Button>
+              )}
+
               {canRefund && (
                 <Button
                   variant="outline"
@@ -577,6 +634,38 @@ export function PaymentHistoryCard({ payment, onRefund, onDelete }: PaymentHisto
           trackingNumber={payment.tracking_number}
         />
       )}
+
+      {/* QR 코드 모달 */}
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>주문 QR 코드</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-6">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <canvas ref={qrCodeRef} className="mx-auto" />
+            </div>
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600 mb-1">주문번호</p>
+              <p className="font-mono text-xs text-gray-900 break-all px-4">
+                {orderNumber}
+              </p>
+            </div>
+            <p className="text-xs text-gray-500 mt-4">
+              이 QR 코드를 파트너사에 제시하세요
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowQRDialog(false)}
+              className="w-full"
+            >
+              닫기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

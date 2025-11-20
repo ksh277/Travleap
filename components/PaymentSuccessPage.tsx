@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import QRCode from 'qrcode';
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('결제를 처리하고 있습니다...');
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const qrCodeRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const processPayment = async () => {
@@ -44,6 +47,7 @@ export default function PaymentSuccessPage() {
 
         setStatus('success');
         setMessage('결제가 완료되었습니다!');
+        setPaymentData({ orderId, ...result });
 
         // 3초 후 마이페이지로 이동
         setTimeout(() => {
@@ -59,6 +63,43 @@ export default function PaymentSuccessPage() {
 
     processPayment();
   }, [searchParams, navigate]);
+
+  // QR 코드 생성
+  const generateQR = async (orderNumber: string) => {
+    try {
+      const canvas = qrCodeRef.current;
+      if (canvas) {
+        await QRCode.toCanvas(canvas, orderNumber, {
+          width: 200,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('QR 생성 오류:', error);
+    }
+  };
+
+  // 결제 성공 시 QR 생성
+  useEffect(() => {
+    if (status === 'success' && paymentData?.orderId && shouldShowQR) {
+      generateQR(paymentData.orderId);
+    }
+  }, [status, paymentData]);
+
+  // QR 표시 여부 판단
+  const category = paymentData?.category || '';
+  const isExcludedCategory =
+    category === 'rentcar' ||
+    category === '렌트카' ||
+    category === 'popup' ||
+    category === '팝업';
+
+  // 결제 완료 페이지는 항상 11월 20일 이후이므로 날짜 체크 불필요
+  const shouldShowQR = !isExcludedCategory && paymentData?.orderId;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -80,6 +121,23 @@ export default function PaymentSuccessPage() {
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">결제 완료!</h2>
             <p className="text-gray-600 mb-4">{message}</p>
+
+            {/* QR 코드 표시 (렌트카/팝업 제외) */}
+            {shouldShowQR && (
+              <div className="my-6 p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm font-semibold text-gray-700 mb-3">주문 QR 코드</p>
+                <div className="bg-white p-3 rounded-lg inline-block shadow-sm">
+                  <canvas ref={qrCodeRef} />
+                </div>
+                <p className="text-xs text-gray-500 mt-3 px-4">
+                  주문번호: <span className="font-mono">{paymentData?.orderId}</span>
+                </p>
+                <p className="text-xs text-gray-400 mt-2">
+                  이 QR 코드를 파트너사에 제시하세요
+                </p>
+              </div>
+            )}
+
             <p className="text-sm text-gray-500">잠시 후 마이페이지로 이동합니다...</p>
             <button
               onClick={() => navigate('/mypage')}
