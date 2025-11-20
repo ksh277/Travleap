@@ -30,14 +30,7 @@ export function RefundPolicyPage() {
                 트래블AP 플랫폼을 통해 제공되는 다음 카테고리 상품 및 서비스의 취소·변경·환불 기준을 정함을 목적으로 합니다.
               </p>
               <ul className="list-disc list-inside ml-4 space-y-1 text-gray-700">
-                <li>여행</li>
-                <li>렌트카</li>
-                <li>숙박</li>
-                <li>음식</li>
-                <li>관광지</li>
                 <li>팝업 스토어 상품</li>
-                <li>행사</li>
-                <li>체험</li>
               </ul>
               <p className="text-sm text-gray-600 mt-3">
                 ※ 개별 상품 상세페이지에 별도 취소·환불 정책이 기재된 경우, 해당 정책이 본 문서보다 우선 적용됩니다.
@@ -54,7 +47,7 @@ export function RefundPolicyPage() {
                 </p>
                 <p>
                   법령 또는 소비자분쟁해결기준에서 정한 별도 기준이 있는 경우 해당 기준이 우선하며,
-                  상품 유형별 취소·환불 상세 기준은 제3조~제8조에 따릅니다.
+                  상품 유형별 취소·환불 상세 기준은 제8조에 따릅니다.
                 </p>
                 <p>
                   취소·환불 신청은 <strong>마이페이지 &gt; 주문/예약 내역</strong>에서 가능합니다.
@@ -66,180 +59,6 @@ export function RefundPolicyPage() {
             <div className="border-t-2 border-blue-600 pt-6">
               <h2 className="text-2xl font-bold text-blue-600 mb-6">카테고리별 취소·환불 정책</h2>
             </div>
-
-            {/* 제3조 여행상품 */}
-            <section>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">제3조 (여행상품 취소·환불 기준 — 국내 여행)</h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border border-gray-300 text-sm">
-                  <thead className="bg-blue-50">
-                    <tr>
-                      <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">구분</th>
-                      <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">취소 수수료</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">여행 개시 3일 전까지 취소</td>
-                      <td className="border border-gray-300 px-4 py-2 font-semibold text-green-700">전액 환불</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2">여행 개시 2일 전 취소</td>
-                      <td className="border border-gray-300 px-4 py-2">요금의 10% 공제</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">여행 개시 1일 전 취소</td>
-                      <td className="border border-gray-300 px-4 py-2">요금의 20% 공제</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2">여행 당일 취소 또는 No-show</td>
-                      <td className="border border-gray-300 px-4 py-2 font-semibold text-red-700">요금의 30% 공제</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-sm text-gray-600 mt-3">
-                ※ 교통·숙박 등 제3자 비용이 발생한 경우, 실제 발생한 실비는 추가로 공제될 수 있습니다.<br />
-                ※ 해외여행 상품은 별도 약관 적용.
-              </p>
-            </section>
-
-            {/* 제4조 렌트카 */}
-            <section>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">제4조 (렌트카 취소·환불 기준 — 렌터카 표준약관 적용)</h2>
-
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">1. 예약 취소</h3>
-              <div className="overflow-x-auto mb-4">
-                <table className="min-w-full border border-gray-300 text-sm">
-                  <thead className="bg-blue-50">
-                    <tr>
-                      <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">구분</th>
-                      <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">취소 수수료</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">차량 인수 24시간 전까지 취소</td>
-                      <td className="border border-gray-300 px-4 py-2 font-semibold text-green-700">전액 환불</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2">차량 인수 24시간 이내 취소</td>
-                      <td className="border border-gray-300 px-4 py-2">요금의 10% 공제</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">인수 시간 경과 후 취소 또는 No-show</td>
-                      <td className="border border-gray-300 px-4 py-2 font-semibold text-red-700">요금의 20% 공제(또는 업체 규정에 따름)</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">2. 대여 개시 후</h3>
-              <ul className="list-disc list-inside ml-4 space-y-1 text-gray-700">
-                <li>고객 귀책 사유로 인한 중도 환불은 불가합니다.</li>
-                <li>차량 하자 또는 업체 귀책으로 정상 이용이 불가능한 경우<br />
-                  → 동급 차량 교체 또는 미이용 기간 비례 환불.
-                </li>
-              </ul>
-            </section>
-
-            {/* 제5조 숙박 */}
-            <section>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">제5조 (숙박 취소·환불 기준 — 숙소 규정 우선)</h2>
-              <p className="text-gray-700 mb-3">
-                숙박 업종(호텔·리조트·펜션·게스트하우스 등)은 <strong>각 숙소의 취소 규정이 우선 적용</strong>됩니다.<br />
-                별도 규정이 없는 경우 아래 기준을 준용합니다.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border border-gray-300 text-sm">
-                  <thead className="bg-blue-50">
-                    <tr>
-                      <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">구분</th>
-                      <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">취소 수수료 (기본 기준)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">체크인 5일 전까지 취소</td>
-                      <td className="border border-gray-300 px-4 py-2 font-semibold text-green-700">전액 환불</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2">체크인 4~3일 전 취소</td>
-                      <td className="border border-gray-300 px-4 py-2">요금의 10% 공제</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">체크인 2~1일 전 취소</td>
-                      <td className="border border-gray-300 px-4 py-2">요금의 20% 공제</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2">체크인 당일 취소 또는 No-show</td>
-                      <td className="border border-gray-300 px-4 py-2 font-semibold text-red-700">요금의 30% 또는 숙소 규정에 따름</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-sm text-gray-600 mt-3">
-                ※ 연휴·성수기·특가상품은 환불 불가 또는 별도 조건이 적용될 수 있습니다.
-              </p>
-            </section>
-
-            {/* 제6조 음식 */}
-            <section>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">제6조 (음식/식당 예약 및 바우처 환불 기준)</h2>
-
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">1. 방문 예약형 (좌석 예약)</h3>
-              <ul className="list-disc list-inside ml-4 space-y-1 text-gray-700 mb-4">
-                <li><strong>이용일 1일 전까지 취소:</strong> 전액 환불</li>
-                <li><strong>이용일 당일 취소 또는 No-show:</strong><br />
-                  → 예약금 또는 상품금액의 10~30% 공제(업체 정책에 따름)
-                </li>
-              </ul>
-
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">2. 선불 바우처형 (식사권·쿠폰 등)</h3>
-              <ul className="list-disc list-inside ml-4 space-y-1 text-gray-700">
-                <li><strong>유효기간 전 취소:</strong> 전액 환불</li>
-                <li><strong>유효기간 내 미사용:</strong> 환불 불가 또는 일부 환불</li>
-                <li><strong>사용 개시 후:</strong> 사용된 금액은 환불 불가</li>
-              </ul>
-            </section>
-
-            {/* 제7조 관광지·행사·체험 */}
-            <section>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">제7조 (관광지·행사·체험 상품 취소·환불 기준)</h2>
-              <p className="text-gray-700 mb-3">
-                관광지 입장권, 활동/체험, 이벤트, 원데이 클래스 등에 공통 적용됩니다.<br />
-                다만 각 운영사의 정책이 존재할 경우 해당 약관이 우선합니다.
-              </p>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border border-gray-300 text-sm">
-                  <thead className="bg-blue-50">
-                    <tr>
-                      <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">구분</th>
-                      <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">취소 수수료</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">이용일 3일 전까지 취소</td>
-                      <td className="border border-gray-300 px-4 py-2 font-semibold text-green-700">전액 환불</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2">이용일 2~1일 전 취소</td>
-                      <td className="border border-gray-300 px-4 py-2">요금의 10% 공제</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">이용일 당일 취소 또는 No-show</td>
-                      <td className="border border-gray-300 px-4 py-2 font-semibold text-red-700">요금의 20~30% 공제 또는 환불 불가</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-sm text-gray-600 mt-3">
-                ※ 공연·행사 등 좌석형 티켓의 경우, 발권 이후 취소 시 별도 수수료가 발생할 수 있습니다.
-              </p>
-            </section>
-
-            {/* 제8조 팝업 스토어 */}
             <section>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">제8조 (팝업 스토어 상품 — 굿즈/배송상품 환불 기준)</h2>
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-2">
