@@ -2008,7 +2008,6 @@ export function VendorDashboardPageEnhanced() {
                                     })()}
                                   </div>
                                 )}
-                                )}
                               </div>
                             </TableCell>
                             <TableCell>
