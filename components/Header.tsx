@@ -82,11 +82,14 @@ export function Header({
   const { categories: dbCategories, loading: categoriesLoading } = useCategories();
 
   // Map DB categories to component format - use name_ko for Korean, name_en for English
-  const categories = dbCategories.map(cat => ({
-    id: cat.slug,
-    name: selectedLanguage === 'ko' ? cat.name_ko : cat.name_en,
-    icon: cat.icon || "📦"
-  }));
+  // Filter to only show popup category
+  const categories = dbCategories
+    .filter(cat => cat.slug === 'popup' || cat.name_ko === '팝업')
+    .map(cat => ({
+      id: cat.slug,
+      name: selectedLanguage === 'ko' ? cat.name_ko : cat.name_en,
+      icon: cat.icon || "📦"
+    }));
 
   const handleSearch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
