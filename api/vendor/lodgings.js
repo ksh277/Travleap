@@ -38,7 +38,9 @@ module.exports = async function handler(req, res) {
     const connection = connect({ url: process.env.DATABASE_URL });
 
     // user_id로 숙박 벤더 ID 조회
-    const userId = req.query.userId || req.headers['x-user-id'] || decoded.userId;
+    const userId = req.query.userId || req.headers['x-user-id'] || decoded.userId || decoded.id;
+
+    console.log('🔍 [Lodgings API] JWT decoded:', { userId, role: decoded.role, decodedKeys: Object.keys(decoded) });
 
     const vendorResult = await connection.execute(
       `SELECT id FROM partners WHERE user_id = ? AND partner_type = 'lodging' LIMIT 1`,
@@ -57,47 +59,58 @@ module.exports = async function handler(req, res) {
     console.log('🏨 [Lodgings API] 요청:', { method: req.method, vendorId, userId });
 
     if (req.method === 'GET') {
-      // 벤더의 숙소 목록 조회
-      const result = await connection.execute(
+      // 벤더의 파트너 정보 및 객실 수 조회
+      const partnerResult = await connection.execute(
         `SELECT
-          l.id,
-          l.title as name,
-          l.category as type,
-          l.location as city,
-          l.address,
-          l.description,
-          l.images,
-          l.price_from,
-          l.is_active,
-          l.created_at
-        FROM listings l
-        WHERE l.partner_id = ? AND l.category = '숙박'
-        ORDER BY l.created_at DESC`,
+          p.id,
+          p.business_name as name,
+          p.partner_type as type,
+          p.address,
+          p.phone,
+          p.email,
+          p.is_active,
+          p.created_at
+        FROM partners p
+        WHERE p.id = ?
+        LIMIT 1`,
         [vendorId]
       );
 
-      const lodgings = (result.rows || []).map(row => {
-        let images = [];
-        try {
-          images = row.images ? JSON.parse(row.images) : [];
-        } catch (e) {
-          console.warn('이미지 파싱 실패:', row.id);
-        }
+      if (!partnerResult.rows || partnerResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: '파트너 정보를 찾을 수 없습니다.'
+        });
+      }
 
-        return {
-          id: row.id,
-          vendor_id: vendorId,
-          name: row.name,
-          type: row.type,
-          city: row.city,
-          address: row.address,
-          description: row.description,
-          images,
-          price_from: row.price_from,
-          is_active: row.is_active === 1,
-          created_at: row.created_at
-        };
-      });
+      const partner = partnerResult.rows[0];
+
+      // 이 파트너의 숙박 카테고리 객실 수 카운트
+      const roomCountResult = await connection.execute(
+        `SELECT COUNT(*) as room_count
+        FROM listings l
+        WHERE l.partner_id = ? AND l.category = '숙박'`,
+        [vendorId]
+      );
+
+      const roomCount = roomCountResult.rows?.[0]?.room_count || 0;
+
+      // 숙소를 하나의 lodging으로 반환 (파트너 = 호텔)
+      const lodgings = [{
+        id: partner.id,
+        vendor_id: vendorId,
+        name: partner.name,
+        type: partner.type || 'lodging',
+        city: '',  // 객실 listings에서 가져올 수 있으면 좋음
+        address: partner.address,
+        phone: partner.phone,
+        email: partner.email,
+        is_active: partner.is_active === 1,
+        room_count: roomCount,
+        created_at: partner.created_at
+      }];
+
+      console.log('✅ [Lodgings API] 조회 완료:', { vendorId, lodgingCount: 1, roomCount });
 
       return res.status(200).json({
         success: true,
