@@ -1632,9 +1632,11 @@ export function DetailPage() {
                           </p>
                         </div>
                       </>
+                    ) : null}
+                    {/*
                     ) : item?.category === '여행' ? (
                       <>
-                        {/* 여행 상품 */}
+                        {/* 여행 상품 *\/}
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                           <h4 className="font-semibold text-blue-900 mb-2">여행 상품</h4>
                           <ul className="space-y-2 text-sm text-gray-700">
@@ -1663,7 +1665,7 @@ export function DetailPage() {
                       </>
                     ) : item?.category === '숙박' ? (
                       <>
-                        {/* 숙박 상품 */}
+                        {/* 숙박 상품 *\/}
                         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                           <h4 className="font-semibold text-green-900 mb-2">숙박 상품</h4>
                           <ul className="space-y-2 text-sm text-gray-700">
@@ -1692,7 +1694,7 @@ export function DetailPage() {
                       </>
                     ) : item?.category === '렌트카' ? (
                       <>
-                        {/* 렌트카 상품 */}
+                        {/* 렌트카 상품 *\/}
                         <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                           <h4 className="font-semibold text-orange-900 mb-2">렌트카 상품</h4>
                           <ul className="space-y-2 text-sm text-gray-700">
@@ -1725,7 +1727,7 @@ export function DetailPage() {
                       </>
                     ) : (
                       <>
-                        {/* 기타 상품 */}
+                        {/* 기타 상품 *\/}
                         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                           <ul className="space-y-2 text-sm text-gray-700">
                             <li className="flex items-start gap-2">
@@ -1744,29 +1746,34 @@ export function DetailPage() {
                         </div>
                       </>
                     )}
+                    */}
 
-                    {/* 공통 환불 안내 */}
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold mb-2">환불 처리 안내</h4>
-                      <ul className="space-y-1 text-sm text-gray-600">
-                        <li>• 환불 요청 후 영업일 기준 3-5일 내 처리</li>
-                        <li>• 결제 수단에 따라 환불 시점이 다를 수 있음</li>
-                        <li>• 카드 결제: 카드사 정책에 따라 영업일 기준 3-7일</li>
-                        <li>• 계좌 이체: 영업일 기준 1-3일</li>
-                      </ul>
-                    </div>
-
-                    {/* 고객센터 안내 */}
-                    <div className="bg-blue-50 rounded-lg p-4 mt-4">
-                      <div className="flex items-start gap-3">
-                        <Phone className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <h4 className="font-semibold text-blue-900 mb-1">취소/환불 문의</h4>
-                          <p className="text-sm text-gray-700">고객센터: 0504-0811-1330</p>
-                          <p className="text-sm text-gray-600">평일 09:00 - 18:00 (주말/공휴일 휴무)</p>
+                    {/* 공통 환불 안내 - 팝업이 아닌 경우만 표시 */}
+                    {!isPopupProduct(item) && (
+                      <>
+                        <div className="border-t pt-4">
+                          <h4 className="font-semibold mb-2">환불 처리 안내</h4>
+                          <ul className="space-y-1 text-sm text-gray-600">
+                            <li>• 환불 요청 후 영업일 기준 3-5일 내 처리</li>
+                            <li>• 결제 수단에 따라 환불 시점이 다를 수 있음</li>
+                            <li>• 카드 결제: 카드사 정책에 따라 영업일 기준 3-7일</li>
+                            <li>• 계좌 이체: 영업일 기준 1-3일</li>
+                          </ul>
                         </div>
-                      </div>
-                    </div>
+
+                        {/* 고객센터 안내 */}
+                        <div className="bg-blue-50 rounded-lg p-4 mt-4">
+                          <div className="flex items-start gap-3">
+                            <Phone className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <h4 className="font-semibold text-blue-900 mb-1">취소/환불 문의</h4>
+                              <p className="text-sm text-gray-700">고객센터: 0504-0811-1330</p>
+                              <p className="text-sm text-gray-600">평일 09:00 - 18:00 (주말/공휴일 휴무)</p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
