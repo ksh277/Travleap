@@ -139,25 +139,36 @@ module.exports = async function handler(req, res) {
 
     // DELETE - 벤더 삭제 (partners 테이블)
     if (req.method === 'DELETE') {
-      // 1. 진행 중인 예약 확인
-      const activeBookings = await connection.execute(
+      // 1. 확정된 예약 확인 (pending은 제외, confirmed만 체크)
+      const confirmedBookings = await connection.execute(
         `SELECT COUNT(*) as count
          FROM bookings b
          INNER JOIN listings l ON b.listing_id = l.id
-         WHERE l.partner_id = ? AND b.status IN ('pending', 'confirmed')`,
+         WHERE l.partner_id = ? AND b.status = 'confirmed'`,
         [id]
       );
 
-      if (activeBookings.rows?.[0]?.count > 0) {
+      if (confirmedBookings.rows?.[0]?.count > 0) {
         return res.status(400).json({
           success: false,
-          error: '진행 중인 예약이 있어 삭제할 수 없습니다.',
-          activeBookings: activeBookings.rows?.[0]?.count || 0
+          error: '확정된 예약이 있어 삭제할 수 없습니다. 먼저 예약을 취소하거나 환불 처리하세요.',
+          confirmedBookings: confirmedBookings.rows?.[0]?.count || 0
         });
       }
 
       try {
         // 2. 연관 데이터 삭제 (순차적으로)
+
+        // pending 예약 자동 취소
+        await connection.execute(
+          `UPDATE bookings b
+           INNER JOIN listings l ON b.listing_id = l.id
+           SET b.status = 'cancelled', b.updated_at = NOW()
+           WHERE l.partner_id = ? AND b.status = 'pending'`,
+          [id]
+        );
+
+        console.log('Pending bookings auto-cancelled for partner:', id);
 
         // 리뷰 삭제
         await connection.execute(
@@ -167,7 +178,7 @@ module.exports = async function handler(req, res) {
           [id]
         );
 
-        // 과거 예약 삭제
+        // 모든 예약 삭제 (취소된 것 포함)
         await connection.execute(
           `DELETE b FROM bookings b
            INNER JOIN listings l ON b.listing_id = l.id
