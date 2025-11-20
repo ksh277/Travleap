@@ -1086,8 +1086,9 @@ export function AdminPage({}: AdminPageProps) {
     setFilteredProducts(filtered);
   }, [searchQuery, selectedCategory, selectedStatus, products]);
 
-  // 이미지 업로드 처리 (Vercel Blob Storage에 실제 업로드)
+  // 이미지 업로드 처리 (Vercel Blob Storage에 실제 업로드) - v2.0
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🚀 [NEW CODE v2.0] handleImageUpload 시작');
     const files = event.target.files;
     if (!files) return;
 
@@ -1096,7 +1097,8 @@ export function AdminPage({}: AdminPageProps) {
     let errorCount = 0;
 
     // 업로드 시작 알림
-    toast.info(`${files.length}개의 이미지를 업로드하는 중...`);
+    toast.info(`🔄 ${files.length}개의 이미지를 Vercel Blob에 업로드 중...`);
+    console.log(`📤 업로드할 파일: ${files.length}개`);
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -1116,10 +1118,14 @@ export function AdminPage({}: AdminPageProps) {
       }
 
       try {
+        console.log(`📁 처리 중: ${file.name} (${(file.size/1024).toFixed(1)}KB)`);
+
         // FormData 생성
         const formData = new FormData();
         formData.append('file', file);
         formData.append('category', 'popup');
+
+        console.log('📡 /api/upload-image 호출...');
 
         // Vercel Blob Storage에 업로드
         const response = await fetch('/api/upload-image', {
@@ -1130,8 +1136,11 @@ export function AdminPage({}: AdminPageProps) {
           body: formData,
         });
 
+        console.log(`📡 응답: ${response.status}`);
+
         if (!response.ok) {
           const errorData = await response.json();
+          console.error('❌ API 에러:', errorData);
           throw new Error(errorData.message || 'Upload failed');
         }
 
@@ -1140,7 +1149,13 @@ export function AdminPage({}: AdminPageProps) {
         if (data.success && data.url) {
           uploadedUrls.push(data.url);
           successCount++;
-          console.log(`✅ Uploaded ${file.name} to:`, data.url);
+          console.log(`✅ 성공: ${file.name}`);
+          console.log(`   URL: ${data.url}`);
+          if (data.url.includes('blob:')) {
+            console.error('⚠️ WARNING: blob: URL 감지! 구버전 코드 실행 중!');
+          } else {
+            console.log('   ✅ Vercel Blob Storage URL (영구)');
+          }
         } else {
           throw new Error('Invalid response format');
         }
@@ -1152,17 +1167,21 @@ export function AdminPage({}: AdminPageProps) {
     }
 
     // 결과 업데이트
+    console.log(`📊 완료: 성공 ${successCount}개, 실패 ${errorCount}개`);
+
     if (uploadedUrls.length > 0) {
+      console.log('✅ 업로드된 URL:', uploadedUrls);
       setNewProduct(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
-      toast.success(`✅ ${successCount}개의 이미지가 업로드되었습니다.`);
+      toast.success(`✅ ${successCount}개 이미지가 Vercel Blob에 업로드되었습니다!`);
     }
 
     if (errorCount > 0) {
-      toast.error(`❌ ${errorCount}개의 이미지 업로드에 실패했습니다.`);
+      toast.error(`❌ ${errorCount}개 업로드 실패`);
     }
 
     // 파일 input 초기화
     event.target.value = '';
+    console.log('🏁 [v2.0] 완료');
   };
 
   // 미디어 라이브러리에서 이미지 선택 핸들러
