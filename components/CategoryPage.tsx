@@ -681,7 +681,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                           </div>
                         )}
 
-                        <p className="text-xs text-gray-600 line-clamp-3">{item.short_description || item.description_md || ''}</p>
+                        <p className="text-xs text-gray-600 line-clamp-3">{item.short_description || ''}</p>
                       </div>
 
                       <div className="flex items-center pt-2 mt-2 md:pt-4 md:mt-4 border-t">

@@ -1095,7 +1095,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                             )}
                           </div>
 
-                          <p className="text-xs text-gray-600 line-clamp-3">{listing.short_description || listing.description_md || ''}</p>
+                          <p className="text-xs text-gray-600 line-clamp-3">{listing.short_description || ''}</p>
                         </div>
 
                         <div className="flex items-center pt-4 mt-4 border-t">

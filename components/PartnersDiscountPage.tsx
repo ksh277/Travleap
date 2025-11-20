@@ -313,7 +313,7 @@ export function PartnersDiscountPage() {
             id: listing.id.toString(),
             partnerId: partner?.id || listing.partner_id,
             title: listing.title,
-            description: listing.short_description || listing.description_md || '',
+            description: listing.short_description || '',
             discountRate: partner?.discount_rate || listing.discount_rate || 0,
             originalPrice: listing.original_price,
             discountedPrice: listing.price_from,

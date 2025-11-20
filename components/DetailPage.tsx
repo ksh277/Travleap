@@ -311,7 +311,7 @@ export function DetailPage() {
         const processedItem: DetailItem = {
           id: data.id,
           title: data.title,
-          description: data.description_md || data.short_description || '',
+          description: data.description_md || '',
           shortDescription: data.short_description || '',
           price: data.price_from || 0,
           location: data.location || '신안군',
@@ -1362,12 +1362,7 @@ export function DetailPage() {
                     <CardTitle>상품 소개</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {/* 간단 설명 */}
-                    <p className="text-gray-700 leading-relaxed mb-6">
-                      {item.description}
-                    </p>
-
-                    {/* 상세 설명 - 이미지 또는 텍스트 */}
+                    {/* 상세 소개 - 이미지 또는 텍스트 */}
                     {(item as any).descriptionType === 'image' && (item as any).descriptionImageUrl ? (
                       <div className="my-6">
                         <ImageWithFallback
@@ -1376,11 +1371,11 @@ export function DetailPage() {
                           className="w-full rounded-lg"
                         />
                       </div>
-                    ) : item.description !== (item as any).shortDescription && (item as any).description_md ? (
+                    ) : item.description ? (
                       <div className="my-6 prose max-w-none">
                         <div
                           className="text-gray-700 leading-relaxed whitespace-pre-wrap"
-                          dangerouslySetInnerHTML={{ __html: (item as any).description_md }}
+                          dangerouslySetInnerHTML={{ __html: item.description }}
                         />
                       </div>
                     ) : null}

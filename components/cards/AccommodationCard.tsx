@@ -107,7 +107,7 @@ export function AccommodationCard({
                 {roomTypes.length > 1 && ` 외 ${roomTypes.length - 1}개`}
               </div>
             ) : (
-              <p className="text-xs text-gray-600 line-clamp-2">{listing.short_description || listing.description_md || ''}</p>
+              <p className="text-xs text-gray-600 line-clamp-2">{listing.short_description || ''}</p>
             )}
           </div>
 

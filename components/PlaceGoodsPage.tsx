@@ -184,7 +184,7 @@ export function PlaceGoodsPage() {
         const convertedGoods: PlaceGoods[] = response.data.map((item: any) => ({
           id: item.id.toString(),
           name: item.title,
-          description: item.short_description || item.description_md || '',
+          description: item.short_description || '',
           price: item.price_from || 0,
           originalPrice: item.original_price,
           images: item.images || [],
