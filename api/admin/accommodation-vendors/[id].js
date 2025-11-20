@@ -1,5 +1,5 @@
 /**
- * 숙박 벤더 개별 관리 API
+ * 숙박 벤더 개별 관리 API (partners 테이블 사용)
  * GET /api/admin/accommodation-vendors/[id] - 특정 벤더 조회
  * PUT /api/admin/accommodation-vendors/[id] - 벤더 수정
  * DELETE /api/admin/accommodation-vendors/[id] - 벤더 삭제
@@ -28,11 +28,22 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // GET - 특정 벤더 조회
+    // GET - 특정 벤더 조회 (partners 테이블에서)
     if (req.method === 'GET') {
+      const categoryId = 1857; // stay category
+
       const result = await connection.execute(
-        'SELECT * FROM accommodation_vendors WHERE id = ?',
-        [id]
+        `SELECT
+          p.*,
+          COUNT(DISTINCT l.id) as room_count,
+          MIN(l.price_from) as min_price,
+          MAX(l.price_from) as max_price
+        FROM partners p
+        LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = ? AND l.is_active = 1
+        WHERE p.id = ? AND p.partner_type = 'lodging'
+        GROUP BY p.id
+        LIMIT 1`,
+        [categoryId, id]
       );
 
       if (!result.rows || result.rows.length === 0) {
@@ -42,17 +53,24 @@ module.exports = async function handler(req, res) {
         });
       }
 
+      const vendor = result.rows[0];
+
       return res.status(200).json({
         success: true,
-        data: result.rows[0]
+        data: {
+          ...vendor,
+          contact_email: vendor.email,
+          contact_phone: vendor.phone,
+          logo_url: vendor.logo,
+          vendor_code: `ACC${vendor.id}`
+        }
       });
     }
 
-    // PUT - 벤더 수정
+    // PUT - 벤더 수정 (partners 테이블)
     if (req.method === 'PUT') {
       const {
         business_name,
-        brand_name,
         business_number,
         contact_name,
         contact_email,
@@ -62,28 +80,36 @@ module.exports = async function handler(req, res) {
         pms_provider,
         pms_api_key,
         pms_property_id,
+        pms_sync_enabled,
+        pms_sync_interval,
+        check_in_time,
+        check_out_time,
+        policies,
         status
       } = req.body;
 
       const result = await connection.execute(
-        `UPDATE accommodation_vendors SET
+        `UPDATE partners SET
           business_name = COALESCE(?, business_name),
-          brand_name = COALESCE(?, brand_name),
           business_number = COALESCE(?, business_number),
           contact_name = COALESCE(?, contact_name),
-          contact_email = COALESCE(?, contact_email),
-          contact_phone = COALESCE(?, contact_phone),
+          email = COALESCE(?, email),
+          phone = COALESCE(?, phone),
           description = COALESCE(?, description),
-          logo_url = COALESCE(?, logo_url),
+          logo = COALESCE(?, logo),
           pms_provider = COALESCE(?, pms_provider),
           pms_api_key = COALESCE(?, pms_api_key),
           pms_property_id = COALESCE(?, pms_property_id),
+          pms_sync_enabled = COALESCE(?, pms_sync_enabled),
+          pms_sync_interval = COALESCE(?, pms_sync_interval),
+          check_in_time = COALESCE(?, check_in_time),
+          check_out_time = COALESCE(?, check_out_time),
+          policies = COALESCE(?, policies),
           status = COALESCE(?, status),
           updated_at = NOW()
-        WHERE id = ?`,
+        WHERE id = ? AND partner_type = 'lodging'`,
         [
           business_name,
-          brand_name,
           business_number,
           contact_name,
           contact_email,
@@ -93,12 +119,17 @@ module.exports = async function handler(req, res) {
           pms_provider,
           pms_api_key,
           pms_property_id,
+          pms_sync_enabled,
+          pms_sync_interval,
+          check_in_time,
+          check_out_time,
+          policies,
           status,
           id
         ]
       );
 
-      console.log('Accommodation vendor updated:', result);
+      console.log('Accommodation vendor updated in partners table:', result);
 
       return res.status(200).json({
         success: true,
@@ -106,13 +137,14 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // DELETE - 벤더 삭제
+    // DELETE - 벤더 삭제 (partners 테이블)
     if (req.method === 'DELETE') {
       // 1. 진행 중인 예약 확인
       const activeBookings = await connection.execute(
         `SELECT COUNT(*) as count
-         FROM bookings
-         WHERE accommodation_vendor_id = ? AND status IN ('pending', 'confirmed')`,
+         FROM bookings b
+         INNER JOIN listings l ON b.listing_id = l.id
+         WHERE l.partner_id = ? AND b.status IN ('pending', 'confirmed')`,
         [id]
       );
 
@@ -127,31 +159,35 @@ module.exports = async function handler(req, res) {
       try {
         // 2. 연관 데이터 삭제 (순차적으로)
 
-        // 객실 삭제
+        // 리뷰 삭제
         await connection.execute(
-          'DELETE FROM accommodation_rooms WHERE vendor_id = ?',
+          `DELETE r FROM reviews r
+           INNER JOIN listings l ON r.listing_id = l.id
+           WHERE l.partner_id = ?`,
           [id]
         );
 
         // 과거 예약 삭제
         await connection.execute(
-          'DELETE FROM bookings WHERE accommodation_vendor_id = ?',
+          `DELETE b FROM bookings b
+           INNER JOIN listings l ON b.listing_id = l.id
+           WHERE l.partner_id = ?`,
           [id]
         );
 
-        // 리뷰 삭제
+        // 객실(listings) 삭제
         await connection.execute(
-          'DELETE FROM reviews WHERE accommodation_vendor_id = ?',
+          'DELETE FROM listings WHERE partner_id = ?',
           [id]
         );
 
-        // 벤더 삭제
+        // 파트너 삭제
         const result = await connection.execute(
-          'DELETE FROM accommodation_vendors WHERE id = ?',
+          'DELETE FROM partners WHERE id = ? AND partner_type = \'lodging\'',
           [id]
         );
 
-        console.log('Accommodation vendor deleted:', result);
+        console.log('Accommodation vendor deleted from partners table:', result);
 
         return res.status(200).json({
           success: true,

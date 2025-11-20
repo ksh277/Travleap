@@ -70,19 +70,18 @@ module.exports = async function handler(req, res) {
         });
 
         try {
-          // vendor_code 자동 생성
-          const vendorCode = row.vendor_code || `ACC${Date.now()}_${i}`;
+          // user_id 기본값 (관리자가 추후 설정 필요)
+          const userId = row.user_id || 1;
 
           await connection.execute(
-            `INSERT INTO accommodation_vendors (
-              vendor_code, business_name, brand_name, business_number,
-              contact_name, contact_email, contact_phone, description,
-              status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            `INSERT INTO partners (
+              user_id, partner_type, business_name, business_number,
+              contact_name, email, phone, description,
+              status, is_active, created_at, updated_at
+            ) VALUES (?, 'lodging', ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
             [
-              vendorCode,
+              userId,
               row.business_name || '이름없음',
-              row.brand_name || row.business_name || '브랜드없음',
               row.business_number,
               row.contact_name,
               row.contact_email,

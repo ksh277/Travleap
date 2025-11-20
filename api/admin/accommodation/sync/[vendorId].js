@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
   try {
     // 1. 벤더 정보 조회 (PMS 설정 확인)
     const vendorResult = await connection.execute(
-      'SELECT * FROM accommodation_vendors WHERE id = ?',
+      'SELECT * FROM partners WHERE id = ?',
       [vendorId]
     );
 
@@ -116,7 +116,7 @@ module.exports = async function handler(req, res) {
 
     // 4. 벤더 정보 업데이트 (마지막 동기화 시간)
     await connection.execute(
-      'UPDATE accommodation_vendors SET last_sync_at = NOW() WHERE id = ?',
+      'UPDATE partners SET last_sync_at = NOW() WHERE id = ?',
       [vendorId]
     );
 
