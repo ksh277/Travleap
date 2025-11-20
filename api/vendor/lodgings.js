@@ -31,7 +31,7 @@ module.exports = async function handler(req, res) {
       return res.status(401).json({ success: false, message: '유효하지 않은 토큰입니다.' });
     }
 
-    if (decoded.role !== 'vendor' && decoded.role !== 'admin') {
+    if (decoded.role !== 'vendor' && decoded.role !== 'admin' && decoded.role !== 'partner') {
       return res.status(403).json({ success: false, message: '벤더 권한이 필요합니다.' });
     }
 

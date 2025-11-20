@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
     }
 
     // 벤더 또는 관리자 권한 확인
-    if (decoded.role !== 'vendor' && decoded.role !== 'admin') {
+    if (decoded.role !== 'vendor' && decoded.role !== 'admin' && decoded.role !== 'partner') {
       console.error('❌ [Lodging Vendor Info] 권한 없음:', decoded.role);
       return res.status(403).json({ success: false, message: '벤더 권한이 필요합니다.' });
     }
