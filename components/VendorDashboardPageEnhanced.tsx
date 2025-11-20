@@ -1994,6 +1994,7 @@ export function VendorDashboardPageEnhanced() {
                                   </>
                                 ) : (
                                   <span className="text-gray-400">-</span>
+                                )}
                                 {(booking.return_checked_out_at || booking.actual_return_at_utc) && (
                                   <div className="text-green-600 text-xs font-medium mt-1">
                                     ✓ 실제: {(() => {
