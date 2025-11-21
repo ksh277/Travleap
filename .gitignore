@@ -29,6 +29,10 @@ dist-ssr
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
+.env.backup*
+.env.temp
+.env.rest
 
 # Supabase
 .supabase

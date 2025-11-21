@@ -39,6 +39,7 @@ import { AICoursePage } from './components/AICoursePage';
 import { LegalPage } from './components/pages/LegalPage';
 import { TermsPage } from './components/pages/TermsPage';
 import { PrivacyPage } from './components/pages/PrivacyPage';
+import { MarketingPage } from './components/pages/MarketingPage';
 import { RefundPolicyPage } from './components/pages/RefundPolicyPage';
 import { AffiliatePage } from './components/AffiliatePage';
 import { RentcarSearchPage } from './components/RentcarSearchPage';
@@ -359,6 +360,7 @@ function AppContent() {
 
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/marketing" element={<MarketingPage />} />
           <Route path="/refund-policy" element={<RefundPolicyPage />} />
           <Route path="/legal" element={<LegalPage />} />
           <Route path="/affiliate" element={<AffiliatePage onBack={() => navigate(-1)} />} />
