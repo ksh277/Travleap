@@ -82,9 +82,8 @@ export function Header({
   const { categories: dbCategories, loading: categoriesLoading } = useCategories();
 
   // Map DB categories to component format - use name_ko for Korean, name_en for English
-  // Filter to only show popup category
+  // Show all 8 categories
   const categories = dbCategories
-    .filter(cat => cat.slug === 'popup' || cat.name_ko === '팝업')
     .map(cat => ({
       id: cat.slug,
       name: selectedLanguage === 'ko' ? cat.name_ko : cat.name_en,
