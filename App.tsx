@@ -42,6 +42,7 @@ import { PrivacyPage } from './components/pages/PrivacyPage';
 import { MarketingPage } from './components/pages/MarketingPage';
 import { RefundPolicyPage } from './components/pages/RefundPolicyPage';
 import { AffiliatePage } from './components/AffiliatePage';
+import { QRGeneratorPage } from './components/pages/QRGeneratorPage';
 import { RentcarSearchPage } from './components/RentcarSearchPage';
 import { AccommodationDetailPage } from './components/AccommodationDetailPage';
 import { HotelDetailPage } from './components/pages/HotelDetailPage';
@@ -364,6 +365,7 @@ function AppContent() {
           <Route path="/refund-policy" element={<RefundPolicyPage />} />
           <Route path="/legal" element={<LegalPage />} />
           <Route path="/affiliate" element={<AffiliatePage onBack={() => navigate(-1)} />} />
+          <Route path="/qr-generator" element={<QRGeneratorPage />} />
 
           {/* 새로운 특별 페이지들 */}
           <Route path="/shop" element={<PlaceGoodsPage />} />
