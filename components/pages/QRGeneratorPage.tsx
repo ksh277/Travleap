@@ -17,7 +17,7 @@ interface PresetURL {
 }
 
 export function QRGeneratorPage() {
-  const [url, setUrl] = useState('https://travelap.vercel.app');
+  const [url, setUrl] = useState('https://travleap.vercel.app');
   const [qrSize, setQrSize] = useState(256);
   const qrRef = useRef<HTMLCanvasElement>(null);
 
@@ -25,37 +25,37 @@ export function QRGeneratorPage() {
   const presetURLs: PresetURL[] = [
     {
       name: '메인 페이지',
-      url: 'https://travelap.vercel.app',
+      url: 'https://travleap.vercel.app',
       icon: <Home className="w-4 h-4" />
     },
     {
       name: '마이페이지',
-      url: 'https://travelap.vercel.app/mypage',
+      url: 'https://travleap.vercel.app/mypage',
       icon: <User className="w-4 h-4" />
     },
     {
       name: '팝업 카테고리',
-      url: 'https://travelap.vercel.app/category/popup',
+      url: 'https://travleap.vercel.app/category/popup',
       icon: <ShoppingBag className="w-4 h-4" />
     },
     {
       name: '여행 카테고리',
-      url: 'https://travelap.vercel.app/category/tour',
+      url: 'https://travleap.vercel.app/category/tour',
       icon: <ShoppingBag className="w-4 h-4" />
     },
     {
       name: '숙박 카테고리',
-      url: 'https://travelap.vercel.app/category/stay',
+      url: 'https://travleap.vercel.app/category/stay',
       icon: <ShoppingBag className="w-4 h-4" />
     },
     {
       name: '음식 카테고리',
-      url: 'https://travelap.vercel.app/category/food',
+      url: 'https://travleap.vercel.app/category/food',
       icon: <ShoppingBag className="w-4 h-4" />
     },
     {
       name: '파트너 신청',
-      url: 'https://travelap.vercel.app/partner-apply',
+      url: 'https://travleap.vercel.app/partner-apply',
       icon: <LinkIcon className="w-4 h-4" />
     }
   ];
@@ -198,7 +198,7 @@ export function QRGeneratorPage() {
                       <div className="text-left flex-1">
                         <p className="font-medium text-sm">{preset.name}</p>
                         <p className="text-xs text-gray-500 truncate">
-                          {preset.url.replace('https://travelap.vercel.app', '')}
+                          {preset.url.replace('https://travleap.vercel.app', '')}
                         </p>
                       </div>
                     </button>
