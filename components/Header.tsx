@@ -107,9 +107,10 @@ export function Header({
     navigate(`/search?${searchParams.toString()}`);
   };
 
+  // main 브랜치: 팝업만 표시 - 카테고리 숨김
   const navigation = [
     { name: t('home', selectedLanguage), id: "home" },
-    { name: t('categories', selectedLanguage), id: "categories", hasDropdown: true },
+    // { name: t('categories', selectedLanguage), id: "categories", hasDropdown: true },
     { name: t('franchise', selectedLanguage), id: "franchise" },
     { name: t('contact', selectedLanguage), id: "contact" },
     { name: t('about', selectedLanguage), id: "about" },
@@ -384,6 +385,8 @@ export function Header({
                       {item.name}
                     </button>
                   ))}
+                  {/* main 브랜치: 카테고리 섹션 숨김 */}
+                  {false && (
                   <div className="border-t pt-4 mt-2">
                     <div className="mb-2 px-6 font-semibold text-gray-600 text-sm">
                       {t('categories', selectedLanguage)}
@@ -403,6 +406,7 @@ export function Header({
                       ))}
                     </div>
                   </div>
+                  )}
 
                   {/* 모바일 로그인/관리자/마이페이지 메뉴 */}
                   <div className="border-t pt-2 mt-2">
