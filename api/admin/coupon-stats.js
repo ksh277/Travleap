@@ -82,14 +82,14 @@ async function handler(req, res) {
       categoryParams = [category];
     }
 
-    // 1. 전체 통계
+    // 1. 전체 통계 (coupon_code가 있는 실제 발급 쿠폰만 카운트)
     const overallResult = await connection.execute(`
       SELECT
-        (SELECT COUNT(*) FROM user_coupons) as total_issued,
-        (SELECT COUNT(*) FROM user_coupons WHERE status = 'USED') as total_used,
-        (SELECT COALESCE(SUM(discount_amount), 0) FROM user_coupons WHERE status = 'USED') as total_discount_amount,
-        (SELECT COALESCE(SUM(order_amount), 0) FROM user_coupons WHERE status = 'USED') as total_order_amount,
-        (SELECT COUNT(DISTINCT used_partner_id) FROM user_coupons WHERE status = 'USED' AND used_partner_id IS NOT NULL) as active_partners
+        (SELECT COUNT(*) FROM user_coupons WHERE coupon_code IS NOT NULL) as total_issued,
+        (SELECT COUNT(*) FROM user_coupons WHERE status = 'USED' AND coupon_code IS NOT NULL) as total_used,
+        (SELECT COALESCE(SUM(discount_amount), 0) FROM user_coupons WHERE status = 'USED' AND coupon_code IS NOT NULL) as total_discount_amount,
+        (SELECT COALESCE(SUM(order_amount), 0) FROM user_coupons WHERE status = 'USED' AND coupon_code IS NOT NULL) as total_order_amount,
+        (SELECT COUNT(DISTINCT used_partner_id) FROM user_coupons WHERE status = 'USED' AND used_partner_id IS NOT NULL AND coupon_code IS NOT NULL) as active_partners
     `);
 
     const overall = overallResult.rows?.[0] || {
@@ -100,7 +100,7 @@ async function handler(req, res) {
       active_partners: 0
     };
 
-    // 2. 쿠폰(캠페인)별 통계
+    // 2. 쿠폰(캠페인)별 통계 (coupon_code가 있는 실제 발급 쿠폰만)
     const couponStatsResult = await connection.execute(`
       SELECT
         c.id,
@@ -109,10 +109,10 @@ async function handler(req, res) {
         c.discount_type,
         c.discount_value,
         c.is_active,
-        COUNT(uc.id) as issued_count,
-        SUM(CASE WHEN uc.status = 'USED' THEN 1 ELSE 0 END) as used_count,
-        COALESCE(SUM(CASE WHEN uc.status = 'USED' THEN uc.discount_amount ELSE 0 END), 0) as total_discount,
-        COALESCE(SUM(CASE WHEN uc.status = 'USED' THEN uc.order_amount ELSE 0 END), 0) as total_orders
+        COUNT(CASE WHEN uc.coupon_code IS NOT NULL THEN uc.id END) as issued_count,
+        SUM(CASE WHEN uc.status = 'USED' AND uc.coupon_code IS NOT NULL THEN 1 ELSE 0 END) as used_count,
+        COALESCE(SUM(CASE WHEN uc.status = 'USED' AND uc.coupon_code IS NOT NULL THEN uc.discount_amount ELSE 0 END), 0) as total_discount,
+        COALESCE(SUM(CASE WHEN uc.status = 'USED' AND uc.coupon_code IS NOT NULL THEN uc.order_amount ELSE 0 END), 0) as total_orders
       FROM coupons c
       LEFT JOIN user_coupons uc ON c.id = uc.coupon_id
       GROUP BY c.id, c.code, c.name, c.discount_type, c.discount_value, c.is_active
@@ -120,7 +120,7 @@ async function handler(req, res) {
       LIMIT 20
     `);
 
-    // 3. 가맹점별 통계
+    // 3. 가맹점별 통계 (coupon_code가 있는 실제 발급 쿠폰만)
     const partnerStatsQuery = `
       SELECT
         p.id,
@@ -128,9 +128,9 @@ async function handler(req, res) {
         p.services as category,
         p.total_coupon_usage,
         p.total_discount_given,
-        COUNT(DISTINCT uc.id) as usage_count,
-        COALESCE(SUM(uc.discount_amount), 0) as discount_amount,
-        COALESCE(SUM(uc.order_amount), 0) as order_amount
+        COUNT(DISTINCT CASE WHEN uc.coupon_code IS NOT NULL THEN uc.id END) as usage_count,
+        COALESCE(SUM(CASE WHEN uc.coupon_code IS NOT NULL THEN uc.discount_amount ELSE 0 END), 0) as discount_amount,
+        COALESCE(SUM(CASE WHEN uc.coupon_code IS NOT NULL THEN uc.order_amount ELSE 0 END), 0) as order_amount
       FROM partners p
       LEFT JOIN user_coupons uc ON p.id = uc.used_partner_id AND uc.status = 'USED' ${dateFilter} ${categoryFilter}
       WHERE p.is_coupon_partner = 1 AND p.status = 'approved'
@@ -144,7 +144,7 @@ async function handler(req, res) {
       [...dateParams, ...categoryParams]
     );
 
-    // 4. 일별 통계 (최근 30일)
+    // 4. 일별 통계 (최근 30일, coupon_code가 있는 실제 발급 쿠폰만)
     const dailyStatsResult = await connection.execute(`
       SELECT
         DATE(used_at) as date,
@@ -153,12 +153,13 @@ async function handler(req, res) {
         COALESCE(SUM(order_amount), 0) as order_amount
       FROM user_coupons
       WHERE status = 'USED'
+        AND coupon_code IS NOT NULL
         AND used_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
       GROUP BY DATE(used_at)
       ORDER BY date DESC
     `);
 
-    // 5. 카테고리별 통계
+    // 5. 카테고리별 통계 (coupon_code가 있는 실제 발급 쿠폰만)
     const categoryStatsResult = await connection.execute(`
       SELECT
         COALESCE(p.services, 'unknown') as category,
@@ -168,12 +169,12 @@ async function handler(req, res) {
         COUNT(DISTINCT p.id) as partner_count
       FROM user_coupons uc
       LEFT JOIN partners p ON uc.used_partner_id = p.id
-      WHERE uc.status = 'USED'
+      WHERE uc.status = 'USED' AND uc.coupon_code IS NOT NULL
       GROUP BY p.services
       ORDER BY usage_count DESC
     `);
 
-    // 6. 최근 사용 내역 (최근 50건)
+    // 6. 최근 사용 내역 (최근 50건, coupon_code가 있는 실제 발급 쿠폰만)
     const recentUsageResult = await connection.execute(`
       SELECT
         uc.id,
@@ -189,7 +190,7 @@ async function handler(req, res) {
       FROM user_coupons uc
       LEFT JOIN coupons c ON uc.coupon_id = c.id
       LEFT JOIN partners p ON uc.used_partner_id = p.id
-      WHERE uc.status = 'USED'
+      WHERE uc.status = 'USED' AND uc.coupon_code IS NOT NULL
       ORDER BY uc.used_at DESC
       LIMIT 50
     `);
