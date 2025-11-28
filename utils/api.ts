@@ -3110,10 +3110,12 @@ export const api = {
     // 파트너 생성
     createPartner: async (partnerData: any): Promise<ApiResponse<Partner>> => {
       try {
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`${API_BASE_URL}/api/admin/partners`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
           },
           body: JSON.stringify(partnerData)
         });
@@ -3141,12 +3143,14 @@ export const api = {
     // 파트너 수정
     updatePartner: async (partnerId: number, partnerData: any): Promise<ApiResponse<Partner>> => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/partners/${partnerId}`, {
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(`${API_BASE_URL}/api/admin/partners`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
           },
-          body: JSON.stringify(partnerData)
+          body: JSON.stringify({ id: partnerId, ...partnerData })
         });
 
         const result = await response.json();
@@ -3172,6 +3176,7 @@ export const api = {
     // 파트너 삭제
     deletePartner: async (partnerId: number, cascade: boolean = false): Promise<ApiResponse<null>> => {
       try {
+        const token = localStorage.getItem('auth_token');
         const url = cascade
           ? `${API_BASE_URL}/api/admin/partners/${partnerId}?cascade=true`
           : `${API_BASE_URL}/api/admin/partners/${partnerId}`;
@@ -3179,7 +3184,8 @@ export const api = {
         const response = await fetch(url, {
           method: 'DELETE',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
           }
         });
 
