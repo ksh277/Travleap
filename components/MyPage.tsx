@@ -1482,15 +1482,28 @@ export function MyPage() {
                             )}
                           </div>
                           <div className="text-right">
-                            <div className="text-2xl font-bold text-purple-600">
-                              {coupon.discount_type === 'percentage'
-                                ? `${coupon.discount_value}%`
-                                : `${Number(coupon.discount_value).toLocaleString()}원`}
-                            </div>
-                            {coupon.max_discount && coupon.discount_type === 'percentage' && (
-                              <div className="text-xs text-gray-500">
-                                최대 {Number(coupon.max_discount).toLocaleString()}원
-                              </div>
+                            {coupon.status === 'ISSUED' ? (
+                              <>
+                                <div className="text-lg font-bold text-purple-600">
+                                  가맹점별
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  할인 적용
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="text-2xl font-bold text-purple-600">
+                                  {coupon.discount_type === 'percentage'
+                                    ? `${coupon.discount_value}%`
+                                    : `${Number(coupon.discount_value).toLocaleString()}원`}
+                                </div>
+                                {coupon.max_discount && coupon.discount_type === 'percentage' && (
+                                  <div className="text-xs text-gray-500">
+                                    최대 {Number(coupon.max_discount).toLocaleString()}원
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>

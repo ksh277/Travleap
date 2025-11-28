@@ -781,15 +781,17 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
     let policyInfo = null;
 
     if (!skipPolicy && (payment.booking_id || payment.rentcar_booking_id)) {
-      // 3-1. DB에서 환불 정책 조회
+      // 3-1. DB에서 환불 정책 조회 (partner_id 또는 rentcar_vendor_id 전달)
       const refundCategory = payment.rentcar_booking_id ? 'rentcar' : payment.category;
+      const vendorId = payment.rentcar_booking_id ? payment.rentcar_vendor_id : payment.partner_id;
       const policyFromDB = await getRefundPolicyFromDB(
         connection,
         payment.listing_id,
-        refundCategory
+        refundCategory,
+        vendorId
       );
 
-      console.log(`📋 [Refund] 적용 정책: ${policyFromDB.policy_name} (카테고리: ${refundCategory})`);
+      console.log(`📋 [Refund] 적용 정책: ${policyFromDB.policy_name} (카테고리: ${refundCategory}, vendor_id: ${vendorId})`);
 
       // 3-2. 정책 기반 환불 금액 계산 (렌트카는 rentcar_start_date 사용)
       const refundPaymentData = payment.rentcar_booking_id ? {
@@ -1319,7 +1321,7 @@ async function getRefundPolicy(paymentKey) {
       SELECT
         p.*,
         b.start_date, b.total_amount as booking_amount,
-        l.id as listing_id, l.category
+        l.id as listing_id, l.category, l.partner_id
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id
@@ -1342,11 +1344,12 @@ async function getRefundPolicy(paymentKey) {
       };
     }
 
-    // DB에서 환불 정책 조회
+    // DB에서 환불 정책 조회 (partner_id 전달)
     const policyFromDB = await getRefundPolicyFromDB(
       connection,
       payment.listing_id,
-      payment.category
+      payment.category,
+      payment.partner_id
     );
 
     // 정책 기반 환불 계산 (category 전달)
