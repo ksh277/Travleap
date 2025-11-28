@@ -14,6 +14,7 @@ const AdminCoupons = lazy(() => import('./admin/tabs/AdminCoupons').then(m => ({
 const AdminPartners = lazy(() => import('./admin/tabs/AdminPartners').then(m => ({ default: m.AdminPartners })));
 const AdminInsurance = lazy(() => import('./admin/tabs/AdminInsurance').then(m => ({ default: m.AdminInsurance })));
 const AdminRefundPolicies = lazy(() => import('./admin/tabs/AdminRefundPolicies').then(m => ({ default: m.AdminRefundPolicies })));
+const AdminCouponSettlements = lazy(() => import('./admin/tabs/AdminCouponSettlements').then(m => ({ default: m.AdminCouponSettlements })));
 
 // Import existing external components (already optimized)
 import { RentcarManagement } from './admin/RentcarManagement';
@@ -86,11 +87,12 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-10 lg:w-auto lg:inline-grid">
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             <TabsTrigger value="orders">주문</TabsTrigger>
             <TabsTrigger value="partners">가맹점</TabsTrigger>
             <TabsTrigger value="coupons">쿠폰</TabsTrigger>
+            <TabsTrigger value="coupon-settlements">쿠폰정산</TabsTrigger>
             <TabsTrigger value="insurance">보험</TabsTrigger>
             <TabsTrigger value="refund">환불정책</TabsTrigger>
             <TabsTrigger value="contacts">문의</TabsTrigger>
@@ -119,6 +121,12 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
           <Suspense fallback={<LoadingFallback />}>
             <TabsContent value="coupons">
               <AdminCoupons />
+            </TabsContent>
+          </Suspense>
+
+          <Suspense fallback={<LoadingFallback />}>
+            <TabsContent value="coupon-settlements">
+              <AdminCouponSettlements />
             </TabsContent>
           </Suspense>
 
