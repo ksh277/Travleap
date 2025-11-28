@@ -53,8 +53,8 @@ export function LoginPage() {
             console.log('🔑 관리자로 이동');
             navigate('/admin', { replace: true });
           } else if (user?.role === 'partner') {
-            console.log('🏨 파트너 대시보드로 이동');
-            navigate('/partner/dashboard', { replace: true });
+            console.log('🏨 파트너 쿠폰 대시보드로 이동');
+            navigate('/partner/coupon', { replace: true });
           } else if (user?.role === 'vendor') {
             // 벤더 타입에 따라 다른 대시보드로 이동
             if (user.vendorType === 'stay') {
