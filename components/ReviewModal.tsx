@@ -46,12 +46,10 @@ export function ReviewModal() {
   // 세션 체크 후 대기 리뷰 조회
   useEffect(() => {
     if (sessionRestored && isLoggedIn) {
-      // 로컬 스토리지에서 마지막 체크 시간 확인 (24시간 내 체크했으면 스킵)
-      const lastCheck = localStorage.getItem('review_modal_last_check');
-      const now = Date.now();
-
-      if (lastCheck && now - parseInt(lastCheck) < 24 * 60 * 60 * 1000) {
-        // 24시간 내 이미 체크함
+      // 페이지 진입 시 항상 체크 (대기 리뷰가 있으면 모달 표시)
+      // 단, 사용자가 "나중에" 버튼을 눌렀다면 해당 세션에서는 다시 안 띄움
+      const dismissed = sessionStorage.getItem('review_modal_dismissed');
+      if (dismissed) {
         return;
       }
 
@@ -75,9 +73,6 @@ export function ReviewModal() {
           setPendingReviews(data.data);
           setIsOpen(true);
         }
-
-        // 체크 시간 저장
-        localStorage.setItem('review_modal_last_check', Date.now().toString());
       }
     } catch (error) {
       console.error('리뷰 대기 목록 조회 실패:', error);
@@ -141,11 +136,15 @@ export function ReviewModal() {
       setRating(5);
       setComment('');
     } else {
+      // 모든 리뷰를 스킵하면 이 세션에서는 다시 안 띄움
+      sessionStorage.setItem('review_modal_dismissed', 'true');
       setIsOpen(false);
     }
   };
 
   const handleClose = () => {
+    // X 버튼으로 닫으면 이 세션에서는 다시 안 띄움
+    sessionStorage.setItem('review_modal_dismissed', 'true');
     setIsOpen(false);
   };
 
