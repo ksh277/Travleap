@@ -177,7 +177,7 @@ export function Header({
                   className="text-white hover:text-blue-100 transition-colors"
                   onClick={() => navigate(
                     isAdmin ? "/admin" :
-                    user?.role === 'partner' ? "/partner/coupon" :
+                    user?.role === 'partner' ? "/partner/dashboard" :
                     user?.role === 'vendor' ? getVendorDashboardPath() :
                     "/mypage"
                   )}
@@ -320,7 +320,7 @@ export function Header({
                   ) : user?.role === 'partner' ? (
                     <Button
                       variant="outline"
-                      onClick={() => navigate("/partner/coupon")}
+                      onClick={() => navigate("/partner/dashboard")}
                       className="text-green-600 border-green-600 hover:bg-green-50"
                     >
                       파트너 대시보드
@@ -449,7 +449,7 @@ export function Header({
                         ) : user?.role === 'partner' ? (
                           <button
                             onClick={() => {
-                              navigate("/partner/coupon");
+                              navigate("/partner/dashboard");
                               setMobileMenuOpen(false);
                             }}
                             className="block w-full text-left px-6 py-4 hover:bg-green-50 text-green-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
