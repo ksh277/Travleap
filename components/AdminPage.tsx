@@ -7179,6 +7179,90 @@ export function AdminPage({}: AdminPageProps) {
                 <p className="text-xs text-gray-500 mt-1">제공 언어</p>
               </div>
             </div>
+
+            {/* 쿠폰 설정 섹션 */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="is_coupon_partner"
+                  checked={newPartner.is_coupon_partner || false}
+                  onChange={(e) => setNewPartner({ ...newPartner, is_coupon_partner: e.target.checked })}
+                  className="w-5 h-5 rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                />
+                <label htmlFor="is_coupon_partner" className="text-base font-semibold text-purple-700">
+                  🎫 쿠폰 참여 가맹점
+                </label>
+              </div>
+
+              {newPartner.is_coupon_partner && (
+                <div className="bg-purple-50 rounded-lg p-4 space-y-4 border border-purple-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        할인 타입
+                      </label>
+                      <select
+                        value={newPartner.coupon_discount_type || 'percent'}
+                        onChange={(e) => setNewPartner({ ...newPartner, coupon_discount_type: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="percent">퍼센트 할인 (%)</option>
+                        <option value="fixed">정액 할인 (원)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {newPartner.coupon_discount_type === 'fixed' ? '할인 금액 (원)' : '할인율 (%)'}
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={newPartner.coupon_discount_value || ''}
+                          onChange={(e) => setNewPartner({ ...newPartner, coupon_discount_value: parseInt(e.target.value) || 0 })}
+                          placeholder={newPartner.coupon_discount_type === 'fixed' ? '5000' : '10'}
+                          className="pr-10"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                          {newPartner.coupon_discount_type === 'fixed' ? '원' : '%'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {newPartner.coupon_discount_type !== 'fixed' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        최대 할인 금액 (원)
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={newPartner.coupon_max_discount || ''}
+                          onChange={(e) => setNewPartner({ ...newPartner, coupon_max_discount: parseInt(e.target.value) || 0 })}
+                          placeholder="10000"
+                          className="pr-10"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">원</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">퍼센트 할인 시 최대 할인 금액 제한</p>
+                    </div>
+                  )}
+
+                  {/* 미리보기 */}
+                  <div className="p-3 bg-white rounded border">
+                    <p className="text-sm text-gray-600 mb-1">할인 미리보기:</p>
+                    <p className="font-bold text-purple-700 text-lg">
+                      {newPartner.coupon_discount_type === 'fixed'
+                        ? `${(newPartner.coupon_discount_value || 0).toLocaleString()}원 할인`
+                        : `${newPartner.coupon_discount_value || 0}% 할인 (최대 ${(newPartner.coupon_max_discount || 0).toLocaleString()}원)`
+                      }
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-end space-x-2 mt-6 pt-4 border-t">
