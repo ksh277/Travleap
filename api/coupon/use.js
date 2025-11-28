@@ -18,12 +18,15 @@ const { withPublicCors } = require('../../utils/cors-middleware.cjs');
 function calculateDiscount(orderAmount, discountType, discountValue, maxDiscount) {
   let discountAmount = 0;
 
-  if (discountType === 'PERCENT') {
+  // 대소문자 무관하게 비교 (DB: 'percent', 코드: 'PERCENT')
+  const type = (discountType || '').toUpperCase();
+
+  if (type === 'PERCENT' || type === 'PERCENTAGE') {
     discountAmount = Math.floor(orderAmount * (discountValue / 100));
     if (maxDiscount && discountAmount > maxDiscount) {
       discountAmount = maxDiscount;
     }
-  } else if (discountType === 'AMOUNT') {
+  } else if (type === 'AMOUNT' || type === 'FIXED') {
     discountAmount = discountValue;
     if (discountAmount > orderAmount) {
       discountAmount = orderAmount;
