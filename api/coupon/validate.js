@@ -9,6 +9,7 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { Pool } = require('@neondatabase/serverless');
 const { withAuth } = require('../../utils/auth-middleware.cjs');
 const { withPublicCors } = require('../../utils/cors-middleware.cjs');
 
@@ -22,6 +23,9 @@ async function handler(req, res) {
   }
 
   const connection = connect({ url: process.env.DATABASE_URL });
+  const poolNeon = new Pool({
+    connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+  });
 
   try {
     const { code } = req.query; // 개인 쿠폰 코드 (예: ABC123XY)
@@ -35,7 +39,7 @@ async function handler(req, res) {
       });
     }
 
-    // 1. 개인 쿠폰 조회
+    // 1. 개인 쿠폰 조회 (PlanetScale) - users JOIN 제거
     const userCouponResult = await connection.execute(`
       SELECT
         uc.id as user_coupon_id,
@@ -53,12 +57,9 @@ async function handler(req, res) {
         c.target_categories,
         c.default_discount_type,
         c.default_discount_value,
-        c.default_max_discount,
-        u.name as customer_name,
-        u.email as customer_email
+        c.default_max_discount
       FROM user_coupons uc
       JOIN coupons c ON uc.coupon_id = c.id
-      LEFT JOIN users u ON uc.user_id = u.id
       WHERE uc.coupon_code = ?
       LIMIT 1
     `, [code.toUpperCase()]);
@@ -72,6 +73,22 @@ async function handler(req, res) {
     }
 
     const userCoupon = userCouponResult.rows[0];
+
+    // 유저 이름 조회 (Neon)
+    let customerName = '고객';
+    if (userCoupon.user_id) {
+      try {
+        const userResult = await poolNeon.query(
+          'SELECT name FROM users WHERE id = $1',
+          [userCoupon.user_id]
+        );
+        if (userResult.rows?.[0]?.name) {
+          customerName = userResult.rows[0].name;
+        }
+      } catch (e) {
+        console.warn('⚠️ [Coupon Validate] Neon user query failed:', e.message);
+      }
+    }
 
     // 2. 쿠폰 상태 확인
     if (userCoupon.status === 'USED') {
@@ -207,7 +224,7 @@ async function handler(req, res) {
         coupon_code: userCoupon.coupon_code,
         coupon_name: userCoupon.coupon_name,
         coupon_description: userCoupon.coupon_description,
-        customer_name: userCoupon.customer_name || '고객',
+        customer_name: customerName,
         discount: {
           type: discountType,
           value: discountValue,
@@ -229,6 +246,12 @@ async function handler(req, res) {
       error: 'SERVER_ERROR',
       message: '쿠폰 검증 중 오류가 발생했습니다'
     });
+  } finally {
+    try {
+      await poolNeon.end();
+    } catch (e) {
+      // ignore
+    }
   }
 }
 
