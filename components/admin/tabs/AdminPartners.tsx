@@ -92,7 +92,12 @@ export function AdminPartners() {
     lat: 0,
     lng: 0,
     status: 'approved',
-    is_active: true
+    is_active: true,
+    // 쿠폰 설정
+    is_coupon_partner: false,
+    coupon_discount_type: 'percent' as 'percent' | 'fixed',
+    coupon_discount_value: 10,
+    coupon_max_discount: 10000
   });
 
   const [couponSettings, setCouponSettings] = useState({
@@ -279,7 +284,12 @@ export function AdminPartners() {
       lat: partner.lat || 0,
       lng: partner.lng || 0,
       status: partner.status || 'approved',
-      is_active: partner.is_active
+      is_active: partner.is_active,
+      // 쿠폰 설정
+      is_coupon_partner: partner.is_coupon_partner || false,
+      coupon_discount_type: partner.coupon_discount_type || 'percent',
+      coupon_discount_value: partner.coupon_discount_value || 10,
+      coupon_max_discount: partner.coupon_max_discount || 10000
     });
     setIsEditDialogOpen(true);
   };
@@ -317,7 +327,12 @@ export function AdminPartners() {
       lat: 0,
       lng: 0,
       status: 'approved',
-      is_active: true
+      is_active: true,
+      // 쿠폰 설정
+      is_coupon_partner: false,
+      coupon_discount_type: 'percent',
+      coupon_discount_value: 10,
+      coupon_max_discount: 10000
     });
   };
 
@@ -749,6 +764,90 @@ function PartnerForm({ formData, setFormData }: any) {
           className="w-4 h-4"
         />
         <Label htmlFor="is_active">활성 상태</Label>
+      </div>
+
+      {/* 쿠폰 설정 섹션 */}
+      <div className="col-span-2 border-t pt-4 mt-2">
+        <div className="flex items-center gap-2 mb-4">
+          <input
+            type="checkbox"
+            id="is_coupon_partner"
+            checked={formData.is_coupon_partner}
+            onChange={(e) => setFormData({ ...formData, is_coupon_partner: e.target.checked })}
+            className="w-4 h-4"
+          />
+          <Label htmlFor="is_coupon_partner" className="font-medium text-purple-700">
+            쿠폰 참여 가맹점
+          </Label>
+        </div>
+
+        {formData.is_coupon_partner && (
+          <div className="bg-purple-50 rounded-lg p-4 space-y-4 border border-purple-200">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>할인 타입</Label>
+                <Select
+                  value={formData.coupon_discount_type}
+                  onValueChange={(value: 'percent' | 'fixed') => setFormData({ ...formData, coupon_discount_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent">퍼센트 할인 (%)</SelectItem>
+                    <SelectItem value="fixed">정액 할인 (원)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>
+                  {formData.coupon_discount_type === 'percent' ? '할인율 (%)' : '할인 금액 (원)'}
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    value={formData.coupon_discount_value || ''}
+                    onChange={(e) => setFormData({ ...formData, coupon_discount_value: parseInt(e.target.value) || 0 })}
+                    placeholder={formData.coupon_discount_type === 'percent' ? '10' : '5000'}
+                    className="pr-10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    {formData.coupon_discount_type === 'percent' ? '%' : '원'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {formData.coupon_discount_type === 'percent' && (
+              <div>
+                <Label>최대 할인 금액 (원)</Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    value={formData.coupon_max_discount || ''}
+                    onChange={(e) => setFormData({ ...formData, coupon_max_discount: parseInt(e.target.value) || 0 })}
+                    placeholder="10000"
+                    className="pr-10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">원</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">퍼센트 할인 시 최대 할인 금액 제한</p>
+              </div>
+            )}
+
+            {/* 미리보기 */}
+            <div className="p-3 bg-white rounded border">
+              <p className="text-sm text-gray-600 mb-1">할인 미리보기:</p>
+              <p className="font-bold text-purple-700">
+                {formData.coupon_discount_type === 'percent'
+                  ? `${formData.coupon_discount_value}% 할인 (최대 ${(formData.coupon_max_discount || 0).toLocaleString()}원)`
+                  : `${(formData.coupon_discount_value || 0).toLocaleString()}원 할인`
+                }
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
