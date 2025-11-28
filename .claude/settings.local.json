@@ -243,7 +243,10 @@
       "Bash(else)",
       "Bash(then echo \"=== 이메일 관련 환경변수 ===\")",
       "Bash(else echo \"❌ .env 없음\")",
-      "Bash(then grep \"SENDGRID_API_KEY\" .env)"
+      "Bash(then grep \"SENDGRID_API_KEY\" .env)",
+      "Bash(if [ -d \"C:/Users/ham57/Desktop/Travleap/api/admin/media\" ])",
+      "Bash(else mkdir -p \"C:/Users/ham57/Desktop/Travleap/api/admin/media\")",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []

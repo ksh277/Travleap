@@ -984,13 +984,21 @@ export function PartnerPage() {
                       alt={partner.name}
                       className="w-full h-full object-cover"
                     />
-                    {/* 쿠폰 배지 */}
+                    {/* 쿠폰 배지 + 할인 정보 */}
                     {partner.is_coupon_partner && (
-                      <div className="absolute top-2 left-2">
+                      <div className="absolute top-2 left-2 flex flex-col gap-1">
                         <Badge className="bg-purple-600 text-white text-xs">
                           <Ticket className="h-3 w-3 mr-1" />
                           쿠폰
                         </Badge>
+                        {partner.coupon_discount_value && (
+                          <Badge className="bg-orange-500 text-white text-xs font-bold">
+                            {partner.coupon_discount_type === 'percent' || partner.coupon_discount_type === 'PERCENT'
+                              ? `${partner.coupon_discount_value}% 할인`
+                              : `${partner.coupon_discount_value.toLocaleString()}원 할인`
+                            }
+                          </Badge>
+                        )}
                       </div>
                     )}
                     <button
@@ -1254,13 +1262,21 @@ export function PartnerPage() {
                       alt={partner.name}
                       className="w-full h-full object-cover"
                     />
-                    {/* 쿠폰 배지 */}
+                    {/* 쿠폰 배지 + 할인 정보 */}
                     {partner.is_coupon_partner && (
-                      <div className="absolute top-2 left-2">
+                      <div className="absolute top-2 left-2 flex flex-col gap-1">
                         <Badge className="bg-purple-600 text-white text-xs">
                           <Ticket className="h-3 w-3 mr-1" />
                           쿠폰
                         </Badge>
+                        {partner.coupon_discount_value && (
+                          <Badge className="bg-orange-500 text-white text-xs font-bold">
+                            {partner.coupon_discount_type === 'percent' || partner.coupon_discount_type === 'PERCENT'
+                              ? `${partner.coupon_discount_value}% 할인`
+                              : `${partner.coupon_discount_value.toLocaleString()}원 할인`
+                            }
+                          </Badge>
+                        )}
                       </div>
                     )}
                     <button

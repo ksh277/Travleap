@@ -287,9 +287,20 @@ export function MyCouponsPage() {
 
                   {/* 할인 정보 */}
                   <div className="bg-purple-50 rounded-lg p-3 mb-3">
-                    <p className="text-purple-700 font-bold text-lg">
-                      {formatDiscount(coupon.discount_type, coupon.discount_value, coupon.max_discount)}
-                    </p>
+                    {coupon.status === 'ISSUED' ? (
+                      <>
+                        <p className="text-purple-700 font-bold text-lg">
+                          가맹점별 할인 적용
+                        </p>
+                        <p className="text-purple-600 text-sm mt-1">
+                          할인율은 가맹점마다 다릅니다
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-purple-700 font-bold text-lg">
+                        {formatDiscount(coupon.discount_type, coupon.discount_value, coupon.max_discount)}
+                      </p>
+                    )}
                     {coupon.valid_until && (
                       <p className="text-purple-600 text-sm flex items-center gap-1 mt-1">
                         <Calendar className="h-3 w-3" />
