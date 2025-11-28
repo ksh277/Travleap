@@ -15,6 +15,7 @@ const AdminPartners = lazy(() => import('./admin/tabs/AdminPartners').then(m => 
 const AdminInsurance = lazy(() => import('./admin/tabs/AdminInsurance').then(m => ({ default: m.AdminInsurance })));
 const AdminRefundPolicies = lazy(() => import('./admin/tabs/AdminRefundPolicies').then(m => ({ default: m.AdminRefundPolicies })));
 const AdminCouponSettlements = lazy(() => import('./admin/tabs/AdminCouponSettlements').then(m => ({ default: m.AdminCouponSettlements })));
+const AdminSettlements = lazy(() => import('./admin/tabs/AdminSettlements').then(m => ({ default: m.AdminSettlements })));
 
 // Import existing external components (already optimized)
 import { RentcarManagement } from './admin/RentcarManagement';
@@ -120,11 +121,13 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
           {/* SUPER_ADMIN: 모든 탭 표시 */}
           {/* MD_ADMIN: 가맹점, 쿠폰, 문의, 미디어만 표시 */}
           <TabsList className={`grid w-full lg:w-auto lg:inline-grid ${
-            isSuperAdmin ? 'grid-cols-10' : 'grid-cols-5'
+            isSuperAdmin ? 'grid-cols-11' : 'grid-cols-5'
           }`}>
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             {/* 주문 - SUPER_ADMIN만 (결제 관련) */}
             {canManagePayments() && <TabsTrigger value="orders">주문</TabsTrigger>}
+            {/* 정산 - SUPER_ADMIN만 (결제 관련) */}
+            {canManagePayments() && <TabsTrigger value="settlements">정산</TabsTrigger>}
             {/* 가맹점 - MD 이상 */}
             <TabsTrigger value="partners">가맹점</TabsTrigger>
             {/* 쿠폰 - MD 이상 (쿠폰 관리 + 통계 통합) */}
@@ -155,6 +158,15 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
             <Suspense fallback={<LoadingFallback />}>
               <TabsContent value="orders">
                 <AdminOrders />
+              </TabsContent>
+            </Suspense>
+          )}
+
+          {/* 정산 - SUPER_ADMIN만 */}
+          {canManagePayments() && (
+            <Suspense fallback={<LoadingFallback />}>
+              <TabsContent value="settlements">
+                <AdminSettlements />
               </TabsContent>
             </Suspense>
           )}

@@ -104,8 +104,8 @@ async function handler(req, res) {
         c.id,
         c.code,
         c.name,
-        c.default_discount_type,
-        c.default_discount_value,
+        c.discount_type,
+        c.discount_value,
         c.is_active,
         COUNT(uc.id) as issued_count,
         SUM(CASE WHEN uc.status = 'USED' THEN 1 ELSE 0 END) as used_count,
@@ -113,7 +113,7 @@ async function handler(req, res) {
         COALESCE(SUM(CASE WHEN uc.status = 'USED' THEN uc.order_amount ELSE 0 END), 0) as total_orders
       FROM coupons c
       LEFT JOIN user_coupons uc ON c.id = uc.coupon_id
-      GROUP BY c.id, c.code, c.name, c.default_discount_type, c.default_discount_value, c.is_active
+      GROUP BY c.id, c.code, c.name, c.discount_type, c.discount_value, c.is_active
       ORDER BY used_count DESC
       LIMIT 20
     `);
@@ -194,6 +194,13 @@ async function handler(req, res) {
 
     console.log(`✅ [Admin] 쿠폰 통계 조회 완료`);
 
+    // 쿠폰 통계에 프론트엔드 호환 필드 추가
+    const couponStats = (couponStatsResult.rows || []).map(c => ({
+      ...c,
+      default_discount_type: c.discount_type === 'percentage' ? 'PERCENT' : 'AMOUNT',
+      default_discount_value: c.discount_value
+    }));
+
     return res.status(200).json({
       success: true,
       data: {
@@ -207,7 +214,7 @@ async function handler(req, res) {
             ? Math.round((overall.total_used / overall.total_issued) * 100)
             : 0
         },
-        coupon_stats: couponStatsResult.rows || [],
+        coupon_stats: couponStats,
         partner_stats: partnerStatsResult.rows || [],
         daily_stats: dailyStatsResult.rows || [],
         category_stats: categoryStatsResult.rows || [],

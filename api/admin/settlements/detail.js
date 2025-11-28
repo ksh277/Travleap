@@ -66,7 +66,7 @@ module.exports = async function handler(req, res) {
     };
 
     if (partner_type === 'rentcar') {
-      // 렌트카 벤더 정보 조회
+      // 렌트카 벤더 정보 조회 (컬럼명: business_name, contact_email)
       const vendorResult = await connection.execute(
         'SELECT id, business_name, contact_email FROM rentcar_vendors WHERE id = ? LIMIT 1',
         [partner_id]
@@ -87,12 +87,12 @@ module.exports = async function handler(req, res) {
         commission_rate: RENTCAR_COMMISSION_RATE
       };
 
-      // 오늘 매출
+      // 오늘 매출 (컬럼명: total_krw, status)
       const todayResult = await connection.execute(
         `SELECT
           COUNT(DISTINCT id) as total_orders,
-          SUM(CASE WHEN payment_status IN ('paid', 'captured') THEN total_price_krw ELSE 0 END) as total_sales,
-          0 as total_refunded
+          SUM(CASE WHEN status IN ('confirmed', 'completed', 'checked_in', 'in_progress', 'returned') THEN total_krw ELSE 0 END) as total_sales,
+          COALESCE(SUM(refund_amount_krw), 0) as total_refunded
         FROM rentcar_bookings
         WHERE vendor_id = ? AND DATE(created_at) = ?`,
         [partner_id, todayStr]
@@ -102,8 +102,8 @@ module.exports = async function handler(req, res) {
       const weekResult = await connection.execute(
         `SELECT
           COUNT(DISTINCT id) as total_orders,
-          SUM(CASE WHEN payment_status IN ('paid', 'captured') THEN total_price_krw ELSE 0 END) as total_sales,
-          0 as total_refunded
+          SUM(CASE WHEN status IN ('confirmed', 'completed', 'checked_in', 'in_progress', 'returned') THEN total_krw ELSE 0 END) as total_sales,
+          COALESCE(SUM(refund_amount_krw), 0) as total_refunded
         FROM rentcar_bookings
         WHERE vendor_id = ? AND created_at >= ?`,
         [partner_id, weekAgoStr]
@@ -113,8 +113,8 @@ module.exports = async function handler(req, res) {
       const monthResult = await connection.execute(
         `SELECT
           COUNT(DISTINCT id) as total_orders,
-          SUM(CASE WHEN payment_status IN ('paid', 'captured') THEN total_price_krw ELSE 0 END) as total_sales,
-          0 as total_refunded
+          SUM(CASE WHEN status IN ('confirmed', 'completed', 'checked_in', 'in_progress', 'returned') THEN total_krw ELSE 0 END) as total_sales,
+          COALESCE(SUM(refund_amount_krw), 0) as total_refunded
         FROM rentcar_bookings
         WHERE vendor_id = ? AND created_at >= ?`,
         [partner_id, monthAgoStr]
@@ -124,8 +124,8 @@ module.exports = async function handler(req, res) {
       const totalResult = await connection.execute(
         `SELECT
           COUNT(DISTINCT id) as total_orders,
-          SUM(CASE WHEN payment_status IN ('paid', 'captured') THEN total_price_krw ELSE 0 END) as total_sales,
-          0 as total_refunded
+          SUM(CASE WHEN status IN ('confirmed', 'completed', 'checked_in', 'in_progress', 'returned') THEN total_krw ELSE 0 END) as total_sales,
+          COALESCE(SUM(refund_amount_krw), 0) as total_refunded
         FROM rentcar_bookings
         WHERE vendor_id = ?`,
         [partner_id]
@@ -137,80 +137,75 @@ module.exports = async function handler(req, res) {
       periodStats.total = totalResult.rows[0] || periodStats.total;
 
     } else if (partner_type === 'lodging') {
-      // 숙박 파트너 정보 조회
-      const partnerResult = await connection.execute(
-        'SELECT id, business_name, email FROM partners WHERE id = ? AND partner_type = ? LIMIT 1',
-        [partner_id, 'lodging']
+      // 숙박: listing_id 기준으로 조회 (lodging_bookings 사용)
+      // partner_id가 실제로 listing_id임
+      const listingResult = await connection.execute(
+        'SELECT id, title FROM listings WHERE id = ? LIMIT 1',
+        [partner_id]
       );
 
-      if (!partnerResult.rows || partnerResult.rows.length === 0) {
+      if (!listingResult.rows || listingResult.rows.length === 0) {
         return res.status(404).json({
           success: false,
-          error: '업체를 찾을 수 없습니다.'
+          error: '숙박 업체를 찾을 수 없습니다.'
         });
       }
 
+      // 파트너 정보 조회
+      const partnerResult = await connection.execute(
+        'SELECT p.email, p.phone FROM listings l LEFT JOIN partners p ON l.partner_id = p.id WHERE l.id = ? LIMIT 1',
+        [partner_id]
+      );
+
       partnerInfo = {
-        partner_id: partnerResult.rows[0].id,
-        business_name: partnerResult.rows[0].business_name,
-        email: partnerResult.rows[0].email,
+        partner_id: listingResult.rows[0].id,
+        business_name: listingResult.rows[0].title,
+        email: partnerResult.rows?.[0]?.email || '',
         partner_type: 'lodging',
         commission_rate: LODGING_COMMISSION_RATE
       };
 
-      // 오늘 매출
+      // 오늘 매출 (lodging_bookings 사용, booking_status 컬럼)
       const todayResult = await connection.execute(
         `SELECT
-          COUNT(DISTINCT pay.id) as total_orders,
-          SUM(CASE WHEN pay.payment_status IN ('paid', 'captured') THEN pay.amount ELSE 0 END) as total_sales,
-          SUM(COALESCE(pay.refund_amount, 0)) as total_refunded
-        FROM partners p
-        LEFT JOIN listings l ON l.partner_id = p.id
-        LEFT JOIN bookings b ON b.listing_id = l.id
-        LEFT JOIN payments pay ON pay.booking_id = b.id
-        WHERE p.id = ? AND DATE(pay.created_at) = ?`,
+          COUNT(DISTINCT id) as total_orders,
+          COALESCE(SUM(CASE WHEN booking_status IN ('confirmed', 'checked_in', 'checked_out') THEN total_amount ELSE 0 END), 0) as total_sales,
+          0 as total_refunded
+        FROM lodging_bookings
+        WHERE listing_id = ? AND DATE(created_at) = ?`,
         [partner_id, todayStr]
       );
 
       // 이번 주 매출
       const weekResult = await connection.execute(
         `SELECT
-          COUNT(DISTINCT pay.id) as total_orders,
-          SUM(CASE WHEN pay.payment_status IN ('paid', 'captured') THEN pay.amount ELSE 0 END) as total_sales,
-          SUM(COALESCE(pay.refund_amount, 0)) as total_refunded
-        FROM partners p
-        LEFT JOIN listings l ON l.partner_id = p.id
-        LEFT JOIN bookings b ON b.listing_id = l.id
-        LEFT JOIN payments pay ON pay.booking_id = b.id
-        WHERE p.id = ? AND pay.created_at >= ?`,
+          COUNT(DISTINCT id) as total_orders,
+          COALESCE(SUM(CASE WHEN booking_status IN ('confirmed', 'checked_in', 'checked_out') THEN total_amount ELSE 0 END), 0) as total_sales,
+          0 as total_refunded
+        FROM lodging_bookings
+        WHERE listing_id = ? AND created_at >= ?`,
         [partner_id, weekAgoStr]
       );
 
       // 이번 달 매출
       const monthResult = await connection.execute(
         `SELECT
-          COUNT(DISTINCT pay.id) as total_orders,
-          SUM(CASE WHEN pay.payment_status IN ('paid', 'captured') THEN pay.amount ELSE 0 END) as total_sales,
-          SUM(COALESCE(pay.refund_amount, 0)) as total_refunded
-        FROM partners p
-        LEFT JOIN listings l ON l.partner_id = p.id
-        LEFT JOIN bookings b ON b.listing_id = l.id
-        LEFT JOIN payments pay ON pay.booking_id = b.id
-        WHERE p.id = ? AND pay.created_at >= ?`,
+          COUNT(DISTINCT id) as total_orders,
+          COALESCE(SUM(CASE WHEN booking_status IN ('confirmed', 'checked_in', 'checked_out') THEN total_amount ELSE 0 END), 0) as total_sales,
+          0 as total_refunded
+        FROM lodging_bookings
+        WHERE listing_id = ? AND created_at >= ?`,
         [partner_id, monthAgoStr]
       );
 
       // 전체 매출
       const totalResult = await connection.execute(
         `SELECT
-          COUNT(DISTINCT pay.id) as total_orders,
-          SUM(CASE WHEN pay.payment_status IN ('paid', 'captured') THEN pay.amount ELSE 0 END) as total_sales,
-          SUM(COALESCE(pay.refund_amount, 0)) as total_refunded
-        FROM partners p
-        LEFT JOIN listings l ON l.partner_id = p.id
-        LEFT JOIN bookings b ON b.listing_id = l.id
-        LEFT JOIN payments pay ON pay.booking_id = b.id
-        WHERE p.id = ?`,
+          COUNT(DISTINCT id) as total_orders,
+          COALESCE(SUM(CASE WHEN booking_status IN ('confirmed', 'checked_in', 'checked_out') THEN total_amount ELSE 0 END), 0) as total_sales,
+          0 as total_refunded
+        FROM lodging_bookings
+        WHERE listing_id = ?`,
         [partner_id]
       );
 

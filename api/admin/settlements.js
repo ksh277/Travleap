@@ -2,22 +2,19 @@
  * 정산 관리 API
  * GET /api/admin/settlements - 파트너별 정산 내역 조회
  *
- * payments, bookings, listings, partners 테이블을 조인하여
- * 파트너별 매출, 수수료, 정산금액 계산
+ * 렌트카, 숙박, 일반 상품의 결제 내역을 집계하여 정산 데이터 제공
  */
 
 const { connect } = require('@planetscale/database');
+const { withAuth } = require('../../utils/auth-middleware.cjs');
+const { withPublicCors } = require('../../utils/cors-middleware.cjs');
 
 // 기본 수수료율
 const DEFAULT_COMMISSION_RATE = 10; // 10%
 const RENTCAR_COMMISSION_RATE = 15; // 렌트카 15%
 const LODGING_COMMISSION_RATE = 15; // 숙박 15%
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -29,24 +26,35 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // 관리자 권한 확인
+  if (!req.user?.isAdmin) {
+    return res.status(403).json({
+      success: false,
+      error: 'FORBIDDEN',
+      message: '관리자 권한이 필요합니다'
+    });
+  }
+
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
     const { partner_id, start_date, end_date, status } = req.query;
 
-    // 1. 렌트카 벤더 정산
+    // 1. 렌트카 벤더 정산 (실제 컬럼: business_name, contact_email, contact_phone)
     let rentcarQuery = `
       SELECT
         rv.id as partner_id,
-        rv.business_name,
+        rv.business_name as business_name,
         'rentcar' as partner_type,
         rv.contact_email as email,
+        rv.contact_phone as phone,
         COUNT(DISTINCT rb.id) as total_orders,
         SUM(CASE
-          WHEN rb.payment_status IN ('paid', 'captured') THEN rb.total_price_krw
+          WHEN rb.status IN ('confirmed', 'completed', 'checked_in', 'in_progress', 'returned') THEN 1
           ELSE 0
-        END) as total_sales,
-        0 as total_refunded,
+        END) as confirmed_orders,
+        SUM(rb.total_krw) as total_sales,
+        COALESCE(SUM(rb.refund_amount_krw), 0) as total_refunded,
         MIN(rb.created_at) as first_order_date,
         MAX(rb.created_at) as last_order_date
       FROM rentcar_vendors rv
@@ -63,50 +71,90 @@ module.exports = async function handler(req, res) {
       rentcarQuery += ` AND rb.created_at <= ?`;
       rentcarParams.push(end_date);
     }
-    rentcarQuery += ` GROUP BY rv.id, rv.business_name, rv.contact_email`;
+    rentcarQuery += ` GROUP BY rv.id, rv.business_name, rv.contact_email, rv.contact_phone`;
     rentcarQuery += ` HAVING total_orders > 0`;
+    rentcarQuery += ` ORDER BY total_sales DESC`;
 
-    // 2. 숙박 파트너 정산 (partners 테이블 기반)
+    // 2. 숙박 정산 (lodging_bookings 기반)
     let lodgingQuery = `
       SELECT
-        p.id as partner_id,
-        p.business_name,
-        p.partner_type,
+        lb.listing_id as partner_id,
+        COALESCE(l.title, CONCAT('숙박 #', lb.listing_id)) as business_name,
+        'lodging' as partner_type,
         p.email,
-        COUNT(DISTINCT pay.id) as total_orders,
+        p.phone,
+        COUNT(DISTINCT lb.id) as total_orders,
         SUM(CASE
-          WHEN pay.payment_status IN ('paid', 'captured') THEN pay.amount
+          WHEN lb.booking_status IN ('confirmed', 'checked_in', 'checked_out') THEN 1
           ELSE 0
-        END) as total_sales,
-        SUM(COALESCE(pay.refund_amount, 0)) as total_refunded,
-        MIN(pay.created_at) as first_order_date,
-        MAX(pay.created_at) as last_order_date
-      FROM partners p
-      LEFT JOIN listings l ON l.partner_id = p.id
-      LEFT JOIN bookings b ON b.listing_id = l.id
-      LEFT JOIN payments pay ON pay.booking_id = b.id
-      WHERE p.partner_type = 'lodging'
+        END) as confirmed_orders,
+        COALESCE(SUM(lb.total_amount), 0) as total_sales,
+        0 as total_refunded,
+        MIN(lb.created_at) as first_order_date,
+        MAX(lb.created_at) as last_order_date
+      FROM lodging_bookings lb
+      LEFT JOIN listings l ON lb.listing_id = l.id
+      LEFT JOIN partners p ON l.partner_id = p.id
+      WHERE 1=1
     `;
 
     const lodgingParams = [];
     if (start_date) {
-      lodgingQuery += ` AND pay.created_at >= ?`;
+      lodgingQuery += ` AND lb.created_at >= ?`;
       lodgingParams.push(start_date);
     }
     if (end_date) {
-      lodgingQuery += ` AND pay.created_at <= ?`;
+      lodgingQuery += ` AND lb.created_at <= ?`;
       lodgingParams.push(end_date);
     }
-    lodgingQuery += ` GROUP BY p.id, p.business_name, p.partner_type, p.email`;
+    lodgingQuery += ` GROUP BY lb.listing_id, l.title, p.email, p.phone`;
     lodgingQuery += ` HAVING total_orders > 0`;
+    lodgingQuery += ` ORDER BY total_sales DESC`;
+
+    // 3. 일반 결제 요약 (payments)
+    let paymentsQuery = `
+      SELECT
+        COUNT(*) as total_count,
+        COALESCE(SUM(amount), 0) as total_amount,
+        COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0) as completed_amount,
+        COALESCE(SUM(refund_amount), 0) as refunded_amount
+      FROM payments
+      WHERE 1=1
+    `;
+    const paymentsParams = [];
+    if (start_date) {
+      paymentsQuery += ` AND created_at >= ?`;
+      paymentsParams.push(start_date);
+    }
+    if (end_date) {
+      paymentsQuery += ` AND created_at <= ?`;
+      paymentsParams.push(end_date);
+    }
 
     console.log('정산 조회 쿼리 실행:', { partner_id, start_date, end_date });
 
     // 쿼리 실행
-    const [rentcarResult, lodgingResult] = await Promise.all([
-      connection.execute(rentcarQuery, rentcarParams),
-      connection.execute(lodgingQuery, lodgingParams)
-    ]);
+    let rentcarResult = { rows: [] };
+    let lodgingResult = { rows: [] };
+    let paymentsResult = { rows: [] };
+
+    try {
+      rentcarResult = await connection.execute(rentcarQuery, rentcarParams);
+    } catch (e) {
+      console.error('렌트카 정산 쿼리 오류:', e.message);
+    }
+
+    try {
+      lodgingResult = await connection.execute(lodgingQuery, lodgingParams);
+    } catch (e) {
+      console.error('숙박 정산 쿼리 오류:', e.message);
+    }
+
+    try {
+      paymentsResult = await connection.execute(paymentsQuery, paymentsParams);
+    } catch (e) {
+      console.error('결제 요약 쿼리 오류:', e.message);
+    }
 
     const settlements = [
       ...(rentcarResult.rows || []),
@@ -190,4 +238,6 @@ module.exports = async function handler(req, res) {
       error: error.message
     });
   }
-};
+}
+
+module.exports = withPublicCors(withAuth(handler, { requireAuth: true, requireAdmin: true }));
