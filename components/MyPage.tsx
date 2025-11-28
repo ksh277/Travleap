@@ -1171,36 +1171,31 @@ export function MyPage() {
 
         {/* 탭 메뉴 - 모바일 최적화 */}
         <Tabs defaultValue="payments" className="space-y-6">
-          <TabsList className="grid grid-cols-4 sm:grid-cols-6 w-full max-w-5xl gap-2">
-            <TabsTrigger value="payments" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
-              <Receipt className="w-4 h-4 sm:hidden mr-2" />
+          <TabsList className="grid grid-cols-3 sm:grid-cols-6 w-full max-w-5xl h-auto p-1 gap-1">
+            <TabsTrigger value="payments" className="text-xs sm:text-sm py-2 px-2 rounded-lg">
+              <Receipt className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">결제 내역</span>
               <span className="sm:hidden">결제</span>
             </TabsTrigger>
-            <TabsTrigger value="points" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
-              <Coins className="w-4 h-4 sm:hidden mr-2" />
-              <span className="hidden sm:inline">포인트</span>
-              <span className="sm:hidden">포인트</span>
+            <TabsTrigger value="points" className="text-xs sm:text-sm py-2 px-2 rounded-lg">
+              <Coins className="w-4 h-4 mr-1" />
+              <span>포인트</span>
             </TabsTrigger>
-            <TabsTrigger value="coupons" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
-              <Ticket className="w-4 h-4 sm:hidden mr-2" />
-              <span className="hidden sm:inline">쿠폰함</span>
-              <span className="sm:hidden">쿠폰</span>
+            <TabsTrigger value="coupons" className="text-xs sm:text-sm py-2 px-2 rounded-lg">
+              <Ticket className="w-4 h-4 mr-1" />
+              <span>쿠폰</span>
             </TabsTrigger>
-            <TabsTrigger value="favorites" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
-              <Heart className="w-4 h-4 sm:hidden mr-2" />
-              <span className="hidden sm:inline">찜한 상품</span>
-              <span className="sm:hidden">찜</span>
+            <TabsTrigger value="favorites" className="text-xs sm:text-sm py-2 px-2 rounded-lg">
+              <Heart className="w-4 h-4 mr-1" />
+              <span>찜</span>
             </TabsTrigger>
-            <TabsTrigger value="reviews" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
-              <MessageSquare className="w-4 h-4 sm:hidden mr-2" />
-              <span className="hidden sm:inline">내 리뷰</span>
-              <span className="sm:hidden">리뷰</span>
+            <TabsTrigger value="reviews" className="text-xs sm:text-sm py-2 px-2 rounded-lg">
+              <MessageSquare className="w-4 h-4 mr-1" />
+              <span>리뷰</span>
             </TabsTrigger>
-            <TabsTrigger value="settings" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
-              <Settings className="w-4 h-4 sm:hidden mr-2" />
-              <span className="hidden sm:inline">설정</span>
-              <span className="sm:hidden">설정</span>
+            <TabsTrigger value="settings" className="text-xs sm:text-sm py-2 px-2 rounded-lg">
+              <Settings className="w-4 h-4 mr-1" />
+              <span>설정</span>
             </TabsTrigger>
           </TabsList>
 
