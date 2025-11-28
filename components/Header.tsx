@@ -77,6 +77,7 @@ export function Header({
   const [partnersOnly, setPartnersOnly] = useState(false);
   const [sponsorFirst, setSponsorFirst] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false);
 
   // Fetch categories from DB
   const { categories: dbCategories, loading: categoriesLoading } = useCategories();
@@ -359,52 +360,67 @@ export function Header({
             </Button>
 
             {/* 모바일 메뉴 */}
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <Sheet open={mobileMenuOpen} onOpenChange={(open) => {
+              setMobileMenuOpen(open);
+              if (!open) setMobileCategoryOpen(false); // 메뉴 닫을 때 카테고리도 닫기
+            }}>
               <SheetTrigger asChild className="md:hidden">
                 <Button variant="ghost" size="icon" className="min-w-[44px] min-h-[44px] flex items-center justify-center">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="p-0 w-[200px] overflow-y-auto">
+              <SheetContent side="right" className="p-0 w-[220px] overflow-y-auto">
                 <div className="grid gap-0 py-6 h-full overflow-y-auto">
                   {navigation.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        if (item.id === 'home') {
-                          navigate('/');
-                        } else if (item.id === 'franchise') {
-                          navigate('/partner');
-                        } else {
-                          navigate(`/${item.id}`);
-                        }
-                        setMobileMenuOpen(false);
-                      }}
-                      className="text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center px-6 border-b border-gray-100"
-                    >
-                      {item.name}
-                    </button>
-                  ))}
-                  {/* dev 브랜치: 카테고리 섹션 표시 */}
-                  <div className="border-t pt-4 mt-2">
-                    <div className="mb-2 px-6 font-semibold text-gray-600 text-sm">
-                      {t('categories', selectedLanguage)}
-                    </div>
-                    <div className="grid gap-0">
-                      {categories.map((category) => (
+                    <div key={item.id}>
+                      {item.hasDropdown ? (
+                        // 카테고리 드롭다운
+                        <div>
+                          <button
+                            onClick={() => setMobileCategoryOpen(!mobileCategoryOpen)}
+                            className="w-full text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center justify-between px-6 border-b border-gray-100"
+                          >
+                            <span>{item.name}</span>
+                            <ChevronDown className={`w-4 h-4 transition-transform ${mobileCategoryOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {/* 카테고리 하위 메뉴 */}
+                          {mobileCategoryOpen && (
+                            <div className="bg-gray-50">
+                              {categories.map((category) => (
+                                <button
+                                  key={category.id}
+                                  onClick={() => {
+                                    navigate(`/category/${category.id}`);
+                                    setMobileMenuOpen(false);
+                                    setMobileCategoryOpen(false);
+                                  }}
+                                  className="w-full flex items-center text-left pl-10 pr-6 py-3 hover:bg-gray-100 min-h-[48px] border-b border-gray-200"
+                                >
+                                  <span className="text-base text-gray-700">{category.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
                         <button
-                          key={category.id}
                           onClick={() => {
-                            navigate(`/category/${category.id}`);
+                            if (item.id === 'home') {
+                              navigate('/');
+                            } else if (item.id === 'franchise') {
+                              navigate('/partner');
+                            } else {
+                              navigate(`/${item.id}`);
+                            }
                             setMobileMenuOpen(false);
                           }}
-                          className="flex items-center text-left px-6 py-4 hover:bg-gray-50 min-h-[56px] border-b border-gray-100"
+                          className="w-full text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center px-6 border-b border-gray-100"
                         >
-                          <span className="text-base">{category.name}</span>
+                          {item.name}
                         </button>
-                      ))}
+                      )}
                     </div>
-                  </div>
+                  ))}
 
                   {/* 모바일 로그인/관리자/마이페이지 메뉴 */}
                   <div className="border-t pt-2 mt-2">
