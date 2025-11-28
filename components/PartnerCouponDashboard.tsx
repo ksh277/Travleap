@@ -374,6 +374,12 @@ export function PartnerCouponDashboard() {
   const startScanner = async () => {
     setScannerError(null);
 
+    // 먼저 isScanning을 true로 설정하여 DOM 요소 렌더링
+    setIsScanning(true);
+
+    // DOM 렌더링을 위해 잠시 대기
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     try {
       // 기존 스캐너가 있으면 정리
       if (html5QrcodeRef.current) {
@@ -418,8 +424,6 @@ export function PartnerCouponDashboard() {
           // 스캔 중 오류 (무시 - QR 못찾는 것은 정상)
         }
       );
-
-      setIsScanning(true);
     } catch (error: any) {
       console.error('스캐너 시작 오류:', error);
       if (error.name === 'NotAllowedError') {
