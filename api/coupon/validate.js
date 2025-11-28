@@ -39,7 +39,7 @@ async function handler(req, res) {
       });
     }
 
-    // 1. 개인 쿠폰 조회 (PlanetScale) - users JOIN 제거
+    // 1. 개인 쿠폰 조회 (PlanetScale)
     const userCouponResult = await connection.execute(`
       SELECT
         uc.id as user_coupon_id,
@@ -47,7 +47,6 @@ async function handler(req, res) {
         uc.coupon_id,
         uc.coupon_code,
         uc.status,
-        uc.expires_at,
         uc.used_at,
         uc.used_partner_id,
         c.code as campaign_code,
@@ -58,7 +57,7 @@ async function handler(req, res) {
         c.discount_type,
         c.discount_value,
         c.max_discount,
-        c.valid_until as coupon_valid_until
+        c.valid_until
       FROM user_coupons uc
       JOIN coupons c ON uc.coupon_id = c.id
       WHERE uc.coupon_code = ?
@@ -111,8 +110,8 @@ async function handler(req, res) {
       });
     }
 
-    // 3. 유효기간 확인 (user_coupons.expires_at 또는 coupons.valid_until)
-    const expirationDate = userCoupon.expires_at || userCoupon.coupon_valid_until;
+    // 3. 유효기간 확인 (coupons.valid_until 사용)
+    const expirationDate = userCoupon.valid_until;
     if (expirationDate && new Date(expirationDate) < new Date()) {
       // 만료 상태로 업데이트
       await connection.execute(

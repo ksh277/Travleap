@@ -28,29 +28,29 @@ async function handler(req, res) {
           discount_type,
           discount_value,
           min_amount,
+          max_discount,
           max_discount_amount,
           target_category,
           target_type,
           target_categories,
-          default_discount_type,
-          default_discount_value,
-          default_max_discount,
           valid_from,
-          valid_to,
           valid_until,
           is_active,
           usage_limit,
           current_usage,
+          used_count,
           usage_per_user,
-          max_issues_per_user,
-          created_at,
-          updated_at
+          created_at
         FROM coupons
         ORDER BY created_at DESC
       `);
 
       const coupons = (result.rows || []).map(coupon => ({
         ...coupon,
+        // 프론트엔드 호환성을 위해 추가 필드
+        default_discount_type: coupon.discount_type === 'percentage' ? 'PERCENT' : 'AMOUNT',
+        default_discount_value: coupon.discount_value,
+        default_max_discount: coupon.max_discount || coupon.max_discount_amount,
         remaining: coupon.usage_limit ? coupon.usage_limit - coupon.current_usage : null
       }));
 
@@ -70,19 +70,19 @@ async function handler(req, res) {
         discount_type,
         discount_value,
         min_amount,
+        max_discount,
         max_discount_amount,
         target_category,
         target_type,
         target_categories,
+        // 프론트엔드 호환 필드
         default_discount_type,
         default_discount_value,
         default_max_discount,
         valid_from,
-        valid_to,
         valid_until,
         usage_limit,
-        usage_per_user,
-        max_issues_per_user
+        usage_per_user
       } = req.body;
 
       if (!code) {
@@ -106,36 +106,40 @@ async function handler(req, res) {
         });
       }
 
+      // discount_type 변환: PERCENT → percentage, AMOUNT → fixed
+      let finalDiscountType = discount_type || 'percentage';
+      if (default_discount_type === 'PERCENT') finalDiscountType = 'percentage';
+      else if (default_discount_type === 'AMOUNT') finalDiscountType = 'fixed';
+
+      const finalDiscountValue = discount_value || default_discount_value || 10;
+      const finalMaxDiscount = max_discount || max_discount_amount || default_max_discount || null;
+
       await connection.execute(`
         INSERT INTO coupons (
-          code, name, title, description, discount_type, discount_value,
-          min_amount, max_discount_amount, target_category,
-          target_type, target_categories,
-          default_discount_type, default_discount_value, default_max_discount,
-          valid_from, valid_to, valid_until, usage_limit, usage_per_user, max_issues_per_user,
-          is_active, current_usage
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, 0)
+          code, name, title, description,
+          discount_type, discount_value, min_amount, max_discount, max_discount_amount,
+          target_category, target_type, target_categories,
+          valid_from, valid_until,
+          usage_limit, usage_per_user,
+          is_active, current_usage, used_count
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0)
       `, [
         code.toUpperCase(),
         name || title || null,
-        title || null,
+        title || name || null,
         description || null,
-        discount_type || default_discount_type || 'percentage',
-        discount_value || default_discount_value || 10,
+        finalDiscountType,
+        finalDiscountValue,
         min_amount || 0,
-        max_discount_amount || default_max_discount || null,
+        finalMaxDiscount,
+        finalMaxDiscount,
         target_category || null,
         target_type || 'ALL',
         target_categories ? JSON.stringify(target_categories) : null,
-        default_discount_type || 'PERCENT',
-        default_discount_value || 10,
-        default_max_discount || null,
         valid_from || null,
-        valid_to || valid_until || null,
-        valid_until || valid_to || null,
+        valid_until || null,
         usage_limit || null,
-        usage_per_user || max_issues_per_user || null,
-        max_issues_per_user || usage_per_user || 1
+        usage_per_user || 1
       ]);
 
       console.log(`✅ [Admin] 쿠폰 생성: ${code}`);
@@ -157,20 +161,20 @@ async function handler(req, res) {
         discount_type,
         discount_value,
         min_amount,
+        max_discount,
         max_discount_amount,
         target_category,
         target_type,
         target_categories,
+        // 프론트엔드 호환 필드
         default_discount_type,
         default_discount_value,
         default_max_discount,
         valid_from,
-        valid_to,
         valid_until,
         is_active,
         usage_limit,
-        usage_per_user,
-        max_issues_per_user
+        usage_per_user
       } = req.body;
 
       if (!id) {
@@ -196,6 +200,14 @@ async function handler(req, res) {
         }
       }
 
+      // discount_type 변환
+      let finalDiscountType = discount_type;
+      if (default_discount_type === 'PERCENT') finalDiscountType = 'percentage';
+      else if (default_discount_type === 'AMOUNT') finalDiscountType = 'fixed';
+
+      const finalDiscountValue = discount_value || default_discount_value;
+      const finalMaxDiscount = max_discount || max_discount_amount || default_max_discount;
+
       await connection.execute(`
         UPDATE coupons SET
           code = ?,
@@ -205,44 +217,35 @@ async function handler(req, res) {
           discount_type = ?,
           discount_value = ?,
           min_amount = ?,
+          max_discount = ?,
           max_discount_amount = ?,
           target_category = ?,
           target_type = ?,
           target_categories = ?,
-          default_discount_type = ?,
-          default_discount_value = ?,
-          default_max_discount = ?,
           valid_from = ?,
-          valid_to = ?,
           valid_until = ?,
           is_active = ?,
           usage_limit = ?,
-          usage_per_user = ?,
-          max_issues_per_user = ?,
-          updated_at = NOW()
+          usage_per_user = ?
         WHERE id = ?
       `, [
         code?.toUpperCase(),
         name || title,
-        title,
+        title || name,
         description,
-        discount_type,
-        discount_value,
+        finalDiscountType,
+        finalDiscountValue,
         min_amount,
-        max_discount_amount,
+        finalMaxDiscount,
+        finalMaxDiscount,
         target_category,
         target_type || 'ALL',
         target_categories ? JSON.stringify(target_categories) : null,
-        default_discount_type,
-        default_discount_value,
-        default_max_discount,
-        valid_from,
-        valid_to || valid_until,
-        valid_until || valid_to,
-        is_active !== undefined ? is_active : true,
-        usage_limit,
-        usage_per_user,
-        max_issues_per_user,
+        valid_from || null,
+        valid_until || null,
+        is_active !== undefined ? (is_active ? 1 : 0) : 1,
+        usage_limit || null,
+        usage_per_user || null,
         id
       ]);
 

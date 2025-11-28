@@ -124,7 +124,6 @@ async function handler(req, res) {
         uc.coupon_id,
         uc.coupon_code,
         uc.status,
-        uc.expires_at,
         c.code as campaign_code,
         c.name as coupon_name,
         c.target_type,
@@ -132,7 +131,7 @@ async function handler(req, res) {
         c.discount_type,
         c.discount_value,
         c.max_discount,
-        c.valid_until as coupon_valid_until
+        c.valid_until
       FROM user_coupons uc
       JOIN coupons c ON uc.coupon_id = c.id
       WHERE uc.coupon_code = ?
@@ -166,8 +165,8 @@ async function handler(req, res) {
       });
     }
 
-    // 5. 유효기간 확인 (user_coupons.expires_at 또는 coupons.valid_until)
-    const expirationDate = userCoupon.expires_at || userCoupon.coupon_valid_until;
+    // 5. 유효기간 확인 (coupons.valid_until 사용)
+    const expirationDate = userCoupon.valid_until;
     if (expirationDate && new Date(expirationDate) < new Date()) {
       await connection.execute(
         'UPDATE user_coupons SET status = "EXPIRED" WHERE id = ?',
@@ -254,14 +253,19 @@ async function handler(req, res) {
       WHERE id = ?
     `, [partnerId, order_amount, discountAmount, finalAmount, userCoupon.user_coupon_id]);
 
-    // 11. 파트너 통계 업데이트
-    await connection.execute(`
-      UPDATE partners
-      SET
-        total_coupon_usage = COALESCE(total_coupon_usage, 0) + 1,
-        total_discount_given = COALESCE(total_discount_given, 0) + ?
-      WHERE id = ?
-    `, [discountAmount, partnerId]);
+    // 11. 파트너 통계 업데이트 (컬럼이 있는 경우에만)
+    try {
+      await connection.execute(`
+        UPDATE partners
+        SET
+          total_coupon_usage = COALESCE(total_coupon_usage, 0) + 1,
+          total_discount_given = COALESCE(total_discount_given, 0) + ?
+        WHERE id = ?
+      `, [discountAmount, partnerId]);
+    } catch (statsError) {
+      // 통계 컬럼이 없어도 쿠폰 사용은 정상 처리됨
+      console.warn('⚠️ [Coupon] 파트너 통계 업데이트 실패 (무시):', statsError.message);
+    }
 
     // 12. 쿠폰 사용 카운트 업데이트
     await connection.execute(`

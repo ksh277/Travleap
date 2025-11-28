@@ -51,7 +51,6 @@ async function handler(req, res) {
         uc.id,
         uc.coupon_code,
         uc.status,
-        uc.created_at as issued_at,
         uc.used_at,
         uc.order_amount,
         uc.discount_amount,
@@ -82,7 +81,7 @@ async function handler(req, res) {
           WHEN 'EXPIRED' THEN 3
           ELSE 4
         END,
-        uc.created_at DESC
+        uc.id DESC
     `, [userId]);
 
     const coupons = couponsResult.rows || [];
@@ -115,7 +114,7 @@ async function handler(req, res) {
         id: coupon.id,
         coupon_code: coupon.coupon_code,
         status: currentStatus,
-        issued_at: coupon.issued_at,
+        issued_at: null, // user_coupons에 created_at 없음
         used_at: coupon.used_at,
         // 캠페인 정보
         campaign_code: coupon.campaign_code,
