@@ -36,7 +36,8 @@ interface Comment {
   replies?: Comment[];
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004';
+// API는 상대경로 사용 (프로덕션/개발 환경 모두 호환)
+const API_BASE_URL = '';
 
 export default function CommunityBlogDetailPage() {
   const { id } = useParams<{ id: string }>();

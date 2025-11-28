@@ -61,7 +61,7 @@ export function MediaManagement() {
   const loadMedia = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3004/api/admin/media');
+      const response = await fetch('/api/admin/media');
       const result = await response.json();
 
       if (result.success) {
@@ -86,7 +86,7 @@ export function MediaManagement() {
 
       if (editingMedia) {
         // Update - API 호출
-        const response = await fetch(`http://localhost:3004/api/admin/media/${editingMedia.id}`, {
+        const response = await fetch(`/api/admin/media/${editingMedia.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
@@ -100,7 +100,7 @@ export function MediaManagement() {
         }
       } else {
         // Insert - API 호출
-        const response = await fetch('http://localhost:3004/api/admin/media', {
+        const response = await fetch('/api/admin/media', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
@@ -127,7 +127,7 @@ export function MediaManagement() {
     if (!confirm(`"${section}" 미디어를 삭제하시겠습니까?`)) return;
 
     try {
-      const response = await fetch(`http://localhost:3004/api/admin/media/${id}`, {
+      const response = await fetch(`/api/admin/media/${id}`, {
         method: 'DELETE'
       });
       const result = await response.json();
@@ -160,7 +160,7 @@ export function MediaManagement() {
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`http://localhost:3004/api/admin/media/${id}/toggle`, {
+      const response = await fetch(`/api/admin/media/${id}/toggle`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !currentStatus })

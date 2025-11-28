@@ -176,7 +176,7 @@ export function AdminRentcarPage() {
     if (!confirm(`정말 "${vendorName}" 업체를 삭제하시겠습니까?\n\n⚠️ 해당 업체의 모든 차량도 함께 삭제됩니다.`)) return;
 
     try {
-      const response = await fetch(`http://localhost:3004/api/admin/rentcar/vendors/${vendorId}`, {
+      const response = await fetch(`/api/admin/rentcar/vendors/${vendorId}`, {
         method: 'DELETE'
       });
 

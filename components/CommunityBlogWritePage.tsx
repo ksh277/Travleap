@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { renderMarkdown } from '../utils/markdown';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004';
+// API는 상대경로 사용 (프로덕션/개발 환경 모두 호환)
 
 export default function CommunityBlogWritePage() {
   const navigate = useNavigate();
@@ -126,7 +126,7 @@ export default function CommunityBlogWritePage() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/blogs`, {
+      const response = await fetch('/api/blogs', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

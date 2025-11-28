@@ -5649,7 +5649,7 @@ export function AdminPage({}: AdminPageProps) {
                                 if (confirm('정말 이 댓글을 삭제하시겠습니까?')) {
                                   try {
                                     const token = localStorage.getItem('auth_token');
-                                    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004'}/api/blogs/comments/${comment.id}`, {
+                                    const response = await fetch(`/api/blogs/comments/${comment.id}`, {
                                       method: 'DELETE',
                                       headers: {
                                         'Content-Type': 'application/json',

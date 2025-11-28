@@ -35,13 +35,12 @@ module.exports = async function handler(req, res) {
           id,
           user_id,
           business_name,
-          business_type,
           partner_type,
           contact_name,
-          contact_phone,
-          contact_email,
+          phone,
+          email,
           partner_email,
-          address,
+          business_address,
           services,
           status,
           is_coupon_partner,
@@ -72,12 +71,11 @@ module.exports = async function handler(req, res) {
           id: partner.id,
           user_id: partner.user_id,
           business_name: partner.business_name,
-          business_type: partner.business_type,
           partner_type: partner.partner_type,
           contact_name: partner.contact_name,
-          contact_phone: partner.contact_phone,
-          contact_email: partner.contact_email || partner.partner_email,
-          address: partner.address,
+          contact_phone: partner.phone,
+          contact_email: partner.email || partner.partner_email,
+          address: partner.business_address,
           services: partner.services,
           status: partner.status,
           is_verified: partner.status === 'approved',
@@ -113,9 +111,9 @@ module.exports = async function handler(req, res) {
         SET
           business_name = COALESCE(?, business_name),
           contact_name = COALESCE(?, contact_name),
-          contact_email = COALESCE(?, contact_email),
-          contact_phone = COALESCE(?, contact_phone),
-          address = COALESCE(?, address)
+          email = COALESCE(?, email),
+          phone = COALESCE(?, phone),
+          business_address = COALESCE(?, business_address)
         WHERE user_id = ?
       `, [business_name, contact_name, contact_email, contact_phone, address, userId]);
 
