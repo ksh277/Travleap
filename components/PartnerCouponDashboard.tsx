@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -34,7 +34,6 @@ import {
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useAuth } from '../hooks/useAuth';
-import { Navigate } from 'react-router-dom';
 
 type TabType = 'scan' | 'history' | 'reservations' | 'settings';
 
@@ -87,8 +86,12 @@ interface Reservation {
 
 export function PartnerCouponDashboard() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { user, isLoggedIn, isPartner, sessionRestored, canUseCouponScanner } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('scan');
+
+  // 현재 URL 전체 (쿠폰 코드 포함)를 returnUrl로 사용
+  const currentUrl = location.pathname + location.search;
 
   // 세션 복원 중
   if (!sessionRestored) {
@@ -102,8 +105,13 @@ export function PartnerCouponDashboard() {
     );
   }
 
-  // 로그인 안됨 또는 파트너가 아님
-  if (!isLoggedIn || !canUseCouponScanner()) {
+  // 로그인 안됨 → 로그인 페이지로 (현재 URL 유지)
+  if (!isLoggedIn) {
+    return <Navigate to={`/login?returnUrl=${encodeURIComponent(currentUrl)}`} replace />;
+  }
+
+  // 로그인은 됐지만 파트너가 아님
+  if (!canUseCouponScanner()) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md w-full">
@@ -112,13 +120,9 @@ export function PartnerCouponDashboard() {
           <p className="text-gray-600 mb-6">
             이 페이지는 승인된 파트너(가맹점)만 접근할 수 있습니다.
           </p>
-          {!isLoggedIn ? (
-            <Navigate to="/login?returnUrl=/partner/coupon" replace />
-          ) : (
-            <p className="text-sm text-gray-500">
-              파트너 등록이 필요하시면 관리자에게 문의하세요.
-            </p>
-          )}
+          <p className="text-sm text-gray-500">
+            파트너 등록이 필요하시면 관리자에게 문의하세요.
+          </p>
         </div>
       </div>
     );

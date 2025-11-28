@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
@@ -11,7 +11,11 @@ import { usePageBanner } from '../hooks/usePageBanner';
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, isAdmin, user } = useAuth();
+
+  // returnUrl 파라미터 가져오기 (QR 스캔 등에서 쿠폰 코드 유지용)
+  const returnUrl = searchParams.get('returnUrl');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -49,6 +53,13 @@ export function LoginPage() {
 
         // 약간의 딜레이 후 리다이렉트 (상태 업데이트 대기)
         setTimeout(() => {
+          // returnUrl이 있으면 해당 URL로 이동 (QR 스캔 등)
+          if (returnUrl) {
+            console.log('🔗 returnUrl로 이동:', returnUrl);
+            navigate(returnUrl, { replace: true });
+            return;
+          }
+
           if (isAdmin) {
             console.log('🔑 관리자로 이동');
             navigate('/admin', { replace: true });
@@ -142,8 +153,8 @@ export function LoginPage() {
 
         console.log('✅ Google 로그인: 토큰 저장 성공, 리다이렉트 시작');
 
-        // 페이지 새로고침으로 세션 복원
-        window.location.href = '/';
+        // 페이지 새로고침으로 세션 복원 (returnUrl 유지)
+        window.location.href = returnUrl || '/';
       } else {
         toast.error(result.error || 'Google 로그인에 실패했습니다.');
       }
@@ -191,8 +202,8 @@ export function LoginPage() {
 
         console.log('✅ 카카오 로그인: 토큰 저장 성공, 리다이렉트 시작');
 
-        // 페이지 새로고침으로 세션 복원
-        window.location.href = '/';
+        // 페이지 새로고침으로 세션 복원 (returnUrl 유지)
+        window.location.href = returnUrl || '/';
       } else {
         toast.error(result.error || '카카오 로그인에 실패했습니다.');
       }
@@ -240,8 +251,8 @@ export function LoginPage() {
 
         console.log('✅ 네이버 로그인: 토큰 저장 성공, 리다이렉트 시작');
 
-        // 페이지 새로고침으로 세션 복원
-        window.location.href = '/';
+        // 페이지 새로고침으로 세션 복원 (returnUrl 유지)
+        window.location.href = returnUrl || '/';
       } else {
         toast.error(result.error || '네이버 로그인에 실패했습니다.');
       }

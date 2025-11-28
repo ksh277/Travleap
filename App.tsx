@@ -393,15 +393,11 @@ function AppContent() {
           <Route path="/coupon/qr/:code" element={<CouponQRPage />} />
           <Route path="/my/coupons" element={<MyCouponsPage />} />
 
-          {/* 파트너 쿠폰 대시보드 (가맹점용) */}
+          {/* 파트너 쿠폰 대시보드 (가맹점용) - 컴포넌트 내부에서 인증/권한 체크 */}
           <Route path="/partner/coupon" element={
-            isLoggedIn && user?.role === 'partner' ? (
-              <ErrorBoundary>
-                <PartnerCouponDashboard />
-              </ErrorBoundary>
-            ) : (
-              <Navigate to="/login?redirect=/partner/coupon" replace />
-            )
+            <ErrorBoundary>
+              <PartnerCouponDashboard />
+            </ErrorBoundary>
           } />
 
           {/* 404 페이지 - 모든 정의되지 않은 경로 */}
