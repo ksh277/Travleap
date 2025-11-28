@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -16,7 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   List,
-  Map as MapIcon
+  Map as MapIcon,
+  Ticket
 } from 'lucide-react';
 import { getGoogleMapsApiKey } from '../utils/env';
 import { api } from '../utils/api';
@@ -39,6 +40,9 @@ interface Partner {
   };
   featured?: boolean;
   distance?: number; // km 단위 거리
+  is_coupon_partner?: boolean; // 쿠폰 사용 가능 가맹점
+  coupon_discount_type?: string;
+  coupon_discount_value?: number;
 }
 
 // 파트너 데이터 로딩 - partners 테이블에서 데이터 가져오기
@@ -127,7 +131,10 @@ const loadPartners = async (): Promise<Partner[]> => {
           image: imageUrl,
           description: partner.description || '신안의 아름다운 자연과 함께하는 특별한 체험',
           position: position,
-          featured: partner.is_featured === 1
+          featured: partner.is_featured === 1,
+          is_coupon_partner: partner.is_coupon_partner === 1 || partner.is_coupon_partner === true,
+          coupon_discount_type: partner.coupon_discount_type,
+          coupon_discount_value: partner.coupon_discount_value
         };
 
         partnersList.push(partnerCard);
@@ -148,6 +155,7 @@ const loadPartners = async (): Promise<Partner[]> => {
 
 export function PartnerPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const bannerImage = usePageBanner('partner');
   const [searchQuery, setSearchQuery] = useState('');
   const [fromDate, setFromDate] = useState<Date | undefined>();
@@ -165,7 +173,8 @@ export function PartnerPage() {
     priceRange: '',
     rating: '',
     sortBy: 'recommended', // 추천순, 최신순
-    timeSlot: '' // 시간대 필터
+    timeSlot: '', // 시간대 필터
+    couponOnly: false // 쿠폰 사용 가능 가맹점만
   });
   const [partners, setPartners] = useState<Partner[]>([]);
   const [filteredPartners, setFilteredPartners] = useState<Partner[]>([]);
@@ -185,6 +194,14 @@ export function PartnerPage() {
   // 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6); // 페이지당 6개 (3행 x 2열)
+
+  // URL 파라미터로 쿠폰 필터 초기화
+  useEffect(() => {
+    const couponOnlyParam = searchParams.get('couponOnly');
+    if (couponOnlyParam === 'true') {
+      setFilters(prev => ({ ...prev, couponOnly: true }));
+    }
+  }, [searchParams]);
 
   // 날짜 포맷 함수
   const formatDate = (date: Date | undefined) => {
@@ -564,6 +581,11 @@ export function PartnerPage() {
       filtered = filtered.filter(partner => partner.rating >= minRating);
     }
 
+    // 쿠폰 필터
+    if (filters.couponOnly) {
+      filtered = filtered.filter(partner => partner.is_coupon_partner === true);
+    }
+
     // 정렬 적용
     if (filters.sortBy === 'recommended') {
       // 추천순: featured 우선, 그다음 평점 높은 순
@@ -895,9 +917,20 @@ export function PartnerPage() {
                   </SelectContent>
                 </Select>
 
+                {/* 쿠폰 필터 버튼 */}
+                <Button
+                  variant={filters.couponOnly ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilters(prev => ({ ...prev, couponOnly: !prev.couponOnly }))}
+                  className={`text-sm ${filters.couponOnly ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
+                >
+                  <Ticket className="h-3 w-3 mr-1" />
+                  쿠폰 가능
+                </Button>
+
                 {/* 거리순 정렬 버튼 */}
                 {userLocation && (
-                  <Button 
+                  <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
@@ -951,6 +984,15 @@ export function PartnerPage() {
                       alt={partner.name}
                       className="w-full h-full object-cover"
                     />
+                    {/* 쿠폰 배지 */}
+                    {partner.is_coupon_partner && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-purple-600 text-white text-xs">
+                          <Ticket className="h-3 w-3 mr-1" />
+                          쿠폰
+                        </Badge>
+                      </div>
+                    )}
                     <button
                       className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
                       onClick={(e) => e.stopPropagation()}
@@ -1098,8 +1140,21 @@ export function PartnerPage() {
                     <SelectItem value="음식">음식</SelectItem>
                     <SelectItem value="관광지">관광지</SelectItem>
                     <SelectItem value="팝업">팝업</SelectItem>
+                    <SelectItem value="행사">행사</SelectItem>
+                    <SelectItem value="체험">체험</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {/* 쿠폰 필터 버튼 */}
+                <Button
+                  variant={filters.couponOnly ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilters(prev => ({ ...prev, couponOnly: !prev.couponOnly }))}
+                  className={`text-sm ${filters.couponOnly ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
+                >
+                  <Ticket className="h-3 w-3 mr-1" />
+                  쿠폰 가능
+                </Button>
 
                 {gpsLoading ? (
                   <Button
@@ -1199,6 +1254,15 @@ export function PartnerPage() {
                       alt={partner.name}
                       className="w-full h-full object-cover"
                     />
+                    {/* 쿠폰 배지 */}
+                    {partner.is_coupon_partner && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-purple-600 text-white text-xs">
+                          <Ticket className="h-3 w-3 mr-1" />
+                          쿠폰
+                        </Badge>
+                      </div>
+                    )}
                     <button
                       className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors"
                       onClick={(e) => e.stopPropagation()}

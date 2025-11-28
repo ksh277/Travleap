@@ -74,6 +74,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { CouponTestPage } from './components/CouponTestPage';
 import { PartnerCouponDashboard } from './components/PartnerCouponDashboard';
 import { CouponUsePage } from './components/CouponUsePage';
+import { CouponClaimPage } from './components/CouponClaimPage';
+import { MyCouponsPage } from './components/MyCouponsPage';
 import { ReviewModal } from './components/ReviewModal';
 
 import { Toaster } from './components/ui/sonner';
@@ -386,6 +388,8 @@ function AppContent() {
           {/* 쿠폰 시스템 */}
           <Route path="/coupon-test" element={<CouponTestPage />} />
           <Route path="/coupon/use" element={<CouponUsePage />} />
+          <Route path="/coupon/claim" element={<CouponClaimPage />} />
+          <Route path="/my/coupons" element={<MyCouponsPage />} />
 
           {/* 파트너 쿠폰 대시보드 (가맹점용) */}
           <Route path="/partner/coupon" element={

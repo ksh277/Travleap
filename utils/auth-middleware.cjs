@@ -1,8 +1,11 @@
 /**
  * JWT 인증 미들웨어
- * x-user-id 헤더를 JWT 인증으로 대체
- *
- * 파트너 계정인 경우 partnerId도 함께 반환
+ * 3단계 권한 구조:
+ * - SUPER_ADMIN: 최고관리자 (어썸 본사) - 모든 권한
+ * - MD_ADMIN: MD 관리자 - 운영 실무 (가맹점 승인, 쿠폰 관리, 광고 관리 등)
+ * - PARTNER: 입점자(가맹점 사장) - 자기 가게 관리, 쿠폰 사용 처리
+ * - VENDOR: 벤더 (쿠폰 시스템과 무관, 카테고리별 업체)
+ * - USER: 일반 사용자
  */
 
 const jwt = require('jsonwebtoken');
@@ -13,6 +16,47 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   console.error('❌ JWT_SECRET 환경변수가 설정되지 않았습니다!');
 }
+
+/**
+ * 역할(Role) 정의
+ */
+const ROLES = {
+  SUPER_ADMIN: 'super_admin',  // 최고관리자 (어썸)
+  MD_ADMIN: 'md_admin',        // MD 관리자
+  ADMIN: 'admin',              // 기존 admin (SUPER_ADMIN과 동일하게 처리)
+  PARTNER: 'partner',          // 입점자 (가맹점 사장)
+  VENDOR: 'vendor',            // 벤더 (카테고리별 업체)
+  USER: 'user'                 // 일반 사용자
+};
+
+/**
+ * 권한 체크 헬퍼 함수들
+ */
+const permissions = {
+  // 최고관리자인가? (admin 또는 super_admin)
+  isSuperAdmin: (role) => ['super_admin', 'admin'].includes(role),
+
+  // MD 관리자 이상인가?
+  isMDAdminOrAbove: (role) => ['super_admin', 'admin', 'md_admin'].includes(role),
+
+  // 파트너인가?
+  isPartner: (role) => role === 'partner',
+
+  // 벤더인가?
+  isVendor: (role) => role === 'vendor',
+
+  // 관리자 레벨인가? (MD 이상)
+  isAdminLevel: (role) => ['super_admin', 'admin', 'md_admin'].includes(role),
+
+  // 특정 권한 체크
+  canManagePartners: (role) => ['super_admin', 'admin', 'md_admin'].includes(role),
+  canApproveCoupons: (role) => ['super_admin', 'admin', 'md_admin'].includes(role),
+  canManageAds: (role) => ['super_admin', 'admin', 'md_admin'].includes(role),
+  canManagePayments: (role) => ['super_admin', 'admin'].includes(role),  // 결제는 최고관리자만
+  canManageSystem: (role) => ['super_admin', 'admin'].includes(role),    // 시스템 설정은 최고관리자만
+  canViewAllStats: (role) => ['super_admin', 'admin', 'md_admin'].includes(role),
+  canUseCouponScanner: (role) => role === 'partner',  // 쿠폰 스캐너는 파트너만
+};
 
 /**
  * Authorization 헤더에서 JWT 토큰 추출 및 검증
@@ -71,11 +115,25 @@ function verifyJWTFromRequest(req) {
 /**
  * API 핸들러를 JWT 인증으로 보호
  * @param {Function} handler - 원본 API 핸들러
- * @param {Object} options - { requireAuth: true, requireAdmin: false, allowedRoles: ['user', 'admin'] }
+ * @param {Object} options - {
+ *   requireAuth: true,           // 인증 필수 여부
+ *   requireAdmin: false,         // (레거시) admin 역할 필요 여부
+ *   requireSuperAdmin: false,    // SUPER_ADMIN (최고관리자) 필요
+ *   requireMDAdmin: false,       // MD_ADMIN 이상 필요
+ *   requirePartner: false,       // PARTNER 역할 필요
+ *   allowedRoles: ['user']       // 허용된 역할 배열
+ * }
  * @returns {Function} 인증이 추가된 핸들러
  */
 function withAuth(handler, options = {}) {
-  const { requireAuth = true, requireAdmin = false, allowedRoles = null } = options;
+  const {
+    requireAuth = true,
+    requireAdmin = false,
+    requireSuperAdmin = false,
+    requireMDAdmin = false,
+    requirePartner = false,
+    allowedRoles = null
+  } = options;
 
   return async function (req, res) {
     // JWT 검증
@@ -90,12 +148,39 @@ function withAuth(handler, options = {}) {
       });
     }
 
-    // requireAdmin 옵션 체크
-    if (requireAdmin && (!user || user.role !== 'admin')) {
+    // requireAdmin 옵션 체크 (레거시 - SUPER_ADMIN 동일 처리)
+    if (requireAdmin && (!user || !permissions.isSuperAdmin(user.role))) {
       return res.status(403).json({
         success: false,
         error: 'FORBIDDEN',
         message: '관리자 권한이 필요합니다.'
+      });
+    }
+
+    // SUPER_ADMIN (최고관리자) 권한 체크
+    if (requireSuperAdmin && (!user || !permissions.isSuperAdmin(user.role))) {
+      return res.status(403).json({
+        success: false,
+        error: 'FORBIDDEN',
+        message: '최고관리자 권한이 필요합니다.'
+      });
+    }
+
+    // MD_ADMIN 이상 권한 체크
+    if (requireMDAdmin && (!user || !permissions.isMDAdminOrAbove(user.role))) {
+      return res.status(403).json({
+        success: false,
+        error: 'FORBIDDEN',
+        message: 'MD 관리자 이상 권한이 필요합니다.'
+      });
+    }
+
+    // PARTNER 권한 체크
+    if (requirePartner && (!user || !permissions.isPartner(user.role))) {
+      return res.status(403).json({
+        success: false,
+        error: 'FORBIDDEN',
+        message: '파트너 권한이 필요합니다.'
       });
     }
 
@@ -151,5 +236,7 @@ function getUserIdFromRequest(req) {
 module.exports = {
   verifyJWTFromRequest,
   withAuth,
-  getUserIdFromRequest
+  getUserIdFromRequest,
+  ROLES,
+  permissions
 };

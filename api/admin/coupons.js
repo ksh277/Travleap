@@ -4,20 +4,14 @@ const { withSecureCors } = require('../../utils/cors-middleware.cjs');
 const { withStandardRateLimit } = require('../../utils/rate-limit-middleware.cjs');
 
 /**
- * 관리자 쿠폰 관리 API (관리자 전용)
+ * 관리자 쿠폰 관리 API (MD 관리자 이상)
  * GET: 모든 쿠폰 조회
  * POST: 쿠폰 생성
  * PUT: 쿠폰 수정
  * DELETE: 쿠폰 삭제
  */
 async function handler(req, res) {
-  // 관리자 권한 확인
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({
-      success: false,
-      error: '관리자 권한이 필요합니다.'
-    });
-  }
+  // MD 관리자 이상 권한 확인 (auth-middleware에서 처리됨)
 
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
@@ -301,8 +295,9 @@ async function handler(req, res) {
 }
 
 // 올바른 미들웨어 순서: CORS → RateLimit → Auth
+// MD 관리자 이상 권한 필요 (쿠폰 관리)
 module.exports = withSecureCors(
   withStandardRateLimit(
-    withAuth(handler, { requireAuth: true, requireAdmin: true })
+    withAuth(handler, { requireAuth: true, requireMDAdmin: true })
   )
 );

@@ -57,10 +57,9 @@ interface Partner {
   updated_at: string;
   // 쿠폰 관련 필드
   is_coupon_partner: boolean;
-  coupon_discount_type: 'PERCENT' | 'AMOUNT' | null;
+  coupon_discount_type: 'percent' | 'fixed' | null;
   coupon_discount_value: number | null;
   coupon_max_discount: number | null;
-  coupon_min_order: number | null;
   total_coupon_usage: number;
   total_discount_given: number;
 }
@@ -98,10 +97,9 @@ export function AdminPartners() {
 
   const [couponSettings, setCouponSettings] = useState({
     is_coupon_partner: false,
-    coupon_discount_type: 'PERCENT' as 'PERCENT' | 'AMOUNT',
+    coupon_discount_type: 'percent' as 'percent' | 'fixed',
     coupon_discount_value: 10,
-    coupon_max_discount: 10000,
-    coupon_min_order: 10000
+    coupon_max_discount: 10000
   });
 
   useEffect(() => {
@@ -111,7 +109,7 @@ export function AdminPartners() {
   const fetchPartners = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('/api/admin/partners', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -139,7 +137,7 @@ export function AdminPartners() {
         return;
       }
 
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('/api/admin/partners', {
         method: 'POST',
         headers: {
@@ -169,7 +167,7 @@ export function AdminPartners() {
     try {
       if (!selectedPartner) return;
 
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('/api/admin/partners', {
         method: 'PUT',
         headers: {
@@ -203,7 +201,7 @@ export function AdminPartners() {
     if (!confirm('정말 이 파트너를 삭제하시겠습니까?')) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`/api/admin/partners?id=${id}`, {
         method: 'DELETE',
         headers: {
@@ -229,7 +227,7 @@ export function AdminPartners() {
     if (!selectedPartner) return;
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('/api/admin/partners', {
         method: 'PATCH',
         headers: {
@@ -290,10 +288,9 @@ export function AdminPartners() {
     setSelectedPartner(partner);
     setCouponSettings({
       is_coupon_partner: partner.is_coupon_partner || false,
-      coupon_discount_type: partner.coupon_discount_type || 'PERCENT',
+      coupon_discount_type: partner.coupon_discount_type || 'percent',
       coupon_discount_value: partner.coupon_discount_value || 10,
-      coupon_max_discount: partner.coupon_max_discount || 10000,
-      coupon_min_order: partner.coupon_min_order || 10000
+      coupon_max_discount: partner.coupon_max_discount || 10000
     });
     setIsCouponDialogOpen(true);
   };
@@ -440,11 +437,11 @@ export function AdminPartners() {
                         <div className="flex flex-wrap gap-2 text-xs text-gray-600">
                           <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded flex items-center gap-1">
                             <Percent className="w-3 h-3" />
-                            {partner.coupon_discount_type === 'PERCENT'
+                            {partner.coupon_discount_type === 'percent'
                               ? `${partner.coupon_discount_value}% 할인`
                               : `${partner.coupon_discount_value?.toLocaleString()}원 할인`}
                           </span>
-                          {partner.coupon_max_discount && (
+                          {partner.coupon_max_discount && partner.coupon_discount_type === 'percent' && (
                             <span className="bg-gray-100 px-2 py-1 rounded">
                               최대 {partner.coupon_max_discount.toLocaleString()}원
                             </span>
@@ -547,64 +544,85 @@ export function AdminPartners() {
             </div>
 
             {couponSettings.is_coupon_partner && (
-              <>
+              <div className="space-y-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <h4 className="font-medium text-purple-700 flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  할인 설정
+                </h4>
+
                 <div>
                   <Label>할인 타입</Label>
                   <Select
                     value={couponSettings.coupon_discount_type}
-                    onValueChange={(value: 'PERCENT' | 'AMOUNT') => setCouponSettings({ ...couponSettings, coupon_discount_type: value })}
+                    onValueChange={(value: 'percent' | 'fixed') => setCouponSettings({ ...couponSettings, coupon_discount_type: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PERCENT">퍼센트 (%)</SelectItem>
-                      <SelectItem value="AMOUNT">정액 (원)</SelectItem>
+                      <SelectItem value="percent">퍼센트 할인 (%)</SelectItem>
+                      <SelectItem value="fixed">정액 할인 (원)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div>
-                  <Label>할인 값</Label>
-                  <Input
-                    type="number"
-                    value={couponSettings.coupon_discount_value || ''}
-                    onChange={(e) => setCouponSettings({ ...couponSettings, coupon_discount_value: parseInt(e.target.value) || 0 })}
-                    placeholder={couponSettings.coupon_discount_type === 'PERCENT' ? '10' : '5000'}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {couponSettings.coupon_discount_type === 'PERCENT' ? '퍼센트 값 입력' : '원 단위 입력'}
+                  <Label>
+                    {couponSettings.coupon_discount_type === 'percent' ? '할인율 (%)' : '할인 금액 (원)'}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      value={couponSettings.coupon_discount_value || ''}
+                      onChange={(e) => setCouponSettings({ ...couponSettings, coupon_discount_value: parseInt(e.target.value) || 0 })}
+                      placeholder={couponSettings.coupon_discount_type === 'percent' ? '10' : '5000'}
+                      className="pr-10"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                      {couponSettings.coupon_discount_type === 'percent' ? '%' : '원'}
+                    </span>
+                  </div>
+                </div>
+
+                {couponSettings.coupon_discount_type === 'percent' && (
+                  <div>
+                    <Label>최대 할인 금액 (원)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        value={couponSettings.coupon_max_discount || ''}
+                        onChange={(e) => setCouponSettings({ ...couponSettings, coupon_max_discount: parseInt(e.target.value) || 0 })}
+                        placeholder="10000"
+                        className="pr-10"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">원</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">퍼센트 할인 시 최대 할인 금액 제한</p>
+                  </div>
+                )}
+
+                {/* 미리보기 */}
+                <div className="p-3 bg-white rounded border">
+                  <p className="text-sm text-gray-600 mb-1">할인 미리보기:</p>
+                  <p className="font-bold text-purple-700">
+                    {couponSettings.coupon_discount_type === 'percent'
+                      ? `${couponSettings.coupon_discount_value}% 할인 (최대 ${(couponSettings.coupon_max_discount || 0).toLocaleString()}원)`
+                      : `${(couponSettings.coupon_discount_value || 0).toLocaleString()}원 할인`
+                    }
                   </p>
                 </div>
-
-                <div>
-                  <Label>최대 할인 금액 (원)</Label>
-                  <Input
-                    type="number"
-                    value={couponSettings.coupon_max_discount || ''}
-                    onChange={(e) => setCouponSettings({ ...couponSettings, coupon_max_discount: parseInt(e.target.value) || 0 })}
-                    placeholder="10000"
-                  />
-                </div>
-
-                <div>
-                  <Label>최소 주문 금액 (원)</Label>
-                  <Input
-                    type="number"
-                    value={couponSettings.coupon_min_order || ''}
-                    onChange={(e) => setCouponSettings({ ...couponSettings, coupon_min_order: parseInt(e.target.value) || 0 })}
-                    placeholder="10000"
-                  />
-                </div>
-              </>
+              </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCouponDialogOpen(false)}>
               취소
             </Button>
-            <Button onClick={handleCouponToggle}>
-              {couponSettings.is_coupon_partner ? '쿠폰 활성화' : '쿠폰 비활성화'}
+            <Button
+              onClick={handleCouponToggle}
+              className={couponSettings.is_coupon_partner ? 'bg-green-600 hover:bg-green-700' : ''}
+            >
+              {couponSettings.is_coupon_partner ? '쿠폰 활성화 저장' : '쿠폰 비활성화'}
             </Button>
           </DialogFooter>
         </DialogContent>

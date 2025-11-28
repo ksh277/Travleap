@@ -131,7 +131,8 @@ async function handler(req, res) {
         c.target_categories,
         c.default_discount_type,
         c.default_discount_value,
-        c.default_max_discount
+        c.default_max_discount,
+        c.valid_until as coupon_valid_until
       FROM user_coupons uc
       JOIN coupons c ON uc.coupon_id = c.id
       WHERE uc.coupon_code = ?
@@ -165,8 +166,9 @@ async function handler(req, res) {
       });
     }
 
-    // 5. 유효기간 확인
-    if (userCoupon.expires_at && new Date(userCoupon.expires_at) < new Date()) {
+    // 5. 유효기간 확인 (user_coupons.expires_at 또는 coupons.valid_until)
+    const expirationDate = userCoupon.expires_at || userCoupon.coupon_valid_until;
+    if (expirationDate && new Date(expirationDate) < new Date()) {
       await connection.execute(
         'UPDATE user_coupons SET status = "EXPIRED" WHERE id = ?',
         [userCoupon.user_coupon_id]
@@ -297,5 +299,5 @@ async function handler(req, res) {
   }
 }
 
-// 파트너 인증 필수
-module.exports = withPublicCors(withAuth(handler, { requireAuth: true }));
+// 파트너 인증 필수 (파트너만 쿠폰 사용 처리 가능)
+module.exports = withPublicCors(withAuth(handler, { requireAuth: true, requirePartner: true }));

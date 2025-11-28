@@ -8,16 +8,42 @@ interface User {
   email: string;
   name: string;
   phone?: string;
-  role: 'admin' | 'user' | 'partner' | 'vendor';
+  role: 'super_admin' | 'admin' | 'md_admin' | 'user' | 'partner' | 'vendor';
   vendorType?: string; // 'stay' (숙박) 또는 'rental' (렌트카) 등
   postal_code?: string;
   address?: string;
   detail_address?: string;
 }
 
+// 권한 관련 헬퍼 함수들
+const rolePermissions = {
+  // 최고관리자인가? (admin 또는 super_admin)
+  isSuperAdmin: (role: string | undefined) => role && ['super_admin', 'admin'].includes(role),
+  // MD 관리자 이상인가?
+  isMDAdminOrAbove: (role: string | undefined) => role && ['super_admin', 'admin', 'md_admin'].includes(role),
+  // 파트너인가?
+  isPartner: (role: string | undefined) => role === 'partner',
+  // 벤더인가?
+  isVendor: (role: string | undefined) => role === 'vendor',
+  // 관리자 레벨인가? (MD 이상 - 관리자 페이지 접근 가능)
+  isAdminLevel: (role: string | undefined) => role && ['super_admin', 'admin', 'md_admin'].includes(role),
+  // 특정 권한 체크
+  canManagePartners: (role: string | undefined) => role && ['super_admin', 'admin', 'md_admin'].includes(role),
+  canApproveCoupons: (role: string | undefined) => role && ['super_admin', 'admin', 'md_admin'].includes(role),
+  canManageAds: (role: string | undefined) => role && ['super_admin', 'admin', 'md_admin'].includes(role),
+  canManagePayments: (role: string | undefined) => role && ['super_admin', 'admin'].includes(role), // 결제는 최고관리자만
+  canManageSystem: (role: string | undefined) => role && ['super_admin', 'admin'].includes(role),   // 시스템 설정은 최고관리자만
+  canViewAllStats: (role: string | undefined) => role && ['super_admin', 'admin', 'md_admin'].includes(role),
+  canUseCouponScanner: (role: string | undefined) => role === 'partner', // 쿠폰 스캐너는 파트너만
+};
+
 interface AuthState {
   isLoggedIn: boolean;
-  isAdmin: boolean;
+  isAdmin: boolean;        // 레거시 - SUPER_ADMIN과 동일
+  isSuperAdmin: boolean;   // 최고관리자 (어썸 본사)
+  isMDAdmin: boolean;      // MD 관리자 이상
+  isPartner: boolean;      // 입점자 (가맹점 사장)
+  isVendor: boolean;       // 벤더
   user: User | null;
   token: string | null;
 }
@@ -26,6 +52,10 @@ interface AuthState {
 let globalState: AuthState = {
   isLoggedIn: false,
   isAdmin: false,
+  isSuperAdmin: false,
+  isMDAdmin: false,
+  isPartner: false,
+  isVendor: false,
   user: null,
   token: null
 };
@@ -107,7 +137,11 @@ const restoreSession = () => {
     // 5. 전역 상태 복원
     globalState = {
       isLoggedIn: true,
-      isAdmin: user.role === 'admin',
+      isAdmin: rolePermissions.isSuperAdmin(user.role) || false,
+      isSuperAdmin: rolePermissions.isSuperAdmin(user.role) || false,
+      isMDAdmin: rolePermissions.isMDAdminOrAbove(user.role) || false,
+      isPartner: rolePermissions.isPartner(user.role) || false,
+      isVendor: rolePermissions.isVendor(user.role) || false,
       user,
       token
     };
@@ -115,7 +149,9 @@ const restoreSession = () => {
     console.log('✅ 세션 복원 완료:', {
       email: user.email,
       role: user.role,
-      isAdmin: user.role === 'admin'
+      isSuperAdmin: globalState.isSuperAdmin,
+      isMDAdmin: globalState.isMDAdmin,
+      isPartner: globalState.isPartner
     });
 
     sessionRestored = true;
@@ -178,6 +214,10 @@ const clearSession = () => {
     globalState = {
       isLoggedIn: false,
       isAdmin: false,
+      isSuperAdmin: false,
+      isMDAdmin: false,
+      isPartner: false,
+      isVendor: false,
       user: null,
       token: null
     };
@@ -270,7 +310,11 @@ export const useAuth = () => {
       // 전역 상태 업데이트
       globalState = {
         isLoggedIn: true,
-        isAdmin: user.role === 'admin',
+        isAdmin: rolePermissions.isSuperAdmin(user.role) || false,
+        isSuperAdmin: rolePermissions.isSuperAdmin(user.role) || false,
+        isMDAdmin: rolePermissions.isMDAdminOrAbove(user.role) || false,
+        isPartner: rolePermissions.isPartner(user.role) || false,
+        isVendor: rolePermissions.isVendor(user.role) || false,
         user,
         token
       };
@@ -284,6 +328,10 @@ export const useAuth = () => {
         globalState = {
           isLoggedIn: false,
           isAdmin: false,
+          isSuperAdmin: false,
+          isMDAdmin: false,
+          isPartner: false,
+          isVendor: false,
           user: null,
           token: null
         };
@@ -364,11 +412,18 @@ export const useAuth = () => {
   console.log('🎯 useAuth 반환 상태:', {
     isLoggedIn: globalState.isLoggedIn,
     isAdmin: globalState.isAdmin,
+    isSuperAdmin: globalState.isSuperAdmin,
+    isMDAdmin: globalState.isMDAdmin,
+    isPartner: globalState.isPartner,
     user: globalState.user?.email || 'none',
+    role: globalState.user?.role || 'none',
     hasToken: !!globalState.token,
     sessionRestored,
     isLoading: !sessionRestored
   });
+
+  // 권한 체크 헬퍼 함수들
+  const userRole = globalState.user?.role;
 
   return {
     ...globalState,
@@ -381,6 +436,17 @@ export const useAuth = () => {
     refreshToken,
     // 유틸리티 함수들
     getAuthToken: () => globalState.token,
-    getCurrentUser: () => globalState.user
+    getCurrentUser: () => globalState.user,
+    // 권한 체크 함수들
+    canManagePartners: () => rolePermissions.canManagePartners(userRole),
+    canApproveCoupons: () => rolePermissions.canApproveCoupons(userRole),
+    canManageAds: () => rolePermissions.canManageAds(userRole),
+    canManagePayments: () => rolePermissions.canManagePayments(userRole),
+    canManageSystem: () => rolePermissions.canManageSystem(userRole),
+    canViewAllStats: () => rolePermissions.canViewAllStats(userRole),
+    canUseCouponScanner: () => rolePermissions.canUseCouponScanner(userRole),
   };
 };
+
+// rolePermissions export (다른 컴포넌트에서 사용 가능)
+export { rolePermissions };

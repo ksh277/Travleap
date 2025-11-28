@@ -3,13 +3,7 @@ const { withAuth } = require('../../utils/auth-middleware.cjs');
 const { withSecureCors } = require('../../utils/cors-middleware.cjs');
 
 async function handler(req, res) {
-  // 관리자 권한 확인
-  if (req.user?.role !== 'admin') {
-    return res.status(403).json({
-      success: false,
-      error: '관리자 권한이 필요합니다.'
-    });
-  }
+  // MD 관리자 이상 권한 확인 (auth-middleware에서 처리됨)
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -29,8 +23,7 @@ async function handler(req, res) {
           p.tier, p.partner_type, p.is_verified, p.is_featured,
           p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at,
           p.is_coupon_partner, p.coupon_discount_type, p.coupon_discount_value,
-          p.coupon_max_discount, p.coupon_min_order,
-          p.total_coupon_usage, p.total_discount_given
+          p.coupon_max_discount
         FROM partners p
         WHERE (p.partner_type != 'lodging' OR p.partner_type IS NULL)
         ORDER BY p.created_at DESC
@@ -138,7 +131,6 @@ async function handler(req, res) {
           coupon_discount_type = ?,
           coupon_discount_value = ?,
           coupon_max_discount = ?,
-          coupon_min_order = ?,
           updated_at = NOW()
         WHERE id = ?`,
         [
@@ -168,7 +160,6 @@ async function handler(req, res) {
           partnerData.coupon_discount_type || null,
           partnerData.coupon_discount_value || null,
           partnerData.coupon_max_discount || null,
-          partnerData.coupon_min_order || 0,
           id
         ]
       );
@@ -183,7 +174,7 @@ async function handler(req, res) {
 
     // PATCH - 쿠폰 ON/OFF 토글 (간단한 업데이트용)
     if (req.method === 'PATCH') {
-      const { id, is_coupon_partner, coupon_discount_type, coupon_discount_value, coupon_max_discount, coupon_min_order } = req.body;
+      const { id, is_coupon_partner, coupon_discount_type, coupon_discount_value, coupon_max_discount } = req.body;
 
       if (!id) {
         return res.status(400).json({
@@ -208,7 +199,6 @@ async function handler(req, res) {
           coupon_discount_type = ?,
           coupon_discount_value = ?,
           coupon_max_discount = ?,
-          coupon_min_order = ?,
           updated_at = NOW()
         WHERE id = ?`,
         [
@@ -216,7 +206,6 @@ async function handler(req, res) {
           coupon_discount_type || null,
           coupon_discount_value || null,
           coupon_max_discount || null,
-          coupon_min_order || 0,
           id
         ]
       );
@@ -258,4 +247,4 @@ async function handler(req, res) {
   }
 }
 
-module.exports = withSecureCors(withAuth(handler, { requireAuth: true, requireAdmin: true }));
+module.exports = withSecureCors(withAuth(handler, { requireAuth: true, requireMDAdmin: true }));

@@ -38,7 +38,16 @@ const LoadingFallback = () => (
 );
 
 export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimizedProps) {
-  const { isLoggedIn, isAdmin, sessionRestored } = useAuth();
+  const {
+    isLoggedIn,
+    isAdmin,
+    isSuperAdmin,
+    isMDAdmin,
+    user,
+    sessionRestored,
+    canManagePayments,
+    canManageSystem
+  } = useAuth();
 
   // 세션 복원 중
   if (!sessionRestored) {
@@ -55,8 +64,8 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
     );
   }
 
-  // 권한 없음 - 로그인하지 않았거나 관리자가 아님
-  if (!isLoggedIn || !isAdmin) {
+  // 권한 없음 - 로그인하지 않았거나 MD 관리자 이상이 아님
+  if (!isLoggedIn || !isMDAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-full max-w-md">
@@ -73,87 +82,141 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
     );
   }
 
+  // 역할 표시 텍스트
+  const getRoleLabel = () => {
+    if (isSuperAdmin) return '최고관리자';
+    if (isMDAdmin) return 'MD 관리자';
+    return '관리자';
+  };
+
   // 관리자 권한 확인 완료 - 대시보드 표시
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">관리자 대시보드</h1>
-            <p className="text-gray-600 mt-2">시스템을 관리하고 모니터링하세요</p>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900">관리자 대시보드</h1>
+              <span className={`px-3 py-1 text-sm rounded-full font-medium ${
+                isSuperAdmin
+                  ? 'bg-purple-100 text-purple-800'
+                  : 'bg-blue-100 text-blue-800'
+              }`}>
+                {getRoleLabel()}
+              </span>
+            </div>
+            <p className="text-gray-600 mt-2">
+              {isSuperAdmin
+                ? '시스템 전체를 관리하고 모니터링하세요'
+                : '가맹점, 쿠폰, 광고 등 운영 업무를 관리하세요'}
+            </p>
           </div>
           {/* ✅ 알림 벨 */}
           <NotificationBell />
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-10 lg:w-auto lg:inline-grid">
+          {/* 권한에 따라 탭 표시 */}
+          {/* SUPER_ADMIN: 모든 탭 표시 */}
+          {/* MD_ADMIN: 가맹점, 쿠폰, 문의, 미디어만 표시 */}
+          <TabsList className={`grid w-full lg:w-auto lg:inline-grid ${
+            isSuperAdmin ? 'grid-cols-10' : 'grid-cols-5'
+          }`}>
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
-            <TabsTrigger value="orders">주문</TabsTrigger>
+            {/* 주문 - SUPER_ADMIN만 (결제 관련) */}
+            {canManagePayments() && <TabsTrigger value="orders">주문</TabsTrigger>}
+            {/* 가맹점 - MD 이상 */}
             <TabsTrigger value="partners">가맹점</TabsTrigger>
+            {/* 쿠폰 - MD 이상 */}
             <TabsTrigger value="coupons">쿠폰</TabsTrigger>
-            <TabsTrigger value="coupon-settlements">쿠폰정산</TabsTrigger>
-            <TabsTrigger value="insurance">보험</TabsTrigger>
-            <TabsTrigger value="refund">환불정책</TabsTrigger>
+            {/* 쿠폰정산 - SUPER_ADMIN만 (결제 관련) */}
+            {canManagePayments() && <TabsTrigger value="coupon-settlements">쿠폰정산</TabsTrigger>}
+            {/* 보험 - SUPER_ADMIN만 (시스템 설정) */}
+            {canManageSystem() && <TabsTrigger value="insurance">보험</TabsTrigger>}
+            {/* 환불정책 - SUPER_ADMIN만 (시스템 설정) */}
+            {canManageSystem() && <TabsTrigger value="refund">환불정책</TabsTrigger>}
+            {/* 문의 - MD 이상 */}
             <TabsTrigger value="contacts">문의</TabsTrigger>
-            <TabsTrigger value="rentcar">렌트카</TabsTrigger>
+            {/* 렌트카 - SUPER_ADMIN만 (시스템 관리) */}
+            {canManageSystem() && <TabsTrigger value="rentcar">렌트카</TabsTrigger>}
+            {/* 미디어/광고 - MD 이상 */}
             <TabsTrigger value="media">미디어</TabsTrigger>
           </TabsList>
 
+          {/* 대시보드 - 모든 관리자 */}
           <Suspense fallback={<LoadingFallback />}>
             <TabsContent value="dashboard">
               <AdminDashboard />
             </TabsContent>
           </Suspense>
 
-          <Suspense fallback={<LoadingFallback />}>
-            <TabsContent value="orders">
-              <AdminOrders />
-            </TabsContent>
-          </Suspense>
+          {/* 주문 - SUPER_ADMIN만 */}
+          {canManagePayments() && (
+            <Suspense fallback={<LoadingFallback />}>
+              <TabsContent value="orders">
+                <AdminOrders />
+              </TabsContent>
+            </Suspense>
+          )}
 
+          {/* 가맹점 - MD 이상 */}
           <Suspense fallback={<LoadingFallback />}>
             <TabsContent value="partners">
               <AdminPartners />
             </TabsContent>
           </Suspense>
 
+          {/* 쿠폰 - MD 이상 */}
           <Suspense fallback={<LoadingFallback />}>
             <TabsContent value="coupons">
               <AdminCoupons />
             </TabsContent>
           </Suspense>
 
-          <Suspense fallback={<LoadingFallback />}>
-            <TabsContent value="coupon-settlements">
-              <AdminCouponSettlements />
-            </TabsContent>
-          </Suspense>
+          {/* 쿠폰정산 - SUPER_ADMIN만 */}
+          {canManagePayments() && (
+            <Suspense fallback={<LoadingFallback />}>
+              <TabsContent value="coupon-settlements">
+                <AdminCouponSettlements />
+              </TabsContent>
+            </Suspense>
+          )}
 
-          <Suspense fallback={<LoadingFallback />}>
-            <TabsContent value="insurance">
-              <AdminInsurance />
-            </TabsContent>
-          </Suspense>
+          {/* 보험 - SUPER_ADMIN만 */}
+          {canManageSystem() && (
+            <Suspense fallback={<LoadingFallback />}>
+              <TabsContent value="insurance">
+                <AdminInsurance />
+              </TabsContent>
+            </Suspense>
+          )}
 
-          <Suspense fallback={<LoadingFallback />}>
-            <TabsContent value="refund">
-              <AdminRefundPolicies />
-            </TabsContent>
-          </Suspense>
+          {/* 환불정책 - SUPER_ADMIN만 */}
+          {canManageSystem() && (
+            <Suspense fallback={<LoadingFallback />}>
+              <TabsContent value="refund">
+                <AdminRefundPolicies />
+              </TabsContent>
+            </Suspense>
+          )}
 
+          {/* 문의 - MD 이상 */}
           <Suspense fallback={<LoadingFallback />}>
             <TabsContent value="contacts">
               <AdminContacts />
             </TabsContent>
           </Suspense>
 
-          <TabsContent value="rentcar">
-            <Suspense fallback={<LoadingFallback />}>
-              <RentcarManagement />
-            </Suspense>
-          </TabsContent>
+          {/* 렌트카 - SUPER_ADMIN만 */}
+          {canManageSystem() && (
+            <TabsContent value="rentcar">
+              <Suspense fallback={<LoadingFallback />}>
+                <RentcarManagement />
+              </Suspense>
+            </TabsContent>
+          )}
 
+          {/* 미디어/광고 - MD 이상 */}
           <TabsContent value="media">
             <Suspense fallback={<LoadingFallback />}>
               <MediaManagement />

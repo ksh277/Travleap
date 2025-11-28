@@ -25,11 +25,18 @@ import {
   Percent,
   Calculator,
   History,
-  RefreshCw
+  RefreshCw,
+  CalendarDays,
+  Phone,
+  Mail,
+  Users,
+  Clock
 } from 'lucide-react';
+import { Badge } from './ui/badge';
 import { useAuth } from '../hooks/useAuth';
+import { Navigate } from 'react-router-dom';
 
-type TabType = 'scan' | 'history' | 'settings';
+type TabType = 'scan' | 'history' | 'reservations' | 'settings';
 
 interface CouponValidation {
   user_coupon_id: number;
@@ -60,10 +67,62 @@ interface UsageRecord {
   used_at: string;
 }
 
+interface Reservation {
+  id: number;
+  user_id: number;
+  listing_id: number;
+  listing_title: string;
+  check_in_date: string;
+  check_out_date: string;
+  guests: number;
+  total_price: number;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  special_requests?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  customer_name: string;
+  customer_email?: string;
+  created_at: string;
+}
+
 export function PartnerCouponDashboard() {
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, isLoggedIn, isPartner, sessionRestored, canUseCouponScanner } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('scan');
+
+  // 세션 복원 중
+  if (!sessionRestored) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-gray-600">세션을 확인하는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 로그인 안됨 또는 파트너가 아님
+  if (!isLoggedIn || !canUseCouponScanner()) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-md w-full">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 mb-2">접근 권한 없음</h2>
+          <p className="text-gray-600 mb-6">
+            이 페이지는 승인된 파트너(가맹점)만 접근할 수 있습니다.
+          </p>
+          {!isLoggedIn ? (
+            <Navigate to="/login?returnUrl=/partner/coupon" replace />
+          ) : (
+            <p className="text-sm text-gray-500">
+              파트너 등록이 필요하시면 관리자에게 문의하세요.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // 스캔 탭 상태
   const [couponCode, setCouponCode] = useState('');
@@ -88,6 +147,18 @@ export function PartnerCouponDashboard() {
     totalCount: 0,
     totalDiscount: 0
   });
+
+  // 예약 상태
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [loadingReservations, setLoadingReservations] = useState(false);
+  const [reservationStats, setReservationStats] = useState({
+    total_count: 0,
+    pending_count: 0,
+    confirmed_count: 0,
+    cancelled_count: 0,
+    total_revenue: 0
+  });
+  const [reservationFilter, setReservationFilter] = useState<string>('all');
 
   // URL에서 쿠폰 코드 가져오기
   useEffect(() => {
@@ -236,12 +307,55 @@ export function PartnerCouponDashboard() {
     }
   };
 
+  // 예약 목록 조회
+  const loadReservations = async () => {
+    setLoadingReservations(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const params = new URLSearchParams();
+      if (reservationFilter !== 'all') {
+        params.append('status', reservationFilter);
+      }
+
+      const response = await fetch(`/api/partner/reservations?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setReservations(data.data || []);
+        setReservationStats(data.stats || {
+          total_count: 0,
+          pending_count: 0,
+          confirmed_count: 0,
+          cancelled_count: 0,
+          total_revenue: 0
+        });
+      }
+    } catch (error) {
+      console.error('예약 조회 실패:', error);
+    } finally {
+      setLoadingReservations(false);
+    }
+  };
+
   // 탭 변경 시 데이터 로드
   useEffect(() => {
     if (activeTab === 'history') {
       loadUsageHistory();
+    } else if (activeTab === 'reservations') {
+      loadReservations();
     }
   }, [activeTab]);
+
+  // 예약 필터 변경 시 재조회
+  useEffect(() => {
+    if (activeTab === 'reservations') {
+      loadReservations();
+    }
+  }, [reservationFilter]);
 
   // 초기화
   const handleReset = () => {
@@ -277,7 +391,18 @@ export function PartnerCouponDashboard() {
             }`}
           >
             <QrCode className="h-4 w-4" />
-            쿠폰 스캔
+            쿠폰
+          </button>
+          <button
+            onClick={() => setActiveTab('reservations')}
+            className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
+              activeTab === 'reservations'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <CalendarDays className="h-4 w-4" />
+            예약
           </button>
           <button
             onClick={() => setActiveTab('history')}
@@ -288,7 +413,7 @@ export function PartnerCouponDashboard() {
             }`}
           >
             <History className="h-4 w-4" />
-            사용내역
+            내역
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -471,6 +596,131 @@ export function PartnerCouponDashboard() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* 예약 탭 */}
+        {activeTab === 'reservations' && (
+          <div className="space-y-4">
+            {/* 예약 통계 카드 */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card>
+                <CardContent className="py-4 text-center">
+                  <p className="text-gray-500 text-sm">대기중</p>
+                  <p className="text-2xl font-bold text-yellow-600">{reservationStats.pending_count}건</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="py-4 text-center">
+                  <p className="text-gray-500 text-sm">확정</p>
+                  <p className="text-2xl font-bold text-green-600">{reservationStats.confirmed_count}건</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardContent className="py-4 text-center">
+                <p className="text-gray-500 text-sm">총 매출</p>
+                <p className="text-2xl font-bold text-purple-600">{reservationStats.total_revenue.toLocaleString()}원</p>
+              </CardContent>
+            </Card>
+
+            {/* 필터 버튼 */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {[
+                { value: 'all', label: '전체' },
+                { value: 'pending', label: '대기중' },
+                { value: 'confirmed', label: '확정' },
+                { value: 'cancelled', label: '취소' },
+              ].map(({ value, label }) => (
+                <Button
+                  key={value}
+                  variant={reservationFilter === value ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setReservationFilter(value)}
+                  className={reservationFilter === value ? 'bg-purple-600 hover:bg-purple-700' : ''}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+
+            {/* 예약 리스트 */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-lg">예약 목록</CardTitle>
+                <Button variant="ghost" size="sm" onClick={loadReservations}>
+                  <RefreshCw className={`h-4 w-4 ${loadingReservations ? 'animate-spin' : ''}`} />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {loadingReservations ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
+                  </div>
+                ) : reservations.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <CalendarDays className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                    <p>예약이 없습니다</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {reservations.map((reservation) => (
+                      <div key={reservation.id} className="p-4 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-medium">{reservation.customer_name}</p>
+                            <p className="text-sm text-gray-500 line-clamp-1">{reservation.listing_title || '상품'}</p>
+                          </div>
+                          <Badge
+                            className={
+                              reservation.status === 'confirmed' ? 'bg-green-500' :
+                              reservation.status === 'pending' ? 'bg-yellow-500' :
+                              reservation.status === 'cancelled' ? 'bg-red-500' :
+                              'bg-gray-500'
+                            }
+                          >
+                            {reservation.status === 'confirmed' ? '확정' :
+                             reservation.status === 'pending' ? '대기' :
+                             reservation.status === 'cancelled' ? '취소' :
+                             reservation.status === 'completed' ? '완료' : reservation.status}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm text-gray-600 mb-2">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {new Date(reservation.check_in_date).toLocaleDateString('ko-KR')}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {reservation.guests}명
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <div className="text-sm">
+                            {reservation.contact_phone && (
+                              <a href={`tel:${reservation.contact_phone}`} className="flex items-center gap-1 text-blue-600">
+                                <Phone className="h-3 w-3" />
+                                {reservation.contact_phone}
+                              </a>
+                            )}
+                          </div>
+                          <p className="font-bold text-purple-600">{reservation.total_price?.toLocaleString()}원</p>
+                        </div>
+
+                        {reservation.special_requests && (
+                          <div className="mt-2 p-2 bg-yellow-50 rounded text-sm text-yellow-700">
+                            요청: {reservation.special_requests}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 

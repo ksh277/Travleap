@@ -82,17 +82,17 @@ async function handler(req, res) {
       });
     }
 
-    // 1. 쿠폰(캠페인) 조회
+    // 1. 쿠폰(캠페인) 조회 (기존 스키마에 맞춤)
     const couponResult = await connection.execute(`
       SELECT
-        id, code, name, description,
+        id, code, title, name, description,
         target_type, target_categories,
-        default_discount_type, default_discount_value, default_max_discount,
-        valid_from, valid_to,
-        usage_limit, current_usage, max_issues_per_user,
+        discount_type, discount_value, max_discount,
+        valid_from, valid_until,
+        usage_limit, current_usage, usage_per_user,
         is_active
       FROM coupons
-      WHERE code = ? AND is_active = TRUE
+      WHERE code = ? AND is_active = 1
       LIMIT 1
     `, [coupon_code.toUpperCase()]);
 
@@ -116,7 +116,7 @@ async function handler(req, res) {
       });
     }
 
-    if (coupon.valid_to && new Date(coupon.valid_to) < now) {
+    if (coupon.valid_until && new Date(coupon.valid_until) < now) {
       return res.status(400).json({
         success: false,
         error: 'COUPON_EXPIRED',
@@ -141,7 +141,7 @@ async function handler(req, res) {
     `, [userId, coupon.id]);
 
     const currentCount = userCouponCount.rows?.[0]?.count || 0;
-    const maxPerUser = coupon.max_issues_per_user || 1;
+    const maxPerUser = coupon.usage_per_user || 1;
 
     if (currentCount >= maxPerUser) {
       return res.status(400).json({
@@ -154,14 +154,14 @@ async function handler(req, res) {
     // 5. 랜덤 개인 쿠폰 코드 생성 (중복 방지)
     const personalCouponCode = await generateUniqueCouponCode(connection);
 
-    // 6. user_coupons에 발급
-    const expiresAt = coupon.valid_to || null;
-
+    // 6. user_coupons에 발급 (기존 스키마에 맞춤 - expires_at 없음)
     await connection.execute(`
       INSERT INTO user_coupons (
-        user_id, coupon_id, coupon_code, status, expires_at
-      ) VALUES (?, ?, ?, 'ISSUED', ?)
-    `, [userId, coupon.id, personalCouponCode, expiresAt]);
+        user_id, coupon_id, coupon_code, status
+      ) VALUES (?, ?, ?, 'ISSUED')
+    `, [userId, coupon.id, personalCouponCode]);
+
+    const expiresAt = coupon.valid_until || null;
 
     // 7. 쿠폰 발급 카운트 증가
     await connection.execute(`
@@ -178,13 +178,13 @@ async function handler(req, res) {
       message: '쿠폰이 발급되었습니다',
       data: {
         coupon_code: personalCouponCode,
-        coupon_name: coupon.name,
+        coupon_name: coupon.name || coupon.title,
         coupon_description: coupon.description,
-        discount_type: coupon.default_discount_type,
-        discount_value: coupon.default_discount_value,
-        max_discount: coupon.default_max_discount,
+        discount_type: coupon.discount_type,
+        discount_value: coupon.discount_value,
+        max_discount: coupon.max_discount,
         expires_at: expiresAt,
-        qr_url: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/coupon/use?code=${personalCouponCode}`
+        qr_url: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/partner/coupon?code=${personalCouponCode}`
       }
     });
 

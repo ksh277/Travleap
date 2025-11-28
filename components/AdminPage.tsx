@@ -48,6 +48,8 @@ import { AdminSystemSettings } from './admin/tabs/AdminSystemSettings';
 import { AdminSettlements } from './admin/tabs/AdminSettlements';
 import { AdminActivityLogs } from './admin/tabs/AdminActivityLogs';
 import { AdminInsurance } from './admin/tabs/AdminInsurance';
+import { AdminCoupons } from './admin/tabs/AdminCoupons';
+import { AdminCouponSettlements } from './admin/tabs/AdminCouponSettlements';
 import { PointAdjustmentDialog } from './admin/PointAdjustmentDialog';
 import { ShippingManagementDialog } from './ShippingManagementDialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -2672,12 +2674,13 @@ export function AdminPage({}: AdminPageProps) {
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
               <TabsTrigger value="settlements" className="text-xs md:text-sm">정산 관리</TabsTrigger>
             </TabsList>
-            <TabsList className="grid grid-cols-6 md:grid-cols-6 w-full">
+            <TabsList className="grid grid-cols-7 md:grid-cols-7 w-full">
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
               <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
               <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
               <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
               <TabsTrigger value="activity" className="text-xs md:text-sm">활동 로그</TabsTrigger>
+              <TabsTrigger value="coupons" className="text-xs md:text-sm">쿠폰</TabsTrigger>
               <TabsTrigger value="settings" className="text-xs md:text-sm">시스템 설정</TabsTrigger>
             </TabsList>
           </div>
@@ -5462,6 +5465,22 @@ export function AdminPage({}: AdminPageProps) {
           {/* 활동 로그 탭 */}
           <TabsContent value="activity" className="space-y-6">
             <AdminActivityLogs />
+          </TabsContent>
+
+          {/* 쿠폰 탭 - 서브탭: 쿠폰 관리, 정산 관리 */}
+          <TabsContent value="coupons" className="space-y-6">
+            <Tabs defaultValue="coupon-manage" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="coupon-manage" className="text-xs md:text-sm">쿠폰 관리</TabsTrigger>
+                <TabsTrigger value="coupon-settlements" className="text-xs md:text-sm">정산 관리</TabsTrigger>
+              </TabsList>
+              <TabsContent value="coupon-manage">
+                <AdminCoupons />
+              </TabsContent>
+              <TabsContent value="coupon-settlements">
+                <AdminCouponSettlements />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           {/* 시스템 설정 탭 */}
