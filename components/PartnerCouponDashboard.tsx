@@ -8,8 +8,9 @@
  * - 설정
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useLocation, Navigate } from 'react-router-dom';
+import { Html5Qrcode } from 'html5-qrcode';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -30,7 +31,9 @@ import {
   Phone,
   Mail,
   Users,
-  Clock
+  Clock,
+  Camera,
+  X
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useAuth } from '../hooks/useAuth';
@@ -133,6 +136,12 @@ export function PartnerCouponDashboard() {
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<CouponValidation | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // QR 카메라 스캐너 상태
+  const [isScanning, setIsScanning] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+  const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
+  const scannerContainerId = 'qr-reader';
 
   // 금액 입력 상태
   const [orderAmount, setOrderAmount] = useState('');
@@ -361,8 +370,99 @@ export function PartnerCouponDashboard() {
     }
   }, [reservationFilter]);
 
+  // QR 스캐너 시작
+  const startScanner = async () => {
+    setScannerError(null);
+
+    try {
+      // 기존 스캐너가 있으면 정리
+      if (html5QrcodeRef.current) {
+        try {
+          await html5QrcodeRef.current.stop();
+        } catch (e) {
+          // 이미 중지됨
+        }
+      }
+
+      const html5Qrcode = new Html5Qrcode(scannerContainerId);
+      html5QrcodeRef.current = html5Qrcode;
+
+      await html5Qrcode.start(
+        { facingMode: 'environment' }, // 후면 카메라
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText) => {
+          // QR 코드 스캔 성공
+          console.log('QR 스캔 성공:', decodedText);
+
+          // URL에서 쿠폰 코드 추출 (예: https://site.com/partner/coupon?code=ABC123)
+          let code = decodedText;
+          try {
+            const url = new URL(decodedText);
+            const codeParam = url.searchParams.get('code');
+            if (codeParam) {
+              code = codeParam;
+            }
+          } catch {
+            // URL이 아니면 그냥 코드로 사용
+          }
+
+          // 스캐너 중지 후 코드 설정 및 검증
+          stopScanner();
+          setCouponCode(code.toUpperCase());
+          handleValidate(code.toUpperCase());
+        },
+        (errorMessage) => {
+          // 스캔 중 오류 (무시 - QR 못찾는 것은 정상)
+        }
+      );
+
+      setIsScanning(true);
+    } catch (error: any) {
+      console.error('스캐너 시작 오류:', error);
+      if (error.name === 'NotAllowedError') {
+        setScannerError('카메라 접근 권한이 필요합니다. 브라우저 설정에서 허용해주세요.');
+      } else if (error.name === 'NotFoundError') {
+        setScannerError('카메라를 찾을 수 없습니다.');
+      } else {
+        setScannerError('카메라를 시작할 수 없습니다: ' + (error.message || '알 수 없는 오류'));
+      }
+      setIsScanning(false);
+    }
+  };
+
+  // QR 스캐너 중지
+  const stopScanner = async () => {
+    if (html5QrcodeRef.current) {
+      try {
+        await html5QrcodeRef.current.stop();
+      } catch (e) {
+        // 이미 중지됨
+      }
+      html5QrcodeRef.current = null;
+    }
+    setIsScanning(false);
+  };
+
+  // 컴포넌트 언마운트 시 스캐너 정리
+  useEffect(() => {
+    return () => {
+      stopScanner();
+    };
+  }, []);
+
+  // 탭 변경 시 스캐너 중지
+  useEffect(() => {
+    if (activeTab !== 'scan') {
+      stopScanner();
+    }
+  }, [activeTab]);
+
   // 초기화
   const handleReset = () => {
+    stopScanner();
     setCouponCode('');
     setValidation(null);
     setValidationError(null);
@@ -454,6 +554,68 @@ export function PartnerCouponDashboard() {
               </Card>
             ) : (
               <>
+                {/* QR 카메라 스캐너 */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between text-lg">
+                      <div className="flex items-center gap-2">
+                        <Camera className="h-5 w-5" />
+                        QR 코드 스캔
+                      </div>
+                      {isScanning && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={stopScanner}
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          닫기
+                        </Button>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {!isScanning ? (
+                      <Button
+                        onClick={startScanner}
+                        className="w-full bg-purple-600 hover:bg-purple-700 h-14 text-lg"
+                      >
+                        <Camera className="h-5 w-5 mr-2" />
+                        카메라로 QR 스캔하기
+                      </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        <div
+                          id={scannerContainerId}
+                          className="w-full rounded-lg overflow-hidden"
+                          style={{ minHeight: '280px' }}
+                        />
+                        <p className="text-sm text-center text-gray-500">
+                          고객의 쿠폰 QR 코드를 카메라에 비춰주세요
+                        </p>
+                      </div>
+                    )}
+
+                    {scannerError && (
+                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                        <span className="text-sm">{scannerError}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* 또는 직접 입력 */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-gray-50 text-gray-500">또는 직접 입력</span>
+                  </div>
+                </div>
+
                 {/* 쿠폰 코드 입력 */}
                 <Card>
                   <CardHeader>
