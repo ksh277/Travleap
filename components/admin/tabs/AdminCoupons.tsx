@@ -712,14 +712,22 @@ export function AdminCoupons() {
                   <Card>
                     <CardContent className="pt-6 text-center">
                       <Wallet className="w-8 h-8 mx-auto text-orange-600 mb-2" />
-                      <p className="text-2xl font-bold">{(overall.total_discount_amount / 10000).toFixed(0)}만</p>
+                      <p className="text-2xl font-bold">
+                        {overall.total_discount_amount >= 10000
+                          ? `${(overall.total_discount_amount / 10000).toFixed(1).replace(/\.0$/, '')}만`
+                          : `${overall.total_discount_amount.toLocaleString()}원`}
+                      </p>
                       <p className="text-sm text-gray-500">총 할인액</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="pt-6 text-center">
                       <BarChart3 className="w-8 h-8 mx-auto text-indigo-600 mb-2" />
-                      <p className="text-2xl font-bold">{(overall.total_order_amount / 10000).toFixed(0)}만</p>
+                      <p className="text-2xl font-bold">
+                        {overall.total_order_amount >= 10000
+                          ? `${(overall.total_order_amount / 10000).toFixed(1).replace(/\.0$/, '')}만`
+                          : `${overall.total_order_amount.toLocaleString()}원`}
+                      </p>
                       <p className="text-sm text-gray-500">총 주문액</p>
                     </CardContent>
                   </Card>
