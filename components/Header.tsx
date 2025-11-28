@@ -177,11 +177,13 @@ export function Header({
                   className="text-white hover:text-blue-100 transition-colors"
                   onClick={() => navigate(
                     isAdmin ? "/admin" :
+                    user?.role === 'partner' ? "/partner/dashboard" :
                     user?.role === 'vendor' ? getVendorDashboardPath() :
                     "/mypage"
                   )}
                 >
                   {isAdmin ? "관리자페이지" :
+                   user?.role === 'partner' ? "파트너 대시보드" :
                    user?.role === 'vendor' ? "벤더 대시보드" :
                    "마이페이지"}
                 </button>
@@ -315,6 +317,14 @@ export function Header({
                     >
                       {t('admin', selectedLanguage)}
                     </Button>
+                  ) : user?.role === 'partner' ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate("/partner/dashboard")}
+                      className="text-green-600 border-green-600 hover:bg-green-50"
+                    >
+                      파트너 대시보드
+                    </Button>
                   ) : user?.role === 'vendor' ? (
                     <Button
                       variant="outline"
@@ -435,6 +445,16 @@ export function Header({
                             className="block w-full text-left px-6 py-4 hover:bg-purple-50 text-purple-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
                           >
                             {t('admin', selectedLanguage)} 페이지
+                          </button>
+                        ) : user?.role === 'partner' ? (
+                          <button
+                            onClick={() => {
+                              navigate("/partner/dashboard");
+                              setMobileMenuOpen(false);
+                            }}
+                            className="block w-full text-left px-6 py-4 hover:bg-green-50 text-green-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
+                          >
+                            파트너 대시보드
                           </button>
                         ) : user?.role === 'vendor' ? (
                           <button

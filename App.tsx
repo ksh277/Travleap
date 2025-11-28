@@ -76,6 +76,7 @@ import { PartnerCouponDashboard } from './components/PartnerCouponDashboard';
 import { CouponUsePage } from './components/CouponUsePage';
 import { CouponClaimPage } from './components/CouponClaimPage';
 import { MyCouponsPage } from './components/MyCouponsPage';
+import { CouponQRPage } from './components/CouponQRPage';
 import { ReviewModal } from './components/ReviewModal';
 
 import { Toaster } from './components/ui/sonner';
@@ -389,6 +390,7 @@ function AppContent() {
           <Route path="/coupon-test" element={<CouponTestPage />} />
           <Route path="/coupon/use" element={<CouponUsePage />} />
           <Route path="/coupon/claim" element={<CouponClaimPage />} />
+          <Route path="/coupon/qr/:code" element={<CouponQRPage />} />
           <Route path="/my/coupons" element={<MyCouponsPage />} />
 
           {/* 파트너 쿠폰 대시보드 (가맹점용) */}

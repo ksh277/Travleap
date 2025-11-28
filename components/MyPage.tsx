@@ -1505,15 +1505,26 @@ export function MyPage() {
                               </div>
                             </div>
                             {coupon.status === 'ISSUED' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleCopyCouponCode(coupon.coupon_code)}
-                                className="flex items-center gap-1"
-                              >
-                                <Copy className="w-4 h-4" />
-                                복사
-                              </Button>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleCopyCouponCode(coupon.coupon_code)}
+                                  className="flex items-center gap-1"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                  복사
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => window.open(`/coupon/qr/${coupon.coupon_code}`, '_blank')}
+                                  className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700"
+                                >
+                                  <QrCode className="w-4 h-4" />
+                                  QR
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </div>
