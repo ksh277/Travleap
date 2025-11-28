@@ -152,6 +152,7 @@ export function PartnerCouponDashboard() {
   const [processing, setProcessing] = useState(false);
   const [useSuccess, setUseSuccess] = useState(false);
   const [useError, setUseError] = useState<string | null>(null);
+  const [usedResult, setUsedResult] = useState<{ discount_amount: number; final_amount: number } | null>(null);
 
   // 사용 내역 상태
   const [usageHistory, setUsageHistory] = useState<UsageRecord[]>([]);
@@ -285,6 +286,11 @@ export function PartnerCouponDashboard() {
         return;
       }
 
+      // API 응답에서 실제 할인금액/최종금액 저장
+      setUsedResult({
+        discount_amount: data.data?.discount_amount || calculatedDiscount,
+        final_amount: data.data?.final_amount || finalAmount
+      });
       setUseSuccess(true);
       setValidation(null);
     } catch (error) {
@@ -475,6 +481,7 @@ export function PartnerCouponDashboard() {
     setFinalAmount(0);
     setUseSuccess(false);
     setUseError(null);
+    setUsedResult(null);
   };
 
   return (
@@ -548,8 +555,8 @@ export function PartnerCouponDashboard() {
                 <CardContent className="py-12 text-center">
                   <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                   <h2 className="text-xl font-bold text-gray-900 mb-2">쿠폰 사용 완료!</h2>
-                  <p className="text-gray-600 mb-2">할인 금액: {calculatedDiscount.toLocaleString()}원</p>
-                  <p className="text-gray-600 mb-6">최종 결제: {finalAmount.toLocaleString()}원</p>
+                  <p className="text-gray-600 mb-2">할인 금액: {(usedResult?.discount_amount || 0).toLocaleString()}원</p>
+                  <p className="text-gray-600 mb-6">최종 결제: {(usedResult?.final_amount || 0).toLocaleString()}원</p>
                   <Button onClick={handleReset} className="bg-purple-600 hover:bg-purple-700">
                     <RefreshCw className="h-4 w-4 mr-2" />
                     새 쿠폰 스캔
