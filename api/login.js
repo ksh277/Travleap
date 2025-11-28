@@ -74,6 +74,23 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    // 파트너인 경우 partnerId 확인
+    let partnerId = null;
+    if (user.role === 'partner') {
+      const planetscale = connect({ url: process.env.DATABASE_URL });
+      const partnerCheck = await planetscale.execute(
+        `SELECT id FROM partners WHERE user_id = ? AND status = 'approved' LIMIT 1`,
+        [user.id]
+      );
+
+      if (partnerCheck.rows && partnerCheck.rows.length > 0) {
+        partnerId = partnerCheck.rows[0].id;
+        console.log('✅ 파트너 ID 확인됨:', user.email, '→ partnerId:', partnerId);
+      } else {
+        console.log('⚠️ 파트너 정보를 찾을 수 없습니다:', user.email);
+      }
+    }
+
     // 벤더인 경우 벤더 타입 확인
     let vendorType = null;
     if (user.role === 'vendor') {
@@ -135,7 +152,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // JWT 토큰 생성 시 vendorType 포함
+    // JWT 토큰 생성 시 vendorType/partnerId 포함
     const tokenPayload = {
       userId: user.id,
       email: user.email,
@@ -143,6 +160,11 @@ module.exports = async function handler(req, res) {
       name: user.name,
       role: user.role
     };
+
+    // partnerId가 있으면 추가
+    if (partnerId) {
+      tokenPayload.partnerId = partnerId;
+    }
 
     // vendorType이 있으면 추가
     if (vendorType) {
@@ -165,6 +187,11 @@ module.exports = async function handler(req, res) {
       name: user.name,
       role: user.role
     };
+
+    // partnerId가 있으면 추가
+    if (partnerId) {
+      responseUser.partnerId = partnerId;
+    }
 
     // vendorType이 있으면 추가
     if (vendorType) {

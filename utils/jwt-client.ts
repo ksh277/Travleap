@@ -3,9 +3,10 @@
 export interface JWTPayload {
   userId: number;
   email: string;
-  role: 'admin' | 'user' | 'partner' | 'vendor';
+  role: 'admin' | 'user' | 'partner' | 'vendor' | 'super_admin' | 'md_admin';
   name: string;
   vendorType?: string; // 'stay' (숙박) 또는 'rental' (렌트카)
+  partnerId?: number;  // 파트너 ID (가맹점)
   iat?: number;
   exp?: number;
 }
