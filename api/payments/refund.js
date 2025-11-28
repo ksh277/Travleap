@@ -57,35 +57,118 @@ async function cancelTossPayment(paymentKey, cancelReason, cancelAmount = null) 
 /**
  * 환불 정책 조회 (DB에서 가져오기)
  *
+ * 우선순위:
+ * 1) 특정 상품(listing_id) 정책
+ * 2) 벤더/파트너(vendor_id) 정책 (refund_policies 테이블)
+ * 3) 파트너 개별 정책 (partners.cancellation_rules)
+ * 4) 카테고리 정책
+ * 5) 기본 정책 (fallback)
+ *
  * @param {Object} connection - PlanetScale connection
  * @param {number} listingId - 상품 ID
  * @param {string} category - 카테고리
- * @param {number} vendorId - 벤더 ID
+ * @param {number} partnerId - 파트너 ID (listings.partner_id)
  * @returns {Object} 환불 정책
  */
-async function getRefundPolicyFromDB(connection, listingId, category) {
+async function getRefundPolicyFromDB(connection, listingId, category, partnerId = null) {
   try {
-    // 우선순위: 1) 특정 상품 정책 > 2) 카테고리 정책 > 3) 기본 정책
-    const policies = await connection.execute(`
-      SELECT *
-      FROM refund_policies
-      WHERE is_active = TRUE
-        AND (
-          listing_id = ? OR
-          category = ? OR
-          (listing_id IS NULL AND category IS NULL)
-        )
-      ORDER BY priority DESC, id DESC
-      LIMIT 1
-    `, [listingId, category]);
+    console.log(`📋 [환불정책 조회] listing_id=${listingId}, category=${category}, partner_id=${partnerId}`);
 
-    if (policies.rows && policies.rows.length > 0) {
-      return policies.rows[0];
+    // 1. 특정 상품(listing_id) 정책 조회
+    if (listingId) {
+      const listingPolicy = await connection.execute(`
+        SELECT * FROM refund_policies
+        WHERE is_active = TRUE AND listing_id = ?
+        ORDER BY priority DESC, id DESC
+        LIMIT 1
+      `, [listingId]);
+
+      if (listingPolicy.rows && listingPolicy.rows.length > 0) {
+        console.log(`✅ [환불정책] 상품별 정책 적용: ${listingPolicy.rows[0].policy_name}`);
+        return listingPolicy.rows[0];
+      }
     }
 
-    // 기본 정책 (fallback - 하드코딩)
+    // 2. 벤더/파트너(vendor_id) 정책 조회 (refund_policies 테이블)
+    if (partnerId) {
+      const vendorPolicy = await connection.execute(`
+        SELECT * FROM refund_policies
+        WHERE is_active = TRUE AND vendor_id = ?
+        ORDER BY priority DESC, id DESC
+        LIMIT 1
+      `, [partnerId]);
+
+      if (vendorPolicy.rows && vendorPolicy.rows.length > 0) {
+        console.log(`✅ [환불정책] 벤더 정책(refund_policies) 적용: ${vendorPolicy.rows[0].policy_name}`);
+        return vendorPolicy.rows[0];
+      }
+
+      // 3. 파트너 개별 정책 조회 (partners.cancellation_rules)
+      const partnerRules = await connection.execute(`
+        SELECT id, company_name, cancellation_rules
+        FROM partners
+        WHERE id = ? AND cancellation_rules IS NOT NULL
+        LIMIT 1
+      `, [partnerId]);
+
+      if (partnerRules.rows && partnerRules.rows.length > 0) {
+        const partner = partnerRules.rows[0];
+        let rules = partner.cancellation_rules;
+
+        // JSON 문자열이면 파싱
+        if (typeof rules === 'string') {
+          try {
+            rules = JSON.parse(rules);
+          } catch (e) {
+            console.error('❌ [환불정책] partners.cancellation_rules 파싱 실패:', e);
+            rules = null;
+          }
+        }
+
+        if (rules && rules.rules && Array.isArray(rules.rules)) {
+          console.log(`✅ [환불정책] 파트너 개별 정책 적용: ${partner.company_name}`);
+          return {
+            policy_name: `${partner.company_name} 환불정책`,
+            is_refundable: rules.is_refundable !== false,
+            refund_policy_json: rules,
+            priority: 50 // 파트너 정책 우선순위
+          };
+        }
+      }
+    }
+
+    // 4. 카테고리 정책 조회
+    if (category) {
+      const categoryPolicy = await connection.execute(`
+        SELECT * FROM refund_policies
+        WHERE is_active = TRUE AND category = ? AND listing_id IS NULL AND vendor_id IS NULL
+        ORDER BY priority DESC, id DESC
+        LIMIT 1
+      `, [category]);
+
+      if (categoryPolicy.rows && categoryPolicy.rows.length > 0) {
+        console.log(`✅ [환불정책] 카테고리 정책 적용: ${categoryPolicy.rows[0].policy_name}`);
+        return categoryPolicy.rows[0];
+      }
+    }
+
+    // 5. 기본 정책 조회 (listing_id, category, vendor_id 모두 NULL)
+    const defaultPolicy = await connection.execute(`
+      SELECT * FROM refund_policies
+      WHERE is_active = TRUE AND listing_id IS NULL AND category IS NULL AND vendor_id IS NULL
+      ORDER BY priority DESC, id DESC
+      LIMIT 1
+    `);
+
+    if (defaultPolicy.rows && defaultPolicy.rows.length > 0) {
+      console.log(`✅ [환불정책] 기본 정책(DB) 적용: ${defaultPolicy.rows[0].policy_name}`);
+      return defaultPolicy.rows[0];
+    }
+
+    // 6. 최종 fallback (하드코딩 - DB에 정책이 없을 때만)
+    console.log(`⚠️ [환불정책] DB에 정책 없음 → 하드코딩 기본 정책 적용`);
     return {
-      policy_name: '기본 환불정책',
+      policy_name: '기본 환불정책 (시스템 기본값)',
       is_refundable: true,
       refund_policy_json: {
         rules: [
@@ -99,10 +182,10 @@ async function getRefundPolicyFromDB(connection, listingId, category) {
       }
     };
   } catch (error) {
-    console.error('환불 정책 조회 실패:', error);
+    console.error('❌ [환불정책] 조회 실패:', error);
     // 에러 발생 시 기본 정책 반환
     return {
-      policy_name: '기본 환불정책',
+      policy_name: '기본 환불정책 (에러 fallback)',
       is_refundable: true,
       refund_policy_json: {
         rules: [
@@ -606,7 +689,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
   try {
     console.log(`💰 [Refund] 환불 요청 시작: paymentKey=${paymentKey}, reason=${cancelReason}`);
 
-    // 1. DB에서 결제 정보 조회 (delivery_status 포함 + rentcar_bookings 지원 + 체크인/픽업 상태)
+    // 1. DB에서 결제 정보 조회 (delivery_status 포함 + rentcar_bookings 지원 + 체크인/픽업 상태 + partner_id)
     const paymentResult = await connection.execute(`
       SELECT
         p.*,
@@ -623,12 +706,14 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
         b.status as booking_status,
         b.check_in_info,
         l.category,
+        l.partner_id,
         rb.id as rentcar_booking_id,
         rb.booking_number as rentcar_booking_number,
         rb.pickup_date as rentcar_start_date,
         rb.total_krw as rentcar_amount,
         rb.status as rentcar_status,
-        rb.pickup_checked_in_at
+        rb.pickup_checked_in_at,
+        rb.vendor_id as rentcar_vendor_id
       FROM payments p
       LEFT JOIN bookings b ON p.booking_id = b.id
       LEFT JOIN listings l ON b.listing_id = l.id

@@ -172,7 +172,11 @@ async function handler(req, res) {
 
     console.log(`✅ [Coupon] 쿠폰 발급 완료: user=${userId}, code=${personalCouponCode}, coupon=${coupon.code}`);
 
-    // 8. 응답
+    // 8. 응답 - QR URL은 요청의 host에서 동적으로 생성
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers.host || req.headers['x-forwarded-host'] || 'travleap.vercel.app';
+    const baseUrl = `${protocol}://${host}`;
+
     return res.status(201).json({
       success: true,
       message: '쿠폰이 발급되었습니다',
@@ -184,7 +188,7 @@ async function handler(req, res) {
         discount_value: coupon.discount_value,
         max_discount: coupon.max_discount,
         expires_at: expiresAt,
-        qr_url: `${process.env.NEXT_PUBLIC_SITE_URL || ''}/partner/coupon?code=${personalCouponCode}`
+        qr_url: `${baseUrl}/partner/coupon?code=${personalCouponCode}`
       }
     });
 
