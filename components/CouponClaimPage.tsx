@@ -1,13 +1,13 @@
 /**
  * 쿠폰 받기 페이지
- * /coupon/claim?code=TESTCOUPON2024
+ * /coupon/claim?code=SHINAN2025
  *
+ * - URL에 code 파라미터가 있으면 버튼 클릭만으로 바로 발급
  * - 로그인 필요 (비로그인 시 로그인 유도)
- * - 쿠폰 코드 입력 또는 URL 파라미터로 받기
  * - 발급 후 QR 코드 표시
  * - "가맹점 보기" 버튼 → 쿠폰 사용 가능 가맹점 페이지로 이동
  *
- * 나중에는 채널톡/알림톡에서 이 페이지 링크로 연결
+ * 채널톡/알림톡에서 이 페이지 링크로 연결
  */
 
 import { useState, useEffect } from 'react';
@@ -41,23 +41,54 @@ interface ClaimedCoupon {
   qr_url: string;
 }
 
+interface CouponInfo {
+  code: string;
+  name: string;
+  description: string;
+  discount_type: string;
+  discount_value: number;
+  max_discount: number | null;
+  valid_until: string | null;
+}
+
 export function CouponClaimPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn, user, sessionRestored } = useAuth();
 
   const [couponCode, setCouponCode] = useState('');
+  const [couponInfo, setCouponInfo] = useState<CouponInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingInfo, setLoadingInfo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [claimedCoupon, setClaimedCoupon] = useState<ClaimedCoupon | null>(null);
 
-  // URL에서 쿠폰 코드 가져오기
+  // URL에서 쿠폰 코드 가져오기 & 쿠폰 정보 조회
   useEffect(() => {
     const codeFromUrl = searchParams.get('code');
     if (codeFromUrl) {
-      setCouponCode(codeFromUrl.toUpperCase());
+      const code = codeFromUrl.toUpperCase();
+      setCouponCode(code);
+      // 쿠폰 정보 조회 (미리보기용)
+      fetchCouponInfo(code);
     }
   }, [searchParams]);
+
+  // 쿠폰 정보 조회 (발급 전 미리보기)
+  const fetchCouponInfo = async (code: string) => {
+    setLoadingInfo(true);
+    try {
+      const response = await fetch(`/api/coupon/info?code=${code}`);
+      const data = await response.json();
+      if (data.success && data.data) {
+        setCouponInfo(data.data);
+      }
+    } catch (err) {
+      console.error('쿠폰 정보 조회 실패:', err);
+    } finally {
+      setLoadingInfo(false);
+    }
+  };
 
   // 쿠폰 발급 요청
   const handleClaim = async () => {
@@ -174,14 +205,13 @@ export function CouponClaimPage() {
                 </div>
               </div>
 
-              {/* 할인 정보 */}
+              {/* 할인 정보 - 가맹점별 다름 표시 */}
               <div className="bg-purple-100 rounded-lg p-4 mb-6">
                 <p className="text-purple-800 font-bold text-lg">
-                  {formatDiscount(
-                    claimedCoupon.discount_type,
-                    claimedCoupon.discount_value,
-                    claimedCoupon.max_discount
-                  )}
+                  가맹점별 할인 적용
+                </p>
+                <p className="text-purple-600 text-sm mt-1">
+                  할인율은 가맹점마다 다릅니다
                 </p>
                 {claimedCoupon.expires_at && (
                   <p className="text-purple-600 text-sm mt-1">
@@ -219,45 +249,37 @@ export function CouponClaimPage() {
               </div>
             </CardContent>
           </Card>
-        ) : (
-          /* 쿠폰 코드 입력 */
+        ) : couponInfo ? (
+          /* URL에 code가 있을 때: 쿠폰 정보 미리보기 + 버튼 클릭으로 발급 */
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Ticket className="w-5 h-5 text-purple-600" />
-                쿠폰 코드 입력
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* 로그인 필요 안내 */}
-              {!isLoggedIn && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <LogIn className="w-5 h-5 text-yellow-600 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-yellow-800">로그인이 필요합니다</p>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        쿠폰을 받으려면 먼저 로그인해주세요
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            <CardContent className="py-8 text-center">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full mb-4">
+                <Ticket className="w-10 h-10 text-purple-600" />
+              </div>
+
+              <h2 className="text-xl font-bold text-gray-900 mb-2">{couponInfo.name}</h2>
+              {couponInfo.description && (
+                <p className="text-gray-600 mb-4">{couponInfo.description}</p>
               )}
 
-              {/* 쿠폰 코드 입력 */}
-              <div>
-                <Input
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="쿠폰 코드 입력 (예: TESTCOUPON2024)"
-                  className="text-center font-mono text-lg"
-                  maxLength={30}
-                />
+              {/* 할인 정보 - 가맹점별 다름 */}
+              <div className="bg-purple-100 rounded-lg p-4 mb-6">
+                <p className="text-purple-800 font-bold text-lg">
+                  가맹점별 할인 적용
+                </p>
+                <p className="text-purple-600 text-sm mt-1">
+                  할인율은 가맹점마다 다릅니다
+                </p>
+                {couponInfo.valid_until && (
+                  <p className="text-purple-600 text-sm mt-2">
+                    유효기간: {new Date(couponInfo.valid_until).toLocaleDateString('ko-KR')}까지
+                  </p>
+                )}
               </div>
 
               {/* 에러 메시지 */}
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-red-700">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-center gap-2 text-red-700 mb-4">
                   <AlertCircle className="w-4 h-4" />
                   <span className="text-sm">{error}</span>
                 </div>
@@ -266,8 +288,8 @@ export function CouponClaimPage() {
               {/* 발급 버튼 */}
               <Button
                 onClick={handleClaim}
-                disabled={loading || !couponCode.trim()}
-                className="w-full bg-purple-600 hover:bg-purple-700 py-6 text-lg"
+                disabled={loading}
+                className="w-full bg-purple-600 hover:bg-purple-700 py-6 text-lg mb-4"
               >
                 {loading ? (
                   <>
@@ -288,17 +310,41 @@ export function CouponClaimPage() {
               </Button>
 
               {/* 가맹점 보기 링크 */}
-              <div className="text-center pt-4 border-t">
-                <Button
-                  variant="link"
-                  onClick={goToPartners}
-                  className="text-purple-600"
-                >
-                  <Store className="w-4 h-4 mr-1" />
-                  쿠폰 사용 가능 가맹점 미리보기
-                  <ExternalLink className="w-3 h-3 ml-1" />
-                </Button>
-              </div>
+              <Button
+                variant="link"
+                onClick={goToPartners}
+                className="text-purple-600"
+              >
+                <Store className="w-4 h-4 mr-1" />
+                쿠폰 사용 가능 가맹점 보기
+                <ExternalLink className="w-3 h-3 ml-1" />
+              </Button>
+            </CardContent>
+          </Card>
+        ) : loadingInfo ? (
+          /* 쿠폰 정보 로딩 중 */
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-600 mb-4" />
+              <p className="text-gray-600">쿠폰 정보를 확인하는 중...</p>
+            </CardContent>
+          </Card>
+        ) : (
+          /* URL에 code가 없을 때: 안내 메시지 */
+          <Card>
+            <CardContent className="py-12 text-center">
+              <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-gray-900 mb-2">쿠폰 링크가 필요합니다</h2>
+              <p className="text-gray-600 mb-6">
+                채널톡이나 알림톡에서 받은<br />쿠폰 링크를 통해 접속해주세요
+              </p>
+              <Button
+                variant="outline"
+                onClick={goToPartners}
+              >
+                <Store className="w-4 h-4 mr-2" />
+                가맹점 둘러보기
+              </Button>
             </CardContent>
           </Card>
         )}
