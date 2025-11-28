@@ -34,12 +34,14 @@ import {
   ArrowDown,
   ArrowUpDown,
   Eye,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
+import RefundPolicySettings from './vendor/RefundPolicySettings';
 
 interface Restaurant {
   id: number;
@@ -607,6 +609,10 @@ export function FoodVendorDashboard() {
             <TabsTrigger value="orders">주문 관리</TabsTrigger>
             <TabsTrigger value="restaurants">음식점 정보</TabsTrigger>
             <TabsTrigger value="stock">재고 관리</TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="h-4 w-4 mr-2" />
+              설정
+            </TabsTrigger>
           </TabsList>
 
           {/* 주문 관리 탭 */}

@@ -206,7 +206,9 @@ async function handler(req, res) {
 
         // 파트너별 할인 설정이 있으면 우선 적용
         if (partnerInfo.coupon_discount_type && partnerInfo.coupon_discount_value) {
-          discountType = partnerInfo.coupon_discount_type;
+          // DB: 'percent' → 프론트: 'PERCENT' 변환
+          const partnerType = (partnerInfo.coupon_discount_type || '').toLowerCase();
+          discountType = (partnerType === 'percent' || partnerType === 'percentage') ? 'PERCENT' : 'AMOUNT';
           discountValue = partnerInfo.coupon_discount_value;
           maxDiscount = partnerInfo.coupon_max_discount || maxDiscount;
           minOrder = partnerInfo.coupon_min_order || 0;

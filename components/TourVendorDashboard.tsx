@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw, Download, ArrowUp, ArrowDown, ArrowUpDown, Eye, X } from 'lucide-react';
+import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw, Download, ArrowUp, ArrowDown, ArrowUpDown, Eye, X, Settings } from 'lucide-react';
 import { Button } from './ui/button';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
+import RefundPolicySettings from './vendor/RefundPolicySettings';
 
 interface TourPackage {
   id: number;
@@ -61,7 +62,7 @@ interface ListingWithStock {
 }
 
 const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
-  const [activeTab, setActiveTab] = useState<'packages' | 'schedules' | 'bookings' | 'stock'>('packages');
+  const [activeTab, setActiveTab] = useState<'packages' | 'schedules' | 'bookings' | 'stock' | 'settings'>('packages');
   const [packages, setPackages] = useState<TourPackage[]>([]);
   const [schedules, setSchedules] = useState<TourSchedule[]>([]);
   const [bookings, setBookings] = useState<TourBooking[]>([]);
@@ -481,6 +482,13 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
           onClick={() => setActiveTab('stock')}
         >
           📦 재고 관리
+        </button>
+        <button
+          className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          <Settings size={18} />
+          설정
         </button>
       </div>
 
@@ -932,6 +940,13 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 설정 탭 */}
+            {activeTab === 'settings' && (
+              <div className="settings-tab">
+                <RefundPolicySettings />
               </div>
             )}
           </>
