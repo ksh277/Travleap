@@ -18,8 +18,9 @@ async function handler(req, res) {
     });
   }
 
-  // 관리자 권한 확인
-  if (!req.user?.isAdmin) {
+  // 관리자 권한 확인 (withAuth에서 requireAdmin: true로 이미 확인됨)
+  const adminRoles = ['admin', 'super_admin', 'md_admin'];
+  if (!req.user || !adminRoles.includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       error: 'FORBIDDEN',
