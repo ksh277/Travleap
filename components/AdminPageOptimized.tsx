@@ -15,7 +15,6 @@ const AdminPartners = lazy(() => import('./admin/tabs/AdminPartners').then(m => 
 const AdminInsurance = lazy(() => import('./admin/tabs/AdminInsurance').then(m => ({ default: m.AdminInsurance })));
 const AdminRefundPolicies = lazy(() => import('./admin/tabs/AdminRefundPolicies').then(m => ({ default: m.AdminRefundPolicies })));
 const AdminCouponSettlements = lazy(() => import('./admin/tabs/AdminCouponSettlements').then(m => ({ default: m.AdminCouponSettlements })));
-const AdminCouponStats = lazy(() => import('./admin/tabs/AdminCouponStats').then(m => ({ default: m.AdminCouponStats })));
 
 // Import existing external components (already optimized)
 import { RentcarManagement } from './admin/RentcarManagement';
@@ -121,17 +120,15 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
           {/* SUPER_ADMIN: 모든 탭 표시 */}
           {/* MD_ADMIN: 가맹점, 쿠폰, 문의, 미디어만 표시 */}
           <TabsList className={`grid w-full lg:w-auto lg:inline-grid ${
-            isSuperAdmin ? 'grid-cols-11' : 'grid-cols-6'
+            isSuperAdmin ? 'grid-cols-10' : 'grid-cols-5'
           }`}>
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             {/* 주문 - SUPER_ADMIN만 (결제 관련) */}
             {canManagePayments() && <TabsTrigger value="orders">주문</TabsTrigger>}
             {/* 가맹점 - MD 이상 */}
             <TabsTrigger value="partners">가맹점</TabsTrigger>
-            {/* 쿠폰 - MD 이상 */}
+            {/* 쿠폰 - MD 이상 (쿠폰 관리 + 통계 통합) */}
             <TabsTrigger value="coupons">쿠폰</TabsTrigger>
-            {/* 쿠폰통계 - MD 이상 */}
-            <TabsTrigger value="coupon-stats">쿠폰통계</TabsTrigger>
             {/* 쿠폰정산 - SUPER_ADMIN만 (결제 관련) */}
             {canManagePayments() && <TabsTrigger value="coupon-settlements">쿠폰정산</TabsTrigger>}
             {/* 보험 - SUPER_ADMIN만 (시스템 설정) */}
@@ -169,17 +166,10 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
             </TabsContent>
           </Suspense>
 
-          {/* 쿠폰 - MD 이상 */}
+          {/* 쿠폰 - MD 이상 (관리 + 통계 통합) */}
           <Suspense fallback={<LoadingFallback />}>
             <TabsContent value="coupons">
               <AdminCoupons />
-            </TabsContent>
-          </Suspense>
-
-          {/* 쿠폰통계 - MD 이상 */}
-          <Suspense fallback={<LoadingFallback />}>
-            <TabsContent value="coupon-stats">
-              <AdminCouponStats />
             </TabsContent>
           </Suspense>
 
