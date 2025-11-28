@@ -2234,7 +2234,12 @@ export const api = {
         }
 
         const url = `${API_BASE_URL}/api/admin/partners${params.toString() ? '?' + params.toString() : ''}`;
-        const response = await fetch(url);
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch(url, {
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          }
+        });
 
         if (!response.ok) {
           throw new Error(`API returned ${response.status}`);
@@ -2259,10 +2264,12 @@ export const api = {
     // 파트너 승인/거부
     updatePartnerStatus: async (partnerId: number, status: 'approved' | 'rejected', adminId: number): Promise<ApiResponse<Partner>> => {
       try {
+        const token = localStorage.getItem('auth_token');
         const response = await fetch(`${API_BASE_URL}/api/admin/partners/${partnerId}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
           },
           body: JSON.stringify({ status })
         });
