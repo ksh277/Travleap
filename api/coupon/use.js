@@ -129,9 +129,9 @@ async function handler(req, res) {
         c.name as coupon_name,
         c.target_type,
         c.target_categories,
-        c.default_discount_type,
-        c.default_discount_value,
-        c.default_max_discount,
+        c.discount_type,
+        c.discount_value,
+        c.max_discount,
         c.valid_until as coupon_valid_until
       FROM user_coupons uc
       JOIN coupons c ON uc.coupon_id = c.id
@@ -215,9 +215,9 @@ async function handler(req, res) {
     }
 
     // 7. 할인 설정 결정 (파트너별 설정 우선)
-    let discountType = userCoupon.default_discount_type;
-    let discountValue = userCoupon.default_discount_value;
-    let maxDiscount = userCoupon.default_max_discount;
+    let discountType = userCoupon.discount_type === 'percentage' ? 'PERCENT' : 'AMOUNT';
+    let discountValue = userCoupon.discount_value;
+    let maxDiscount = userCoupon.max_discount;
     let minOrder = 0;
 
     if (partner.coupon_discount_type && partner.coupon_discount_value) {

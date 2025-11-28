@@ -55,9 +55,9 @@ async function handler(req, res) {
         c.description as coupon_description,
         c.target_type,
         c.target_categories,
-        c.default_discount_type,
-        c.default_discount_value,
-        c.default_max_discount,
+        c.discount_type,
+        c.discount_value,
+        c.max_discount,
         c.valid_until as coupon_valid_until
       FROM user_coupons uc
       JOIN coupons c ON uc.coupon_id = c.id
@@ -129,9 +129,9 @@ async function handler(req, res) {
 
     // 4. 파트너가 요청한 경우, 파트너 쿠폰 참여 여부 확인
     let partnerInfo = null;
-    let discountType = userCoupon.default_discount_type;
-    let discountValue = userCoupon.default_discount_value;
-    let maxDiscount = userCoupon.default_max_discount;
+    let discountType = userCoupon.discount_type === 'percentage' ? 'PERCENT' : 'AMOUNT';
+    let discountValue = userCoupon.discount_value;
+    let maxDiscount = userCoupon.max_discount;
     let minOrder = 0;
 
     if (partnerId) {
