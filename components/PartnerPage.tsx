@@ -992,7 +992,7 @@ export function PartnerPage() {
                           쿠폰
                         </Badge>
                         {partner.coupon_discount_value && (
-                          <Badge className="bg-orange-500 text-white text-xs font-bold">
+                          <Badge className="bg-orange-500 text-white text-sm lg:text-base font-bold px-2 py-1 shadow-md">
                             {partner.coupon_discount_type === 'percent' || partner.coupon_discount_type === 'PERCENT'
                               ? `${partner.coupon_discount_value}% 할인`
                               : `${partner.coupon_discount_value.toLocaleString()}원 할인`
@@ -1270,7 +1270,7 @@ export function PartnerPage() {
                           쿠폰
                         </Badge>
                         {partner.coupon_discount_value && (
-                          <Badge className="bg-orange-500 text-white text-xs font-bold">
+                          <Badge className="bg-orange-500 text-white text-sm lg:text-base font-bold px-2 py-1 shadow-md">
                             {partner.coupon_discount_type === 'percent' || partner.coupon_discount_type === 'PERCENT'
                               ? `${partner.coupon_discount_value}% 할인`
                               : `${partner.coupon_discount_value.toLocaleString()}원 할인`
