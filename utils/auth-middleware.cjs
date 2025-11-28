@@ -1,9 +1,12 @@
 /**
  * JWT 인증 미들웨어
  * x-user-id 헤더를 JWT 인증으로 대체
+ *
+ * 파트너 계정인 경우 partnerId도 함께 반환
  */
 
 const jwt = require('jsonwebtoken');
+const { connect } = require('@planetscale/database');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -107,6 +110,28 @@ function withAuth(handler, options = {}) {
 
     // req에 user 정보 추가
     req.user = user;
+
+    // 파트너 계정인 경우 partnerId 조회
+    if (user && user.role === 'partner') {
+      try {
+        const connection = connect({ url: process.env.DATABASE_URL });
+        const partnerResult = await connection.execute(
+          'SELECT id FROM partners WHERE user_id = ? AND status = "approved" LIMIT 1',
+          [user.userId]
+        );
+
+        if (partnerResult.rows && partnerResult.rows.length > 0) {
+          req.user.partnerId = partnerResult.rows[0].id;
+          console.log(`✅ [Auth] 파트너 ID 조회 성공: partnerId=${req.user.partnerId}`);
+        } else {
+          console.warn(`⚠️ [Auth] 파트너 정보 없음: userId=${user.userId}`);
+          req.user.partnerId = null;
+        }
+      } catch (partnerError) {
+        console.error('❌ [Auth] 파트너 ID 조회 실패:', partnerError.message);
+        req.user.partnerId = null;
+      }
+    }
 
     // 원본 핸들러 실행
     return handler(req, res);

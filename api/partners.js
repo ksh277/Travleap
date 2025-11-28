@@ -21,11 +21,12 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // 🔧 쿼리 파라미터로 partner_type 필터링 가능
-    const { type } = req.query || {};
+    // 🔧 쿼리 파라미터로 partner_type, coupon_only 필터링 가능
+    const { type, coupon_only } = req.query || {};
 
     // 활성화되고 승인된 파트너만 조회 (is_active = 1, status = 'approved')
     // type 파라미터가 있으면 해당 타입만, 없으면 렌트카/숙박 제외
+    // coupon_only=true면 쿠폰 참여 파트너만
     let query = `
       SELECT
         p.id, p.user_id, p.business_name, p.contact_name, p.email, p.phone, p.mobile_phone,
@@ -33,11 +34,17 @@ module.exports = async function handler(req, res) {
         p.detailed_address, p.description, p.business_hours,
         p.duration, p.min_age, p.max_capacity, p.language,
         p.tier, p.partner_type, p.is_verified, p.is_featured,
-        p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at
+        p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at,
+        p.is_coupon_partner, p.coupon_discount_type, p.coupon_discount_value, p.coupon_max_discount
       FROM partners p
       WHERE p.is_active = 1
         AND p.status = 'approved'
     `;
+
+    // 쿠폰 가맹점만 필터
+    if (coupon_only === 'true') {
+      query += ` AND p.is_coupon_partner = 1`;
+    }
 
     if (type === 'rentcar') {
       // 렌트카 파트너만 조회
@@ -64,7 +71,7 @@ module.exports = async function handler(req, res) {
       : await connection.execute(query);
 
     const partners = result.rows || [];
-    console.log(`✅ Partners API: ${partners.length}개 파트너 조회 성공 (type: ${type || 'all except rentcar'})`);
+    console.log(`✅ Partners API: ${partners.length}개 파트너 조회 성공 (type: ${type || 'all except rentcar'}, coupon_only: ${coupon_only || 'false'})`);
 
     return res.status(200).json({
       success: true,

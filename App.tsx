@@ -71,6 +71,10 @@ import VendorLodgingDashboard from './components/VendorLodgingDashboard';
 import VendorPMSSettings from './components/VendorPMSSettings';
 import LockTestPage from './components/LockTestPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { CouponTestPage } from './components/CouponTestPage';
+import { PartnerCouponDashboard } from './components/PartnerCouponDashboard';
+import { CouponUsePage } from './components/CouponUsePage';
+import { ReviewModal } from './components/ReviewModal';
 
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
@@ -379,6 +383,21 @@ function AppContent() {
           {/* Lock 시스템 테스트 페이지 (개발용) */}
           <Route path="/lock-test" element={<LockTestPage />} />
 
+          {/* 쿠폰 시스템 */}
+          <Route path="/coupon-test" element={<CouponTestPage />} />
+          <Route path="/coupon/use" element={<CouponUsePage />} />
+
+          {/* 파트너 쿠폰 대시보드 (가맹점용) */}
+          <Route path="/partner/coupon" element={
+            isLoggedIn && user?.role === 'partner' ? (
+              <ErrorBoundary>
+                <PartnerCouponDashboard />
+              </ErrorBoundary>
+            ) : (
+              <Navigate to="/login?redirect=/partner/coupon" replace />
+            )
+          } />
+
           {/* 404 페이지 - 모든 정의되지 않은 경로 */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -389,6 +408,7 @@ function AppContent() {
         onCategorySelect={(category) => navigate(`/${category}`)}
       />
       <Toaster />
+      <ReviewModal />
     </div>
   );
 }

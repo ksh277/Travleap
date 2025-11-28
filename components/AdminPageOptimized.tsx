@@ -11,6 +11,7 @@ const AdminDashboard = lazy(() => import('./admin/tabs/AdminDashboard').then(m =
 const AdminOrders = lazy(() => import('./admin/tabs/AdminOrders').then(m => ({ default: m.AdminOrders })));
 const AdminContacts = lazy(() => import('./admin/tabs/AdminContacts').then(m => ({ default: m.AdminContacts })));
 const AdminCoupons = lazy(() => import('./admin/tabs/AdminCoupons').then(m => ({ default: m.AdminCoupons })));
+const AdminPartners = lazy(() => import('./admin/tabs/AdminPartners').then(m => ({ default: m.AdminPartners })));
 const AdminInsurance = lazy(() => import('./admin/tabs/AdminInsurance').then(m => ({ default: m.AdminInsurance })));
 const AdminRefundPolicies = lazy(() => import('./admin/tabs/AdminRefundPolicies').then(m => ({ default: m.AdminRefundPolicies })));
 
@@ -85,9 +86,10 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:inline-grid">
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             <TabsTrigger value="orders">주문</TabsTrigger>
+            <TabsTrigger value="partners">가맹점</TabsTrigger>
             <TabsTrigger value="coupons">쿠폰</TabsTrigger>
             <TabsTrigger value="insurance">보험</TabsTrigger>
             <TabsTrigger value="refund">환불정책</TabsTrigger>
@@ -105,6 +107,12 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
           <Suspense fallback={<LoadingFallback />}>
             <TabsContent value="orders">
               <AdminOrders />
+            </TabsContent>
+          </Suspense>
+
+          <Suspense fallback={<LoadingFallback />}>
+            <TabsContent value="partners">
+              <AdminPartners />
             </TabsContent>
           </Suspense>
 
