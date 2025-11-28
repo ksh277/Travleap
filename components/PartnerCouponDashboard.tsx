@@ -941,16 +941,27 @@ export function PartnerCouponDashboard() {
                   <div className="space-y-3">
                     {usageHistory.map((record) => (
                       <div key={record.id} className="p-3 bg-gray-50 rounded-lg">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start mb-2">
                           <div>
                             <p className="font-medium">{record.customer_name}</p>
                             <p className="text-sm text-gray-500">{record.coupon_code}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-purple-600 font-medium">-{record.discount_amount.toLocaleString()}원</p>
-                            <p className="text-sm text-gray-500">
-                              {new Date(record.used_at).toLocaleDateString('ko-KR')}
-                            </p>
+                          <p className="text-sm text-gray-500">
+                            {new Date(record.used_at).toLocaleDateString('ko-KR')}
+                          </p>
+                        </div>
+                        <div className="text-sm space-y-1 pt-2 border-t border-gray-200">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">주문금액</span>
+                            <span>{record.order_amount?.toLocaleString() || 0}원</span>
+                          </div>
+                          <div className="flex justify-between text-purple-600">
+                            <span>할인</span>
+                            <span>-{record.discount_amount?.toLocaleString() || 0}원</span>
+                          </div>
+                          <div className="flex justify-between font-bold">
+                            <span>최종결제</span>
+                            <span>{record.final_amount?.toLocaleString() || 0}원</span>
                           </div>
                         </div>
                       </div>
