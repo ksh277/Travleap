@@ -365,8 +365,8 @@ export function Header({
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="p-0 w-[200px]">
-                <div className="grid gap-0 py-6">
+              <SheetContent side="right" className="p-0 w-[200px] overflow-y-auto">
+                <div className="grid gap-0 py-6 h-full overflow-y-auto">
                   {navigation.map((item) => (
                     <button
                       key={item.id}

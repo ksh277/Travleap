@@ -34,7 +34,10 @@ import {
   EyeOff,
   Receipt,
   Coins,
-  Key
+  Key,
+  Ticket,
+  QrCode,
+  Copy
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, type TravelItem } from '../utils/api';
@@ -157,6 +160,10 @@ export function MyPage() {
   const [pointsLoading, setPointsLoading] = useState(false);
   const [totalPoints, setTotalPoints] = useState(0);
   const [pointHistory, setPointHistory] = useState<any[]>([]);
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [couponStats, setCouponStats] = useState({ total: 0, issued: 0, used: 0, expired: 0 });
+  const [couponFilter, setCouponFilter] = useState<'all' | 'issued' | 'used' | 'expired'>('all');
   const [userProfile, setUserProfile] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -215,6 +222,7 @@ export function MyPage() {
       fetchUserData();
       fetchPayments();
       fetchPoints();
+      fetchCoupons();
     }
   }, [user]);
 
@@ -554,6 +562,63 @@ export function MyPage() {
       setPointHistory([]);
     } finally {
       setPointsLoading(false);
+    }
+  };
+
+  // 사용자 쿠폰 목록 가져오기
+  const fetchCoupons = async (filter: string = 'all') => {
+    if (!user) return;
+
+    setCouponsLoading(true);
+    try {
+      const response = await fetch(`/api/my/coupons?status=${filter}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      });
+
+      console.log('📡 [쿠폰] 응답 상태:', response.status, response.statusText);
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setCoupons(data.data || []);
+          setCouponStats(data.stats || { total: 0, issued: 0, used: 0, expired: 0 });
+          console.log('✅ [쿠폰] 로드 완료:', data.data?.length || 0, '개');
+        } else {
+          throw new Error(data.message || '쿠폰 조회 실패');
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ [쿠폰] 오류 응답:', response.status, errorData);
+        throw new Error(errorData.message || `쿠폰 조회 실패 (${response.status})`);
+      }
+    } catch (error) {
+      console.error('쿠폰 불러오기 오류:', error);
+      setCoupons([]);
+      setCouponStats({ total: 0, issued: 0, used: 0, expired: 0 });
+    } finally {
+      setCouponsLoading(false);
+    }
+  };
+
+  // 쿠폰 코드 복사
+  const handleCopyCouponCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast.success('쿠폰 코드가 복사되었습니다');
+  };
+
+  // 쿠폰 상태에 따른 배지 색상
+  const getCouponStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ISSUED':
+        return <Badge className="bg-green-100 text-green-800">사용가능</Badge>;
+      case 'USED':
+        return <Badge className="bg-gray-100 text-gray-800">사용완료</Badge>;
+      case 'EXPIRED':
+        return <Badge className="bg-red-100 text-red-800">만료</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
@@ -1117,7 +1182,11 @@ export function MyPage() {
               <span className="hidden sm:inline">포인트</span>
               <span className="sm:hidden">포인트</span>
             </TabsTrigger>
-            {/* 쿠폰 탭 제거 - 추후 별도 페이지/팝업으로 구현 예정 */}
+            <TabsTrigger value="coupons" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
+              <Ticket className="w-4 h-4 sm:hidden mr-2" />
+              <span className="hidden sm:inline">쿠폰함</span>
+              <span className="sm:hidden">쿠폰</span>
+            </TabsTrigger>
             <TabsTrigger value="favorites" className="text-xs sm:text-sm min-h-[44px] sm:min-h-[36px]">
               <Heart className="w-4 h-4 sm:hidden mr-2" />
               <span className="hidden sm:inline">찜한 상품</span>
@@ -1312,7 +1381,192 @@ export function MyPage() {
             </Card>
           </TabsContent>
 
-          {/* 보유 쿠폰 탭 제거 - 추후 별도 페이지/팝업으로 구현 예정 */}
+          {/* 쿠폰함 탭 */}
+          <TabsContent value="coupons" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <Ticket className="w-5 h-5 mr-2" />
+                    쿠폰함
+                  </div>
+                  {couponsLoading && (
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* 쿠폰 통계 */}
+                <div className="grid grid-cols-4 gap-2 mb-6">
+                  <button
+                    onClick={() => { setCouponFilter('all'); fetchCoupons('all'); }}
+                    className={`p-3 rounded-lg text-center transition-colors ${
+                      couponFilter === 'all' ? 'bg-purple-100 border-2 border-purple-500' : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="text-lg font-bold text-gray-800">{couponStats.total}</div>
+                    <div className="text-xs text-gray-500">전체</div>
+                  </button>
+                  <button
+                    onClick={() => { setCouponFilter('issued'); fetchCoupons('issued'); }}
+                    className={`p-3 rounded-lg text-center transition-colors ${
+                      couponFilter === 'issued' ? 'bg-green-100 border-2 border-green-500' : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="text-lg font-bold text-green-600">{couponStats.issued}</div>
+                    <div className="text-xs text-gray-500">사용가능</div>
+                  </button>
+                  <button
+                    onClick={() => { setCouponFilter('used'); fetchCoupons('used'); }}
+                    className={`p-3 rounded-lg text-center transition-colors ${
+                      couponFilter === 'used' ? 'bg-gray-200 border-2 border-gray-500' : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="text-lg font-bold text-gray-600">{couponStats.used}</div>
+                    <div className="text-xs text-gray-500">사용완료</div>
+                  </button>
+                  <button
+                    onClick={() => { setCouponFilter('expired'); fetchCoupons('expired'); }}
+                    className={`p-3 rounded-lg text-center transition-colors ${
+                      couponFilter === 'expired' ? 'bg-red-100 border-2 border-red-500' : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="text-lg font-bold text-red-600">{couponStats.expired}</div>
+                    <div className="text-xs text-gray-500">만료</div>
+                  </button>
+                </div>
+
+                {/* 쿠폰 사용 안내 */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start gap-2">
+                    <QrCode className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-semibold mb-1">쿠폰 사용 방법</p>
+                      <p className="text-xs">가맹점 방문 시 쿠폰 코드를 보여주시거나, 가맹점에서 QR코드를 스캔해주세요.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 쿠폰 목록 */}
+                {couponsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <span className="ml-2">쿠폰 목록을 불러오는 중...</span>
+                  </div>
+                ) : coupons.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Ticket className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">보유한 쿠폰이 없습니다</h3>
+                    <p className="text-gray-600 mb-4">쿠폰을 발급받아 가맹점에서 할인 혜택을 받으세요!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {coupons.map((coupon) => (
+                      <div
+                        key={coupon.id}
+                        className={`border rounded-lg p-4 transition-all ${
+                          coupon.status === 'ISSUED'
+                            ? 'border-green-200 bg-white hover:shadow-md'
+                            : coupon.status === 'USED'
+                            ? 'border-gray-200 bg-gray-50 opacity-75'
+                            : 'border-red-200 bg-red-50 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              {getCouponStatusBadge(coupon.status)}
+                              <span className="text-sm text-gray-500">
+                                {coupon.target_type === 'ALL' ? '전체 가맹점' :
+                                 coupon.target_type === 'CATEGORY' ? '카테고리 한정' : '특정 가맹점'}
+                              </span>
+                            </div>
+                            <h3 className="font-semibold text-lg">{coupon.coupon_name}</h3>
+                            {coupon.coupon_description && (
+                              <p className="text-sm text-gray-600 mt-1">{coupon.coupon_description}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-purple-600">
+                              {coupon.discount_type === 'percentage'
+                                ? `${coupon.discount_value}%`
+                                : `${Number(coupon.discount_value).toLocaleString()}원`}
+                            </div>
+                            {coupon.max_discount && coupon.discount_type === 'percentage' && (
+                              <div className="text-xs text-gray-500">
+                                최대 {Number(coupon.max_discount).toLocaleString()}원
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 쿠폰 코드 */}
+                        <div className="bg-gray-100 rounded-lg p-3 mb-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-xs text-gray-500 mb-1">쿠폰 코드</div>
+                              <div className="font-mono text-lg font-bold tracking-wider">
+                                {coupon.coupon_code}
+                              </div>
+                            </div>
+                            {coupon.status === 'ISSUED' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCopyCouponCode(coupon.coupon_code)}
+                                className="flex items-center gap-1"
+                              >
+                                <Copy className="w-4 h-4" />
+                                복사
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 유효기간 */}
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="text-gray-500">
+                            <Clock className="w-4 h-4 inline mr-1" />
+                            유효기간: {coupon.valid_from ? new Date(coupon.valid_from).toLocaleDateString('ko-KR') : '-'} ~{' '}
+                            {coupon.valid_until ? new Date(coupon.valid_until).toLocaleDateString('ko-KR') : '-'}
+                          </div>
+                        </div>
+
+                        {/* 사용 정보 (사용된 경우) */}
+                        {coupon.status === 'USED' && coupon.used_info && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="text-sm text-gray-600">
+                              <div className="flex justify-between mb-1">
+                                <span>사용 가맹점</span>
+                                <span className="font-medium">{coupon.used_info.partner_name}</span>
+                              </div>
+                              <div className="flex justify-between mb-1">
+                                <span>주문 금액</span>
+                                <span>{Number(coupon.used_info.order_amount).toLocaleString()}원</span>
+                              </div>
+                              <div className="flex justify-between mb-1">
+                                <span>할인 금액</span>
+                                <span className="text-red-600">-{Number(coupon.used_info.discount_amount).toLocaleString()}원</span>
+                              </div>
+                              <div className="flex justify-between font-semibold">
+                                <span>최종 결제 금액</span>
+                                <span>{Number(coupon.used_info.final_amount).toLocaleString()}원</span>
+                              </div>
+                              {coupon.used_at && (
+                                <div className="text-xs text-gray-400 mt-2">
+                                  사용일: {new Date(coupon.used_at).toLocaleString('ko-KR')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* 찜한 상품 탭 */}
           <TabsContent value="favorites" className="space-y-4">
