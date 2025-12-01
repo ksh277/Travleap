@@ -718,7 +718,7 @@ function PartnerForm({ formData, setFormData }: any) {
         <Input
           value={formData.services}
           onChange={(e) => setFormData({ ...formData, services: e.target.value })}
-          placeholder="식당, 카페, 숙박 등"
+          placeholder="여행, 숙박, 음식, 렌트카, 관광지, 팝업, 행사, 체험"
         />
       </div>
 

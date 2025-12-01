@@ -16,7 +16,9 @@ import {
   Clock,
   DollarSign,
   Heart,
-  Loader2
+  Loader2,
+  Save,
+  FolderHeart
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -79,6 +81,7 @@ export function AICoursePage() {
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
 
   const [step, setStep] = useState(1);
   const [preferences, setPreferences] = useState({
@@ -93,6 +96,8 @@ export function AICoursePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isSavingCourse, setIsSavingCourse] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   // Google Maps 초기화
   useEffect(() => {
@@ -124,9 +129,13 @@ export function AICoursePage() {
 
       googleMapRef.current = map;
 
-      // 기존 마커 제거
+      // 기존 마커 및 폴리라인 제거
       markersRef.current.forEach(marker => marker.setMap(null));
       markersRef.current = [];
+      if (polylineRef.current) {
+        polylineRef.current.setMap(null);
+        polylineRef.current = null;
+      }
 
       // 빨간색 마커 추가
       listings.forEach((listing, index) => {
@@ -168,6 +177,31 @@ export function AICoursePage() {
 
         markersRef.current.push(marker);
       });
+
+      // 코스 연결 Polyline 추가 (구글 경로처럼 선으로 연결)
+      const path = listings.map(l => ({ lat: l.lat, lng: l.lng }));
+
+      const polyline = new google.maps.Polyline({
+        path: path,
+        geodesic: true,
+        strokeColor: '#EF4444', // 빨간색 (마커와 동일)
+        strokeOpacity: 0.8,
+        strokeWeight: 4,
+        icons: [{
+          icon: {
+            path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            scale: 3,
+            strokeColor: '#EF4444',
+            fillColor: '#EF4444',
+            fillOpacity: 1
+          },
+          offset: '50%',
+          repeat: '100px'
+        }]
+      });
+
+      polyline.setMap(map);
+      polylineRef.current = polyline;
 
       // 지도 범위 조정
       const bounds = new google.maps.LatLngBounds();
@@ -223,8 +257,11 @@ export function AICoursePage() {
 
       if (data.success && data.recommendations && data.recommendations.length > 0) {
         setRecommendation(data.recommendations[0]);
+        setIsSaved(false); // 새 추천 시 저장 상태 초기화
         setStep(3);
-        toast.success(`AI 추천 완성! (${data.recommendations[0].method === 'openai' ? 'OpenAI' : '스마트 필터링'})`);
+        const methodName = data.recommendations[0].method === 'gemini' ? 'Gemini AI' :
+                          data.recommendations[0].method === 'openai' ? 'OpenAI' : '스마트 필터링';
+        toast.success(`AI 추천 완성! (${methodName})`);
       } else {
         throw new Error('No recommendations generated');
       }
@@ -313,6 +350,65 @@ export function AICoursePage() {
     }
   };
 
+  const saveCourse = async () => {
+    if (!recommendation) return;
+
+    // 로그인 확인
+    if (!isLoggedIn) {
+      toast.error('로그인이 필요합니다');
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+      return;
+    }
+
+    setIsSavingCourse(true);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+
+      const response = await fetch('/api/my/courses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          courseName: recommendation.courseName,
+          description: recommendation.description,
+          travelStyle: preferences.travelStyle,
+          budget: preferences.budget[0],
+          duration: preferences.duration,
+          groupSize: preferences.groupSize,
+          totalPrice: recommendation.totalPrice,
+          matchPercentage: recommendation.matchPercentage,
+          tips: recommendation.tips,
+          recommendations: recommendation.recommendations.map(rec => ({
+            listing_id: rec.listing?.id || rec.listing_id,
+            order: rec.order,
+            day: rec.day,
+            reason: rec.reason
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.message || errorData.error);
+      }
+
+      const data = await response.json();
+      setIsSaved(true);
+      toast.success('코스가 저장되었습니다!');
+
+    } catch (error: any) {
+      console.error('Failed to save course:', error);
+      toast.error(error.message || '코스 저장에 실패했습니다.');
+    } finally {
+      setIsSavingCourse(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
@@ -329,6 +425,16 @@ export function AICoursePage() {
             <p className="text-lg opacity-80 mt-2">
               좌표가 있는 상품들만 선택하여 지도에 빨간 핀으로 표시합니다
             </p>
+            {isLoggedIn && (
+              <Button
+                variant="outline"
+                className="mt-4 bg-white/20 border-white text-white hover:bg-white/30"
+                onClick={() => navigate('/my/courses')}
+              >
+                <FolderHeart className="h-4 w-4 mr-2" />
+                내 코스 보기
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -555,24 +661,52 @@ export function AICoursePage() {
                   </div>
                 </div>
 
-                {/* 전체 장바구니 담기 버튼 */}
-                <Button
-                  onClick={addAllToCart}
-                  disabled={isAddingToCart}
-                  className="w-full bg-red-500 hover:bg-red-600 text-white text-lg py-6"
-                >
-                  {isAddingToCart ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      장바구니에 담는 중...
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="h-5 w-5 mr-2" />
-                      전체 장바구니 담기 ({recommendation.recommendations.length}개)
-                    </>
-                  )}
-                </Button>
+                {/* 버튼 그룹 */}
+                <div className="flex gap-3">
+                  {/* 코스 저장 버튼 */}
+                  <Button
+                    onClick={saveCourse}
+                    disabled={isSavingCourse || isSaved}
+                    variant="outline"
+                    className="flex-1 text-lg py-6 border-2"
+                  >
+                    {isSavingCourse ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        저장 중...
+                      </>
+                    ) : isSaved ? (
+                      <>
+                        <FolderHeart className="h-5 w-5 mr-2 text-green-600" />
+                        저장 완료
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-5 w-5 mr-2" />
+                        코스 저장
+                      </>
+                    )}
+                  </Button>
+
+                  {/* 전체 장바구니 담기 버튼 */}
+                  <Button
+                    onClick={addAllToCart}
+                    disabled={isAddingToCart}
+                    className="flex-[2] bg-red-500 hover:bg-red-600 text-white text-lg py-6"
+                  >
+                    {isAddingToCart ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        장바구니에 담는 중...
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="h-5 w-5 mr-2" />
+                        전체 장바구니 담기 ({recommendation.recommendations.length}개)
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 

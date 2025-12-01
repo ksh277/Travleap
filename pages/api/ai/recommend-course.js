@@ -95,10 +95,20 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. OpenAI API 키 확인
+    // 2. AI API 키 확인 (Gemini 우선, OpenAI 대체)
+    const geminiKey = process.env.GEMINI_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
 
-    if (openaiKey && openaiKey.startsWith('sk-')) {
+    if (geminiKey && geminiKey.startsWith('AIza')) {
+      // Gemini API 사용
+      console.log('🤖 Using Gemini API for recommendations');
+      const aiRecommendations = await generateGeminiRecommendations(listings, preferences, geminiKey);
+      return res.status(200).json({
+        success: true,
+        method: 'gemini',
+        recommendations: aiRecommendations
+      });
+    } else if (openaiKey && openaiKey.startsWith('sk-')) {
       // OpenAI API 사용
       console.log('🤖 Using OpenAI API for recommendations');
       const aiRecommendations = await generateOpenAIRecommendations(listings, preferences, openaiKey);
@@ -108,8 +118,8 @@ export default async function handler(req, res) {
         recommendations: aiRecommendations
       });
     } else {
-      // 스마트 필터링 사용 (OpenAI 없을 때)
-      console.log('🧠 Using smart filtering (OpenAI key not configured)');
+      // 스마트 필터링 사용 (AI 키 없을 때)
+      console.log('🧠 Using smart filtering (No AI API key configured)');
       const smartRecommendations = generateSmartRecommendations(listings, preferences);
       return res.status(200).json({
         success: true,
@@ -124,6 +134,128 @@ export default async function handler(req, res) {
       success: false,
       error: error.message
     });
+  }
+}
+
+// Gemini API로 추천 생성
+async function generateGeminiRecommendations(listings, preferences, apiKey) {
+  try {
+    const prompt = `
+당신은 신안군 여행 전문 AI 플래너입니다. 사용자의 선호도에 맞는 최적의 여행 코스를 추천해주세요.
+
+다음 상품들로 ${preferences.duration || 2}일 여행 코스를 추천해주세요.
+
+여행 선호도:
+- 여행 스타일: ${preferences.travelStyle?.join(', ') || '미지정'}
+- 예산: ${preferences.budget?.[0]?.toLocaleString() || '미지정'}원
+- 인원: ${preferences.groupSize || 2}명
+- 관심사: ${preferences.interests?.join(', ') || '미지정'}
+
+사용 가능한 상품 (JSON):
+${JSON.stringify(listings.slice(0, 20).map(l => ({
+  id: l.id,
+  category: l.category,
+  title: l.title,
+  description: l.short_description,
+  price: l.price_from,
+  location: l.location,
+  lat: l.lat,
+  lng: l.lng,
+  rating: l.rating_avg,
+  tags: l.tags
+})))}
+
+다음 JSON 형식으로 4-6개 상품을 선택하여 추천해주세요. 반드시 JSON만 출력하세요:
+{
+  "course_name": "코스 이름",
+  "total_duration": "${preferences.duration || 2}일",
+  "total_price": 총가격숫자,
+  "description": "코스 설명",
+  "recommendations": [
+    {
+      "listing_id": 상품ID숫자,
+      "order": 순서숫자,
+      "day": 몇일차숫자,
+      "reason": "추천 이유"
+    }
+  ],
+  "tips": ["여행 팁1", "여행 팁2"]
+}
+`.trim();
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: prompt }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Gemini API error:', errorText);
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!aiResponse) {
+      throw new Error('Empty response from Gemini');
+    }
+
+    console.log('Gemini raw response:', aiResponse.substring(0, 500));
+
+    // JSON 파싱 (```json ... ``` 형식 처리)
+    let jsonStr = aiResponse;
+    const jsonBlockMatch = aiResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonBlockMatch) {
+      jsonStr = jsonBlockMatch[1];
+    } else {
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[0];
+      }
+    }
+
+    const recommendation = JSON.parse(jsonStr);
+
+    // 추천된 상품 상세 정보 매핑
+    const enrichedRecommendations = recommendation.recommendations.map(rec => {
+      const listing = listings.find(l => l.id === rec.listing_id);
+      return {
+        ...rec,
+        listing: listing || null
+      };
+    }).filter(rec => rec.listing !== null);
+
+    if (enrichedRecommendations.length === 0) {
+      throw new Error('No valid listings in AI recommendations');
+    }
+
+    return [{
+      id: 'gemini-1',
+      courseName: recommendation.course_name,
+      description: recommendation.description,
+      totalDuration: recommendation.total_duration,
+      totalPrice: recommendation.total_price || enrichedRecommendations.reduce((sum, r) => sum + (r.listing?.price_from || 0), 0),
+      recommendations: enrichedRecommendations,
+      tips: recommendation.tips || [],
+      matchPercentage: 95 + Math.floor(Math.random() * 5),
+      method: 'gemini'
+    }];
+
+  } catch (error) {
+    console.error('Gemini API failed, falling back to smart filtering:', error);
+    return generateSmartRecommendations(listings, preferences);
   }
 }
 

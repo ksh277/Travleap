@@ -33,12 +33,14 @@ import {
   Download,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
+import RefundPolicySettings from './vendor/RefundPolicySettings';
 
 interface Event {
   id: number;
@@ -587,6 +589,10 @@ export function EventsVendorDashboard() {
             <TabsTrigger value="orders">티켓 주문</TabsTrigger>
             <TabsTrigger value="events">행사 정보</TabsTrigger>
             <TabsTrigger value="stock">재고 관리</TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="h-4 w-4 mr-2" />
+              설정
+            </TabsTrigger>
           </TabsList>
 
           {/* 티켓 주문 탭 */}
@@ -1051,6 +1057,11 @@ export function EventsVendorDashboard() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* 설정 탭 */}
+          <TabsContent value="settings" className="space-y-4">
+            <RefundPolicySettings />
           </TabsContent>
         </Tabs>
 

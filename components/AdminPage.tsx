@@ -140,6 +140,10 @@ const loadProducts = async (): Promise<Product[]> => {
         category: (listing as any).category_name || categorySlugToName[(listing as any).category_slug] || listing.category || '미분류',
         price: listing.price_from || 0,
         location: listing.location || '',
+        address: (listing as any).address || '',
+        coordinates: (listing as any).lat && (listing as any).lng
+          ? `${(listing as any).lat},${(listing as any).lng}`
+          : '',
         rating: listing.rating_avg || 0,
         reviewCount: listing.rating_count || 0,
         image: (Array.isArray(imagesArray) && imagesArray.length > 0)
@@ -1413,7 +1417,10 @@ export function AdminPage({}: AdminPageProps) {
         stockEnabled: newProduct.stockEnabled || false,
         stock: newProduct.stock ? parseInt(newProduct.stock) : 0,
         shippingFee: newProduct.shippingFee ? parseInt(newProduct.shippingFee) : null,
-        is_refundable: newProduct.isRefundable !== undefined ? newProduct.isRefundable : true
+        is_refundable: newProduct.isRefundable !== undefined ? newProduct.isRefundable : true,
+        // 좌표 추가
+        lat: newProduct.coordinates ? parseFloat(newProduct.coordinates.split(',')[0]) || null : null,
+        lng: newProduct.coordinates ? parseFloat(newProduct.coordinates.split(',')[1]) || null : null
       };
 
       const response = await api.admin.createListing(listingData);
@@ -1514,6 +1521,17 @@ export function AdminPage({}: AdminPageProps) {
                       editingProduct.category === '행사' ? 'event' :
                       editingProduct.category === '체험' ? 'experience' : 'tour';
 
+      // 좌표 파싱
+      let lat = null;
+      let lng = null;
+      if ((editingProduct as any).coordinates) {
+        const coords = (editingProduct as any).coordinates.split(',');
+        if (coords.length === 2) {
+          lat = parseFloat(coords[0]) || null;
+          lng = parseFloat(coords[1]) || null;
+        }
+      }
+
       const updateData = {
         title: editingProduct.title,
         description: editingProduct.description || '',
@@ -1524,6 +1542,9 @@ export function AdminPage({}: AdminPageProps) {
         childPrice: null,
         infantPrice: null,
         location: editingProduct.location || '신안군',
+        address: (editingProduct as any).address || '',
+        lat,
+        lng,
         detailedAddress: '',
         meetingPoint: '',
         category_id: categoryMap[editingProduct.category] || 1855,
@@ -2698,7 +2719,7 @@ export function AdminPage({}: AdminPageProps) {
               <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
               <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
               <TabsTrigger value="activity" className="text-xs md:text-sm">활동 로그</TabsTrigger>
-              <TabsTrigger value="coupons" className="text-xs md:text-sm">캠페인 쿠폰</TabsTrigger>
+              <TabsTrigger value="coupons" className="text-xs md:text-sm">쿠폰</TabsTrigger>
               {canManageSystem() && (
                 <TabsTrigger value="settings" className="text-xs md:text-sm">시스템 설정</TabsTrigger>
               )}
@@ -3268,6 +3289,52 @@ export function AdminPage({}: AdminPageProps) {
                                     <span className="text-xs">{newProduct.coordinates}</span>
                                   </div>
                                 )}
+                              </div>
+                            )}
+
+                            {/* 지도 미리보기 + 핀 위치 조정 */}
+                            {newProduct.coordinates && (
+                              <div className="mt-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-medium">위치 확인 및 조정</span>
+                                  <span className="text-xs text-gray-500">마커를 드래그하여 정확한 위치로 이동</span>
+                                </div>
+                                <div
+                                  id="product-location-map"
+                                  className="w-full h-[200px] rounded-lg border border-gray-300"
+                                  ref={(el) => {
+                                    if (el && newProduct.coordinates && (window as any).google) {
+                                      const [lat, lng] = newProduct.coordinates.split(',').map(Number);
+                                      if (!isNaN(lat) && !isNaN(lng)) {
+                                        const map = new (window as any).google.maps.Map(el, {
+                                          center: { lat, lng },
+                                          zoom: 17,
+                                          mapTypeControl: false,
+                                          streetViewControl: false,
+                                          fullscreenControl: false
+                                        });
+
+                                        const marker = new (window as any).google.maps.Marker({
+                                          position: { lat, lng },
+                                          map,
+                                          draggable: true,
+                                          title: '드래그하여 위치 조정'
+                                        });
+
+                                        marker.addListener('dragend', () => {
+                                          const pos = marker.getPosition();
+                                          const newLat = pos.lat().toFixed(7);
+                                          const newLng = pos.lng().toFixed(7);
+                                          setNewProduct(prev => ({
+                                            ...prev,
+                                            coordinates: `${newLat},${newLng}`
+                                          }));
+                                          toast.success(`좌표 수정: ${newLat}, ${newLng}`);
+                                        });
+                                      }
+                                    }
+                                  }}
+                                />
                               </div>
                             )}
                           </div>
@@ -5799,9 +5866,55 @@ export function AdminPage({}: AdminPageProps) {
               {/* 위치 정보 */}
               <div>
                 <h3 className="text-lg font-medium mb-3">위치 정보</h3>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-3">
                   <div>
-                    <label className="text-sm font-medium mb-1 block">위치</label>
+                    <label className="text-sm font-medium mb-1 block">주소 검색</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        new (window as any).daum.Postcode({
+                          oncomplete: function(data: any) {
+                            const fullAddress = data.roadAddress || data.jibunAddress;
+                            const kakao = (window as any).kakao;
+
+                            if (kakao && kakao.maps) {
+                              const geocoder = new kakao.maps.services.Geocoder();
+                              geocoder.addressSearch(fullAddress, (result: any, status: any) => {
+                                if (status === kakao.maps.services.Status.OK) {
+                                  setEditingProduct(prev =>
+                                    prev ? {
+                                      ...prev,
+                                      address: fullAddress,
+                                      location: `${data.sido} ${data.sigungu}`,
+                                      coordinates: `${result[0].y},${result[0].x}`
+                                    } : null
+                                  );
+                                  toast.success('주소가 설정되었습니다.');
+                                } else {
+                                  setEditingProduct(prev =>
+                                    prev ? {
+                                      ...prev,
+                                      address: fullAddress,
+                                      location: `${data.sido} ${data.sigungu}`
+                                    } : null
+                                  );
+                                  toast.warning('좌표를 가져올 수 없어 주소만 저장되었습니다.');
+                                }
+                              });
+                            }
+                          }
+                        }).open();
+                      }}
+                      className="w-full justify-start text-left"
+                    >
+                      <MapPin className="h-4 w-4 mr-2" />
+                      {(editingProduct as any).address || editingProduct.location || '주소 검색하기'}
+                    </Button>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">지역</label>
                     <Input
                       value={editingProduct.location}
                       onChange={(e) => setEditingProduct(prev =>
@@ -5810,6 +5923,59 @@ export function AdminPage({}: AdminPageProps) {
                       placeholder="예: 신안군 증도면"
                     />
                   </div>
+
+                  {/* 좌표 표시 */}
+                  {(editingProduct as any).coordinates && (
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium">좌표: </span>
+                      <span className="text-xs">{(editingProduct as any).coordinates}</span>
+                    </div>
+                  )}
+
+                  {/* 지도 미리보기 + 핀 위치 조정 */}
+                  {(editingProduct as any).coordinates && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">위치 확인 및 조정</span>
+                        <span className="text-xs text-gray-500">마커를 드래그하여 정확한 위치로 이동</span>
+                      </div>
+                      <div
+                        className="w-full h-[200px] rounded-lg border border-gray-300"
+                        ref={(el) => {
+                          if (el && (editingProduct as any).coordinates && (window as any).google) {
+                            const coords = (editingProduct as any).coordinates;
+                            const [lat, lng] = coords.split(',').map(Number);
+                            if (!isNaN(lat) && !isNaN(lng)) {
+                              const map = new (window as any).google.maps.Map(el, {
+                                center: { lat, lng },
+                                zoom: 17,
+                                mapTypeControl: false,
+                                streetViewControl: false,
+                                fullscreenControl: false
+                              });
+
+                              const marker = new (window as any).google.maps.Marker({
+                                position: { lat, lng },
+                                map,
+                                draggable: true,
+                                title: '드래그하여 위치 조정'
+                              });
+
+                              marker.addListener('dragend', () => {
+                                const pos = marker.getPosition();
+                                const newLat = pos.lat().toFixed(7);
+                                const newLng = pos.lng().toFixed(7);
+                                setEditingProduct(prev =>
+                                  prev ? { ...prev, coordinates: `${newLat},${newLng}` } as any : null
+                                );
+                                toast.success(`좌표 수정: ${newLat}, ${newLng}`);
+                              });
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 

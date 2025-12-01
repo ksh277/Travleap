@@ -276,6 +276,16 @@ module.exports = async function handler(req, res) {
         values.push(listingData.isRefundable !== undefined ? (listingData.isRefundable ? 1 : 0) : null);
       }
 
+      // 좌표 필드 (지도 핀 조정 기능)
+      if (listingData.lat !== undefined) {
+        updates.push('lat = ?');
+        values.push(listingData.lat || null);
+      }
+      if (listingData.lng !== undefined) {
+        updates.push('lng = ?');
+        values.push(listingData.lng || null);
+      }
+
       if (updates.length === 0) {
         return res.status(400).json({
           success: false,

@@ -1082,6 +1082,11 @@ export function FoodVendorDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* 설정 탭 */}
+          <TabsContent value="settings" className="space-y-4">
+            <RefundPolicySettings />
+          </TabsContent>
         </Tabs>
       </div>
 

@@ -39,6 +39,7 @@ import { Badge } from './ui/badge';
 import { useAuth } from '../hooks/useAuth';
 
 type TabType = 'scan' | 'history' | 'reservations' | 'settings';
+type CouponType = 'campaign' | 'integrated';
 
 interface CouponValidation {
   user_coupon_id: number;
@@ -67,6 +68,31 @@ interface UsageRecord {
   discount_amount: number;
   final_amount: number;
   used_at: string;
+  coupon_type?: 'campaign' | 'integrated';
+}
+
+// 연동 쿠폰 검증 결과
+interface IntegratedCouponValidation {
+  id: number;
+  code: string;
+  name: string;
+  user_id: number;
+  customer_name: string;
+  region_name: string;
+  total_merchants: number;
+  used_merchants: number;
+  remaining_merchants: number;
+  expires_at: string;
+  status: string;
+  merchants: {
+    id: number;
+    business_name: string;
+    location: string;
+    discount_type: string;
+    discount_value: number;
+    max_discount: number;
+    already_used: boolean;
+  }[];
 }
 
 interface Reservation {
@@ -132,9 +158,11 @@ export function PartnerCouponDashboard() {
   }
 
   // 스캔 탭 상태
+  const [couponType, setCouponType] = useState<CouponType>('integrated'); // 기본: 연동 쿠폰
   const [couponCode, setCouponCode] = useState('');
   const [validating, setValidating] = useState(false);
   const [validation, setValidation] = useState<CouponValidation | null>(null);
+  const [integratedValidation, setIntegratedValidation] = useState<IntegratedCouponValidation | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // QR 카메라 스캐너 상태
@@ -186,34 +214,69 @@ export function PartnerCouponDashboard() {
 
   // 금액 변경 시 할인 계산
   useEffect(() => {
-    if (!validation || !orderAmount) {
-      setCalculatedDiscount(0);
-      setFinalAmount(0);
-      return;
-    }
-
     const amount = parseInt(orderAmount) || 0;
-    const { type, value, max_discount, min_order } = validation.discount;
 
-    if (amount < min_order) {
-      setCalculatedDiscount(0);
-      setFinalAmount(amount);
+    // 캠페인 쿠폰
+    if (couponType === 'campaign' && validation) {
+      const { type, value, max_discount, min_order } = validation.discount;
+
+      if (amount < min_order) {
+        setCalculatedDiscount(0);
+        setFinalAmount(amount);
+        return;
+      }
+
+      let discount = 0;
+      if (type === 'PERCENT') {
+        discount = Math.floor(amount * value / 100);
+        if (max_discount && discount > max_discount) {
+          discount = max_discount;
+        }
+      } else {
+        discount = value;
+      }
+
+      setCalculatedDiscount(discount);
+      setFinalAmount(amount - discount);
       return;
     }
 
-    let discount = 0;
-    if (type === 'PERCENT') {
-      discount = Math.floor(amount * value / 100);
-      if (max_discount && discount > max_discount) {
-        discount = max_discount;
+    // 연동 쿠폰 - 파트너 할인 규칙 적용
+    if (couponType === 'integrated' && integratedValidation) {
+      // 현재 파트너의 할인 규칙 찾기
+      const partnerId = user?.partnerId;
+      const merchantRule = integratedValidation.merchants.find(m => m.id === partnerId);
+
+      if (!merchantRule) {
+        setCalculatedDiscount(0);
+        setFinalAmount(amount);
+        return;
       }
-    } else {
-      discount = value;
+
+      let discount = 0;
+      const discountType = (merchantRule.discount_type || '').toUpperCase();
+
+      if (discountType === 'PERCENT' || discountType === 'PERCENTAGE') {
+        discount = Math.floor(amount * merchantRule.discount_value / 100);
+        if (merchantRule.max_discount && discount > merchantRule.max_discount) {
+          discount = merchantRule.max_discount;
+        }
+      } else {
+        discount = merchantRule.discount_value;
+        if (discount > amount) {
+          discount = amount;
+        }
+      }
+
+      setCalculatedDiscount(discount);
+      setFinalAmount(amount - discount);
+      return;
     }
 
-    setCalculatedDiscount(discount);
-    setFinalAmount(amount - discount);
-  }, [orderAmount, validation]);
+    // 기본값
+    setCalculatedDiscount(0);
+    setFinalAmount(0);
+  }, [orderAmount, validation, integratedValidation, couponType, user?.partnerId]);
 
   // 쿠폰 검증
   const handleValidate = async (code?: string) => {
@@ -225,26 +288,66 @@ export function PartnerCouponDashboard() {
 
     setValidating(true);
     setValidation(null);
+    setIntegratedValidation(null);
     setValidationError(null);
     setUseSuccess(false);
     setUseError(null);
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/coupon/validate?code=${targetCode}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+
+      // GOGO- 로 시작하면 연동 쿠폰, 아니면 캠페인 쿠폰
+      const isIntegrated = targetCode.toUpperCase().startsWith('GOGO-');
+      const actualCouponType = isIntegrated ? 'integrated' : 'campaign';
+      setCouponType(actualCouponType);
+
+      if (actualCouponType === 'integrated') {
+        // 연동 쿠폰 검증
+        const response = await fetch(`/api/coupon/${targetCode}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          setValidationError(data.message || '연동 쿠폰 검증 실패');
+          return;
         }
-      });
 
-      const data = await response.json();
+        // 현재 가맹점에서 이미 사용했는지 확인
+        const partnerId = user?.partnerId;
+        const merchantInfo = data.data.merchants?.find((m: any) => m.id === partnerId);
 
-      if (!response.ok) {
-        setValidationError(data.message || '쿠폰 검증 실패');
-        return;
+        if (!merchantInfo) {
+          setValidationError('이 쿠폰은 현재 가맹점에서 사용할 수 없습니다');
+          return;
+        }
+
+        if (merchantInfo.already_used) {
+          setValidationError('이 쿠폰은 이미 현재 가맹점에서 사용되었습니다');
+          return;
+        }
+
+        setIntegratedValidation(data.data);
+      } else {
+        // 캠페인 쿠폰 검증
+        const response = await fetch(`/api/coupon/validate?code=${targetCode}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          setValidationError(data.message || '쿠폰 검증 실패');
+          return;
+        }
+
+        setValidation(data.data);
       }
-
-      setValidation(data.data);
     } catch (error) {
       setValidationError('쿠폰 검증 중 오류가 발생했습니다');
     } finally {
@@ -254,11 +357,9 @@ export function PartnerCouponDashboard() {
 
   // 쿠폰 사용 처리
   const handleUseCoupon = async () => {
-    if (!validation || !orderAmount) return;
-
     const amount = parseInt(orderAmount);
-    if (amount < validation.discount.min_order) {
-      setUseError(`최소 주문 금액은 ${validation.discount.min_order.toLocaleString()}원입니다`);
+    if (!amount || amount <= 0) {
+      setUseError('주문 금액을 입력해주세요');
       return;
     }
 
@@ -267,32 +368,72 @@ export function PartnerCouponDashboard() {
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/coupon/use', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          coupon_code: couponCode,
-          order_amount: amount
-        })
-      });
 
-      const data = await response.json();
+      if (couponType === 'integrated' && integratedValidation) {
+        // 연동 쿠폰 사용 처리
+        const response = await fetch('/api/coupon/use-integrated', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            coupon_code: couponCode,
+            order_amount: amount
+          })
+        });
 
-      if (!response.ok) {
-        setUseError(data.message || '쿠폰 사용 처리 실패');
-        return;
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          setUseError(data.message || '연동 쿠폰 사용 처리 실패');
+          return;
+        }
+
+        // API 응답에서 실제 할인금액/최종금액 저장
+        setUsedResult({
+          discount_amount: data.data?.discount_amount || calculatedDiscount,
+          final_amount: data.data?.final_amount || finalAmount
+        });
+        setUseSuccess(true);
+        setIntegratedValidation(null);
+      } else if (couponType === 'campaign' && validation) {
+        // 캠페인 쿠폰 사용 처리
+        if (amount < validation.discount.min_order) {
+          setUseError(`최소 주문 금액은 ${validation.discount.min_order.toLocaleString()}원입니다`);
+          setProcessing(false);
+          return;
+        }
+
+        const response = await fetch('/api/coupon/use', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            coupon_code: couponCode,
+            order_amount: amount
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          setUseError(data.message || '쿠폰 사용 처리 실패');
+          return;
+        }
+
+        // API 응답에서 실제 할인금액/최종금액 저장
+        setUsedResult({
+          discount_amount: data.data?.discount_amount || calculatedDiscount,
+          final_amount: data.data?.final_amount || finalAmount
+        });
+        setUseSuccess(true);
+        setValidation(null);
+      } else {
+        setUseError('유효한 쿠폰이 없습니다');
       }
-
-      // API 응답에서 실제 할인금액/최종금액 저장
-      setUsedResult({
-        discount_amount: data.data?.discount_amount || calculatedDiscount,
-        final_amount: data.data?.final_amount || finalAmount
-      });
-      setUseSuccess(true);
-      setValidation(null);
     } catch (error) {
       setUseError('쿠폰 사용 처리 중 오류가 발생했습니다');
     } finally {
@@ -474,7 +615,9 @@ export function PartnerCouponDashboard() {
   const handleReset = () => {
     stopScanner();
     setCouponCode('');
+    setCouponType('integrated');
     setValidation(null);
+    setIntegratedValidation(null);
     setValidationError(null);
     setOrderAmount('');
     setCalculatedDiscount(0);
@@ -666,14 +809,14 @@ export function PartnerCouponDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* 검증 결과 */}
-                {validation && (
+                {/* 캠페인 쿠폰 검증 결과 */}
+                {validation && couponType === 'campaign' && (
                   <>
                     <Card className="border-green-200 bg-green-50">
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-lg text-green-700">
                           <CheckCircle className="h-5 w-5" />
-                          유효한 쿠폰
+                          유효한 쿠폰 (캠페인)
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-3">
@@ -767,6 +910,142 @@ export function PartnerCouponDashboard() {
                           )}
                           쿠폰 사용 처리
                         </Button>
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
+
+                {/* 연동 쿠폰 검증 결과 */}
+                {integratedValidation && couponType === 'integrated' && (
+                  <>
+                    <Card className="border-emerald-300 bg-emerald-50">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg text-emerald-700">
+                          <CheckCircle className="h-5 w-5" />
+                          유효한 쿠폰 (연동)
+                          <Badge className="bg-emerald-600 ml-2">GOGO</Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">쿠폰명</span>
+                          <span className="font-medium">{integratedValidation.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">쿠폰 코드</span>
+                          <span className="font-mono font-medium">{integratedValidation.code}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">고객명</span>
+                          <span className="font-medium">{integratedValidation.customer_name || '회원'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">지역</span>
+                          <span className="font-medium">{integratedValidation.region_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">사용 현황</span>
+                          <span className="font-medium">
+                            {integratedValidation.used_merchants} / {integratedValidation.total_merchants} 가맹점
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">유효기간</span>
+                          <span className="font-medium">
+                            {new Date(integratedValidation.expires_at).toLocaleDateString('ko-KR')}까지
+                          </span>
+                        </div>
+
+                        {/* 현재 가맹점 할인 정보 */}
+                        {(() => {
+                          const partnerId = user?.partnerId;
+                          const myRule = integratedValidation.merchants.find(m => m.id === partnerId);
+                          if (myRule) {
+                            return (
+                              <div className="pt-3 mt-3 border-t border-emerald-200">
+                                <p className="text-sm text-emerald-700 font-medium mb-2">현재 가맹점 할인 규칙:</p>
+                                <div className="bg-white p-3 rounded-lg">
+                                  <p className="font-bold text-lg text-emerald-700">
+                                    {myRule.discount_type.toUpperCase() === 'PERCENT' || myRule.discount_type.toUpperCase() === 'PERCENTAGE'
+                                      ? `${myRule.discount_value}% 할인`
+                                      : `${myRule.discount_value.toLocaleString()}원 할인`}
+                                  </p>
+                                  {myRule.max_discount > 0 && (
+                                    <p className="text-sm text-gray-500">최대 {myRule.max_discount.toLocaleString()}원</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </CardContent>
+                    </Card>
+
+                    {/* 연동 쿠폰 금액 입력 */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                          <Calculator className="h-5 w-5" />
+                          주문 금액 입력
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <Label htmlFor="orderAmountIntegrated">주문 금액 (원)</Label>
+                          <Input
+                            id="orderAmountIntegrated"
+                            type="number"
+                            value={orderAmount}
+                            onChange={(e) => setOrderAmount(e.target.value)}
+                            placeholder="0"
+                            className="mt-1 text-lg"
+                          />
+                        </div>
+
+                        {orderAmount && parseInt(orderAmount) > 0 && (
+                          <div className="space-y-2 pt-4 border-t">
+                            <div className="flex justify-between text-gray-600">
+                              <span>주문 금액</span>
+                              <span>{parseInt(orderAmount).toLocaleString()}원</span>
+                            </div>
+                            <div className="flex justify-between text-emerald-600">
+                              <span className="flex items-center gap-1">
+                                <Percent className="h-4 w-4" />
+                                할인 금액
+                              </span>
+                              <span>-{calculatedDiscount.toLocaleString()}원</span>
+                            </div>
+                            <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                              <span>최종 결제</span>
+                              <span>{finalAmount.toLocaleString()}원</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {useError && (
+                          <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+                            <AlertCircle className="h-4 w-4" />
+                            <span className="text-sm">{useError}</span>
+                          </div>
+                        )}
+
+                        <Button
+                          onClick={handleUseCoupon}
+                          disabled={processing || !orderAmount || calculatedDiscount === 0}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700"
+                        >
+                          {processing ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <Receipt className="h-4 w-4 mr-2" />
+                          )}
+                          연동 쿠폰 사용 처리
+                        </Button>
+
+                        <p className="text-xs text-gray-500 text-center">
+                          * 이 쿠폰은 현재 가맹점에서 1회만 사용 가능합니다
+                        </p>
                       </CardContent>
                     </Card>
                   </>

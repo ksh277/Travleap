@@ -34,13 +34,15 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  RefreshCw
+  RefreshCw,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { ShippingManagementDialog } from './ShippingManagementDialog';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
+import RefundPolicySettings from './vendor/RefundPolicySettings';
 
 interface Product {
   id: number;
@@ -540,6 +542,10 @@ export function PopupVendorDashboard() {
           <TabsList>
             <TabsTrigger value="orders">주문 관리</TabsTrigger>
             <TabsTrigger value="products">내 상품</TabsTrigger>
+            <TabsTrigger value="settings">
+              <Settings className="h-4 w-4 mr-2" />
+              설정
+            </TabsTrigger>
           </TabsList>
 
           {/* 주문 관리 탭 */}
@@ -1119,6 +1125,11 @@ export function PopupVendorDashboard() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* 설정 탭 */}
+          <TabsContent value="settings" className="space-y-4">
+            <RefundPolicySettings />
           </TabsContent>
         </Tabs>
       </div>
