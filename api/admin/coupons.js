@@ -40,6 +40,10 @@ async function handler(req, res) {
           current_usage,
           used_count,
           usage_per_user,
+          coupon_category,
+          member_target,
+          issued_count,
+          max_issues_per_user,
           created_at
         FROM coupons
         ORDER BY created_at DESC
@@ -82,7 +86,11 @@ async function handler(req, res) {
         valid_from,
         valid_until,
         usage_limit,
-        usage_per_user
+        usage_per_user,
+        // 새 필드
+        coupon_category,
+        member_target,
+        max_issues_per_user
       } = req.body;
 
       if (!code) {
@@ -121,8 +129,9 @@ async function handler(req, res) {
           target_category, target_type, target_categories,
           valid_from, valid_until,
           usage_limit, usage_per_user,
-          is_active, current_usage, used_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0)
+          coupon_category, member_target, max_issues_per_user,
+          is_active, current_usage, used_count, issued_count
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, 0, 0)
       `, [
         code.toUpperCase(),
         name || title || null,
@@ -139,7 +148,10 @@ async function handler(req, res) {
         valid_from || null,
         valid_until || null,
         usage_limit || null,
-        usage_per_user || 1
+        usage_per_user || 1,
+        coupon_category || 'product',
+        member_target || 'all',
+        max_issues_per_user || 1
       ]);
 
       console.log(`✅ [Admin] 쿠폰 생성: ${code}`);
@@ -174,7 +186,11 @@ async function handler(req, res) {
         valid_until,
         is_active,
         usage_limit,
-        usage_per_user
+        usage_per_user,
+        // 새 필드
+        coupon_category,
+        member_target,
+        max_issues_per_user
       } = req.body;
 
       if (!id) {
@@ -226,7 +242,10 @@ async function handler(req, res) {
           valid_until = ?,
           is_active = ?,
           usage_limit = ?,
-          usage_per_user = ?
+          usage_per_user = ?,
+          coupon_category = ?,
+          member_target = ?,
+          max_issues_per_user = ?
         WHERE id = ?
       `, [
         code?.toUpperCase(),
@@ -246,6 +265,9 @@ async function handler(req, res) {
         is_active !== undefined ? (is_active ? 1 : 0) : 1,
         usage_limit || null,
         usage_per_user || null,
+        coupon_category || 'product',
+        member_target || 'all',
+        max_issues_per_user || 1,
         id
       ]);
 

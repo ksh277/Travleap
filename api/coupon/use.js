@@ -151,20 +151,35 @@ async function handler(req, res) {
 
     const userCoupon = userCouponResult.rows[0];
 
-    // 4. 쿠폰 상태 확인
-    if (userCoupon.status === 'USED') {
+    // 4. 쿠폰 상태 확인 (ISSUED 또는 ACTIVE만 사용 가능)
+    if (userCoupon.status === 'EXPIRED') {
       return res.status(400).json({
         success: false,
-        error: 'ALREADY_USED',
-        message: '이미 사용된 쿠폰입니다'
+        error: 'COUPON_EXPIRED',
+        message: '만료된 쿠폰입니다'
       });
     }
 
-    if (userCoupon.status !== 'ISSUED') {
+    if (userCoupon.status !== 'ISSUED' && userCoupon.status !== 'ACTIVE') {
       return res.status(400).json({
         success: false,
         error: 'COUPON_INVALID',
         message: '사용할 수 없는 쿠폰입니다'
+      });
+    }
+
+    // 4-1. 해당 가맹점에서 이미 사용했는지 확인 (여러 가맹점 사용 가능)
+    const usageCheck = await connection.execute(`
+      SELECT id FROM user_coupon_usage
+      WHERE user_coupon_id = ? AND partner_id = ?
+      LIMIT 1
+    `, [userCoupon.user_coupon_id, partnerId]);
+
+    if (usageCheck.rows && usageCheck.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'ALREADY_USED_AT_PARTNER',
+        message: '이 가맹점에서 이미 사용한 쿠폰입니다. 다른 가맹점에서 사용 가능합니다.'
       });
     }
 
@@ -242,19 +257,47 @@ async function handler(req, res) {
     const discountAmount = calculateDiscount(order_amount, discountType, discountValue, maxDiscount);
     const finalAmount = order_amount - discountAmount;
 
-    // 10. 쿠폰 사용 처리
+    // 10. 사용 기록 저장 (user_coupon_usage 테이블)
+    // 첫 번째 사용인지 확인
+    const existingUsageCount = await connection.execute(`
+      SELECT COUNT(*) as count FROM user_coupon_usage WHERE user_coupon_id = ?
+    `, [userCoupon.user_coupon_id]);
+    const isFirstUse = (existingUsageCount.rows?.[0]?.count || 0) === 0;
+
+    // user_coupon_usage에 사용 기록 추가
     await connection.execute(`
-      UPDATE user_coupons
-      SET
-        status = 'USED',
-        used_at = NOW(),
-        used_partner_id = ?,
-        order_amount = ?,
-        discount_amount = ?,
-        final_amount = ?,
-        review_submitted = FALSE
-      WHERE id = ?
-    `, [partnerId, order_amount, discountAmount, finalAmount, userCoupon.user_coupon_id]);
+      INSERT INTO user_coupon_usage (
+        user_coupon_id, user_id, partner_id,
+        order_amount, discount_amount, final_amount,
+        is_first_use, used_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+    `, [
+      userCoupon.user_coupon_id,
+      userCoupon.user_id,
+      partnerId,
+      order_amount,
+      discountAmount,
+      finalAmount,
+      isFirstUse ? 1 : 0
+    ]);
+
+    // user_coupons 업데이트 (status는 ACTIVE로 유지, 첫 사용 가맹점 기록)
+    if (isFirstUse) {
+      await connection.execute(`
+        UPDATE user_coupons
+        SET
+          status = 'ACTIVE',
+          first_used_partner_id = ?,
+          total_usage_count = 1
+        WHERE id = ?
+      `, [partnerId, userCoupon.user_coupon_id]);
+    } else {
+      await connection.execute(`
+        UPDATE user_coupons
+        SET total_usage_count = COALESCE(total_usage_count, 0) + 1
+        WHERE id = ?
+      `, [userCoupon.user_coupon_id]);
+    }
 
     // 11. 파트너 통계 업데이트 (컬럼이 있는 경우에만)
     try {
@@ -287,12 +330,15 @@ async function handler(req, res) {
         coupon_code: userCoupon.coupon_code,
         coupon_name: userCoupon.coupon_name,
         partner_name: partner.business_name,
+        partner_id: partnerId,
         order_amount: order_amount,
         discount_type: discountType,
         discount_value: discountValue,
         discount_amount: discountAmount,
         final_amount: finalAmount,
-        used_at: new Date().toISOString()
+        used_at: new Date().toISOString(),
+        is_first_use: isFirstUse,
+        can_write_review: isFirstUse // 첫 번째 사용한 가맹점에서만 리뷰 작성 가능
       }
     });
 

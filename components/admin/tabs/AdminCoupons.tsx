@@ -56,6 +56,9 @@ interface Coupon {
   max_issues_per_user: number | null;
   remaining: number | null;
   created_at: string;
+  // 새 필드
+  coupon_category: 'product' | 'member' | 'couponbook';
+  member_target: 'all' | 'new';
 }
 
 interface OverallStats {
@@ -147,7 +150,10 @@ export function AdminCoupons() {
     usage_limit: null as number | null,
     usage_per_user: null as number | null,
     max_issues_per_user: 1,
-    is_active: true
+    is_active: true,
+    // 새 필드
+    coupon_category: 'product' as 'product' | 'member' | 'couponbook',
+    member_target: 'all' as 'all' | 'new'
   });
 
   // 통계 상태
@@ -406,7 +412,9 @@ export function AdminCoupons() {
       usage_limit: coupon.usage_limit,
       usage_per_user: coupon.usage_per_user,
       max_issues_per_user: coupon.max_issues_per_user || 1,
-      is_active: coupon.is_active
+      is_active: coupon.is_active,
+      coupon_category: coupon.coupon_category || 'product',
+      member_target: coupon.member_target || 'all'
     });
     setIsEditDialogOpen(true);
   };
@@ -433,7 +441,9 @@ export function AdminCoupons() {
       usage_limit: null,
       usage_per_user: null,
       max_issues_per_user: 1,
-      is_active: true
+      is_active: true,
+      coupon_category: 'product',
+      member_target: 'all'
     });
   };
 
@@ -453,6 +463,15 @@ export function AdminCoupons() {
       case 'CATEGORY': return '카테고리 지정';
       case 'SPECIFIC': return '특정 가맹점';
       default: return type;
+    }
+  };
+
+  const getCouponCategoryLabel = (category: string) => {
+    switch (category) {
+      case 'product': return { label: '결제 상품', icon: '🛒', color: 'bg-blue-100 text-blue-700' };
+      case 'member': return { label: '회원별', icon: '👥', color: 'bg-purple-100 text-purple-700' };
+      case 'couponbook': return { label: '쿠폰북', icon: '📖', color: 'bg-green-100 text-green-700' };
+      default: return { label: '기타', icon: '🎫', color: 'bg-gray-100 text-gray-700' };
     }
   };
 
@@ -521,8 +540,17 @@ export function AdminCoupons() {
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <h3 className="text-lg font-bold">{coupon.code}</h3>
+                            {/* 쿠폰 유형 배지 */}
+                            {(() => {
+                              const catInfo = getCouponCategoryLabel((coupon as any).coupon_category || 'product');
+                              return (
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${catInfo.color}`}>
+                                  {catInfo.icon} {catInfo.label}
+                                </span>
+                              );
+                            })()}
                             <Badge variant={coupon.default_discount_type === 'PERCENT' ? 'default' : 'secondary'}>
                               {coupon.default_discount_type === 'PERCENT'
                                 ? `${coupon.default_discount_value}%`
@@ -1049,6 +1077,88 @@ function CouponForm({ formData, setFormData }: any) {
 
   return (
     <div className="grid grid-cols-2 gap-4">
+      {/* 쿠폰 유형 선택 */}
+      <div className="col-span-2 p-4 bg-blue-50 rounded-lg">
+        <h4 className="font-medium mb-3 flex items-center gap-2">
+          <Ticket className="w-4 h-4" />
+          쿠폰 유형 선택 *
+        </h4>
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, coupon_category: 'product' })}
+            className={`p-4 rounded-lg border-2 text-center transition-all ${
+              formData.coupon_category === 'product'
+                ? 'border-blue-500 bg-blue-100'
+                : 'border-gray-200 hover:border-blue-300'
+            }`}
+          >
+            <span className="text-2xl block mb-1">🛒</span>
+            <span className="font-medium">결제 상품 쿠폰</span>
+            <p className="text-xs text-gray-500 mt-1">상품 결제 시 자동 발급</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, coupon_category: 'member' })}
+            className={`p-4 rounded-lg border-2 text-center transition-all ${
+              formData.coupon_category === 'member'
+                ? 'border-blue-500 bg-blue-100'
+                : 'border-gray-200 hover:border-blue-300'
+            }`}
+          >
+            <span className="text-2xl block mb-1">👥</span>
+            <span className="font-medium">회원별 쿠폰</span>
+            <p className="text-xs text-gray-500 mt-1">전체/신규 회원 대상</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormData({ ...formData, coupon_category: 'couponbook' })}
+            className={`p-4 rounded-lg border-2 text-center transition-all ${
+              formData.coupon_category === 'couponbook'
+                ? 'border-blue-500 bg-blue-100'
+                : 'border-gray-200 hover:border-blue-300'
+            }`}
+          >
+            <span className="text-2xl block mb-1">📖</span>
+            <span className="font-medium">쿠폰북 쿠폰</span>
+            <p className="text-xs text-gray-500 mt-1">쿠폰북 페이지에서 받기</p>
+          </button>
+        </div>
+
+        {/* 회원별 쿠폰 선택 시 대상 선택 */}
+        {formData.coupon_category === 'member' && (
+          <div className="mt-4 p-3 bg-white rounded-lg">
+            <Label className="mb-2 block">대상 회원 선택</Label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, member_target: 'all' })}
+                className={`flex-1 p-3 rounded-lg border-2 ${
+                  formData.member_target === 'all'
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200'
+                }`}
+              >
+                <span className="font-medium">전체 회원</span>
+                <p className="text-xs text-gray-500">모든 가입 회원 대상</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, member_target: 'new' })}
+                className={`flex-1 p-3 rounded-lg border-2 ${
+                  formData.member_target === 'new'
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'border-gray-200'
+                }`}
+              >
+                <span className="font-medium">신규 회원</span>
+                <p className="text-xs text-gray-500">회원가입 시 자동 발급</p>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="col-span-2">
         <Label>쿠폰 코드 *</Label>
         <Input
@@ -1056,7 +1166,7 @@ function CouponForm({ formData, setFormData }: any) {
           onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
           placeholder="SHINAN2025"
         />
-        <p className="text-xs text-gray-500 mt-1">사용자가 입력하는 코드 (대문자 자동 변환)</p>
+        <p className="text-xs text-gray-500 mt-1">캠페인 식별 코드 (대문자 자동 변환)</p>
       </div>
 
       <div className="col-span-2">

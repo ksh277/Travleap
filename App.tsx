@@ -36,6 +36,7 @@ import { PartnersDiscountPage } from './components/PartnersDiscountPage';
 import { PartnerDetailPage } from './components/PartnerDetailPage';
 import { AIRecommendationPage } from './components/AIRecommendationPage';
 import { AICoursePage } from './components/AICoursePage';
+import { MyCoursesPage } from './components/MyCoursesPage';
 import { LegalPage } from './components/pages/LegalPage';
 import { TermsPage } from './components/pages/TermsPage';
 import { PrivacyPage } from './components/pages/PrivacyPage';
@@ -78,6 +79,7 @@ import { CouponClaimPage } from './components/CouponClaimPage';
 import { MyCouponsPage } from './components/MyCouponsPage';
 import { CouponQRPage } from './components/CouponQRPage';
 import { ReviewModal } from './components/ReviewModal';
+import CouponBookPage from './components/CouponBookPage';
 
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
@@ -382,6 +384,7 @@ function AppContent() {
           <Route path="/ai-recommendations" element={<AIRecommendationPage />} />
           <Route path="/ai-recommendation" element={<AIRecommendationPage />} />
           <Route path="/ai-course" element={<AICoursePage />} />
+          <Route path="/my/courses" element={<MyCoursesPage />} />
 
           {/* Lock 시스템 테스트 페이지 (개발용) */}
           <Route path="/lock-test" element={<LockTestPage />} />
@@ -392,6 +395,7 @@ function AppContent() {
           <Route path="/coupon/claim" element={<CouponClaimPage />} />
           <Route path="/coupon/qr/:code" element={<CouponQRPage />} />
           <Route path="/my/coupons" element={<MyCouponsPage />} />
+          <Route path="/couponbook" element={<CouponBookPage />} />
 
           {/* 파트너 쿠폰 대시보드 (가맹점용) - 컴포넌트 내부에서 인증/권한 체크 */}
           <Route path="/partner/coupon" element={

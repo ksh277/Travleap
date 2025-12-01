@@ -153,14 +153,15 @@ function generateCouponCode() {
  */
 async function issueCampaignCouponForOrder(connection, { user_id, order_id, order_amount }) {
   try {
-    // 1. 활성화된 캠페인 쿠폰 조회 (유효기간 내, 발급 가능한 쿠폰)
+    // 1. 활성화된 결제 상품 쿠폰 조회 (coupon_category='product'만)
     const activeCoupons = await connection.execute(`
       SELECT *
       FROM coupons
       WHERE is_active = TRUE
+        AND (coupon_category = 'product' OR coupon_category IS NULL)
         AND (valid_from IS NULL OR valid_from <= NOW())
         AND (valid_until IS NULL OR valid_until >= NOW())
-        AND (usage_limit IS NULL OR used_count < usage_limit)
+        AND (usage_limit IS NULL OR issued_count < usage_limit)
       ORDER BY created_at DESC
       LIMIT 1
     `);
