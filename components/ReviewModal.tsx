@@ -225,14 +225,20 @@ export function ReviewModal() {
             {/* 리뷰 내용 */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                리뷰 내용 (선택)
+                리뷰 내용 <span className="text-red-500">*</span>
+                <span className="text-xs text-gray-400 ml-1">(최소 10글자)</span>
               </label>
               <Textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="가맹점 방문 경험을 자유롭게 작성해주세요..."
-                className="min-h-[100px]"
+                placeholder="가맹점 방문 경험을 10글자 이상 작성해주세요..."
+                className={`min-h-[100px] ${comment.length > 0 && comment.length < 10 ? 'border-red-300' : ''}`}
               />
+              <div className="flex justify-between mt-1">
+                <span className={`text-xs ${comment.length < 10 ? 'text-red-500' : 'text-green-500'}`}>
+                  {comment.length}/10글자 {comment.length >= 10 ? '✓' : ''}
+                </span>
+              </div>
             </div>
 
             <DialogFooter className="flex gap-2">
@@ -241,8 +247,8 @@ export function ReviewModal() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={submitting}
-                className="bg-purple-600 hover:bg-purple-700"
+                disabled={submitting || comment.length < 10}
+                className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300"
               >
                 {submitting ? (
                   <>
