@@ -2698,7 +2698,7 @@ export function AdminPage({}: AdminPageProps) {
               <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
               <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
               <TabsTrigger value="activity" className="text-xs md:text-sm">활동 로그</TabsTrigger>
-              <TabsTrigger value="coupons" className="text-xs md:text-sm">쿠폰</TabsTrigger>
+              <TabsTrigger value="coupons" className="text-xs md:text-sm">캠페인 쿠폰</TabsTrigger>
               {canManageSystem() && (
                 <TabsTrigger value="settings" className="text-xs md:text-sm">시스템 설정</TabsTrigger>
               )}
