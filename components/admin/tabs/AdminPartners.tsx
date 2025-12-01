@@ -20,9 +20,11 @@ import {
   Phone,
   Ticket,
   Percent,
-  Settings
+  Settings,
+  Image as ImageIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ImageUploadComponent } from '../ImageUploadComponent';
 
 interface Partner {
   id: number;
@@ -93,6 +95,7 @@ export function AdminPartners() {
     lng: 0,
     status: 'approved',
     is_active: true,
+    images: [] as string[],
     // 쿠폰 설정
     is_coupon_partner: false,
     coupon_discount_type: 'percent' as 'percent' | 'fixed',
@@ -263,6 +266,16 @@ export function AdminPartners() {
 
   const openEditDialog = (partner: Partner) => {
     setSelectedPartner(partner);
+    // 이미지 파싱
+    let parsedImages: string[] = [];
+    if (partner.images) {
+      try {
+        parsedImages = typeof partner.images === 'string' ? JSON.parse(partner.images) : partner.images;
+        if (!Array.isArray(parsedImages)) parsedImages = [];
+      } catch {
+        parsedImages = [];
+      }
+    }
     setFormData({
       business_name: partner.business_name || '',
       contact_name: partner.contact_name || '',
@@ -285,6 +298,7 @@ export function AdminPartners() {
       lng: partner.lng || 0,
       status: partner.status || 'approved',
       is_active: partner.is_active,
+      images: parsedImages,
       // 쿠폰 설정
       is_coupon_partner: partner.is_coupon_partner || false,
       coupon_discount_type: partner.coupon_discount_type || 'percent',
@@ -328,6 +342,7 @@ export function AdminPartners() {
       lng: 0,
       status: 'approved',
       is_active: true,
+      images: [],
       // 쿠폰 설정
       is_coupon_partner: false,
       coupon_discount_type: 'percent',
@@ -647,8 +662,27 @@ export function AdminPartners() {
 }
 
 function PartnerForm({ formData, setFormData }: any) {
+  const handleImagesUploaded = (urls: string[]) => {
+    setFormData({ ...formData, images: urls });
+  };
+
   return (
     <div className="grid grid-cols-2 gap-4">
+      {/* 이미지 업로드 섹션 */}
+      <div className="col-span-2">
+        <Label className="flex items-center gap-2 mb-2">
+          <ImageIcon className="w-4 h-4" />
+          가맹점 이미지 (최대 5장)
+        </Label>
+        <ImageUploadComponent
+          category="partners"
+          maxFiles={5}
+          multiple={true}
+          existingImages={formData.images || []}
+          onImagesUploaded={handleImagesUploaded}
+        />
+      </div>
+
       <div className="col-span-2">
         <Label>상호명 *</Label>
         <Input
