@@ -4947,9 +4947,8 @@ export function AdminPage({}: AdminPageProps) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">전체</SelectItem>
-                      <SelectItem value="super_admin">최고관리자</SelectItem>
-                      <SelectItem value="md_admin">MD관리자</SelectItem>
                       <SelectItem value="admin">관리자</SelectItem>
+                      <SelectItem value="md_admin">MD관리자</SelectItem>
                       <SelectItem value="partner">파트너</SelectItem>
                       <SelectItem value="vendor">벤더</SelectItem>
                       <SelectItem value="user">일반 사용자</SelectItem>
@@ -4988,9 +4987,8 @@ export function AdminPage({}: AdminPageProps) {
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <Badge variant={['admin', 'super_admin', 'md_admin'].includes(user.role) ? 'default' : 'secondary'}>
-                            {user.role === 'super_admin' ? '최고관리자' :
+                            {['super_admin', 'admin'].includes(user.role) ? '관리자' :
                              user.role === 'md_admin' ? 'MD관리자' :
-                             user.role === 'admin' ? '관리자' :
                              user.role === 'partner' ? '파트너' :
                              user.role === 'vendor' ? '벤더' : '일반 사용자'}
                           </Badge>
@@ -5139,7 +5137,6 @@ export function AdminPage({}: AdminPageProps) {
                         <SelectItem value="partner">파트너</SelectItem>
                         <SelectItem value="vendor">벤더</SelectItem>
                         <SelectItem value="md_admin">MD관리자</SelectItem>
-                        <SelectItem value="super_admin">최고관리자</SelectItem>
                         <SelectItem value="admin">관리자</SelectItem>
                       </SelectContent>
                     </Select>
@@ -5196,9 +5193,8 @@ export function AdminPage({}: AdminPageProps) {
                         <label className="text-sm font-medium text-gray-500">역할</label>
                         <p className="mt-1">
                           <Badge variant={['admin', 'super_admin', 'md_admin'].includes(selectedUser.role) ? 'default' : 'secondary'}>
-                            {selectedUser.role === 'super_admin' ? '최고관리자' :
+                            {['super_admin', 'admin'].includes(selectedUser.role) ? '관리자' :
                              selectedUser.role === 'md_admin' ? 'MD관리자' :
-                             selectedUser.role === 'admin' ? '관리자' :
                              selectedUser.role === 'partner' ? '파트너' :
                              selectedUser.role === 'vendor' ? '벤더' : '일반 사용자'}
                           </Badge>
