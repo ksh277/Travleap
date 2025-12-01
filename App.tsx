@@ -98,7 +98,7 @@ function ScrollToTop() {
 
 function AppContent() {
   const navigate = useNavigate();
-  const { isLoggedIn, isAdmin, user, login, logout, sessionRestored } = useAuth();
+  const { isLoggedIn, isAdmin, isMDAdmin, user, login, logout, sessionRestored } = useAuth();
   const { cartItems } = useCartStore();
 
   // REMOVED: Hardcoded admin credentials (security risk)
@@ -303,14 +303,14 @@ function AppContent() {
 
           {/* 보호된 라우트 - 로그인 필요 */}
           <Route path="/mypage" element={
-            isLoggedIn && !isAdmin ? (
+            isLoggedIn && !isMDAdmin ? (
               <MyPage />
             ) : (
               <Navigate to="/login" replace />
             )
           } />
 
-          {/* 관리자 전용 라우트 */}
+          {/* 관리자 전용 라우트 (MD 이상) */}
           <Route path="/admin" element={
             !sessionRestored ? (
               <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -319,25 +319,25 @@ function AppContent() {
                   <p className="text-gray-600">세션을 확인하는 중...</p>
                 </div>
               </div>
-            ) : isLoggedIn && isAdmin ? (
+            ) : isLoggedIn && isMDAdmin ? (
               <AdminPage />
             ) : (
               <Navigate to="/login" replace />
             )
           } />
 
-          {/* 관리자 렌트카 관리 */}
+          {/* 관리자 렌트카 관리 (MD 이상) */}
           <Route path="/admin/rentcar" element={
-            isLoggedIn && isAdmin ? (
+            isLoggedIn && isMDAdmin ? (
               <AdminRentcarPage />
             ) : (
               <Navigate to="/login" replace />
             )
           } />
 
-          {/* 관리자 모니터링 대시보드 */}
+          {/* 관리자 모니터링 대시보드 (MD 이상) */}
           <Route path="/admin/monitoring" element={
-            isLoggedIn && isAdmin ? (
+            isLoggedIn && isMDAdmin ? (
               <MonitoringDashboard />
             ) : (
               <Navigate to="/login" replace />

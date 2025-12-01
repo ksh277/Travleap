@@ -159,7 +159,7 @@ const loadUsers = async (): Promise<User[]> => {
 
 export function AdminPage({}: AdminPageProps) {
   const navigate = useNavigate();
-  const { user, isLoggedIn, sessionRestored } = useAuth();
+  const { user, isLoggedIn, sessionRestored, isAdmin, canManagePayments, canManageSystem } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -2672,16 +2672,22 @@ export function AdminPage({}: AdminPageProps) {
               <TabsTrigger value="banners" className="text-xs md:text-sm">배너 관리</TabsTrigger>
               <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
               <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
-              <TabsTrigger value="settlements" className="text-xs md:text-sm">정산 관리</TabsTrigger>
+              {canManagePayments() && (
+                <TabsTrigger value="settlements" className="text-xs md:text-sm">정산 관리</TabsTrigger>
+              )}
             </TabsList>
-            <TabsList className="grid grid-cols-7 md:grid-cols-7 w-full">
+            <TabsList className={`grid ${canManageSystem() ? 'grid-cols-7 md:grid-cols-7' : 'grid-cols-5 md:grid-cols-5'} w-full`}>
               <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
-              <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
+              {canManagePayments() && (
+                <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
+              )}
               <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
               <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
               <TabsTrigger value="activity" className="text-xs md:text-sm">활동 로그</TabsTrigger>
               <TabsTrigger value="coupons" className="text-xs md:text-sm">쿠폰</TabsTrigger>
-              <TabsTrigger value="settings" className="text-xs md:text-sm">시스템 설정</TabsTrigger>
+              {canManageSystem() && (
+                <TabsTrigger value="settings" className="text-xs md:text-sm">시스템 설정</TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -5474,19 +5480,23 @@ export function AdminPage({}: AdminPageProps) {
             <AdminActivityLogs />
           </TabsContent>
 
-          {/* 쿠폰 탭 - 서브탭: 쿠폰 관리, 정산 관리 */}
+          {/* 쿠폰 탭 - 서브탭: 쿠폰 관리, 정산 관리 (정산은 관리자만) */}
           <TabsContent value="coupons" className="space-y-6">
             <Tabs defaultValue="coupon-manage" className="w-full">
               <TabsList className="mb-4">
                 <TabsTrigger value="coupon-manage" className="text-xs md:text-sm">쿠폰 관리</TabsTrigger>
-                <TabsTrigger value="coupon-settlements" className="text-xs md:text-sm">정산 관리</TabsTrigger>
+                {canManagePayments() && (
+                  <TabsTrigger value="coupon-settlements" className="text-xs md:text-sm">정산 관리</TabsTrigger>
+                )}
               </TabsList>
               <TabsContent value="coupon-manage">
                 <AdminCoupons />
               </TabsContent>
-              <TabsContent value="coupon-settlements">
-                <AdminCouponSettlements />
-              </TabsContent>
+              {canManagePayments() && (
+                <TabsContent value="coupon-settlements">
+                  <AdminCouponSettlements />
+                </TabsContent>
+              )}
             </Tabs>
           </TabsContent>
 

@@ -83,4 +83,4 @@ async function handler(req, res) {
   }
 }
 
-module.exports = withPublicCors(withAuth(handler, { requireAuth: true, requireAdmin: true }));
+module.exports = withPublicCors(withAuth(handler, { requireAuth: true, requireMDAdmin: true }));

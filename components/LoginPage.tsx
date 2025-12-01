@@ -12,7 +12,7 @@ import { usePageBanner } from '../hooks/usePageBanner';
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, isAdmin, user } = useAuth();
+  const { login, isAdmin, isMDAdmin, user } = useAuth();
 
   // returnUrl 파라미터 가져오기 (QR 스캔 등에서 쿠폰 코드 유지용)
   const returnUrl = searchParams.get('returnUrl');
@@ -60,8 +60,9 @@ export function LoginPage() {
             return;
           }
 
-          if (isAdmin) {
-            console.log('🔑 관리자로 이동');
+          if (isMDAdmin) {
+            // 관리자 또는 MD관리자는 모두 /admin으로
+            console.log('🔑 관리자(MD 이상)로 이동');
             navigate('/admin', { replace: true });
           } else if (user?.role === 'partner') {
             console.log('🏨 파트너 대시보드로 이동');
