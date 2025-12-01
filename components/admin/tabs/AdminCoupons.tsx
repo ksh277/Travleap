@@ -275,10 +275,14 @@ export function AdminCoupons() {
 
   const handleCreate = async () => {
     try {
-      if (!formData.code || !formData.default_discount_value) {
-        toast.error('필수 항목을 입력해주세요');
+      if (!formData.name || !formData.default_discount_value) {
+        toast.error('쿠폰 이름과 할인 값을 입력해주세요');
         return;
       }
+
+      // 코드가 없으면 자동 생성 (COUPON-XXXXXX 형식)
+      const autoCode = formData.code ||
+        `COUPON-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
       const token = localStorage.getItem('auth_token');
       const response = await fetch('/api/admin/coupons', {
@@ -289,6 +293,7 @@ export function AdminCoupons() {
         },
         body: JSON.stringify({
           ...formData,
+          code: autoCode,
           valid_from: formData.valid_from || null,
           valid_to: formData.valid_to || formData.valid_until || null,
           valid_until: formData.valid_until || formData.valid_to || null,
@@ -1160,22 +1165,13 @@ function CouponForm({ formData, setFormData }: any) {
       </div>
 
       <div className="col-span-2">
-        <Label>쿠폰 코드 *</Label>
-        <Input
-          value={formData.code}
-          onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-          placeholder="SHINAN2025"
-        />
-        <p className="text-xs text-gray-500 mt-1">캠페인 식별 코드 (대문자 자동 변환)</p>
-      </div>
-
-      <div className="col-span-2">
-        <Label>쿠폰명</Label>
+        <Label>쿠폰명 *</Label>
         <Input
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="2025 신안 섬여행 할인 쿠폰"
         />
+        <p className="text-xs text-gray-500 mt-1">사용자에게 보여지는 쿠폰 이름</p>
       </div>
 
       <div className="col-span-2">
