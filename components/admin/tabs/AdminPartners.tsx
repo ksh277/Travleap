@@ -664,6 +664,7 @@ export function AdminPartners() {
 
 function PartnerForm({ formData, setFormData }: any) {
   const [mapLoaded, setMapLoaded] = React.useState(false);
+  const [mapError, setMapError] = React.useState<string | null>(null);
   const mapRef = React.useRef<HTMLDivElement>(null);
   const mapInstanceRef = React.useRef<any>(null);
   const markerRef = React.useRef<any>(null);
@@ -672,56 +673,87 @@ function PartnerForm({ formData, setFormData }: any) {
     setFormData({ ...formData, images: urls });
   };
 
-  // 카카오맵 초기화
-  React.useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).kakao && mapRef.current) {
+  // 카카오맵 초기화 함수
+  const initializeMap = React.useCallback(() => {
+    if (!mapRef.current) return;
+
+    try {
       const kakao = (window as any).kakao;
+      if (!kakao || !kakao.maps) {
+        setMapError('카카오맵 SDK가 로드되지 않았습니다');
+        return;
+      }
 
-      kakao.maps.load(() => {
-        const lat = formData.lat || 34.8118;
-        const lng = formData.lng || 126.3922;
+      const lat = formData.lat || 34.8118;
+      const lng = formData.lng || 126.3922;
 
-        const options = {
-          center: new kakao.maps.LatLng(lat, lng),
-          level: 5
-        };
+      const options = {
+        center: new kakao.maps.LatLng(lat, lng),
+        level: 5
+      };
 
-        const map = new kakao.maps.Map(mapRef.current, options);
-        mapInstanceRef.current = map;
+      const map = new kakao.maps.Map(mapRef.current, options);
+      mapInstanceRef.current = map;
 
-        // 마커 생성
-        const marker = new kakao.maps.Marker({
-          position: new kakao.maps.LatLng(lat, lng),
-          draggable: true
-        });
-        marker.setMap(map);
-        markerRef.current = marker;
-
-        // 마커 드래그 종료 시 좌표 업데이트
-        kakao.maps.event.addListener(marker, 'dragend', function() {
-          const position = marker.getPosition();
-          setFormData((prev: any) => ({
-            ...prev,
-            lat: position.getLat(),
-            lng: position.getLng()
-          }));
-        });
-
-        // 지도 클릭 시 마커 이동
-        kakao.maps.event.addListener(map, 'click', function(mouseEvent: any) {
-          const latlng = mouseEvent.latLng;
-          marker.setPosition(latlng);
-          setFormData((prev: any) => ({
-            ...prev,
-            lat: latlng.getLat(),
-            lng: latlng.getLng()
-          }));
-        });
-
-        setMapLoaded(true);
+      // 마커 생성
+      const marker = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(lat, lng),
+        draggable: true
       });
+      marker.setMap(map);
+      markerRef.current = marker;
+
+      // 마커 드래그 종료 시 좌표 업데이트
+      kakao.maps.event.addListener(marker, 'dragend', function() {
+        const position = marker.getPosition();
+        setFormData((prev: any) => ({
+          ...prev,
+          lat: position.getLat(),
+          lng: position.getLng()
+        }));
+      });
+
+      // 지도 클릭 시 마커 이동
+      kakao.maps.event.addListener(map, 'click', function(mouseEvent: any) {
+        const latlng = mouseEvent.latLng;
+        marker.setPosition(latlng);
+        setFormData((prev: any) => ({
+          ...prev,
+          lat: latlng.getLat(),
+          lng: latlng.getLng()
+        }));
+      });
+
+      setMapLoaded(true);
+      setMapError(null);
+      console.log('✅ 카카오맵 초기화 완료');
+    } catch (err) {
+      console.error('카카오맵 초기화 오류:', err);
+      setMapError('지도 로드 중 오류가 발생했습니다');
     }
-  }, []);
+  }, [formData.lat, formData.lng, setFormData]);
+
+  // 컴포넌트 마운트 시 지도 초기화 (약간의 딜레이 후)
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (typeof window !== 'undefined' && (window as any).kakao) {
+        const kakao = (window as any).kakao;
+        // kakao.maps가 이미 로드되어 있으면 바로 초기화
+        if (kakao.maps && kakao.maps.Map) {
+          initializeMap();
+        } else {
+          // 아니면 load 콜백 사용
+          kakao.maps.load(() => {
+            initializeMap();
+          });
+        }
+      } else {
+        setMapError('카카오맵 SDK를 찾을 수 없습니다');
+      }
+    }, 300); // 다이얼로그 애니메이션 후 초기화
+
+    return () => clearTimeout(timer);
+  }, [initializeMap]);
 
   // 좌표 입력 시 마커 위치 업데이트
   React.useEffect(() => {
@@ -846,9 +878,35 @@ function PartnerForm({ formData, setFormData }: any) {
         {/* 지도 */}
         <div
           ref={mapRef}
-          className="w-full h-64 rounded-lg border mb-3"
-          style={{ minHeight: '250px' }}
-        />
+          className="w-full rounded-lg border mb-3 bg-white relative"
+          style={{ minHeight: '250px', height: '250px' }}
+        >
+          {!mapLoaded && !mapError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <div className="text-center">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400 mb-2" />
+                <p className="text-sm text-gray-500">지도 로딩 중...</p>
+              </div>
+            </div>
+          )}
+          {mapError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-red-50">
+              <div className="text-center">
+                <MapPin className="w-8 h-8 mx-auto text-red-400 mb-2" />
+                <p className="text-sm text-red-500">{mapError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={initializeMap}
+                >
+                  다시 시도
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* 좌표 입력 */}
         <div className="grid grid-cols-2 gap-4">
@@ -874,7 +932,7 @@ function PartnerForm({ formData, setFormData }: any) {
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          💡 지도를 클릭하거나 빨간 핀을 드래그해서 정확한 위치를 지정하세요
+          {mapLoaded ? '✅ 지도를 클릭하거나 빨간 핀을 드래그해서 정확한 위치를 지정하세요' : '💡 지도가 로드되면 위치를 지정할 수 있습니다'}
         </p>
       </div>
 
