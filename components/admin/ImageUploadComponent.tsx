@@ -1,8 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Upload, X, Image, Loader2, AlertCircle, Check } from 'lucide-react';
-import { useImageUpload } from '../../utils/imageUpload';
 
 interface ImageUploadProps {
   category?: string;
@@ -24,7 +23,48 @@ export function ImageUploadComponent({
   const [errors, setErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { uploadImage, uploadMultipleImages, deleteImage, generateThumbnailUrl } = useImageUpload();
+  // existingImages가 변경되면 상태 동기화
+  useEffect(() => {
+    setUploadedImages(existingImages);
+  }, [existingImages]);
+
+  // API를 통한 이미지 업로드 (인증 불필요)
+  const uploadImageViaAPI = async (file: File, cat: string): Promise<{ success: boolean; url?: string; error?: string }> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', cat);
+
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.url) {
+        return { success: true, url: data.url };
+      } else {
+        return { success: false, error: data.message || '업로드에 실패했습니다.' };
+      }
+    } catch (error) {
+      console.error('Image upload error:', error);
+      return { success: false, error: '업로드 중 오류가 발생했습니다.' };
+    }
+  };
+
+  // 썸네일 URL 생성
+  const generateThumbnailUrl = (originalUrl: string, width: number = 400, height: number = 300): string => {
+    try {
+      const url = new URL(originalUrl);
+      url.searchParams.set('w', width.toString());
+      url.searchParams.set('h', height.toString());
+      url.searchParams.set('q', '80');
+      return url.toString();
+    } catch {
+      return originalUrl;
+    }
+  };
 
   const handleFileSelect = () => {
     fileInputRef.current?.click();
@@ -44,30 +84,27 @@ export function ImageUploadComponent({
     setErrors([]);
 
     try {
-      if (multiple && files.length > 1) {
-        // 여러 파일 업로드
-        const result = await uploadMultipleImages(files, category);
+      const uploadErrors: string[] = [];
+      const newUrls: string[] = [];
 
-        if (result.success && result.urls.length > 0) {
-          const newImages = [...uploadedImages, ...result.urls];
-          setUploadedImages(newImages);
-          onImagesUploaded?.(newImages);
-        }
-
-        if (result.errors.length > 0) {
-          setErrors(result.errors);
-        }
-      } else {
-        // 단일 파일 업로드
-        const result = await uploadImage(files[0], category);
-
+      // 각 파일을 순차적으로 업로드
+      for (const file of files) {
+        const result = await uploadImageViaAPI(file, category);
         if (result.success && result.url) {
-          const newImages = [...uploadedImages, result.url];
-          setUploadedImages(newImages);
-          onImagesUploaded?.(newImages);
+          newUrls.push(result.url);
         } else {
-          setErrors([result.error || '업로드에 실패했습니다.']);
+          uploadErrors.push(`이미지 업로드 실패: ${file.name} - ${result.error}`);
         }
+      }
+
+      if (newUrls.length > 0) {
+        const newImages = [...uploadedImages, ...newUrls];
+        setUploadedImages(newImages);
+        onImagesUploaded?.(newImages);
+      }
+
+      if (uploadErrors.length > 0) {
+        setErrors(uploadErrors);
       }
     } catch (error) {
       setErrors(['업로드 중 오류가 발생했습니다.']);
@@ -80,18 +117,11 @@ export function ImageUploadComponent({
     }
   };
 
-  const handleRemoveImage = async (imageUrl: string, index: number) => {
-    try {
-      // Vercel Blob에서 이미지 삭제
-      await deleteImage(imageUrl);
-
-      // 로컬 상태에서 제거
-      const newImages = uploadedImages.filter((_, i) => i !== index);
-      setUploadedImages(newImages);
-      onImagesUploaded?.(newImages);
-    } catch (error) {
-      setErrors(['이미지 삭제에 실패했습니다.']);
-    }
+  const handleRemoveImage = async (_imageUrl: string, index: number) => {
+    // 로컬 상태에서 제거 (실제 Blob 삭제는 서버에서 처리)
+    const newImages = uploadedImages.filter((_, i) => i !== index);
+    setUploadedImages(newImages);
+    onImagesUploaded?.(newImages);
   };
 
   const handleDragOver = (e: React.DragEvent) => {

@@ -89,11 +89,24 @@ export function AdminSettlements() {
     try {
       setIsLoading(true);
 
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('로그인이 필요합니다');
+        setIsLoading(false);
+        return;
+      }
+
       const params = new URLSearchParams();
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
 
-      const response = await fetch(`/api/admin/settlements?${params.toString()}`);
+      const response = await fetch(`/api/admin/settlements?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
       const data = await response.json();
 
       if (data.success) {
@@ -109,7 +122,8 @@ export function AdminSettlements() {
         });
         toast.success(`${data.data?.length || 0}개 업체 정산 내역 로드 완료`);
       } else {
-        toast.error('정산 내역 로드 실패');
+        console.error('정산 내역 로드 실패:', data.error || data.message);
+        toast.error(data.message || '정산 내역 로드 실패');
       }
     } catch (error) {
       console.error('정산 내역 로드 오류:', error);
@@ -144,20 +158,25 @@ export function AdminSettlements() {
     try {
       setIsLoadingDetail(true);
 
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(
-        `/api/admin/settlements/detail?partner_id=${selectedSettlement.partner_id}&partner_type=${selectedSettlement.partner_type}`
+        `/api/admin/settlements/detail?partner_id=${selectedSettlement.partner_id}&partner_type=${selectedSettlement.partner_type}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
       );
       const data = await response.json();
 
       if (data.success) {
         setPeriodStats(data.data.period_stats);
-        toast.success('기간별 매출 로드 완료');
       } else {
-        toast.error('기간별 매출 로드 실패');
+        console.error('기간별 매출 로드 실패:', data.error);
       }
     } catch (error) {
       console.error('기간별 매출 로드 오류:', error);
-      toast.error('기간별 매출을 불러오는 중 오류가 발생했습니다.');
     } finally {
       setIsLoadingDetail(false);
     }

@@ -776,9 +776,8 @@ export function AdminCoupons() {
 
               {/* 상세 탭 */}
               <Tabs value={statsTab} onValueChange={setStatsTab}>
-                <TabsList className="grid grid-cols-5 w-full max-w-2xl">
+                <TabsList className="grid grid-cols-4 w-full max-w-xl">
                   <TabsTrigger value="overview">쿠폰별</TabsTrigger>
-                  <TabsTrigger value="partners">가맹점별</TabsTrigger>
                   <TabsTrigger value="category">카테고리별</TabsTrigger>
                   <TabsTrigger value="daily">일별</TabsTrigger>
                   <TabsTrigger value="recent">최근 사용</TabsTrigger>
@@ -834,53 +833,6 @@ export function AdminCoupons() {
                             </div>
                           ))
                         )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                {/* 가맹점별 통계 */}
-                <TabsContent value="partners" className="mt-4">
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <CardTitle>가맹점별 통계</CardTitle>
-                      <Button variant="outline" size="sm" onClick={() => handleExport('partners')}>
-                        <Download className="w-4 h-4 mr-2" />
-                        CSV 다운로드
-                      </Button>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b">
-                              <th className="text-left p-2">가맹점명</th>
-                              <th className="text-left p-2">카테고리</th>
-                              <th className="text-right p-2">사용 건수</th>
-                              <th className="text-right p-2">할인 금액</th>
-                              <th className="text-right p-2">주문 금액</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {partnerStats.length === 0 ? (
-                              <tr>
-                                <td colSpan={5} className="text-center text-gray-500 py-8">데이터가 없습니다</td>
-                              </tr>
-                            ) : (
-                              partnerStats.map((stat) => (
-                                <tr key={stat.id} className="border-b hover:bg-gray-50">
-                                  <td className="p-2 font-medium">{stat.business_name}</td>
-                                  <td className="p-2">
-                                    <Badge variant="outline">{getCategoryLabel(stat.category)}</Badge>
-                                  </td>
-                                  <td className="p-2 text-right">{stat.usage_count}건</td>
-                                  <td className="p-2 text-right text-purple-600">{stat.discount_amount?.toLocaleString()}원</td>
-                                  <td className="p-2 text-right text-blue-600">{stat.order_amount?.toLocaleString()}원</td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
                       </div>
                     </CardContent>
                   </Card>

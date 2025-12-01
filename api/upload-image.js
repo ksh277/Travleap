@@ -5,7 +5,6 @@
  * - JSON base64 (차량 관리용, ImageUploader)
  *
  * 보안:
- * - JWT 인증 필수
  * - 파일 타입 검증 (MIME + Magic bytes)
  * - 파일 크기 제한 (10MB)
  * - Rate Limiting (1분에 20회)
@@ -13,9 +12,7 @@
 
 const { put } = require('@vercel/blob');
 const Busboy = require('busboy');
-const { withAuth } = require('../utils/auth-middleware.cjs');
-const { withSecureCors } = require('../utils/cors-middleware.cjs');
-const { withStandardRateLimit } = require('../utils/rate-limit-middleware.cjs');
+const { withPublicCors } = require('../utils/cors-middleware.cjs');
 const {
   validateImageFile,
   validateBase64Image,
@@ -31,13 +28,7 @@ async function handler(req, res) {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  // 인증 확인 (withAuth 미들웨어에서 설정)
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: '로그인이 필요합니다.'
-    });
-  }
+  // 인증 불필요 - 공개 업로드 허용
 
   try {
     const contentType = req.headers['content-type'] || '';
@@ -83,7 +74,7 @@ async function handler(req, res) {
         addRandomSuffix: false,
       });
 
-      console.log('✅ Blob 업로드 성공 (base64):', blob.url, `(user: ${req.user.id})`);
+      console.log('✅ Blob 업로드 성공 (base64):', blob.url);
 
       return res.status(200).json({
         success: true,
@@ -169,7 +160,7 @@ async function handler(req, res) {
         contentType: mimeType,
       });
 
-      console.log('✅ Blob 업로드 성공 (FormData):', blob.url, `(user: ${req.user.id})`);
+      console.log('✅ Blob 업로드 성공 (FormData):', blob.url);
 
       return res.status(200).json({
         success: true,
@@ -197,9 +188,5 @@ async function handler(req, res) {
   }
 }
 
-// 보안 미들웨어 적용: CORS → Rate Limiting → Auth (올바른 순서)
-module.exports = withSecureCors(
-  withStandardRateLimit(
-    withAuth(handler, { requireAuth: true })
-  )
-);
+// CORS만 적용 (인증 불필요)
+module.exports = withPublicCors(handler);

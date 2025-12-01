@@ -246,7 +246,9 @@
       "Bash(then grep \"SENDGRID_API_KEY\" .env)",
       "Bash(if [ -d \"C:/Users/ham57/Desktop/Travleap/api/admin/media\" ])",
       "Bash(else mkdir -p \"C:/Users/ham57/Desktop/Travleap/api/admin/media\")",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "WebFetch(domain:travleap-dev.vercel.app)",
+      "Bash(timeout 15 vercel ls:*)"
     ],
     "deny": [],
     "ask": []

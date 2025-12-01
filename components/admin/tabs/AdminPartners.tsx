@@ -21,7 +21,8 @@ import {
   Ticket,
   Percent,
   Settings,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Navigation
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ImageUploadComponent } from '../ImageUploadComponent';
@@ -662,8 +663,98 @@ export function AdminPartners() {
 }
 
 function PartnerForm({ formData, setFormData }: any) {
+  const [mapLoaded, setMapLoaded] = React.useState(false);
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const mapInstanceRef = React.useRef<any>(null);
+  const markerRef = React.useRef<any>(null);
+
   const handleImagesUploaded = (urls: string[]) => {
     setFormData({ ...formData, images: urls });
+  };
+
+  // 카카오맵 초기화
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).kakao && mapRef.current) {
+      const kakao = (window as any).kakao;
+
+      kakao.maps.load(() => {
+        const lat = formData.lat || 34.8118;
+        const lng = formData.lng || 126.3922;
+
+        const options = {
+          center: new kakao.maps.LatLng(lat, lng),
+          level: 5
+        };
+
+        const map = new kakao.maps.Map(mapRef.current, options);
+        mapInstanceRef.current = map;
+
+        // 마커 생성
+        const marker = new kakao.maps.Marker({
+          position: new kakao.maps.LatLng(lat, lng),
+          draggable: true
+        });
+        marker.setMap(map);
+        markerRef.current = marker;
+
+        // 마커 드래그 종료 시 좌표 업데이트
+        kakao.maps.event.addListener(marker, 'dragend', function() {
+          const position = marker.getPosition();
+          setFormData((prev: any) => ({
+            ...prev,
+            lat: position.getLat(),
+            lng: position.getLng()
+          }));
+        });
+
+        // 지도 클릭 시 마커 이동
+        kakao.maps.event.addListener(map, 'click', function(mouseEvent: any) {
+          const latlng = mouseEvent.latLng;
+          marker.setPosition(latlng);
+          setFormData((prev: any) => ({
+            ...prev,
+            lat: latlng.getLat(),
+            lng: latlng.getLng()
+          }));
+        });
+
+        setMapLoaded(true);
+      });
+    }
+  }, []);
+
+  // 좌표 입력 시 마커 위치 업데이트
+  React.useEffect(() => {
+    if (mapLoaded && mapInstanceRef.current && markerRef.current && formData.lat && formData.lng) {
+      const kakao = (window as any).kakao;
+      const newPosition = new kakao.maps.LatLng(formData.lat, formData.lng);
+      markerRef.current.setPosition(newPosition);
+      mapInstanceRef.current.setCenter(newPosition);
+    }
+  }, [formData.lat, formData.lng, mapLoaded]);
+
+  // 주소로 좌표 검색
+  const searchAddressCoords = () => {
+    if (!formData.business_address) {
+      toast.error('주소를 먼저 입력해주세요');
+      return;
+    }
+
+    if (typeof window !== 'undefined' && (window as any).kakao) {
+      const kakao = (window as any).kakao;
+      const geocoder = new kakao.maps.services.Geocoder();
+
+      geocoder.addressSearch(formData.business_address, (result: any, status: any) => {
+        if (status === kakao.maps.services.Status.OK) {
+          const lat = parseFloat(result[0].y);
+          const lng = parseFloat(result[0].x);
+          setFormData((prev: any) => ({ ...prev, lat, lng }));
+          toast.success('주소로 좌표를 찾았습니다');
+        } else {
+          toast.error('주소를 찾을 수 없습니다');
+        }
+      });
+    }
   };
 
   return (
@@ -731,11 +822,60 @@ function PartnerForm({ formData, setFormData }: any) {
 
       <div className="col-span-2">
         <Label>주소</Label>
-        <Input
-          value={formData.business_address}
-          onChange={(e) => setFormData({ ...formData, business_address: e.target.value })}
-          placeholder="사업장 주소"
+        <div className="flex gap-2">
+          <Input
+            value={formData.business_address}
+            onChange={(e) => setFormData({ ...formData, business_address: e.target.value })}
+            placeholder="사업장 주소"
+            className="flex-1"
+          />
+          <Button type="button" variant="outline" onClick={searchAddressCoords}>
+            <Navigation className="w-4 h-4 mr-1" />
+            좌표 찾기
+          </Button>
+        </div>
+      </div>
+
+      {/* 지도 핀 설정 섹션 */}
+      <div className="col-span-2 border rounded-lg p-4 bg-gray-50">
+        <Label className="flex items-center gap-2 mb-3">
+          <MapPin className="w-4 h-4 text-red-500" />
+          위치 설정 (지도를 클릭하거나 핀을 드래그하세요)
+        </Label>
+
+        {/* 지도 */}
+        <div
+          ref={mapRef}
+          className="w-full h-64 rounded-lg border mb-3"
+          style={{ minHeight: '250px' }}
         />
+
+        {/* 좌표 입력 */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-xs text-gray-500">위도 (Latitude)</Label>
+            <Input
+              type="number"
+              step="0.0001"
+              value={formData.lat || ''}
+              onChange={(e) => setFormData({ ...formData, lat: parseFloat(e.target.value) || 0 })}
+              placeholder="34.8118"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-gray-500">경도 (Longitude)</Label>
+            <Input
+              type="number"
+              step="0.0001"
+              value={formData.lng || ''}
+              onChange={(e) => setFormData({ ...formData, lng: parseFloat(e.target.value) || 0 })}
+              placeholder="126.3922"
+            />
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          💡 지도를 클릭하거나 빨간 핀을 드래그해서 정확한 위치를 지정하세요
+        </p>
       </div>
 
       <div>
