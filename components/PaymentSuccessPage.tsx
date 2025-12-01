@@ -8,7 +8,9 @@ export default function PaymentSuccessPage() {
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('결제를 처리하고 있습니다...');
   const [paymentData, setPaymentData] = useState<any>(null);
+  const [couponData, setCouponData] = useState<any>(null); // 발급된 쿠폰 정보
   const qrCodeRef = useRef<HTMLCanvasElement>(null);
+  const couponQrRef = useRef<HTMLCanvasElement>(null); // 쿠폰 QR용
 
   useEffect(() => {
     const processPayment = async () => {
@@ -49,10 +51,18 @@ export default function PaymentSuccessPage() {
         setMessage('결제가 완료되었습니다!');
         setPaymentData({ orderId, ...result });
 
-        // 3초 후 마이페이지로 이동
-        setTimeout(() => {
-          navigate('/mypage');
-        }, 3000);
+        // 쿠폰 정보가 있으면 저장
+        if (result.coupon) {
+          setCouponData(result.coupon);
+          console.log('🎟️ 쿠폰 발급됨:', result.coupon);
+        }
+
+        // 쿠폰이 발급되면 자동 이동 취소, 아니면 3초 후 이동
+        if (!result.coupon) {
+          setTimeout(() => {
+            navigate('/mypage');
+          }, 3000);
+        }
 
       } catch (error: any) {
         console.error('❌ 결제 처리 오류:', error);
@@ -93,6 +103,48 @@ export default function PaymentSuccessPage() {
     }
   }, [status, paymentData, shouldShowQR]);
 
+  // 쿠폰 QR 생성
+  useEffect(() => {
+    const generateCouponQR = async () => {
+      if (couponData?.qr_url && couponQrRef.current) {
+        try {
+          await QRCode.toCanvas(couponQrRef.current, couponData.qr_url, {
+            width: 180,
+            margin: 2,
+            color: {
+              dark: '#059669', // emerald-600
+              light: '#FFFFFF'
+            }
+          });
+        } catch (error) {
+          console.error('쿠폰 QR 생성 오류:', error);
+        }
+      }
+    };
+    generateCouponQR();
+  }, [couponData]);
+
+  // 쿠폰 이미지 저장 기능
+  const saveCouponImage = () => {
+    if (!couponQrRef.current) return;
+
+    const link = document.createElement('a');
+    link.download = `coupon_${couponData?.code || 'ticket'}.png`;
+    link.href = couponQrRef.current.toDataURL('image/png');
+    link.click();
+  };
+
+  // 쿠폰 코드 복사 기능
+  const copyCouponCode = async () => {
+    if (!couponData?.code) return;
+    try {
+      await navigator.clipboard.writeText(couponData.code);
+      alert('쿠폰 코드가 복사되었습니다!');
+    } catch (error) {
+      console.error('복사 실패:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
@@ -114,8 +166,97 @@ export default function PaymentSuccessPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">결제 완료!</h2>
             <p className="text-gray-600 mb-4">{message}</p>
 
-            {/* QR 코드 표시 (렌트카/팝업 제외) */}
-            {shouldShowQR && (
+            {/* 쿠폰이 발급된 경우 */}
+            {couponData && (
+              <div className="my-6 p-4 bg-emerald-50 rounded-lg border-2 border-emerald-200">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+                  </svg>
+                  <p className="text-sm font-bold text-emerald-700">할인 쿠폰이 발급되었습니다!</p>
+                </div>
+
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <p className="font-bold text-gray-800 mb-1">{couponData.name}</p>
+                  {couponData.region_name && (
+                    <p className="text-xs text-gray-500 mb-3">{couponData.region_name} 지역 가맹점에서 사용</p>
+                  )}
+
+                  {/* 쿠폰 QR 코드 */}
+                  <div className="bg-emerald-50 p-3 rounded-lg inline-block mb-3">
+                    <canvas ref={couponQrRef} />
+                  </div>
+
+                  {/* 쿠폰 코드 */}
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <span className="font-mono text-lg font-bold text-emerald-700">{couponData.code}</span>
+                    <button
+                      onClick={copyCouponCode}
+                      className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded"
+                      title="코드 복사"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* 쿠폰 타입에 따라 다른 정보 표시 */}
+                  {couponData.total_merchants ? (
+                    <p className="text-xs text-gray-500 mb-2">
+                      사용 가능 가맹점: {couponData.total_merchants}곳
+                    </p>
+                  ) : couponData.discount_type && (
+                    <p className="text-xs text-emerald-600 font-semibold mb-2">
+                      {couponData.discount_type === 'PERCENT' || couponData.discount_type === 'percentage'
+                        ? `${couponData.discount_value}% 할인`
+                        : `${couponData.discount_value?.toLocaleString()}원 할인`
+                      }
+                      {couponData.max_discount && ` (최대 ${couponData.max_discount.toLocaleString()}원)`}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400">
+                    유효기간: {new Date(couponData.expires_at).toLocaleDateString('ko-KR')}까지
+                  </p>
+                </div>
+
+                {/* 버튼들 */}
+                <div className="mt-4 space-y-2">
+                  {/* QR 이미지 저장 */}
+                  <button
+                    onClick={saveCouponImage}
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-lg hover:bg-emerald-700 transition text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    쿠폰 이미지 저장
+                  </button>
+
+                  {/* 가맹점 보기 */}
+                  <button
+                    onClick={() => {
+                      const region = couponData.region_name || '';
+                      navigate(`/partners?coupon=${couponData.code}&region=${encodeURIComponent(region)}`);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-2.5 rounded-lg hover:bg-blue-600 transition text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {couponData.coupon_source === 'campaign' ? '사용 가능 가맹점 보기' : '주변 가맹점 보기'}
+                  </button>
+                </div>
+
+                <p className="text-xs text-emerald-600 mt-3">
+                  마이페이지 &gt; 쿠폰함에서도 확인 가능합니다
+                </p>
+              </div>
+            )}
+
+            {/* 주문 QR 코드 (쿠폰이 없을 때만 표시) */}
+            {shouldShowQR && !couponData && (
               <div className="my-6 p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm font-semibold text-gray-700 mb-3">주문 QR 코드</p>
                 <div className="bg-white p-3 rounded-lg inline-block shadow-sm">
@@ -130,12 +271,15 @@ export default function PaymentSuccessPage() {
               </div>
             )}
 
-            <p className="text-sm text-gray-500">잠시 후 마이페이지로 이동합니다...</p>
+            {!couponData && (
+              <p className="text-sm text-gray-500">잠시 후 마이페이지로 이동합니다...</p>
+            )}
+
             <button
-              onClick={() => navigate('/mypage')}
-              className="mt-6 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition"
+              onClick={() => navigate(couponData ? '/mypage?tab=coupons' : '/mypage')}
+              className="mt-6 w-full bg-gray-700 text-white py-3 rounded-lg hover:bg-gray-800 transition"
             >
-              마이페이지로 이동
+              {couponData ? '쿠폰함 확인하기' : '마이페이지로 이동'}
             </button>
           </div>
         )}

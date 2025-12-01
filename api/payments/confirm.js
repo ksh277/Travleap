@@ -135,6 +135,277 @@ function normalizePaymentMethod(tossMethod, easyPayProvider = null) {
 }
 
 /**
+ * 유니크 쿠폰 코드 생성
+ * 형식: GOGO-XXXXXXXX (8자리 영숫자)
+ */
+function generateCouponCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'GOGO-';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+/**
+ * 캠페인 쿠폰 자동 발급 (결제 성공 시 활성화된 캠페인 쿠폰이 있으면 발급)
+ * 관리자 페이지에서 만든 coupons 테이블의 쿠폰을 user_coupons에 발급
+ */
+async function issueCampaignCouponForOrder(connection, { user_id, order_id, order_amount }) {
+  try {
+    // 1. 활성화된 캠페인 쿠폰 조회 (유효기간 내, 발급 가능한 쿠폰)
+    const activeCoupons = await connection.execute(`
+      SELECT *
+      FROM coupons
+      WHERE is_active = TRUE
+        AND (valid_from IS NULL OR valid_from <= NOW())
+        AND (valid_until IS NULL OR valid_until >= NOW())
+        AND (usage_limit IS NULL OR used_count < usage_limit)
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+
+    if (!activeCoupons.rows || activeCoupons.rows.length === 0) {
+      return { issued: false, message: '활성화된 캠페인 쿠폰 없음' };
+    }
+
+    const campaign = activeCoupons.rows[0];
+
+    // 2. 사용자가 이 캠페인 쿠폰을 이미 발급받았는지 확인
+    const existingIssue = await connection.execute(`
+      SELECT id FROM user_coupons
+      WHERE user_id = ? AND coupon_id = ?
+    `, [user_id, campaign.id]);
+
+    // max_issues_per_user 체크
+    const maxIssues = campaign.max_issues_per_user || 1;
+    if (existingIssue.rows && existingIssue.rows.length >= maxIssues) {
+      return { issued: false, message: '이미 발급받은 쿠폰' };
+    }
+
+    // 3. 유니크 쿠폰 코드 생성 (USER-XXXXXXXX)
+    let userCouponCode;
+    let attempts = 0;
+    while (attempts < 10) {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = 'USER-';
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      userCouponCode = code;
+
+      const codeCheck = await connection.execute(
+        'SELECT id FROM user_coupons WHERE coupon_code = ?',
+        [userCouponCode]
+      );
+      if (!codeCheck.rows || codeCheck.rows.length === 0) break;
+      attempts++;
+    }
+
+    // 4. user_coupons에 발급
+    const insertResult = await connection.execute(`
+      INSERT INTO user_coupons (
+        user_id, coupon_id, coupon_code, status, issued_at, created_at
+      ) VALUES (?, ?, ?, 'ISSUED', NOW(), NOW())
+    `, [user_id, campaign.id, userCouponCode]);
+
+    // 5. 캠페인 쿠폰 issued_count 증가
+    await connection.execute(`
+      UPDATE coupons SET issued_count = COALESCE(issued_count, 0) + 1 WHERE id = ?
+    `, [campaign.id]);
+
+    console.log(`✅ [Campaign Coupon] 발급 완료: ${userCouponCode} (campaign: ${campaign.code})`);
+
+    // QR URL 생성
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://travleap.vercel.app';
+    const qrUrl = `${baseUrl}/partner/coupon?code=${userCouponCode}`;
+
+    // 유효기간 계산
+    const expiresAt = campaign.valid_until || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 기본 30일
+
+    return {
+      issued: true,
+      message: '캠페인 쿠폰 발급 완료',
+      coupon: {
+        id: insertResult.insertId,
+        code: userCouponCode,
+        name: campaign.name || campaign.title || '할인 쿠폰',
+        campaign_code: campaign.code,
+        discount_type: campaign.default_discount_type || 'PERCENT',
+        discount_value: campaign.default_discount_value || 10,
+        max_discount: campaign.default_max_discount,
+        qr_url: qrUrl,
+        region_name: null,
+        total_merchants: null, // 캠페인 쿠폰은 가맹점 제한 없음
+        expires_at: new Date(expiresAt).toISOString(),
+        coupon_source: 'campaign' // 캠페인 쿠폰 표시
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ [Campaign Coupon] 발급 실패:', error);
+    return { issued: false, message: error.message };
+  }
+}
+
+/**
+ * 연동 쿠폰 발급 (결제 성공 시 자동 호출)
+ */
+async function issueCouponForOrder(connection, { user_id, order_id, payment_id }) {
+  try {
+    // 1. 주문 유형 확인
+    const isBooking = order_id.startsWith('BK-') || order_id.startsWith('FOOD-') ||
+                      order_id.startsWith('ATR-') || order_id.startsWith('EXP-') ||
+                      order_id.startsWith('TOUR-') || order_id.startsWith('EVT-') ||
+                      order_id.startsWith('STAY-');
+    const isCart = order_id.startsWith('ORDER_');
+    const orderType = isBooking ? 'booking' : (isCart ? 'cart' : null);
+
+    if (!orderType) {
+      return { issued: false, message: '알 수 없는 주문 유형' };
+    }
+
+    // 2. 쿠폰 대상 상품 확인
+    let eligibleListings = [];
+
+    if (orderType === 'booking') {
+      const result = await connection.execute(`
+        SELECT l.is_coupon_eligible, l.id as listing_id, l.title, l.location, c.name_ko as category_name
+        FROM bookings b
+        JOIN listings l ON b.listing_id = l.id
+        LEFT JOIN categories c ON l.category_id = c.id
+        WHERE b.booking_number = ? AND l.is_coupon_eligible = 1
+      `, [order_id]);
+      eligibleListings = result.rows || [];
+    } else if (orderType === 'cart') {
+      const paymentResult = await connection.execute(
+        'SELECT notes FROM payments WHERE gateway_transaction_id = ? LIMIT 1',
+        [order_id]
+      );
+
+      if (paymentResult.rows && paymentResult.rows.length > 0) {
+        const notes = paymentResult.rows[0].notes ? JSON.parse(paymentResult.rows[0].notes) : null;
+        if (notes && notes.items && Array.isArray(notes.items)) {
+          const listingIds = notes.items.map(item => item.listingId).filter(Boolean);
+          if (listingIds.length > 0) {
+            const placeholders = listingIds.map(() => '?').join(',');
+            const listingResult = await connection.execute(`
+              SELECT l.id as listing_id, l.title, l.location, l.is_coupon_eligible, c.name_ko as category_name
+              FROM listings l
+              LEFT JOIN categories c ON l.category_id = c.id
+              WHERE l.id IN (${placeholders}) AND l.is_coupon_eligible = 1
+            `, listingIds);
+            eligibleListings = listingResult.rows || [];
+          }
+        }
+      }
+    }
+
+    if (eligibleListings.length === 0) {
+      return { issued: false, message: '쿠폰 대상 상품 없음' };
+    }
+
+    // 3. 이미 발급된 쿠폰 확인
+    const existingCoupon = await connection.execute(
+      'SELECT id, code FROM coupon_master WHERE user_id = ? AND order_id = ?',
+      [user_id, order_id]
+    );
+
+    if (existingCoupon.rows && existingCoupon.rows.length > 0) {
+      return {
+        issued: false,
+        message: '이미 발급된 쿠폰 존재',
+        coupon: { id: existingCoupon.rows[0].id, code: existingCoupon.rows[0].code }
+      };
+    }
+
+    // 4. 지역 정보 추출
+    let regionName = null;
+    if (eligibleListings.length > 0) {
+      const location = eligibleListings[0].location || '';
+      const match = location.match(/([\uAC00-\uD7A3]+[시군구])/);
+      regionName = match ? match[1].replace(/[시군구]$/, '') : null;
+    }
+
+    // 5. 사용 가능한 가맹점 수 조회
+    let merchantQuery = `
+      SELECT COUNT(*) as count FROM partners
+      WHERE is_coupon_partner = 1 AND status = 'approved' AND is_active = 1
+    `;
+    const merchantParams = [];
+    if (regionName) {
+      merchantQuery += ` AND (location LIKE ? OR business_address LIKE ?)`;
+      merchantParams.push(`%${regionName}%`, `%${regionName}%`);
+    }
+    const merchantCount = await connection.execute(merchantQuery, merchantParams);
+    const totalMerchants = merchantCount.rows?.[0]?.count || 0;
+
+    // 6. 유니크 코드 생성
+    let couponCode;
+    let attempts = 0;
+    while (attempts < 10) {
+      couponCode = generateCouponCode();
+      const codeCheck = await connection.execute(
+        'SELECT id FROM coupon_master WHERE code = ?',
+        [couponCode]
+      );
+      if (!codeCheck.rows || codeCheck.rows.length === 0) break;
+      attempts++;
+    }
+
+    // 7. 유효기간 및 QR URL
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://travleap.vercel.app';
+    const qrUrl = `${baseUrl}/coupon/${couponCode}`;
+
+    // 8. 쿠폰명 생성
+    const categoryName = eligibleListings[0]?.category_name || '여행';
+    const couponName = regionName
+      ? `${regionName} ${categoryName} 통합 할인쿠폰`
+      : `${categoryName} 통합 할인쿠폰`;
+
+    // 9. 쿠폰 발급
+    const insertResult = await connection.execute(`
+      INSERT INTO coupon_master (
+        user_id, order_id, payment_id, region_name, code, qr_url,
+        name, description, status, total_merchants, used_merchants,
+        expires_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, 0, ?, NOW(), NOW())
+    `, [
+      user_id,
+      order_id,
+      payment_id || null,
+      regionName,
+      couponCode,
+      qrUrl,
+      couponName,
+      `결제 상품과 연계된 가맹점에서 사용 가능한 통합 할인쿠폰입니다. (유효기간: 30일)`,
+      totalMerchants,
+      expiresAt
+    ]);
+
+    return {
+      issued: true,
+      message: '쿠폰 발급 완료',
+      coupon: {
+        id: insertResult.insertId,
+        code: couponCode,
+        name: couponName,
+        qr_url: qrUrl,
+        region_name: regionName,
+        total_merchants: totalMerchants,
+        expires_at: expiresAt.toISOString()
+      }
+    };
+
+  } catch (error) {
+    console.error('❌ [issueCouponForOrder] Error:', error);
+    throw error;
+  }
+}
+
+/**
  * 결제 승인 처리
  *
  * 1. Toss Payments API로 결제 승인 요청
@@ -996,6 +1267,44 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
     // 🔒 트랜잭션 커밋 - 모든 DB 작업 성공
     console.log('✅ [Transaction] DB 트랜잭션 커밋 완료');
 
+    // 🎟️ 쿠폰 자동 발급 (우선순위: 1. 연동 쿠폰 → 2. 캠페인 쿠폰)
+    let issuedCoupon = null;
+    try {
+      console.log(`🎟️ [Coupon] 쿠폰 발급 체크 시작: ${orderId}`);
+
+      // 1. 연동 쿠폰 발급 시도 (쿠폰 대상 상품이 있으면)
+      const couponIssueResult = await issueCouponForOrder(connection, {
+        user_id: userId,
+        order_id: orderId,
+        payment_id: isBooking || isRentcar ? null : orderId_num
+      });
+
+      if (couponIssueResult.issued) {
+        issuedCoupon = couponIssueResult.coupon;
+        console.log(`✅ [Coupon] 연동 쿠폰 발급 완료: ${issuedCoupon.code}`);
+      } else {
+        console.log(`ℹ️ [Coupon] 연동 쿠폰: ${couponIssueResult.message}`);
+
+        // 2. 연동 쿠폰이 없으면 캠페인 쿠폰 발급 시도
+        console.log(`🎟️ [Coupon] 캠페인 쿠폰 발급 체크 시작...`);
+        const campaignResult = await issueCampaignCouponForOrder(connection, {
+          user_id: userId,
+          order_id: orderId,
+          order_amount: amount
+        });
+
+        if (campaignResult.issued) {
+          issuedCoupon = campaignResult.coupon;
+          console.log(`✅ [Coupon] 캠페인 쿠폰 발급 완료: ${issuedCoupon.code}`);
+        } else {
+          console.log(`ℹ️ [Coupon] 캠페인 쿠폰: ${campaignResult.message}`);
+        }
+      }
+    } catch (couponError) {
+      console.error('⚠️ [Coupon] 쿠폰 발급 실패 (결제는 성공):', couponError.message);
+      // 쿠폰 발급 실패해도 결제는 성공 처리
+    }
+
     // 성공 응답
     return {
       success: true,
@@ -1004,7 +1313,8 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
       orderId: orderId_num,
       paymentKey,
       receiptUrl: paymentResult.receipt?.url || null,
-      amount: paymentResult.totalAmount
+      amount: paymentResult.totalAmount,
+      coupon: issuedCoupon // 발급된 쿠폰 정보 (없으면 null)
     };
 
   } catch (error) {
