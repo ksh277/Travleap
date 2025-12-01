@@ -118,10 +118,26 @@ const loadProducts = async (): Promise<Product[]> => {
         console.warn('Failed to parse images for listing:', listing.id);
       }
 
+      // 카테고리 slug를 한글명으로 변환
+      const categorySlugToName: Record<string, string> = {
+        'popup': '팝업',
+        'tour': '여행',
+        'stay': '숙박',
+        'food': '음식',
+        'rentcar': '렌트카',
+        'tourist': '관광지',
+        'event': '행사',
+        'experience': '체험'
+      };
+
+      // 상세설명 (description_md 컬럼 사용)
+      const longDesc = (listing as any).description_md || listing.detailed_description || listing.long_description || '';
+      const isImageDesc = longDesc.startsWith('http');
+
       return {
         id: listing.id.toString(),
         title: listing.title,
-        category: (listing as any).category_name || (listing as any).category_slug || listing.category || '미분류',
+        category: (listing as any).category_name || categorySlugToName[(listing as any).category_slug] || listing.category || '미분류',
         price: listing.price_from || 0,
         location: listing.location || '',
         rating: listing.rating_avg || 0,
@@ -130,11 +146,9 @@ const loadProducts = async (): Promise<Product[]> => {
           ? imagesArray[0]
           : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop',
         description: listing.short_description || '상세 정보를 확인해보세요.',
-        longDescription: listing.detailed_description || listing.long_description || '',
-        descriptionType: (listing.detailed_description || listing.long_description)?.startsWith('http') ? 'image' : 'text',
-        descriptionImageUrl: (listing.detailed_description || listing.long_description)?.startsWith('http')
-          ? (listing.detailed_description || listing.long_description)
-          : '',
+        longDescription: longDesc,
+        descriptionType: isImageDesc ? 'image' : 'text',
+        descriptionImageUrl: isImageDesc ? longDesc : '',
         status: listing.is_active ? 'active' : 'inactive',
         createdAt: listing.created_at ? listing.created_at.split('T')[0] : '2024-01-01',
         featured: listing.is_featured || false
