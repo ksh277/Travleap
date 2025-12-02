@@ -51,6 +51,8 @@ import { AdminInsurance } from './admin/tabs/AdminInsurance';
 import { AdminCoupons } from './admin/tabs/AdminCoupons';
 import { AdminCouponSettlements } from './admin/tabs/AdminCouponSettlements';
 import { PointAdjustmentDialog } from './admin/PointAdjustmentDialog';
+import TimeSlotManager from './vendor/TimeSlotManager';
+import ListingOptionsManager from './vendor/ListingOptionsManager';
 import { ShippingManagementDialog } from './ShippingManagementDialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import type { Listing, User } from '../types/database';
@@ -1675,7 +1677,7 @@ export function AdminPage({}: AdminPageProps) {
   // 상품 옵션 관리 함수들
   const fetchProductOptions = async (listingId: number) => {
     try {
-      const response = await fetch(`/api/listings/${listingId}/options`);
+      const response = await fetch(`/api/listings/options?listing_id=${listingId}`);
       const result = await response.json();
       if (result.success) {
         setProductOptions(result.data || []);
@@ -1696,18 +1698,18 @@ export function AdminPage({}: AdminPageProps) {
     }
 
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/admin/listings/${editingProductForOptions.id}/options`, {
+      const response = await fetch('/api/listings/options', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          optionName: newOption.optionName,
-          optionValue: newOption.optionValue,
-          priceAdjustment: parseInt(newOption.priceAdjustment) || 0,
-          stock: parseInt(newOption.stock) || 0
+          listing_id: parseInt(editingProductForOptions.id),
+          option_type: 'menu', // 기본 타입
+          name: `${newOption.optionName}: ${newOption.optionValue}`,
+          description: newOption.optionValue,
+          price: parseInt(newOption.priceAdjustment) || 0,
+          available_count: parseInt(newOption.stock) || 0
         })
       });
 
@@ -1727,14 +1729,18 @@ export function AdminPage({}: AdminPageProps) {
 
   const handleUpdateOption = async (optionId: number, updates: any) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/admin/product-options/${optionId}`, {
+      // 필드명 변환 (UI -> API)
+      const apiUpdates: any = { id: optionId };
+      if (updates.priceAdjustment !== undefined) apiUpdates.price = updates.priceAdjustment;
+      if (updates.stock !== undefined) apiUpdates.available_count = updates.stock;
+      if (updates.isAvailable !== undefined) apiUpdates.is_active = updates.isAvailable;
+
+      const response = await fetch('/api/listings/options', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(updates)
+        body: JSON.stringify(apiUpdates)
       });
 
       const result = await response.json();
@@ -1756,12 +1762,8 @@ export function AdminPage({}: AdminPageProps) {
     if (!confirm('이 옵션을 삭제하시겠습니까?')) return;
 
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/admin/product-options/${optionId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch(`/api/listings/options?id=${optionId}`, {
+        method: 'DELETE'
       });
 
       const result = await response.json();
@@ -6625,6 +6627,57 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               )}
 
+              {/* 시간대 관리 - 음식/관광지/행사/체험 카테고리 */}
+              {['음식', '관광지', '행사', '체험'].includes(editingProduct.category) && editingProduct.id && (
+                <div>
+                  <h3 className="text-lg font-medium mb-3">시간대 관리</h3>
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <TimeSlotManager
+                      listings={[{
+                        id: parseInt(editingProduct.id),
+                        title: editingProduct.title,
+                        category: editingProduct.category === '음식' ? 'food' :
+                                  editingProduct.category === '관광지' ? 'attractions' :
+                                  editingProduct.category === '행사' ? 'events' : 'experience'
+                      }]}
+                      categoryLabel="시간대"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 메뉴/옵션 관리 - 음식/팝업/행사/여행 카테고리 */}
+              {['음식', '팝업', '행사', '여행'].includes(editingProduct.category) && editingProduct.id && (
+                <div>
+                  <h3 className="text-lg font-medium mb-3">
+                    {editingProduct.category === '음식' ? '메뉴 관리' :
+                     editingProduct.category === '행사' ? '좌석등급 관리' :
+                     editingProduct.category === '여행' ? '패키지 관리' : '옵션 관리'}
+                  </h3>
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <ListingOptionsManager
+                      listings={[{
+                        id: parseInt(editingProduct.id),
+                        title: editingProduct.title,
+                        category: editingProduct.category === '음식' ? 'food' :
+                                  editingProduct.category === '행사' ? 'events' :
+                                  editingProduct.category === '여행' ? 'tour' : 'popup'
+                      }]}
+                      defaultOptionType={
+                        editingProduct.category === '음식' ? 'menu' :
+                        editingProduct.category === '행사' ? 'seat_class' :
+                        editingProduct.category === '여행' ? 'package' : 'menu'
+                      }
+                      categoryLabel={
+                        editingProduct.category === '음식' ? '메뉴' :
+                        editingProduct.category === '행사' ? '좌석등급' :
+                        editingProduct.category === '여행' ? '패키지' : '옵션'
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* 출발 시간 - 여행/체험 카테고리에만 표시 */}
               {['여행', '체험'].includes(editingProduct.category) && (
                 <div>
@@ -7968,9 +8021,9 @@ export function AdminPage({}: AdminPageProps) {
                     <TableHeader>
                       <TableRow>
                         <TableHead>옵션명</TableHead>
-                        <TableHead>옵션값</TableHead>
-                        <TableHead>추가 가격</TableHead>
-                        <TableHead>재고</TableHead>
+                        <TableHead>설명</TableHead>
+                        <TableHead>가격</TableHead>
+                        <TableHead>수량</TableHead>
                         <TableHead>상태</TableHead>
                         <TableHead>작업</TableHead>
                       </TableRow>
@@ -7978,15 +8031,15 @@ export function AdminPage({}: AdminPageProps) {
                     <TableBody>
                       {productOptions.map((option: any) => (
                         <TableRow key={option.id}>
-                          <TableCell>{option.option_name}</TableCell>
-                          <TableCell>{option.option_value}</TableCell>
+                          <TableCell>{option.name}</TableCell>
+                          <TableCell>{option.description || '-'}</TableCell>
                           <TableCell>
                             <Input
                               type="number"
-                              defaultValue={option.price_adjustment || 0}
+                              defaultValue={option.price || 0}
                               onBlur={(e) => {
                                 const newValue = parseInt(e.target.value) || 0;
-                                if (newValue !== option.price_adjustment) {
+                                if (newValue !== option.price) {
                                   handleUpdateOption(option.id, { priceAdjustment: newValue });
                                 }
                               }}
@@ -7996,10 +8049,10 @@ export function AdminPage({}: AdminPageProps) {
                           <TableCell>
                             <Input
                               type="number"
-                              defaultValue={option.stock || 0}
+                              defaultValue={option.available_count || 0}
                               onBlur={(e) => {
                                 const newValue = parseInt(e.target.value) || 0;
-                                if (newValue !== option.stock) {
+                                if (newValue !== option.available_count) {
                                   handleUpdateOption(option.id, { stock: newValue });
                                 }
                               }}
@@ -8007,8 +8060,8 @@ export function AdminPage({}: AdminPageProps) {
                             />
                           </TableCell>
                           <TableCell>
-                            <Badge variant={option.is_available ? 'default' : 'secondary'}>
-                              {option.is_available ? '활성' : '비활성'}
+                            <Badge variant={option.is_active ? 'default' : 'secondary'}>
+                              {option.is_active ? '활성' : '비활성'}
                             </Badge>
                           </TableCell>
                           <TableCell>
@@ -8016,9 +8069,9 @@ export function AdminPage({}: AdminPageProps) {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleUpdateOption(option.id, { isAvailable: !option.is_available })}
+                                onClick={() => handleUpdateOption(option.id, { isAvailable: !option.is_active })}
                               >
-                                {option.is_available ? '비활성화' : '활성화'}
+                                {option.is_active ? '비활성화' : '활성화'}
                               </Button>
                               <Button
                                 size="sm"

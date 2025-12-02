@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
+import AccountSettings from './vendor/AccountSettings';
 
 interface PartnerInfo {
   id: number;
@@ -785,6 +786,10 @@ export function PartnerDashboardPageEnhanced() {
 
           {/* 설정 탭 */}
           <TabsContent value="settings" className="space-y-4 mt-6">
+            {/* 내 계정 설정 */}
+            <AccountSettings />
+
+            {/* 업체 정보 */}
             <Card>
               <CardHeader>
                 <CardTitle>업체 정보</CardTitle>

@@ -92,19 +92,31 @@ async function handler(req, res) {
 
       console.log(`✅ [Reservation] 예약 생성 완료: ${order_number}`);
 
-      // 파트너 이메일 조회
+      // 파트너 정보 조회 (계정, 전화번호, 이메일)
       let vendorEmail = null;
+      let vendorPhone = null;
+      let vendorHasAccount = false;
       try {
         const vendorResult = await connection.execute(
-          'SELECT email, contact_email FROM partners WHERE id = ? LIMIT 1',
+          'SELECT user_id, email, contact_email, phone, mobile_phone FROM partners WHERE id = ? LIMIT 1',
           [vendor_id]
         );
         if (vendorResult.rows && vendorResult.rows.length > 0) {
-          vendorEmail = vendorResult.rows[0].email || vendorResult.rows[0].contact_email;
+          const vendor = vendorResult.rows[0];
+          vendorEmail = vendor.email || vendor.contact_email;
+          vendorPhone = vendor.mobile_phone || vendor.phone; // 알림톡용 전화번호
+          vendorHasAccount = vendor.user_id && vendor.user_id > 1; // user_id 1은 시스템 기본값
         }
-      } catch (emailQueryError) {
-        console.error('⚠️ [Reservation] 파트너 이메일 조회 실패:', emailQueryError);
+      } catch (vendorQueryError) {
+        console.error('⚠️ [Reservation] 파트너 정보 조회 실패:', vendorQueryError);
       }
+
+      console.log(`📋 [Reservation] 파트너 알림 분기: 계정=${vendorHasAccount}, 전화번호=${vendorPhone ? '있음' : '없음'}`);
+
+      // 알림 분기:
+      // 1. 계정 있음 → 대시보드에서 예약 확인 가능 (DB에 저장된 reservations 조회)
+      // 2. 계정 없고 전화번호 있음 → 카카오 알림톡으로 가맹점에 알림
+      // 3. 둘 다 없음 → 예약 불가 (프론트에서 이미 차단되지만, 만일의 경우)
 
       // 이메일 알림 발송 (비동기 - 실패해도 예약은 저장됨)
       if (vendorEmail) {
@@ -128,7 +140,7 @@ async function handler(req, res) {
         }
       }
 
-      // 알림톡 발송 (비동기 - 실패해도 예약은 저장됨)
+      // 고객에게 알림톡 발송 (비동기 - 실패해도 예약은 저장됨)
       try {
         await sendReservationAlimtalk({
           order_number,
@@ -140,10 +152,38 @@ async function handler(req, res) {
           reservation_time,
           end_date,
           party_size: party_size || num_adults + num_children,
-          special_requests
+          special_requests,
+          to_vendor: false // 고객용 알림
         });
       } catch (alimtalkError) {
-        console.error('⚠️ [Reservation] 알림톡 발송 실패 (예약은 저장됨):', alimtalkError);
+        console.error('⚠️ [Reservation] 고객 알림톡 발송 실패 (예약은 저장됨):', alimtalkError);
+      }
+
+      // 가맹점 알림 분기 처리
+      if (vendorHasAccount) {
+        // 계정이 있으면: 대시보드에서 예약 확인 가능 (별도 알림 없이 DB 조회)
+        console.log('✅ [Reservation] 파트너 계정 있음 - 대시보드에서 예약 확인 가능');
+      } else if (vendorPhone) {
+        // 계정 없고 전화번호 있으면: 카카오 알림톡으로 가맹점에 알림
+        console.log(`📱 [Reservation] 파트너 전화번호로 알림톡 발송: ${vendorPhone}`);
+        try {
+          await sendReservationAlimtalk({
+            order_number,
+            vendor_name: vendor_name || '가맹점',
+            service_name: service_name || category,
+            customer_name,
+            customer_phone,
+            reservation_date,
+            reservation_time,
+            end_date,
+            party_size: party_size || num_adults + num_children,
+            special_requests,
+            to_vendor: true, // 가맹점용 알림
+            vendor_phone: vendorPhone
+          });
+        } catch (vendorAlimtalkError) {
+          console.error('⚠️ [Reservation] 가맹점 알림톡 발송 실패:', vendorAlimtalkError);
+        }
       }
 
       return res.status(201).json({
@@ -232,7 +272,10 @@ async function handler(req, res) {
 }
 
 /**
- * 예약 알림톡 발송 (가맹점 + 고객)
+ * 예약 알림톡 발송 (고객 또는 가맹점)
+ * @param {Object} reservation - 예약 정보
+ * @param {boolean} reservation.to_vendor - 가맹점용 알림 여부
+ * @param {string} reservation.vendor_phone - 가맹점 전화번호 (to_vendor=true일 때)
  */
 async function sendReservationAlimtalk(reservation) {
   const {
@@ -245,7 +288,9 @@ async function sendReservationAlimtalk(reservation) {
     reservation_time,
     end_date,
     party_size,
-    special_requests
+    special_requests,
+    to_vendor = false,
+    vendor_phone
   } = reservation;
 
   // 날짜 포맷팅
@@ -255,7 +300,16 @@ async function sendReservationAlimtalk(reservation) {
 
   const endDateStr = end_date ? ` ~ ${end_date}` : '';
 
-  const message = `[Travleap] 새로운 예약이 접수되었습니다
+  // 메시지 분기: 고객용 vs 가맹점용
+  let message;
+  let receiverPhone;
+  let receiverName;
+
+  if (to_vendor && vendor_phone) {
+    // 가맹점에게 보내는 알림
+    receiverPhone = vendor_phone;
+    receiverName = vendor_name;
+    message = `[Travleap] 새로운 예약이 접수되었습니다
 
 📋 예약번호: ${order_number}
 🏢 서비스: ${service_name}
@@ -266,6 +320,21 @@ async function sendReservationAlimtalk(reservation) {
 ${special_requests ? `📝 요청사항: ${special_requests}` : ''}
 
 고객에게 예약 확정 연락을 해주세요.`;
+  } else {
+    // 고객에게 보내는 알림
+    receiverPhone = customer_phone;
+    receiverName = customer_name;
+    message = `[Travleap] 예약이 접수되었습니다
+
+📋 예약번호: ${order_number}
+🏢 ${vendor_name} - ${service_name}
+📅 예약일시: ${dateStr}${endDateStr}
+👥 인원: ${party_size}명
+${special_requests ? `📝 요청사항: ${special_requests}` : ''}
+
+가맹점 확인 후 연락드립니다.
+예약 변경/취소는 고객센터로 문의해주세요.`;
+  }
 
   // 알림톡 발송
   if (process.env.VITE_KAKAO_ALIMTALK_API_KEY) {
@@ -280,21 +349,22 @@ ${special_requests ? `📝 요청사항: ${special_requests}` : ''}
         },
         body: JSON.stringify({
           senderkey: process.env.VITE_KAKAO_SENDER_KEY,
-          tpl_code: 'new_reservation', // 템플릿 코드 (실제 등록한 코드로 변경)
-          receiver: customer_phone.replace(/-/g, ''),
-          recvname: vendor_name,
+          tpl_code: to_vendor ? 'vendor_new_reservation' : 'customer_reservation_confirm',
+          receiver: receiverPhone.replace(/-/g, ''),
+          recvname: receiverName,
           message: message
         })
       });
 
-      console.log('✅ [Reservation] 알림톡 발송 완료');
+      console.log(`✅ [Reservation] 알림톡 발송 완료 (${to_vendor ? '가맹점' : '고객'})`);
     } catch (error) {
-      console.error('❌ [Reservation] 알림톡 발송 실패:', error);
+      console.error(`❌ [Reservation] 알림톡 발송 실패 (${to_vendor ? '가맹점' : '고객'}):`, error);
       throw error;
     }
   } else {
     // 개발 모드: 콘솔 출력
-    console.log('📱 [Reservation] 알림톡 발송 (개발 모드):');
+    console.log(`📱 [Reservation] 알림톡 발송 (개발 모드 - ${to_vendor ? '가맹점' : '고객'}):`);
+    console.log(`To: ${receiverPhone}`);
     console.log(message);
   }
 }

@@ -557,9 +557,11 @@ export function AdminPartners() {
       <Dialog open={isCouponDialogOpen} onOpenChange={setIsCouponDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Ticket className="w-5 h-5" />
-              쿠폰 설정 - {selectedPartner?.business_name}
+            <DialogTitle>
+              <span className="flex items-center gap-2">
+                <Ticket className="w-5 h-5" />
+                쿠폰 설정 - {selectedPartner?.business_name}
+              </span>
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -665,9 +667,16 @@ export function AdminPartners() {
 function PartnerForm({ formData, setFormData }: any) {
   const [mapLoaded, setMapLoaded] = React.useState(false);
   const [mapError, setMapError] = React.useState<string | null>(null);
+  const [mapInitialized, setMapInitialized] = React.useState(false);
   const mapRef = React.useRef<HTMLDivElement>(null);
   const mapInstanceRef = React.useRef<any>(null);
   const markerRef = React.useRef<any>(null);
+  const formDataRef = React.useRef(formData);
+
+  // formData ref 업데이트
+  React.useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
 
   const handleImagesUploaded = (urls: string[]) => {
     setFormData({ ...formData, images: urls });
@@ -675,7 +684,7 @@ function PartnerForm({ formData, setFormData }: any) {
 
   // 카카오맵 초기화 함수
   const initializeMap = React.useCallback(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || mapInitialized) return;
 
     try {
       const kakao = (window as any).kakao;
@@ -684,8 +693,9 @@ function PartnerForm({ formData, setFormData }: any) {
         return;
       }
 
-      const lat = formData.lat || 34.8118;
-      const lng = formData.lng || 126.3922;
+      const currentFormData = formDataRef.current;
+      const lat = currentFormData.lat || 34.8118;
+      const lng = currentFormData.lng || 126.3922;
 
       const options = {
         center: new kakao.maps.LatLng(lat, lng),
@@ -725,16 +735,19 @@ function PartnerForm({ formData, setFormData }: any) {
       });
 
       setMapLoaded(true);
+      setMapInitialized(true);
       setMapError(null);
       console.log('✅ 카카오맵 초기화 완료');
     } catch (err) {
       console.error('카카오맵 초기화 오류:', err);
       setMapError('지도 로드 중 오류가 발생했습니다');
     }
-  }, [formData.lat, formData.lng, setFormData]);
+  }, [setFormData, mapInitialized]);
 
   // 컴포넌트 마운트 시 지도 초기화 (약간의 딜레이 후)
   React.useEffect(() => {
+    if (mapInitialized) return;
+
     const timer = setTimeout(() => {
       if (typeof window !== 'undefined' && (window as any).kakao) {
         const kakao = (window as any).kakao;
@@ -750,10 +763,10 @@ function PartnerForm({ formData, setFormData }: any) {
       } else {
         setMapError('카카오맵 SDK를 찾을 수 없습니다');
       }
-    }, 300); // 다이얼로그 애니메이션 후 초기화
+    }, 500); // 다이얼로그 애니메이션 후 초기화
 
     return () => clearTimeout(timer);
-  }, [initializeMap]);
+  }, [initializeMap, mapInitialized]);
 
   // 좌표 입력 시 마커 위치 업데이트
   React.useEffect(() => {

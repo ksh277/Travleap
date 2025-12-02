@@ -36,6 +36,7 @@ interface Partner {
   description: string;
   business_hours: string;
   phone: string;
+  mobile_phone?: string;
   email: string;
   images: string[];
   location: string;
@@ -52,6 +53,8 @@ interface Partner {
   coordinates?: string;
   lat?: number;
   lng?: number;
+  user_id?: number;
+  can_book?: boolean; // 예약 가능 여부 (계정 또는 전화번호 있으면 true)
 }
 
 interface Review {
@@ -212,6 +215,14 @@ export function PartnerDetailPage() {
           }
         }
 
+        // 예약 가능 여부 계산:
+        // - 계정(user_id)이 있으면 → 대시보드로 예약 알림 (예약 가능)
+        // - 계정 없고 전화번호(phone/mobile_phone) 있으면 → 카카오 알림톡 (예약 가능)
+        // - 둘 다 없으면 → 예약 불가
+        const hasAccount = partnerData.user_id && partnerData.user_id > 1; // user_id 1은 시스템 기본값
+        const hasPhone = !!(partnerData.phone || partnerData.mobile_phone);
+        const canBook = hasAccount || hasPhone;
+
         setPartner({
           id: partnerData.id,
           name: partnerData.business_name || partnerData.name,
@@ -221,6 +232,7 @@ export function PartnerDetailPage() {
           description: partnerData.description || partnerData.services,
           business_hours: partnerData.business_hours || '매일 09:00-18:00',
           phone: partnerData.phone || partnerData.contact_phone,
+          mobile_phone: partnerData.mobile_phone,
           email: partnerData.email || partnerData.contact_email,
           images: processedImages,
           location: partnerData.location || '신안, 대한민국',
@@ -237,6 +249,8 @@ export function PartnerDetailPage() {
           coordinates: partnerData.coordinates,
           lat: partnerData.lat ? Number(partnerData.lat) : undefined,
           lng: partnerData.lng ? Number(partnerData.lng) : undefined,
+          user_id: partnerData.user_id,
+          can_book: canBook,
         });
       } else {
         throw new Error(result.message || '파트너 정보를 찾을 수 없습니다');
@@ -747,17 +761,36 @@ export function PartnerDetailPage() {
                 {/* Reservation Button */}
                 <Card>
                   <CardContent className="p-6">
-                    <Button
-                      onClick={() => setIsReservationModalOpen(true)}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6"
-                      size="lg"
-                    >
-                      <Clock className="h-5 w-5 mr-2" />
-                      예약하기
-                    </Button>
-                    <p className="text-sm text-gray-500 text-center mt-3">
-                      날짜와 시간을 선택하여 예약하세요
-                    </p>
+                    {partner.can_book ? (
+                      <>
+                        <Button
+                          onClick={() => setIsReservationModalOpen(true)}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6"
+                          size="lg"
+                        >
+                          <Clock className="h-5 w-5 mr-2" />
+                          예약하기
+                        </Button>
+                        <p className="text-sm text-gray-500 text-center mt-3">
+                          날짜와 시간을 선택하여 예약하세요
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          disabled
+                          className="w-full bg-gray-400 text-white text-lg py-6 cursor-not-allowed"
+                          size="lg"
+                        >
+                          <Clock className="h-5 w-5 mr-2" />
+                          예약 불가
+                        </Button>
+                        <p className="text-sm text-gray-500 text-center mt-3">
+                          현재 온라인 예약을 받지 않습니다.<br />
+                          방문 또는 전화 문의 부탁드립니다.
+                        </p>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 

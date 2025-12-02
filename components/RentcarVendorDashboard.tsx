@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import AccountSettings from './vendor/AccountSettings';
 
 // JWT 디코딩 헬퍼 함수
 function decodeJWT(token: string) {
@@ -74,7 +75,7 @@ interface RentcarBooking {
   insurance_fee_krw?: number;
 }
 
-type TabType = 'all' | 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles' | 'calendar' | 'damage-claims';
+type TabType = 'all' | 'voucher' | 'check-in' | 'check-out' | 'today' | 'refunds' | 'blocks' | 'extras' | 'vehicles' | 'calendar' | 'damage-claims' | 'settings';
 
 export default function RentcarVendorDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('today');
@@ -1317,6 +1318,16 @@ export default function RentcarVendorDashboard() {
               }`}
             >
               차량재고
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`py-3 px-4 text-center font-medium transition whitespace-nowrap ${
+                activeTab === 'settings'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              설정
             </button>
           </div>
         </div>
@@ -4046,6 +4057,13 @@ export default function RentcarVendorDashboard() {
                   <li>• 변경 후 반드시 "저장" 버튼을 클릭해야 적용됩니다.</li>
                 </ul>
               </div>
+            </div>
+          )}
+
+          {/* Settings Tab */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6">
+              <AccountSettings />
             </div>
           )}
         </div>

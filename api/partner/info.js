@@ -5,17 +5,9 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { withPublicCors } = require('../../utils/cors-middleware.cjs');
 
-module.exports = async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
+async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
@@ -136,4 +128,6 @@ module.exports = async function handler(req, res) {
       message: '서버 오류가 발생했습니다'
     });
   }
-};
+}
+
+module.exports = withPublicCors(handler);
