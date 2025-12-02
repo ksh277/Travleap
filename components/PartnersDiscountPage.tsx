@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -23,7 +23,8 @@ import {
   Zap,
   Heart,
   Share2,
-  Loader2
+  Loader2,
+  Ticket
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
@@ -55,6 +56,7 @@ interface DiscountEvent {
   website?: string;
   conditions: string[];
   benefits: string[];
+  isCouponPartner?: boolean;  // 쿠폰 참여 가맹점 여부
 }
 
 const PARTNER_TYPES = [
@@ -229,6 +231,7 @@ const SAMPLE_EVENTS: DiscountEvent[] = [
 
 export function PartnersDiscountPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [events, setEvents] = useState<DiscountEvent[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<DiscountEvent[]>([]);
   const [selectedType, setSelectedType] = useState('all');
@@ -238,6 +241,10 @@ export function PartnersDiscountPage() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
+
+  // URL 파라미터에서 쿠폰 필터 확인
+  const couponCode = searchParams.get('coupon');
+  const couponOnlyFilter = searchParams.get('couponOnly') === 'true' || !!couponCode;
 
   // 실시간 데이터 가져오기
   const { data: listings } = useRealTimeListings();
@@ -336,7 +343,8 @@ export function PartnersDiscountPage() {
             phone: partner?.phone || listing.contact_phone || '',
             website: partner?.website_url || listing.website_url,
             conditions: ['사전 예약 필수', '현장 결제 가능'],
-            benefits: generateBenefits(listing)
+            benefits: generateBenefits(listing),
+            isCouponPartner: partner?.is_coupon_partner === 1 || partner?.is_coupon_partner === true || (partner?.discount_rate || 0) > 0
           };
         });
 
@@ -357,6 +365,11 @@ export function PartnersDiscountPage() {
   // 필터링 및 정렬
   useEffect(() => {
     let filtered = events;
+
+    // 쿠폰 필터 (URL 파라미터로 coupon 또는 couponOnly가 있는 경우)
+    if (couponOnlyFilter) {
+      filtered = filtered.filter(event => event.isCouponPartner);
+    }
 
     // 탭 필터
     if (activeTab === 'hot') {
@@ -412,7 +425,7 @@ export function PartnersDiscountPage() {
     }
 
     setFilteredEvents(filtered);
-  }, [events, activeTab, selectedType, selectedDiscount, searchQuery, sortBy]);
+  }, [events, activeTab, selectedType, selectedDiscount, searchQuery, sortBy, couponOnlyFilter]);
 
   const handleToggleFavorite = (eventId: string) => {
     setFavorites(prev =>
@@ -458,19 +471,39 @@ export function PartnersDiscountPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 섹션 */}
-      <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white">
+      <div className={`bg-gradient-to-r ${couponOnlyFilter ? 'from-emerald-500 via-teal-500 to-cyan-500' : 'from-orange-500 via-red-500 to-pink-500'} text-white`}>
         <div className="max-w-7xl mx-auto px-4 py-12 md:py-16">
           <div className="text-center">
-            <div className="flex justify-center items-center mb-4">
-              <Percent className="h-12 w-12 mr-3" />
-              <h1 className="text-3xl md:text-5xl font-bold">제휴업체 할인이벤트</h1>
-            </div>
-            <p className="text-lg md:text-xl mb-6 opacity-90">
-              약 300여개와 제휴되어 어딜가든지 최대 20% 할인
-            </p>
-            <p className="text-base md:text-lg opacity-80">
-              신안 여행의 모든 순간을 더욱 저렴하고 특별하게 만들어드립니다
-            </p>
+            {couponOnlyFilter ? (
+              <>
+                <div className="flex justify-center items-center mb-4">
+                  <Ticket className="h-12 w-12 mr-3" />
+                  <h1 className="text-3xl md:text-5xl font-bold">쿠폰 사용 가맹점</h1>
+                </div>
+                <p className="text-lg md:text-xl mb-6 opacity-90">
+                  발급받은 쿠폰으로 할인 혜택을 받을 수 있는 가맹점입니다
+                </p>
+                {couponCode && (
+                  <div className="inline-flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full">
+                    <span className="font-mono font-bold">{couponCode}</span>
+                    <span className="text-sm opacity-80">쿠폰으로 방문하세요</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex justify-center items-center mb-4">
+                  <Percent className="h-12 w-12 mr-3" />
+                  <h1 className="text-3xl md:text-5xl font-bold">제휴업체 할인이벤트</h1>
+                </div>
+                <p className="text-lg md:text-xl mb-6 opacity-90">
+                  약 300여개와 제휴되어 어딜가든지 최대 20% 할인
+                </p>
+                <p className="text-base md:text-lg opacity-80">
+                  신안 여행의 모든 순간을 더욱 저렴하고 특별하게 만들어드립니다
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -599,6 +632,12 @@ export function PartnersDiscountPage() {
 
                       {/* 상태 배지들 */}
                       <div className="absolute top-4 right-4 flex flex-col gap-2">
+                        {event.isCouponPartner && (
+                          <Badge className="bg-emerald-500">
+                            <Ticket className="h-3 w-3 mr-1" />
+                            쿠폰
+                          </Badge>
+                        )}
                         {event.isHot && (
                           <Badge className="bg-orange-500">
                             <Zap className="h-3 w-3 mr-1" />
