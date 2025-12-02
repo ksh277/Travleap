@@ -2723,7 +2723,7 @@ export function AdminPage({}: AdminPageProps) {
               <TabsTrigger value="activity" className="text-xs md:text-sm">활동 로그</TabsTrigger>
               <TabsTrigger value="coupons" className="text-xs md:text-sm">쿠폰</TabsTrigger>
               {canManageSystem() && (
-                <TabsTrigger value="settings" className="text-xs md:text-sm">시스템 설정</TabsTrigger>
+                <TabsTrigger value="settings" className="text-xs md:text-sm">설정</TabsTrigger>
               )}
             </TabsList>
           </div>
@@ -6628,53 +6628,71 @@ export function AdminPage({}: AdminPageProps) {
               )}
 
               {/* 시간대 관리 - 음식/관광지/행사/체험 카테고리 */}
-              {['음식', '관광지', '행사', '체험'].includes(editingProduct.category) && editingProduct.id && (
+              {['음식', '관광지', '행사', '체험'].includes(editingProduct.category) && (
                 <div>
                   <h3 className="text-lg font-medium mb-3">시간대 관리</h3>
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <TimeSlotManager
-                      listings={[{
-                        id: parseInt(editingProduct.id),
-                        title: editingProduct.title,
-                        category: editingProduct.category === '음식' ? 'food' :
-                                  editingProduct.category === '관광지' ? 'attractions' :
-                                  editingProduct.category === '행사' ? 'events' : 'experience'
-                      }]}
-                      categoryLabel="시간대"
-                    />
-                  </div>
+                  {editingProduct.id ? (
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <TimeSlotManager
+                        listings={[{
+                          id: parseInt(editingProduct.id),
+                          title: editingProduct.title,
+                          category: editingProduct.category === '음식' ? 'food' :
+                                    editingProduct.category === '관광지' ? 'attractions' :
+                                    editingProduct.category === '행사' ? 'events' : 'experience'
+                        }]}
+                        categoryLabel="시간대"
+                      />
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg p-4 bg-yellow-50 border-yellow-200">
+                      <p className="text-sm text-yellow-700">
+                        💡 상품을 먼저 저장한 후 시간대를 추가할 수 있습니다.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* 메뉴/옵션 관리 - 음식/팝업/행사/여행 카테고리 */}
-              {['음식', '팝업', '행사', '여행'].includes(editingProduct.category) && editingProduct.id && (
+              {['음식', '팝업', '행사', '여행'].includes(editingProduct.category) && (
                 <div>
                   <h3 className="text-lg font-medium mb-3">
                     {editingProduct.category === '음식' ? '메뉴 관리' :
                      editingProduct.category === '행사' ? '좌석등급 관리' :
                      editingProduct.category === '여행' ? '패키지 관리' : '옵션 관리'}
                   </h3>
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <ListingOptionsManager
-                      listings={[{
-                        id: parseInt(editingProduct.id),
-                        title: editingProduct.title,
-                        category: editingProduct.category === '음식' ? 'food' :
-                                  editingProduct.category === '행사' ? 'events' :
-                                  editingProduct.category === '여행' ? 'tour' : 'popup'
-                      }]}
-                      defaultOptionType={
-                        editingProduct.category === '음식' ? 'menu' :
-                        editingProduct.category === '행사' ? 'seat_class' :
-                        editingProduct.category === '여행' ? 'package' : 'menu'
-                      }
-                      categoryLabel={
-                        editingProduct.category === '음식' ? '메뉴' :
-                        editingProduct.category === '행사' ? '좌석등급' :
-                        editingProduct.category === '여행' ? '패키지' : '옵션'
-                      }
-                    />
-                  </div>
+                  {editingProduct.id ? (
+                    <div className="border rounded-lg p-4 bg-gray-50">
+                      <ListingOptionsManager
+                        listings={[{
+                          id: parseInt(editingProduct.id),
+                          title: editingProduct.title,
+                          category: editingProduct.category === '음식' ? 'food' :
+                                    editingProduct.category === '행사' ? 'events' :
+                                    editingProduct.category === '여행' ? 'tour' : 'popup'
+                        }]}
+                        defaultOptionType={
+                          editingProduct.category === '음식' ? 'menu' :
+                          editingProduct.category === '행사' ? 'seat_class' :
+                          editingProduct.category === '여행' ? 'package' : 'menu'
+                        }
+                        categoryLabel={
+                          editingProduct.category === '음식' ? '메뉴' :
+                          editingProduct.category === '행사' ? '좌석등급' :
+                          editingProduct.category === '여행' ? '패키지' : '옵션'
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <div className="border rounded-lg p-4 bg-yellow-50 border-yellow-200">
+                      <p className="text-sm text-yellow-700">
+                        💡 상품을 먼저 저장한 후 {editingProduct.category === '음식' ? '메뉴' :
+                          editingProduct.category === '행사' ? '좌석등급' :
+                          editingProduct.category === '여행' ? '패키지' : '옵션'}를 추가할 수 있습니다.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

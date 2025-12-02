@@ -5,8 +5,9 @@ import { Button } from '../../ui/button';
 import { Label } from '../../ui/label';
 import { Badge } from '../../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
-import { Settings, Mail, Save, RefreshCw, Plus, X } from 'lucide-react';
+import { Settings, Mail, Save, RefreshCw, Plus, X, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '../../../hooks/useAuth';
 
 interface SystemSetting {
   id: number;
@@ -22,12 +23,22 @@ interface GroupedSettings {
 }
 
 export function AdminSystemSettings() {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<GroupedSettings>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [editedValues, setEditedValues] = useState<{ [key: string]: string }>({});
   const [adminEmails, setAdminEmails] = useState<string[]>([]);
   const [newEmail, setNewEmail] = useState('');
+
+  // 계정 설정 상태
+  const [accountEmail, setAccountEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [isUpdatingAccount, setIsUpdatingAccount] = useState(false);
 
   // 설정 로드
   const loadSettings = async () => {
@@ -62,7 +73,64 @@ export function AdminSystemSettings() {
 
   useEffect(() => {
     loadSettings();
-  }, []);
+    // 현재 사용자 이메일 설정
+    if (user?.email) {
+      setAccountEmail(user.email);
+    }
+  }, [user]);
+
+  // 계정 정보 업데이트
+  const handleUpdateAccount = async () => {
+    try {
+      setIsUpdatingAccount(true);
+
+      // 비밀번호 변경 시 검증
+      if (newPassword) {
+        if (newPassword.length < 6) {
+          toast.error('새 비밀번호는 6자 이상이어야 합니다.');
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          toast.error('새 비밀번호가 일치하지 않습니다.');
+          return;
+        }
+        if (!currentPassword) {
+          toast.error('현재 비밀번호를 입력해주세요.');
+          return;
+        }
+      }
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/admin/accounts/me', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: accountEmail,
+          currentPassword: currentPassword || undefined,
+          newPassword: newPassword || undefined
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('계정 정보가 업데이트되었습니다.');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        toast.error(data.message || '업데이트 실패');
+      }
+    } catch (error) {
+      console.error('Account update error:', error);
+      toast.error('계정 업데이트 중 오류가 발생했습니다.');
+    } finally {
+      setIsUpdatingAccount(false);
+    }
+  };
 
   // 설정 값 변경
   const handleValueChange = (key: string, value: string) => {
@@ -264,38 +332,140 @@ export function AdminSystemSettings() {
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Settings className="h-6 w-6" />
-            시스템 설정
+            설정
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            사이트 전체 설정 및 이메일 알림 관리
+            계정 설정 및 시스템 환경 관리
           </p>
         </div>
-        <Button onClick={handleSaveSettings} disabled={isSaving}>
-          {isSaving ? (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              저장 중...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              설정 저장
-            </>
-          )}
-        </Button>
       </div>
 
-      <Tabs defaultValue="email" className="w-full">
+      <Tabs defaultValue="account" className="w-full">
         <TabsList>
+          <TabsTrigger value="account">
+            <User className="h-4 w-4 mr-2" />
+            계정 설정
+          </TabsTrigger>
           <TabsTrigger value="email">
             <Mail className="h-4 w-4 mr-2" />
-            이메일 설정
+            이메일 알림
           </TabsTrigger>
           <TabsTrigger value="general">
             <Settings className="h-4 w-4 mr-2" />
             일반 설정
           </TabsTrigger>
         </TabsList>
+
+        {/* 계정 설정 탭 */}
+        <TabsContent value="account" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                내 계정 정보
+              </CardTitle>
+              <p className="text-sm text-gray-500">
+                로그인 이메일과 비밀번호를 변경할 수 있습니다.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* 이메일 변경 */}
+              <div className="space-y-2">
+                <Label htmlFor="account-email">이메일 주소</Label>
+                <Input
+                  id="account-email"
+                  type="email"
+                  value={accountEmail}
+                  onChange={(e) => setAccountEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                />
+              </div>
+
+              {/* 비밀번호 변경 섹션 */}
+              <div className="border-t pt-6">
+                <h4 className="font-medium mb-4 flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  비밀번호 변경
+                </h4>
+                <div className="space-y-4">
+                  {/* 현재 비밀번호 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="current-password">현재 비밀번호</Label>
+                    <div className="relative">
+                      <Input
+                        id="current-password"
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="현재 비밀번호 입력"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      >
+                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 새 비밀번호 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">새 비밀번호</Label>
+                    <div className="relative">
+                      <Input
+                        id="new-password"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="새 비밀번호 입력 (6자 이상)"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 비밀번호 확인 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">새 비밀번호 확인</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="새 비밀번호 다시 입력"
+                    />
+                    {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                      <p className="text-sm text-red-500">비밀번호가 일치하지 않습니다.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 저장 버튼 */}
+              <div className="flex justify-end pt-4">
+                <Button onClick={handleUpdateAccount} disabled={isUpdatingAccount}>
+                  {isUpdatingAccount ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      저장 중...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      계정 정보 저장
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* 이메일 설정 탭 */}
         <TabsContent value="email" className="space-y-6 mt-6">
@@ -415,6 +585,23 @@ export function AdminSystemSettings() {
               </CardContent>
             </Card>
           )}
+
+          {/* 이메일 설정 저장 버튼 */}
+          <div className="flex justify-end">
+            <Button onClick={handleSaveSettings} disabled={isSaving} size="lg">
+              {isSaving ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  저장 중...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  이메일 설정 저장
+                </>
+              )}
+            </Button>
+          </div>
         </TabsContent>
 
         {/* 일반 설정 탭 */}
@@ -442,27 +629,28 @@ export function AdminSystemSettings() {
               </CardContent>
             </Card>
           )}
+
+          {/* 일반 설정 저장 버튼 */}
+          {Object.keys(settings).filter((cat) => cat !== 'email').length > 0 && (
+            <div className="flex justify-end">
+              <Button onClick={handleSaveSettings} disabled={isSaving} size="lg">
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    저장 중...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    설정 저장
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
-      {/* 저장 버튼 (하단 고정) */}
-      <div className="sticky bottom-0 bg-white border-t pt-4 pb-2">
-        <div className="flex justify-end">
-          <Button onClick={handleSaveSettings} disabled={isSaving} size="lg">
-            {isSaving ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                저장 중...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                모든 설정 저장
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }
