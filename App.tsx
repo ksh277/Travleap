@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { HomePage } from './components/HomePage';
@@ -96,6 +96,12 @@ function ScrollToTop() {
   }, [location.pathname]);
 
   return null;
+}
+
+// 쿠폰 짧은 URL 리다이렉트 (/c/:code → /coupon/claim?code=:code)
+function CouponClaimRedirect() {
+  const { code } = useParams();
+  return <Navigate to={`/coupon/claim?code=${code}`} replace />;
 }
 
 function AppContent() {
@@ -396,6 +402,9 @@ function AppContent() {
           <Route path="/coupon/qr/:code" element={<CouponQRPage />} />
           <Route path="/my/coupons" element={<MyCouponsPage />} />
           <Route path="/couponbook" element={<CouponBookPage />} />
+
+          {/* 쿠폰 발급 짧은 URL - /c/:code → /coupon/claim?code=:code 로 리다이렉트 */}
+          <Route path="/c/:code" element={<CouponClaimRedirect />} />
 
           {/* 파트너 쿠폰 대시보드 (가맹점용) - 컴포넌트 내부에서 인증/권한 체크 */}
           <Route path="/partner/coupon" element={

@@ -153,24 +153,29 @@ function generateCouponCode() {
  */
 async function issueCampaignCouponForOrder(connection, { user_id, order_id, order_amount }) {
   try {
+    console.log(`🎟️ [Campaign Coupon] 발급 시도: user_id=${user_id}, order_id=${order_id}`);
+
     // 1. 활성화된 결제 상품 쿠폰 조회 (coupon_category='product'만)
     const activeCoupons = await connection.execute(`
       SELECT *
       FROM coupons
       WHERE is_active = TRUE
-        AND (coupon_category = 'product' OR coupon_category IS NULL)
+        AND coupon_category = 'product'
         AND (valid_from IS NULL OR valid_from <= NOW())
         AND (valid_until IS NULL OR valid_until >= NOW())
-        AND (usage_limit IS NULL OR issued_count < usage_limit)
+        AND (usage_limit IS NULL OR COALESCE(issued_count, 0) < usage_limit)
       ORDER BY created_at DESC
       LIMIT 1
     `);
+
+    console.log(`🎟️ [Campaign Coupon] 조회 결과: ${activeCoupons.rows?.length || 0}개`);
 
     if (!activeCoupons.rows || activeCoupons.rows.length === 0) {
       return { issued: false, message: '활성화된 캠페인 쿠폰 없음' };
     }
 
     const campaign = activeCoupons.rows[0];
+    console.log(`🎟️ [Campaign Coupon] 발견: ${campaign.code} (id=${campaign.id}, discount=${campaign.discount_value}${campaign.discount_type === 'percentage' ? '%' : '원'})`);
 
     // 2. 사용자가 이 캠페인 쿠폰을 이미 발급받았는지 확인
     const existingIssue = await connection.execute(`
@@ -224,6 +229,10 @@ async function issueCampaignCouponForOrder(connection, { user_id, order_id, orde
     // 유효기간 계산
     const expiresAt = campaign.valid_until || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 기본 30일
 
+    // ✅ DB 컬럼명에 맞게 수정: discount_type, discount_value 사용
+    // discount_type: 'percentage' | 'fixed' | 'free_shipping'
+    const discountType = campaign.discount_type === 'percentage' ? 'PERCENT' : 'AMOUNT';
+
     return {
       issued: true,
       message: '캠페인 쿠폰 발급 완료',
@@ -232,9 +241,9 @@ async function issueCampaignCouponForOrder(connection, { user_id, order_id, orde
         code: userCouponCode,
         name: campaign.name || campaign.title || '할인 쿠폰',
         campaign_code: campaign.code,
-        discount_type: campaign.default_discount_type || 'PERCENT',
-        discount_value: campaign.default_discount_value || 10,
-        max_discount: campaign.default_max_discount,
+        discount_type: discountType,
+        discount_value: campaign.discount_value || 10,
+        max_discount: campaign.max_discount_amount || campaign.max_discount,
         qr_url: qrUrl,
         region_name: null,
         total_merchants: null, // 캠페인 쿠폰은 가맹점 제한 없음
