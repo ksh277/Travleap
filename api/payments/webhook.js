@@ -274,9 +274,9 @@ async function handlePaymentCanceled(event) {
           const options = JSON.parse(booking.selected_options);
           if (options && options.id) {
             await db.execute(`
-              UPDATE product_options
-              SET stock = stock + ?
-              WHERE id = ? AND stock IS NOT NULL
+              UPDATE listing_options
+              SET available_count = available_count + ?
+              WHERE id = ? AND available_count IS NOT NULL
             `, [booking.num_adults, options.id]);
             console.log(`✅ [Webhook] Stock restored for option ${options.id}: +${booking.num_adults}`);
           }

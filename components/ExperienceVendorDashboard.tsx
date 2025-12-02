@@ -42,6 +42,8 @@ import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import RefundPolicySettings from './vendor/RefundPolicySettings';
+import AccountSettings from './vendor/AccountSettings';
+import TimeSlotManager from './vendor/TimeSlotManager';
 
 interface Experience {
   id: number;
@@ -585,6 +587,7 @@ export function ExperienceVendorDashboard() {
         <Tabs defaultValue="bookings" className="space-y-4">
           <TabsList>
             <TabsTrigger value="bookings">예약 관리</TabsTrigger>
+            <TabsTrigger value="timeslots">시간대 관리</TabsTrigger>
             <TabsTrigger value="experiences">체험 프로그램</TabsTrigger>
             <TabsTrigger value="stock">재고 관리</TabsTrigger>
             <TabsTrigger value="settings">
@@ -901,6 +904,15 @@ export function ExperienceVendorDashboard() {
             </Card>
           </TabsContent>
 
+          {/* 시간대 관리 탭 */}
+          <TabsContent value="timeslots" className="space-y-4">
+            <TimeSlotManager
+              listings={experiences.map(e => ({ id: e.id, title: e.title, category: 'experience' }))}
+              categoryLabel="체험 시간대"
+              defaultCapacity={10}
+            />
+          </TabsContent>
+
           {/* 체험 프로그램 탭 */}
           <TabsContent value="experiences" className="space-y-4">
             <Card>
@@ -1051,6 +1063,7 @@ export function ExperienceVendorDashboard() {
 
           {/* 설정 탭 */}
           <TabsContent value="settings" className="space-y-4">
+            <AccountSettings />
             <RefundPolicySettings />
           </TabsContent>
         </Tabs>

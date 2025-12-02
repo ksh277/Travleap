@@ -75,12 +75,12 @@ async function expirePendingOrders() {
           try {
             const quantity = booking.guests || 1;
 
-            // 옵션 재고 복구
+            // 옵션 재고 복구 (listing_options 테이블)
             if (booking.selected_option_id) {
               const optionResult = await db.execute(`
-                UPDATE product_options
-                SET stock = stock + ?
-                WHERE id = ? AND stock IS NOT NULL
+                UPDATE listing_options
+                SET available_count = available_count + ?
+                WHERE id = ? AND available_count IS NOT NULL
               `, [quantity, booking.selected_option_id]);
 
               if (optionResult.affectedRows > 0) {

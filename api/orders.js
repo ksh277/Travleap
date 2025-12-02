@@ -770,24 +770,25 @@ module.exports = async function handler(req, res) {
         const bookingBasedCategories = [1855, 1858, 1859, 1861, 1862]; // 투어, 음식, 관광지, 이벤트, 체험
         const isBookingBased = bookingBasedCategories.includes(categoryId);
 
-        // SECURITY FIX: 옵션 가격 먼저 검증
+        // SECURITY FIX: 옵션 가격 먼저 검증 (listing_options 테이블 사용)
         let actualOptionPrice = 0;
         if (item.selectedOption?.id) {
           try {
             const optionResult = await connection.execute(
-              'SELECT price_adjustment FROM product_options WHERE id = ? AND listing_id = ?',
+              'SELECT price FROM listing_options WHERE id = ? AND listing_id = ?',
               [item.selectedOption.id, item.listingId]
             );
 
             if (optionResult.rows && optionResult.rows.length > 0) {
-              actualOptionPrice = optionResult.rows[0].price_adjustment || 0;
+              actualOptionPrice = optionResult.rows[0].price || 0;
 
-              // 옵션 가격도 검증
-              if (item.selectedOption.priceAdjustment && Math.abs(actualOptionPrice - item.selectedOption.priceAdjustment) > 1) {
+              // 옵션 가격도 검증 (price 또는 priceAdjustment 비교)
+              const clientOptionPrice = item.selectedOption.price || item.selectedOption.priceAdjustment || 0;
+              if (clientOptionPrice && Math.abs(actualOptionPrice - clientOptionPrice) > 1) {
                 console.error(`❌ [Orders] 옵션 가격 조작 감지!
                   - 옵션 ID: ${item.selectedOption.id}
                   - DB 가격: ${actualOptionPrice}원
-                  - 클라이언트 가격: ${item.selectedOption.priceAdjustment}원`);
+                  - 클라이언트 가격: ${clientOptionPrice}원`);
 
                 return res.status(400).json({
                   success: false,
@@ -797,13 +798,10 @@ module.exports = async function handler(req, res) {
               }
             }
           } catch (optionError) {
-            // product_options 테이블이 없거나 다른 오류 발생 시
-            console.warn(`⚠️  [Orders] 옵션 검증 실패 (테이블 없음 또는 오류): ${optionError.message}`);
-            // 옵션이 있는 경우에만 오류로 처리 (현재 투어/음식/관광지/팝업/행사/체험은 옵션 없음)
-            if (categoryId !== 1856 && categoryId !== 1857) {
-              // 렌트카(1856), 숙박(1857) 제외하고는 옵션이 없어야 정상
-              actualOptionPrice = 0;
-            }
+            // listing_options 테이블 조회 실패 시
+            console.warn(`⚠️  [Orders] 옵션 검증 실패: ${optionError.message}`);
+            // 옵션이 없는 상품은 정상 처리
+            actualOptionPrice = 0;
           }
         }
 
@@ -1427,9 +1425,9 @@ module.exports = async function handler(req, res) {
         const itemName = item.title || item.name || `상품 ID ${item.listingId}`;
 
         if (item.selectedOption && item.selectedOption.id) {
-          // 옵션 재고 확인 (FOR UPDATE로 락 획득)
+          // 옵션 재고 확인 (listing_options 테이블, FOR UPDATE로 락 획득)
           const stockCheck = await connection.execute(`
-            SELECT stock, option_name FROM product_options
+            SELECT available_count, name FROM listing_options
             WHERE id = ?
             FOR UPDATE
           `, [item.selectedOption.id]);
@@ -1438,27 +1436,27 @@ module.exports = async function handler(req, res) {
             throw new Error(`옵션을 찾을 수 없습니다: ${itemName} - ${item.selectedOption.name || 'Unknown'}`);
           }
 
-          const currentStock = stockCheck.rows[0].stock;
-          const optionName = stockCheck.rows[0].option_name || item.selectedOption.name;
+          const currentStock = stockCheck.rows[0].available_count;
+          const optionName = stockCheck.rows[0].name || item.selectedOption.name;
 
           // 재고 NULL이면 무제한 재고로 간주
           if (currentStock !== null && currentStock < stockQuantity) {
             throw new Error(`재고 부족: ${itemName} (${optionName}) - 현재 재고 ${currentStock}개, 주문 수량 ${stockQuantity}개`);
           }
 
-          // 재고 차감 (동시성 제어: stock >= ? 조건 추가)
+          // 재고 차감 (동시성 제어: available_count >= ? 조건 추가)
           const updateResult = await connection.execute(`
-            UPDATE product_options
-            SET stock = stock - ?
-            WHERE id = ? AND stock IS NOT NULL AND stock >= ?
+            UPDATE listing_options
+            SET available_count = available_count - ?
+            WHERE id = ? AND available_count IS NOT NULL AND available_count >= ?
           `, [stockQuantity, item.selectedOption.id, stockQuantity]);
 
           // affectedRows 확인으로 동시성 충돌 감지
-          if (updateResult.affectedRows === 0) {
+          if (updateResult.affectedRows === 0 && currentStock !== null) {
             throw new Error(`재고 차감 실패 (동시성 충돌 또는 재고 부족): ${itemName} (${optionName}) - 다른 사용자가 먼저 구매했을 수 있습니다.`);
           }
 
-          console.log(`✅ [Orders] 옵션 재고 차감: ${itemName} (${optionName}), -${stockQuantity}개 (남은 재고: ${currentStock - stockQuantity}개)`);
+          console.log(`✅ [Orders] 옵션 재고 차감: ${itemName} (${optionName}), -${stockQuantity}개 (남은 재고: ${currentStock !== null ? currentStock - stockQuantity : '무제한'}개)`);
 
         } else {
           // 상품 레벨 재고 확인 (stock_enabled=1인 경우만)

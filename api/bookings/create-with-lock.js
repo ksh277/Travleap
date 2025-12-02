@@ -45,9 +45,9 @@ async function createBookingWithLock(bookingData) {
 
     // 2. 재고 확인 (옵션 재고 포함) - ✅ FOR UPDATE로 락 획득
     if (bookingData.selected_option) {
-      // 팝업 상품 옵션 재고 확인
+      // 옵션 재고 확인 (listing_options 테이블 사용)
       const optionStock = await db.query(
-        `SELECT stock, is_available FROM product_options WHERE id = ? FOR UPDATE`,
+        `SELECT available_count, is_active FROM listing_options WHERE id = ? FOR UPDATE`,
         [bookingData.selected_option.id]
       );
 
@@ -60,7 +60,7 @@ async function createBookingWithLock(bookingData) {
         };
       }
 
-      if (!optionStock[0].is_available) {
+      if (optionStock[0].is_active === 0) {
         await lockManager.releaseLock(lockKey);
         return {
           success: false,
@@ -69,11 +69,11 @@ async function createBookingWithLock(bookingData) {
         };
       }
 
-      if (optionStock[0].stock !== null && optionStock[0].stock < bookingData.num_adults) {
+      if (optionStock[0].available_count !== null && optionStock[0].available_count < bookingData.num_adults) {
         await lockManager.releaseLock(lockKey);
         return {
           success: false,
-          message: `재고가 부족합니다. (현재 재고: ${optionStock[0].stock}개)`,
+          message: `재고가 부족합니다. (현재 재고: ${optionStock[0].available_count}개)`,
           code: 'INSUFFICIENT_STOCK'
         };
       }
@@ -112,10 +112,10 @@ async function createBookingWithLock(bookingData) {
     const result = await db.execute('INSERT INTO bookings SET ?', [bookingInsert]);
     const bookingId = result.insertId;
 
-    // 4. 재고 차감 (옵션 재고 포함)
+    // 4. 재고 차감 (옵션 재고 포함) - ✅ listing_options 테이블 사용
     if (bookingData.selected_option) {
       await db.execute(
-        `UPDATE product_options SET stock = stock - ? WHERE id = ? AND stock IS NOT NULL`,
+        `UPDATE listing_options SET available_count = available_count - ? WHERE id = ? AND available_count IS NOT NULL`,
         [bookingData.num_adults, bookingData.selected_option.id]
       );
       console.log(`✅ [Stock] Option stock decreased: ${bookingData.selected_option.id} (-${bookingData.num_adults})`);
@@ -135,10 +135,10 @@ async function createBookingWithLock(bookingData) {
         // 이미 예약이 생성되었으므로, 롤백 필요
         await db.execute('DELETE FROM bookings WHERE id = ?', [bookingId]);
 
-        // 옵션 재고도 롤백
+        // 옵션 재고도 롤백 - ✅ listing_options 테이블 사용
         if (bookingData.selected_option) {
           await db.execute(
-            `UPDATE product_options SET stock = stock + ? WHERE id = ?`,
+            `UPDATE listing_options SET available_count = available_count + ? WHERE id = ?`,
             [bookingData.num_adults, bookingData.selected_option.id]
           );
         }

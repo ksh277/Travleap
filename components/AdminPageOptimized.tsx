@@ -17,6 +17,7 @@ const AdminRefundPolicies = lazy(() => import('./admin/tabs/AdminRefundPolicies'
 const AdminCouponSettlements = lazy(() => import('./admin/tabs/AdminCouponSettlements').then(m => ({ default: m.AdminCouponSettlements })));
 const AdminSettlements = lazy(() => import('./admin/tabs/AdminSettlements').then(m => ({ default: m.AdminSettlements })));
 const AdminSettings = lazy(() => import('./admin/tabs/AdminSettings').then(m => ({ default: m.AdminSettings })));
+const AdminOptions = lazy(() => import('./admin/tabs/AdminOptions').then(m => ({ default: m.AdminOptions })));
 
 // Import existing external components (already optimized)
 import { RentcarManagement } from './admin/RentcarManagement';
@@ -122,7 +123,7 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
           {/* SUPER_ADMIN: 모든 탭 표시 */}
           {/* MD_ADMIN: 가맹점, 쿠폰, 문의, 미디어만 표시 */}
           <TabsList className={`grid w-full lg:w-auto lg:inline-grid ${
-            isSuperAdmin ? 'grid-cols-12' : 'grid-cols-5'
+            isSuperAdmin ? 'grid-cols-13' : 'grid-cols-5'
           }`}>
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             {/* 주문 - SUPER_ADMIN만 (결제 관련) */}
@@ -143,6 +144,8 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
             <TabsTrigger value="contacts">문의</TabsTrigger>
             {/* 렌트카 - SUPER_ADMIN만 (시스템 관리) */}
             {canManageSystem() && <TabsTrigger value="rentcar">렌트카</TabsTrigger>}
+            {/* 옵션관리 - SUPER_ADMIN만 (시스템 관리) */}
+            {canManageSystem() && <TabsTrigger value="options">옵션관리</TabsTrigger>}
             {/* 미디어/광고 - MD 이상 */}
             <TabsTrigger value="media">미디어</TabsTrigger>
             {/* 설정 - SUPER_ADMIN만 */}
@@ -229,6 +232,15 @@ export function AdminPageOptimized({ selectedCurrency = 'KRW' }: AdminPageOptimi
                 <RentcarManagement />
               </Suspense>
             </TabsContent>
+          )}
+
+          {/* 옵션관리 - SUPER_ADMIN만 */}
+          {canManageSystem() && (
+            <Suspense fallback={<LoadingFallback />}>
+              <TabsContent value="options">
+                <AdminOptions />
+              </TabsContent>
+            </Suspense>
           )}
 
           {/* 미디어/광고 - MD 이상 */}

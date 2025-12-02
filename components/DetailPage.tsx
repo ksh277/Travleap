@@ -222,14 +222,21 @@ export function DetailPage() {
     }
   }, [item?.id]);
 
-  // Update price calculation when guests change
+  // Update price calculation when guests or options change
   useEffect(() => {
     if (!item) return;
 
+    // 옵션이 있고 메뉴/좌석등급인 경우 옵션 가격 사용
+    const useOptionPrice = selectedOption &&
+      ['menu', 'seat_class'].includes(selectedOption.option_type) &&
+      selectedOption.price > 0;
+
+    const baseItemPrice = useOptionPrice ? selectedOption.price : item.price;
+
     // Calculate prices for each guest type
-    const adultPrice = item.price * adults;
-    const childPrice = (item.childPrice || item.price * 0.7) * children;
-    const infantPrice = (item.infantPrice || item.price * 0.3) * infants;
+    const adultPrice = baseItemPrice * adults;
+    const childPrice = (item.childPrice || baseItemPrice * 0.7) * children;
+    const infantPrice = (item.infantPrice || baseItemPrice * 0.3) * infants;
 
     // Calculate package prices
     const packageTotal = Object.entries(selectedPackages).reduce((sum, [packageId, quantity]) => {
@@ -237,11 +244,18 @@ export function DetailPage() {
       return sum + (pkg?.price || 0) * quantity;
     }, 0);
 
-    const basePrice = adultPrice + childPrice + infantPrice + packageTotal;
+    // 시간대/패키지/추가옵션의 경우 추가 금액
+    const optionExtraPrice = selectedOption &&
+      ['time_slot', 'package', 'addon'].includes(selectedOption.option_type) &&
+      selectedOption.price > 0
+        ? selectedOption.price * (adults + children)
+        : 0;
+
+    const basePrice = adultPrice + childPrice + infantPrice + packageTotal + optionExtraPrice;
     const taxes = 0; // 세금 포함하지 않음
     const total = basePrice;
     setPriceCalculation({ basePrice, taxes, total });
-  }, [adults, children, infants, item, selectedPackages]);
+  }, [adults, children, infants, item, selectedPackages, selectedOption]);
 
   // 스크롤 이동 함수
   const scrollToSection = (sectionId: string) => {
@@ -503,17 +517,26 @@ export function DetailPage() {
   }, [fetchItemDetails]);
 
   // Fetch product options if item has options enabled
+  // 모든 카테고리에서 옵션 로드 (메뉴, 시간대, 좌석등급 등)
   useEffect(() => {
     const fetchProductOptions = async () => {
       if (!item?.id) return;
 
-      // @ts-ignore - Check if item has hasOptions property
-      if (isPopupProduct(item) && item.hasOptions) {
+      // hasOptions가 true이거나, 투어/음식/관광지/체험/행사 카테고리인 경우 옵션 로드
+      const shouldLoadOptions = item.hasOptions ||
+        ['tour', 'food', 'tourist', 'experience', 'event', '여행/투어', '음식', '관광지', '체험', '행사'].includes(item.category);
+
+      if (shouldLoadOptions) {
         try {
-          const response = await fetch(`/api/listings/${item.id}/options`);
+          const response = await fetch(`/api/listings/options?listing_id=${item.id}`);
           const result = await response.json();
-          if (result.success) {
-            setProductOptions(result.data || []);
+          if (result.success && result.data && result.data.length > 0) {
+            setProductOptions(result.data);
+            // 기본 옵션이 있으면 선택
+            const defaultOption = result.data.find((opt: any) => opt.is_default);
+            if (defaultOption) {
+              setSelectedOption(defaultOption);
+            }
           }
         } catch (error) {
           console.error('Failed to fetch options:', error);
@@ -837,8 +860,24 @@ export function DetailPage() {
       return;
     }
 
-    // 팝업 상품 옵션 검증
-    if (isPopupProduct(item) && productOptions.length > 0 && !selectedOption) {
+    // 옵션 검증 (팝업 + 일반 카테고리 모두)
+    if (productOptions.length > 0 && !selectedOption) {
+      // 시간대 옵션이 있는 경우
+      if (productOptions.some((opt: any) => opt.option_type === 'time_slot')) {
+        toast.error('시간대를 선택해주세요.');
+        return;
+      }
+      // 메뉴 옵션이 있는 경우 (음식)
+      if (productOptions.some((opt: any) => opt.option_type === 'menu')) {
+        toast.error('메뉴를 선택해주세요.');
+        return;
+      }
+      // 좌석등급 옵션이 있는 경우 (행사)
+      if (productOptions.some((opt: any) => opt.option_type === 'seat_class')) {
+        toast.error('좌석 등급을 선택해주세요.');
+        return;
+      }
+      // 기타 옵션
       toast.error('옵션을 선택해주세요.');
       return;
     }
@@ -860,7 +899,7 @@ export function DetailPage() {
       location: item.location || '',
       date: isPopupProduct(item) ? '' : selectedDate!.toISOString().split('T')[0],
       guests: isPopupProduct(item) ? quantity : totalGuests,
-      checkInTime: startTime || undefined,  // ✅ 예약/체크인 시간 (음식점/체험/숙박)
+      checkInTime: startTime || (selectedOption?.start_time?.slice(0, 5)) || undefined,  // ✅ 예약/체크인 시간 (옵션에서 가져옴)
       // ✅ 투어/음식/관광지/이벤트/체험 인원 정보
       adults: isPopupProduct(item) ? undefined : adults,
       children: isPopupProduct(item) ? undefined : children,
@@ -869,11 +908,14 @@ export function DetailPage() {
       adultPrice: isPopupProduct(item) ? undefined : (item.price || 0),
       childPrice: isPopupProduct(item) ? undefined : (item.childPrice || item.price * 0.7),
       infantPrice: isPopupProduct(item) ? undefined : (item.infantPrice || item.price * 0.3),
+      // ✅ 옵션 정보 (팝업 + 일반 카테고리 모두)
       selectedOption: selectedOption ? {
         id: selectedOption.id,
-        name: selectedOption.option_name,
-        value: selectedOption.option_value,
-        priceAdjustment: selectedOption.price_adjustment
+        name: selectedOption.name || selectedOption.option_name,
+        value: selectedOption.option_value || selectedOption.description,
+        optionType: selectedOption.option_type,
+        price: selectedOption.price || 0,
+        priceAdjustment: selectedOption.price_adjustment || 0
       } : undefined,
       // ✅ 보험 정보 (렌트카 등에서 전달될 수 있음)
       selectedInsurance: undefined,  // 향후 렌트카 페이지에서 전달 가능
@@ -890,7 +932,7 @@ export function DetailPage() {
       console.error('❌ [DetailPage] 장바구니 추가 실패:', error);
       toast.error(error instanceof Error ? error.message : '장바구니 추가에 실패했습니다.');
     }
-  }, [item, selectedDate, adults, children, infants, quantity, priceCalculation.total, addToCart]);
+  }, [item, selectedDate, adults, children, infants, quantity, priceCalculation.total, selectedOption, startTime, addToCart]);
 
   const averageRating = useMemo(() => {
     if (reviews.length > 0) {
@@ -2313,7 +2355,7 @@ export function DetailPage() {
                         </div>
                       ) : (
                         <>
-                          {/* 일반 카테고리: 날짜 + 인원 선택 */}
+                          {/* 일반 카테고리: 날짜 + 옵션 + 인원 선택 */}
                           <div>
                             <label className="block text-sm mb-2">날짜 선택</label>
                             <Popover>
@@ -2336,6 +2378,205 @@ export function DetailPage() {
                               </PopoverContent>
                             </Popover>
                           </div>
+
+                          {/* 옵션 선택 (메뉴/시간대/좌석등급) - 옵션이 있는 경우만 표시 */}
+                          {productOptions.length > 0 && (
+                            <div className="space-y-3">
+                              {/* 메뉴 옵션 (음식) */}
+                              {productOptions.some((opt: any) => opt.option_type === 'menu') && (
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">메뉴 선택</label>
+                                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                                    {productOptions
+                                      .filter((opt: any) => opt.option_type === 'menu')
+                                      .map((option: any) => (
+                                        <div
+                                          key={option.id}
+                                          className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                                            selectedOption?.id === option.id
+                                              ? 'border-blue-500 bg-blue-50'
+                                              : 'border-gray-200 hover:border-gray-400'
+                                          }`}
+                                          onClick={() => setSelectedOption(option)}
+                                        >
+                                          <div className="flex justify-between items-start">
+                                            <div>
+                                              <div className="font-medium">{option.name}</div>
+                                              {option.description && (
+                                                <div className="text-xs text-gray-500 mt-1">{option.description}</div>
+                                              )}
+                                            </div>
+                                            <div className="text-right">
+                                              <div className="font-semibold text-blue-600">
+                                                {option.price?.toLocaleString()}원
+                                              </div>
+                                              {option.original_price && option.original_price > option.price && (
+                                                <div className="text-xs text-gray-400 line-through">
+                                                  {option.original_price.toLocaleString()}원
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 시간대 옵션 (관광지/체험/행사) */}
+                              {productOptions.some((opt: any) => opt.option_type === 'time_slot') && (
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">시간 선택</label>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {productOptions
+                                      .filter((opt: any) => opt.option_type === 'time_slot')
+                                      .map((option: any) => (
+                                        <Button
+                                          key={option.id}
+                                          type="button"
+                                          variant={selectedOption?.id === option.id ? 'default' : 'outline'}
+                                          className={`h-auto py-2 px-3 ${
+                                            option.available_count !== null && option.available_count <= 0
+                                              ? 'opacity-50 cursor-not-allowed'
+                                              : ''
+                                          }`}
+                                          onClick={() => {
+                                            if (option.available_count === null || option.available_count > 0) {
+                                              setSelectedOption(option);
+                                              if (option.start_time) {
+                                                setStartTime(option.start_time);
+                                              }
+                                            }
+                                          }}
+                                          disabled={option.available_count !== null && option.available_count <= 0}
+                                        >
+                                          <div className="text-center">
+                                            <div className="font-medium">
+                                              {option.start_time?.slice(0, 5)}
+                                              {option.end_time && ` - ${option.end_time.slice(0, 5)}`}
+                                            </div>
+                                            {option.available_count !== null && (
+                                              <div className="text-xs text-gray-500">
+                                                {option.available_count > 0 ? `${option.available_count}명 가능` : '마감'}
+                                              </div>
+                                            )}
+                                            {option.price > 0 && (
+                                              <div className="text-xs text-blue-600">
+                                                +{option.price.toLocaleString()}원
+                                              </div>
+                                            )}
+                                          </div>
+                                        </Button>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 좌석등급 옵션 (행사) */}
+                              {productOptions.some((opt: any) => opt.option_type === 'seat_class') && (
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">좌석 등급</label>
+                                  <div className="space-y-2">
+                                    {productOptions
+                                      .filter((opt: any) => opt.option_type === 'seat_class')
+                                      .map((option: any) => (
+                                        <div
+                                          key={option.id}
+                                          className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                                            selectedOption?.id === option.id
+                                              ? 'border-blue-500 bg-blue-50'
+                                              : 'border-gray-200 hover:border-gray-400'
+                                          } ${
+                                            option.available_count !== null && option.available_count <= 0
+                                              ? 'opacity-50 cursor-not-allowed'
+                                              : ''
+                                          }`}
+                                          onClick={() => {
+                                            if (option.available_count === null || option.available_count > 0) {
+                                              setSelectedOption(option);
+                                            }
+                                          }}
+                                        >
+                                          <div className="flex justify-between items-center">
+                                            <div>
+                                              <div className="font-medium">{option.name}</div>
+                                              {option.description && (
+                                                <div className="text-xs text-gray-500">{option.description}</div>
+                                              )}
+                                              {option.available_count !== null && (
+                                                <div className="text-xs text-orange-500 mt-1">
+                                                  {option.available_count > 0 ? `${option.available_count}석 남음` : '매진'}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div className="text-right">
+                                              <div className="font-semibold text-blue-600">
+                                                {option.price?.toLocaleString()}원
+                                              </div>
+                                              {option.original_price && option.original_price > option.price && (
+                                                <div className="text-xs text-gray-400 line-through">
+                                                  {option.original_price.toLocaleString()}원
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 패키지/기타 옵션 */}
+                              {productOptions.some((opt: any) => ['package', 'addon'].includes(opt.option_type)) && (
+                                <div>
+                                  <label className="block text-sm font-medium mb-2">옵션 선택</label>
+                                  <div className="space-y-2">
+                                    {productOptions
+                                      .filter((opt: any) => ['package', 'addon'].includes(opt.option_type))
+                                      .map((option: any) => (
+                                        <div
+                                          key={option.id}
+                                          className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                                            selectedOption?.id === option.id
+                                              ? 'border-blue-500 bg-blue-50'
+                                              : 'border-gray-200 hover:border-gray-400'
+                                          }`}
+                                          onClick={() => setSelectedOption(option)}
+                                        >
+                                          <div className="flex justify-between items-center">
+                                            <div>
+                                              <div className="font-medium">{option.name}</div>
+                                              {option.description && (
+                                                <div className="text-xs text-gray-500">{option.description}</div>
+                                              )}
+                                            </div>
+                                            <div className="font-semibold text-blue-600">
+                                              {option.price > 0 ? `+${option.price.toLocaleString()}원` : '무료'}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 선택된 옵션 요약 */}
+                              {selectedOption && (
+                                <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-gray-600">선택한 옵션:</span>
+                                    <span className="font-medium">{selectedOption.name}</span>
+                                  </div>
+                                  {selectedOption.price > 0 && selectedOption.option_type !== 'menu' && selectedOption.option_type !== 'seat_class' && (
+                                    <div className="flex justify-between items-center mt-1">
+                                      <span className="text-gray-600">추가 금액:</span>
+                                      <span className="font-medium text-blue-600">+{selectedOption.price.toLocaleString()}원</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           <div className="space-y-3">
                             <label className="block text-sm font-medium mb-2">인원</label>
@@ -2517,6 +2758,30 @@ export function DetailPage() {
                             return;
                           }
 
+                          // 날짜 검증 (팝업 제외)
+                          if (!isPopupProduct(item) && !selectedDate) {
+                            toast.error('날짜를 선택해주세요.');
+                            return;
+                          }
+
+                          // 옵션 검증 (옵션이 있는 경우 필수)
+                          if (productOptions.length > 0 && !selectedOption) {
+                            if (productOptions.some((opt: any) => opt.option_type === 'time_slot')) {
+                              toast.error('시간대를 선택해주세요.');
+                              return;
+                            }
+                            if (productOptions.some((opt: any) => opt.option_type === 'menu')) {
+                              toast.error('메뉴를 선택해주세요.');
+                              return;
+                            }
+                            if (productOptions.some((opt: any) => opt.option_type === 'seat_class')) {
+                              toast.error('좌석 등급을 선택해주세요.');
+                              return;
+                            }
+                            toast.error('옵션을 선택해주세요.');
+                            return;
+                          }
+
                           // ✅ 바로 PaymentPage로 이동
                           // 🔒 배송비 계산 (팝업 상품만)
                           const itemSubtotal = isPopupProduct(item)
@@ -2543,14 +2808,18 @@ export function DetailPage() {
                               image: Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : '',
                               category: item.category,
                               selectedDate: isPopupProduct(item) ? null : selectedDate?.toISOString().split('T')[0],
+                              selectedTime: startTime || (selectedOption?.start_time?.slice(0, 5)) || null,
                               adults: isPopupProduct(item) ? quantity : adults,
                               children: isPopupProduct(item) ? 0 : children,
                               infants: isPopupProduct(item) ? 0 : infants,
-                              selectedOption: isPopupProduct(item) && selectedOption ? {
+                              // 일반 카테고리 + 팝업 모두 옵션 정보 포함
+                              selectedOption: selectedOption ? {
                                 id: selectedOption.id,
-                                name: selectedOption.option_name,
-                                value: selectedOption.option_value,
-                                priceAdjustment: selectedOption.price_adjustment
+                                name: selectedOption.name || selectedOption.option_name,
+                                value: selectedOption.option_value || selectedOption.description,
+                                optionType: selectedOption.option_type,
+                                price: selectedOption.price || 0,
+                                priceAdjustment: selectedOption.price_adjustment || 0
                               } : null
                             }],
                             subtotal: itemSubtotal,

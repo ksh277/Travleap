@@ -42,6 +42,9 @@ import { useAuth } from '../hooks/useAuth';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
 import RefundPolicySettings from './vendor/RefundPolicySettings';
+import AccountSettings from './vendor/AccountSettings';
+import ListingOptionsManager from './vendor/ListingOptionsManager';
+import TimeSlotManager from './vendor/TimeSlotManager';
 
 interface Restaurant {
   id: number;
@@ -607,6 +610,8 @@ export function FoodVendorDashboard() {
         <Tabs defaultValue="orders" className="space-y-4">
           <TabsList>
             <TabsTrigger value="orders">주문 관리</TabsTrigger>
+            <TabsTrigger value="timeslots">시간대 관리</TabsTrigger>
+            <TabsTrigger value="menus">메뉴 관리</TabsTrigger>
             <TabsTrigger value="restaurants">음식점 정보</TabsTrigger>
             <TabsTrigger value="stock">재고 관리</TabsTrigger>
             <TabsTrigger value="settings">
@@ -943,6 +948,24 @@ export function FoodVendorDashboard() {
             </Card>
           </TabsContent>
 
+          {/* 시간대 관리 탭 */}
+          <TabsContent value="timeslots" className="space-y-4">
+            <TimeSlotManager
+              listings={restaurants.map(r => ({ id: r.id, title: r.name, category: 'food' }))}
+              categoryLabel="예약 시간대"
+              defaultCapacity={5}
+            />
+          </TabsContent>
+
+          {/* 메뉴 관리 탭 */}
+          <TabsContent value="menus" className="space-y-4">
+            <ListingOptionsManager
+              listings={restaurants.map(r => ({ id: r.id, title: r.name, category: 'food' }))}
+              defaultOptionType="menu"
+              categoryLabel="메뉴"
+            />
+          </TabsContent>
+
           {/* 음식점 정보 탭 */}
           <TabsContent value="restaurants" className="space-y-4">
             <Card>
@@ -1085,6 +1108,7 @@ export function FoodVendorDashboard() {
 
           {/* 설정 탭 */}
           <TabsContent value="settings" className="space-y-4">
+            <AccountSettings />
             <RefundPolicySettings />
           </TabsContent>
         </Tabs>

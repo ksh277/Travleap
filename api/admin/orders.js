@@ -692,9 +692,9 @@ async function handler(req, res) {
         const itemName = item.title || item.name || `상품 ID ${item.listingId}`;
 
         if (item.selectedOption && item.selectedOption.id) {
-          // 옵션 재고 확인 (FOR UPDATE로 락 획득)
+          // 옵션 재고 확인 (FOR UPDATE로 락 획득) - ✅ listing_options 테이블 사용
           const stockCheck = await connection.execute(`
-            SELECT stock, option_name FROM product_options
+            SELECT available_count, name FROM listing_options
             WHERE id = ?
             FOR UPDATE
           `, [item.selectedOption.id]);
@@ -703,19 +703,19 @@ async function handler(req, res) {
             throw new Error(`옵션을 찾을 수 없습니다: ${itemName} - ${item.selectedOption.name || 'Unknown'}`);
           }
 
-          const currentStock = stockCheck.rows[0].stock;
-          const optionName = stockCheck.rows[0].option_name || item.selectedOption.name;
+          const currentStock = stockCheck.rows[0].available_count;
+          const optionName = stockCheck.rows[0].name || item.selectedOption.name;
 
           // 재고 NULL이면 무제한 재고로 간주
           if (currentStock !== null && currentStock < stockQuantity) {
             throw new Error(`재고 부족: ${itemName} (${optionName}) - 현재 재고 ${currentStock}개, 주문 수량 ${stockQuantity}개`);
           }
 
-          // 재고 차감 (동시성 제어: stock >= ? 조건 추가)
+          // 재고 차감 (동시성 제어: available_count >= ? 조건 추가) - ✅ listing_options 테이블 사용
           const updateResult = await connection.execute(`
-            UPDATE product_options
-            SET stock = stock - ?
-            WHERE id = ? AND stock IS NOT NULL AND stock >= ?
+            UPDATE listing_options
+            SET available_count = available_count - ?
+            WHERE id = ? AND available_count IS NOT NULL AND available_count >= ?
           `, [stockQuantity, item.selectedOption.id, stockQuantity]);
 
           // affectedRows 확인으로 동시성 충돌 감지

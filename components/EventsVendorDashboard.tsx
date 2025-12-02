@@ -41,6 +41,9 @@ import { useAuth } from '../hooks/useAuth';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
 import RefundPolicySettings from './vendor/RefundPolicySettings';
+import AccountSettings from './vendor/AccountSettings';
+import TimeSlotManager from './vendor/TimeSlotManager';
+import ListingOptionsManager from './vendor/ListingOptionsManager';
 
 interface Event {
   id: number;
@@ -587,6 +590,8 @@ export function EventsVendorDashboard() {
         <Tabs defaultValue="orders" className="space-y-4">
           <TabsList>
             <TabsTrigger value="orders">티켓 주문</TabsTrigger>
+            <TabsTrigger value="timeslots">시간대 관리</TabsTrigger>
+            <TabsTrigger value="seatclass">좌석등급 관리</TabsTrigger>
             <TabsTrigger value="events">행사 정보</TabsTrigger>
             <TabsTrigger value="stock">재고 관리</TabsTrigger>
             <TabsTrigger value="settings">
@@ -899,6 +904,24 @@ export function EventsVendorDashboard() {
             </Card>
           </TabsContent>
 
+          {/* 시간대 관리 탭 */}
+          <TabsContent value="timeslots" className="space-y-4">
+            <TimeSlotManager
+              listings={events.map(e => ({ id: e.id, title: e.title, category: 'events' }))}
+              categoryLabel="공연 시간대"
+              defaultCapacity={50}
+            />
+          </TabsContent>
+
+          {/* 좌석등급 관리 탭 */}
+          <TabsContent value="seatclass" className="space-y-4">
+            <ListingOptionsManager
+              listings={events.map(e => ({ id: e.id, title: e.title, category: 'events' }))}
+              defaultOptionType="seat_class"
+              categoryLabel="좌석 등급"
+            />
+          </TabsContent>
+
           {/* 행사 정보 탭 */}
           <TabsContent value="events" className="space-y-4">
             <Card>
@@ -1061,6 +1084,7 @@ export function EventsVendorDashboard() {
 
           {/* 설정 탭 */}
           <TabsContent value="settings" className="space-y-4">
+            <AccountSettings />
             <RefundPolicySettings />
           </TabsContent>
         </Tabs>

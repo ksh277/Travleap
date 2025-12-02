@@ -1485,12 +1485,12 @@ async function handlePaymentFailure(orderId, reason) {
       // 3. 각 booking에 대해 재고 복구
       for (const booking of bookings.rows) {
         try {
-          // 3-1. 옵션 재고 복구
+          // 3-1. 옵션 재고 복구 (listing_options 테이블)
           if (booking.selected_option_id) {
             await connection.execute(`
-              UPDATE product_options
-              SET stock = stock + ?
-              WHERE id = ? AND stock IS NOT NULL
+              UPDATE listing_options
+              SET available_count = available_count + ?
+              WHERE id = ? AND available_count IS NOT NULL
             `, [booking.guests || 1, booking.selected_option_id]);
 
             console.log(`✅ [재고 복구] 옵션 재고 복구: option_id=${booking.selected_option_id}, +${booking.guests || 1}개`);

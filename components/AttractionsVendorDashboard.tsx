@@ -41,6 +41,8 @@ import { useAuth } from '../hooks/useAuth';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import { VendorDashboardSkeleton } from './VendorDashboardSkeleton';
 import RefundPolicySettings from './vendor/RefundPolicySettings';
+import AccountSettings from './vendor/AccountSettings';
+import TimeSlotManager from './vendor/TimeSlotManager';
 
 interface Attraction {
   id: number;
@@ -589,6 +591,7 @@ export function AttractionsVendorDashboard() {
         <Tabs defaultValue="orders" className="space-y-4">
           <TabsList>
             <TabsTrigger value="orders">티켓 주문</TabsTrigger>
+            <TabsTrigger value="timeslots">시간대 관리</TabsTrigger>
             <TabsTrigger value="attractions">관광지 정보</TabsTrigger>
             <TabsTrigger value="stock">재고 관리</TabsTrigger>
             <TabsTrigger value="settings">
@@ -908,6 +911,15 @@ export function AttractionsVendorDashboard() {
             </Card>
           </TabsContent>
 
+          {/* 시간대 관리 탭 */}
+          <TabsContent value="timeslots" className="space-y-4">
+            <TimeSlotManager
+              listings={attractions.map(a => ({ id: a.id, title: a.name, category: 'attractions' }))}
+              categoryLabel="입장 시간대"
+              defaultCapacity={20}
+            />
+          </TabsContent>
+
           {/* 관광지 정보 탭 */}
           <TabsContent value="attractions" className="space-y-4">
             <Card>
@@ -1060,6 +1072,7 @@ export function AttractionsVendorDashboard() {
 
           {/* 설정 탭 */}
           <TabsContent value="settings" className="space-y-4">
+            <AccountSettings />
             <RefundPolicySettings />
           </TabsContent>
         </Tabs>

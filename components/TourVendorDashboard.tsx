@@ -3,6 +3,9 @@ import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw, Download, 
 import { Button } from './ui/button';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import RefundPolicySettings from './vendor/RefundPolicySettings';
+import AccountSettings from './vendor/AccountSettings';
+import ListingOptionsManager from './vendor/ListingOptionsManager';
+import TimeSlotManager from './vendor/TimeSlotManager';
 
 interface TourPackage {
   id: number;
@@ -62,7 +65,7 @@ interface ListingWithStock {
 }
 
 const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
-  const [activeTab, setActiveTab] = useState<'packages' | 'schedules' | 'bookings' | 'stock' | 'settings'>('packages');
+  const [activeTab, setActiveTab] = useState<'packages' | 'schedules' | 'bookings' | 'stock' | 'options' | 'settings'>('packages');
   const [packages, setPackages] = useState<TourPackage[]>([]);
   const [schedules, setSchedules] = useState<TourSchedule[]>([]);
   const [bookings, setBookings] = useState<TourBooking[]>([]);
@@ -482,6 +485,13 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
           onClick={() => setActiveTab('stock')}
         >
           📦 재고 관리
+        </button>
+        <button
+          className={`tab ${activeTab === 'options' ? 'active' : ''}`}
+          onClick={() => setActiveTab('options')}
+        >
+          <Clock size={18} />
+          옵션 관리
         </button>
         <button
           className={`tab ${activeTab === 'settings' ? 'active' : ''}`}
@@ -943,9 +953,28 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
               </div>
             )}
 
+            {/* 옵션 관리 탭 */}
+            {activeTab === 'options' && (
+              <div className="options-tab space-y-6">
+                <TimeSlotManager
+                  listings={packages.map(p => ({ id: p.id, title: p.package_name, category: 'tour' }))}
+                  categoryLabel="투어 시간대"
+                  defaultCapacity={10}
+                />
+                <ListingOptionsManager
+                  listings={packages.map(p => ({ id: p.id, title: p.package_name, category: 'tour' }))}
+                  defaultOptionType="package"
+                  categoryLabel="패키지/추가옵션"
+                />
+              </div>
+            )}
+
             {/* 설정 탭 */}
             {activeTab === 'settings' && (
-              <div className="settings-tab">
+              <div className="settings-tab space-y-6">
+                {/* 내 계정 설정 */}
+                <AccountSettings />
+                {/* 환불 정책 설정 */}
                 <RefundPolicySettings />
               </div>
             )}
