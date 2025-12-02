@@ -203,11 +203,11 @@ async function issueCampaignCouponForOrder(connection, { user_id, order_id, orde
       attempts++;
     }
 
-    // 4. user_coupons에 발급
+    // 4. user_coupons에 발급 (테이블에 created_at 컬럼 없음)
     const insertResult = await connection.execute(`
       INSERT INTO user_coupons (
-        user_id, coupon_id, coupon_code, status, issued_at, created_at
-      ) VALUES (?, ?, ?, 'ISSUED', NOW(), NOW())
+        user_id, coupon_id, coupon_code, status, issued_at
+      ) VALUES (?, ?, ?, 'ISSUED', NOW())
     `, [user_id, campaign.id, userCouponCode]);
 
     // 5. 캠페인 쿠폰 issued_count 증가
