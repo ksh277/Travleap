@@ -139,7 +139,8 @@ function normalizePaymentMethod(tossMethod, easyPayProvider = null) {
  * 형식: GOGO-XXXXXXXX (8자리 영숫자)
  */
 function generateCouponCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  // 혼동 문자 제외: 0, O, I, L, 1
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let code = 'GOGO-';
   for (let i = 0; i < 8; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -190,10 +191,11 @@ async function issueCampaignCouponForOrder(connection, { user_id, order_id, orde
     }
 
     // 3. 유니크 쿠폰 코드 생성 (USER-XXXXXXXX)
+    // 혼동 문자 제외: 0, O, I, L, 1
     let userCouponCode;
     let attempts = 0;
     while (attempts < 10) {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
       let code = 'USER-';
       for (let i = 0; i < 8; i++) {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
