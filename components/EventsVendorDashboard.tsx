@@ -34,7 +34,10 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  Settings
+  Settings,
+  Plus,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -44,6 +47,10 @@ import RefundPolicySettings from './vendor/RefundPolicySettings';
 import AccountSettings from './vendor/AccountSettings';
 import TimeSlotManager from './vendor/TimeSlotManager';
 import ListingOptionsManager from './vendor/ListingOptionsManager';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
+import { Switch } from './ui/switch';
+import { ImageUploader } from './ui/ImageUploader';
 
 interface Event {
   id: number;
@@ -56,6 +63,10 @@ interface Event {
   vip_price: number;
   tickets_remaining: number;
   is_active: boolean;
+  price_from?: number;
+  images?: string[];
+  location?: string;
+  max_capacity?: number;
 }
 
 interface Order {
@@ -113,6 +124,23 @@ export function EventsVendorDashboard() {
     completed_orders: 0
   });
   const [listings, setListings] = useState<ListingWithStock[]>([]);
+
+  // 행사 추가/수정 폼 상태
+  const [isAddingEvent, setIsAddingEvent] = useState(false);
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    short_description: '',
+    description_md: '',
+    price_from: 0,
+    location: '',
+    address: '',
+    max_capacity: 100,
+    images: [] as string[],
+    is_active: true
+  });
 
   // 상세보기 모달
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -194,6 +222,115 @@ export function EventsVendorDashboard() {
       toast.error('데이터를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 행사 폼 초기화
+  const resetEventForm = () => {
+    setEventForm({
+      title: '',
+      short_description: '',
+      description_md: '',
+      price_from: 0,
+      location: '',
+      address: '',
+      max_capacity: 100,
+      images: [],
+      is_active: true
+    });
+    setIsAddingEvent(false);
+    setIsEditingEvent(false);
+    setEditingEventId(null);
+  };
+
+  const handleAddEvent = () => {
+    resetEventForm();
+    setIsAddingEvent(true);
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEventForm({
+      title: event.title || '',
+      short_description: event.description?.substring(0, 100) || '',
+      description_md: event.description || '',
+      price_from: event.general_price || event.price_from || 0,
+      location: event.location || '',
+      address: event.venue_address || '',
+      max_capacity: event.max_capacity || 100,
+      images: event.images || [],
+      is_active: event.is_active
+    });
+    setEditingEventId(event.id);
+    setIsEditingEvent(true);
+    setIsAddingEvent(false);
+  };
+
+  const handleSaveEvent = async () => {
+    if (!eventForm.title) {
+      toast.error('행사명을 입력해주세요.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const url = isEditingEvent
+        ? `/api/vendor/listings?id=${editingEventId}`
+        : '/api/vendor/listings';
+      const method = isEditingEvent ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...eventForm,
+          category: 'events'
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success(isEditingEvent ? '행사가 수정되었습니다.' : '행사가 추가되었습니다.');
+        resetEventForm();
+        loadDashboardData();
+      } else {
+        toast.error(result.message || '저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('행사 저장 오류:', error);
+      toast.error('저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: number) => {
+    if (!confirm('정말 이 행사를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/vendor/listings?id=${eventId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('행사가 삭제되었습니다.');
+        loadDashboardData();
+      } else {
+        toast.error(result.message || '삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('행사 삭제 오류:', error);
+      toast.error('삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -592,7 +729,7 @@ export function EventsVendorDashboard() {
             <TabsTrigger value="orders">티켓 주문</TabsTrigger>
             <TabsTrigger value="timeslots">시간대 관리</TabsTrigger>
             <TabsTrigger value="seatclass">좌석등급 관리</TabsTrigger>
-            <TabsTrigger value="events">행사 정보</TabsTrigger>
+            <TabsTrigger value="events">행사 관리</TabsTrigger>
             <TabsTrigger value="stock">재고 관리</TabsTrigger>
             <TabsTrigger value="settings">
               <Settings className="h-4 w-4 mr-2" />
@@ -922,60 +1059,233 @@ export function EventsVendorDashboard() {
             />
           </TabsContent>
 
-          {/* 행사 정보 탭 */}
+          {/* 행사 관리 탭 */}
           <TabsContent value="events" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>내 행사</CardTitle>
-                <CardDescription>등록된 행사 정보</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>내 행사 관리</CardTitle>
+                    <CardDescription>행사를 추가하고 관리하세요</CardDescription>
+                  </div>
+                  {!isAddingEvent && !isEditingEvent && (
+                    <Button onClick={handleAddEvent} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      행사 추가
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
+                {/* 행사 추가/수정 폼 */}
+                {(isAddingEvent || isEditingEvent) && (
+                  <div className="mb-6 p-6 border rounded-lg bg-gray-50">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">
+                        {isEditingEvent ? '행사 수정' : '새 행사 추가'}
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddingEvent(false);
+                          setIsEditingEvent(false);
+                          setEditingEventId(null);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="title">행사명 *</Label>
+                        <Input
+                          id="title"
+                          value={eventForm.title}
+                          onChange={(e) => setEventForm(prev => ({ ...prev, title: e.target.value }))}
+                          placeholder="행사 이름을 입력하세요"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="location">지역</Label>
+                        <Input
+                          id="location"
+                          value={eventForm.location}
+                          onChange={(e) => setEventForm(prev => ({ ...prev, location: e.target.value }))}
+                          placeholder="예: 제주시, 서귀포시"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="address">행사장 주소</Label>
+                        <Input
+                          id="address"
+                          value={eventForm.address}
+                          onChange={(e) => setEventForm(prev => ({ ...prev, address: e.target.value }))}
+                          placeholder="행사장 주소를 입력하세요"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="short_description">간단 설명</Label>
+                        <Input
+                          id="short_description"
+                          value={eventForm.short_description}
+                          onChange={(e) => setEventForm(prev => ({ ...prev, short_description: e.target.value }))}
+                          placeholder="행사 한줄 소개"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="price_from">티켓 가격 (원)</Label>
+                        <Input
+                          id="price_from"
+                          type="number"
+                          value={eventForm.price_from}
+                          onChange={(e) => setEventForm(prev => ({ ...prev, price_from: parseInt(e.target.value) || 0 }))}
+                          placeholder="일반석 기준 가격"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="max_capacity">최대 수용 인원</Label>
+                        <Input
+                          id="max_capacity"
+                          type="number"
+                          value={eventForm.max_capacity}
+                          onChange={(e) => setEventForm(prev => ({ ...prev, max_capacity: parseInt(e.target.value) || 0 }))}
+                          placeholder="총 좌석수"
+                        />
+                      </div>
+
+                      <div className="space-y-2 flex items-center gap-2 pt-6">
+                        <Switch
+                          id="is_active"
+                          checked={eventForm.is_active}
+                          onCheckedChange={(checked) => setEventForm(prev => ({ ...prev, is_active: checked }))}
+                        />
+                        <Label htmlFor="is_active">티켓 판매중</Label>
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="description_md">상세 설명</Label>
+                        <Textarea
+                          id="description_md"
+                          value={eventForm.description_md}
+                          onChange={(e) => setEventForm(prev => ({ ...prev, description_md: e.target.value }))}
+                          placeholder="행사 상세 설명을 입력하세요"
+                          rows={4}
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>행사 이미지</Label>
+                        <ImageUploader
+                          images={eventForm.images}
+                          onImagesChange={(images) => setEventForm(prev => ({ ...prev, images }))}
+                          maxImages={5}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsAddingEvent(false);
+                          setIsEditingEvent(false);
+                          setEditingEventId(null);
+                        }}
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        onClick={handleSaveEvent}
+                        disabled={isSaving || !eventForm.title}
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            저장 중...
+                          </>
+                        ) : (
+                          isEditingEvent ? '수정 완료' : '추가 완료'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 행사 목록 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {events.length === 0 ? (
                     <div className="col-span-full text-center py-12 text-gray-500">
-                      등록된 행사가 없습니다.
+                      <p>등록된 행사가 없습니다.</p>
+                      <p className="text-sm mt-2">위의 "행사 추가" 버튼을 눌러 행사를 등록하세요.</p>
                     </div>
                   ) : (
                     events.map((event) => (
                       <Card key={event.id} className="hover:shadow-lg transition-shadow">
-                        <CardHeader>
-                          <CardTitle className="text-lg">{event.title}</CardTitle>
-                          <CardDescription className="line-clamp-2">
-                            {event.description}
-                          </CardDescription>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <CardTitle className="text-lg">{event.title}</CardTitle>
+                              <CardDescription className="line-clamp-2">
+                                {event.description}
+                              </CardDescription>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditEvent(event)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteEvent(event.id)}
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                               <span className="text-gray-600">장소</span>
-                              <span className="font-medium">{event.venue_name}</span>
+                              <span className="font-medium text-xs">{event.venue_name || '-'}</span>
                             </div>
+                            {event.start_datetime && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">일시</span>
+                                <span className="font-medium text-xs">
+                                  {new Date(event.start_datetime).toLocaleString('ko-KR')}
+                                </span>
+                              </div>
+                            )}
                             <div className="flex justify-between">
-                              <span className="text-gray-600">일시</span>
-                              <span className="font-medium">
-                                {new Date(event.start_datetime).toLocaleString('ko-KR')}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">일반석</span>
+                              <span className="text-gray-600">티켓 가격</span>
                               <span className="font-semibold text-pink-600">
-                                {event.general_price.toLocaleString()}원
+                                {(event.general_price || event.price_from || 0).toLocaleString()}원~
                               </span>
                             </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">VIP석</span>
-                              <span className="font-semibold text-pink-600">
-                                {event.vip_price.toLocaleString()}원
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">잔여 티켓</span>
-                              <span className="font-medium">{event.tickets_remaining}매</span>
-                            </div>
+                            {event.tickets_remaining > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">잔여 티켓</span>
+                                <span className="font-medium">{event.tickets_remaining}매</span>
+                              </div>
+                            )}
                             <div className="flex justify-between items-center mt-3 pt-3 border-t">
                               <span className="text-gray-600">상태</span>
                               <Badge variant={event.is_active ? 'default' : 'secondary'}>
-                                {event.is_active ? '활성' : '종료'}
+                                {event.is_active ? '판매중' : '종료'}
                               </Badge>
                             </div>
                           </div>

@@ -36,7 +36,10 @@ import {
   ArrowDown,
   ArrowUpDown,
   Download,
-  Settings
+  Settings,
+  Plus,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -44,6 +47,10 @@ import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import RefundPolicySettings from './vendor/RefundPolicySettings';
 import AccountSettings from './vendor/AccountSettings';
 import TimeSlotManager from './vendor/TimeSlotManager';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
+import { Switch } from './ui/switch';
+import { ImageUploader } from './ui/ImageUploader';
 
 interface Experience {
   id: number;
@@ -53,6 +60,10 @@ interface Experience {
   price_per_person: number;
   max_participants: number;
   is_active: boolean;
+  price_from?: number;
+  images?: string[];
+  location?: string;
+  address?: string;
 }
 
 interface Booking {
@@ -110,6 +121,23 @@ export function ExperienceVendorDashboard() {
     completed_bookings: 0
   });
   const [listings, setListings] = useState<ListingWithStock[]>([]);
+
+  // 체험 추가/수정 폼 상태
+  const [isAddingExperience, setIsAddingExperience] = useState(false);
+  const [isEditingExperience, setIsEditingExperience] = useState(false);
+  const [editingExperienceId, setEditingExperienceId] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [experienceForm, setExperienceForm] = useState({
+    title: '',
+    short_description: '',
+    description_md: '',
+    price_from: 0,
+    location: '',
+    address: '',
+    max_capacity: 10,
+    images: [] as string[],
+    is_active: true
+  });
 
   // 상세보기 모달
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -195,6 +223,115 @@ export function ExperienceVendorDashboard() {
       toast.error('데이터를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // 체험 폼 초기화
+  const resetExperienceForm = () => {
+    setExperienceForm({
+      title: '',
+      short_description: '',
+      description_md: '',
+      price_from: 0,
+      location: '',
+      address: '',
+      max_capacity: 10,
+      images: [],
+      is_active: true
+    });
+    setIsAddingExperience(false);
+    setIsEditingExperience(false);
+    setEditingExperienceId(null);
+  };
+
+  const handleAddExperience = () => {
+    resetExperienceForm();
+    setIsAddingExperience(true);
+  };
+
+  const handleEditExperience = (experience: Experience) => {
+    setExperienceForm({
+      title: experience.title || '',
+      short_description: experience.description?.substring(0, 100) || '',
+      description_md: experience.description || '',
+      price_from: experience.price_per_person || experience.price_from || 0,
+      location: experience.location || '',
+      address: experience.address || '',
+      max_capacity: experience.max_participants || 10,
+      images: experience.images || [],
+      is_active: experience.is_active
+    });
+    setEditingExperienceId(experience.id);
+    setIsEditingExperience(true);
+    setIsAddingExperience(false);
+  };
+
+  const handleSaveExperience = async () => {
+    if (!experienceForm.title) {
+      toast.error('체험명을 입력해주세요.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const url = isEditingExperience
+        ? `/api/vendor/listings?id=${editingExperienceId}`
+        : '/api/vendor/listings';
+      const method = isEditingExperience ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...experienceForm,
+          category: 'experience'
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success(isEditingExperience ? '체험이 수정되었습니다.' : '체험이 추가되었습니다.');
+        resetExperienceForm();
+        loadDashboardData();
+      } else {
+        toast.error(result.message || '저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('체험 저장 오류:', error);
+      toast.error('저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteExperience = async (experienceId: number) => {
+    if (!confirm('정말 이 체험을 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/vendor/listings?id=${experienceId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('체험이 삭제되었습니다.');
+        loadDashboardData();
+      } else {
+        toast.error(result.message || '삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('체험 삭제 오류:', error);
+      toast.error('삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -588,7 +725,7 @@ export function ExperienceVendorDashboard() {
           <TabsList>
             <TabsTrigger value="bookings">예약 관리</TabsTrigger>
             <TabsTrigger value="timeslots">시간대 관리</TabsTrigger>
-            <TabsTrigger value="experiences">체험 프로그램</TabsTrigger>
+            <TabsTrigger value="experiences">체험 관리</TabsTrigger>
             <TabsTrigger value="stock">재고 관리</TabsTrigger>
             <TabsTrigger value="settings">
               <Settings className="h-4 w-4 mr-2" />
@@ -913,38 +1050,215 @@ export function ExperienceVendorDashboard() {
             />
           </TabsContent>
 
-          {/* 체험 프로그램 탭 */}
+          {/* 체험 프로그램 관리 탭 */}
           <TabsContent value="experiences" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>내 체험 프로그램</CardTitle>
-                <CardDescription>등록된 체험 프로그램 목록</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>내 체험 프로그램 관리</CardTitle>
+                    <CardDescription>체험 프로그램을 추가하고 관리하세요</CardDescription>
+                  </div>
+                  {!isAddingExperience && !isEditingExperience && (
+                    <Button onClick={handleAddExperience} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      체험 추가
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
+                {/* 체험 추가/수정 폼 */}
+                {(isAddingExperience || isEditingExperience) && (
+                  <div className="mb-6 p-6 border rounded-lg bg-gray-50">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">
+                        {isEditingExperience ? '체험 수정' : '새 체험 추가'}
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddingExperience(false);
+                          setIsEditingExperience(false);
+                          setEditingExperienceId(null);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="title">체험명 *</Label>
+                        <Input
+                          id="title"
+                          value={experienceForm.title}
+                          onChange={(e) => setExperienceForm(prev => ({ ...prev, title: e.target.value }))}
+                          placeholder="체험 프로그램 이름을 입력하세요"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="location">지역</Label>
+                        <Input
+                          id="location"
+                          value={experienceForm.location}
+                          onChange={(e) => setExperienceForm(prev => ({ ...prev, location: e.target.value }))}
+                          placeholder="예: 제주시, 서귀포시"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="address">체험 장소 주소</Label>
+                        <Input
+                          id="address"
+                          value={experienceForm.address}
+                          onChange={(e) => setExperienceForm(prev => ({ ...prev, address: e.target.value }))}
+                          placeholder="체험 장소 주소를 입력하세요"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="short_description">간단 설명</Label>
+                        <Input
+                          id="short_description"
+                          value={experienceForm.short_description}
+                          onChange={(e) => setExperienceForm(prev => ({ ...prev, short_description: e.target.value }))}
+                          placeholder="체험 한줄 소개"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="price_from">가격 (원/인)</Label>
+                        <Input
+                          id="price_from"
+                          type="number"
+                          value={experienceForm.price_from}
+                          onChange={(e) => setExperienceForm(prev => ({ ...prev, price_from: parseInt(e.target.value) || 0 }))}
+                          placeholder="1인당 체험 가격"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="max_capacity">최대 참가 인원</Label>
+                        <Input
+                          id="max_capacity"
+                          type="number"
+                          value={experienceForm.max_capacity}
+                          onChange={(e) => setExperienceForm(prev => ({ ...prev, max_capacity: parseInt(e.target.value) || 0 }))}
+                          placeholder="회차당 최대 인원"
+                        />
+                      </div>
+
+                      <div className="space-y-2 flex items-center gap-2 pt-6">
+                        <Switch
+                          id="is_active"
+                          checked={experienceForm.is_active}
+                          onCheckedChange={(checked) => setExperienceForm(prev => ({ ...prev, is_active: checked }))}
+                        />
+                        <Label htmlFor="is_active">예약 가능</Label>
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="description_md">상세 설명</Label>
+                        <Textarea
+                          id="description_md"
+                          value={experienceForm.description_md}
+                          onChange={(e) => setExperienceForm(prev => ({ ...prev, description_md: e.target.value }))}
+                          placeholder="체험 상세 설명을 입력하세요"
+                          rows={4}
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>체험 이미지</Label>
+                        <ImageUploader
+                          images={experienceForm.images}
+                          onImagesChange={(images) => setExperienceForm(prev => ({ ...prev, images }))}
+                          maxImages={5}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsAddingExperience(false);
+                          setIsEditingExperience(false);
+                          setEditingExperienceId(null);
+                        }}
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        onClick={handleSaveExperience}
+                        disabled={isSaving || !experienceForm.title}
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            저장 중...
+                          </>
+                        ) : (
+                          isEditingExperience ? '수정 완료' : '추가 완료'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 체험 목록 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {experiences.length === 0 ? (
                     <div className="col-span-full text-center py-12 text-gray-500">
-                      등록된 체험 프로그램이 없습니다.
+                      <p>등록된 체험 프로그램이 없습니다.</p>
+                      <p className="text-sm mt-2">위의 "체험 추가" 버튼을 눌러 체험을 등록하세요.</p>
                     </div>
                   ) : (
                     experiences.map((exp) => (
                       <Card key={exp.id} className="hover:shadow-lg transition-shadow">
-                        <CardHeader>
-                          <CardTitle className="text-lg">{exp.title}</CardTitle>
-                          <CardDescription className="line-clamp-2">
-                            {exp.description}
-                          </CardDescription>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <CardTitle className="text-lg">{exp.title}</CardTitle>
+                              <CardDescription className="line-clamp-2">
+                                {exp.description}
+                              </CardDescription>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditExperience(exp)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteExperience(exp.id)}
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">소요시간</span>
-                              <span className="font-medium">{exp.duration_minutes}분</span>
-                            </div>
+                            {exp.duration_minutes > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">소요시간</span>
+                                <span className="font-medium">{exp.duration_minutes}분</span>
+                              </div>
+                            )}
                             <div className="flex justify-between">
                               <span className="text-gray-600">가격</span>
                               <span className="font-semibold text-purple-600">
-                                {exp.price_per_person.toLocaleString()}원/인
+                                {(exp.price_per_person || exp.price_from || 0).toLocaleString()}원/인
                               </span>
                             </div>
                             <div className="flex justify-between">
@@ -954,7 +1268,7 @@ export function ExperienceVendorDashboard() {
                             <div className="flex justify-between items-center mt-3 pt-3 border-t">
                               <span className="text-gray-600">상태</span>
                               <Badge variant={exp.is_active ? 'default' : 'secondary'}>
-                                {exp.is_active ? '활성' : '비활성'}
+                                {exp.is_active ? '예약 가능' : '비활성'}
                               </Badge>
                             </div>
                           </div>

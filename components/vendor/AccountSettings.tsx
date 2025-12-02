@@ -13,7 +13,7 @@ import { User, Mail, Lock, Eye, EyeOff, Save, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 export function AccountSettings() {
-  const { user } = useAuth();
+  const { user, getAuthToken } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -51,7 +51,15 @@ export function AccountSettings() {
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      // useAuth의 getAuthToken 사용 (쿠키 또는 localStorage에서 가져옴)
+      const token = getAuthToken();
+
+      if (!token) {
+        toast.error('로그인이 필요합니다. 다시 로그인해주세요.');
+        setIsLoading(false);
+        return;
+      }
+
       const payload: any = {};
 
       if (formData.email && formData.email !== user?.email) {

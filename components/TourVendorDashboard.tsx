@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw, Download, ArrowUp, ArrowDown, ArrowUpDown, Eye, X, Settings } from 'lucide-react';
+import { Calendar, Users, Clock, DollarSign, MapPin, Info, RefreshCw, Download, ArrowUp, ArrowDown, ArrowUpDown, Eye, X, Settings, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
 import { exportToCSV, generateCSVFilename } from '../utils/csv-export';
 import RefundPolicySettings from './vendor/RefundPolicySettings';
 import AccountSettings from './vendor/AccountSettings';
 import ListingOptionsManager from './vendor/ListingOptionsManager';
 import TimeSlotManager from './vendor/TimeSlotManager';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
+import { Switch } from './ui/switch';
+import { ImageUploader } from './ui/ImageUploader';
+import { toast } from 'sonner';
 
 interface TourPackage {
   id: number;
@@ -17,6 +23,11 @@ interface TourPackage {
   is_active: boolean;
   schedule_count: number;
   total_bookings: number;
+  description?: string;
+  images?: string[];
+  location?: string;
+  address?: string;
+  max_capacity?: number;
 }
 
 interface TourSchedule {
@@ -83,6 +94,132 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
   // 예약 상세보기 모달
   const [selectedBooking, setSelectedBooking] = useState<TourBooking | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // 패키지 추가/수정 폼 상태
+  const [isAddingPackage, setIsAddingPackage] = useState(false);
+  const [isEditingPackage, setIsEditingPackage] = useState(false);
+  const [editingPackageId, setEditingPackageId] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [packageForm, setPackageForm] = useState({
+    title: '',
+    short_description: '',
+    description_md: '',
+    price_from: 0,
+    location: '',
+    address: '',
+    max_capacity: 20,
+    images: [] as string[],
+    is_active: true
+  });
+
+  // 패키지 폼 초기화
+  const resetPackageForm = () => {
+    setPackageForm({
+      title: '',
+      short_description: '',
+      description_md: '',
+      price_from: 0,
+      location: '',
+      address: '',
+      max_capacity: 20,
+      images: [],
+      is_active: true
+    });
+    setIsAddingPackage(false);
+    setIsEditingPackage(false);
+    setEditingPackageId(null);
+  };
+
+  const handleAddPackage = () => {
+    resetPackageForm();
+    setIsAddingPackage(true);
+  };
+
+  const handleEditPackage = (pkg: TourPackage) => {
+    setPackageForm({
+      title: pkg.package_name || '',
+      short_description: pkg.description?.substring(0, 100) || '',
+      description_md: pkg.description || '',
+      price_from: pkg.price_adult_krw || 0,
+      location: pkg.location || '',
+      address: pkg.address || '',
+      max_capacity: pkg.max_capacity || 20,
+      images: pkg.images || (pkg.thumbnail_url ? [pkg.thumbnail_url] : []),
+      is_active: pkg.is_active
+    });
+    setEditingPackageId(pkg.id);
+    setIsEditingPackage(true);
+    setIsAddingPackage(false);
+  };
+
+  const handleSavePackage = async () => {
+    if (!packageForm.title) {
+      toast.error('패키지명을 입력해주세요.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const url = isEditingPackage
+        ? `/api/vendor/listings?id=${editingPackageId}`
+        : '/api/vendor/listings';
+      const method = isEditingPackage ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...packageForm,
+          category: 'tour'
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success(isEditingPackage ? '패키지가 수정되었습니다.' : '패키지가 추가되었습니다.');
+        resetPackageForm();
+        loadPackages();
+      } else {
+        toast.error(result.message || '저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('패키지 저장 오류:', error);
+      toast.error('저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeletePackage = async (packageId: number) => {
+    if (!confirm('정말 이 패키지를 삭제하시겠습니까?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/vendor/listings?id=${packageId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('패키지가 삭제되었습니다.');
+        loadPackages();
+      } else {
+        toast.error(result.message || '삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('패키지 삭제 오류:', error);
+      toast.error('삭제 중 오류가 발생했습니다.');
+    }
+  };
 
   // 패키지 목록 로드 (JWT에서 vendorId 자동 추출)
   const loadPackages = async () => {
@@ -511,15 +648,187 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
             {/* 패키지 관리 탭 */}
             {activeTab === 'packages' && (
               <div className="packages-list">
+                {/* 패키지 추가 버튼 */}
+                {!isAddingPackage && !isEditingPackage && (
+                  <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button onClick={handleAddPackage} className="gap-2">
+                      <Plus size={16} />
+                      패키지 추가
+                    </Button>
+                  </div>
+                )}
+
+                {/* 패키지 추가/수정 폼 */}
+                {(isAddingPackage || isEditingPackage) && (
+                  <div style={{ marginBottom: '1.5rem', padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', backgroundColor: '#f9fafb' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h3 style={{ fontSize: '1.125rem', fontWeight: '600' }}>
+                        {isEditingPackage ? '패키지 수정' : '새 패키지 추가'}
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddingPackage(false);
+                          setIsEditingPackage(false);
+                          setEditingPackageId(null);
+                        }}
+                      >
+                        <X size={16} />
+                      </Button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
+                      <div>
+                        <Label htmlFor="title">패키지명 *</Label>
+                        <Input
+                          id="title"
+                          value={packageForm.title}
+                          onChange={(e) => setPackageForm(prev => ({ ...prev, title: e.target.value }))}
+                          placeholder="투어 패키지 이름을 입력하세요"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="location">지역</Label>
+                        <Input
+                          id="location"
+                          value={packageForm.location}
+                          onChange={(e) => setPackageForm(prev => ({ ...prev, location: e.target.value }))}
+                          placeholder="예: 제주시, 서귀포시"
+                        />
+                      </div>
+
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <Label htmlFor="address">출발 장소</Label>
+                        <Input
+                          id="address"
+                          value={packageForm.address}
+                          onChange={(e) => setPackageForm(prev => ({ ...prev, address: e.target.value }))}
+                          placeholder="투어 출발 장소를 입력하세요"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="short_description">간단 설명</Label>
+                        <Input
+                          id="short_description"
+                          value={packageForm.short_description}
+                          onChange={(e) => setPackageForm(prev => ({ ...prev, short_description: e.target.value }))}
+                          placeholder="패키지 한줄 소개"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="price_from">가격 (원)</Label>
+                        <Input
+                          id="price_from"
+                          type="number"
+                          value={packageForm.price_from}
+                          onChange={(e) => setPackageForm(prev => ({ ...prev, price_from: parseInt(e.target.value) || 0 }))}
+                          placeholder="성인 1인 기준 가격"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="max_capacity">최대 인원</Label>
+                        <Input
+                          id="max_capacity"
+                          type="number"
+                          value={packageForm.max_capacity}
+                          onChange={(e) => setPackageForm(prev => ({ ...prev, max_capacity: parseInt(e.target.value) || 0 }))}
+                          placeholder="투어당 최대 인원"
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '1.5rem' }}>
+                        <Switch
+                          id="is_active"
+                          checked={packageForm.is_active}
+                          onCheckedChange={(checked) => setPackageForm(prev => ({ ...prev, is_active: checked }))}
+                        />
+                        <Label htmlFor="is_active">판매 중</Label>
+                      </div>
+
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <Label htmlFor="description_md">상세 설명</Label>
+                        <Textarea
+                          id="description_md"
+                          value={packageForm.description_md}
+                          onChange={(e) => setPackageForm(prev => ({ ...prev, description_md: e.target.value }))}
+                          placeholder="패키지 상세 설명을 입력하세요"
+                          rows={4}
+                        />
+                      </div>
+
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <Label>패키지 이미지</Label>
+                        <ImageUploader
+                          images={packageForm.images}
+                          onImagesChange={(images) => setPackageForm(prev => ({ ...prev, images }))}
+                          maxImages={5}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsAddingPackage(false);
+                          setIsEditingPackage(false);
+                          setEditingPackageId(null);
+                        }}
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        onClick={handleSavePackage}
+                        disabled={isSaving || !packageForm.title}
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            저장 중...
+                          </>
+                        ) : (
+                          isEditingPackage ? '수정 완료' : '추가 완료'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 패키지 목록 */}
                 {packages.length === 0 ? (
                   <div className="empty-state">
                     <Info size={48} />
                     <p>등록된 투어 패키지가 없습니다.</p>
+                    <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>위의 "패키지 추가" 버튼을 눌러 패키지를 등록하세요.</p>
                   </div>
                 ) : (
                   <div className="grid gap-4">
                     {packages.map((pkg) => (
-                      <div key={pkg.id} className="package-card">
+                      <div key={pkg.id} className="package-card" style={{ position: 'relative' }}>
+                        {/* 수정/삭제 버튼 */}
+                        <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', display: 'flex', gap: '0.25rem', zIndex: 10 }}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditPackage(pkg)}
+                            style={{ height: '2rem', width: '2rem', padding: 0, backgroundColor: 'white' }}
+                          >
+                            <Edit size={16} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeletePackage(pkg.id)}
+                            style={{ height: '2rem', width: '2rem', padding: 0, backgroundColor: 'white', color: '#ef4444' }}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
                         <img
                           src={pkg.thumbnail_url || '/placeholder-tour.jpg'}
                           alt={pkg.package_name}
@@ -534,11 +843,11 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                             </span>
                             <span>
                               <DollarSign size={16} />
-                              {pkg.price_adult_krw.toLocaleString()}원
+                              {(pkg.price_adult_krw || 0).toLocaleString()}원
                             </span>
                             <span>
                               <Calendar size={16} />
-                              {pkg.schedule_count}개 일정
+                              {pkg.schedule_count || 0}개 일정
                             </span>
                             <span>
                               <Users size={16} />
@@ -547,7 +856,7 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                           </div>
                           <div className="package-status">
                             {pkg.is_active ? (
-                              <span className="badge badge-success">활성</span>
+                              <span className="badge badge-success">판매중</span>
                             ) : (
                               <span className="badge badge-inactive">비활성</span>
                             )}

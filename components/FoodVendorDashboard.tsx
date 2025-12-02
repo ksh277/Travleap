@@ -35,7 +35,10 @@ import {
   ArrowUpDown,
   Eye,
   X,
-  Settings
+  Settings,
+  Plus,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
@@ -45,6 +48,10 @@ import RefundPolicySettings from './vendor/RefundPolicySettings';
 import AccountSettings from './vendor/AccountSettings';
 import ListingOptionsManager from './vendor/ListingOptionsManager';
 import TimeSlotManager from './vendor/TimeSlotManager';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
+import { Switch } from './ui/switch';
+import { ImageUploader } from './ui/ImageUploader';
 
 interface Restaurant {
   id: number;
@@ -53,6 +60,11 @@ interface Restaurant {
   address: string;
   phone: string;
   is_active: boolean;
+  price_from?: number;
+  description?: string;
+  images?: string[];
+  location?: string;
+  max_capacity?: number;
 }
 
 interface MenuItem {
@@ -119,6 +131,23 @@ export function FoodVendorDashboard() {
     completed_orders: 0
   });
   const [listings, setListings] = useState<ListingWithStock[]>([]);
+
+  // 음식점 추가/수정 폼 상태
+  const [isAddingRestaurant, setIsAddingRestaurant] = useState(false);
+  const [isEditingRestaurant, setIsEditingRestaurant] = useState(false);
+  const [editingRestaurantId, setEditingRestaurantId] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [restaurantForm, setRestaurantForm] = useState({
+    title: '',
+    short_description: '',
+    description_md: '',
+    price_from: 0,
+    location: '',
+    address: '',
+    max_capacity: 20,
+    images: [] as string[],
+    is_active: true
+  });
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -288,6 +317,133 @@ export function FoodVendorDashboard() {
     } catch (error: any) {
       console.error('재고 업데이트 오류:', error);
       toast.error(error.message || '서버 오류가 발생했습니다.');
+    }
+  };
+
+  // 음식점 폼 초기화
+  const resetRestaurantForm = () => {
+    setRestaurantForm({
+      title: '',
+      short_description: '',
+      description_md: '',
+      price_from: 0,
+      location: '',
+      address: '',
+      max_capacity: 20,
+      images: [],
+      is_active: true
+    });
+    setIsAddingRestaurant(false);
+    setIsEditingRestaurant(false);
+    setEditingRestaurantId(null);
+  };
+
+  // 음식점 추가 폼 열기
+  const handleAddRestaurant = () => {
+    resetRestaurantForm();
+    setIsAddingRestaurant(true);
+  };
+
+  // 음식점 수정 폼 열기
+  const handleEditRestaurant = (restaurant: Restaurant) => {
+    setRestaurantForm({
+      title: restaurant.name,
+      short_description: restaurant.cuisine_type || '',
+      description_md: restaurant.description || '',
+      price_from: restaurant.price_from || 0,
+      location: restaurant.location || '',
+      address: restaurant.address || '',
+      max_capacity: restaurant.max_capacity || 20,
+      images: restaurant.images || [],
+      is_active: restaurant.is_active
+    });
+    setEditingRestaurantId(restaurant.id);
+    setIsEditingRestaurant(true);
+    setIsAddingRestaurant(true);
+  };
+
+  // 음식점 저장 (추가/수정)
+  const handleSaveRestaurant = async () => {
+    if (!restaurantForm.title.trim()) {
+      toast.error('음식점 이름을 입력해주세요.');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('인증 토큰이 없습니다.');
+        return;
+      }
+
+      const payload = {
+        id: isEditingRestaurant ? editingRestaurantId : undefined,
+        title: restaurantForm.title,
+        short_description: restaurantForm.short_description,
+        description_md: restaurantForm.description_md,
+        price_from: restaurantForm.price_from,
+        location: restaurantForm.location,
+        address: restaurantForm.address,
+        max_capacity: restaurantForm.max_capacity,
+        images: restaurantForm.images,
+        is_active: restaurantForm.is_active,
+        category: 'food'
+      };
+
+      const response = await fetch('/api/vendor/listings', {
+        method: isEditingRestaurant ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'API 오류');
+      }
+
+      toast.success(isEditingRestaurant ? '음식점이 수정되었습니다.' : '음식점이 등록되었습니다.');
+      resetRestaurantForm();
+      loadDashboardData();
+    } catch (error: any) {
+      console.error('음식점 저장 실패:', error);
+      toast.error(error.message || '음식점 저장에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 음식점 삭제
+  const handleDeleteRestaurant = async (restaurantId: number) => {
+    if (!confirm('정말 이 음식점을 삭제하시겠습니까?\n관련된 메뉴와 예약 정보도 함께 삭제됩니다.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/vendor/listings?id=${restaurantId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('음식점이 삭제되었습니다.');
+        loadDashboardData();
+      } else {
+        toast.error(result.error || '삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('삭제 오류:', error);
+      toast.error('삭제 처리 중 오류가 발생했습니다.');
     }
   };
 
@@ -612,7 +768,7 @@ export function FoodVendorDashboard() {
             <TabsTrigger value="orders">주문 관리</TabsTrigger>
             <TabsTrigger value="timeslots">시간대 관리</TabsTrigger>
             <TabsTrigger value="menus">메뉴 관리</TabsTrigger>
-            <TabsTrigger value="restaurants">음식점 정보</TabsTrigger>
+            <TabsTrigger value="restaurants">음식점 관리</TabsTrigger>
             <TabsTrigger value="stock">재고 관리</TabsTrigger>
             <TabsTrigger value="settings">
               <Settings className="h-4 w-4 mr-2" />
@@ -966,36 +1122,220 @@ export function FoodVendorDashboard() {
             />
           </TabsContent>
 
-          {/* 음식점 정보 탭 */}
+          {/* 음식점 관리 탭 */}
           <TabsContent value="restaurants" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>내 음식점</CardTitle>
-                <CardDescription>등록된 음식점 정보</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>내 음식점 관리</CardTitle>
+                    <CardDescription>음식점을 추가하고 관리하세요</CardDescription>
+                  </div>
+                  {!isAddingRestaurant && !isEditingRestaurant && (
+                    <Button onClick={handleAddRestaurant} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      음식점 추가
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
+                {/* 음식점 추가/수정 폼 */}
+                {(isAddingRestaurant || isEditingRestaurant) && (
+                  <div className="mb-6 p-6 border rounded-lg bg-gray-50">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">
+                        {isEditingRestaurant ? '음식점 수정' : '새 음식점 추가'}
+                      </h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsAddingRestaurant(false);
+                          setIsEditingRestaurant(false);
+                          setEditingRestaurantId(null);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="title">음식점명 *</Label>
+                        <Input
+                          id="title"
+                          value={restaurantForm.title}
+                          onChange={(e) => setRestaurantForm(prev => ({ ...prev, title: e.target.value }))}
+                          placeholder="음식점 이름을 입력하세요"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="location">지역</Label>
+                        <Input
+                          id="location"
+                          value={restaurantForm.location}
+                          onChange={(e) => setRestaurantForm(prev => ({ ...prev, location: e.target.value }))}
+                          placeholder="예: 제주시, 서귀포시"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="address">상세 주소</Label>
+                        <Input
+                          id="address"
+                          value={restaurantForm.address}
+                          onChange={(e) => setRestaurantForm(prev => ({ ...prev, address: e.target.value }))}
+                          placeholder="상세 주소를 입력하세요"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="short_description">간단 설명</Label>
+                        <Input
+                          id="short_description"
+                          value={restaurantForm.short_description}
+                          onChange={(e) => setRestaurantForm(prev => ({ ...prev, short_description: e.target.value }))}
+                          placeholder="음식점 한줄 소개"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="price_from">가격대 (원)</Label>
+                        <Input
+                          id="price_from"
+                          type="number"
+                          value={restaurantForm.price_from}
+                          onChange={(e) => setRestaurantForm(prev => ({ ...prev, price_from: parseInt(e.target.value) || 0 }))}
+                          placeholder="1인 기준 가격"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="max_capacity">최대 수용 인원</Label>
+                        <Input
+                          id="max_capacity"
+                          type="number"
+                          value={restaurantForm.max_capacity}
+                          onChange={(e) => setRestaurantForm(prev => ({ ...prev, max_capacity: parseInt(e.target.value) || 0 }))}
+                          placeholder="최대 수용 인원"
+                        />
+                      </div>
+
+                      <div className="space-y-2 flex items-center gap-2 pt-6">
+                        <Switch
+                          id="is_active"
+                          checked={restaurantForm.is_active}
+                          onCheckedChange={(checked) => setRestaurantForm(prev => ({ ...prev, is_active: checked }))}
+                        />
+                        <Label htmlFor="is_active">영업중</Label>
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="description_md">상세 설명</Label>
+                        <Textarea
+                          id="description_md"
+                          value={restaurantForm.description_md}
+                          onChange={(e) => setRestaurantForm(prev => ({ ...prev, description_md: e.target.value }))}
+                          placeholder="음식점 상세 설명을 입력하세요"
+                          rows={4}
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>음식점 이미지</Label>
+                        <ImageUploader
+                          images={restaurantForm.images}
+                          onImagesChange={(images) => setRestaurantForm(prev => ({ ...prev, images }))}
+                          maxImages={5}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsAddingRestaurant(false);
+                          setIsEditingRestaurant(false);
+                          setEditingRestaurantId(null);
+                        }}
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        onClick={handleSaveRestaurant}
+                        disabled={isSaving || !restaurantForm.title}
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            저장 중...
+                          </>
+                        ) : (
+                          isEditingRestaurant ? '수정 완료' : '추가 완료'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 음식점 목록 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {restaurants.length === 0 ? (
                     <div className="col-span-full text-center py-12 text-gray-500">
-                      등록된 음식점이 없습니다.
+                      <p>등록된 음식점이 없습니다.</p>
+                      <p className="text-sm mt-2">위의 "음식점 추가" 버튼을 눌러 음식점을 등록하세요.</p>
                     </div>
                   ) : (
                     restaurants.map((restaurant) => (
                       <Card key={restaurant.id} className="hover:shadow-lg transition-shadow">
-                        <CardHeader>
-                          <CardTitle className="text-lg">{restaurant.name}</CardTitle>
-                          <CardDescription>{restaurant.cuisine_type}</CardDescription>
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <CardTitle className="text-lg">{restaurant.name}</CardTitle>
+                              <CardDescription>{restaurant.cuisine_type}</CardDescription>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditRestaurant(restaurant)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteRestaurant(restaurant.id)}
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-2 text-sm">
+                            {restaurant.description && (
+                              <p className="text-gray-600 text-xs line-clamp-2">{restaurant.description}</p>
+                            )}
                             <div className="flex justify-between">
                               <span className="text-gray-600">주소</span>
-                              <span className="font-medium text-right">{restaurant.address}</span>
+                              <span className="font-medium text-right text-xs">{restaurant.address || '-'}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-600">전화번호</span>
-                              <span className="font-medium">{restaurant.phone}</span>
+                              <span className="font-medium">{restaurant.phone || '-'}</span>
                             </div>
+                            {restaurant.price_from && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">가격대</span>
+                                <span className="font-medium">{restaurant.price_from.toLocaleString()}원~</span>
+                              </div>
+                            )}
                             <div className="flex justify-between items-center mt-3 pt-3 border-t">
                               <span className="text-gray-600">상태</span>
                               <Badge variant={restaurant.is_active ? 'default' : 'secondary'}>

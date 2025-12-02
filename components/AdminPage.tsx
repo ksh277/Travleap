@@ -745,8 +745,19 @@ export function AdminPage({}: AdminPageProps) {
     email: '',
     password: '',
     phone: '',
-    role: 'user'
+    role: 'user',
+    vendorType: '',      // 벤더 카테고리 (stay, rental, food, tour, attractions, events, experience)
+    listingId: '',       // 연결할 상품 ID
+    partnerId: ''        // 연결할 파트너(가맹점) ID
   });
+
+  // 벤더/파트너 선택용 데이터
+  const [vendorListings, setVendorListings] = useState<any[]>([]);
+  const [partnersList, setPartnersList] = useState<any[]>([]);
+  const [isLoadingVendorData, setIsLoadingVendorData] = useState(false);
+  const [vendorListingPage, setVendorListingPage] = useState(1);
+  const [partnersPage, setPartnersPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // 사용자 상세보기
   const [isUserDetailDialogOpen, setIsUserDetailDialogOpen] = useState(false);
@@ -2112,6 +2123,44 @@ export function AdminPage({}: AdminPageProps) {
   // 사용자 생성/수정 대화상자 열기
   const handleOpenUserDialog = (user: any = null) => {
     setEditingUser(user);
+
+    if (user) {
+      // 수정 모드: 기존 사용자 정보를 폼에 로드
+      setIsCreateUserMode(false);
+      setNewUser({
+        name: user.name || '',
+        email: user.email || '',
+        password: '', // 비밀번호는 비워둠
+        phone: user.phone || '',
+        role: user.role || 'user',
+        vendorType: user.vendor_type || '',
+        listingId: user.vendor_id ? String(user.vendor_id) : '',
+        partnerId: user.partner_id ? String(user.partner_id) : ''
+      });
+
+      // 역할에 따라 관련 데이터 로드
+      if (user.role === 'vendor' && user.vendor_type) {
+        loadVendorListings(user.vendor_type);
+      } else if (user.role === 'partner') {
+        loadPartnersList();
+      }
+    } else {
+      // 생성 모드: 폼 초기화
+      setIsCreateUserMode(true);
+      setNewUser({
+        name: '',
+        email: '',
+        password: '',
+        phone: '',
+        role: 'user',
+        vendorType: '',
+        listingId: '',
+        partnerId: ''
+      });
+      setVendorListings([]);
+      setPartnersList([]);
+    }
+
     setIsUserDialogOpen(true);
   };
 
@@ -2582,6 +2631,102 @@ export function AdminPage({}: AdminPageProps) {
       }
     }
   };
+
+  // 벤더 카테고리 선택 시 해당 카테고리의 상품 목록 가져오기
+  const loadVendorListings = async (vendorType: string) => {
+    if (!vendorType) {
+      setVendorListings([]);
+      return;
+    }
+
+    setIsLoadingVendorData(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const categoryMap: Record<string, string> = {
+        'stay': '숙박',
+        'rental': '렌터카',
+        'food': '음식점',
+        'tour': '투어',
+        'attractions': '관광지',
+        'events': '행사',
+        'experience': '체험'
+      };
+      const category = categoryMap[vendorType] || vendorType;
+
+      const response = await fetch(`/api/admin/listings?category=${encodeURIComponent(category)}&limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setVendorListings(data.data || []);
+      } else {
+        console.error('Failed to load vendor listings:', data.error);
+        setVendorListings([]);
+      }
+    } catch (error) {
+      console.error('Error loading vendor listings:', error);
+      setVendorListings([]);
+    } finally {
+      setIsLoadingVendorData(false);
+    }
+  };
+
+  // 파트너(가맹점) 목록 가져오기
+  const loadPartnersList = async () => {
+    setIsLoadingVendorData(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/admin/partners?status=approved&limit=100', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setPartnersList(data.data || []);
+      } else {
+        console.error('Failed to load partners:', data.error);
+        setPartnersList([]);
+      }
+    } catch (error) {
+      console.error('Error loading partners:', error);
+      setPartnersList([]);
+    } finally {
+      setIsLoadingVendorData(false);
+    }
+  };
+
+  // 역할 변경 시 관련 데이터 로드
+  const handleRoleChange = (role: string) => {
+    setNewUser(prev => ({
+      ...prev,
+      role,
+      vendorType: role === 'vendor' ? prev.vendorType : '',
+      listingId: '',
+      partnerId: ''
+    }));
+
+    if (role === 'partner') {
+      loadPartnersList();
+    }
+  };
+
+  // 벤더 타입 변경 시 상품 목록 로드
+  const handleVendorTypeChange = (vendorType: string) => {
+    setNewUser(prev => ({
+      ...prev,
+      vendorType,
+      listingId: ''
+    }));
+    loadVendorListings(vendorType);
+  };
+
   // 사용자 저장 (초대 또는 수정)
   const handleSaveUser = async () => {
     try {
@@ -2626,15 +2771,57 @@ export function AdminPage({}: AdminPageProps) {
             email: '',
             password: '',
             phone: '',
-            role: 'user'
+            role: 'user',
+            vendorType: '',
+            listingId: '',
+            partnerId: ''
           });
         } else {
           toast.error(result.error || '사용자 초대에 실패했습니다.');
         }
       } else {
-        // 기존 사용자 수정
-        // 수정 API가 필요하지만 현재는 상태 변경만 지원
-        toast.info('사용자 정보 수정은 현재 지원하지 않습니다.');
+        // 기존 사용자 수정 (역할 및 연결 정보)
+        const token = localStorage.getItem('auth_token');
+        const response = await fetch('/api/admin/users', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            userId: editingUser.id,
+            role: newUser.role,
+            vendorType: newUser.vendorType || null,
+            listingId: newUser.listingId ? parseInt(newUser.listingId) : null,
+            partnerId: newUser.partnerId ? parseInt(newUser.partnerId) : null
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // 로컬 상태 업데이트
+          setUsers(prev => prev.map(u =>
+            u.id === editingUser.id
+              ? { ...u, role: newUser.role, vendor_type: newUser.vendorType, vendor_id: newUser.listingId, partner_id: newUser.partnerId }
+              : u
+          ));
+          toast.success('사용자 정보가 수정되었습니다.');
+          setIsUserDialogOpen(false);
+          setEditingUser(null);
+          setNewUser({
+            name: '',
+            email: '',
+            password: '',
+            phone: '',
+            role: 'user',
+            vendorType: '',
+            listingId: '',
+            partnerId: ''
+          });
+        } else {
+          toast.error(data.error || '사용자 수정에 실패했습니다.');
+        }
       }
     } catch (error) {
       console.error('Failed to save user:', error);
@@ -2718,7 +2905,9 @@ export function AdminPage({}: AdminPageProps) {
               {canManagePayments() && (
                 <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
               )}
-              <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
+              {canManageSystem() && (
+                <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
+              )}
               <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
               <TabsTrigger value="activity" className="text-xs md:text-sm">활동 로그</TabsTrigger>
               <TabsTrigger value="coupons" className="text-xs md:text-sm">쿠폰</TabsTrigger>
@@ -4241,7 +4430,8 @@ export function AdminPage({}: AdminPageProps) {
             </Card>
           </TabsContent>
 
-          {/* 주문 관리 탭 */}
+          {/* 주문 관리 탭 (관리자만) */}
+          {canManagePayments() && (
           <TabsContent value="orders" className="space-y-6">
             <Card>
               <CardHeader>
@@ -4704,6 +4894,7 @@ export function AdminPage({}: AdminPageProps) {
               onUpdate={loadAdminData}
             />
           </TabsContent>
+          )}
 
           {/* 숙박 관리 탭 */}
           <TabsContent value="accommodation" className="space-y-6">
@@ -5007,7 +5198,8 @@ export function AdminPage({}: AdminPageProps) {
             </Card>
           </TabsContent>
 
-          {/* 사용자 관리 탭 */}
+          {/* 사용자 관리 탭 (관리자만) */}
+          {canManageSystem() && (
           <TabsContent value="users" className="space-y-6">
             <Card>
               <CardHeader>
@@ -5216,33 +5408,168 @@ export function AdminPage({}: AdminPageProps) {
                     <label className="text-sm font-medium mb-1 block">역할</label>
                     <Select
                       value={newUser.role}
-                      onValueChange={(value) => setNewUser({ ...newUser, role: value })}
+                      onValueChange={handleRoleChange}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="user">일반 사용자</SelectItem>
-                        <SelectItem value="partner">파트너</SelectItem>
-                        <SelectItem value="vendor">벤더</SelectItem>
+                        <SelectItem value="partner">파트너 (가맹점)</SelectItem>
+                        <SelectItem value="vendor">벤더 (업체)</SelectItem>
                         <SelectItem value="md_admin">MD관리자</SelectItem>
                         <SelectItem value="admin">관리자</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* 벤더 선택 시: 카테고리 → 상품 선택 */}
+                  {newUser.role === 'vendor' && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">벤더 카테고리</label>
+                        <Select
+                          value={newUser.vendorType}
+                          onValueChange={handleVendorTypeChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="카테고리 선택" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="stay">숙박</SelectItem>
+                            <SelectItem value="rental">렌터카</SelectItem>
+                            <SelectItem value="food">음식점</SelectItem>
+                            <SelectItem value="tour">투어</SelectItem>
+                            <SelectItem value="attractions">관광지</SelectItem>
+                            <SelectItem value="events">행사</SelectItem>
+                            <SelectItem value="experience">체험</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {newUser.vendorType && (
+                        <div>
+                          <label className="text-sm font-medium mb-1 block">
+                            연결할 상품 {isLoadingVendorData && <span className="text-gray-400">(로딩중...)</span>}
+                          </label>
+                          <Select
+                            value={newUser.listingId}
+                            onValueChange={(value) => setNewUser(prev => ({ ...prev, listingId: value }))}
+                            disabled={isLoadingVendorData || vendorListings.length === 0}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={vendorListings.length === 0 ? "등록된 상품이 없습니다" : "상품 선택"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {vendorListings
+                                .slice((vendorListingPage - 1) * ITEMS_PER_PAGE, vendorListingPage * ITEMS_PER_PAGE)
+                                .map((listing) => (
+                                  <SelectItem key={listing.id} value={String(listing.id)}>
+                                    {listing.title || listing.name} (ID: {listing.id})
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          {vendorListings.length > ITEMS_PER_PAGE && (
+                            <div className="flex justify-center gap-2 mt-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setVendorListingPage(p => Math.max(1, p - 1))}
+                                disabled={vendorListingPage === 1}
+                              >
+                                이전
+                              </Button>
+                              <span className="text-sm text-gray-500 py-1">
+                                {vendorListingPage} / {Math.ceil(vendorListings.length / ITEMS_PER_PAGE)}
+                              </span>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setVendorListingPage(p => Math.min(Math.ceil(vendorListings.length / ITEMS_PER_PAGE), p + 1))}
+                                disabled={vendorListingPage >= Math.ceil(vendorListings.length / ITEMS_PER_PAGE)}
+                              >
+                                다음
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* 파트너 선택 시: 가맹점 선택 */}
+                  {newUser.role === 'partner' && (
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">
+                        연결할 가맹점 {isLoadingVendorData && <span className="text-gray-400">(로딩중...)</span>}
+                      </label>
+                      <Select
+                        value={newUser.partnerId}
+                        onValueChange={(value) => setNewUser(prev => ({ ...prev, partnerId: value }))}
+                        disabled={isLoadingVendorData || partnersList.length === 0}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={partnersList.length === 0 ? "등록된 가맹점이 없습니다" : "가맹점 선택"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {partnersList
+                            .slice((partnersPage - 1) * ITEMS_PER_PAGE, partnersPage * ITEMS_PER_PAGE)
+                            .map((partner) => (
+                              <SelectItem key={partner.id} value={String(partner.id)}>
+                                {partner.business_name || partner.name} ({partner.business_type})
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {partnersList.length > ITEMS_PER_PAGE && (
+                        <div className="flex justify-center gap-2 mt-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPartnersPage(p => Math.max(1, p - 1))}
+                            disabled={partnersPage === 1}
+                          >
+                            이전
+                          </Button>
+                          <span className="text-sm text-gray-500 py-1">
+                            {partnersPage} / {Math.ceil(partnersList.length / ITEMS_PER_PAGE)}
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPartnersPage(p => Math.min(Math.ceil(partnersList.length / ITEMS_PER_PAGE), p + 1))}
+                            disabled={partnersPage >= Math.ceil(partnersList.length / ITEMS_PER_PAGE)}
+                          >
+                            다음
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end space-x-2 mt-4">
                   <Button
                     variant="outline"
                     onClick={() => {
                       setIsUserDialogOpen(false);
+                      setEditingUser(null);
                       setNewUser({
                         name: '',
                         email: '',
                         password: '',
                         phone: '',
-                        role: 'user'
+                        role: 'user',
+                        vendorType: '',
+                        listingId: '',
+                        partnerId: ''
                       });
+                      setVendorListings([]);
+                      setPartnersList([]);
                     }}
                   >
                     취소
@@ -5317,6 +5644,7 @@ export function AdminPage({}: AdminPageProps) {
               </DialogContent>
             </Dialog>
           </TabsContent>
+          )}
 
           {/* 문의 관리 탭 */}
           {/* 페이지 미디어 관리 탭 - 배너 관리로 통합되어 제거됨 */}
@@ -5553,10 +5881,12 @@ export function AdminPage({}: AdminPageProps) {
             </Dialog>
           </TabsContent>
 
-          {/* 정산 관리 탭 */}
-          <TabsContent value="settlements" className="space-y-6">
-            <AdminSettlements />
-          </TabsContent>
+          {/* 정산 관리 탭 (관리자만) */}
+          {canManagePayments() && (
+            <TabsContent value="settlements" className="space-y-6">
+              <AdminSettlements />
+            </TabsContent>
+          )}
 
           {/* 활동 로그 탭 */}
           <TabsContent value="activity" className="space-y-6">
@@ -5583,10 +5913,12 @@ export function AdminPage({}: AdminPageProps) {
             </Tabs>
           </TabsContent>
 
-          {/* 시스템 설정 탭 */}
-          <TabsContent value="settings" className="space-y-6">
-            <AdminSystemSettings />
-          </TabsContent>
+          {/* 시스템 설정 탭 (관리자만) */}
+          {canManageSystem() && (
+            <TabsContent value="settings" className="space-y-6">
+              <AdminSystemSettings />
+            </TabsContent>
+          )}
 
           {/* 블로그 관리 탭 */}
           <TabsContent value="blogs" className="space-y-6">
