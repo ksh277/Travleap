@@ -38,46 +38,46 @@ async function handler(req, res) {
     const params = [];
 
     if (start_date) {
-      dateCondition += ' AND uc.used_at >= ?';
+      dateCondition += ' AND ucu.used_at >= ?';
       params.push(start_date);
     }
     if (end_date) {
-      dateCondition += ' AND uc.used_at <= ?';
+      dateCondition += ' AND ucu.used_at <= ?';
       params.push(end_date + ' 23:59:59');
     }
 
-    // 파트너별 쿠폰 사용 통계
+    // 파트너별 쿠폰 사용 통계 (user_coupon_usage 테이블 사용)
     const settlementsResult = await connection.execute(`
       SELECT
         p.id as partner_id,
         p.business_name,
         p.services as category,
-        p.email,
-        p.phone,
-        COUNT(uc.id) as usage_count,
-        COALESCE(SUM(uc.order_amount), 0) as total_order_amount,
-        COALESCE(SUM(uc.discount_amount), 0) as total_discount,
-        COALESCE(SUM(uc.final_amount), 0) as total_final_amount,
-        MIN(uc.used_at) as first_usage_date,
-        MAX(uc.used_at) as last_usage_date
+        p.contact_email as email,
+        p.contact_phone as phone,
+        COUNT(ucu.id) as usage_count,
+        COALESCE(SUM(ucu.order_amount), 0) as total_order_amount,
+        COALESCE(SUM(ucu.discount_amount), 0) as total_discount,
+        COALESCE(SUM(ucu.final_amount), 0) as total_final_amount,
+        MIN(ucu.used_at) as first_usage_date,
+        MAX(ucu.used_at) as last_usage_date
       FROM partners p
-      INNER JOIN user_coupons uc ON p.id = uc.used_partner_id
-      WHERE uc.status = 'USED'
+      INNER JOIN user_coupon_usage ucu ON p.id = ucu.partner_id
+      WHERE 1=1
         ${dateCondition}
-      GROUP BY p.id, p.business_name, p.services, p.email, p.phone
+      GROUP BY p.id, p.business_name, p.services, p.contact_email, p.contact_phone
       ORDER BY total_discount DESC
     `, params);
 
-    // 전체 통계
+    // 전체 통계 (user_coupon_usage 테이블 사용)
     const statsResult = await connection.execute(`
       SELECT
-        COUNT(DISTINCT uc.used_partner_id) as total_partners,
-        COUNT(uc.id) as total_usage_count,
-        COALESCE(SUM(uc.order_amount), 0) as total_order_amount,
-        COALESCE(SUM(uc.discount_amount), 0) as total_discount,
-        COALESCE(SUM(uc.final_amount), 0) as total_final_amount
-      FROM user_coupons uc
-      WHERE uc.status = 'USED'
+        COUNT(DISTINCT ucu.partner_id) as total_partners,
+        COUNT(ucu.id) as total_usage_count,
+        COALESCE(SUM(ucu.order_amount), 0) as total_order_amount,
+        COALESCE(SUM(ucu.discount_amount), 0) as total_discount,
+        COALESCE(SUM(ucu.final_amount), 0) as total_final_amount
+      FROM user_coupon_usage ucu
+      WHERE 1=1
         ${dateCondition}
     `, params);
 
