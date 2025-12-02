@@ -201,20 +201,10 @@ export default function PaymentSuccessPage() {
                     </button>
                   </div>
 
-                  {/* 쿠폰 타입에 따라 다른 정보 표시 */}
-                  {couponData.total_merchants ? (
-                    <p className="text-xs text-gray-500 mb-2">
-                      사용 가능 가맹점: {couponData.total_merchants}곳
-                    </p>
-                  ) : couponData.discount_type && (
-                    <p className="text-xs text-emerald-600 font-semibold mb-2">
-                      {couponData.discount_type === 'PERCENT' || couponData.discount_type === 'percentage'
-                        ? `${couponData.discount_value}% 할인`
-                        : `${couponData.discount_value?.toLocaleString()}원 할인`
-                      }
-                      {couponData.max_discount && ` (최대 ${couponData.max_discount.toLocaleString()}원)`}
-                    </p>
-                  )}
+                  {/* 가맹점별 할인 안내 */}
+                  <p className="text-xs text-emerald-600 font-semibold mb-2">
+                    할인율은 가맹점마다 다릅니다
+                  </p>
                   <p className="text-xs text-gray-400">
                     유효기간: {new Date(couponData.expires_at).toLocaleDateString('ko-KR')}까지
                   </p>

@@ -37,22 +37,22 @@ async function handler(req, res) {
 
     const { limit = 50, offset = 0 } = req.query;
 
-    // 사용 내역 조회 (PlanetScale) - users JOIN 제거
+    // 사용 내역 조회 (PlanetScale) - user_coupon_usage 테이블 사용
     const historyResult = await connection.execute(`
       SELECT
-        uc.id,
-        uc.user_id,
+        ucu.id,
+        ucu.user_id,
         uc.coupon_code,
-        uc.order_amount,
-        uc.discount_amount,
-        uc.final_amount,
-        uc.used_at,
+        ucu.order_amount,
+        ucu.discount_amount,
+        ucu.final_amount,
+        ucu.used_at,
         c.name as coupon_name
-      FROM user_coupons uc
+      FROM user_coupon_usage ucu
+      LEFT JOIN user_coupons uc ON ucu.user_coupon_id = uc.id
       LEFT JOIN coupons c ON uc.coupon_id = c.id
-      WHERE uc.used_partner_id = ?
-        AND uc.status = 'USED'
-      ORDER BY uc.used_at DESC
+      WHERE ucu.partner_id = ?
+      ORDER BY ucu.used_at DESC
       LIMIT ? OFFSET ?
     `, [partnerId, parseInt(limit), parseInt(offset)]);
 
@@ -82,14 +82,13 @@ async function handler(req, res) {
       customer_name: userNames[record.user_id] || '고객'
     }));
 
-    // 통계 조회
+    // 통계 조회 (user_coupon_usage 테이블 사용)
     const statsResult = await connection.execute(`
       SELECT
         COUNT(*) as total_count,
         COALESCE(SUM(discount_amount), 0) as total_discount
-      FROM user_coupons
-      WHERE used_partner_id = ?
-        AND status = 'USED'
+      FROM user_coupon_usage
+      WHERE partner_id = ?
     `, [partnerId]);
 
     const stats = statsResult.rows?.[0] || { total_count: 0, total_discount: 0 };
