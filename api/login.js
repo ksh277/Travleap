@@ -52,8 +52,8 @@ module.exports = async function handler(req, res) {
     // email을 username으로도 받을 수 있도록 처리 (이메일 형식이면 email로, 아니면 username으로 검색)
     const isEmail = email.includes('@');
     const query = isEmail
-      ? 'SELECT id, email, username, name, role, password_hash FROM users WHERE email = $1'
-      : 'SELECT id, email, username, name, role, password_hash FROM users WHERE username = $1';
+      ? 'SELECT id, email, username, name, role, password_hash, vendor_type, vendor_id, partner_id FROM users WHERE email = $1'
+      : 'SELECT id, email, username, name, role, password_hash, vendor_type, vendor_id, partner_id FROM users WHERE username = $1';
 
     const result = await db.query(query, [email]);
 
@@ -77,52 +77,72 @@ module.exports = async function handler(req, res) {
     // 파트너인 경우 partnerId 확인
     let partnerId = null;
     if (user.role === 'partner') {
-      const planetscale = connect({ url: process.env.DATABASE_URL });
-      const partnerCheck = await planetscale.execute(
-        `SELECT id FROM partners WHERE user_id = ? AND status = 'approved' LIMIT 1`,
-        [user.id]
-      );
+      // 1. 먼저 users 테이블의 partner_id 확인 (관리자가 설정한 값)
+      if (user.partner_id) {
+        partnerId = user.partner_id;
+        console.log('✅ 파트너 ID 확인됨 (users.partner_id):', user.email, '→ partnerId:', partnerId);
+      }
 
-      if (partnerCheck.rows && partnerCheck.rows.length > 0) {
-        partnerId = partnerCheck.rows[0].id;
-        console.log('✅ 파트너 ID 확인됨:', user.email, '→ partnerId:', partnerId);
-      } else {
-        console.log('⚠️ 파트너 정보를 찾을 수 없습니다:', user.email);
+      // 2. users.partner_id가 없으면 partners 테이블에서 확인
+      if (!partnerId) {
+        const planetscale = connect({ url: process.env.DATABASE_URL });
+        const partnerCheck = await planetscale.execute(
+          `SELECT id FROM partners WHERE user_id = ? AND status = 'approved' LIMIT 1`,
+          [user.id]
+        );
+
+        if (partnerCheck.rows && partnerCheck.rows.length > 0) {
+          partnerId = partnerCheck.rows[0].id;
+          console.log('✅ 파트너 ID 확인됨 (partners):', user.email, '→ partnerId:', partnerId);
+        } else {
+          console.log('⚠️ 파트너 정보를 찾을 수 없습니다:', user.email);
+        }
       }
     }
 
     // 벤더인 경우 벤더 타입 확인
     let vendorType = null;
     if (user.role === 'vendor') {
-      const planetscale = connect({ url: process.env.DATABASE_URL });
-
-      // 1. partners 테이블에서 벤더 타입 확인
-      const partnerCheck = await planetscale.execute(
-        `SELECT partner_type FROM partners WHERE user_id = ? LIMIT 1`,
-        [user.id]
-      );
-
-      if (partnerCheck.rows && partnerCheck.rows.length > 0) {
-        const partnerType = partnerCheck.rows[0].partner_type;
-
-        // partner_type을 vendorType으로 매핑
-        const vendorTypeMap = {
-          'lodging': 'stay',          // 숙박 → stay
-          'rentcar': 'rental',        // 렌트카 → rental
-          'popup': 'popup',           // 팝업 → popup
-          'food': 'food',             // 음식 → food
-          'attraction': 'attraction', // 관광지 → attraction
-          'travel': 'travel',         // 여행 → travel
-          'event': 'event',           // 행사 → event
-          'experience': 'experience'  // 체험 → experience
-        };
-
-        vendorType = vendorTypeMap[partnerType] || partnerType;
-        console.log('✅ 벤더 타입 확인됨 (partners):', user.email, '→', partnerType, '→', vendorType);
+      // 1. 먼저 users 테이블의 vendor_type 확인 (관리자가 설정한 값)
+      if (user.vendor_type) {
+        vendorType = user.vendor_type;
+        console.log('✅ 벤더 타입 확인됨 (users.vendor_type):', user.email, '→', vendorType);
       }
 
-      // 2. partners에 없으면 rentcar_vendors 확인
+      // 2. users.vendor_type이 없으면 partners 테이블에서 확인
       if (!vendorType) {
+        const planetscale = connect({ url: process.env.DATABASE_URL });
+        const partnerCheck = await planetscale.execute(
+          `SELECT partner_type FROM partners WHERE user_id = ? LIMIT 1`,
+          [user.id]
+        );
+
+        if (partnerCheck.rows && partnerCheck.rows.length > 0) {
+          const partnerType = partnerCheck.rows[0].partner_type;
+
+          // partner_type을 vendorType으로 매핑
+          const vendorTypeMap = {
+            'lodging': 'stay',          // 숙박 → stay
+            'rentcar': 'rental',        // 렌트카 → rental
+            'popup': 'popup',           // 팝업 → popup
+            'food': 'food',             // 음식 → food
+            'attraction': 'attractions', // 관광지 → attractions
+            'attractions': 'attractions',
+            'travel': 'travel',         // 여행 → travel
+            'event': 'events',          // 행사 → events
+            'events': 'events',
+            'experience': 'experience', // 체험 → experience
+            'tour': 'tour'              // 투어 → tour
+          };
+
+          vendorType = vendorTypeMap[partnerType] || partnerType;
+          console.log('✅ 벤더 타입 확인됨 (partners):', user.email, '→', partnerType, '→', vendorType);
+        }
+      }
+
+      // 3. partners에 없으면 rentcar_vendors 확인
+      if (!vendorType) {
+        const planetscale = connect({ url: process.env.DATABASE_URL });
         const rentcarCheck = await planetscale.execute(
           `SELECT id FROM rentcar_vendors WHERE user_id = ? LIMIT 1`,
           [user.id]
@@ -134,8 +154,9 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // 3. tour_vendors 확인
+      // 4. tour_vendors 확인
       if (!vendorType) {
+        const planetscale = connect({ url: process.env.DATABASE_URL });
         const tourCheck = await planetscale.execute(
           `SELECT id FROM tour_vendors WHERE user_id = ? LIMIT 1`,
           [user.id]
