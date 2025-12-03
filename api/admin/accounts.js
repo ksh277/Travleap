@@ -46,7 +46,7 @@ async function handler(req, res) {
         SELECT
           id, username, email, name, role, phone,
           partner_id, vendor_id, vendor_type,
-          is_active, created_at
+          created_at
         FROM users
         ORDER BY
           CASE role
