@@ -13,7 +13,7 @@ const { withSecureCors } = require('../../utils/cors-middleware.cjs');
 
 async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
-  const userId = req.user.id;
+  const userId = req.user.userId;
 
   try {
     // GET - 상품 목록 조회

@@ -61,6 +61,7 @@ import { ExperienceVendorDashboard } from './components/ExperienceVendorDashboar
 import { FoodVendorDashboard } from './components/FoodVendorDashboard';
 import { AttractionsVendorDashboard } from './components/AttractionsVendorDashboard';
 import { EventsVendorDashboard } from './components/EventsVendorDashboard';
+import { TourVendorDashboard } from './components/TourVendorDashboard';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentFailPage from './components/PaymentFailPage';
@@ -247,6 +248,17 @@ function AppContent() {
             isLoggedIn && user?.role === 'vendor' ? (
               <ErrorBoundary>
                 <EventsVendorDashboard />
+              </ErrorBoundary>
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          } />
+
+          {/* 투어 벤더 대시보드 */}
+          <Route path="/vendor/tour" element={
+            isLoggedIn && user?.role === 'vendor' ? (
+              <ErrorBoundary>
+                <TourVendorDashboard />
               </ErrorBoundary>
             ) : (
               <Navigate to="/login" replace />
