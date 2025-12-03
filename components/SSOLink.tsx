@@ -31,7 +31,7 @@ export function SSOLink({
   };
 
   const targetUrls = {
-    pinto: 'https://pinto-now.vercel.app',
+    pinto: 'https://makepinto.com',
     travleap: 'https://travleap.com'
   };
 

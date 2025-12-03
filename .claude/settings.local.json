@@ -270,7 +270,9 @@
       "Bash(components/vendor/ListingOptionsManager.tsx )",
       "Bash(components/vendor/TimeSlotManager.tsx )",
       "Bash(components/vendor/AccountSettings.tsx)",
-      "Bash(for file in api/vendor/listings.js api/listings/options.js api/coupon/use.js api/coupon/use-integrated.js api/coupon/issue.js api/my/coupons.js)"
+      "Bash(for file in api/vendor/listings.js api/listings/options.js api/coupon/use.js api/coupon/use-integrated.js api/coupon/issue.js api/my/coupons.js)",
+      "Bash(if [ -d \"C:\\Users\\ham57\\Desktop\\Travleap\\api\\sso\" ])",
+      "Bash(else mkdir -p \"C:\\Users\\ham57\\Desktop\\Travleap\\api\\sso\")"
     ],
     "deny": [],
     "ask": []

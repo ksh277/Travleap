@@ -15,8 +15,8 @@ const SSO_EXPIRY = '5m'; // 5분 (짧게 설정)
 // 허용된 타겟 사이트들
 const ALLOWED_TARGETS = {
   'pinto': [
-    'https://pinto-now.vercel.app',
     'https://makepinto.com',
+    'https://pinto-now.vercel.app',
     'http://localhost:3000'
   ],
   'travleap': [

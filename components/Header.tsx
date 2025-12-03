@@ -84,7 +84,7 @@ export function Header({
 
   // PINTO 쇼핑몰로 이동 (SSO)
   const handleGoToPinto = async () => {
-    const pintoUrl = 'https://pinto-now.vercel.app';
+    const pintoUrl = 'https://makepinto.com';
 
     // 로그인 안 되어 있으면 그냥 이동
     if (!isLoggedIn) {
