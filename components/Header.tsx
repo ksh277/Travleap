@@ -13,6 +13,8 @@ import {
   Calendar,
   Users,
   Filter,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -78,6 +80,48 @@ export function Header({
   const [sponsorFirst, setSponsorFirst] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
+
+  // PINTO 쇼핑몰로 이동 (SSO)
+  const handleGoToPinto = async () => {
+    const pintoUrl = 'https://pinto-now.vercel.app';
+
+    // 로그인 안 되어 있으면 그냥 이동
+    if (!isLoggedIn) {
+      window.location.href = pintoUrl;
+      return;
+    }
+
+    setSsoLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/sso/generate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          target: 'pinto',
+          redirect_path: '/'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        window.location.href = data.data.callback_url;
+      } else {
+        console.error('SSO 토큰 생성 실패:', data.error);
+        window.location.href = pintoUrl;
+      }
+    } catch (error) {
+      console.error('SSO 요청 오류:', error);
+      window.location.href = pintoUrl;
+    } finally {
+      setSsoLoading(false);
+    }
+  };
 
   // Fetch categories from DB
   const { categories: dbCategories, loading: categoriesLoading } = useCategories();
@@ -361,6 +405,20 @@ export function Header({
               )}
             </div>
 
+            {/* PINTO 쇼핑몰 버튼 */}
+            <Button
+              className="hidden md:inline-flex bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm gap-1"
+              onClick={handleGoToPinto}
+              disabled={ssoLoading}
+            >
+              {ssoLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ExternalLink className="w-4 h-4" />
+              )}
+              PINTO 쇼핑몰
+            </Button>
+
             {/* CTA 버튼 */}
             <Button
               className="hidden lg:inline-flex bg-[#ff6a3d] hover:bg-[#e5582b] text-white text-sm"
@@ -498,6 +556,23 @@ export function Header({
                         {t('login', selectedLanguage)}
                       </button>
                     )}
+
+                    {/* PINTO 쇼핑몰 버튼 (모바일) */}
+                    <button
+                      onClick={() => {
+                        handleGoToPinto();
+                        setMobileMenuOpen(false);
+                      }}
+                      disabled={ssoLoading}
+                      className="block w-full text-left px-6 py-4 hover:bg-indigo-50 text-indigo-600 font-medium min-h-[56px] flex items-center gap-2 border-t border-gray-200 mt-2"
+                    >
+                      {ssoLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ExternalLink className="w-4 h-4" />
+                      )}
+                      PINTO 쇼핑몰
+                    </button>
                   </div>
                 </div>
               </SheetContent>
