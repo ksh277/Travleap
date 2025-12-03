@@ -61,7 +61,7 @@ import { ExperienceVendorDashboard } from './components/ExperienceVendorDashboar
 import { FoodVendorDashboard } from './components/FoodVendorDashboard';
 import { AttractionsVendorDashboard } from './components/AttractionsVendorDashboard';
 import { EventsVendorDashboard } from './components/EventsVendorDashboard';
-import { TourVendorDashboard } from './components/TourVendorDashboard';
+import TourVendorDashboard from './components/TourVendorDashboard';
 import { AdminRentcarPage } from './components/AdminRentcarPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import PaymentFailPage from './components/PaymentFailPage';
