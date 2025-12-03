@@ -8,7 +8,7 @@ import { Response } from 'express';
 
 // 허용된 도메인 목록
 const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production'
-  ? (process.env.ALLOWED_ORIGINS || 'https://travleap.vercel.app').split(',').filter(Boolean)
+  ? (process.env.ALLOWED_ORIGINS || 'https://travleap.com').split(',').filter(Boolean)
   : [
       'http://localhost:5173',  // Vite dev server
       'http://localhost:5174',

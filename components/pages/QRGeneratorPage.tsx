@@ -17,7 +17,7 @@ interface PresetURL {
 }
 
 export function QRGeneratorPage() {
-  const [url, setUrl] = useState('https://travleap.vercel.app');
+  const [url, setUrl] = useState('https://travleap.com');
   const [qrSize, setQrSize] = useState(256);
   const qrRef = useRef<HTMLCanvasElement>(null);
 
@@ -25,37 +25,37 @@ export function QRGeneratorPage() {
   const presetURLs: PresetURL[] = [
     {
       name: '메인 페이지',
-      url: 'https://travleap.vercel.app',
+      url: 'https://travleap.com',
       icon: <Home className="w-4 h-4" />
     },
     {
       name: '마이페이지',
-      url: 'https://travleap.vercel.app/mypage',
+      url: 'https://travleap.com/mypage',
       icon: <User className="w-4 h-4" />
     },
     {
       name: '팝업 카테고리',
-      url: 'https://travleap.vercel.app/category/popup',
+      url: 'https://travleap.com/category/popup',
       icon: <ShoppingBag className="w-4 h-4" />
     },
     {
       name: '여행 카테고리',
-      url: 'https://travleap.vercel.app/category/tour',
+      url: 'https://travleap.com/category/tour',
       icon: <ShoppingBag className="w-4 h-4" />
     },
     {
       name: '숙박 카테고리',
-      url: 'https://travleap.vercel.app/category/stay',
+      url: 'https://travleap.com/category/stay',
       icon: <ShoppingBag className="w-4 h-4" />
     },
     {
       name: '음식 카테고리',
-      url: 'https://travleap.vercel.app/category/food',
+      url: 'https://travleap.com/category/food',
       icon: <ShoppingBag className="w-4 h-4" />
     },
     {
       name: '파트너 신청',
-      url: 'https://travleap.vercel.app/partner-apply',
+      url: 'https://travleap.com/partner-apply',
       icon: <LinkIcon className="w-4 h-4" />
     }
   ];
@@ -198,7 +198,7 @@ export function QRGeneratorPage() {
                       <div className="text-left flex-1">
                         <p className="font-medium text-sm">{preset.name}</p>
                         <p className="text-xs text-gray-500 truncate">
-                          {preset.url.replace('https://travleap.vercel.app', '')}
+                          {preset.url.replace('https://travleap.com', '')}
                         </p>
                       </div>
                     </button>

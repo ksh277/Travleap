@@ -8,8 +8,9 @@ const { connect } = require('@planetscale/database');
 module.exports = async function handler(req, res) {
   // SECURITY FIX: CORS 와일드카드 제거
   const allowedOrigins = [
-    'https://travleap.vercel.app',
+    'https://travleap.com',
     'https://www.travleap.com',
+    'https://travleap.vercel.app',
     process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : null,
     process.env.NODE_ENV === 'development' ? 'http://localhost:3004' : null
   ].filter(Boolean);

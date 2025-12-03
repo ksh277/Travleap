@@ -120,7 +120,7 @@ module.exports = async function handler(req, res) {
         lodging: lodgingAccounts,
         rentcar: rentcarAccounts
       },
-      loginUrl: 'https://travleap.vercel.app/login',
+      loginUrl: 'https://travleap.com/login',
       note: '비밀번호는 보안상 조회할 수 없습니다. 새로 생성한 계정만 비밀번호가 표시됩니다.'
     });
 

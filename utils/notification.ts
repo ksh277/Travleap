@@ -149,7 +149,7 @@ async function sendPartnerEmail(booking: BookingNotification): Promise<void> {
           </div>
 
           <div style="text-align: center;">
-            <a href="${process.env.VITE_APP_URL || 'https://travleap.vercel.app'}/partner/orders" class="button">
+            <a href="${process.env.VITE_APP_URL || 'https://travleap.com'}/partner/orders" class="button">
               파트너 대시보드에서 예약 관리하기
             </a>
           </div>
@@ -199,7 +199,7 @@ async function sendKakaoAlimtalk(booking: BookingNotification): Promise<void> {
 💰 금액: ${booking.total_amount.toLocaleString()}원
 
 파트너 대시보드에서 예약을 확정해주세요.
-${process.env.VITE_APP_URL || 'https://travleap.vercel.app'}/partner/orders`;
+${process.env.VITE_APP_URL || 'https://travleap.com'}/partner/orders`;
 
   // 카카오 알림톡 발송 (실제 구현 시 KakaoTalk Biz API 사용)
   if (process.env.VITE_KAKAO_ALIMTALK_API_KEY) {
@@ -285,7 +285,7 @@ export async function notifyCustomerBookingConfirmed(booking: BookingNotificatio
           </div>
 
           <div style="text-align: center;">
-            <a href="${process.env.VITE_APP_URL || 'https://travleap.vercel.app'}/mypage/bookings" class="button">
+            <a href="${process.env.VITE_APP_URL || 'https://travleap.com'}/mypage/bookings" class="button">
               내 예약 확인하기
             </a>
           </div>

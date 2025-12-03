@@ -38,7 +38,7 @@ async function handler(req, res) {
 
     const { status = 'all', type = 'all' } = req.query;
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://travleap.vercel.app';
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://travleap.com';
     const now = new Date();
     let allCoupons = [];
 

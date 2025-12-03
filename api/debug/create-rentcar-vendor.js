@@ -115,8 +115,8 @@ module.exports = async function handler(req, res) {
       success: true,
       message: 'Rentcar vendor created successfully',
       account: accountInfo,
-      loginUrl: 'https://travleap.vercel.app/login',
-      adminUrl: 'https://travleap.vercel.app/admin'
+      loginUrl: 'https://travleap.com/login',
+      adminUrl: 'https://travleap.com/admin'
     });
 
   } catch (error) {

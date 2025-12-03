@@ -174,7 +174,7 @@ async function handler(req, res) {
 
     // 8. 응답 - QR URL은 요청의 host에서 동적으로 생성
     const protocol = req.headers['x-forwarded-proto'] || 'https';
-    const host = req.headers.host || req.headers['x-forwarded-host'] || 'travleap.vercel.app';
+    const host = req.headers.host || req.headers['x-forwarded-host'] || 'travleap.com';
     const baseUrl = `${protocol}://${host}`;
 
     return res.status(201).json({

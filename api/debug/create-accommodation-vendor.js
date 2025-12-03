@@ -116,8 +116,8 @@ module.exports = async function handler(req, res) {
       success: true,
       message: 'Accommodation vendor created successfully',
       account: accountInfo,
-      loginUrl: 'https://travleap.vercel.app/login',
-      dashboardUrl: 'https://travleap.vercel.app/vendor/lodging'
+      loginUrl: 'https://travleap.com/login',
+      dashboardUrl: 'https://travleap.com/vendor/lodging'
     });
 
   } catch (error) {

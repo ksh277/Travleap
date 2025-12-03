@@ -232,7 +232,7 @@ async function handler(req, res) {
     expiresAt.setDate(expiresAt.getDate() + expires_days);
 
     // 8. QR URL 생성
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://travleap.vercel.app';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://travleap.com';
     const qrUrl = `${baseUrl}/coupon/${couponCode}`;
 
     // 9. 쿠폰명 생성

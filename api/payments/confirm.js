@@ -225,7 +225,7 @@ async function issueCampaignCouponForOrder(connection, { user_id, order_id, orde
     console.log(`✅ [Campaign Coupon] 발급 완료: ${userCouponCode} (campaign: ${campaign.code})`);
 
     // QR URL 생성
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://travleap.vercel.app';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://travleap.com';
     const qrUrl = `${baseUrl}/partner/coupon?code=${userCouponCode}`;
 
     // 유효기간 계산
@@ -368,7 +368,7 @@ async function issueCouponForOrder(connection, { user_id, order_id, payment_id }
     // 7. 유효기간 및 QR URL
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://travleap.vercel.app';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://travleap.com';
     const qrUrl = `${baseUrl}/coupon/${couponCode}`;
 
     // 8. 쿠폰명 생성

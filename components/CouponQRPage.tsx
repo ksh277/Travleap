@@ -14,8 +14,8 @@ export function CouponQRPage() {
   // 프로덕션에서는 실제 도메인 사용, 로컬에서는 현재 origin 사용
   const isProduction = window.location.hostname !== 'localhost';
   const siteUrl = isProduction
-    ? window.location.origin  // 프로덕션: https://travleap.vercel.app 등
-    : 'https://travleap.vercel.app';  // 로컬 개발 시 프로덕션 URL 사용
+    ? window.location.origin  // 프로덕션: https://travleap.com 등
+    : 'https://travleap.com';  // 로컬 개발 시 프로덕션 URL 사용
   const qrUrl = `${siteUrl}/partner/coupon?code=${code}`;
 
   const handleCopyCode = () => {

@@ -21,6 +21,7 @@ const ALLOWED_TARGETS = {
   ],
   'travleap': [
     'https://travleap.com',
+    'https://www.travleap.com',
     'https://travleap.vercel.app',
     'http://localhost:5173'
   ]
