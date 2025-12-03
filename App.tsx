@@ -78,6 +78,7 @@ import { PartnerCouponDashboard } from './components/PartnerCouponDashboard';
 import { CouponUsePage } from './components/CouponUsePage';
 import { CouponClaimPage } from './components/CouponClaimPage';
 import { MyCouponsPage } from './components/MyCouponsPage';
+import SSOCallbackPage from './components/SSOCallbackPage';
 import { CouponQRPage } from './components/CouponQRPage';
 import { ReviewModal } from './components/ReviewModal';
 import CouponBookPage from './components/CouponBookPage';
@@ -184,6 +185,7 @@ function AppContent() {
           {/* 인증 관련 */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/sso/callback" element={<SSOCallbackPage />} />
 
           {/* 렌트카 업체 등록 */}
           <Route path="/vendor/register" element={<VendorRegistrationPage />} />
