@@ -1,18 +1,16 @@
 const { neon } = require('@neondatabase/serverless');
+const { withAuth } = require('../../utils/auth-middleware.cjs');
+const { withSecureCors } = require('../../utils/cors-middleware.cjs');
 
-module.exports = async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'DELETE, OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+async function handler(req, res) {
+  // 관리자 권한 확인 (super_admin만 사용자 삭제 가능)
+  const allowedRoles = ['super_admin', 'admin'];
+  if (!req.user || !allowedRoles.includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      error: 'FORBIDDEN',
+      message: '관리자 권한이 필요합니다'
+    });
   }
 
   if (req.method !== 'DELETE') {
@@ -75,4 +73,7 @@ module.exports = async function handler(req, res) {
       details: error.message
     });
   }
-};
+}
+
+// 관리자 인증 필요
+module.exports = withSecureCors(withAuth(handler, { requireAuth: true, requireAdmin: true }));
