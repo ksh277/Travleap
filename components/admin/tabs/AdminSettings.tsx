@@ -267,7 +267,7 @@ export function AdminSettings() {
       // 벤더인 경우 추가 정보
       if (editingUser.role === 'vendor') {
         payload.vendorType = editingUser.vendorCategory;
-        payload.listingId = editingUser.vendorListingId;
+        payload.vendorId = editingUser.vendorListingId;  // listingId -> vendorId
       }
 
       // 파트너인 경우 추가 정보
@@ -275,8 +275,8 @@ export function AdminSettings() {
         payload.partnerId = editingUser.partnerId;
       }
 
-      const response = await fetch('/api/admin/users', {
-        method: 'PUT',
+      const response = await fetch('/api/admin/update-user-role', {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -692,9 +692,10 @@ export function AdminSettings() {
               <TabsTrigger value="admin">관리자</TabsTrigger>
               <TabsTrigger value="partner">파트너</TabsTrigger>
               <TabsTrigger value="vendor">벤더</TabsTrigger>
+              <TabsTrigger value="user">사용자</TabsTrigger>
             </TabsList>
 
-            {['all', 'admin', 'partner', 'vendor'].map(tabValue => (
+            {['all', 'admin', 'partner', 'vendor', 'user'].map(tabValue => (
               <TabsContent key={tabValue} value={tabValue}>
                 {isLoading ? (
                   <div className="flex items-center justify-center py-8">

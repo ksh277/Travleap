@@ -41,14 +41,13 @@ async function handler(req, res) {
   // GET: 계정 목록 조회
   if (req.method === 'GET') {
     try {
-      // Neon에서 사용자 목록 조회
+      // Neon에서 사용자 목록 조회 (모든 역할 포함)
       const result = await db.query(`
         SELECT
           id, username, email, name, role, phone,
           partner_id, vendor_id, vendor_type,
           is_active, created_at
         FROM users
-        WHERE role IN ('super_admin', 'admin', 'md_admin', 'partner', 'vendor')
         ORDER BY
           CASE role
             WHEN 'super_admin' THEN 1
@@ -56,6 +55,8 @@ async function handler(req, res) {
             WHEN 'md_admin' THEN 3
             WHEN 'partner' THEN 4
             WHEN 'vendor' THEN 5
+            WHEN 'user' THEN 6
+            ELSE 7
           END,
           created_at DESC
       `);
