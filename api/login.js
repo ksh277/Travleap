@@ -173,7 +173,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // JWT 토큰 생성 시 vendorType/partnerId 포함
+    // JWT 토큰 생성 시 vendorType/vendorId/partnerId 포함
     const tokenPayload = {
       userId: user.id,
       email: user.email,
@@ -190,6 +190,12 @@ module.exports = async function handler(req, res) {
     // vendorType이 있으면 추가
     if (vendorType) {
       tokenPayload.vendorType = vendorType;
+    }
+
+    // vendorId가 있으면 추가 (관리자가 설정한 listing_id)
+    if (user.vendor_id) {
+      tokenPayload.vendorId = user.vendor_id;
+      console.log('✅ 벤더 ID 추가됨 (users.vendor_id):', user.vendor_id);
     }
 
     const token = jwt.sign(

@@ -57,6 +57,31 @@ interface Account {
   created_at: string;
 }
 
+interface Listing {
+  id: number;
+  title: string;
+  category: string;
+  category_name: string;
+  vendor_name?: string;
+}
+
+interface Partner {
+  id: number;
+  business_name: string;
+  location: string;
+  services: string;
+  status: string;
+  is_active: boolean;
+}
+
+interface UserEditState {
+  userId: number | null;
+  role: string;
+  vendorCategory: string;
+  vendorListingId: number | null;
+  partnerId: number | null;
+}
+
 export function AdminSettings() {
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -77,6 +102,26 @@ export function AdminSettings() {
   const [isUpdatingMyAccount, setIsUpdatingMyAccount] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // 사용자 역할 편집 관련 상태
+  const [editingUser, setEditingUser] = useState<UserEditState | null>(null);
+  const [vendorCategories] = useState([
+    { value: 'tour', label: '투어' },
+    { value: 'rentcar', label: '렌트카' },
+    { value: 'stay', label: '숙박' },
+    { value: 'popup', label: '팝업' },
+    { value: 'food', label: '음식' },
+    { value: 'attractions', label: '관광지' },
+    { value: 'events', label: '행사' },
+    { value: 'experience', label: '체험' }
+  ]);
+  const [categoryListings, setCategoryListings] = useState<Listing[]>([]);
+  const [partnersList, setPartnersList] = useState<Partner[]>([]);
+  const [partnersPage, setPartnersPage] = useState(1);
+  const [partnersTotalPages, setPartnersTotalPages] = useState(1);
+  const [isLoadingListings, setIsLoadingListings] = useState(false);
+  const [isLoadingPartners, setIsLoadingPartners] = useState(false);
+  const [isSavingUser, setIsSavingUser] = useState(false);
 
   // 계정 생성 폼
   const [formData, setFormData] = useState({
@@ -132,6 +177,162 @@ export function AdminSettings() {
       setMyAccountData(prev => ({ ...prev, email: user.email }));
     }
   }, [user]);
+
+  // 카테고리별 상품 목록 로드
+  const loadCategoryListings = async (category: string) => {
+    if (!category) {
+      setCategoryListings([]);
+      return;
+    }
+    try {
+      setIsLoadingListings(true);
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/admin/user-management-data?type=listings&category=${category}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setCategoryListings(data.data || []);
+      }
+    } catch (error) {
+      console.error('상품 목록 로드 오류:', error);
+      setCategoryListings([]);
+    } finally {
+      setIsLoadingListings(false);
+    }
+  };
+
+  // 파트너(가맹점) 목록 로드 - 페이지네이션
+  const loadPartners = async (page: number = 1) => {
+    try {
+      setIsLoadingPartners(true);
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`/api/admin/user-management-data?type=partners&page=${page}&limit=10`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setPartnersList(data.data || []);
+        setPartnersPage(data.pagination?.page || 1);
+        setPartnersTotalPages(data.pagination?.totalPages || 1);
+      }
+    } catch (error) {
+      console.error('파트너 목록 로드 오류:', error);
+      setPartnersList([]);
+    } finally {
+      setIsLoadingPartners(false);
+    }
+  };
+
+  // 사용자 역할 편집 시작
+  const startEditingUser = (account: Account) => {
+    setEditingUser({
+      userId: account.id,
+      role: account.role,
+      vendorCategory: account.vendor_type || '',
+      vendorListingId: account.vendor_id || null,
+      partnerId: account.partner_id || null
+    });
+
+    // 벤더인 경우 카테고리 상품 로드
+    if (account.role === 'vendor' && account.vendor_type) {
+      loadCategoryListings(account.vendor_type);
+    }
+
+    // 파트너인 경우 가맹점 목록 로드
+    if (account.role === 'partner') {
+      loadPartners(1);
+    }
+  };
+
+  // 사용자 역할 저장
+  const saveUserRole = async () => {
+    if (!editingUser || !editingUser.userId) return;
+
+    try {
+      setIsSavingUser(true);
+      const token = localStorage.getItem('auth_token');
+
+      const payload: any = {
+        userId: editingUser.userId,
+        role: editingUser.role
+      };
+
+      // 벤더인 경우 추가 정보
+      if (editingUser.role === 'vendor') {
+        payload.vendorType = editingUser.vendorCategory;
+        payload.listingId = editingUser.vendorListingId;
+      }
+
+      // 파트너인 경우 추가 정보
+      if (editingUser.role === 'partner') {
+        payload.partnerId = editingUser.partnerId;
+      }
+
+      const response = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('사용자 역할이 변경되었습니다');
+        setEditingUser(null);
+        loadAccounts();
+      } else {
+        toast.error(data.error || '역할 변경에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('역할 변경 오류:', error);
+      toast.error('역할 변경 중 오류가 발생했습니다');
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  // 역할 변경 핸들러
+  const handleRoleChange = (role: string) => {
+    if (!editingUser) return;
+
+    setEditingUser({
+      ...editingUser,
+      role,
+      vendorCategory: '',
+      vendorListingId: null,
+      partnerId: null
+    });
+    setCategoryListings([]);
+    setPartnersList([]);
+
+    // 파트너 선택 시 가맹점 목록 로드
+    if (role === 'partner') {
+      loadPartners(1);
+    }
+  };
+
+  // 벤더 카테고리 변경 핸들러
+  const handleVendorCategoryChange = (category: string) => {
+    if (!editingUser) return;
+
+    setEditingUser({
+      ...editingUser,
+      vendorCategory: category,
+      vendorListingId: null
+    });
+
+    loadCategoryListings(category);
+  };
 
   // 내 계정 수정
   const handleUpdateMyAccount = async () => {
@@ -506,8 +707,7 @@ export function AdminSettings() {
                         <TableHead>아이디</TableHead>
                         <TableHead>이름</TableHead>
                         <TableHead>이메일</TableHead>
-                        <TableHead>역할</TableHead>
-                        <TableHead>상태</TableHead>
+                        <TableHead className="min-w-[400px]">역할 설정</TableHead>
                         <TableHead>생성일</TableHead>
                         <TableHead className="text-right">관리</TableHead>
                       </TableRow>
@@ -515,7 +715,7 @@ export function AdminSettings() {
                     <TableBody>
                       {getFilteredAccounts(tabValue).length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                          <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                             등록된 계정이 없습니다
                           </TableCell>
                         </TableRow>
@@ -526,17 +726,163 @@ export function AdminSettings() {
                             <TableCell>{account.name}</TableCell>
                             <TableCell>{account.email}</TableCell>
                             <TableCell>
-                              {getRoleBadge(account.role)}
-                              {account.vendor_type && (
-                                <Badge variant="outline" className="ml-1">
-                                  {account.vendor_type}
-                                </Badge>
+                              {editingUser?.userId === account.id ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {/* 역할 선택 드롭다운 */}
+                                  <Select
+                                    value={editingUser.role}
+                                    onValueChange={handleRoleChange}
+                                  >
+                                    <SelectTrigger className="w-[120px]">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="user">사용자</SelectItem>
+                                      <SelectItem value="vendor">벤더</SelectItem>
+                                      <SelectItem value="partner">파트너</SelectItem>
+                                      <SelectItem value="md_admin">MD관리자</SelectItem>
+                                      <SelectItem value="admin">관리자</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+
+                                  {/* 벤더 선택 시: 카테고리 드롭다운 */}
+                                  {editingUser.role === 'vendor' && (
+                                    <>
+                                      <Select
+                                        value={editingUser.vendorCategory}
+                                        onValueChange={handleVendorCategoryChange}
+                                      >
+                                        <SelectTrigger className="w-[110px]">
+                                          <SelectValue placeholder="카테고리" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {vendorCategories.map(cat => (
+                                            <SelectItem key={cat.value} value={cat.value}>
+                                              {cat.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+
+                                      {/* 카테고리 선택 후: 상품 드롭다운 */}
+                                      {editingUser.vendorCategory && (
+                                        <Select
+                                          value={editingUser.vendorListingId?.toString() || ''}
+                                          onValueChange={(v) => setEditingUser({
+                                            ...editingUser,
+                                            vendorListingId: parseInt(v, 10)
+                                          })}
+                                          disabled={isLoadingListings}
+                                        >
+                                          <SelectTrigger className="w-[150px]">
+                                            <SelectValue placeholder={isLoadingListings ? '로딩...' : '상품 선택'} />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {categoryListings.map(listing => (
+                                              <SelectItem key={listing.id} value={listing.id.toString()}>
+                                                {listing.title}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      )}
+                                    </>
+                                  )}
+
+                                  {/* 파트너 선택 시: 가맹점 드롭다운 (페이지네이션) */}
+                                  {editingUser.role === 'partner' && (
+                                    <div className="flex items-center gap-1">
+                                      <Select
+                                        value={editingUser.partnerId?.toString() || ''}
+                                        onValueChange={(v) => setEditingUser({
+                                          ...editingUser,
+                                          partnerId: parseInt(v, 10)
+                                        })}
+                                        disabled={isLoadingPartners}
+                                      >
+                                        <SelectTrigger className="w-[180px]">
+                                          <SelectValue placeholder={isLoadingPartners ? '로딩...' : '가맹점 선택'} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {partnersList.map(partner => (
+                                            <SelectItem key={partner.id} value={partner.id.toString()}>
+                                              {partner.business_name}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      {/* 페이지네이션 버튼 */}
+                                      <div className="flex items-center gap-1 ml-1">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          disabled={partnersPage <= 1 || isLoadingPartners}
+                                          onClick={() => loadPartners(partnersPage - 1)}
+                                        >
+                                          &lt;
+                                        </Button>
+                                        <span className="text-xs text-gray-500 min-w-[40px] text-center">
+                                          {partnersPage}/{partnersTotalPages}
+                                        </span>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-8 w-8 p-0"
+                                          disabled={partnersPage >= partnersTotalPages || isLoadingPartners}
+                                          onClick={() => loadPartners(partnersPage + 1)}
+                                        >
+                                          &gt;
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* 저장/취소 버튼 */}
+                                  <Button
+                                    size="sm"
+                                    onClick={saveUserRole}
+                                    disabled={isSavingUser}
+                                    className="ml-2"
+                                  >
+                                    {isSavingUser ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Check className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setEditingUser(null)}
+                                    disabled={isSavingUser}
+                                  >
+                                    취소
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  {getRoleBadge(account.role)}
+                                  {account.vendor_type && (
+                                    <Badge variant="outline" className="ml-1">
+                                      {vendorCategories.find(c => c.value === account.vendor_type)?.label || account.vendor_type}
+                                    </Badge>
+                                  )}
+                                  {account.partner_id && (
+                                    <Badge variant="outline" className="ml-1">
+                                      가맹점 #{account.partner_id}
+                                    </Badge>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => startEditingUser(account)}
+                                    className="ml-2"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={account.is_active ? 'default' : 'secondary'}>
-                                {account.is_active ? '활성' : '비활성'}
-                              </Badge>
                             </TableCell>
                             <TableCell>
                               {new Date(account.created_at).toLocaleDateString('ko-KR')}

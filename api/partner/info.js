@@ -12,41 +12,80 @@ async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      // userId로 파트너 정보 조회
+      // userId 또는 partnerId로 파트너 정보 조회
       const userId = req.query.userId;
+      const partnerId = req.query.partnerId;
 
-      if (!userId) {
+      if (!userId && !partnerId) {
         return res.status(400).json({
           success: false,
-          message: 'userId가 필요합니다'
+          message: 'userId 또는 partnerId가 필요합니다'
         });
       }
 
-      const result = await connection.execute(`
-        SELECT
-          id,
-          user_id,
-          business_name,
-          partner_type,
-          contact_name,
-          phone,
-          email,
-          partner_email,
-          business_address,
-          services,
-          status,
-          is_coupon_partner,
-          coupon_discount_type,
-          coupon_discount_value,
-          coupon_max_discount,
-          coupon_min_order,
-          total_coupon_usage,
-          total_discount_given,
-          created_at
-        FROM partners
-        WHERE user_id = ? AND status = 'approved'
-        LIMIT 1
-      `, [userId]);
+      // partnerId가 있으면 직접 조회, 없으면 user_id로 조회
+      let query;
+      let params;
+
+      if (partnerId) {
+        // partnerId로 직접 조회 (관리자가 설정한 경우)
+        query = `
+          SELECT
+            id,
+            user_id,
+            business_name,
+            partner_type,
+            contact_name,
+            phone,
+            email,
+            partner_email,
+            business_address,
+            services,
+            status,
+            is_coupon_partner,
+            coupon_discount_type,
+            coupon_discount_value,
+            coupon_max_discount,
+            coupon_min_order,
+            total_coupon_usage,
+            total_discount_given,
+            created_at
+          FROM partners
+          WHERE id = ? AND status = 'approved'
+          LIMIT 1
+        `;
+        params = [partnerId];
+      } else {
+        // user_id로 조회 (기존 방식)
+        query = `
+          SELECT
+            id,
+            user_id,
+            business_name,
+            partner_type,
+            contact_name,
+            phone,
+            email,
+            partner_email,
+            business_address,
+            services,
+            status,
+            is_coupon_partner,
+            coupon_discount_type,
+            coupon_discount_value,
+            coupon_max_discount,
+            coupon_min_order,
+            total_coupon_usage,
+            total_discount_given,
+            created_at
+          FROM partners
+          WHERE user_id = ? AND status = 'approved'
+          LIMIT 1
+        `;
+        params = [userId];
+      }
+
+      const result = await connection.execute(query, params);
 
       if (!result.rows || result.rows.length === 0) {
         return res.status(404).json({

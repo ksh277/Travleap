@@ -91,14 +91,32 @@ function verifyJWTFromRequest(req) {
     // 3. JWT 검증
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    console.log(`✅ [Auth] JWT 검증 성공: userId=${decoded.userId}, role=${decoded.role}`);
+    console.log(`✅ [Auth] JWT 검증 성공: userId=${decoded.userId}, role=${decoded.role}, vendorType=${decoded.vendorType || 'none'}, partnerId=${decoded.partnerId || 'none'}`);
 
-    return {
+    // JWT에서 추출한 모든 정보 반환
+    const userInfo = {
       userId: decoded.userId,
       email: decoded.email,
       name: decoded.name,
       role: decoded.role
     };
+
+    // vendorType이 있으면 추가 (벤더용)
+    if (decoded.vendorType) {
+      userInfo.vendorType = decoded.vendorType;
+    }
+
+    // vendorId가 있으면 추가 (벤더용 - 관리자가 설정한 listing_id)
+    if (decoded.vendorId) {
+      userInfo.vendorId = decoded.vendorId;
+    }
+
+    // partnerId가 있으면 추가 (파트너용 - 관리자가 설정한 partner_id)
+    if (decoded.partnerId) {
+      userInfo.partnerId = decoded.partnerId;
+    }
+
+    return userInfo;
 
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
@@ -196,8 +214,9 @@ function withAuth(handler, options = {}) {
     // req에 user 정보 추가
     req.user = user;
 
-    // 파트너 계정인 경우 partnerId 조회
-    if (user && user.role === 'partner') {
+    // 파트너 계정인 경우 partnerId 확인
+    // JWT에서 이미 partnerId가 있으면 사용, 없으면 DB에서 조회
+    if (user && user.role === 'partner' && !req.user.partnerId) {
       try {
         const connection = connect({ url: process.env.DATABASE_URL });
         const partnerResult = await connection.execute(
@@ -207,7 +226,7 @@ function withAuth(handler, options = {}) {
 
         if (partnerResult.rows && partnerResult.rows.length > 0) {
           req.user.partnerId = partnerResult.rows[0].id;
-          console.log(`✅ [Auth] 파트너 ID 조회 성공: partnerId=${req.user.partnerId}`);
+          console.log(`✅ [Auth] 파트너 ID 조회 성공 (DB): partnerId=${req.user.partnerId}`);
         } else {
           console.warn(`⚠️ [Auth] 파트너 정보 없음: userId=${user.userId}`);
           req.user.partnerId = null;
@@ -216,6 +235,8 @@ function withAuth(handler, options = {}) {
         console.error('❌ [Auth] 파트너 ID 조회 실패:', partnerError.message);
         req.user.partnerId = null;
       }
+    } else if (req.user && req.user.partnerId) {
+      console.log(`✅ [Auth] 파트너 ID 사용 (JWT): partnerId=${req.user.partnerId}`);
     }
 
     // 원본 핸들러 실행

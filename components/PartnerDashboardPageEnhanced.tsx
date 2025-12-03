@@ -188,7 +188,19 @@ export function PartnerDashboardPageEnhanced() {
 
     try {
       setLoading(true);
-      const response = await fetch(`/api/partner/info?userId=${user.id}`);
+
+      // partnerId가 있으면 우선 사용 (관리자가 설정한 경우)
+      // 없으면 userId로 조회 (기존 방식)
+      let url = '/api/partner/info';
+      if (user.partnerId) {
+        url += `?partnerId=${user.partnerId}`;
+        console.log('📍 partnerId로 파트너 조회:', user.partnerId);
+      } else {
+        url += `?userId=${user.id}`;
+        console.log('📍 userId로 파트너 조회:', user.id);
+      }
+
+      const response = await fetch(url);
       const data = await response.json();
 
       if (!data.success || !data.data) {

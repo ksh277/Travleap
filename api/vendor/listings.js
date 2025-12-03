@@ -20,6 +20,9 @@ async function handler(req, res) {
     if (req.method === 'GET') {
       const { category, include_stock } = req.query;
 
+      // vendorId가 있으면 해당 상품도 포함 (관리자가 설정한 경우)
+      const vendorId = req.user.vendorId;
+
       let sql = `
         SELECT
           l.id,
@@ -58,10 +61,11 @@ async function handler(req, res) {
           (SELECT COUNT(*) FROM reviews r WHERE r.listing_id = l.id AND r.is_hidden != 1) as review_count,
           (SELECT AVG(r.rating) FROM reviews r WHERE r.listing_id = l.id AND r.is_hidden != 1) as avg_rating
         FROM listings l
-        WHERE l.user_id = ?
+        WHERE (l.user_id = ? ${vendorId ? 'OR l.id = ?' : ''})
       `;
 
-      const params = [userId];
+      const params = vendorId ? [userId, vendorId] : [userId];
+      console.log(`📦 [Vendor Listings] 조회: userId=${userId}, vendorId=${vendorId || 'none'}`);
 
       if (category) {
         sql += ` AND l.category = ?`;
