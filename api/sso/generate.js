@@ -58,10 +58,13 @@ async function handler(req, res) {
     const now = Math.floor(Date.now() / 1000);
 
     // SSO 토큰 생성 (jose 라이브러리 사용)
+    // username이 없으면 email에서 @ 앞부분 사용
+    const username = user.username || user.email?.split('@')[0] || user.email;
+
     const ssoToken = await new SignJWT({
       user_id: user.userId,
       email: user.email,
-      username: user.username,
+      username: username,
       name: user.name,
       role: user.role,
       source: 'travleap',
