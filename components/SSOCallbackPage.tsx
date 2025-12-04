@@ -1,8 +1,9 @@
 /**
  * SSO 콜백 페이지
- * /sso/callback?token=xxx
+ * /sso/callback?code=xxx&state=xxx (OAuth 스타일)
+ * /sso/callback?token=xxx (기존 방식 호환)
  *
- * 다른 사이트(PINTO)에서 온 SSO 토큰을 받아서 로그인 처리
+ * PINTO에서 온 SSO 토큰을 받아서 로그인 처리
  */
 
 import React, { useEffect, useState } from 'react';
@@ -23,16 +24,33 @@ export default function SSOCallbackPage() {
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
 
   useEffect(() => {
+    // OAuth 스타일: code 파라미터 우선, 기존 방식: token 파라미터
+    const code = searchParams.get('code');
     const token = searchParams.get('token');
+    const state = searchParams.get('state');
 
-    if (!token) {
+    // state 검증 (CSRF 방지)
+    if (state) {
+      const savedState = sessionStorage.getItem('sso_state');
+      if (savedState && savedState !== state) {
+        setError('SSO state가 일치하지 않습니다.');
+        setStatus('error');
+        return;
+      }
+      // 사용 후 삭제
+      sessionStorage.removeItem('sso_state');
+    }
+
+    const ssoToken = code || token;
+
+    if (!ssoToken) {
       setError('SSO 토큰이 없습니다.');
       setStatus('error');
       return;
     }
 
     // SSO 토큰 검증
-    verifyToken(token);
+    verifyToken(ssoToken);
   }, [searchParams]);
 
   const verifyToken = async (ssoToken: string) => {
