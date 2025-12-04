@@ -708,7 +708,7 @@ export function AdminSettings() {
                         <TableHead>아이디</TableHead>
                         <TableHead>이름</TableHead>
                         <TableHead>이메일</TableHead>
-                        <TableHead className="min-w-[400px]">역할 설정</TableHead>
+                        <TableHead className="min-w-[800px]">역할 설정</TableHead>
                         <TableHead>생성일</TableHead>
                         <TableHead className="text-right">관리</TableHead>
                       </TableRow>
