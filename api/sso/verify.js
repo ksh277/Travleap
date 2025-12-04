@@ -3,10 +3,9 @@
  * POST /api/sso/verify
  *
  * 다른 사이트(PINTO)에서 온 SSO 토큰을 검증하고 로그인 처리
- * jose 라이브러리 사용 (PINTO와 호환)
+ * jose 라이브러리 사용 (PINTO와 호환) - ESM dynamic import
  */
 
-const { jwtVerify, SignJWT } = require('jose');
 const { Pool } = require('@neondatabase/serverless');
 const { withPublicCors } = require('../../utils/cors-middleware.cjs');
 
@@ -47,6 +46,9 @@ async function handler(req, res) {
   }
 
   try {
+    // ESM dynamic import for jose
+    const { jwtVerify, SignJWT } = await import('jose');
+
     const { token } = req.body;
 
     if (!token) {

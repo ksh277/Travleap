@@ -3,10 +3,9 @@
  * POST /api/sso/generate
  *
  * 다른 사이트(PINTO)로 이동할 때 SSO 토큰을 생성
- * jose 라이브러리 사용 (PINTO와 호환)
+ * jose 라이브러리 사용 (PINTO와 호환) - ESM dynamic import
  */
 
-const { SignJWT } = require('jose');
 const { withAuth } = require('../../utils/auth-middleware.cjs');
 const { withSecureCors } = require('../../utils/cors-middleware.cjs');
 
@@ -42,6 +41,9 @@ async function handler(req, res) {
   }
 
   try {
+    // ESM dynamic import for jose
+    const { SignJWT } = await import('jose');
+
     const { target, redirect_path } = req.body;
     const user = req.user;
 
