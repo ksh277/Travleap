@@ -743,7 +743,6 @@ export function AdminSettings() {
                                       <SelectItem value="partner">파트너</SelectItem>
                                       <SelectItem value="md_admin">MD관리자</SelectItem>
                                       <SelectItem value="admin">관리자</SelectItem>
-                                      <SelectItem value="super_admin">최고관리자</SelectItem>
                                     </SelectContent>
                                   </Select>
 
@@ -922,10 +921,9 @@ export function AdminSettings() {
 
           <div className="space-y-6">
             {/* 계정 유형 선택 */}
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               {[
-                { value: 'super_admin', label: '최고관리자', icon: Shield, color: 'bg-red-100 border-red-500' },
-                { value: 'admin', label: '관리자', icon: Shield, color: 'bg-orange-100 border-orange-500' },
+                { value: 'admin', label: '관리자', icon: Shield, color: 'bg-red-100 border-red-500' },
                 { value: 'md_admin', label: 'MD관리자', icon: Users, color: 'bg-blue-100 border-blue-500' },
                 { value: 'partner', label: '파트너', icon: Store, color: 'bg-green-100 border-green-500' },
                 { value: 'vendor', label: '벤더', icon: Car, color: 'bg-purple-100 border-purple-500' },

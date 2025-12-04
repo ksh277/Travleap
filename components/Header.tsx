@@ -14,6 +14,7 @@ import {
   Users,
   Filter,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -80,20 +81,47 @@ export function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false);
 
-  // PINTO 쇼핑몰로 이동 (SSO - OAuth 스타일)
-  const handleGoToPinto = () => {
-    const pintoBaseUrl = 'https://makepinto.com';
-    const travleapCallbackUrl = 'https://travleap.vercel.app/sso/callback';
+  const [ssoLoading, setSsoLoading] = useState(false);
 
-    // state 파라미터 생성 (CSRF 방지용 랜덤값)
-    const state = Math.random().toString(36).substring(2, 15);
-    sessionStorage.setItem('sso_state', state);
+  // PINTO 쇼핑몰로 이동 (SSO - 토큰 직접 전달 방식)
+  const handleGoToPinto = async () => {
+    const pintoUrl = 'https://makepinto.com';
 
-    // PINTO의 /sso/authorize로 이동
-    // PINTO가 로그인 체크 후 토큰을 만들어서 Travleap callback으로 보내줌
-    const authorizeUrl = `${pintoBaseUrl}/sso/authorize?redirect_uri=${encodeURIComponent(travleapCallbackUrl)}&state=${state}`;
+    // 로그인 안 되어 있으면 그냥 이동
+    if (!isLoggedIn) {
+      window.location.href = pintoUrl;
+      return;
+    }
 
-    window.location.href = authorizeUrl;
+    setSsoLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/sso/generate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          target: 'pinto',
+          redirect_path: '/'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        window.location.href = data.data.callback_url;
+      } else {
+        console.error('SSO 토큰 생성 실패:', data.error);
+        window.location.href = pintoUrl;
+      }
+    } catch (error) {
+      console.error('SSO 요청 오류:', error);
+      window.location.href = pintoUrl;
+    } finally {
+      setSsoLoading(false);
+    }
   };
 
   // Fetch categories from DB
@@ -382,8 +410,13 @@ export function Header({
             <Button
               className="hidden md:inline-flex bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm gap-1"
               onClick={handleGoToPinto}
+              disabled={ssoLoading}
             >
-              <ExternalLink className="w-4 h-4" />
+              {ssoLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ExternalLink className="w-4 h-4" />
+              )}
               PINTO 쇼핑몰
             </Button>
 
@@ -531,9 +564,14 @@ export function Header({
                         handleGoToPinto();
                         setMobileMenuOpen(false);
                       }}
+                      disabled={ssoLoading}
                       className="block w-full text-left px-6 py-4 hover:bg-indigo-50 text-indigo-600 font-medium min-h-[56px] flex items-center gap-2 border-t border-gray-200 mt-2"
                     >
-                      <ExternalLink className="w-4 h-4" />
+                      {ssoLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ExternalLink className="w-4 h-4" />
+                      )}
                       PINTO 쇼핑몰
                     </button>
                   </div>
