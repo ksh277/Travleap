@@ -573,10 +573,19 @@ export function VendorDashboardPageEnhanced() {
         console.log('🔍 [DEBUG] User ID:', user.id);
       }
 
-      // 현재 로그인한 사용자의 user_id로 벤더 찾기 (이메일보다 정확함)
-      let vendor = vendorData.data.find((v: any) => v.user_id === user.id);
+      // 1순위: 관리자가 설정한 vendorId(listing_id)로 벤더 찾기
+      let vendor = null;
+      if (user.vendorId) {
+        vendor = vendorData.data.find((v: any) => v.id === user.vendorId);
+        console.log('📍 vendorId로 벤더 조회:', user.vendorId, vendor ? '✅ 찾음' : '❌ 없음');
+      }
 
-      // user_id로 못 찾으면 이메일로 시도
+      // 2순위: user_id로 벤더 찾기
+      if (!vendor) {
+        vendor = vendorData.data.find((v: any) => v.user_id === user.id);
+      }
+
+      // 3순위: 이메일로 시도
       if (!vendor) {
         vendor = vendorData.data.find((v: any) => v.contact_email === user.email);
       }

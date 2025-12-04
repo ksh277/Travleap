@@ -10,6 +10,7 @@ interface User {
   phone?: string;
   role: 'super_admin' | 'admin' | 'md_admin' | 'user' | 'partner' | 'vendor';
   vendorType?: string; // 'stay' (숙박) 또는 'rental' (렌트카) 등
+  vendorId?: number;   // 벤더 ID (관리자가 설정한 listing_id)
   partnerId?: number;  // 파트너 ID (가맹점)
   postal_code?: string;
   address?: string;
@@ -97,6 +98,11 @@ const restoreUserFromToken = (token: string): User | null => {
   // partnerId가 있으면 추가
   if (payload.partnerId) {
     user.partnerId = payload.partnerId;
+  }
+
+  // vendorId가 있으면 추가 (관리자가 설정한 listing_id)
+  if (payload.vendorId) {
+    user.vendorId = payload.vendorId;
   }
 
   // vendorType이 있으면 추가
@@ -309,6 +315,11 @@ export const useAuth = () => {
       // partnerId가 있으면 추가 (파트너/가맹점용)
       if (serverUser.partnerId) {
         user.partnerId = serverUser.partnerId;
+      }
+
+      // vendorId가 있으면 추가 (관리자가 설정한 listing_id)
+      if (serverUser.vendorId) {
+        user.vendorId = serverUser.vendorId;
       }
 
       // vendorType이 있으면 추가 (숙박/렌트카 구분용)

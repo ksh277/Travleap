@@ -228,9 +228,9 @@ ${JSON.stringify(listings.slice(0, 20).map(l => ({
 
     const recommendation = JSON.parse(jsonStr);
 
-    // 추천된 상품 상세 정보 매핑
+    // 추천된 상품 상세 정보 매핑 (ID 타입 호환)
     const enrichedRecommendations = recommendation.recommendations.map(rec => {
-      const listing = listings.find(l => l.id === rec.listing_id);
+      const listing = listings.find(l => Number(l.id) === Number(rec.listing_id));
       return {
         ...rec,
         listing: listing || null
@@ -339,14 +339,14 @@ ${JSON.stringify(listings.slice(0, 20).map(l => ({
 
     const recommendation = JSON.parse(jsonMatch[0]);
 
-    // 추천된 상품 상세 정보 매핑
+    // 추천된 상품 상세 정보 매핑 (ID 타입 호환)
     const enrichedRecommendations = recommendation.recommendations.map(rec => {
-      const listing = listings.find(l => l.id === rec.listing_id);
+      const listing = listings.find(l => Number(l.id) === Number(rec.listing_id));
       return {
         ...rec,
         listing: listing || null
       };
-    });
+    }).filter(rec => rec.listing !== null);
 
     return [{
       id: 'ai-1',

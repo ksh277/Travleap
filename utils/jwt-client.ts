@@ -6,6 +6,7 @@ export interface JWTPayload {
   role: 'admin' | 'user' | 'partner' | 'vendor' | 'super_admin' | 'md_admin';
   name: string;
   vendorType?: string; // 'stay' (숙박) 또는 'rental' (렌트카)
+  vendorId?: number;   // 벤더 ID (관리자가 설정한 listing_id)
   partnerId?: number;  // 파트너 ID (가맹점)
   iat?: number;
   exp?: number;
