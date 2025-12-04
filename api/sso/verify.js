@@ -3,14 +3,30 @@
  * POST /api/sso/verify
  *
  * 다른 사이트(PINTO)에서 온 SSO 토큰을 검증하고 로그인 처리
+ * jose 라이브러리 사용 (PINTO와 호환)
  */
 
-const jwt = require('jsonwebtoken');
+const { jwtVerify, SignJWT } = require('jose');
 const { Pool } = require('@neondatabase/serverless');
 const { withPublicCors } = require('../../utils/cors-middleware.cjs');
 
-const SSO_SECRET = process.env.SSO_SECRET || process.env.JWT_SECRET;
-const JWT_SECRET = process.env.JWT_SECRET;
+// SSO Secret을 Uint8Array로 변환 (jose 라이브러리 요구사항)
+function getSSOSecret() {
+  const secret = process.env.SSO_SECRET || process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('SSO_SECRET 환경변수가 설정되지 않았습니다.');
+  }
+  return new TextEncoder().encode(secret);
+}
+
+// JWT Secret을 Uint8Array로 변환
+function getJWTSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET 환경변수가 설정되지 않았습니다.');
+  }
+  return new TextEncoder().encode(secret);
+}
 
 // Neon PostgreSQL connection
 let pool;
@@ -40,12 +56,14 @@ async function handler(req, res) {
       });
     }
 
-    // SSO 토큰 검증
+    // SSO 토큰 검증 (jose 라이브러리 사용)
     let decoded;
     try {
-      decoded = jwt.verify(token, SSO_SECRET);
+      const { payload } = await jwtVerify(token, getSSOSecret());
+      decoded = payload;
     } catch (err) {
-      if (err.name === 'TokenExpiredError') {
+      console.error('❌ [SSO Verify] Token verification failed:', err.code, err.message);
+      if (err.code === 'ERR_JWT_EXPIRED') {
         return res.status(401).json({
           success: false,
           error: 'SSO 토큰이 만료되었습니다.'
@@ -83,18 +101,19 @@ async function handler(req, res) {
       });
     }
 
-    // Travleap용 JWT 토큰 생성
-    const authToken = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        username: user.username,
-        name: user.name,
-        role: user.role
-      },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Travleap용 JWT 토큰 생성 (jose 라이브러리 사용)
+    const now = Math.floor(Date.now() / 1000);
+    const authToken = await new SignJWT({
+      userId: user.id,
+      email: user.email,
+      username: user.username,
+      name: user.name,
+      role: user.role
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt(now)
+      .setExpirationTime(now + 7 * 24 * 60 * 60) // 7일
+      .sign(getJWTSecret());
 
     console.log(`✅ [SSO Verify] ${user.email} from ${decoded.source} → travleap 로그인 성공`);
 

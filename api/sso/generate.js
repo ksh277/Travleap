@@ -3,14 +3,14 @@
  * POST /api/sso/generate
  *
  * 다른 사이트(PINTO)로 이동할 때 SSO 토큰을 생성
+ * jose 라이브러리 사용 (PINTO와 호환)
  */
 
-const jwt = require('jsonwebtoken');
+const { SignJWT } = require('jose');
 const { withAuth } = require('../../utils/auth-middleware.cjs');
 const { withSecureCors } = require('../../utils/cors-middleware.cjs');
 
-const SSO_SECRET = process.env.SSO_SECRET || process.env.JWT_SECRET;
-const SSO_EXPIRY = '5m'; // 5분 (짧게 설정)
+const SSO_EXPIRY = 5 * 60; // 5분 (초)
 
 // 허용된 타겟 사이트들
 const ALLOWED_TARGETS = {
@@ -26,6 +26,15 @@ const ALLOWED_TARGETS = {
     'http://localhost:5173'
   ]
 };
+
+// SSO Secret을 Uint8Array로 변환 (jose 라이브러리 요구사항)
+function getSSOSecret() {
+  const secret = process.env.SSO_SECRET || process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('SSO_SECRET 환경변수가 설정되지 않았습니다.');
+  }
+  return new TextEncoder().encode(secret);
+}
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -44,8 +53,10 @@ async function handler(req, res) {
       });
     }
 
-    // SSO 토큰 페이로드
-    const payload = {
+    const now = Math.floor(Date.now() / 1000);
+
+    // SSO 토큰 생성 (jose 라이브러리 사용)
+    const ssoToken = await new SignJWT({
       user_id: user.userId,
       email: user.email,
       username: user.username,
@@ -54,10 +65,11 @@ async function handler(req, res) {
       source: 'travleap',
       target: target,
       redirect_path: redirect_path || '/'
-    };
-
-    // SSO 토큰 생성
-    const ssoToken = jwt.sign(payload, SSO_SECRET, { expiresIn: SSO_EXPIRY });
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt(now)
+      .setExpirationTime(now + SSO_EXPIRY)
+      .sign(getSSOSecret());
 
     // 타겟 URL 생성
     const targetBaseUrl = ALLOWED_TARGETS[target][0]; // 첫 번째 URL 사용
@@ -70,7 +82,7 @@ async function handler(req, res) {
       data: {
         token: ssoToken,
         callback_url: callbackUrl,
-        expires_in: 300 // 5분 (초)
+        expires_in: SSO_EXPIRY
       }
     });
 
