@@ -87,15 +87,20 @@ export function Header({
   const handleGoToPinto = async () => {
     const pintoUrl = 'https://makepinto.com';
 
+    console.log('🔵 PINTO 버튼 클릭, isLoggedIn:', isLoggedIn);
+
     // 로그인 안 되어 있으면 그냥 이동
     if (!isLoggedIn) {
-      window.location.href = pintoUrl;
+      console.log('🔵 로그인 안됨 → PINTO로 바로 이동');
+      window.open(pintoUrl, '_blank');
       return;
     }
 
     setSsoLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
+      console.log('🔵 SSO 토큰 생성 요청 시작');
+
       const response = await fetch('/api/sso/generate', {
         method: 'POST',
         headers: {
@@ -109,16 +114,18 @@ export function Header({
       });
 
       const data = await response.json();
+      console.log('🔵 SSO 응답:', data);
 
-      if (data.success) {
+      if (data.success && data.data?.callback_url) {
+        console.log('🔵 SSO 성공 → 이동:', data.data.callback_url);
         window.location.href = data.data.callback_url;
       } else {
-        console.error('SSO 토큰 생성 실패:', data.error);
-        window.location.href = pintoUrl;
+        console.error('❌ SSO 토큰 생성 실패:', data.error);
+        window.open(pintoUrl, '_blank');
       }
     } catch (error) {
-      console.error('SSO 요청 오류:', error);
-      window.location.href = pintoUrl;
+      console.error('❌ SSO 요청 오류:', error);
+      window.open(pintoUrl, '_blank');
     } finally {
       setSsoLoading(false);
     }
@@ -408,8 +415,13 @@ export function Header({
 
             {/* PINTO 쇼핑몰 버튼 */}
             <Button
+              type="button"
               className="hidden md:inline-flex bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm gap-1"
-              onClick={handleGoToPinto}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleGoToPinto();
+              }}
               disabled={ssoLoading}
             >
               {ssoLoading ? (
