@@ -1,12 +1,12 @@
 /**
- * 포인트 만료 자동 처리 Cron Job
+ * 포인트 만료 자동 처리 Cron Job (Neon PostgreSQL 단일화)
  *
  * 실행 주기: 매일 자정 (00:00)
  * 기능:
  * - 만료된 포인트 찾기 (expires_at < NOW())
  * - 사용자별로 만료 포인트 합계 계산
  * - Neon: users.total_points 차감
- * - PlanetScale: user_points에 'expire' 타입 레코드 추가
+ * - Neon: user_points에 'expire' 타입 레코드 추가
  *
  * Vercel Cron 설정:
  * vercel.json에 추가:
@@ -19,11 +19,9 @@
  */
 
 require('dotenv').config();
-const { connect } = require('@planetscale/database');
 const { Pool } = require('@neondatabase/serverless');
 
 async function expirePoints() {
-  const connection = connect({ url: process.env.DATABASE_URL });
   const poolNeon = new Pool({
     connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
   });
@@ -36,20 +34,20 @@ async function expirePoints() {
     console.log('⏰ [포인트 만료] 자동 처리 시작:', new Date().toISOString());
     console.log('─'.repeat(60));
 
-    // 1. 만료된 포인트 조회 (사용자별 합계)
-    const expiredResult = await connection.execute(`
+    // 1. 만료된 포인트 조회 (사용자별 합계) - Neon PostgreSQL
+    const expiredResult = await poolNeon.query(`
       SELECT
         user_id,
         COUNT(*) as expired_count,
         SUM(points) as total_expired_points,
-        GROUP_CONCAT(id ORDER BY created_at) as point_ids
+        STRING_AGG(id::text, ',' ORDER BY created_at) as point_ids
       FROM user_points
       WHERE point_type = 'earn'
         AND points > 0
         AND expires_at IS NOT NULL
         AND expires_at < NOW()
       GROUP BY user_id
-      HAVING total_expired_points > 0
+      HAVING SUM(points) > 0
     `);
 
     const expiredUsers = expiredResult.rows || [];
@@ -89,7 +87,7 @@ async function expirePoints() {
         }
 
         const currentPoints = userResult.rows[0].total_points || 0;
-        const newBalance = currentPoints - total_expired_points;
+        const newBalance = Math.max(0, currentPoints - total_expired_points);
 
         console.log(`   현재 포인트: ${currentPoints}P → 만료 후: ${newBalance}P`);
 
@@ -98,12 +96,8 @@ async function expirePoints() {
           UPDATE users SET total_points = $1 WHERE id = $2
         `, [newBalance, user_id]);
 
-        // 2-4. Neon 커밋
-        await poolNeon.query('COMMIT');
-        console.log(`   ✅ Neon 업데이트 완료`);
-
-        // 2-5. PlanetScale: user_points에 만료 기록 추가
-        await connection.execute(`
+        // 2-4. Neon: user_points에 만료 기록 추가
+        await poolNeon.query(`
           INSERT INTO user_points (
             user_id,
             points,
@@ -111,7 +105,7 @@ async function expirePoints() {
             reason,
             balance_after,
             created_at
-          ) VALUES (?, ?, 'expire', ?, ?, NOW())
+          ) VALUES ($1, $2, 'expire', $3, $4, NOW())
         `, [
           user_id,
           -total_expired_points,
@@ -119,10 +113,12 @@ async function expirePoints() {
           newBalance
         ]);
 
-        console.log(`   ✅ PlanetScale 만료 기록 추가 완료`);
+        // 2-5. 커밋
+        await poolNeon.query('COMMIT');
+        console.log(`   ✅ 만료 처리 완료`);
 
         processedCount++;
-        totalExpiredPoints += total_expired_points;
+        totalExpiredPoints += Number(total_expired_points);
 
       } catch (userError) {
         console.error(`❌ User ${user_id} 처리 실패:`, userError.message);
@@ -152,32 +148,6 @@ async function expirePoints() {
       });
     }
 
-    // 4. 관리자 알림 생성 (실패 케이스가 있을 경우)
-    if (errors.length > 0) {
-      try {
-        await connection.execute(`
-          INSERT INTO admin_notifications (
-            type, priority, title, message, metadata, created_at
-          ) VALUES (?, ?, ?, ?, ?, NOW())
-        `, [
-          'POINT_EXPIRY_PARTIAL_FAILURE',
-          'MEDIUM',
-          '⚠️ 포인트 만료 처리 일부 실패',
-          `${processedCount}명 성공, ${errors.length}명 실패`,
-          JSON.stringify({
-            processedCount,
-            failedCount: errors.length,
-            totalExpiredPoints,
-            errors: errors.slice(0, 10), // 최대 10개만 저장
-            timestamp: new Date().toISOString()
-          })
-        ]);
-        console.log('\n📢 관리자 알림 생성 완료');
-      } catch (notifError) {
-        console.error('❌ 관리자 알림 생성 실패:', notifError.message);
-      }
-    }
-
     console.log('='.repeat(60));
     console.log('✅ 포인트 만료 처리 완료:', new Date().toISOString());
 
@@ -191,27 +161,6 @@ async function expirePoints() {
 
   } catch (error) {
     console.error('❌ [포인트 만료] 전체 프로세스 실패:', error);
-
-    // 크리티컬 에러 알림
-    try {
-      await connection.execute(`
-        INSERT INTO admin_notifications (
-          type, priority, title, message, metadata, created_at
-        ) VALUES (?, ?, ?, ?, ?, NOW())
-      `, [
-        'POINT_EXPIRY_CRITICAL_FAILURE',
-        'CRITICAL',
-        '🚨 포인트 만료 처리 전체 실패',
-        error.message,
-        JSON.stringify({
-          error: error.message,
-          stack: error.stack,
-          timestamp: new Date().toISOString()
-        })
-      ]);
-    } catch (notifError) {
-      console.error('❌ 크리티컬 알림 생성 실패:', notifError.message);
-    }
 
     return {
       success: false,

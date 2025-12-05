@@ -668,10 +668,10 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
 
             const newBalance = currentPoints - pointsUsed;
 
-            // 4. 포인트 내역 추가 (PlanetScale - user_points 테이블)
-            await connection.execute(`
+            // 4. 포인트 내역 추가 (Neon PostgreSQL - user_points 테이블)
+            await poolNeon.query(`
               INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-              VALUES (?, ?, 'use', ?, ?, ?, NOW())
+              VALUES ($1, $2, 'use', $3, $4, $5, NOW())
             `, [userId, -pointsUsed, `주문 결제 (주문번호: ${orderId})`, orderId, newBalance]);
 
             // 5. 사용자 포인트 업데이트 (Neon - users 테이블)
@@ -921,29 +921,14 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           // 트랜잭션 시작 (FOR UPDATE를 위해 필수)
           await poolNeon.query('BEGIN');
 
-          // 🔧 RACE CONDITION FIX: PlanetScale user_points의 최신 balance_after를 기준으로 사용
-          // Neon total_points는 동기화 지연이 있을 수 있으므로, PlanetScale balance_after가 더 정확함
-          const latestBalanceResult = await connection.execute(`
-            SELECT balance_after
-            FROM user_points
-            WHERE user_id = ?
-            ORDER BY created_at DESC, id DESC
-            LIMIT 1
-          `, [userId]);
+          // Neon PostgreSQL 단일 DB: users.total_points에서 현재 잔액 조회
+          const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [userId]);
 
           let currentPoints = 0;
-          if (latestBalanceResult.rows && latestBalanceResult.rows.length > 0) {
-            currentPoints = latestBalanceResult.rows[0].balance_after || 0;
-            console.log(`💰 [포인트] PlanetScale 최신 balance_after 사용: ${currentPoints}P`);
-          } else {
-            // 포인트 내역이 없으면 Neon fallback
-            const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [userId]);
-            currentPoints = userResult.rows?.[0]?.total_points || 0;
-            console.log(`💰 [포인트] Neon fallback 사용: ${currentPoints}P`);
+          if (userResult.rows && userResult.rows.length > 0) {
+            currentPoints = userResult.rows[0].total_points || 0;
+            console.log(`💰 [포인트] 현재 잔액: ${currentPoints}P`);
           }
-
-          // 사용자 정보 조회 (Neon - FOR UPDATE 락은 여전히 필요)
-          const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [userId]);
 
           if (userResult.rows && userResult.rows.length > 0) {
 
@@ -972,15 +957,15 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
               const expiresAt = new Date();
               expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
 
-              // 포인트 내역 추가 (PlanetScale - user_points 테이블)
-              await connection.execute(`
+              // 포인트 내역 추가 (Neon PostgreSQL - user_points 테이블)
+              await poolNeon.query(`
                 INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
-                VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+                VALUES ($1, $2, 'earn', $3, $4, $5, $6, NOW())
               `, [
                 userId,
                 pointsToEarn,
                 orderDescription,
-                String(paymentId), // ✅ payment_id를 related_order_id로 저장 (환불 시 개별 회수)
+                String(paymentId), // payment_id를 related_order_id로 저장 (환불 시 개별 회수)
                 newBalance,
                 expiresAt
               ]);
@@ -1071,25 +1056,9 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
         if (userResult.rows && userResult.rows.length > 0) {
           const user = userResult.rows[0];
 
-          // 🔧 RACE CONDITION FIX: PlanetScale user_points의 최신 balance_after를 기준으로 사용
-          // Neon total_points는 포인트 사용 직후 동기화 지연이 있을 수 있음
-          const latestBalanceResult = await connection.execute(`
-            SELECT balance_after
-            FROM user_points
-            WHERE user_id = ?
-            ORDER BY created_at DESC, id DESC
-            LIMIT 1
-          `, [userId]);
-
-          let currentBalance = 0;
-          if (latestBalanceResult.rows && latestBalanceResult.rows.length > 0) {
-            currentBalance = latestBalanceResult.rows[0].balance_after || 0;
-            console.log(`💰 [포인트] PlanetScale 최신 balance_after 사용: ${currentBalance}P (Neon: ${user.total_points}P)`);
-          } else {
-            // 포인트 내역이 없으면 Neon total_points 사용
-            currentBalance = user.total_points || 0;
-            console.log(`💰 [포인트] Neon total_points 사용 (PlanetScale 내역 없음): ${currentBalance}P`);
-          }
+          // Neon PostgreSQL 단일 DB: users.total_points에서 현재 잔액 사용
+          let currentBalance = user.total_points || 0;
+          console.log(`💰 [포인트] 현재 잔액: ${currentBalance}P`);
 
           // 🔧 각 카테고리 payment마다 개별적으로 포인트 적립
           let totalPointsToEarn = 0;
@@ -1108,15 +1077,15 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
                 const expiresAt = new Date();
                 expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
 
-                // 포인트 내역 추가 (각 payment_id별로 개별 레코드)
-                await connection.execute(`
+                // 포인트 내역 추가 (Neon PostgreSQL - 각 payment_id별로 개별 레코드)
+                await poolNeon.query(`
                   INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
-                  VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+                  VALUES ($1, $2, 'earn', $3, $4, $5, $6, NOW())
                 `, [
                   userId,
                   pointsToEarn,
                   `주문 적립 (payment_id: ${categoryPayment.id}, 카테고리: ${notes?.category || '주문'})`,
-                  String(categoryPayment.id), // ✅ payment_id를 related_order_id로 저장 (환불 시 개별 회수)
+                  String(categoryPayment.id), // payment_id를 related_order_id로 저장 (환불 시 개별 회수)
                   currentBalance,
                   expiresAt
                 ]);

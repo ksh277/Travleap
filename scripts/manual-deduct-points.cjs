@@ -58,14 +58,14 @@ async function deductPoints() {
 
         console.log(`✅ ${allPayments.length}개 카테고리 payments 발견 (user_id=${userId})`);
 
-        // 2. 각 payment마다 적립 내역 조회
+        // 2. 각 payment마다 적립 내역 조회 (Neon PostgreSQL)
         for (const payment of allPayments) {
           const paymentId = String(payment.id);
 
-          const earnResult = await connection.execute(`
+          const earnResult = await poolNeon.query(`
             SELECT points, id
             FROM user_points
-            WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
+            WHERE user_id = $1 AND related_order_id = $2 AND point_type = 'earn' AND points > 0
             ORDER BY created_at DESC
             LIMIT 1
           `, [userId, paymentId]);
@@ -83,11 +83,11 @@ async function deductPoints() {
         console.log(`💰 총 적립 포인트: ${totalEarnedPoints}P (${paymentIds.length}개 payments)`);
 
       } else {
-        // 단일 주문인 경우 (기존 로직)
-        const earnResult = await connection.execute(`
+        // 단일 주문인 경우 (기존 로직) - Neon PostgreSQL
+        const earnResult = await poolNeon.query(`
           SELECT user_id, points, id, related_order_id, balance_after
           FROM user_points
-          WHERE related_order_id = ? AND point_type = 'earn' AND points > 0
+          WHERE related_order_id = $1 AND point_type = 'earn' AND points > 0
           ORDER BY created_at DESC
           LIMIT 1
         `, [item.orderNumber]);
@@ -111,11 +111,11 @@ async function deductPoints() {
 
       const earnedPoints = totalEarnedPoints;
 
-      // 2. 이미 회수되었는지 확인
-      const deductCheck = await connection.execute(`
+      // 2. 이미 회수되었는지 확인 (Neon PostgreSQL)
+      const deductCheck = await poolNeon.query(`
         SELECT id
         FROM user_points
-        WHERE user_id = ? AND related_order_id = ? AND point_type = 'refund'
+        WHERE user_id = $1 AND related_order_id = $2 AND point_type = 'refund'
         LIMIT 1
       `, [userId, item.orderNumber]);
 
@@ -165,11 +165,11 @@ async function deductPoints() {
           UPDATE users SET total_points = $1 WHERE id = $2
         `, [newBalance, userId]);
 
-        // 6. PlanetScale - user_points 테이블에 회수 내역 추가
+        // 6. Neon - user_points 테이블에 회수 내역 추가
         // 🔧 CRITICAL FIX: 실제 회수된 포인트만 기록
-        await connection.execute(`
+        await poolNeon.query(`
           INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-          VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+          VALUES ($1, $2, 'refund', $3, $4, $5, NOW())
         `, [
           userId,
           -actualDeduction,  // ✅ 실제 회수된 포인트만 기록

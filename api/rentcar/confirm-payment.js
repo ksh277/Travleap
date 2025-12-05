@@ -338,7 +338,6 @@ module.exports = async function handler(req, res) {
           const { connect } = require('@planetscale/database');
           const { Pool } = require('@neondatabase/serverless');
 
-          const connection = connect({ url: process.env.DATABASE_URL });
           const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
 
           try {
@@ -347,30 +346,12 @@ module.exports = async function handler(req, res) {
             // 트랜잭션 시작
             await poolNeon.query('BEGIN');
 
-            // PlanetScale user_points의 최신 balance_after 조회
-            const latestBalanceResult = await connection.execute(`
-              SELECT balance_after
-              FROM user_points
-              WHERE user_id = ?
-              ORDER BY created_at DESC, id DESC
-              LIMIT 1
-            `, [rental.user_id]);
-
-            let currentPoints = 0;
-            if (latestBalanceResult.rows && latestBalanceResult.rows.length > 0) {
-              currentPoints = latestBalanceResult.rows[0].balance_after || 0;
-              console.log(`💰 [포인트] PlanetScale 최신 balance_after 사용: ${currentPoints}P`);
-            } else {
-              // 포인트 내역이 없으면 Neon fallback
-              const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [rental.user_id]);
-              currentPoints = userResult.rows?.[0]?.total_points || 0;
-              console.log(`💰 [포인트] Neon fallback 사용: ${currentPoints}P`);
-            }
-
             // 사용자 정보 조회 (FOR UPDATE 락)
             const userResult = await poolNeon.query('SELECT total_points FROM users WHERE id = $1 FOR UPDATE', [rental.user_id]);
 
             if (userResult.rows && userResult.rows.length > 0) {
+              const currentPoints = userResult.rows[0].total_points || 0;
+
               // 포인트 적립 (2%, 렌트카는 배송비 없음)
               const totalAmount = parseFloat(rental.total_price_krw || 0);
               const pointsToEarn = Math.floor(totalAmount * 0.02);
@@ -380,10 +361,10 @@ module.exports = async function handler(req, res) {
                 const expiresAt = new Date();
                 expiresAt.setDate(expiresAt.getDate() + 365); // 1년 후 만료
 
-                // PlanetScale user_points 테이블에 적립 기록
-                await connection.execute(`
+                // Neon user_points 테이블에 적립 기록
+                await poolNeon.query(`
                   INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
-                  VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+                  VALUES ($1, $2, 'earn', $3, $4, $5, $6, NOW())
                 `, [
                   rental.user_id,
                   pointsToEarn,

@@ -306,15 +306,12 @@ module.exports = async function handler(req, res) {
         decoded?.email || 'customer'
       ]);
 
-      // 10-4. 🔒 CRITICAL: 렌트카 환불 시 포인트 회수
+      // 10-4. 🔒 CRITICAL: 렌트카 환불 시 포인트 회수 (Neon PostgreSQL 단일화)
       if (rental.user_id && refundAmount < rental.total_price_krw) {
         // 전액 환불이 아닐 때만 포인트 회수 (부분 환불/취소 수수료 발생 시)
         // 전액 환불이면 아래 10-5에서 적립 포인트 회수
         try {
-          const { connect } = require('@planetscale/database');
           const { Pool } = require('@neondatabase/serverless');
-
-          const connection = connect({ url: process.env.DATABASE_URL });
           const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
 
           try {
@@ -322,11 +319,11 @@ module.exports = async function handler(req, res) {
 
             await poolNeon.query('BEGIN');
 
-            // 적립된 포인트 찾기 (rental.id로)
-            const earnedPointsResult = await connection.execute(`
+            // 적립된 포인트 찾기 (rental.id로) - Neon PostgreSQL
+            const earnedPointsResult = await poolNeon.query(`
               SELECT points, id, related_order_id
               FROM user_points
-              WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
+              WHERE user_id = $1 AND related_order_id = $2 AND point_type = 'earn' AND points > 0
               ORDER BY created_at DESC
             `, [rental.user_id, String(rental.id)]);
 
@@ -337,19 +334,19 @@ module.exports = async function handler(req, res) {
               const pointsToDeduct = Math.floor(earnedPoints * (cancellationFee / rental.total_price_krw));
 
               if (pointsToDeduct > 0) {
-                // PlanetScale 최신 balance_after 조회
-                const latestBalanceResult = await connection.execute(`
-                  SELECT balance_after FROM user_points
-                  WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1
-                `, [rental.user_id]);
+                // Neon에서 현재 포인트 조회
+                const userResult = await poolNeon.query(
+                  'SELECT total_points FROM users WHERE id = $1 FOR UPDATE',
+                  [rental.user_id]
+                );
 
-                const currentPoints = latestBalanceResult.rows?.[0]?.balance_after || 0;
-                const newBalance = currentPoints - pointsToDeduct;
+                const currentPoints = userResult.rows?.[0]?.total_points || 0;
+                const newBalance = Math.max(0, currentPoints - pointsToDeduct);
 
-                // 포인트 회수 기록 (PlanetScale)
-                await connection.execute(`
+                // 포인트 회수 기록 (Neon PostgreSQL)
+                await poolNeon.query(`
                   INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-                  VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+                  VALUES ($1, $2, 'refund', $3, $4, $5, NOW())
                 `, [
                   rental.user_id,
                   -pointsToDeduct,
@@ -358,7 +355,7 @@ module.exports = async function handler(req, res) {
                   newBalance
                 ]);
 
-                // Neon users 테이블 업데이트
+                // users 테이블 업데이트
                 await poolNeon.query('UPDATE users SET total_points = $1 WHERE id = $2', [newBalance, rental.user_id]);
 
                 console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (잔액: ${newBalance}P)`);
@@ -377,13 +374,10 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // 10-5. 🔒 CRITICAL: 전액 환불 시 적립 포인트 전액 회수
+      // 10-5. 🔒 CRITICAL: 전액 환불 시 적립 포인트 전액 회수 (Neon PostgreSQL 단일화)
       if (rental.user_id && refundAmount === rental.total_price_krw) {
         try {
-          const { connect } = require('@planetscale/database');
           const { Pool } = require('@neondatabase/serverless');
-
-          const connection = connect({ url: process.env.DATABASE_URL });
           const poolNeon = new Pool({ connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL });
 
           try {
@@ -391,30 +385,30 @@ module.exports = async function handler(req, res) {
 
             await poolNeon.query('BEGIN');
 
-            // 적립된 포인트 찾기
-            const earnedPointsResult = await connection.execute(`
+            // 적립된 포인트 찾기 - Neon PostgreSQL
+            const earnedPointsResult = await poolNeon.query(`
               SELECT points, id
               FROM user_points
-              WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
+              WHERE user_id = $1 AND related_order_id = $2 AND point_type = 'earn' AND points > 0
               ORDER BY created_at DESC
             `, [rental.user_id, String(rental.id)]);
 
             if (earnedPointsResult.rows && earnedPointsResult.rows.length > 0) {
               const earnedPoints = earnedPointsResult.rows[0].points;
 
-              // PlanetScale 최신 balance 조회
-              const latestBalanceResult = await connection.execute(`
-                SELECT balance_after FROM user_points
-                WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1
-              `, [rental.user_id]);
+              // Neon에서 현재 포인트 조회
+              const userResult = await poolNeon.query(
+                'SELECT total_points FROM users WHERE id = $1 FOR UPDATE',
+                [rental.user_id]
+              );
 
-              const currentPoints = latestBalanceResult.rows?.[0]?.balance_after || 0;
-              const newBalance = currentPoints - earnedPoints;
+              const currentPoints = userResult.rows?.[0]?.total_points || 0;
+              const newBalance = Math.max(0, currentPoints - earnedPoints);
 
-              // 전액 회수
-              await connection.execute(`
+              // 전액 회수 (Neon PostgreSQL)
+              await poolNeon.query(`
                 INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-                VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+                VALUES ($1, $2, 'refund', $3, $4, $5, NOW())
               `, [
                 rental.user_id,
                 -earnedPoints,

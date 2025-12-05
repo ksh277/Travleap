@@ -53,7 +53,7 @@ module.exports = async function handler(req, res) {
         ) as total_reviews
       FROM partners p
       LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = ? AND l.is_published = 1 AND l.is_active = 1
-      WHERE p.is_active = 1 AND (p.partner_type = 'lodging' OR p.partner_type IS NULL)
+      WHERE p.is_active = 1 AND p.partner_type = 'lodging'
       GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.tier, p.status, p.is_featured
       HAVING room_count > 0
       ORDER BY p.status = 'approved' DESC, p.is_featured DESC, avg_rating DESC

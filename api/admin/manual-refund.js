@@ -62,121 +62,121 @@ async function restoreStock(connection, bookingId) {
 }
 
 /**
- * 적립 포인트 회수 처리 (Dual DB)
+ * 적립 포인트 회수 처리 (Neon PostgreSQL 단일화)
  */
 async function deductEarnedPoints(connection, userId, orderNumber) {
+  const { Pool } = require('@neondatabase/serverless');
+  const poolNeon = new Pool({
+    connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+  });
+
   try {
     console.log(`💰 [포인트 회수] user_id=${userId}, order_number=${orderNumber}`);
 
-    const earnedPointsResult = await connection.execute(`
+    const earnedPointsResult = await poolNeon.query(`
       SELECT points, id, related_order_id
       FROM user_points
-      WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
+      WHERE user_id = $1 AND related_order_id = $2 AND point_type = 'earn' AND points > 0
       ORDER BY created_at DESC
     `, [userId, orderNumber]);
 
     if (!earnedPointsResult.rows || earnedPointsResult.rows.length === 0) {
       console.log(`ℹ️ [포인트 회수] 적립된 포인트가 없음`);
+      await poolNeon.end();
       return 0;
     }
 
     const pointsToDeduct = earnedPointsResult.rows.reduce((sum, row) => sum + (row.points || 0), 0);
     console.log(`💰 [포인트 회수] 총 ${pointsToDeduct}P 회수 예정`);
 
-    const { Pool } = require('@neondatabase/serverless');
-    const poolNeon = new Pool({
-      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
-    });
+    await poolNeon.query('BEGIN');
 
-    try {
-      await poolNeon.query('BEGIN');
+    const userResult = await poolNeon.query(`
+      SELECT total_points FROM users WHERE id = $1 FOR UPDATE
+    `, [userId]);
 
-      const userResult = await poolNeon.query(`
-        SELECT total_points FROM users WHERE id = $1 FOR UPDATE
-      `, [userId]);
-
-      if (!userResult.rows || userResult.rows.length === 0) {
-        console.error(`❌ [포인트 회수] 사용자를 찾을 수 없음`);
-        return 0;
-      }
-
-      const currentPoints = userResult.rows[0].total_points || 0;
-      const newBalance = Math.max(0, currentPoints - pointsToDeduct);
-
-      await poolNeon.query(`UPDATE users SET total_points = $1 WHERE id = $2`, [newBalance, userId]);
-
-      await connection.execute(`
-        INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-        VALUES (?, ?, 'refund', ?, ?, ?, NOW())
-      `, [userId, -pointsToDeduct, `환불로 인한 포인트 회수 (${orderNumber})`, orderNumber, newBalance]);
-
-      await poolNeon.query('COMMIT');
-
-      console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료`);
-      return pointsToDeduct;
-
-    } catch (error) {
+    if (!userResult.rows || userResult.rows.length === 0) {
+      console.error(`❌ [포인트 회수] 사용자를 찾을 수 없음`);
       await poolNeon.query('ROLLBACK');
-      throw error;
-    } finally {
       await poolNeon.end();
+      return 0;
     }
+
+    const currentPoints = userResult.rows[0].total_points || 0;
+    const newBalance = Math.max(0, currentPoints - pointsToDeduct);
+
+    await poolNeon.query(`UPDATE users SET total_points = $1 WHERE id = $2`, [newBalance, userId]);
+
+    await poolNeon.query(`
+      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+      VALUES ($1, $2, 'refund', $3, $4, $5, NOW())
+    `, [userId, -pointsToDeduct, `환불로 인한 포인트 회수 (${orderNumber})`, orderNumber, newBalance]);
+
+    await poolNeon.query('COMMIT');
+
+    console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료`);
+    return pointsToDeduct;
+
   } catch (error) {
+    try {
+      await poolNeon.query('ROLLBACK');
+    } catch (e) {}
     console.error(`❌ [포인트 회수] 실패:`, error);
     return 0;
+  } finally {
+    await poolNeon.end();
   }
 }
 
 /**
- * 사용된 포인트 환불 처리 (Dual DB)
+ * 사용된 포인트 환불 처리 (Neon PostgreSQL 단일화)
  */
 async function refundUsedPoints(connection, userId, pointsUsed, orderNumber) {
-  try {
-    if (pointsUsed <= 0) return false;
+  if (pointsUsed <= 0) return false;
 
+  const { Pool } = require('@neondatabase/serverless');
+  const poolNeon = new Pool({
+    connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+  });
+
+  try {
     console.log(`💰 [포인트 환불] user_id=${userId}, points=${pointsUsed}P`);
 
-    const { Pool } = require('@neondatabase/serverless');
-    const poolNeon = new Pool({
-      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
-    });
+    await poolNeon.query('BEGIN');
 
-    try {
-      await poolNeon.query('BEGIN');
+    const userResult = await poolNeon.query(`
+      SELECT total_points FROM users WHERE id = $1 FOR UPDATE
+    `, [userId]);
 
-      const userResult = await poolNeon.query(`
-        SELECT total_points FROM users WHERE id = $1 FOR UPDATE
-      `, [userId]);
-
-      if (!userResult.rows || userResult.rows.length === 0) {
-        console.error(`❌ [포인트 환불] 사용자를 찾을 수 없음`);
-        return false;
-      }
-
-      const currentPoints = userResult.rows[0].total_points || 0;
-      const newBalance = currentPoints + pointsUsed;
-
-      await poolNeon.query(`UPDATE users SET total_points = $1 WHERE id = $2`, [newBalance, userId]);
-
-      await connection.execute(`
-        INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-        VALUES (?, ?, 'refund', ?, ?, ?, NOW())
-      `, [userId, pointsUsed, `주문 취소로 인한 포인트 환불 (${orderNumber})`, orderNumber, newBalance]);
-
-      await poolNeon.query('COMMIT');
-
-      console.log(`✅ [포인트 환불] ${pointsUsed}P 환불 완료`);
-      return true;
-
-    } catch (error) {
+    if (!userResult.rows || userResult.rows.length === 0) {
+      console.error(`❌ [포인트 환불] 사용자를 찾을 수 없음`);
       await poolNeon.query('ROLLBACK');
-      throw error;
-    } finally {
-      await poolNeon.end();
+      return false;
     }
+
+    const currentPoints = userResult.rows[0].total_points || 0;
+    const newBalance = currentPoints + pointsUsed;
+
+    await poolNeon.query(`UPDATE users SET total_points = $1 WHERE id = $2`, [newBalance, userId]);
+
+    await poolNeon.query(`
+      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+      VALUES ($1, $2, 'refund', $3, $4, $5, NOW())
+    `, [userId, pointsUsed, `주문 취소로 인한 포인트 환불 (${orderNumber})`, orderNumber, newBalance]);
+
+    await poolNeon.query('COMMIT');
+
+    console.log(`✅ [포인트 환불] ${pointsUsed}P 환불 완료`);
+    return true;
+
   } catch (error) {
+    try {
+      await poolNeon.query('ROLLBACK');
+    } catch (e) {}
     console.error(`❌ [포인트 환불] 실패:`, error);
     return false;
+  } finally {
+    await poolNeon.end();
   }
 }
 

@@ -1,10 +1,12 @@
 /**
- * 포인트 시스템
+ * 포인트 시스템 (Neon PostgreSQL 단일화)
  * - 결제 시 2% 적립 (배송비 제외)
  * - 포인트 사용 및 만료 관리
+ *
+ * 마이그레이션: 2024-12 PlanetScale → Neon PostgreSQL
  */
 
-import { getDatabase } from './database.js';
+import { getNeonPool } from './neon-database.js';
 
 /**
  * 포인트 적립
@@ -24,34 +26,51 @@ export async function earnPoints(
   relatedPaymentId?: number,
   expiresInDays: number = 365
 ): Promise<boolean> {
-  const db = getDatabase();
+  const pool = getNeonPool();
 
   try {
-    // 1. 현재 포인트 조회
-    const users = await db.query('SELECT total_points FROM users WHERE id = ?', [userId]);
-    if (users.length === 0) {
+    // 트랜잭션 시작
+    await pool.query('BEGIN');
+
+    // 1. 현재 포인트 조회 (FOR UPDATE로 락)
+    const userResult = await pool.query(
+      'SELECT total_points FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      await pool.query('ROLLBACK');
       throw new Error('User not found');
     }
 
-    const currentPoints = users[0].total_points || 0;
+    const currentPoints = userResult.rows[0].total_points || 0;
     const newBalance = currentPoints + points;
 
-    // 2. 포인트 내역 추가
+    // 2. 만료일 계산
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
-    await db.execute(`
-      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, related_payment_id, balance_after, expires_at)
-      VALUES (?, ?, 'earn', ?, ?, ?, ?, ?)
-    `, [userId, points, reason, relatedOrderId, relatedPaymentId, newBalance, expiresAt]);
+    // 3. 포인트 내역 추가
+    await pool.query(`
+      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, related_payment_id, balance_after, expires_at, created_at)
+      VALUES ($1, $2, 'earn', $3, $4, $5, $6, $7, NOW())
+    `, [userId, points, reason, relatedOrderId || null, relatedPaymentId || null, newBalance, expiresAt]);
 
-    // 3. 사용자 포인트 업데이트
-    await db.execute('UPDATE users SET total_points = ? WHERE id = ?', [newBalance, userId]);
+    // 4. 사용자 포인트 업데이트
+    await pool.query('UPDATE users SET total_points = $1 WHERE id = $2', [newBalance, userId]);
+
+    // 트랜잭션 커밋
+    await pool.query('COMMIT');
 
     console.log(`✅ [Points] User ${userId} earned ${points} points. New balance: ${newBalance}`);
     return true;
 
   } catch (error) {
+    try {
+      await pool.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('❌ [Points] Rollback failed:', rollbackError);
+    }
     console.error('❌ [Points] Failed to earn points:', error);
     return false;
   }
@@ -71,27 +90,28 @@ export async function usePoints(
   reason: string,
   relatedOrderId?: string
 ): Promise<{ success: boolean; message?: string }> {
-  const db = getDatabase();
+  const pool = getNeonPool();
 
   try {
-    // SECURITY FIX: 트랜잭션 시작 및 FOR UPDATE 락 추가
-    // 동시에 여러 요청이 포인트를 사용하려 할 때 레이스 컨디션 방지
-    await db.query('BEGIN');
+    // 트랜잭션 시작 및 FOR UPDATE 락
+    await pool.query('BEGIN');
 
-    // 1. 현재 포인트 조회 - SECURITY FIX: FOR UPDATE 락 추가
-    // 이 락이 걸리면 다른 트랜잭션은 이 row를 읽을 수 없고 대기해야 함
-    const users = await db.query('SELECT total_points FROM users WHERE id = ? FOR UPDATE', [userId]);
+    // 1. 현재 포인트 조회 (FOR UPDATE로 동시성 제어)
+    const userResult = await pool.query(
+      'SELECT total_points FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
 
-    if (users.length === 0) {
-      await db.query('ROLLBACK');
+    if (userResult.rows.length === 0) {
+      await pool.query('ROLLBACK');
       return { success: false, message: '사용자를 찾을 수 없습니다.' };
     }
 
-    const currentPoints = users[0].total_points || 0;
+    const currentPoints = userResult.rows[0].total_points || 0;
 
     // 2. 잔액 확인
     if (currentPoints < points) {
-      await db.query('ROLLBACK');
+      await pool.query('ROLLBACK');
       console.warn(`⚠️ [Points] User ${userId} 포인트 부족: 보유 ${currentPoints}P, 사용 시도 ${points}P`);
       return { success: false, message: `보유 포인트가 부족합니다. (보유: ${currentPoints}P, 사용: ${points}P)` };
     }
@@ -99,28 +119,26 @@ export async function usePoints(
     const newBalance = currentPoints - points;
 
     // 3. 포인트 내역 추가 (음수로 저장)
-    await db.execute(`
-      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after)
-      VALUES (?, ?, 'use', ?, ?, ?)
-    `, [userId, -points, reason, relatedOrderId, newBalance]);
+    await pool.query(`
+      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+      VALUES ($1, $2, 'use', $3, $4, $5, NOW())
+    `, [userId, -points, reason, relatedOrderId || null, newBalance]);
 
     // 4. 사용자 포인트 업데이트
-    await db.execute('UPDATE users SET total_points = ? WHERE id = ?', [newBalance, userId]);
+    await pool.query('UPDATE users SET total_points = $1 WHERE id = $2', [newBalance, userId]);
 
-    // SECURITY FIX: 트랜잭션 커밋
-    await db.query('COMMIT');
+    // 트랜잭션 커밋
+    await pool.query('COMMIT');
 
     console.log(`✅ [Points] User ${userId} used ${points} points. New balance: ${newBalance}`);
     return { success: true };
 
   } catch (error) {
-    // SECURITY FIX: 에러 발생 시 롤백
     try {
-      await db.query('ROLLBACK');
+      await pool.query('ROLLBACK');
     } catch (rollbackError) {
       console.error('❌ [Points] Rollback failed:', rollbackError);
     }
-
     console.error('❌ [Points] Failed to use points:', error);
     return { success: false, message: '포인트 사용 중 오류가 발생했습니다.' };
   }
@@ -175,31 +193,47 @@ export async function refundPoints(
   reason: string,
   relatedOrderId?: string
 ): Promise<{ success: boolean; message?: string }> {
-  const db = getDatabase();
+  const pool = getNeonPool();
 
   try {
-    // 1. 현재 포인트 조회
-    const users = await db.query('SELECT total_points FROM users WHERE id = ?', [userId]);
-    if (users.length === 0) {
+    // 트랜잭션 시작
+    await pool.query('BEGIN');
+
+    // 1. 현재 포인트 조회 (FOR UPDATE로 락)
+    const userResult = await pool.query(
+      'SELECT total_points FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      await pool.query('ROLLBACK');
       return { success: false, message: '사용자를 찾을 수 없습니다.' };
     }
 
-    const currentPoints = users[0].total_points || 0;
+    const currentPoints = userResult.rows[0].total_points || 0;
     const newBalance = currentPoints + points;
 
     // 2. 포인트 내역 추가 (환불로 다시 적립)
-    await db.execute(`
-      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after)
-      VALUES (?, ?, 'refund', ?, ?, ?)
-    `, [userId, points, reason, relatedOrderId, newBalance]);
+    await pool.query(`
+      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+      VALUES ($1, $2, 'refund', $3, $4, $5, NOW())
+    `, [userId, points, reason, relatedOrderId || null, newBalance]);
 
     // 3. 사용자 포인트 업데이트
-    await db.execute('UPDATE users SET total_points = ? WHERE id = ?', [newBalance, userId]);
+    await pool.query('UPDATE users SET total_points = $1 WHERE id = $2', [newBalance, userId]);
+
+    // 트랜잭션 커밋
+    await pool.query('COMMIT');
 
     console.log(`✅ [Points] User ${userId} refunded ${points} points. New balance: ${newBalance}`);
     return { success: true };
 
   } catch (error) {
+    try {
+      await pool.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('❌ [Points] Rollback failed:', rollbackError);
+    }
     console.error('❌ [Points] Failed to refund points:', error);
     return { success: false, message: '포인트 환불 중 오류가 발생했습니다.' };
   }
@@ -212,42 +246,57 @@ export async function refundPoints(
  * @param orderId - 주문 번호
  */
 export async function refundPointsFromOrder(userId: number, orderId: string): Promise<boolean> {
-  const db = getDatabase();
+  const pool = getNeonPool();
 
   try {
+    // 트랜잭션 시작
+    await pool.query('BEGIN');
+
     // 1. 해당 주문으로 적립된 포인트 조회
-    const earnedPoints = await db.query(`
+    const earnedResult = await pool.query(`
       SELECT points, id FROM user_points
-      WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
+      WHERE user_id = $1 AND related_order_id = $2 AND point_type = 'earn' AND points > 0
     `, [userId, orderId]);
 
-    if (earnedPoints.length === 0) {
+    if (earnedResult.rows.length === 0) {
+      await pool.query('COMMIT'); // 적립 내역 없음 - 정상 종료
       console.log(`ℹ️  [Points] No earned points found for order ${orderId}`);
       return true;
     }
 
-    const pointsToRefund = earnedPoints[0].points;
+    const pointsToRefund = earnedResult.rows[0].points;
 
-    // 2. 현재 포인트 조회
-    const users = await db.query('SELECT total_points FROM users WHERE id = ?', [userId]);
-    const currentPoints = users[0].total_points || 0;
+    // 2. 현재 포인트 조회 (FOR UPDATE로 락)
+    const userResult = await pool.query(
+      'SELECT total_points FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+    const currentPoints = userResult.rows[0].total_points || 0;
 
     // 3. 포인트가 부족하면 0으로 설정
     const newBalance = Math.max(0, currentPoints - pointsToRefund);
 
     // 4. 포인트 내역 추가 (차감)
-    await db.execute(`
-      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after)
-      VALUES (?, ?, 'admin', ?, ?, ?)
+    await pool.query(`
+      INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
+      VALUES ($1, $2, 'admin', $3, $4, $5, NOW())
     `, [userId, -pointsToRefund, `환불로 인한 포인트 차감 (주문번호: ${orderId})`, orderId, newBalance]);
 
     // 5. 사용자 포인트 업데이트
-    await db.execute('UPDATE users SET total_points = ? WHERE id = ?', [newBalance, userId]);
+    await pool.query('UPDATE users SET total_points = $1 WHERE id = $2', [newBalance, userId]);
 
-    console.log(`✅ [Points] User ${userId} refunded ${pointsToRefund} points. New balance: ${newBalance}`);
+    // 트랜잭션 커밋
+    await pool.query('COMMIT');
+
+    console.log(`✅ [Points] User ${userId} deducted ${pointsToRefund} points. New balance: ${newBalance}`);
     return true;
 
   } catch (error) {
+    try {
+      await pool.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('❌ [Points] Rollback failed:', rollbackError);
+    }
     console.error('❌ [Points] Failed to refund points:', error);
     return false;
   }
@@ -260,10 +309,10 @@ export async function refundPointsFromOrder(userId: number, orderId: string): Pr
  * @param limit - 조회 개수
  */
 export async function getPointHistory(userId: number, limit: number = 50): Promise<any[]> {
-  const db = getDatabase();
+  const pool = getNeonPool();
 
   try {
-    const history = await db.query(`
+    const result = await pool.query(`
       SELECT
         id,
         points,
@@ -274,12 +323,12 @@ export async function getPointHistory(userId: number, limit: number = 50): Promi
         expires_at,
         created_at
       FROM user_points
-      WHERE user_id = ?
+      WHERE user_id = $1
       ORDER BY created_at DESC
-      LIMIT ?
+      LIMIT $2
     `, [userId, limit]);
 
-    return history;
+    return result.rows;
 
   } catch (error) {
     console.error('❌ [Points] Failed to get point history:', error);
@@ -291,43 +340,57 @@ export async function getPointHistory(userId: number, limit: number = 50): Promi
  * 만료된 포인트 처리 (크론 작업용)
  */
 export async function expirePoints(): Promise<number> {
-  const db = getDatabase();
+  const pool = getNeonPool();
 
   try {
     const now = new Date();
 
     // 1. 만료된 포인트 조회 (이미 만료 처리된 것 제외)
-    const expiredPoints = await db.query(`
+    // PostgreSQL에서는 CONCAT 대신 || 연산자 사용
+    const expiredResult = await pool.query(`
       SELECT up1.user_id, up1.points, up1.id
       FROM user_points up1
       WHERE up1.point_type = 'earn'
-        AND up1.expires_at <= ?
+        AND up1.expires_at <= $1
         AND up1.expires_at IS NOT NULL
         AND NOT EXISTS (
           SELECT 1 FROM user_points up2
           WHERE up2.point_type = 'expire'
-          AND up2.reason = CONCAT('포인트 만료 (ID: ', up1.id, ')')
+          AND up2.reason = '포인트 만료 (ID: ' || up1.id::text || ')'
         )
     `, [now]);
 
     let expiredCount = 0;
 
-    for (const point of expiredPoints) {
-      // 2. 사용자 현재 포인트 조회
-      const users = await db.query('SELECT total_points FROM users WHERE id = ?', [point.user_id]);
-      const currentPoints = users[0].total_points || 0;
-      const newBalance = Math.max(0, currentPoints - point.points);
+    for (const point of expiredResult.rows) {
+      // 트랜잭션 시작
+      await pool.query('BEGIN');
 
-      // 3. 만료 내역 추가 (ID 포함하여 중복 방지)
-      await db.execute(`
-        INSERT INTO user_points (user_id, points, point_type, reason, balance_after)
-        VALUES (?, ?, 'expire', ?, ?)
-      `, [point.user_id, -point.points, `포인트 만료 (ID: ${point.id})`, newBalance]);
+      try {
+        // 2. 사용자 현재 포인트 조회 (FOR UPDATE로 락)
+        const userResult = await pool.query(
+          'SELECT total_points FROM users WHERE id = $1 FOR UPDATE',
+          [point.user_id]
+        );
+        const currentPoints = userResult.rows[0].total_points || 0;
+        const newBalance = Math.max(0, currentPoints - point.points);
 
-      // 4. 사용자 포인트 업데이트
-      await db.execute('UPDATE users SET total_points = ? WHERE id = ?', [newBalance, point.user_id]);
+        // 3. 만료 내역 추가 (ID 포함하여 중복 방지)
+        await pool.query(`
+          INSERT INTO user_points (user_id, points, point_type, reason, balance_after, created_at)
+          VALUES ($1, $2, 'expire', $3, $4, NOW())
+        `, [point.user_id, -point.points, `포인트 만료 (ID: ${point.id})`, newBalance]);
 
-      expiredCount++;
+        // 4. 사용자 포인트 업데이트
+        await pool.query('UPDATE users SET total_points = $1 WHERE id = $2', [newBalance, point.user_id]);
+
+        // 트랜잭션 커밋
+        await pool.query('COMMIT');
+        expiredCount++;
+      } catch (err) {
+        await pool.query('ROLLBACK');
+        console.error(`❌ [Points] Failed to expire point ID ${point.id}:`, err);
+      }
     }
 
     console.log(`✅ [Points] Expired ${expiredCount} point records`);
@@ -335,6 +398,32 @@ export async function expirePoints(): Promise<number> {
 
   } catch (error) {
     console.error('❌ [Points] Failed to expire points:', error);
+    return 0;
+  }
+}
+
+/**
+ * 사용자의 현재 포인트 잔액 조회
+ *
+ * @param userId - 사용자 ID
+ */
+export async function getPointBalance(userId: number): Promise<number> {
+  const pool = getNeonPool();
+
+  try {
+    const result = await pool.query(
+      'SELECT total_points FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return 0;
+    }
+
+    return result.rows[0].total_points || 0;
+
+  } catch (error) {
+    console.error('❌ [Points] Failed to get point balance:', error);
     return 0;
   }
 }

@@ -43,10 +43,10 @@ async function manualAddPoints() {
     console.log(`   user_id: ${userId}`);
     console.log(`   결제금액: ${amount}원\n`);
 
-    // 2. 이미 적립된 포인트가 있는지 확인
-    const existingPoints = await connection.execute(
-      `SELECT id, points FROM user_points 
-       WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn'`,
+    // 2. 이미 적립된 포인트가 있는지 확인 (Neon PostgreSQL)
+    const existingPoints = await poolNeon.query(
+      `SELECT id, points FROM user_points
+       WHERE user_id = $1 AND related_order_id = $2 AND point_type = 'earn'`,
       [userId, orderNumber]
     );
 
@@ -79,18 +79,18 @@ async function manualAddPoints() {
     console.log(`   적립: +${pointsToAdd}P`);
     console.log(`   최종: ${newBalance}P\n`);
 
-    // 4. PlanetScale user_points 테이블에 기록 추가
+    // 4. Neon user_points 테이블에 기록 추가
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1년 후 만료
 
-    await connection.execute(
-      `INSERT INTO user_points 
+    await poolNeon.query(
+      `INSERT INTO user_points
        (user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at)
-       VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())`,
+       VALUES ($1, $2, 'earn', $3, $4, $5, $6, NOW())`,
       [userId, pointsToAdd, reason, orderNumber, newBalance, expiresAt]
     );
 
-    console.log(`✅ PlanetScale user_points 테이블 기록 완료`);
+    console.log(`✅ Neon user_points 테이블 기록 완료`);
 
     // 5. Neon users 테이블 total_points 업데이트
     await poolNeon.query(

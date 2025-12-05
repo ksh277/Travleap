@@ -447,11 +447,16 @@ async function deductEarnedPoints(connection, userId, orderNumber, refundRatio =
   try {
     console.log(`💰 [포인트 회수] user_id=${userId}, order_number=${orderNumber}`);
 
-    // 1. PlanetScale에서 해당 주문으로 적립된 포인트 조회 (정확한 매칭)
-    let earnedPointsResult = await connection.execute(`
+    // 1. Neon PostgreSQL에서 해당 주문으로 적립된 포인트 조회 (정확한 매칭)
+    const { Pool } = require('@neondatabase/serverless');
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
+
+    let earnedPointsResult = await poolNeon.query(`
       SELECT points, id, related_order_id
       FROM user_points
-      WHERE user_id = ? AND related_order_id = ? AND point_type = 'earn' AND points > 0
+      WHERE user_id = $1 AND related_order_id = $2 AND point_type = 'earn' AND points > 0
       ORDER BY created_at DESC
     `, [userId, orderNumber]);
 
@@ -462,13 +467,13 @@ async function deductEarnedPoints(connection, userId, orderNumber, refundRatio =
       // ORDER_로 시작하는 경우, 숫자 부분만 추출해서 LIKE 검색
       const orderPattern = orderNumber.replace(/^ORDER_/, '').split('_')[0]; // 타임스탬프 부분 추출
 
-      earnedPointsResult = await connection.execute(`
+      earnedPointsResult = await poolNeon.query(`
         SELECT points, id, related_order_id
         FROM user_points
-        WHERE user_id = ?
+        WHERE user_id = $1
           AND point_type = 'earn'
           AND points > 0
-          AND related_order_id LIKE ?
+          AND related_order_id LIKE $2
         ORDER BY created_at DESC
         LIMIT 10
       `, [userId, `%${orderPattern}%`]);
@@ -480,16 +485,17 @@ async function deductEarnedPoints(connection, userId, orderNumber, refundRatio =
       console.log(`ℹ️ [포인트 회수] 적립된 포인트가 없음 (order_number=${orderNumber})`);
 
       // 디버그: 최근 적립 내역 5개 조회
-      const debugResult = await connection.execute(`
+      const debugResult = await poolNeon.query(`
         SELECT related_order_id, points, created_at
         FROM user_points
-        WHERE user_id = ? AND point_type = 'earn' AND points > 0
+        WHERE user_id = $1 AND point_type = 'earn' AND points > 0
         ORDER BY created_at DESC
         LIMIT 5
       `, [userId]);
 
       console.log(`🔍 [포인트 회수] 최근 적립 내역 (디버그):`, debugResult.rows);
 
+      await poolNeon.end();
       return 0;
     }
 
@@ -506,11 +512,6 @@ async function deductEarnedPoints(connection, userId, orderNumber, refundRatio =
     }
 
     // 2. Neon PostgreSQL에서 현재 포인트 조회 및 차감
-    const { Pool } = require('@neondatabase/serverless');
-    const poolNeon = new Pool({
-      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
-    });
-
     try {
       // 트랜잭션 시작
       await poolNeon.query('BEGIN');
@@ -540,16 +541,14 @@ async function deductEarnedPoints(connection, userId, orderNumber, refundRatio =
         UPDATE users SET total_points = $1 WHERE id = $2
       `, [newBalance, userId]);
 
-      // ✅ FIX: Neon COMMIT 먼저 실행 (트랜잭션 안전성 향상)
-      await poolNeon.query('COMMIT');
-      console.log(`✅ [포인트 회수] Neon COMMIT 완료 - 잔액: ${newBalance}P`);
-
-      // 4. PlanetScale - user_points 테이블에 회수 내역 추가 (Neon COMMIT 후)
-      await connection.execute(`
+      // 4. Neon PostgreSQL - user_points 테이블에 회수 내역 추가
+      await poolNeon.query(`
         INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-        VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+        VALUES ($1, $2, 'refund', $3, $4, $5, NOW())
       `, [userId, -pointsToDeduct, `환불로 인한 포인트 회수 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
 
+      // 트랜잭션 커밋
+      await poolNeon.query('COMMIT');
       console.log(`✅ [포인트 회수] ${pointsToDeduct}P 회수 완료 (user_id=${userId}, 잔액: ${newBalance}P)`);
 
       return pointsToDeduct;
@@ -638,10 +637,10 @@ async function refundUsedPoints(connection, userId, pointsUsed, orderNumber) {
         UPDATE users SET total_points = $1 WHERE id = $2
       `, [newBalance, userId]);
 
-      // 3. PlanetScale - user_points 테이블에 환불 내역 추가
-      await connection.execute(`
+      // 3. Neon PostgreSQL - user_points 테이블에 환불 내역 추가
+      await poolNeon.query(`
         INSERT INTO user_points (user_id, points, point_type, reason, related_order_id, balance_after, created_at)
-        VALUES (?, ?, 'refund', ?, ?, ?, NOW())
+        VALUES ($1, $2, 'refund', $3, $4, $5, NOW())
       `, [userId, pointsUsed, `주문 취소로 인한 포인트 환불 (주문번호: ${orderNumber})`, orderNumber, newBalance]);
 
       // 트랜잭션 커밋

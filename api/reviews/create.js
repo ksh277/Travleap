@@ -9,7 +9,7 @@
  * 2. coupon_reviews 테이블에 리뷰 저장
  * 3. user_coupons.review_submitted = TRUE 업데이트
  * 4. Neon users.total_points += 500
- * 5. PlanetScale user_points에 이력 추가
+ * 5. Neon user_points에 이력 추가 (PostgreSQL)
  */
 
 const { connect } = require('@planetscale/database');
@@ -136,16 +136,14 @@ async function handler(req, res) {
       [newBalance, userId]
     );
 
-    await poolNeon.query('COMMIT');
-
-    // 5. PlanetScale user_points에 이력 추가
+    // 5. Neon PostgreSQL user_points에 이력 추가
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1년 후 만료
 
-    await connection.execute(`
+    await poolNeon.query(`
       INSERT INTO user_points (
         user_id, points, point_type, reason, related_order_id, balance_after, expires_at, created_at
-      ) VALUES (?, ?, 'earn', ?, ?, ?, ?, NOW())
+      ) VALUES ($1, $2, 'earn', $3, $4, $5, $6, NOW())
     `, [
       userId,
       REVIEW_POINTS,
@@ -154,6 +152,8 @@ async function handler(req, res) {
       newBalance,
       expiresAt
     ]);
+
+    await poolNeon.query('COMMIT');
 
     console.log(`✅ [Review] 리뷰 작성 완료: userId=${userId}, couponId=${user_coupon_id}, points=+${REVIEW_POINTS}`);
 
