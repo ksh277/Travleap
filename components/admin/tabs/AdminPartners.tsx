@@ -22,10 +22,12 @@ import {
   Percent,
   Settings,
   Image as ImageIcon,
-  Navigation
+  Navigation,
+  Search
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ImageUploadComponent } from '../ImageUploadComponent';
+import { getGoogleMapsApiKey } from '../../../utils/env';
 
 interface Partner {
   id: number;
@@ -667,7 +669,7 @@ export function AdminPartners() {
 function PartnerForm({ formData, setFormData }: any) {
   const [mapLoaded, setMapLoaded] = React.useState(false);
   const [mapError, setMapError] = React.useState<string | null>(null);
-  const [mapInitialized, setMapInitialized] = React.useState(false);
+  const [isSearching, setIsSearching] = React.useState(false);
   const mapRef = React.useRef<HTMLDivElement>(null);
   const mapInstanceRef = React.useRef<any>(null);
   const markerRef = React.useRef<any>(null);
@@ -682,123 +684,163 @@ function PartnerForm({ formData, setFormData }: any) {
     setFormData({ ...formData, images: urls });
   };
 
-  // 카카오맵 초기화 함수
-  const initializeMap = React.useCallback(() => {
-    if (!mapRef.current || mapInitialized) return;
+  // 구글맵 초기화 함수
+  const initializeMap = React.useCallback(async () => {
+    if (mapInstanceRef.current) return;
+    if (!mapRef.current) return;
+
+    const rect = mapRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const apiKey = getGoogleMapsApiKey();
+    if (!apiKey) {
+      setMapError('Google Maps API 키가 설정되지 않았습니다');
+      return;
+    }
 
     try {
-      const kakao = (window as any).kakao;
-      if (!kakao || !kakao.maps) {
-        setMapError('카카오맵 SDK가 로드되지 않았습니다');
-        return;
+      // Google Maps API 동적 로드
+      if (!(window as any).google?.maps) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&language=ko`;
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Google Maps 로드 실패'));
+          document.head.appendChild(script);
+        });
       }
 
+      const google = (window as any).google;
       const currentFormData = formDataRef.current;
       const lat = currentFormData.lat || 34.8118;
       const lng = currentFormData.lng || 126.3922;
 
-      const options = {
-        center: new kakao.maps.LatLng(lat, lng),
-        level: 5
-      };
-
-      const map = new kakao.maps.Map(mapRef.current, options);
+      const map = new google.maps.Map(mapRef.current, {
+        center: { lat, lng },
+        zoom: 14,
+        gestureHandling: 'greedy'
+      });
       mapInstanceRef.current = map;
 
-      // 마커 생성
-      const marker = new kakao.maps.Marker({
-        position: new kakao.maps.LatLng(lat, lng),
-        draggable: true
+      // 드래그 가능한 마커 생성
+      const marker = new google.maps.Marker({
+        map,
+        position: { lat, lng },
+        draggable: true,
+        title: '위치를 드래그하세요'
       });
-      marker.setMap(map);
       markerRef.current = marker;
 
       // 마커 드래그 종료 시 좌표 업데이트
-      kakao.maps.event.addListener(marker, 'dragend', function() {
+      marker.addListener('dragend', () => {
         const position = marker.getPosition();
-        setFormData((prev: any) => ({
-          ...prev,
-          lat: position.getLat(),
-          lng: position.getLng()
-        }));
+        if (position) {
+          setFormData((prev: any) => ({
+            ...prev,
+            lat: position.lat(),
+            lng: position.lng()
+          }));
+        }
       });
 
       // 지도 클릭 시 마커 이동
-      kakao.maps.event.addListener(map, 'click', function(mouseEvent: any) {
-        const latlng = mouseEvent.latLng;
-        marker.setPosition(latlng);
-        setFormData((prev: any) => ({
-          ...prev,
-          lat: latlng.getLat(),
-          lng: latlng.getLng()
-        }));
+      map.addListener('click', (e: any) => {
+        if (e.latLng && markerRef.current) {
+          markerRef.current.setPosition(e.latLng);
+          setFormData((prev: any) => ({
+            ...prev,
+            lat: e.latLng.lat(),
+            lng: e.latLng.lng()
+          }));
+        }
       });
 
       setMapLoaded(true);
-      setMapInitialized(true);
       setMapError(null);
-      console.log('✅ 카카오맵 초기화 완료');
+      console.log('✅ 구글맵 초기화 완료');
     } catch (err) {
-      console.error('카카오맵 초기화 오류:', err);
+      console.error('구글맵 초기화 오류:', err);
       setMapError('지도 로드 중 오류가 발생했습니다');
     }
-  }, [setFormData, mapInitialized]);
+  }, [setFormData]);
 
-  // 컴포넌트 마운트 시 지도 초기화 (약간의 딜레이 후)
+  // 컴포넌트 마운트 시 지도 초기화
   React.useEffect(() => {
-    if (mapInitialized) return;
+    if (mapLoaded) return;
 
-    const timer = setTimeout(() => {
-      if (typeof window !== 'undefined' && (window as any).kakao) {
-        const kakao = (window as any).kakao;
-        // kakao.maps가 이미 로드되어 있으면 바로 초기화
-        if (kakao.maps && kakao.maps.Map) {
+    const delays = [100, 300, 500, 800, 1200];
+    const timers: NodeJS.Timeout[] = [];
+
+    delays.forEach((delay) => {
+      const timer = setTimeout(() => {
+        if (!mapInstanceRef.current) {
           initializeMap();
-        } else {
-          // 아니면 load 콜백 사용
-          kakao.maps.load(() => {
-            initializeMap();
-          });
         }
-      } else {
-        setMapError('카카오맵 SDK를 찾을 수 없습니다');
-      }
-    }, 500); // 다이얼로그 애니메이션 후 초기화
+      }, delay);
+      timers.push(timer);
+    });
 
-    return () => clearTimeout(timer);
-  }, [initializeMap, mapInitialized]);
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+    };
+  }, [initializeMap, mapLoaded]);
+
+  // 컴포넌트 언마운트 시 정리
+  React.useEffect(() => {
+    return () => {
+      mapInstanceRef.current = null;
+      markerRef.current = null;
+    };
+  }, []);
 
   // 좌표 입력 시 마커 위치 업데이트
   React.useEffect(() => {
     if (mapLoaded && mapInstanceRef.current && markerRef.current && formData.lat && formData.lng) {
-      const kakao = (window as any).kakao;
-      const newPosition = new kakao.maps.LatLng(formData.lat, formData.lng);
-      markerRef.current.setPosition(newPosition);
-      mapInstanceRef.current.setCenter(newPosition);
+      const google = (window as any).google;
+      const position = new google.maps.LatLng(formData.lat, formData.lng);
+      markerRef.current.setPosition(position);
+      mapInstanceRef.current.setCenter(position);
     }
   }, [formData.lat, formData.lng, mapLoaded]);
 
-  // 주소로 좌표 검색
-  const searchAddressCoords = () => {
+  // 주소로 좌표 검색 (Google Geocoding API)
+  const searchAddressCoords = async () => {
     if (!formData.business_address) {
       toast.error('주소를 먼저 입력해주세요');
       return;
     }
 
-    if (typeof window !== 'undefined' && (window as any).kakao) {
-      const kakao = (window as any).kakao;
-      const geocoder = new kakao.maps.services.Geocoder();
+    setIsSearching(true);
+    try {
+      const google = (window as any).google;
+      if (!google?.maps) {
+        toast.error('Google Maps가 로드되지 않았습니다');
+        return;
+      }
 
-      geocoder.addressSearch(formData.business_address, (result: any, status: any) => {
-        if (status === kakao.maps.services.Status.OK) {
-          const lat = parseFloat(result[0].y);
-          const lng = parseFloat(result[0].x);
-          setFormData((prev: any) => ({ ...prev, lat, lng }));
-          toast.success('주소로 좌표를 찾았습니다');
-        } else {
-          toast.error('주소를 찾을 수 없습니다');
-        }
+      const geocoder = new google.maps.Geocoder();
+      const result = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
+        geocoder.geocode({ address: formData.business_address }, (results: any, status: any) => {
+          if (status === 'OK' && results) {
+            resolve(results);
+          } else {
+            reject(new Error('주소를 찾을 수 없습니다'));
+          }
+        });
       });
+
+      if (result.length > 0) {
+        const location = result[0].geometry.location;
+        const lat = location.lat();
+        const lng = location.lng();
+        setFormData((prev: any) => ({ ...prev, lat, lng }));
+        toast.success('주소로 좌표를 찾았습니다');
+      }
+    } catch {
+      toast.error('주소를 찾을 수 없습니다');
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -874,8 +916,12 @@ function PartnerForm({ formData, setFormData }: any) {
             placeholder="사업장 주소"
             className="flex-1"
           />
-          <Button type="button" variant="outline" onClick={searchAddressCoords}>
-            <Navigation className="w-4 h-4 mr-1" />
+          <Button type="button" variant="outline" onClick={searchAddressCoords} disabled={isSearching}>
+            {isSearching ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <Search className="w-4 h-4 mr-1" />
+            )}
             좌표 찾기
           </Button>
         </div>
