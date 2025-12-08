@@ -88,18 +88,16 @@ export function HomeBanner({ autoSlideInterval = 5000 }: HomeBannerProps) {
 
   return (
     <div
-      className="relative w-full h-[150px] sm:h-[200px] md:h-[300px] lg:h-[350px] overflow-hidden group"
+      className="relative w-full overflow-hidden group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
       {/* 배너 이미지/동영상들 */}
-      <div className="relative w-full h-full">
+      <div className="relative w-full">
         {banners.map((banner, index) => (
           <div
             key={banner.id}
-            className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-              index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
-            }`}
+            className={`${index === currentIndex ? 'relative opacity-100 z-10' : 'absolute inset-0 opacity-0 z-0'} transition-opacity duration-700 ease-in-out`}
             onClick={() => handleBannerClick(banner)}
             style={{ cursor: banner.link_url ? 'pointer' : 'default' }}
           >
@@ -107,18 +105,18 @@ export function HomeBanner({ autoSlideInterval = 5000 }: HomeBannerProps) {
             {banner.media_type === 'video' && banner.video_url ? (
               <video
                 src={banner.video_url}
-                className="w-full h-full object-cover"
+                className="w-full h-auto"
                 autoPlay
                 loop
                 muted
                 playsInline
               />
             ) : (
-              /* 이미지 배너 (기본) */
+              /* 이미지 배너 (기본) - 이미지 크기에 맞게 자동 조절 */
               <ImageWithFallback
                 src={banner.image_url}
                 alt={banner.title || `배너 ${index + 1}`}
-                className="w-full h-full object-cover"
+                className="w-full h-auto"
               />
             )}
 
