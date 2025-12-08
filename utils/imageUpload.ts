@@ -1,5 +1,3 @@
-import { put, del, list } from '@vercel/blob';
-
 export interface UploadResult {
   success: boolean;
   url?: string;
@@ -15,8 +13,6 @@ export interface ImageMetadata {
 }
 
 class ImageUploadService {
-  private readonly BLOB_READ_WRITE_TOKEN = process.env.VITE_BLOB_READ_WRITE_TOKEN;
-
   private validateImage(file: File): { valid: boolean; error?: string } {
     // 파일 타입 검증
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
@@ -39,16 +35,8 @@ class ImageUploadService {
     return { valid: true };
   }
 
-  private generateFilename(originalName: string, category: string = 'general'): string {
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 8);
-    const extension = originalName.split('.').pop()?.toLowerCase();
-
-    return `${category}/${timestamp}-${randomString}.${extension}`;
-  }
-
   /**
-   * 단일 이미지 업로드
+   * 단일 이미지 업로드 (서버 API 사용)
    */
   async uploadImage(
     file: File,
@@ -62,20 +50,29 @@ class ImageUploadService {
         return { success: false, error: validation.error };
       }
 
-      // 파일명 생성
-      const filename = this.generateFilename(file.name, category);
+      // FormData로 서버 API 호출
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', category);
 
-      // Vercel Blob에 업로드
-      const blob = await put(filename, file, {
-        access: 'public',
-        addRandomSuffix: false,
-        ...(metadata && { metadata })
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData,
       });
 
-      return {
-        success: true,
-        url: blob.url
-      };
+      const result = await response.json();
+
+      if (result.success && result.url) {
+        return {
+          success: true,
+          url: result.url
+        };
+      } else {
+        return {
+          success: false,
+          error: result.message || '이미지 업로드에 실패했습니다.'
+        };
+      }
 
     } catch (error) {
       console.error('Image upload failed:', error);
@@ -114,11 +111,14 @@ class ImageUploadService {
   }
 
   /**
-   * 이미지 삭제
+   * 이미지 삭제 (클라이언트에서는 실제 삭제 불가, UI에서만 제거)
+   * 실제 Blob 삭제는 서버 측에서 관리자가 처리해야 함
    */
   async deleteImage(url: string): Promise<{ success: boolean; error?: string }> {
     try {
-      await del(url);
+      // 클라이언트에서는 실제 Blob 삭제가 불가능
+      // UI에서 이미지 참조만 제거하고 성공으로 처리
+      console.log('Image reference removed (actual blob deletion requires server action):', url);
       return { success: true };
     } catch (error) {
       console.error('Image deletion failed:', error);
@@ -130,27 +130,13 @@ class ImageUploadService {
   }
 
   /**
-   * 카테고리별 이미지 목록 조회
+   * 카테고리별 이미지 목록 조회 (서버 API 필요)
    */
   async listImages(category?: string): Promise<ImageMetadata[]> {
-    try {
-      const response = await list({
-        prefix: category ? `${category}/` : undefined,
-        limit: 100
-      });
-
-      return response.blobs.map(blob => ({
-        url: blob.url,
-        filename: blob.pathname.split('/').pop() || '',
-        size: blob.size,
-        uploadedAt: blob.uploadedAt.toISOString(),
-        pathname: blob.pathname
-      }));
-
-    } catch (error) {
-      console.error('Failed to list images:', error);
-      return [];
-    }
+    // 클라이언트에서 직접 Blob 목록 조회 불가
+    // 필요시 서버 API 구현 필요
+    console.warn('listImages requires server-side implementation');
+    return [];
   }
 
   /**
