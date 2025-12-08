@@ -6288,6 +6288,67 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </div>
 
+              {/* 상품 설명 */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">상품 설명</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">간단 설명</label>
+                    <Textarea
+                      value={editingProduct.description || ''}
+                      onChange={(e) => setEditingProduct(prev =>
+                        prev ? { ...prev, description: e.target.value } : null
+                      )}
+                      placeholder="상품에 대한 간단한 설명을 입력하세요"
+                      rows={2}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">상세 설명</label>
+                    <div className="flex gap-2 mb-2">
+                      <Button
+                        type="button"
+                        variant={editingProduct.descriptionType !== 'image' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setEditingProduct(prev =>
+                          prev ? { ...prev, descriptionType: 'text' } : null
+                        )}
+                      >
+                        텍스트
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={editingProduct.descriptionType === 'image' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setEditingProduct(prev =>
+                          prev ? { ...prev, descriptionType: 'image' } : null
+                        )}
+                      >
+                        이미지 URL
+                      </Button>
+                    </div>
+                    {editingProduct.descriptionType === 'image' ? (
+                      <Input
+                        value={(editingProduct as any).descriptionImageUrl || (editingProduct as any).longDescription || ''}
+                        onChange={(e) => setEditingProduct(prev =>
+                          prev ? { ...prev, descriptionImageUrl: e.target.value, longDescription: e.target.value } : null
+                        )}
+                        placeholder="상세 설명 이미지 URL을 입력하세요"
+                      />
+                    ) : (
+                      <Textarea
+                        value={(editingProduct as any).longDescription || ''}
+                        onChange={(e) => setEditingProduct(prev =>
+                          prev ? { ...prev, longDescription: e.target.value } : null
+                        )}
+                        placeholder="상세한 상품 설명을 입력하세요"
+                        rows={4}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* 위치 정보 */}
               <div>
                 <h3 className="text-lg font-medium mb-3">위치 정보</h3>
