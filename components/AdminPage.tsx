@@ -1312,9 +1312,9 @@ export function AdminPage({}: AdminPageProps) {
       return;
     }
 
-    // 최대 인원 유효성 검사
-    const maxCapacity = parseInt(newProduct.maxCapacity);
-    if (maxCapacity <= 0) {
+    // 최대 인원 유효성 검사 (빈 값이면 제한 없음)
+    const maxCapacity = newProduct.maxCapacity ? parseInt(newProduct.maxCapacity) : null;
+    if (maxCapacity !== null && maxCapacity <= 0) {
       toast.error('최대 인원은 1명 이상이어야 합니다.');
       return;
     }
@@ -1431,7 +1431,7 @@ export function AdminPage({}: AdminPageProps) {
         category: categorySlug,  // ✅ 영문 slug로 저장
         partner_id: null, // 나중에 파트너 선택 기능 추가 가능
         images: newProduct.images.filter(img => img.trim() !== ''),
-        maxCapacity: newProduct.maxCapacity ? parseInt(newProduct.maxCapacity) : 20,
+        maxCapacity: newProduct.maxCapacity ? parseInt(newProduct.maxCapacity) : null, // null = 제한 없음
         highlights: newProduct.highlights.filter(h => h.trim() !== ''),
         included: newProduct.included.filter(i => i.trim() !== ''),
         excluded: newProduct.excluded.filter(e => e.trim() !== ''),
@@ -3306,40 +3306,58 @@ export function AdminPage({}: AdminPageProps) {
                             {/* 팝업 카테고리가 아닐 때만 최대 인원/수량 입력 필드 표시 */}
                             {newProduct.category !== '팝업' && (
                               <div>
-                                <label className="text-sm font-medium mb-1 block">
-                                  최대 인원
-                                </label>
-                                <div className="flex items-center justify-between border rounded-md px-4 py-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setNewProduct(prev => ({
-                                      ...prev,
-                                      maxCapacity: Math.max(1, parseInt(prev.maxCapacity) - 1).toString()
-                                    }))}
-                                    disabled={parseInt(newProduct.maxCapacity) <= 1}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    -
-                                  </Button>
-                                  <span className="text-lg font-medium">
-                                    {newProduct.maxCapacity}명
-                                  </span>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setNewProduct(prev => ({
-                                      ...prev,
-                                      maxCapacity: Math.min(1000, parseInt(prev.maxCapacity) + 1).toString()
-                                    }))}
-                                    disabled={parseInt(newProduct.maxCapacity) >= 1000}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    +
-                                  </Button>
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="text-sm font-medium">최대 인원</label>
+                                  <label className="flex items-center space-x-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={newProduct.maxCapacity !== '' && newProduct.maxCapacity !== '0'}
+                                      onChange={(e) => setNewProduct(prev => ({
+                                        ...prev,
+                                        maxCapacity: e.target.checked ? '10' : ''
+                                      }))}
+                                      className="w-4 h-4"
+                                    />
+                                    <span className="text-xs text-gray-600">인원 제한</span>
+                                  </label>
                                 </div>
+                                {newProduct.maxCapacity !== '' && newProduct.maxCapacity !== '0' ? (
+                                  <div className="flex items-center justify-between border rounded-md px-4 py-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setNewProduct(prev => ({
+                                        ...prev,
+                                        maxCapacity: Math.max(1, parseInt(prev.maxCapacity) - 1).toString()
+                                      }))}
+                                      disabled={parseInt(newProduct.maxCapacity) <= 1}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      -
+                                    </Button>
+                                    <span className="text-lg font-medium">
+                                      {newProduct.maxCapacity}명
+                                    </span>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setNewProduct(prev => ({
+                                        ...prev,
+                                        maxCapacity: Math.min(1000, parseInt(prev.maxCapacity) + 1).toString()
+                                      }))}
+                                      disabled={parseInt(newProduct.maxCapacity) >= 1000}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      +
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="text-sm text-gray-500 border rounded-md px-4 py-3 text-center">
+                                    인원 제한 없음
+                                  </div>
+                                )}
                               </div>
                             )}
 
