@@ -7543,30 +7543,23 @@ export function AdminPage({}: AdminPageProps) {
               <p className="text-xs text-gray-500 mt-1">주소 검색 후 아래 지도에서 위치를 조정할 수 있습니다</p>
             </div>
 
-            {/* 지도 미리보기 - 좌표가 있을 때만 표시 */}
-            {newPartner.lat && newPartner.lng && (
-              <div className="border rounded-lg p-4 bg-gray-50">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📍 위치 확인 및 조정
-                </label>
-                <p className="text-xs text-gray-500 mb-3">마커를 드래그하여 정확한 위치로 이동하세요</p>
+            {/* 지도 미리보기 - 항상 표시 */}
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📍 위치 확인 및 조정
+              </label>
+              <p className="text-xs text-gray-500 mb-3">마커를 드래그하여 정확한 위치로 이동하세요</p>
+
+              {(newPartner.lat && newPartner.lng) ? (
                 <div
+                  key={`map-${newPartner.lat}-${newPartner.lng}`}
                   className="w-full h-[250px] rounded-lg border border-gray-300"
                   ref={(el) => {
-                    if (el && newPartner.lat && newPartner.lng && (window as any).google?.maps) {
-                      // 이미 지도가 있으면 마커만 업데이트
-                      if ((el as any).__map) {
-                        const marker = (el as any).__marker;
-                        if (marker) {
-                          const newPos = new (window as any).google.maps.LatLng(newPartner.lat, newPartner.lng);
-                          marker.setPosition(newPos);
-                          (el as any).__map.setCenter(newPos);
-                        }
-                        return;
-                      }
+                    if (el && (window as any).google?.maps) {
+                      const lat = Number(newPartner.lat);
+                      const lng = Number(newPartner.lng);
 
-                      const lat = newPartner.lat;
-                      const lng = newPartner.lng;
+                      if (isNaN(lat) || isNaN(lng)) return;
 
                       const map = new (window as any).google.maps.Map(el, {
                         center: { lat, lng },
@@ -7583,62 +7576,60 @@ export function AdminPage({}: AdminPageProps) {
                         title: '드래그하여 위치 조정'
                       });
 
-                      // 마커 드래그 시 좌표 업데이트
                       marker.addListener('dragend', () => {
                         const pos = marker.getPosition();
-                        const newLat = parseFloat(pos.lat().toFixed(7));
-                        const newLng = parseFloat(pos.lng().toFixed(7));
                         setNewPartner((prev: any) => ({
                           ...prev,
-                          lat: newLat,
-                          lng: newLng
+                          lat: parseFloat(pos.lat().toFixed(7)),
+                          lng: parseFloat(pos.lng().toFixed(7))
                         }));
                       });
 
-                      // 지도 클릭 시 마커 이동
                       map.addListener('click', (e: any) => {
                         if (e.latLng) {
                           marker.setPosition(e.latLng);
-                          const newLat = parseFloat(e.latLng.lat().toFixed(7));
-                          const newLng = parseFloat(e.latLng.lng().toFixed(7));
                           setNewPartner((prev: any) => ({
                             ...prev,
-                            lat: newLat,
-                            lng: newLng
+                            lat: parseFloat(e.latLng.lat().toFixed(7)),
+                            lng: parseFloat(e.latLng.lng().toFixed(7))
                           }));
                         }
                       });
-
-                      // 지도 인스턴스 저장
-                      (el as any).__map = map;
-                      (el as any).__marker = marker;
                     }
                   }}
                 />
-                <div className="grid grid-cols-2 gap-4 mt-3">
-                  <div>
-                    <label className="text-xs text-gray-500">위도</label>
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      value={newPartner.lat || ''}
-                      onChange={(e) => setNewPartner({ ...newPartner, lat: parseFloat(e.target.value) || 0 })}
-                      placeholder="위도"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500">경도</label>
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      value={newPartner.lng || ''}
-                      onChange={(e) => setNewPartner({ ...newPartner, lng: parseFloat(e.target.value) || 0 })}
-                      placeholder="경도"
-                    />
+              ) : (
+                <div className="w-full h-[250px] rounded-lg border border-gray-300 bg-gray-100 flex items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <div className="text-4xl mb-2">🗺️</div>
+                    <p>주소를 검색하면 지도가 표시됩니다</p>
                   </div>
                 </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <div>
+                  <label className="text-xs text-gray-500">위도</label>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    value={newPartner.lat || ''}
+                    onChange={(e) => setNewPartner({ ...newPartner, lat: parseFloat(e.target.value) || 0 })}
+                    placeholder="위도"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">경도</label>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    value={newPartner.lng || ''}
+                    onChange={(e) => setNewPartner({ ...newPartner, lng: parseFloat(e.target.value) || 0 })}
+                    placeholder="경도"
+                  />
+                </div>
               </div>
-            )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
