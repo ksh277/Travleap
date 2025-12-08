@@ -9452,6 +9452,40 @@ function setupRoutes() {
     }
   });
 
+  // ===== 쿠폰북 캠페인 API =====
+  // GET/POST/PUT/DELETE /api/admin/coupon-book-campaigns - 쿠폰북 캠페인 관리
+  app.all('/api/admin/coupon-book-campaigns', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const campaignsAPI = await import('./api/admin/coupon-book-campaigns.js');
+      await campaignsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon book campaigns error:', error);
+      res.status(500).json({ success: false, message: '쿠폰북 캠페인 처리 중 오류가 발생했습니다' });
+    }
+  });
+
+  // POST /api/coupon-book/claim - QR 스캔 후 쿠폰 발급
+  app.post('/api/coupon-book/claim', async (req, res) => {
+    try {
+      const claimAPI = await import('./api/coupon-book/claim.js');
+      await claimAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon book claim error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 발급 중 오류가 발생했습니다' });
+    }
+  });
+
+  // GET /api/coupon-book/campaign/:id - 캠페인 정보 조회 (공개)
+  app.get('/api/coupon-book/campaign/:id', async (req, res) => {
+    try {
+      const campaignAPI = await import('./api/coupon-book/campaign/[id].js');
+      await campaignAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon book campaign info error:', error);
+      res.status(500).json({ success: false, message: '캠페인 정보 조회 중 오류가 발생했습니다' });
+    }
+  });
+
   // 404 핸들러
   app.use((req, res) => {
     res.status(404).json({
