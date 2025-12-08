@@ -54,6 +54,9 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
   const [eventListings, setEventListings] = useState<TravelItem[]>([]);
   const [experienceListings, setExperienceListings] = useState<TravelItem[]>([]);
   const [instagramImages, setInstagramImages] = useState<any[]>([]);
+  // 행사/체험 섹션 배너
+  const [eventBanner, setEventBanner] = useState<any>(null);
+  const [experienceBanner, setExperienceBanner] = useState<any>(null);
   // 캐러셀 인덱스 state
   const [tourIndex, setTourIndex] = useState(0);
   const [stayIndex, setStayIndex] = useState(0);
@@ -98,12 +101,14 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
         experienceResult,
         reviewsResult,
         homepageSettings,
-        activitiesResult
+        activitiesResult,
+        eventBannerResult,
+        experienceBannerResult
       ] = await Promise.all([
         api.getCategories().catch(() => []),
         // 여행상품
         api.getListings({ category: 'tour', limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
-        // 숙박
+        // 숙박 - 카테고리 페이지와 동일하게 listings에서 가져오기
         api.getListings({ category: 'stay', limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
         // 렌트카 - rentcar_vendors (업체) 테이블에서 가져오기
         fetch('/api/rentcar/vendors').then(res => res.json()).then(data => data.data || []).catch(() => []),
@@ -116,7 +121,11 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
           background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
           background_overlay_opacity: 0.4
         })),
-        fetch('/api/activities').then(res => res.json()).then(data => data.activities || []).catch(() => [])
+        fetch('/api/activities').then(res => res.json()).then(data => data.activities || []).catch(() => []),
+        // 행사 섹션 배너
+        fetch('/api/admin/banners?section=event').then(res => res.json()).then(data => data.banners?.[0] || null).catch(() => null),
+        // 체험 섹션 배너
+        fetch('/api/admin/banners?section=experience').then(res => res.json()).then(data => data.banners?.[0] || null).catch(() => null)
       ]);
 
       setCategories(categoriesResult.length > 0 ? categoriesResult : sampleCategories);
@@ -135,6 +144,10 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       // 행사/체험 데이터
       setEventListings(Array.isArray(eventResult) ? eventResult : []);
       setExperienceListings(Array.isArray(experienceResult) ? experienceResult : []);
+
+      // 행사/체험 배너
+      setEventBanner(eventBannerResult);
+      setExperienceBanner(experienceBannerResult);
 
       setRecentReviews(reviewsResult);
       setActivityImages(activitiesResult);
@@ -845,41 +858,26 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                   style={{ transform: `translateX(-${tourIndex * (100 / 4)}%)` }}
                 >
                   {tourListings.map((listing) => (
-                    <Card
+                    <div
                       key={listing.id}
-                      className="flex-shrink-0 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer rounded-2xl"
+                      className="tour-card flex-shrink-0 relative overflow-hidden rounded-2xl cursor-pointer group hover:shadow-lg transition-shadow"
                       style={{ width: 'calc(50% - 8px)', minHeight: '340px' }}
                       onClick={() => navigate(`/detail/${listing.id}`)}
                     >
-                      <div className="relative w-full h-[200px] md:h-[280px] overflow-hidden">
-                        <ImageWithFallback
-                          src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
-                          alt={listing.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          className="absolute top-3 right-3 p-2 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
-                          onClick={(e) => { e.stopPropagation(); }}
-                        >
-                          <Heart className="h-4 w-4 text-gray-600" />
-                        </button>
+                      {/* 배경 이미지 */}
+                      <ImageWithFallback
+                        src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop'}
+                        alt={listing.title}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      {/* 어두운 오버레이 */}
+                      <div className="absolute inset-0 bg-black/30" />
+                      {/* 텍스트 (하단) */}
+                      <div className="absolute inset-0 flex flex-col justify-end p-6 z-10">
+                        <h3 className="text-base font-bold text-white line-clamp-2">{listing.title}</h3>
+                        <p className="text-sm text-white/95 mt-1 line-clamp-2">{listing.short_description || ''}</p>
                       </div>
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2">{listing.title}</h3>
-                        <p className="text-sm text-gray-500 mb-2 line-clamp-2">{listing.short_description || ''}</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-lg font-bold text-[#5c2d91]">
-                            ₩{(listing.price_from || 0).toLocaleString()}
-                          </span>
-                          {Number(listing.rating_avg || 0) > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm">{Number(listing.rating_avg).toFixed(1)}</span>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -943,26 +941,28 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                   style={{ transform: `translateX(-${stayIndex * 340}px)` }}
                 >
                   {nearbyHotels.map((listing) => (
-                    <Card
+                    <div
                       key={listing.id}
-                      className="flex-shrink-0 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer rounded-2xl w-[160px] h-[160px] md:w-[320px] md:h-[320px]"
+                      className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-2xl w-[160px] h-[160px] md:w-[320px] md:h-[320px]"
                       onClick={() => navigate(`/detail/${listing.id}`)}
                     >
-                      <div className="relative w-full h-[100px] md:h-[200px] overflow-hidden">
-                        <ImageWithFallback
-                          src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&h=400&fit=crop'}
-                          alt={listing.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <CardContent className="p-3 md:p-4">
-                        <h3 className="font-semibold text-gray-800 text-sm md:text-base line-clamp-1">{listing.title}</h3>
-                        <p className="text-xs md:text-sm text-gray-500 line-clamp-1">{listing.location}</p>
-                        <span className="text-sm md:text-lg font-bold text-[#5c2d91]">
+                      {/* 이미지가 카드 전체 */}
+                      <ImageWithFallback
+                        src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&h=400&fit=crop'}
+                        alt={listing.title}
+                        className="w-full h-full object-cover"
+                      />
+                      {/* 하단 그라데이션 오버레이 */}
+                      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+                      {/* 오른쪽 하단 텍스트 오버레이 */}
+                      <div className="absolute bottom-0 right-0 p-3 md:p-4 text-right">
+                        <h3 className="font-semibold text-white text-sm md:text-base drop-shadow-lg line-clamp-1">{listing.title}</h3>
+                        <p className="text-xs md:text-sm text-white/80 drop-shadow-lg line-clamp-1">{listing.location}</p>
+                        <span className="text-sm md:text-lg font-bold text-white drop-shadow-lg">
                           ₩{(listing.price_from || 0).toLocaleString()}
                         </span>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1019,27 +1019,31 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                   style={{ transform: `translateX(-${rentcarIndex * 340}px)` }}
                 >
                   {rentcarListings.map((vendor: any) => (
-                    <Card
+                    <div
                       key={vendor.id}
-                      className="flex-shrink-0 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer rounded-2xl w-[160px] h-[160px] md:w-[320px] md:h-[320px]"
+                      className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-2xl w-[160px] h-[160px] md:w-[320px] md:h-[320px] bg-gray-200"
                       onClick={() => navigate(`/rentcar/vendor/${vendor.id}`)}
                     >
-                      <div className="relative w-full h-[100px] md:h-[200px] overflow-hidden bg-gray-100 flex items-center justify-center">
-                        {vendor.logo_url ? (
-                          <ImageWithFallback
-                            src={vendor.logo_url}
-                            alt={vendor.business_name}
-                            className="w-full h-full object-contain p-4"
-                          />
-                        ) : (
-                          <div className="text-4xl md:text-6xl">🚗</div>
-                        )}
+                      {/* 이미지가 카드 전체 */}
+                      {vendor.logo_url ? (
+                        <ImageWithFallback
+                          src={vendor.logo_url}
+                          alt={vendor.business_name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                          <span className="text-4xl md:text-6xl">🚗</span>
+                        </div>
+                      )}
+                      {/* 오른쪽 하단 텍스트 오버레이 */}
+                      <div className="absolute bottom-0 right-0 p-3 md:p-4 text-right">
+                        <h3 className="font-semibold text-white text-sm md:text-base drop-shadow-lg">{vendor.business_name}</h3>
+                        <p className="text-xs md:text-sm text-white/80 drop-shadow-lg">{vendor.brand_name || '렌트카 업체'}</p>
                       </div>
-                      <CardContent className="p-3 md:p-4">
-                        <h3 className="font-semibold text-gray-800 text-sm md:text-base line-clamp-1">{vendor.business_name}</h3>
-                        <p className="text-xs md:text-sm text-gray-500 line-clamp-1">{vendor.brand_name || '렌트카 업체'}</p>
-                      </CardContent>
-                    </Card>
+                      {/* 하단 그라데이션 오버레이 */}
+                      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1076,61 +1080,92 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
             </Button>
           </div>
 
-          {/* 3열 그리드 레이아웃 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-            {/* 행사 카드들 */}
-            {eventListings.slice(0, 3).map((listing) => (
-              <div key={listing.id} className="rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/detail/${listing.id}`)}>
-                {/* 배너 이미지 */}
-                <div className="h-[180px] md:min-h-[240px] overflow-hidden">
-                  <ImageWithFallback
-                    src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&h=400&fit=crop'}
-                    alt={listing.title}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                {/* 카드 내용 */}
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-800 mb-2">{listing.title}</h3>
-                  <p className="text-sm text-gray-500 mb-3 line-clamp-2">{listing.short_description || ''}</p>
+          {/* 3열 고정 그리드 - 행사+체험 합쳐서 2개씩 그룹화 */}
+          {(() => {
+            // 행사+체험 상품 합치기 (카테고리 정보 포함)
+            const allItems = [
+              ...eventListings.map(item => ({ ...item, _category: 'event' as const })),
+              ...experienceListings.map(item => ({ ...item, _category: 'experience' as const }))
+            ];
 
-                  {/* 상품 리스트 (썸네일 64x64) - 2개씩 */}
-                  <div className="space-y-2">
-                    {/* 상품 1 */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+            // 2개씩 그룹화
+            const groups: (typeof allItems)[] = [];
+            for (let i = 0; i < allItems.length; i += 2) {
+              groups.push(allItems.slice(i, i + 2));
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+                {[0, 1, 2].map((colIdx) => {
+                  const group = groups[colIdx];
+
+                  // 상품이 없는 열은 빈 공간
+                  if (!group || group.length === 0) {
+                    return <div key={colIdx} className="hidden md:block" />;
+                  }
+
+                  // 그룹의 첫 번째 상품 카테고리로 배너 결정
+                  const category = group[0]._category;
+                  const banner = category === 'event' ? eventBanner : experienceBanner;
+                  const categoryPath = category === 'event' ? '/category/event' : '/category/experience';
+                  const defaultTitle = category === 'event' ? '행사' : '체험';
+                  const defaultSubtitle = category === 'event' ? '특별한 행사를 만나보세요' : '다양한 체험을 즐겨보세요';
+                  const fallbackImage = category === 'event'
+                    ? 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&h=400&fit=crop'
+                    : 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?w=600&h=400&fit=crop';
+
+                  return (
+                    <div key={colIdx}>
+                      {/* 배너 이미지 */}
+                      <div
+                        className="h-[180px] md:min-h-[240px] rounded-2xl bg-neutral-200/80 relative overflow-hidden cursor-pointer"
+                        onClick={() => navigate(categoryPath)}
+                      >
                         <ImageWithFallback
-                          src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=100&h=100&fit=crop'}
-                          alt=""
-                          className="w-full h-full object-cover"
+                          src={banner?.image_url || group[0]?.images?.[0] || fallbackImage}
+                          alt={defaultTitle}
+                          className="w-full h-full object-cover rounded-2xl"
                         />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 truncate">{listing.title}</p>
-                        <p className="text-sm font-bold text-[#5c2d91]">₩{(listing.price_from || 0).toLocaleString()}</p>
-                        <p className="text-xs text-gray-400">♡ 0 리뷰 0</p>
+
+                      {/* 제목 + 시선끌기 문구 */}
+                      <h3 className="text-sm font-semibold text-gray-900 mt-4">{banner?.title || defaultTitle}</h3>
+                      <p className="mt-1.5 text-sm text-gray-600 line-clamp-2">{banner?.subtitle || defaultSubtitle}</p>
+
+                      {/* 상품 리스트 (그룹 내 상품들 - 최대 2개) */}
+                      <div className="space-y-2 mt-3">
+                        {group.map((item) => (
+                          <div key={item.id} className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/detail/${item.id}`)}>
+                            <div className="h-16 w-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
+                              <ImageWithFallback
+                                src={Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : fallbackImage}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate text-sm text-slate-600">{item.title}</p>
+                              <p className="text-sm font-semibold text-teal-600">₩{(item.price_from || 0).toLocaleString()}</p>
+                              <p className="text-xs text-gray-400">♡ {item.favorites_count || 0} 리뷰 {item.rating_count || 0}</p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
+
+                      {/* MORE 버튼 */}
+                      <Button
+                        variant="outline"
+                        className="h-9 w-full rounded-full border-slate-300 text-sm mt-4"
+                        onClick={() => navigate(categoryPath)}
+                      >
+                        MORE
+                      </Button>
                     </div>
-                    {/* 상품 2 */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-                        <ImageWithFallback
-                          src={Array.isArray(listing.images) && listing.images.length > 1 ? listing.images[1] : listing.images?.[0] || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=100&h=100&fit=crop'}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 truncate">{listing.short_description || listing.title}</p>
-                        <p className="text-sm font-bold text-[#5c2d91]">₩{(listing.price_from || 0).toLocaleString()}</p>
-                        <p className="text-xs text-gray-400">♡ 0 리뷰 0</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </section>
       </div>
 
