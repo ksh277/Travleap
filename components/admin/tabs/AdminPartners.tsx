@@ -667,146 +667,11 @@ export function AdminPartners() {
 }
 
 function PartnerForm({ formData, setFormData }: any) {
-  const [mapLoaded, setMapLoaded] = React.useState(false);
-  const [mapError, setMapError] = React.useState<string | null>(null);
   const [isSearching, setIsSearching] = React.useState(false);
-  const mapRef = React.useRef<HTMLDivElement>(null);
-  const mapInstanceRef = React.useRef<any>(null);
-  const markerRef = React.useRef<any>(null);
-  const formDataRef = React.useRef(formData);
-
-  // formData ref 업데이트
-  React.useEffect(() => {
-    formDataRef.current = formData;
-  }, [formData]);
 
   const handleImagesUploaded = (urls: string[]) => {
     setFormData({ ...formData, images: urls });
   };
-
-  // 구글맵 초기화 함수
-  const initializeMap = React.useCallback(async () => {
-    if (mapInstanceRef.current) return;
-    if (!mapRef.current) return;
-
-    const rect = mapRef.current.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-
-    const apiKey = getGoogleMapsApiKey();
-    if (!apiKey) {
-      setMapError('Google Maps API 키가 설정되지 않았습니다');
-      return;
-    }
-
-    // Google Maps API가 로드될 때까지 대기
-    const isLoaded = (window as any).__GOOGLE_MAPS_LOADED__;
-    const google = (window as any).google;
-    if (!isLoaded || !google?.maps?.Map) {
-      // 아직 로드 안됨 - 에러 표시하지 않고 대기
-      return;
-    }
-
-    try {
-      const currentFormData = formDataRef.current;
-      const lat = currentFormData.lat || 34.8118;
-      const lng = currentFormData.lng || 126.3922;
-
-      const map = new google.maps.Map(mapRef.current, {
-        center: { lat, lng },
-        zoom: 14,
-        gestureHandling: 'greedy'
-      });
-      mapInstanceRef.current = map;
-
-      // 드래그 가능한 마커 생성
-      const marker = new google.maps.Marker({
-        map,
-        position: { lat, lng },
-        draggable: true,
-        title: '위치를 드래그하세요'
-      });
-      markerRef.current = marker;
-
-      // 마커 드래그 종료 시 좌표 업데이트
-      marker.addListener('dragend', () => {
-        const position = marker.getPosition();
-        if (position) {
-          setFormData((prev: any) => ({
-            ...prev,
-            lat: position.lat(),
-            lng: position.lng()
-          }));
-        }
-      });
-
-      // 지도 클릭 시 마커 이동
-      map.addListener('click', (e: any) => {
-        if (e.latLng && markerRef.current) {
-          markerRef.current.setPosition(e.latLng);
-          setFormData((prev: any) => ({
-            ...prev,
-            lat: e.latLng.lat(),
-            lng: e.latLng.lng()
-          }));
-        }
-      });
-
-      setMapLoaded(true);
-      setMapError(null);
-      console.log('✅ 구글맵 초기화 완료 - 위치:', lat, lng);
-    } catch (err) {
-      console.error('구글맵 초기화 오류:', err);
-      setMapError('지도 로드 중 오류가 발생했습니다');
-    }
-  }, [setFormData]);
-
-  // 컴포넌트 마운트 시 지도 초기화 (API 로드될 때까지 반복 시도)
-  React.useEffect(() => {
-    if (mapLoaded) return;
-
-    let attempts = 0;
-    const maxAttempts = 30; // 최대 30번 시도 (약 15초)
-
-    const tryInit = () => {
-      if (mapInstanceRef.current || attempts >= maxAttempts) return;
-
-      attempts++;
-      initializeMap();
-
-      // 아직 초기화 안됐으면 재시도
-      if (!mapInstanceRef.current && attempts < maxAttempts) {
-        setTimeout(tryInit, 500); // 0.5초마다 재시도
-      } else if (attempts >= maxAttempts && !mapInstanceRef.current) {
-        setMapError('지도를 로드할 수 없습니다. 페이지를 새로고침해주세요.');
-      }
-    };
-
-    // 다이얼로그 애니메이션 후 시작
-    const timer = setTimeout(tryInit, 200);
-
-    return () => {
-      clearTimeout(timer);
-      attempts = maxAttempts; // cleanup 시 중단
-    };
-  }, [initializeMap, mapLoaded]);
-
-  // 컴포넌트 언마운트 시 정리
-  React.useEffect(() => {
-    return () => {
-      mapInstanceRef.current = null;
-      markerRef.current = null;
-    };
-  }, []);
-
-  // 좌표 입력 시 마커 위치 업데이트
-  React.useEffect(() => {
-    if (mapLoaded && mapInstanceRef.current && markerRef.current && formData.lat && formData.lng) {
-      const google = (window as any).google;
-      const position = new google.maps.LatLng(formData.lat, formData.lng);
-      markerRef.current.setPosition(position);
-      mapInstanceRef.current.setCenter(position);
-    }
-  }, [formData.lat, formData.lng, mapLoaded]);
 
   // Daum 주소 검색 열기
   const openDaumPostcode = () => {
@@ -937,55 +802,41 @@ function PartnerForm({ formData, setFormData }: any) {
         <p className="text-xs text-gray-500 mt-1">주소 검색 후 아래 지도에서 정확한 위치를 조정할 수 있습니다</p>
       </div>
 
-      {/* 지도 핀 설정 섹션 */}
+      {/* 지도 미리보기 섹션 */}
       <div className="col-span-2 border rounded-lg p-4 bg-gray-50">
         <Label className="flex items-center gap-2 mb-3">
           <MapPin className="w-4 h-4 text-red-500" />
-          위치 설정 (지도를 클릭하거나 핀을 드래그하세요)
+          위치 미리보기
         </Label>
 
-        {/* 지도 */}
-        <div className="relative mb-3" style={{ minHeight: '250px' }}>
-          <div
-            ref={mapRef}
-            className="w-full rounded-lg border bg-gray-200"
-            style={{ height: '250px', minHeight: '250px' }}
-          />
-          {!mapLoaded && !mapError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg z-10">
-              <div className="text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-500 mb-2" />
-                <p className="text-sm text-gray-600 font-medium">Google Maps 로딩 중...</p>
-                <p className="text-xs text-gray-400 mt-1">잠시만 기다려주세요</p>
-              </div>
+        {/* 지도 미리보기 (iframe) */}
+        {formData.lat && formData.lng ? (
+          <div className="relative mb-3">
+            <iframe
+              src={`https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${formData.lat},${formData.lng}&zoom=15&language=ko`}
+              className="w-full rounded-lg border"
+              style={{ height: '250px' }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+            <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded text-xs text-green-600 font-medium shadow">
+              ✓ 현재 위치
             </div>
-          )}
-          {mapError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded-lg z-10">
-              <div className="text-center px-4">
-                <MapPin className="w-8 h-8 mx-auto text-red-400 mb-2" />
-                <p className="text-sm text-red-600 font-medium">{mapError}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => {
-                    setMapError(null);
-                    initializeMap();
-                  }}
-                >
-                  다시 시도
-                </Button>
-              </div>
+          </div>
+        ) : (
+          <div className="w-full rounded-lg border bg-gray-100 flex items-center justify-center mb-3" style={{ height: '250px' }}>
+            <div className="text-center text-gray-500">
+              <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+              <p className="text-sm">주소를 검색하면 지도가 표시됩니다</p>
             </div>
-          )}
-          {mapLoaded && (
-            <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded text-xs text-green-600 font-medium z-10 shadow">
-              ✓ 지도 로드됨 - 핀을 드래그하세요
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* 좌표 직접 조정 안내 */}
+        <p className="text-xs text-gray-500 mb-2">
+          💡 위치가 정확하지 않다면 아래 좌표를 직접 수정하세요
+        </p>
 
         {/* 좌표 입력 */}
         <div className="grid grid-cols-2 gap-4">
