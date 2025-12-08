@@ -14,9 +14,14 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { category, page = '1', limit = '8', sortBy = 'popular', search, minPrice, maxPrice, rating } = req.query;
+    const { category, page = '1', limit = '8', sortBy = 'popular', search, minPrice, maxPrice, rating, forPartners } = req.query;
 
     const connection = connect({ url: process.env.DATABASE_URL });
+
+    // forPartners=true면 파트너 전용 포함, 아니면 일반 상품만
+    const partnerFilter = forPartners === 'true'
+      ? '' // 가맹점 페이지: 모든 리스팅 표시
+      : 'AND (l.is_partner_only = 0 OR l.is_partner_only IS NULL)'; // 카테고리 페이지: 파트너 전용 제외
 
     let sql = `
       SELECT
@@ -31,6 +36,7 @@ module.exports = async function handler(req, res) {
       LEFT JOIN categories c ON l.category_id = c.id
       LEFT JOIN partners p ON l.partner_id = p.id
       WHERE l.is_published = 1 AND l.is_active = 1
+        ${partnerFilter}
     `;
     const params = [];
 

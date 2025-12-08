@@ -62,7 +62,7 @@ module.exports = async function handler(req, res) {
 
     console.log('📋 [Rentcar Bookings API] 예약 조회:', { vendorId });
 
-    // 벤더의 렌트카 예약 목록 조회
+    // ✅ FIX: 벤더의 렌트카 예약 목록 조회 (지점 정보 포함)
     const result = await connection.execute(
       `SELECT
         rb.id,
@@ -88,9 +88,13 @@ module.exports = async function handler(req, res) {
         rb.created_at,
         rv.model as vehicle_model,
         rv.brand as vehicle_brand,
-        rv.year as vehicle_year
+        rv.year as vehicle_year,
+        pl.name as pickup_location,
+        dl.name as dropoff_location
       FROM rentcar_bookings rb
       INNER JOIN rentcar_vehicles rv ON rb.vehicle_id = rv.id
+      LEFT JOIN rentcar_locations pl ON rb.pickup_location_id = pl.id
+      LEFT JOIN rentcar_locations dl ON rb.dropoff_location_id = dl.id
       WHERE rv.vendor_id = ?
       ORDER BY rb.created_at DESC`,
       [vendorId]

@@ -63,6 +63,7 @@ module.exports = async function handler(req, res) {
     console.log('📋 [Lodging Bookings API] 예약 조회:', { vendorId });
 
     // 벤더의 숙박 예약 목록 조회
+    // ✅ FIX: users 테이블은 Neon PostgreSQL에 있으므로 JOIN 제거
     const result = await connection.execute(
       `SELECT
         b.id,
@@ -75,39 +76,72 @@ module.exports = async function handler(req, res) {
         b.status,
         b.payment_status,
         b.created_at,
+        b.customer_info,
         l.title as lodging_name,
-        u.name as guest_name,
-        u.email as guest_email,
-        COALESCE(
-          JSON_EXTRACT(b.customer_info, '$.phone'),
-          JSON_EXTRACT(b.customer_info, '$.guest_phone'),
-          u.phone
-        ) as guest_phone,
         DATEDIFF(b.end_date, b.start_date) as nights
       FROM bookings b
       INNER JOIN listings l ON b.listing_id = l.id
-      LEFT JOIN users u ON b.user_id = u.id
       WHERE l.partner_id = ? AND l.category = '숙박'
       ORDER BY b.created_at DESC`,
       [vendorId]
     );
 
-    const bookings = (result.rows || []).map(row => ({
-      id: row.id,
-      listing_id: row.listing_id,
-      lodging_name: row.lodging_name,
-      guest_name: row.guest_name,
-      guest_email: row.guest_email,
-      guest_phone: row.guest_phone ? row.guest_phone.replace(/"/g, '') : '',
-      checkin_date: row.checkin_date,
-      checkout_date: row.checkout_date,
-      nights: row.nights || 1,
-      guest_count: row.guest_count,
-      total_price: row.total_price,
-      status: row.status,
-      payment_status: row.payment_status,
-      created_at: row.created_at
-    }));
+    // ✅ FIX: Neon PostgreSQL에서 사용자 정보 별도 조회
+    const { Pool } = require('@neondatabase/serverless');
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
+
+    let userMap = new Map();
+    try {
+      const userIds = [...new Set((result.rows || []).map(b => b.user_id).filter(Boolean))];
+
+      if (userIds.length > 0) {
+        const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+        const usersResult = await poolNeon.query(
+          `SELECT id, name, email, phone FROM users WHERE id IN (${placeholders})`,
+          userIds
+        );
+        usersResult.rows.forEach(user => {
+          userMap.set(user.id, user);
+        });
+      }
+    } catch (neonError) {
+      console.warn('⚠️ [Lodging Vendor] Neon users 조회 실패 (customer_info로 대체):', neonError.message);
+    } finally {
+      await poolNeon.end();
+    }
+
+    const bookings = (result.rows || []).map(row => {
+      // customer_info에서 전화번호 추출
+      let customerPhone = '';
+      if (row.customer_info) {
+        try {
+          const info = typeof row.customer_info === 'string' ? JSON.parse(row.customer_info) : row.customer_info;
+          customerPhone = info.phone || info.guest_phone || '';
+        } catch (e) {}
+      }
+
+      // ✅ Neon에서 조회한 사용자 정보
+      const neonUser = userMap.get(row.user_id);
+
+      return {
+        id: row.id,
+        listing_id: row.listing_id,
+        lodging_name: row.lodging_name,
+        guest_name: neonUser?.name || '',
+        guest_email: neonUser?.email || '',
+        guest_phone: customerPhone || neonUser?.phone || '',
+        checkin_date: row.checkin_date,
+        checkout_date: row.checkout_date,
+        nights: row.nights || 1,
+        guest_count: row.guest_count,
+        total_price: row.total_price,
+        status: row.status,
+        payment_status: row.payment_status,
+        created_at: row.created_at
+      };
+    });
 
     console.log(`✅ [Lodging Bookings API] ${bookings.length}건 조회 완료`);
 

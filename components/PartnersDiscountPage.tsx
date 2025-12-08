@@ -254,9 +254,9 @@ export function PartnersDiscountPage() {
     const fetchPartnerListings = async () => {
       setLoading(true);
       try {
-        // Listings와 Partners 데이터 모두 가져오기
+        // Listings와 Partners 데이터 모두 가져오기 (forPartners: true로 파트너 전용 포함)
         const [listingsResponse, partnersResponse] = await Promise.all([
-          api.getListings(),
+          api.getListings({ forPartners: true }),
           api.getPartners()
         ]);
 

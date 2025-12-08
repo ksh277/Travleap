@@ -272,7 +272,16 @@
       "Bash(components/vendor/AccountSettings.tsx)",
       "Bash(for file in api/vendor/listings.js api/listings/options.js api/coupon/use.js api/coupon/use-integrated.js api/coupon/issue.js api/my/coupons.js)",
       "Bash(if [ -d \"C:\\Users\\ham57\\Desktop\\Travleap\\api\\sso\" ])",
-      "Bash(else mkdir -p \"C:\\Users\\ham57\\Desktop\\Travleap\\api\\sso\")"
+      "Bash(else mkdir -p \"C:\\Users\\ham57\\Desktop\\Travleap\\api\\sso\")",
+      "Bash(git stash:*)",
+      "Bash(git pull:*)",
+      "WebSearch",
+      "WebFetch(domain:tour.shinan.go.kr)",
+      "WebFetch(domain:www.shinan.go.kr)",
+      "Bash(timeout 15 curl:*)",
+      "WebFetch(domain:developers.kakao.com)",
+      "Bash(for file in api/coupon/*.js api/couponbook/index.js api/coupons/*.js api/admin/coupons.js api/my/coupons.js api/partner/coupon-history.js)",
+      "WebFetch(domain:xn--o39aqqe10c0sbhdt5n5qe.com)"
     ],
     "deny": [],
     "ask": []

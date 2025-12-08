@@ -4,11 +4,14 @@
  * GET /api/vendor/orders?vendorId={vendorId}
  *
  * 권한: vendor (본인의 상품 주문만 조회 가능)
+ *
+ * ✅ FIX: users 테이블은 Neon PostgreSQL에 있으므로 별도 조회
  */
 
 const { db } = require('../../utils/database.cjs');
 const { JWTUtils } = require('../../utils/jwt.cjs');
 const { maskForLog } = require('../../utils/pii-masking.cjs');
+const { Pool } = require('@neondatabase/serverless');
 
 module.exports = async function handler(req, res) {
   try {
@@ -54,7 +57,7 @@ module.exports = async function handler(req, res) {
 
     console.log(`📋 [Vendor Orders] Loading orders for vendor ${vendorId}`);
 
-    // 벤더의 주문 목록 조회 (본인이 등록한 팝업 상품의 주문만)
+    // ✅ FIX: users 테이블 JOIN 제거 (users는 Neon PostgreSQL에 있음)
     const orders = await db.query(`
       SELECT
         b.id,
@@ -63,12 +66,6 @@ module.exports = async function handler(req, res) {
         l.title as product_name,
         l.category,
         b.user_id,
-        u.name as user_name,
-        u.email as user_email,
-        u.phone as user_phone,
-        u.address as user_address,
-        u.detailed_address as user_detailed_address,
-        u.postal_code as user_postal_code,
         b.customer_info,
         b.total_amount,
         b.payment_status,
@@ -81,7 +78,7 @@ module.exports = async function handler(req, res) {
         b.created_at,
         b.start_date,
         b.num_adults,
-        p.payment_method,
+        p.method as payment_method,
         p.card_company,
         p.virtual_account_bank,
         p.refund_amount,
@@ -89,14 +86,38 @@ module.exports = async function handler(req, res) {
         p.refunded_at
       FROM bookings b
       INNER JOIN listings l ON b.listing_id = l.id
-      LEFT JOIN users u ON b.user_id = u.id
       LEFT JOIN payments p ON b.id = p.booking_id
       WHERE l.user_id = ?
         AND l.category = '팝업'
       ORDER BY b.created_at DESC
     `, [vendorId]);
 
-    // customer_info JSON 파싱
+    // ✅ FIX: Neon PostgreSQL에서 사용자 정보 별도 조회
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
+
+    let userMap = new Map();
+    try {
+      const userIds = [...new Set(orders.map(o => o.user_id).filter(Boolean))];
+
+      if (userIds.length > 0) {
+        const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+        const usersResult = await poolNeon.query(
+          `SELECT id, name, email, phone, address, detailed_address, postal_code FROM users WHERE id IN (${placeholders})`,
+          userIds
+        );
+        usersResult.rows.forEach(user => {
+          userMap.set(user.id, user);
+        });
+      }
+    } catch (neonError) {
+      console.warn('⚠️ [Vendor Orders] Neon users 조회 실패 (customer_info로 대체):', neonError.message);
+    } finally {
+      await poolNeon.end();
+    }
+
+    // customer_info JSON 파싱 + Neon 사용자 정보 병합
     const ordersWithParsedInfo = orders.map(order => {
       let customerInfo = null;
       if (order.customer_info) {
@@ -109,13 +130,23 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // ✅ Neon에서 조회한 사용자 정보
+      const neonUser = userMap.get(order.user_id);
+
       return {
         ...order,
-        customer_info: customerInfo
+        customer_info: customerInfo,
+        // 사용자 정보 (Neon users 테이블에서 가져옴)
+        user_name: neonUser?.name || '',
+        user_email: neonUser?.email || '',
+        user_phone: neonUser?.phone || '',
+        user_address: neonUser?.address || '',
+        user_detailed_address: neonUser?.detailed_address || '',
+        user_postal_code: neonUser?.postal_code || ''
       };
     });
 
-    console.log(`✅ [Vendor Orders] Found ${ordersWithParsedInfo.length} orders`);
+    console.log(`✅ [Vendor Orders] Found ${ordersWithParsedInfo.length} orders (with Neon user data)`);
 
     return res.status(200).json({
       success: true,

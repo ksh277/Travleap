@@ -951,6 +951,10 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
       console.log(`📊 [Refund] 부분 환불 감지: ${actualRefundAmount.toLocaleString()}원 / ${payment.amount.toLocaleString()}원 = ${(refundRatio * 100).toFixed(1)}%`);
     }
 
+    // ✅ FIX: 알림용 변수를 상위 스코프에서 선언
+    let earnedPointsDeducted = 0;
+    let pointsUsedRefunded = 0;
+
     if (payment.user_id) {
       // ✅ FIX: 장바구니 주문이면 모든 카테고리 payments의 포인트 회수
       if (isCartOrder && payment.order_number) {
@@ -1002,12 +1006,17 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
 
         console.log(`✅ [Refund] 장바구니 전체 포인트 처리 완료 - 회수: ${totalDeductedPoints}P, 환불: ${totalRefundedPoints}P`);
 
+        // ✅ FIX: 알림용 변수에 값 할당
+        earnedPointsDeducted = totalDeductedPoints;
+        pointsUsedRefunded = totalRefundedPoints;
+
       } else {
         // 단일 상품 환불
         const refundOrderId = String(payment.id);
 
         // 10-1. 적립된 포인트 회수 (✅ 부분 환불 비율 적용)
         const deductedPoints = await deductEarnedPoints(connection, payment.user_id, refundOrderId, refundRatio);
+        earnedPointsDeducted = deductedPoints; // ✅ FIX: 알림용 변수에 값 할당
         console.log(`✅ [Refund] payment_id=${payment.id} 포인트 회수 완료: ${deductedPoints}P`);
 
         // 10-2. 사용한 포인트 환불
@@ -1018,6 +1027,7 @@ async function refundPayment({ paymentKey, cancelReason, cancelAmount, skipPolic
 
             if (pointsUsed > 0) {
               await refundUsedPoints(connection, payment.user_id, pointsUsed, refundOrderId);
+              pointsUsedRefunded = pointsUsed; // ✅ FIX: 알림용 변수에 값 할당
               console.log(`✅ [Refund] 사용 포인트 환불 완료: ${pointsUsed}P`);
             }
           } catch (notesError) {

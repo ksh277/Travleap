@@ -119,16 +119,23 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         setLoading(true);
         const mappedCategory = category === 'accommodation' ? 'stay' : category;
 
-        // 숙박 카테고리: 호텔 목록 API 호출
+        // 숙박 카테고리: 다른 카테고리와 동일하게 listings 테이블에서 조회
+        // (파트너 관리의 숙박 업체가 아닌, 상품 관리의 숙박 상품)
         if (mappedCategory === 'stay') {
-          const response = await fetch('/api/accommodations');
-          const result = await response.json();
+          const response = await api.getListings({
+            category: 'stay',
+            page: 1,
+            limit: 100,
+            sortBy: filters.sortBy === 'recommended' ? 'popular' : filters.sortBy as any
+          });
 
-          if (result.success && result.data) {
-            setHotels(result.data);
+          if (response.success && response.data) {
+            const newListings = Array.isArray(response.data) ? response.data : [];
+            setListings(newListings);
+            setFilteredListings(newListings);
           } else {
-            setHotels([]);
-            toast.error('호텔 목록을 불러올 수 없습니다.');
+            setListings([]);
+            setFilteredListings([]);
           }
           setLoading(false);
           return;
@@ -253,10 +260,11 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
 
   // 페이지네이션
   const mappedCategory = category === 'accommodation' ? 'stay' : category;
-  const isHotelView = mappedCategory === 'stay';
+  // 숙박도 이제 listings 테이블을 사용하므로 isHotelView 제거
+  const isHotelView = false; // mappedCategory === 'stay' 였으나, 이제 listings 사용
   const isVendorView = mappedCategory === 'rentcar';
 
-  const displayItems = isHotelView ? hotels : isVendorView ? vendors : filteredListings;
+  const displayItems = isVendorView ? vendors : filteredListings;
   const totalPages = Math.ceil(displayItems.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -487,10 +495,35 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         </div>
       </div>
 
+      {/* 모바일 검색 바 */}
+      <div className="md:hidden px-2 py-4">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              type="text"
+              placeholder="검색어를 입력하세요"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSearch();
+              }}
+              className="pl-10 h-11 text-sm"
+            />
+          </div>
+          <Button
+            onClick={handleSearch}
+            className="bg-[#8B5FBF] hover:bg-[#7A4FB5] text-white h-11 px-4"
+          >
+            검색
+          </Button>
+        </div>
+      </div>
+
       {/* 메인 컨텐츠 */}
-      <div className="max-w-[1400px] mx-auto px-4 py-6">
+      <div className="container mx-auto px-2 md:px-4 py-12 md:py-16">
         {/* 필터 바 */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-8">
           <div className="flex flex-wrap gap-4 items-center">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-gray-500" />
@@ -582,8 +615,8 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
         </div>
 
         {/* 결과 헤더 */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">
+        <div className="flex items-center justify-between mb-8 md:mb-10">
+          <h2 className="text-lg font-semibold text-gray-800 tracking-tight">
             총 {displayItems.length}개 상품 ({currentPage}/{totalPages} 페이지)
           </h2>
           <Select
@@ -602,7 +635,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
 
         {/* 상품 리스트 - 그리드 형태 (4열) */}
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
             {[...Array(8)].map((_, i) => (
               <Card key={i} className="animate-pulse overflow-hidden">
                 <div className="w-full h-48 bg-gray-200"></div>
@@ -615,19 +648,19 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
             ))}
           </div>
         ) : isHotelView && currentHotels.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
             {currentHotels.map((hotel) => (
               <HotelCard key={hotel.partner_id} hotel={hotel} />
             ))}
           </div>
         ) : isVendorView && currentVendors.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
             {currentVendors.map((vendor) => (
               <RentcarVendorCard key={vendor.vendor_id} vendor={vendor} />
             ))}
           </div>
         ) : currentListings.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
             {currentListings.map((item) => {
               return (
                 <Card
@@ -643,7 +676,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                       className="w-full h-32 md:h-48 object-cover"
                     />
                     <button
-                      className="absolute top-2 right-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                      className="absolute top-2 right-2 p-2.5 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleFavorite(item.id);
@@ -652,7 +685,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                       <Heart className={`h-4 w-4 ${favorites.has(item.id) ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
                     </button>
                     <button
-                      className="absolute top-2 left-2 p-1 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
+                      className="absolute top-2 left-2 p-2.5 bg-white/80 rounded-full hover:bg-white transition-colors z-10"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleShare(item);
@@ -663,10 +696,10 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                   </div>
 
                   {/* 정보 - 충분한 공간 확보 */}
-                  <CardContent className="p-3 md:p-6 pt-2 md:pt-3 flex flex-col flex-1 justify-between bg-white min-h-[120px] md:min-h-[180px]">
-                      <div className="space-y-2 md:space-y-3 flex-1">
+                  <CardContent className="p-4 md:p-6 flex flex-col flex-1 justify-between bg-white min-h-[120px] md:min-h-[180px]">
+                      <div className="space-y-2.5 md:space-y-3 flex-1">
                         <div className="flex items-start gap-2">
-                          <h3 className="font-semibold text-base flex-1 line-clamp-2">{item.title}</h3>
+                          <h3 className="font-semibold text-base flex-1 line-clamp-2 leading-snug">{item.title}</h3>
                           {item.partner?.is_verified && (
                             <Badge variant="outline" className="text-xs flex-shrink-0 bg-blue-500 text-white">
                               인증
@@ -681,7 +714,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
                           </div>
                         )}
 
-                        <p className="text-xs text-gray-600 line-clamp-3">{item.short_description || ''}</p>
+                        <p className="text-xs text-gray-600 line-clamp-3 leading-relaxed">{item.short_description || ''}</p>
                       </div>
 
                       <div className="flex items-center pt-2 mt-2 md:pt-4 md:mt-4 border-t">

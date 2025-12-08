@@ -165,12 +165,12 @@ async function handler(req, res) {
         attempts++;
       }
 
-      // user_coupons에 발급
+      // user_coupons에 발급 (expires_at 포함)
       await connection.execute(`
         INSERT INTO user_coupons (
-          user_id, coupon_id, coupon_code, status, issued_at
-        ) VALUES (?, ?, ?, 'ISSUED', NOW())
-      `, [user_id, coupon_id, userCouponCode]);
+          user_id, coupon_id, coupon_code, status, issued_at, expires_at
+        ) VALUES (?, ?, ?, 'ISSUED', NOW(), ?)
+      `, [user_id, coupon_id, userCouponCode, coupon.valid_until]);
 
       // coupons의 issued_count 증가
       await connection.execute(`

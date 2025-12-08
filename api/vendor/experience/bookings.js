@@ -109,6 +109,7 @@ module.exports = async function handler(req, res) {
     const whereClause = conditions.join(' AND ');
 
     // ⚠️ CRITICAL: bookings 테이블 직접 조회 (experience_bookings 아님!)
+    // ✅ FIX: users 테이블은 Neon PostgreSQL에 있으므로 JOIN 제거
     const result = await connection.execute(
       `SELECT
         b.id,
@@ -132,15 +133,11 @@ module.exports = async function handler(req, res) {
         b.created_at,
         l.title as experience_name,
         l.images as experience_images,
-        u.name as customer_name,
-        u.phone as customer_phone,
-        u.email as customer_email,
         p.method as payment_method_detail,
         p.card_company,
         p.virtual_account_bank
        FROM bookings b
        INNER JOIN listings l ON b.listing_id = l.id
-       LEFT JOIN users u ON b.user_id = u.id
        LEFT JOIN payments p ON b.id = p.booking_id
        WHERE ${whereClause}
        ORDER BY b.created_at DESC, b.start_date DESC
@@ -148,7 +145,33 @@ module.exports = async function handler(req, res) {
       [...params, parseInt(limit), parseInt(offset)]
     );
 
-    // customer_info JSON 파싱
+    // ✅ FIX: Neon PostgreSQL에서 사용자 정보 별도 조회
+    const { Pool } = require('@neondatabase/serverless');
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
+
+    let userMap = new Map();
+    try {
+      const userIds = [...new Set((result.rows || []).map(b => b.user_id).filter(Boolean))];
+
+      if (userIds.length > 0) {
+        const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+        const usersResult = await poolNeon.query(
+          `SELECT id, name, email, phone FROM users WHERE id IN (${placeholders})`,
+          userIds
+        );
+        usersResult.rows.forEach(user => {
+          userMap.set(user.id, user);
+        });
+      }
+    } catch (neonError) {
+      console.warn('⚠️ [Experience Vendor] Neon users 조회 실패 (customer_info로 대체):', neonError.message);
+    } finally {
+      await poolNeon.end();
+    }
+
+    // customer_info JSON 파싱 + Neon 사용자 정보 병합
     const bookings = (result.rows || []).map(booking => {
       let customerInfo = null;
       let experienceTime = '';
@@ -166,14 +189,17 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // ✅ Neon에서 조회한 사용자 정보
+      const neonUser = userMap.get(booking.user_id);
+
       return {
         ...booking,
         customer_info: customerInfo,
         experience_time: experienceTime,
-        // 고객 정보 병합 (customer_info 우선, users 테이블 백업)
-        customer_name: customerInfo?.name || booking.customer_name,
-        customer_phone: customerInfo?.phone || booking.customer_phone,
-        customer_email: customerInfo?.email || booking.customer_email,
+        // 고객 정보 병합 (customer_info 우선, Neon users 백업)
+        customer_name: customerInfo?.name || neonUser?.name || '',
+        customer_phone: customerInfo?.phone || neonUser?.phone || '',
+        customer_email: customerInfo?.email || neonUser?.email || '',
         // 인원 정보 추가
         adults: booking.adults || customerInfo?.adults,
         children: booking.children || customerInfo?.children,

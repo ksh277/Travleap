@@ -77,7 +77,13 @@ module.exports = async function handler(req, res) {
           phone: partner.phone,
           email: partner.email,
           tier: partner.tier || 'standard',
-          is_verified: partner.status === 'approved'
+          is_verified: partner.status === 'approved',
+          // 위치 정보 추가
+          address: partner.business_address || partner.location || '',
+          location: partner.location || '',
+          detailed_address: partner.detailed_address || '',
+          lat: partner.lat || null,
+          lng: partner.lng || null
         },
         rooms,
         total_rooms: rooms.length

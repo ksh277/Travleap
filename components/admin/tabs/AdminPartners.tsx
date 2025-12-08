@@ -686,32 +686,44 @@ function PartnerForm({ formData, setFormData }: any) {
 
   // 구글맵 초기화 함수
   const initializeMap = React.useCallback(async () => {
-    if (mapInstanceRef.current) return;
-    if (!mapRef.current) return;
+    console.log('🗺️ initializeMap 호출됨');
+
+    if (mapInstanceRef.current) {
+      console.log('⏭️ 이미 초기화됨');
+      return;
+    }
+
+    if (!mapRef.current) {
+      console.log('❌ mapRef 없음');
+      return;
+    }
 
     const rect = mapRef.current.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+    console.log('📐 컨테이너 크기:', rect.width, 'x', rect.height);
+
+    if (rect.width === 0 || rect.height === 0) {
+      console.log('⏳ 크기 0, 대기...');
+      return;
+    }
 
     const apiKey = getGoogleMapsApiKey();
+    console.log('🔑 API 키:', apiKey ? '있음' : '없음');
+
     if (!apiKey) {
       setMapError('Google Maps API 키가 설정되지 않았습니다');
       return;
     }
 
     try {
-      // Google Maps API 동적 로드
-      if (!(window as any).google?.maps) {
-        await new Promise<void>((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&language=ko`;
-          script.async = true;
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error('Google Maps 로드 실패'));
-          document.head.appendChild(script);
-        });
+      // Google Maps API가 이미 로드되어 있는지 확인
+      const google = (window as any).google;
+      if (!google?.maps?.Map) {
+        console.log('⏳ Google Maps API 대기 중...');
+        setMapError('Google Maps API가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
+        return;
       }
 
-      const google = (window as any).google;
+      console.log('✅ Google Maps API 사용 가능');
       const currentFormData = formDataRef.current;
       const lat = currentFormData.lat || 34.8118;
       const lng = currentFormData.lng || 126.3922;
@@ -935,13 +947,14 @@ function PartnerForm({ formData, setFormData }: any) {
         </Label>
 
         {/* 지도 */}
-        <div
-          ref={mapRef}
-          className="w-full rounded-lg border mb-3 bg-white relative"
-          style={{ minHeight: '250px', height: '250px' }}
-        >
+        <div className="relative mb-3">
+          <div
+            ref={mapRef}
+            className="w-full rounded-lg border bg-white"
+            style={{ height: '250px' }}
+          />
           {!mapLoaded && !mapError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg pointer-events-none">
               <div className="text-center">
                 <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400 mb-2" />
                 <p className="text-sm text-gray-500">지도 로딩 중...</p>
@@ -949,7 +962,7 @@ function PartnerForm({ formData, setFormData }: any) {
             </div>
           )}
           {mapError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-red-50">
+            <div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded-lg">
               <div className="text-center">
                 <MapPin className="w-8 h-8 mx-auto text-red-400 mb-2" />
                 <p className="text-sm text-red-500">{mapError}</p>
@@ -958,7 +971,7 @@ function PartnerForm({ formData, setFormData }: any) {
                   variant="outline"
                   size="sm"
                   className="mt-2"
-                  onClick={initializeMap}
+                  onClick={() => initializeMap()}
                 >
                   다시 시도
                 </Button>

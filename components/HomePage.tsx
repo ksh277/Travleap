@@ -13,7 +13,7 @@ import { api, type TravelItem } from '../utils/api';
 import type { Category } from '../types/database';
 import { toast } from 'sonner';
 import { HomeBanner } from './HomeBanner';
-import { HotelCard } from './cards/HotelCard';
+// HotelCard import 제거 - 숙박 섹션이 카테고리 상품(listings)으로 변경됨
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
@@ -83,8 +83,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
         api.getCategories().catch(() => []),
         // 🛑 Toss 심사용: 팝업 카테고리만 표시
         api.getListings({ category: 'popup', limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
-        // 숙박: 카테고리 페이지와 동일하게 /api/accommodations 사용
-        fetch('/api/accommodations').then(res => res.json()).then(result => result.success ? result.data : []).catch(() => []),
+        // 숙박: 카테고리 상품 (listings 테이블의 stay 카테고리)
+        api.getListings({ category: 'stay', limit: 8, sortBy: 'popular' }).then(res => res.data || []).catch(() => []),
         api.getRecentReviews(4).catch(() => []),
         api.getHomepageSettings().catch(() => ({
           background_video_url: 'https://cdn.pixabay.com/video/2022/05/05/116349-707815466_large.mp4',
@@ -315,7 +315,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                           {searchSuggestions.map((suggestion, index) => (
                             <button
                               key={index}
-                              className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm first:rounded-t-md last:rounded-b-md"
+                              className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm first:rounded-t-md last:rounded-b-md min-h-[44px]"
                               onClick={() => {
                                 setDestination(suggestion);
                                 setShowSuggestions(false);
@@ -340,7 +340,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                           <span className="truncate">{`${t('rooms', selectedLanguage)} ${guestCounts.rooms}, ${t('adults', selectedLanguage)} ${guestCounts.adults}${guestCounts.children > 0 ? `, ${t('children', selectedLanguage)} ${guestCounts.children}` : ''}`}</span>
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-80" align="start">
+                      <PopoverContent className="w-80 p-4" align="start">
                         <div className="space-y-4">
                           {/* 객실 수 */}
                           <div className="flex items-center justify-between">
@@ -539,7 +539,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                             {searchSuggestions.map((suggestion, index) => (
                               <button
                                 key={index}
-                                className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm first:rounded-t-md last:rounded-b-md"
+                                className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm first:rounded-t-md last:rounded-b-md min-h-[44px]"
                                 onClick={() => {
                                   setDestination(suggestion);
                                   setShowSuggestions(false);
@@ -564,7 +564,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                             <span className="truncate">{`${t('rooms', selectedLanguage)} ${guestCounts.rooms}, ${t('adults', selectedLanguage)} ${guestCounts.adults}${guestCounts.children > 0 ? `, ${t('children', selectedLanguage)} ${guestCounts.children}` : ''}`}</span>
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80" align="start">
+                        <PopoverContent className="w-80 p-4" align="start">
                           <div className="space-y-4">
                             {/* 객실 수 */}
                             <div className="flex items-center justify-between">
@@ -749,12 +749,12 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       </div>
 
       {/* Enhanced activities section */}
-      <div className="container mx-auto px-4 py-12 md:py-16 space-y-12 md:space-y-16">
+      <div className="container mx-auto px-2 md:px-4 py-16 md:py-24 space-y-12 md:space-y-16">
         <section>
-          <div className="mb-6 md:mb-8">
+          <div className="mb-8 md:mb-12">
             <div className="flex items-center gap-3">
               <Zap className="h-6 w-6 text-purple-600" />
-              <h2 className="text-2xl md:text-3xl font-semibold text-gray-800">액티비티</h2>
+              <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight">액티비티</h2>
             </div>
           </div>
           {loading ? (
@@ -977,11 +977,11 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       </section>
 
       {/* 주변 숙소 */}
-      <div className="container mx-auto px-4 py-12 md:py-16">
+      <div className="container mx-auto px-2 md:px-4 py-16 md:py-24">
         <section>
-          <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 mb-6 md:mb-8">주변 숙소 보기</h2>
+          <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight mb-8 md:mb-12">주변 숙소 보기</h2>
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="animate-pulse">
                   <div className="bg-gray-200 h-64 md:h-80 rounded-lg"></div>
@@ -989,9 +989,31 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
               ))}
             </div>
           ) : nearbyHotels.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-              {nearbyHotels.map((hotel) => (
-                <HotelCard key={hotel.partner_id} hotel={hotel} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+              {nearbyHotels.map((listing) => (
+                <Card
+                  key={listing.id}
+                  className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
+                  onClick={() => navigate(`/detail/${listing.id}`)}
+                >
+                  <div className="relative w-full h-48 overflow-hidden">
+                    <ImageWithFallback
+                      src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&h=300&fit=crop'}
+                      alt={listing.title}
+                      className="w-full h-48 object-cover"
+                    />
+                  </div>
+                  <CardContent className="p-4 flex-1 flex flex-col">
+                    <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2 leading-snug">{listing.title}</h3>
+                    <p className="text-sm text-gray-500 mb-3 leading-relaxed">{listing.location}</p>
+                    <div className="mt-auto">
+                      <span className="text-lg font-bold text-[#8B5FBF]">
+                        ₩{(listing.price_from || 0).toLocaleString()}
+                      </span>
+                      <span className="text-sm text-gray-500 ml-1">/박</span>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           ) : (

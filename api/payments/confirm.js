@@ -1110,12 +1110,18 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
           try {
             console.log(`📧 [알림] 결제 완료 알림 발송 시작: ${user.email}`);
 
+            // ✅ FIX: 알림용 notes 파싱 (for 루프 안의 notes는 블록 스코프라 접근 불가)
+            const firstPayment = allPayments[0];
+            const notesForNotification = firstPayment?.notes ? JSON.parse(firstPayment.notes) : null;
+            const subtotalForNotification = notesForNotification?.subtotal || 0;
+            const deliveryFeeForNotification = notesForNotification?.deliveryFee || 0;
+
             // items 정보 파싱
             let productName = '상품';
             let itemCount = 0;
-            if (notes && notes.items && Array.isArray(notes.items)) {
-              itemCount = notes.items.length;
-              const firstItem = notes.items[0];
+            if (notesForNotification && notesForNotification.items && Array.isArray(notesForNotification.items)) {
+              itemCount = notesForNotification.items.length;
+              const firstItem = notesForNotification.items[0];
               const firstItemName = firstItem.title || firstItem.name || '';
               productName = itemCount > 1
                 ? `${firstItemName} 외 ${itemCount - 1}개`
@@ -1126,21 +1132,21 @@ async function confirmPayment({ paymentKey, orderId, amount }) {
             const notificationData = {
               customerName: user.name || '고객',
               customerEmail: user.email,
-              customerPhone: user.phone || notes?.shippingInfo?.phone || null,
+              customerPhone: user.phone || notesForNotification?.shippingInfo?.phone || null,
               orderNumber: orderId,
               orderDate: new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }),
               productName: productName,
               quantity: itemCount,
-              subtotal: originalSubtotal,
-              deliveryFee: shippingFee,
-              couponDiscount: notes?.couponDiscount || 0,
-              pointsUsed: notes?.pointsUsed || 0,
+              subtotal: subtotalForNotification,
+              deliveryFee: deliveryFeeForNotification,
+              couponDiscount: notesForNotification?.couponDiscount || 0,
+              pointsUsed: notesForNotification?.pointsUsed || 0,
               totalAmount: order.amount,
-              pointsEarned: Math.floor(originalSubtotal * 0.02), // 2% 적립
-              shippingName: notes?.shippingInfo?.name || null,
-              shippingPhone: notes?.shippingInfo?.phone || null,
-              shippingAddress: notes?.shippingInfo
-                ? `${notes.shippingInfo.address} ${notes.shippingInfo.addressDetail || ''}`
+              pointsEarned: Math.floor(subtotalForNotification * 0.02), // 2% 적립
+              shippingName: notesForNotification?.shippingInfo?.name || null,
+              shippingPhone: notesForNotification?.shippingInfo?.phone || null,
+              shippingAddress: notesForNotification?.shippingInfo
+                ? `${notesForNotification.shippingInfo.address} ${notesForNotification.shippingInfo.addressDetail || ''}`
                 : null
             };
 

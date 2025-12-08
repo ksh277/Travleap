@@ -186,11 +186,11 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 4. 🔥 쿠폰 다운로드 (user_coupons 테이블 INSERT)
+    // 4. 🔥 쿠폰 다운로드 (user_coupons 테이블 INSERT with expires_at)
     const insertResult = await connection.execute(`
-      INSERT INTO user_coupons (user_id, coupon_id, registered_at, is_used)
-      VALUES (?, ?, NOW(), FALSE)
-    `, [userId, coupon.id]);
+      INSERT INTO user_coupons (user_id, coupon_id, registered_at, is_used, expires_at, issued_at, status)
+      VALUES (?, ?, NOW(), FALSE, ?, NOW(), 'ISSUED')
+    `, [userId, coupon.id, coupon.valid_until]);
 
     console.log(`✅ [Coupon Register] user_coupons INSERT 완료: insert_id=${insertResult.insertId}`);
 

@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const { connect } = require('@planetscale/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { withStrictRateLimit } = require('../utils/rate-limit-middleware.cjs');
@@ -210,6 +211,71 @@ async function handler(req, res) {
         throw new Error('사용자 생성에 실패했습니다. ID가 반환되지 않았습니다.');
       }
 
+      // 🎁 신규 회원 쿠폰 자동 발급
+      let issuedCoupon = null;
+      try {
+        const planetscaleConn = connect({ url: process.env.DATABASE_URL });
+
+        // 신규 회원 대상 쿠폰 조회
+        const newMemberCoupons = await planetscaleConn.execute(`
+          SELECT * FROM coupons
+          WHERE coupon_category = 'member'
+            AND member_target = 'new'
+            AND is_active = TRUE
+            AND (valid_from IS NULL OR valid_from <= NOW())
+            AND (valid_until IS NULL OR valid_until >= NOW())
+            AND (usage_limit IS NULL OR issued_count < usage_limit)
+          ORDER BY created_at DESC
+          LIMIT 1
+        `);
+
+        if (newMemberCoupons.rows && newMemberCoupons.rows.length > 0) {
+          const coupon = newMemberCoupons.rows[0];
+
+          // 고유 쿠폰 코드 생성
+          let userCouponCode;
+          let attempts = 0;
+          while (attempts < 10) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = 'NEW-';
+            for (let i = 0; i < 8; i++) {
+              code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            userCouponCode = code;
+
+            const codeCheck = await planetscaleConn.execute(
+              'SELECT id FROM user_coupons WHERE coupon_code = ?',
+              [userCouponCode]
+            );
+            if (!codeCheck.rows || codeCheck.rows.length === 0) break;
+            attempts++;
+          }
+
+          // user_coupons에 발급 (expires_at 포함)
+          await planetscaleConn.execute(`
+            INSERT INTO user_coupons (
+              user_id, coupon_id, coupon_code, status, issued_at, expires_at
+            ) VALUES (?, ?, ?, 'ISSUED', NOW(), ?)
+          `, [newUserId, coupon.id, userCouponCode, coupon.valid_until]);
+
+          // coupons의 issued_count 증가
+          await planetscaleConn.execute(`
+            UPDATE coupons SET issued_count = COALESCE(issued_count, 0) + 1 WHERE id = ?
+          `, [coupon.id]);
+
+          issuedCoupon = {
+            code: userCouponCode,
+            name: coupon.name || coupon.title,
+            discount_type: coupon.discount_type,
+            discount_value: coupon.discount_value
+          };
+
+          console.log(`🎁 [Register] 신규 회원 쿠폰 발급: user=${newUserId}, code=${userCouponCode}`);
+        }
+      } catch (couponError) {
+        console.error('⚠️ [Register] 신규 회원 쿠폰 발급 실패 (회원가입은 성공):', couponError.message);
+      }
+
       const token = jwt.sign(
         {
           userId: newUserId,
@@ -232,8 +298,10 @@ async function handler(req, res) {
             role: 'user',
             phone: phone || ''
           },
-          token
-        }
+          token,
+          coupon: issuedCoupon // 발급된 신규 회원 쿠폰 (없으면 null)
+        },
+        message: issuedCoupon ? '신규 회원 쿠폰이 발급되었습니다!' : undefined
       });
     }
 
@@ -310,6 +378,71 @@ async function handler(req, res) {
       const newUser = { id: newUserId, email, name, role: 'user' };
       console.log('✅ [Social Login] New user created:', newUser.id);
 
+      // 🎁 신규 회원 쿠폰 자동 발급
+      let issuedCoupon = null;
+      try {
+        const planetscaleConn = connect({ url: process.env.DATABASE_URL });
+
+        // 신규 회원 대상 쿠폰 조회
+        const newMemberCoupons = await planetscaleConn.execute(`
+          SELECT * FROM coupons
+          WHERE coupon_category = 'member'
+            AND member_target = 'new'
+            AND is_active = TRUE
+            AND (valid_from IS NULL OR valid_from <= NOW())
+            AND (valid_until IS NULL OR valid_until >= NOW())
+            AND (usage_limit IS NULL OR issued_count < usage_limit)
+          ORDER BY created_at DESC
+          LIMIT 1
+        `);
+
+        if (newMemberCoupons.rows && newMemberCoupons.rows.length > 0) {
+          const coupon = newMemberCoupons.rows[0];
+
+          // 고유 쿠폰 코드 생성
+          let userCouponCode;
+          let attempts = 0;
+          while (attempts < 10) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = 'NEW-';
+            for (let i = 0; i < 8; i++) {
+              code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            userCouponCode = code;
+
+            const codeCheck = await planetscaleConn.execute(
+              'SELECT id FROM user_coupons WHERE coupon_code = ?',
+              [userCouponCode]
+            );
+            if (!codeCheck.rows || codeCheck.rows.length === 0) break;
+            attempts++;
+          }
+
+          // user_coupons에 발급 (expires_at 포함)
+          await planetscaleConn.execute(`
+            INSERT INTO user_coupons (
+              user_id, coupon_id, coupon_code, status, issued_at, expires_at
+            ) VALUES (?, ?, ?, 'ISSUED', NOW(), ?)
+          `, [newUser.id, coupon.id, userCouponCode, coupon.valid_until]);
+
+          // coupons의 issued_count 증가
+          await planetscaleConn.execute(`
+            UPDATE coupons SET issued_count = COALESCE(issued_count, 0) + 1 WHERE id = ?
+          `, [coupon.id]);
+
+          issuedCoupon = {
+            code: userCouponCode,
+            name: coupon.name || coupon.title,
+            discount_type: coupon.discount_type,
+            discount_value: coupon.discount_value
+          };
+
+          console.log(`🎁 [Social Login] 신규 회원 쿠폰 발급: user=${newUser.id}, code=${userCouponCode}`);
+        }
+      } catch (couponError) {
+        console.error('⚠️ [Social Login] 신규 회원 쿠폰 발급 실패 (로그인은 성공):', couponError.message);
+      }
+
       const token = jwt.sign(
         {
           userId: newUser.id,
@@ -332,8 +465,10 @@ async function handler(req, res) {
             role: newUser.role,
             avatar: avatar || null
           },
-          token
-        }
+          token,
+          coupon: issuedCoupon // 발급된 신규 회원 쿠폰 (없으면 null)
+        },
+        message: issuedCoupon ? '신규 회원 쿠폰이 발급되었습니다!' : undefined
       });
     }
 

@@ -29,7 +29,8 @@ import {
   X,
   Car,
   Settings,
-  Truck
+  Truck,
+  Menu
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../utils/api';
@@ -185,6 +186,10 @@ export function AdminPage({}: AdminPageProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // 사이드바 네비게이션 상태
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // 미디어 라이브러리 상태
   const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false);
@@ -678,7 +683,13 @@ export function AdminPage({}: AdminPageProps) {
     max_capacity: '',
     language: '',
     lat: null as number | null,
-    lng: null as number | null
+    lng: null as number | null,
+    // 쿠폰 관련 필드
+    is_coupon_partner: false,
+    coupon_discount_type: 'percent' as string,
+    coupon_discount_value: 0,
+    coupon_max_discount: 0,
+    coupon_min_order: 0
   });
   const [reviews, setReviews] = useState<any[]>([]);
   const [editingReview, setEditingReview] = useState<any | null>(null);
@@ -1885,6 +1896,7 @@ export function AdminPage({}: AdminPageProps) {
         contact_name: partner.contact_name || '',
         email: partner.email || '',
         phone: partner.phone || '',
+        mobile_phone: partner.mobile_phone || '',
         business_address: partner.business_address || partner.location || '',
         location: partner.location || '',
         services: partner.services || '',
@@ -1899,7 +1911,12 @@ export function AdminPage({}: AdminPageProps) {
         max_capacity: partner.max_capacity || '',
         language: partner.language || '',
         lat: partner.lat || null,
-        lng: partner.lng || null
+        lng: partner.lng || null,
+        is_coupon_partner: partner.is_coupon_partner || false,
+        coupon_discount_type: partner.coupon_discount_type || 'percent',
+        coupon_discount_value: partner.coupon_discount_value || 0,
+        coupon_max_discount: partner.coupon_max_discount || 0,
+        coupon_min_order: partner.coupon_min_order || 0
       });
     } else {
       setNewPartner({
@@ -1907,6 +1924,7 @@ export function AdminPage({}: AdminPageProps) {
         contact_name: '',
         email: '',
         phone: '',
+        mobile_phone: '',
         business_address: '',
         location: '',
         services: '',
@@ -1921,7 +1939,12 @@ export function AdminPage({}: AdminPageProps) {
         max_capacity: '',
         language: '',
         lat: null,
-        lng: null
+        lng: null,
+        is_coupon_partner: false,
+        coupon_discount_type: 'percent',
+        coupon_discount_value: 0,
+        coupon_max_discount: 0,
+        coupon_min_order: 0
       });
     }
     setIsPartnerDialogOpen(true);
@@ -2884,41 +2907,78 @@ export function AdminPage({}: AdminPageProps) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-4 md:py-6">
-        <Tabs defaultValue="dashboard" className="space-y-4 md:space-y-6">
-          <div className="space-y-2">
-            <TabsList className="grid grid-cols-4 md:grid-cols-9 w-full">
-              <TabsTrigger value="dashboard" className="text-xs md:text-sm">대시보드</TabsTrigger>
-              <TabsTrigger value="products" className="text-xs md:text-sm">상품 관리</TabsTrigger>
-              <TabsTrigger value="accommodation" className="text-xs md:text-sm">숙박 관리</TabsTrigger>
-              <TabsTrigger value="rentcar" className="text-xs md:text-sm">렌트카 관리</TabsTrigger>
-              <TabsTrigger value="insurance" className="text-xs md:text-sm">보험 관리</TabsTrigger>
-              <TabsTrigger value="banners" className="text-xs md:text-sm">배너 관리</TabsTrigger>
-              <TabsTrigger value="reviews" className="text-xs md:text-sm">리뷰 관리</TabsTrigger>
-              <TabsTrigger value="partners" className="text-xs md:text-sm">파트너 관리</TabsTrigger>
-              {canManagePayments() && (
-                <TabsTrigger value="settlements" className="text-xs md:text-sm">정산 관리</TabsTrigger>
-              )}
-            </TabsList>
-            <TabsList className={`grid ${canManageSystem() ? 'grid-cols-7 md:grid-cols-7' : 'grid-cols-5 md:grid-cols-5'} w-full`}>
-              <TabsTrigger value="blogs" className="text-xs md:text-sm">블로그 관리</TabsTrigger>
-              {canManagePayments() && (
-                <TabsTrigger value="orders" className="text-xs md:text-sm">주문 관리</TabsTrigger>
-              )}
-              {canManageSystem() && (
-                <TabsTrigger value="users" className="text-xs md:text-sm">사용자 관리</TabsTrigger>
-              )}
-              <TabsTrigger value="contacts" className="text-xs md:text-sm">문의 관리</TabsTrigger>
-              <TabsTrigger value="activity" className="text-xs md:text-sm">활동 로그</TabsTrigger>
-              <TabsTrigger value="coupons" className="text-xs md:text-sm">쿠폰</TabsTrigger>
-              {canManageSystem() && (
-                <TabsTrigger value="settings" className="text-xs md:text-sm">설정</TabsTrigger>
-              )}
-            </TabsList>
-          </div>
+      <div className="flex min-h-[calc(100vh-120px)]">
+        {/* 모바일 메뉴 버튼 */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="lg:hidden fixed bottom-4 right-4 z-50 bg-blue-600 text-white p-3 rounded-full shadow-lg"
+        >
+          {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
 
+        {/* 사이드바 오버레이 (모바일) */}
+        {sidebarOpen && (
+          <div
+            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* 사이드바 */}
+        <aside className={`
+          fixed lg:static inset-y-0 left-0 z-40
+          w-56 bg-gray-900 text-white
+          transform transition-transform duration-200 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          overflow-y-auto
+        `}>
+          <nav className="py-4">
+            {[
+              { id: 'dashboard', label: '대시보드' },
+              { id: 'orders', label: '주문 관리', permission: 'payments' },
+              { id: 'users', label: '사용자 관리', permission: 'system' },
+              { id: 'products', label: '상품 관리' },
+              { id: 'accommodation', label: '숙박 관리' },
+              { id: 'rentcar', label: '렌트카 관리' },
+              { id: 'insurance', label: '보험 관리' },
+              { id: 'coupons', label: '쿠폰 관리' },
+              { id: 'banners', label: '배너 관리' },
+              { id: 'reviews', label: '리뷰 관리' },
+              { id: 'partners', label: '파트너 관리' },
+              { id: 'blogs', label: '블로그 관리' },
+              { id: 'contacts', label: '문의 관리' },
+              { id: 'activity', label: '활동 로그' },
+              { id: 'settlements', label: '정산 관리', permission: 'payments' },
+              { id: 'settings', label: '설정', permission: 'system' },
+            ].filter(item => {
+              if (item.permission === 'payments') return canManagePayments();
+              if (item.permission === 'system') return canManageSystem();
+              return true;
+            }).map(item => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setSidebarOpen(false);
+                }}
+                className={`
+                  w-full text-left px-4 py-3 text-sm transition-colors
+                  ${activeTab === item.id
+                    ? 'bg-cyan-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  }
+                `}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        {/* 메인 콘텐츠 */}
+        <main className="flex-1 lg:ml-0 p-4 md:p-6 overflow-y-auto">
           {/* 대시보드 탭 */}
-          <TabsContent value="dashboard" className="space-y-6">
+          {activeTab === 'dashboard' && <div className="space-y-6">
             {/* 통계 카드 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               <Card>
@@ -3086,10 +3146,10 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>}
 
           {/* 상품 관리 탭 */}
-          <TabsContent value="products" className="space-y-6">
+          {activeTab === 'products' && <div className="space-y-6">
             {/* 검색 및 필터 */}
             <Card>
               <CardHeader>
@@ -4000,11 +4060,11 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>}
 
 
           {/* 미디어 라이브러리 탭 - 배너 관리로 통합되어 제거됨 */}
-          {false && <TabsContent value="media" className="space-y-6">
+          {false && <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>미디어 라이브러리</CardTitle>
@@ -4068,7 +4128,7 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>}
+          </div>}
 
           {/* 기존 images 탭 내용 주석처리 */}
           {false && (
@@ -4193,7 +4253,7 @@ export function AdminPage({}: AdminPageProps) {
           )}
 
           {/* 파트너 관리 탭 */}
-          <TabsContent value="partners" className="space-y-6">
+          {activeTab === 'partners' && <div className="space-y-6">
             {/* 파트너 신청 승인 섹션 */}
             <Card>
               <CardHeader>
@@ -4428,11 +4488,11 @@ export function AdminPage({}: AdminPageProps) {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>}
 
           {/* 주문 관리 탭 (관리자만) */}
-          {canManagePayments() && (
-          <TabsContent value="orders" className="space-y-6">
+          {activeTab === 'orders' && canManagePayments() && (
+          <div className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -4893,31 +4953,31 @@ export function AdminPage({}: AdminPageProps) {
               booking={selectedShippingOrder}
               onUpdate={loadAdminData}
             />
-          </TabsContent>
+          </div>
           )}
 
           {/* 숙박 관리 탭 */}
-          <TabsContent value="accommodation" className="space-y-6">
+          {activeTab === 'accommodation' && <div className="space-y-6">
             <AccommodationManagement />
-          </TabsContent>
+          </div>}
 
           {/* 렌트카 관리 탭 */}
-          <TabsContent value="rentcar" className="space-y-6">
+          {activeTab === 'rentcar' && <div className="space-y-6">
             <RentcarManagement />
-          </TabsContent>
+          </div>}
 
           {/* 보험 관리 탭 */}
-          <TabsContent value="insurance" className="space-y-6">
+          {activeTab === 'insurance' && <div className="space-y-6">
             <AdminInsurance />
-          </TabsContent>
+          </div>}
 
           {/* 배너 관리 탭 */}
-          <TabsContent value="banners" className="space-y-6">
+          {activeTab === 'banners' && <div className="space-y-6">
             <BannerManagement />
-          </TabsContent>
+          </div>}
 
           {/* 리뷰 관리 탭 */}
-          <TabsContent value="reviews" className="space-y-6">
+          {activeTab === 'reviews' && <div className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -5196,11 +5256,11 @@ export function AdminPage({}: AdminPageProps) {
                 </Table>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>}
 
           {/* 사용자 관리 탭 (관리자만) */}
-          {canManageSystem() && (
-          <TabsContent value="users" className="space-y-6">
+          {activeTab === 'users' && canManageSystem() && (
+          <div className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -5643,16 +5703,16 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </DialogContent>
             </Dialog>
-          </TabsContent>
+          </div>
           )}
 
           {/* 문의 관리 탭 */}
           {/* 페이지 미디어 관리 탭 - 배너 관리로 통합되어 제거됨 */}
-          {false && <TabsContent value="pagemedia" className="space-y-6">
+          {false && <div className="space-y-6">
             <MediaManagement />
-          </TabsContent>}
+          </div>}
 
-          <TabsContent value="contacts" className="space-y-6">
+          {activeTab === 'contacts' && <div className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -5879,22 +5939,22 @@ export function AdminPage({}: AdminPageProps) {
                 )}
               </DialogContent>
             </Dialog>
-          </TabsContent>
+          </div>}
 
           {/* 정산 관리 탭 (관리자만) */}
-          {canManagePayments() && (
-            <TabsContent value="settlements" className="space-y-6">
+          {activeTab === 'settlements' && canManagePayments() && (
+            <div className="space-y-6">
               <AdminSettlements />
-            </TabsContent>
+            </div>
           )}
 
           {/* 활동 로그 탭 */}
-          <TabsContent value="activity" className="space-y-6">
+          {activeTab === 'activity' && <div className="space-y-6">
             <AdminActivityLogs />
-          </TabsContent>
+          </div>}
 
           {/* 쿠폰 탭 - 서브탭: 쿠폰 관리, 정산 관리 (정산은 관리자만) */}
-          <TabsContent value="coupons" className="space-y-6">
+          {activeTab === 'coupons' && <div className="space-y-6">
             <Tabs defaultValue="coupon-manage" className="w-full">
               <TabsList className="mb-4">
                 <TabsTrigger value="coupon-manage" className="text-xs md:text-sm">쿠폰 관리</TabsTrigger>
@@ -5911,17 +5971,17 @@ export function AdminPage({}: AdminPageProps) {
                 </TabsContent>
               )}
             </Tabs>
-          </TabsContent>
+          </div>}
 
           {/* 시스템 설정 탭 (관리자만) */}
-          {canManageSystem() && (
-            <TabsContent value="settings" className="space-y-6">
+          {activeTab === 'settings' && canManageSystem() && (
+            <div className="space-y-6">
               <AdminSystemSettings />
-            </TabsContent>
+            </div>
           )}
 
           {/* 블로그 관리 탭 */}
-          <TabsContent value="blogs" className="space-y-6">
+          {activeTab === 'blogs' && <div className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -6038,10 +6098,10 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>}
 
           {/* 댓글 관리 탭 - 리뷰 관리로 통합되어 제거됨 */}
-          {false && <TabsContent value="blog-comments" className="space-y-6">
+          {false && <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>댓글 관리</CardTitle>
@@ -6122,8 +6182,8 @@ export function AdminPage({}: AdminPageProps) {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>}
-        </Tabs>
+          </div>}
+        </main>
       </div>
 
       {/* 수정 모달 */}

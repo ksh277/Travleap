@@ -110,11 +110,13 @@ module.exports = async function handler(req, res) {
     const whereClause = conditions.join(' AND ');
 
     // 예약 목록 조회
+    // ✅ FIX: users 테이블은 Neon PostgreSQL에 있으므로 JOIN 제거
     const result = await connection.execute(
       `SELECT
         tb.id,
         tb.booking_number,
         tb.voucher_code,
+        tb.user_id,
         tb.adult_count,
         tb.child_count,
         tb.infant_count,
@@ -127,19 +129,52 @@ module.exports = async function handler(req, res) {
         ts.departure_date,
         ts.departure_time,
         ts.guide_name,
-        tp.package_name,
-        u.name as customer_name,
-        u.phone as customer_phone,
-        u.email as customer_email
+        tp.package_name
        FROM tour_bookings tb
        INNER JOIN tour_schedules ts ON tb.schedule_id = ts.id
        INNER JOIN tour_packages tp ON ts.package_id = tp.id
-       LEFT JOIN users u ON tb.user_id = u.id
        WHERE ${whereClause}
        ORDER BY ts.departure_date DESC, ts.departure_time DESC
        LIMIT ? OFFSET ?`,
       [...params, parseInt(limit), parseInt(offset)]
     );
+
+    // ✅ FIX: Neon PostgreSQL에서 사용자 정보 별도 조회
+    const { Pool } = require('@neondatabase/serverless');
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
+
+    let userMap = new Map();
+    try {
+      const userIds = [...new Set((result.rows || []).map(b => b.user_id).filter(Boolean))];
+
+      if (userIds.length > 0) {
+        const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+        const usersResult = await poolNeon.query(
+          `SELECT id, name, email, phone FROM users WHERE id IN (${placeholders})`,
+          userIds
+        );
+        usersResult.rows.forEach(user => {
+          userMap.set(user.id, user);
+        });
+      }
+    } catch (neonError) {
+      console.warn('⚠️ [Tour Vendor] Neon users 조회 실패:', neonError.message);
+    } finally {
+      await poolNeon.end();
+    }
+
+    // ✅ 예약 데이터에 사용자 정보 병합
+    const bookingsWithUsers = (result.rows || []).map(booking => {
+      const neonUser = userMap.get(booking.user_id);
+      return {
+        ...booking,
+        customer_name: neonUser?.name || '',
+        customer_phone: neonUser?.phone || '',
+        customer_email: neonUser?.email || ''
+      };
+    });
 
     // 통계 조회
     const statsResult = await connection.execute(
@@ -184,7 +219,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       success: true,
       data: {
-        bookings: result.rows,
+        bookings: bookingsWithUsers,  // ✅ FIX: 사용자 정보 병합된 데이터 반환
         stats: {
           total: stats.total_bookings || 0,
           confirmed: stats.confirmed_count || 0,
@@ -197,7 +232,7 @@ module.exports = async function handler(req, res) {
       pagination: {
         limit: parseInt(limit),
         offset: parseInt(offset),
-        count: result.rows.length
+        count: bookingsWithUsers.length
       }
     });
 

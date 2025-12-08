@@ -1,4 +1,9 @@
+/**
+ * 관리자 리뷰 목록 조회 API
+ * ✅ FIX: users 테이블은 Neon PostgreSQL에 있으므로 별도 조회
+ */
 const { connect } = require('@planetscale/database');
+const { Pool } = require('@neondatabase/serverless');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,22 +21,58 @@ module.exports = async function handler(req, res) {
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
 
+    // ✅ FIX: users JOIN 제거
     const result = await connection.execute(`
       SELECT
         r.*,
-        u.name as user_name,
-        u.email as user_email,
         l.title as listing_title,
         l.category as listing_category
       FROM reviews r
-      LEFT JOIN users u ON r.user_id = u.id
       LEFT JOIN listings l ON r.listing_id = l.id
       ORDER BY r.created_at DESC
     `);
 
+    const reviews = result.rows || [];
+
+    // ✅ FIX: Neon PostgreSQL에서 사용자 정보 별도 조회
+    if (reviews.length > 0) {
+      const poolNeon = new Pool({
+        connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+      });
+
+      try {
+        const userIds = [...new Set(reviews.map(r => r.user_id).filter(Boolean))];
+
+        if (userIds.length > 0) {
+          const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+          const usersResult = await poolNeon.query(
+            `SELECT id, name, email FROM users WHERE id IN (${placeholders})`,
+            userIds
+          );
+
+          const userMap = new Map();
+          usersResult.rows.forEach(user => {
+            userMap.set(user.id, user);
+            userMap.set(String(user.id), user);
+          });
+
+          // 리뷰에 user 정보 추가
+          reviews.forEach(review => {
+            const user = userMap.get(review.user_id);
+            review.user_name = user?.name || '익명';
+            review.user_email = user?.email || null;
+          });
+        }
+      } catch (neonError) {
+        console.warn('⚠️ [Admin Reviews] Neon users 조회 실패:', neonError.message);
+      } finally {
+        await poolNeon.end();
+      }
+    }
+
     return res.status(200).json({
       success: true,
-      data: result.rows || []
+      data: reviews
     });
   } catch (error) {
     console.error('Error fetching reviews:', error);

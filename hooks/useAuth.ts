@@ -12,6 +12,7 @@ interface User {
   vendorType?: string; // 'stay' (숙박) 또는 'rental' (렌트카) 등
   vendorId?: number;   // 벤더 ID (관리자가 설정한 listing_id)
   partnerId?: number;  // 파트너 ID (가맹점)
+  businessName?: string; // 파트너 사업자명
   postal_code?: string;
   address?: string;
   detail_address?: string;

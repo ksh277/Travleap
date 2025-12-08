@@ -3,7 +3,7 @@
  * GET /api/vendor/events/bookings
  *
  * ⚠️ 주의: bookings 테이블 직접 조회
- * category_id=1862 (행사)로 필터링
+ * ✅ FIX: category_id=1861 (행사)로 필터링 (1862는 체험)
  */
 
 const { connect } = require('@planetscale/database');
@@ -88,7 +88,8 @@ module.exports = async function handler(req, res) {
     } = req.query;
 
     // 동적 쿼리 조건 생성
-    const conditions = ['l.partner_id = ?', 'l.category_id = 1862'];
+    // ✅ FIX: 행사는 category_id=1861 (1862는 체험)
+    const conditions = ['l.partner_id = ?', 'l.category_id = 1861'];
     const params = [partner_id];
 
     if (status) {
@@ -109,6 +110,7 @@ module.exports = async function handler(req, res) {
     const whereClause = conditions.join(' AND ');
 
     // ⚠️ CRITICAL: bookings 테이블 직접 조회
+    // ✅ FIX: users 테이블은 Neon PostgreSQL에 있으므로 JOIN 제거
     const result = await connection.execute(
       `SELECT
         b.id,
@@ -134,15 +136,11 @@ module.exports = async function handler(req, res) {
         b.created_at,
         l.title as event_title,
         l.images as event_images,
-        u.name as customer_name,
-        u.phone as customer_phone,
-        u.email as customer_email,
         p.method as payment_method_detail,
         p.card_company,
         p.virtual_account_bank
        FROM bookings b
        INNER JOIN listings l ON b.listing_id = l.id
-       LEFT JOIN users u ON b.user_id = u.id
        LEFT JOIN payments p ON b.id = p.booking_id
        WHERE ${whereClause}
        ORDER BY b.created_at DESC, b.start_date DESC
@@ -150,7 +148,33 @@ module.exports = async function handler(req, res) {
       [...params, parseInt(limit), parseInt(offset)]
     );
 
-    // customer_info JSON 파싱 및 티켓 정보 추출
+    // ✅ FIX: Neon PostgreSQL에서 사용자 정보 별도 조회
+    const { Pool } = require('@neondatabase/serverless');
+    const poolNeon = new Pool({
+      connectionString: process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL
+    });
+
+    let userMap = new Map();
+    try {
+      const userIds = [...new Set((result.rows || []).map(b => b.user_id).filter(Boolean))];
+
+      if (userIds.length > 0) {
+        const placeholders = userIds.map((_, i) => `$${i + 1}`).join(',');
+        const usersResult = await poolNeon.query(
+          `SELECT id, name, email, phone FROM users WHERE id IN (${placeholders})`,
+          userIds
+        );
+        usersResult.rows.forEach(user => {
+          userMap.set(user.id, user);
+        });
+      }
+    } catch (neonError) {
+      console.warn('⚠️ [Event Vendor] Neon users 조회 실패 (customer_info로 대체):', neonError.message);
+    } finally {
+      await poolNeon.end();
+    }
+
+    // customer_info JSON 파싱 및 티켓 정보 추출 + Neon 사용자 정보 병합
     const bookings = (result.rows || []).map(booking => {
       let customerInfo = null;
       let ticketInfo = { ticket_type: 'general', quantity: booking.num_adults || 1 };
@@ -170,13 +194,16 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // ✅ Neon에서 조회한 사용자 정보
+      const neonUser = userMap.get(booking.user_id);
+
       return {
         id: booking.id,
         order_number: booking.booking_number,
         event_title: booking.event_title,
-        customer_name: customerInfo?.name || booking.customer_name,
-        customer_email: customerInfo?.email || booking.customer_email,
-        customer_phone: customerInfo?.phone || booking.customer_phone,
+        customer_name: customerInfo?.name || neonUser?.name || '',
+        customer_email: customerInfo?.email || neonUser?.email || '',
+        customer_phone: customerInfo?.phone || neonUser?.phone || '',
         start_datetime: booking.start_date,
         ticket_type: ticketInfo.ticket_type,
         quantity: ticketInfo.quantity,
@@ -204,7 +231,7 @@ module.exports = async function handler(req, res) {
         SUM(COALESCE(b.num_adults, 0) + COALESCE(b.num_children, 0) + COALESCE(b.num_infants, 0)) as total_tickets
        FROM bookings b
        INNER JOIN listings l ON b.listing_id = l.id
-       WHERE l.partner_id = ? AND l.category_id = 1862`,
+       WHERE l.partner_id = ? AND l.category_id = 1861`,
       [partner_id]
     );
 

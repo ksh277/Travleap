@@ -859,6 +859,61 @@ function setupRoutes() {
   app.post('/api/login', handleLogin);
   app.post('/api/auth/login', handleLogin);
 
+  // SSO 토큰 생성 API (PINTO 연동)
+  app.post('/api/sso/generate', authenticate, async (req, res) => {
+    try {
+      const { SignJWT } = await import('jose');
+      const { target, redirect_path } = req.body;
+      const user = (req as any).user;
+
+      // 허용된 타겟 사이트들
+      const ALLOWED_TARGETS: Record<string, string[]> = {
+        'pinto': ['https://makepinto.com', 'https://pinto-now.vercel.app', 'http://localhost:3000'],
+        'travleap': ['https://travleap.com', 'https://travelap.vercel.app', 'http://localhost:5173']
+      };
+
+      if (!target || !ALLOWED_TARGETS[target]) {
+        return res.status(400).json({ success: false, error: '유효하지 않은 타겟 사이트입니다.' });
+      }
+
+      const secret = process.env.SSO_SECRET || process.env.JWT_SECRET;
+      if (!secret) {
+        return res.status(500).json({ success: false, error: 'SSO 설정 오류' });
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const username = user.name || user.email?.split('@')[0] || user.email;
+
+      const ssoToken = await new SignJWT({
+        user_id: user.userId,
+        email: user.email,
+        username: username,
+        name: user.name,
+        role: user.role,
+        source: 'travleap',
+        target: target,
+        redirect_path: redirect_path || '/'
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt(now)
+        .setExpirationTime(now + 300) // 5분
+        .sign(new TextEncoder().encode(secret));
+
+      const targetBaseUrl = ALLOWED_TARGETS[target][0];
+      const callbackUrl = `${targetBaseUrl}/sso/callback?token=${ssoToken}`;
+
+      console.log(`✅ [SSO Generate] ${user.email} → ${target}`);
+
+      return res.json({
+        success: true,
+        data: { token: ssoToken, callback_url: callbackUrl, expires_in: 300 }
+      });
+    } catch (error) {
+      console.error('❌ [SSO Generate] Error:', error);
+      return res.status(500).json({ success: false, error: '토큰 생성 중 오류가 발생했습니다.' });
+    }
+  });
+
   // 회원가입 API
   app.post('/api/register', async (req, res) => {
     try {
@@ -1430,10 +1485,16 @@ function setupRoutes() {
   // ===== 숙박 & 렌트카 목록 API =====
 
   // 숙박 호텔 목록 (partner 기준 그룹핑)
-  app.get('/api/accommodations', async (_req, res) => {
+  app.get('/api/accommodations', async (req, res) => {
     try {
       const { connect } = await import('@planetscale/database');
       const connection = connect({ url: process.env.DATABASE_URL! });
+
+      // forPartners=true면 파트너 전용 포함, 아니면 일반 숙소만 표시
+      const forPartners = req.query.forPartners === 'true';
+      const partnerOnlyFilter = forPartners
+        ? '' // 가맹점 페이지: 모든 숙소 표시
+        : 'AND (l.is_partner_only = 0 OR l.is_partner_only IS NULL)'; // 카테고리 페이지: 파트너 전용 제외
 
       const hotels = await connection.execute(`
         SELECT
@@ -1463,7 +1524,7 @@ function setupRoutes() {
             WHERE l2.partner_id = p.id AND r.is_hidden = 0
           ) as total_reviews
         FROM partners p
-        LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = 1857 AND l.is_published = 1 AND l.is_active = 1
+        LEFT JOIN listings l ON p.id = l.partner_id AND l.category_id = 1857 AND l.is_published = 1 AND l.is_active = 1 ${partnerOnlyFilter}
         WHERE p.is_active = 1
         GROUP BY p.id, p.business_name, p.contact_name, p.phone, p.email, p.tier, p.is_verified, p.is_featured
         HAVING room_count > 0
@@ -1605,11 +1666,17 @@ function setupRoutes() {
       const minPrice = req.query.minPrice ? parseInt(req.query.minPrice as string) : undefined;
       const maxPrice = req.query.maxPrice ? parseInt(req.query.maxPrice as string) : undefined;
       const rating = req.query.rating ? parseFloat(req.query.rating as string) : undefined;
+      const forPartners = req.query.forPartners === 'true'; // 가맹점 페이지용
 
       const offset = (page - 1) * limit;
 
       // 데이터베이스 동적 import
       const { db } = await import('./utils/database.js');
+
+      // forPartners=true면 파트너 전용 포함, 아니면 일반 상품만 (카테고리 페이지용)
+      const partnerFilter = forPartners
+        ? '' // 가맹점 페이지: 모든 리스팅 표시
+        : 'AND (l.is_partner_only = 0 OR l.is_partner_only IS NULL)'; // 카테고리 페이지: 파트너 전용 제외
 
       // 기본 쿼리
       let sql = `
@@ -1617,6 +1684,7 @@ function setupRoutes() {
         FROM listings l
         LEFT JOIN categories c ON l.category_id = c.id
         WHERE l.is_published = 1 AND l.is_active = 1
+        ${partnerFilter}
       `;
       const params: any[] = [];
 

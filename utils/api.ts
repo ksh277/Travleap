@@ -143,6 +143,7 @@ export interface SearchFilters {
   page?: number;
   limit?: number;
   verifiedOnly?: boolean;
+  forPartners?: boolean; // 가맹점 페이지용 - 파트너 전용 리스팅 포함
 }
 
 // 확장된 리뷰 인터페이스 (UI에서 사용)
@@ -244,6 +245,7 @@ export const api = {
       if (filters?.minPrice) params.append('minPrice', filters.minPrice.toString());
       if (filters?.maxPrice) params.append('maxPrice', filters.maxPrice.toString());
       if (filters?.rating) params.append('rating', filters.rating.toString());
+      if (filters?.forPartners) params.append('forPartners', 'true');
 
       const url = `${API_BASE_URL}/api/listings?${params.toString()}`;
       console.log('📡 Fetching listings from API:', url);

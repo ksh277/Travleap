@@ -186,7 +186,7 @@ export function Header({
     <header className="sticky top-0 z-50 w-full">
       {/* 상단 연보라 탑바 */}
       <div className="bg-[#858dc5] h-[48px] md:h-[55px] flex items-center">
-        <div className="w-full px-4 md:px-[60px] flex items-center justify-between text-[13px] md:text-[14px] text-white">
+        <div className="w-full px-2 md:px-[60px] flex items-center justify-between text-[13px] md:text-[14px] text-white">
           {/* 왼쪽 */}
           <div className="flex items-center gap-2 md:gap-3">
             <div className="flex gap-2 md:gap-3 items-center">
@@ -274,7 +274,7 @@ export function Header({
 
       {/* 네비게이션 바 */}
       <nav className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="h-[67px] md:h-[100px] w-full px-4 md:px-[60px] flex items-center">
+        <div className="h-[67px] md:h-[100px] w-full px-2 md:px-[60px] flex items-center">
           {/* 왼쪽: 로고 + 메뉴 */}
           <div className="flex items-center gap-4 md:gap-8">
             {/* 로고 */}
@@ -295,24 +295,22 @@ export function Header({
                         {item.name}
                         <ChevronDown className="w-3 h-3 ml-1" />
                       </button>
-                      {/* 드롭다운 메뉴 - 2열 4행 */}
-                      <div className="absolute top-full left-0 mt-2 w-[260px] bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                        <div className="grid grid-cols-2 gap-0.5 p-1.5">
-                          {categories.map((category) => (
-                            <button
-                              key={category.id}
-                              className="block select-none rounded-md p-1.5 leading-none no-underline outline-none transition-colors hover:bg-gray-50 cursor-pointer text-center"
-                              onClick={() =>
-                                navigate(`/category/${category.id}`)
-                              }
-                            >
-                              <div className="flex flex-col items-center justify-center h-full py-3">
-                                <div className="leading-none text-sm font-medium">
-                                  {category.name}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
+                      {/* 카테고리 가로 바 - 전체 너비 */}
+                      <div className="fixed left-0 right-0 top-[103px] md:top-[155px] bg-white border-b border-gray-200 shadow-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                        <div className="w-full px-[60px] py-4">
+                          <div className="flex items-center justify-between">
+                            {categories.map((category) => (
+                              <button
+                                key={category.id}
+                                className="flex-1 py-3 text-base font-semibold text-gray-700 hover:text-[#858dc5] hover:bg-[#f8f8fc] rounded-lg transition-all duration-200 whitespace-nowrap"
+                                onClick={() =>
+                                  navigate(`/category/${category.id}`)
+                                }
+                              >
+                                {category.name}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
