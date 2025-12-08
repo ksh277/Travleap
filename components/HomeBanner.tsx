@@ -112,12 +112,16 @@ export function HomeBanner({ autoSlideInterval = 5000 }: HomeBannerProps) {
                 playsInline
               />
             ) : (
-              /* 이미지 배너 (기본) - 원본 화질 유지 */
+              /* 이미지 배너 (기본) - 원본 화질 유지, 확대 방지 */
               <img
                 src={banner.image_url}
                 alt={banner.title || `배너 ${index + 1}`}
-                className="w-full h-auto"
-                style={{ imageRendering: 'auto' }}
+                className="w-full h-auto mx-auto"
+                style={{
+                  maxWidth: '100%',
+                  height: 'auto',
+                  imageRendering: 'auto'
+                }}
                 loading="eager"
                 decoding="sync"
               />
