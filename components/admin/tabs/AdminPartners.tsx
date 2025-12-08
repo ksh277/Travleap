@@ -806,22 +806,72 @@ function PartnerForm({ formData, setFormData }: any) {
       <div className="col-span-2 border rounded-lg p-4 bg-gray-50">
         <Label className="flex items-center gap-2 mb-3">
           <MapPin className="w-4 h-4 text-red-500" />
-          위치 미리보기
+          위치 설정
         </Label>
 
-        {/* 지도 미리보기 (iframe) */}
+        {/* 지도 - ref 콜백으로 초기화 */}
         {formData.lat && formData.lng ? (
           <div className="relative mb-3">
-            <iframe
-              src={`https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${formData.lat},${formData.lng}&zoom=15&language=ko`}
-              className="w-full rounded-lg border"
+            <div
+              className="w-full rounded-lg border bg-gray-200"
               style={{ height: '250px' }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
+              ref={(el) => {
+                if (el && formData.lat && formData.lng && (window as any).google?.maps) {
+                  // 이미 지도가 있으면 스킵
+                  if ((el as any).__map) return;
+
+                  const lat = formData.lat;
+                  const lng = formData.lng;
+
+                  const map = new (window as any).google.maps.Map(el, {
+                    center: { lat, lng },
+                    zoom: 15,
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    fullscreenControl: false
+                  });
+
+                  const marker = new (window as any).google.maps.Marker({
+                    position: { lat, lng },
+                    map,
+                    draggable: true,
+                    title: '드래그하여 위치 조정'
+                  });
+
+                  // 마커 드래그 시 좌표 업데이트
+                  marker.addListener('dragend', () => {
+                    const pos = marker.getPosition();
+                    const newLat = parseFloat(pos.lat().toFixed(7));
+                    const newLng = parseFloat(pos.lng().toFixed(7));
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      lat: newLat,
+                      lng: newLng
+                    }));
+                  });
+
+                  // 지도 클릭 시 마커 이동
+                  map.addListener('click', (e: any) => {
+                    if (e.latLng) {
+                      marker.setPosition(e.latLng);
+                      const newLat = parseFloat(e.latLng.lat().toFixed(7));
+                      const newLng = parseFloat(e.latLng.lng().toFixed(7));
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        lat: newLat,
+                        lng: newLng
+                      }));
+                    }
+                  });
+
+                  // 지도 인스턴스 저장 (중복 생성 방지)
+                  (el as any).__map = map;
+                  (el as any).__marker = marker;
+                }
+              }}
             />
             <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded text-xs text-green-600 font-medium shadow">
-              ✓ 현재 위치
+              ✓ 핀을 드래그하여 위치 조정
             </div>
           </div>
         ) : (
@@ -832,11 +882,6 @@ function PartnerForm({ formData, setFormData }: any) {
             </div>
           </div>
         )}
-
-        {/* 좌표 직접 조정 안내 */}
-        <p className="text-xs text-gray-500 mb-2">
-          💡 위치가 정확하지 않다면 아래 좌표를 직접 수정하세요
-        </p>
 
         {/* 좌표 입력 */}
         <div className="grid grid-cols-2 gap-4">
@@ -862,7 +907,7 @@ function PartnerForm({ formData, setFormData }: any) {
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          {mapLoaded ? '✅ 지도를 클릭하거나 빨간 핀을 드래그해서 정확한 위치를 지정하세요' : '💡 지도가 로드되면 위치를 지정할 수 있습니다'}
+          💡 지도에서 핀을 드래그하거나 클릭하여 정확한 위치를 지정하세요
         </p>
       </div>
 
