@@ -816,44 +816,49 @@ function PartnerForm({ formData, setFormData }: any) {
     }
   }, [formData.lat, formData.lng, mapLoaded]);
 
-  // 주소로 좌표 검색 (Google Geocoding API)
-  const searchAddressCoords = async () => {
-    if (!formData.business_address) {
-      toast.error('주소를 먼저 입력해주세요');
+  // Daum 주소 검색 열기
+  const openDaumPostcode = () => {
+    const daum = (window as any).daum;
+    if (!daum?.Postcode) {
+      toast.error('주소 검색 서비스를 불러올 수 없습니다');
       return;
     }
 
-    setIsSearching(true);
-    try {
-      const google = (window as any).google;
-      if (!google?.maps) {
-        toast.error('Google Maps가 로드되지 않았습니다');
-        return;
-      }
+    new daum.Postcode({
+      oncomplete: async (data: any) => {
+        const fullAddress = data.roadAddress || data.jibunAddress;
 
-      const geocoder = new google.maps.Geocoder();
-      const result = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
-        geocoder.geocode({ address: formData.business_address }, (results: any, status: any) => {
-          if (status === 'OK' && results) {
-            resolve(results);
-          } else {
-            reject(new Error('주소를 찾을 수 없습니다'));
+        // 주소 저장
+        setFormData((prev: any) => ({ ...prev, business_address: fullAddress }));
+
+        // 좌표 검색
+        setIsSearching(true);
+        try {
+          const google = (window as any).google;
+          if (!google?.maps) {
+            toast.error('Google Maps가 로드되지 않았습니다');
+            return;
           }
-        });
-      });
 
-      if (result.length > 0) {
-        const location = result[0].geometry.location;
-        const lat = location.lat();
-        const lng = location.lng();
-        setFormData((prev: any) => ({ ...prev, lat, lng }));
-        toast.success('주소로 좌표를 찾았습니다');
+          const geocoder = new google.maps.Geocoder();
+          geocoder.geocode({ address: fullAddress }, (results: any, status: any) => {
+            if (status === 'OK' && results && results.length > 0) {
+              const location = results[0].geometry.location;
+              const lat = location.lat();
+              const lng = location.lng();
+              setFormData((prev: any) => ({ ...prev, lat, lng }));
+              toast.success('주소와 좌표가 설정되었습니다. 지도에서 위치를 조정하세요.');
+            } else {
+              toast.error('좌표를 찾을 수 없습니다. 지도에서 직접 위치를 지정해주세요.');
+            }
+            setIsSearching(false);
+          });
+        } catch {
+          toast.error('좌표 검색 중 오류가 발생했습니다');
+          setIsSearching(false);
+        }
       }
-    } catch {
-      toast.error('주소를 찾을 수 없습니다');
-    } finally {
-      setIsSearching(false);
-    }
+    }).open();
   };
 
   return (
@@ -920,23 +925,24 @@ function PartnerForm({ formData, setFormData }: any) {
       </div>
 
       <div className="col-span-2">
-        <Label>주소</Label>
+        <Label>주소 *</Label>
         <div className="flex gap-2">
           <Input
             value={formData.business_address}
-            onChange={(e) => setFormData({ ...formData, business_address: e.target.value })}
-            placeholder="사업장 주소"
-            className="flex-1"
+            readOnly
+            placeholder="주소 검색을 클릭하세요"
+            className="flex-1 bg-gray-50"
           />
-          <Button type="button" variant="outline" onClick={searchAddressCoords} disabled={isSearching}>
+          <Button type="button" variant="outline" onClick={openDaumPostcode} disabled={isSearching}>
             {isSearching ? (
               <Loader2 className="w-4 h-4 mr-1 animate-spin" />
             ) : (
               <Search className="w-4 h-4 mr-1" />
             )}
-            좌표 찾기
+            주소 검색
           </Button>
         </div>
+        <p className="text-xs text-gray-500 mt-1">주소 검색 후 아래 지도에서 정확한 위치를 조정할 수 있습니다</p>
       </div>
 
       {/* 지도 핀 설정 섹션 */}
