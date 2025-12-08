@@ -590,8 +590,8 @@ export function AttractionsVendorDashboard() {
       '방문일시': order.visit_date ? new Date(order.visit_date).toLocaleString('ko-KR') : '-',
       '티켓정보': Array.isArray(order.tickets) ? order.tickets.map((t: any) => `${t.type_name} ${t.count}매`).join(', ') : '티켓 정보',
       '성인': order.adults || 0,
-      '어린이': order.children || 0,
-      '유아': order.infants || 0,
+      '미성년자': order.children || 0,
+      '어린이': order.infants || 0,
       '총인원': (order.adults || 0) + (order.children || 0) + (order.infants || 0),
       '금액': order.total_amount,
       '결제상태': order.payment_status === 'paid' ? '결제완료' : order.payment_status === 'pending' ? '대기중' : order.payment_status === 'refunded' ? '환불완료' : '실패',
@@ -918,8 +918,8 @@ export function AttractionsVendorDashboard() {
                               ) : (order.adults !== undefined || order.children !== undefined || order.infants !== undefined) ? (
                                 <div className="text-sm space-y-0.5">
                                   {order.adults > 0 && <div>성인 {order.adults}명</div>}
-                                  {order.children > 0 && <div>어린이 {order.children}명</div>}
-                                  {order.infants > 0 && <div>유아 {order.infants}명</div>}
+                                  {order.children > 0 && <div>미성년자 {order.children}명</div>}
+                                  {order.infants > 0 && <div>어린이 {order.infants}명</div>}
                                 </div>
                               ) : '티켓 정보'}
                             </TableCell>
@@ -1465,13 +1465,13 @@ export function AttractionsVendorDashboard() {
                       )}
                       {selectedOrder.children > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">어린이:</span>
+                          <span className="text-gray-600">미성년자:</span>
                           <span className="font-medium">{selectedOrder.children}명</span>
                         </div>
                       )}
                       {selectedOrder.infants > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">유아:</span>
+                          <span className="text-gray-600">어린이:</span>
                           <span className="font-medium">{selectedOrder.infants}명</span>
                         </div>
                       )}

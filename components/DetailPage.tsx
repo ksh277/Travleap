@@ -328,6 +328,8 @@ export function DetailPage() {
           description: data.description_md || '',
           shortDescription: data.short_description || '',
           price: data.price_from || 0,
+          childPrice: data.child_price ? Number(data.child_price) : undefined,
+          infantPrice: data.infant_price ? Number(data.infant_price) : undefined,
           location: data.location || '신안군',
           address: data.address || categoryDetails?.address || '',
           duration: data.duration || categoryDetails?.duration || '1시간',
@@ -621,7 +623,7 @@ export function DetailPage() {
         return false;
       }
       if (adults < 1 && children < 1) {
-        toast.error('최소 1명 이상의 성인 또는 어린이가 필요합니다.');
+        toast.error('최소 1명 이상의 성인 또는 미성년자가 필요합니다.');
         return false;
       }
     } else {
@@ -1321,13 +1323,13 @@ export function DetailPage() {
                     </div>
                   )}
 
-                  {/* 유아 옵션 */}
+                  {/* 어린이 옵션 */}
                   {item.infantPrice && item.infantPrice > 0 && (
                     <div className="p-4 border rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-white">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <h3 className="font-semibold mb-1">유아</h3>
-                          <p className="text-sm text-gray-600">만 0세 ~ 5세</p>
+                          <h3 className="font-semibold mb-1">어린이</h3>
+                          <p className="text-sm text-gray-600">만 0세 ~ 12세</p>
                         </div>
                         <div className="text-right">
                           <div className="text-2xl font-bold text-blue-600">
@@ -2612,12 +2614,12 @@ export function DetailPage() {
                               </div>
                             </div>
 
-                            {/* 어린이 - 가격 설정된 경우만 표시 */}
+                            {/* 미성년자 - 가격 설정된 경우만 표시 */}
                             {item.childPrice && item.childPrice > 0 && (
                               <div className="flex items-center justify-between border rounded-md px-4 py-3">
                                 <div>
-                                  <div className="font-medium">어린이</div>
-                                  <div className="text-xs text-gray-500">6-17세</div>
+                                  <div className="font-medium">미성년자</div>
+                                  <div className="text-xs text-gray-500">13-17세</div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <Button
@@ -2645,12 +2647,12 @@ export function DetailPage() {
                               </div>
                             )}
 
-                            {/* 유아 - 가격 설정된 경우만 표시 */}
+                            {/* 어린이 - 가격 설정된 경우만 표시 */}
                             {item.infantPrice && item.infantPrice > 0 && (
                               <div className="flex items-center justify-between border rounded-md px-4 py-3">
                                 <div>
-                                  <div className="font-medium">유아</div>
-                                  <div className="text-xs text-gray-500">0-5세</div>
+                                  <div className="font-medium">어린이</div>
+                                  <div className="text-xs text-gray-500">0-12세</div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <Button
@@ -2723,13 +2725,13 @@ export function DetailPage() {
                             )}
                             {children > 0 && item.childPrice && item.childPrice > 0 && (
                               <div className="flex justify-between items-center text-sm">
-                                <span>어린이</span>
+                                <span>미성년자</span>
                                 <span>{item.childPrice.toLocaleString()}원 x {children}명</span>
                               </div>
                             )}
                             {infants > 0 && item.infantPrice && item.infantPrice > 0 && (
                               <div className="flex justify-between items-center text-sm">
-                                <span>유아</span>
+                                <span>어린이</span>
                                 <span>{item.infantPrice.toLocaleString()}원 x {infants}명</span>
                               </div>
                             )}
@@ -2901,7 +2903,7 @@ export function DetailPage() {
                           ) : (
                             <>
                               <div>날짜: {selectedDate && formatDate(selectedDate)}</div>
-                              <div>인원: 성인 {adults}명{children > 0 ? `, 어린이 ${children}명` : ''}{infants > 0 ? `, 유아 ${infants}명` : ''}</div>
+                              <div>인원: 성인 {adults}명{children > 0 ? `, 미성년자 ${children}명` : ''}{infants > 0 ? `, 어린이 ${infants}명` : ''}</div>
                               <div>총 금액: {priceCalculation.total.toLocaleString()}원</div>
                             </>
                           )}

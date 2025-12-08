@@ -3279,11 +3279,11 @@ export function AdminPage({}: AdminPageProps) {
                               />
                             </div>
 
-                            {/* 팝업이 아닐 때만 어린이/유아 가격 표시 */}
+                            {/* 팝업이 아닐 때만 미성년자/어린이 가격 표시 */}
                             {newProduct.category !== '팝업' && (
                               <>
                                 <div>
-                                  <label className="text-sm font-medium mb-1 block">어린이 가격</label>
+                                  <label className="text-sm font-medium mb-1 block">미성년자 가격</label>
                                   <Input
                                     type="number"
                                     value={newProduct.childPrice || ''}
@@ -3292,7 +3292,7 @@ export function AdminPage({}: AdminPageProps) {
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-sm font-medium mb-1 block">유아 가격</label>
+                                  <label className="text-sm font-medium mb-1 block">어린이 가격</label>
                                   <Input
                                     type="number"
                                     value={newProduct.infantPrice || ''}
@@ -4765,8 +4765,8 @@ export function AdminPage({}: AdminPageProps) {
                             ) : (
                               <div className="text-xs text-gray-500">
                                 성인 {order.num_adults}명
-                                {order.num_children > 0 ? `, 아동 ${order.num_children}명` : ''}
-                                {order.num_infants > 0 ? `, 유아 ${order.num_infants}명` : ''}
+                                {order.num_children > 0 ? `, 미성년자 ${order.num_children}명` : ''}
+                                {order.num_infants > 0 ? `, 어린이 ${order.num_infants}명` : ''}
                                 {order.num_seniors > 0 ? `, 경로 ${order.num_seniors}명` : ''}
                               </div>
                             )}
@@ -6262,11 +6262,11 @@ export function AdminPage({}: AdminPageProps) {
                       )}
                     />
                   </div>
-                  {/* 팝업이 아닐 때만 어린이/유아 가격 표시 */}
+                  {/* 팝업이 아닐 때만 미성년자/어린이 가격 표시 */}
                   {editingProduct.category !== '팝업' && (
                     <>
                       <div>
-                        <label className="text-sm font-medium mb-1 block">어린이 가격</label>
+                        <label className="text-sm font-medium mb-1 block">미성년자 가격</label>
                         <Input
                           type="number"
                           value={(editingProduct as any).childPrice || ''}
@@ -6277,7 +6277,7 @@ export function AdminPage({}: AdminPageProps) {
                         />
                       </div>
                       <div>
-                        <label className="text-sm font-medium mb-1 block">유아 가격</label>
+                        <label className="text-sm font-medium mb-1 block">어린이 가격</label>
                         <Input
                           type="number"
                           value={(editingProduct as any).infantPrice || ''}
@@ -6970,25 +6970,25 @@ export function AdminPage({}: AdminPageProps) {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-1 block">어린이 가격</label>
+                    <label className="text-sm font-medium mb-1 block">미성년자 가격</label>
                     <Input
                       type="number"
                       value={editingProduct.childPrice || ''}
                       onChange={(e) => setEditingProduct(prev =>
                         prev ? { ...prev, childPrice: parseInt(e.target.value) || 0 } : null
                       )}
-                      placeholder="어린이 가격"
+                      placeholder="미성년자 가격"
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-1 block">유아 가격</label>
+                    <label className="text-sm font-medium mb-1 block">어린이 가격</label>
                     <Input
                       type="number"
                       value={editingProduct.infantPrice || ''}
                       onChange={(e) => setEditingProduct(prev =>
                         prev ? { ...prev, infantPrice: parseInt(e.target.value) || 0 } : null
                       )}
-                      placeholder="유아 가격"
+                      placeholder="어린이 가격"
                     />
                   </div>
                 </div>

@@ -629,8 +629,8 @@ export function FoodVendorDashboard() {
       '이메일': order.customer_email || '-',
       '예약시간': order.reservation_datetime ? new Date(order.reservation_datetime).toLocaleString('ko-KR') : '-',
       '성인': order.adults || 0,
-      '어린이': order.children || 0,
-      '유아': order.infants || 0,
+      '미성년자': order.children || 0,
+      '어린이': order.infants || 0,
       '총인원': (order.adults || 0) + (order.children || 0) + (order.infants || 0) || order.party_size || 0,
       '금액': order.total_amount ? `${order.total_amount.toLocaleString()}원` : '-',
       '결제상태': order.payment_status === 'paid' ? '결제완료' : order.payment_status === 'pending' ? '결제대기' : order.payment_status === 'failed' ? '결제실패' : order.payment_status === 'refunded' ? '환불완료' : order.payment_status,
@@ -975,8 +975,8 @@ export function FoodVendorDashboard() {
                                    (order.infants !== undefined && order.infants > 0) ? (
                                     <div className="text-sm">
                                       {order.adults > 0 && `성인 ${order.adults}명`}
-                                      {order.children > 0 && `${order.adults > 0 ? ', ' : ''}어린이 ${order.children}명`}
-                                      {order.infants > 0 && `${(order.adults > 0 || order.children > 0) ? ', ' : ''}유아 ${order.infants}명`}
+                                      {order.children > 0 && `${order.adults > 0 ? ', ' : ''}미성년자 ${order.children}명`}
+                                      {order.infants > 0 && `${(order.adults > 0 || order.children > 0) ? ', ' : ''}어린이 ${order.infants}명`}
                                     </div>
                                   ) : (
                                     <span>{order.party_size}명</span>
@@ -1501,8 +1501,8 @@ export function FoodVendorDashboard() {
                        (selectedOrder.infants !== undefined && selectedOrder.infants > 0) ? (
                         <>
                           {selectedOrder.adults > 0 && `성인 ${selectedOrder.adults}명`}
-                          {selectedOrder.children > 0 && `${selectedOrder.adults > 0 ? ', ' : ''}어린이 ${selectedOrder.children}명`}
-                          {selectedOrder.infants > 0 && `${(selectedOrder.adults > 0 || selectedOrder.children > 0) ? ', ' : ''}유아 ${selectedOrder.infants}명`}
+                          {selectedOrder.children > 0 && `${selectedOrder.adults > 0 ? ', ' : ''}미성년자 ${selectedOrder.children}명`}
+                          {selectedOrder.infants > 0 && `${(selectedOrder.adults > 0 || selectedOrder.children > 0) ? ', ' : ''}어린이 ${selectedOrder.infants}명`}
                         </>
                       ) : (
                         `${selectedOrder.party_size}명`

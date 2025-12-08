@@ -586,8 +586,8 @@ export function ExperienceVendorDashboard() {
       '체험일시': booking.slot_datetime ? new Date(booking.slot_datetime).toLocaleString('ko-KR') : '-',
       '인원': booking.participant_count,
       '성인': booking.adults || 0,
-      '어린이': booking.children || 0,
-      '유아': booking.infants || 0,
+      '미성년자': booking.children || 0,
+      '어린이': booking.infants || 0,
       '총인원': (booking.adults || 0) + (booking.children || 0) + (booking.infants || 0),
       '금액': booking.total_amount,
       '결제상태': booking.payment_status === 'paid' ? '결제완료' : booking.payment_status === 'pending' ? '결제대기' : booking.payment_status === 'failed' ? '결제실패' : booking.payment_status === 'refunded' ? '환불완료' : booking.payment_status,
@@ -908,8 +908,8 @@ export function ExperienceVendorDashboard() {
                                (booking.infants !== undefined && booking.infants > 0) ? (
                                 <div className="text-sm space-y-0.5">
                                   {booking.adults > 0 && <div>성인 {booking.adults}명</div>}
-                                  {booking.children > 0 && <div>어린이 {booking.children}명</div>}
-                                  {booking.infants > 0 && <div>유아 {booking.infants}명</div>}
+                                  {booking.children > 0 && <div>미성년자 {booking.children}명</div>}
+                                  {booking.infants > 0 && <div>어린이 {booking.infants}명</div>}
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-1">
@@ -1445,13 +1445,13 @@ export function ExperienceVendorDashboard() {
                       )}
                       {selectedBooking.children > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">어린이:</span>
+                          <span className="text-gray-600">미성년자:</span>
                           <span className="font-medium">{selectedBooking.children}명</span>
                         </div>
                       )}
                       {selectedBooking.infants > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">유아:</span>
+                          <span className="text-gray-600">어린이:</span>
                           <span className="font-medium">{selectedBooking.infants}명</span>
                         </div>
                       )}

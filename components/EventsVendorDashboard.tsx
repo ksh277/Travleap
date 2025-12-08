@@ -590,8 +590,8 @@ export function EventsVendorDashboard() {
       '티켓종류': order.ticket_type === 'general' ? '일반석' : 'VIP석',
       '수량': order.quantity,
       '성인': order.adults || 0,
-      '어린이': order.children || 0,
-      '유아': order.infants || 0,
+      '미성년자': order.children || 0,
+      '어린이': order.infants || 0,
       '총인원': (order.adults || 0) + (order.children || 0) + (order.infants || 0),
       '금액': order.total_amount,
       '결제상태': order.payment_status === 'paid' ? '결제완료' :
@@ -906,8 +906,8 @@ export function EventsVendorDashboard() {
                                (order.infants !== undefined && order.infants > 0) ? (
                                 <div className="text-sm space-y-0.5">
                                   {order.adults > 0 && <div>성인 {order.adults}명</div>}
-                                  {order.children > 0 && <div>어린이 {order.children}명</div>}
-                                  {order.infants > 0 && <div>유아 {order.infants}명</div>}
+                                  {order.children > 0 && <div>미성년자 {order.children}명</div>}
+                                  {order.infants > 0 && <div>어린이 {order.infants}명</div>}
                                   <div className="text-xs text-gray-500 mt-1">
                                     {order.ticket_type === 'general' ? '일반석' : 'VIP석'}
                                   </div>
@@ -1473,13 +1473,13 @@ export function EventsVendorDashboard() {
                       )}
                       {selectedOrder.children > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">어린이:</span>
+                          <span className="text-gray-600">미성년자:</span>
                           <span className="font-medium">{selectedOrder.children}명</span>
                         </div>
                       )}
                       {selectedOrder.infants > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">유아:</span>
+                          <span className="text-gray-600">어린이:</span>
                           <span className="font-medium">{selectedOrder.infants}명</span>
                         </div>
                       )}

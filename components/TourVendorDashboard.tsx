@@ -465,8 +465,8 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
       '이메일': booking.user_email,
       '투어일시': `${booking.departure_date} ${booking.departure_time}`,
       '성인': booking.adult_count,
-      '아동': booking.child_count,
-      '유아': booking.infant_count,
+      '미성년자': booking.child_count,
+      '어린이': booking.infant_count,
       '총인원': booking.adult_count + booking.child_count + booking.infant_count,
       '금액': booking.total_price_krw,
       '결제상태': booking.payment_status === 'paid' ? '결제완료' : booking.payment_status === 'refunded' ? '환불완료' : booking.payment_status === 'pending' ? '대기중' : booking.payment_status || '-',
@@ -1045,8 +1045,8 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                             </td>
                             <td>
                               성인 {booking.adult_count}
-                              {booking.child_count > 0 && `, 아동 ${booking.child_count}`}
-                              {booking.infant_count > 0 && `, 유아 ${booking.infant_count}`}
+                              {booking.child_count > 0 && `, 미성년자 ${booking.child_count}`}
+                              {booking.infant_count > 0 && `, 어린이 ${booking.infant_count}`}
                             </td>
                             <td>
                               <div>
@@ -1854,7 +1854,7 @@ const TourVendorDashboard = ({ vendorId }: { vendorId: number }) => {
                   )}
                   {selectedBooking.infant_count > 0 && (
                     <div>
-                      <span style={{ fontWeight: '500', color: '#374151' }}>유아:</span>
+                      <span style={{ fontWeight: '500', color: '#374151' }}>어린이:</span>
                       <span style={{ marginLeft: '8px', color: '#111827', fontWeight: '600' }}>{selectedBooking.infant_count}명</span>
                     </div>
                   )}

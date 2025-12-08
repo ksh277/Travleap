@@ -593,7 +593,7 @@ export function VendorDashboard({ categoryFilter, categoryName }: VendorDashboar
                   </div>
 
                   <div>
-                    <Label htmlFor="child_price">어린이 가격 (원)</Label>
+                    <Label htmlFor="child_price">미성년자 가격 (원)</Label>
                     <Input
                       id="child_price"
                       type="number"
