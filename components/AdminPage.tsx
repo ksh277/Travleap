@@ -154,6 +154,7 @@ const loadProducts = async (): Promise<Product[]> => {
         image: (Array.isArray(imagesArray) && imagesArray.length > 0)
           ? imagesArray[0]
           : 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=300&h=200&fit=crop',
+        images: imagesArray, // 전체 이미지 배열 저장
         description: listing.short_description || '상세 정보를 확인해보세요.',
         longDescription: longDesc,
         descriptionType: isImageDesc ? 'image' : 'text',
@@ -1576,7 +1577,9 @@ export function AdminPage({}: AdminPageProps) {
         category_id: categoryMap[editingProduct.category] || 1855,
         category: categorySlug,  // ✅ 영문 slug로 저장
         partner_id: null,
-        images: [editingProduct.image].filter(img => img && img.trim() !== ''),
+        images: ((editingProduct as any).images && (editingProduct as any).images.length > 0)
+          ? (editingProduct as any).images.filter((img: string) => img && img.trim() !== '')
+          : [editingProduct.image].filter(img => img && img.trim() !== ''),
         maxCapacity: 20,
         highlights: [],
         included: [],
@@ -6470,19 +6473,31 @@ export function AdminPage({}: AdminPageProps) {
                 <h3 className="text-lg font-medium mb-3">이미지</h3>
                 <div className="space-y-4">
                   {/* 현재 이미지 목록 */}
-                  {editingProduct.image && (
+                  {(editingProduct as any).images && (editingProduct as any).images.length > 0 && (
                     <div>
-                      <label className="text-sm font-medium mb-2 block">현재 메인 이미지</label>
-                      <div className="flex gap-2 items-center">
-                        <ImageWithFallback src={editingProduct.image} alt="메인 이미지" className="w-24 h-24 object-cover rounded" />
-                        <Input
-                          value={editingProduct.image}
-                          onChange={(e) => setEditingProduct(prev =>
-                            prev ? { ...prev, image: e.target.value } : null
-                          )}
-                          placeholder="이미지 URL"
-                          className="flex-1"
-                        />
+                      <label className="text-sm font-medium mb-2 block">등록된 이미지 ({(editingProduct as any).images.length}개)</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {(editingProduct as any).images.map((img: string, idx: number) => (
+                          <div key={idx} className="relative group">
+                            <ImageWithFallback src={img} alt={`이미지 ${idx + 1}`} className="w-full h-20 object-cover rounded" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newImages = [...(editingProduct as any).images];
+                                newImages.splice(idx, 1);
+                                setEditingProduct(prev =>
+                                  prev ? { ...prev, images: newImages, image: newImages[0] || '' } : null
+                                );
+                              }}
+                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              ✕
+                            </button>
+                            {idx === 0 && (
+                              <span className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">메인</span>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -6500,8 +6515,9 @@ export function AdminPage({}: AdminPageProps) {
                           if (e.key === 'Enter') {
                             const url = e.currentTarget.value.trim();
                             if (url) {
+                              const currentImages = (editingProduct as any).images || [];
                               setEditingProduct(prev =>
-                                prev ? { ...prev, image: url } : null
+                                prev ? { ...prev, images: [...currentImages, url], image: currentImages[0] || url } : null
                               );
                               e.currentTarget.value = '';
                             }
@@ -6515,8 +6531,9 @@ export function AdminPage({}: AdminPageProps) {
                           const input = document.getElementById('edit-new-image-url') as HTMLInputElement;
                           const url = input?.value.trim();
                           if (url) {
+                            const currentImages = (editingProduct as any).images || [];
                             setEditingProduct(prev =>
-                              prev ? { ...prev, image: url } : null
+                              prev ? { ...prev, images: [...currentImages, url], image: currentImages[0] || url } : null
                             );
                             input.value = '';
                           }
@@ -6559,8 +6576,9 @@ export function AdminPage({}: AdminPageProps) {
                                 const result = await response.json();
 
                                 if (result.success && result.url) {
+                                  const currentImages = (editingProduct as any).images || [];
                                   setEditingProduct(prev =>
-                                    prev ? { ...prev, image: result.url } : null
+                                    prev ? { ...prev, images: [...currentImages, result.url], image: currentImages[0] || result.url } : null
                                   );
                                   toast.success('이미지가 업로드되었습니다.');
                                 } else {
