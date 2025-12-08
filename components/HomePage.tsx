@@ -1094,8 +1094,24 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                   <h3 className="font-semibold text-gray-800 mb-2">{listing.title}</h3>
                   <p className="text-sm text-gray-500 mb-3 line-clamp-2">{listing.short_description || ''}</p>
 
-                  {/* 상품 리스트 (썸네일 64x64) */}
+                  {/* 상품 리스트 (썸네일 64x64) - 2개씩 */}
                   <div className="space-y-2">
+                    {/* 상품 1 */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                        <ImageWithFallback
+                          src={Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=100&h=100&fit=crop'}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-700 truncate">{listing.title}</p>
+                        <p className="text-sm font-bold text-[#5c2d91]">₩{(listing.price_from || 0).toLocaleString()}</p>
+                        <p className="text-xs text-gray-400">♡ 0 리뷰 0</p>
+                      </div>
+                    </div>
+                    {/* 상품 2 */}
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
                         <ImageWithFallback
@@ -1104,8 +1120,8 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-700">{listing.title}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-700 truncate">{listing.short_description || listing.title}</p>
                         <p className="text-sm font-bold text-[#5c2d91]">₩{(listing.price_from || 0).toLocaleString()}</p>
                         <p className="text-xs text-gray-400">♡ 0 리뷰 0</p>
                       </div>
