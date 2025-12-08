@@ -90,33 +90,37 @@ module.exports = async function handler(req, res) {
           c.id,
           c.code,
           c.title,
+          c.name,
           c.description,
           c.discount_type,
           c.discount_value,
           c.min_amount,
           c.valid_from,
           c.valid_until,
-          uc.registered_at,
-          uc.is_used
+          uc.issued_at,
+          uc.status,
+          uc.expires_at as user_coupon_expires
         FROM user_coupons uc
         JOIN coupons c ON uc.coupon_id = c.id
         WHERE uc.user_id = ?
-          AND uc.is_used = FALSE
+          AND (uc.status = 'issued' OR uc.status = 'active' OR uc.status IS NULL)
           AND c.is_active = 1
-        ORDER BY uc.registered_at DESC
+        ORDER BY uc.issued_at DESC
       `, [userId]);
 
       const coupons = (result.rows || []).map(coupon => ({
         id: coupon.id,
         code: coupon.code,
-        title: coupon.title || coupon.description || coupon.code,
+        title: coupon.title || coupon.name || coupon.description || coupon.code,
+        name: coupon.name || coupon.title,
         description: coupon.description || '',
         discount_type: coupon.discount_type,
         discount_value: coupon.discount_value,
         min_amount: coupon.min_amount || 0,
         valid_from: coupon.valid_from,
-        valid_until: coupon.valid_until,
-        registered_at: coupon.registered_at,
+        valid_until: coupon.user_coupon_expires || coupon.valid_until,
+        issued_at: coupon.issued_at,
+        status: coupon.status,
         // PaymentPage 호환성
         type: coupon.discount_type,
         discount: coupon.discount_value,

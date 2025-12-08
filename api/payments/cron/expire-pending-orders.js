@@ -15,7 +15,7 @@
  * - 결제 페이지에서 10분 이상 방치
  */
 
-const { db } = require('../../utils/database.cjs');
+const { db } = require('../../../utils/database.cjs');
 
 /**
  * 만료 시간 (밀리초)

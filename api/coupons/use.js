@@ -55,11 +55,12 @@ module.exports = async function handler(req, res) {
     // ✅ user_coupons 테이블에서 사용 처리
     if (userId) {
       try {
+        // 실제 컬럼명: status, used_at, booking_id, discount_amount
         await connection.execute(`
           UPDATE user_coupons
-          SET is_used = TRUE, used_at = NOW(), order_number = ?
-          WHERE user_id = ? AND coupon_id = ?
-        `, [orderId || paymentId, userId, coupon.id]);
+          SET status = 'used', used_at = NOW(), booking_id = ?, discount_amount = ?
+          WHERE user_id = ? AND coupon_id = ? AND (status IS NULL OR status = 'issued')
+        `, [orderId || paymentId || null, discountAmount || 0, userId, coupon.id]);
 
         console.log(`✅ [Coupons] user_coupons 업데이트 완료`);
       } catch (error) {
@@ -81,17 +82,18 @@ module.exports = async function handler(req, res) {
       // 에러가 나도 계속 진행
     }
 
-    // 쿠폰 current_usage 증가
+    // 쿠폰 current_usage 및 used_count 증가
     try {
       await connection.execute(`
         UPDATE coupons
-        SET current_usage = current_usage + 1
+        SET current_usage = COALESCE(current_usage, 0) + 1,
+            used_count = COALESCE(used_count, 0) + 1
         WHERE id = ?
       `, [coupon.id]);
 
-      console.log(`✅ [Coupons] current_usage incremented`);
+      console.log(`✅ [Coupons] current_usage and used_count incremented`);
     } catch (error) {
-      console.error('⚠️ [Coupons] Error incrementing current_usage:', error);
+      console.error('⚠️ [Coupons] Error incrementing usage counts:', error);
     }
 
     console.log(`✅ [Coupons] Coupon used successfully`);

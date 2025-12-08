@@ -827,15 +827,30 @@ export function MyPage() {
 
     setDeleteLoading(true);
     try {
-      // TODO: 실제 API 호출로 변경
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 시뮬레이션
+      // 탈퇴 API 호출
+      const response = await fetch('/api/user/withdraw', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: user?.id,
+          reason: '사용자 요청'
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || '계정 삭제에 실패했습니다.');
+      }
 
       logout();
-      toast.success('계정이 삭제되었습니다.');
+      toast.success('계정이 삭제되었습니다. 이용해 주셔서 감사합니다.');
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       console.error('계정 삭제 오류:', error);
-      toast.error('계정 삭제에 실패했습니다.');
+      toast.error(error.message || '계정 삭제에 실패했습니다.');
     } finally {
       setDeleteLoading(false);
       setShowDeleteDialog(false);

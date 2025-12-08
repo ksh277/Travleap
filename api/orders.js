@@ -1234,35 +1234,42 @@ module.exports = async function handler(req, res) {
             const seniors = item.seniors ?? item.num_seniors;
 
             if (adults !== undefined || children !== undefined || infants !== undefined || seniors !== undefined) {
-              const adultPrice = item.adultPrice || item.adult_price || item.price || 0;
-              const childPrice = item.childPrice || item.child_price || 0;
-              const infantPrice = item.infantPrice || item.infant_price || 0;
-              const seniorPrice = item.seniorPrice || item.senior_price || 0;
+              // ✅ FIX: adultPrice가 명시적으로 있을 때만 연령별 계산, 없으면 price를 그대로 사용
+              const hasExplicitPrices = item.adultPrice || item.adult_price;
 
-              itemTotal =
-                (adults || 0) * adultPrice +
-                (children || 0) * childPrice +
-                (infants || 0) * infantPrice +
-                (seniors || 0) * seniorPrice;
+              if (hasExplicitPrices) {
+                // 연령별 가격이 명시된 경우: 인원 × 단가 계산
+                const adultPrice = item.adultPrice || item.adult_price || 0;
+                const childPrice = item.childPrice || item.child_price || 0;
+                const infantPrice = item.infantPrice || item.infant_price || 0;
+                const seniorPrice = item.seniorPrice || item.senior_price || 0;
+
+                itemTotal =
+                  (adults || 0) * adultPrice +
+                  (children || 0) * childPrice +
+                  (infants || 0) * infantPrice +
+                  (seniors || 0) * seniorPrice;
+
+                console.log(`🎫 [Orders] 연령별 상품 금액 계산 (명시적):`, {
+                  adultPrice, childPrice, infantPrice, seniorPrice, itemTotal
+                });
+              } else {
+                // 연령별 가격이 없는 경우: item.price가 이미 전체 금액으로 간주
+                // (예: CartPage에서 이미 인원 × 단가로 계산된 경우)
+                itemTotal = item.price || 0;
+
+                console.log(`🎫 [Orders] 연령별 상품 금액 계산 (price 직접 사용):`, {
+                  'item.price': item.price,
+                  itemTotal,
+                  reason: 'adultPrice/adult_price가 없어서 price를 전체 금액으로 간주'
+                });
+              }
 
               // 🛡️ 보험료 추가 (렌트카 등)
               if (item.insuranceFee) {
                 itemTotal += item.insuranceFee;
+                console.log(`🛡️ [Orders] 보험료 추가:`, item.insuranceFee);
               }
-
-              console.log(`🎫 [Orders] 연령별 상품 금액 계산:`, {
-                item: item.title || item.listingId,
-                adults,
-                children,
-                infants,
-                seniors,
-                adultPrice,
-                childPrice,
-                infantPrice,
-                seniorPrice,
-                insuranceFee: item.insuranceFee || 0,
-                itemTotal
-              });
             } else {
               // 📦 일반 상품 (팝업 스토어 등)
               const itemPrice = item.price || 0;

@@ -12,7 +12,7 @@
  * - 0 * * * * node api/rentcar/cron/auto-resolve-blocks.js
  */
 
-const { db } = require('../../utils/database.cjs');
+const { db } = require('../../../utils/database.cjs');
 
 async function autoResolveExpiredBlocks() {
   console.log('🔄 [Auto Resolve] Starting auto-resolve job...');

@@ -78,14 +78,14 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 사용자당 사용 횟수 체크 (user_coupons 테이블 사용 - 더 안정적)
+    // 사용자당 사용 횟수 체크
     if (userId && coupon.usage_per_user !== null) {
       try {
-        // user_coupons 테이블에서 이미 사용한 횟수 확인
+        // user_coupons 테이블에서 이미 사용한 횟수 확인 (status = 'used')
         const usageCount = await connection.execute(`
           SELECT COUNT(*) as count
           FROM user_coupons
-          WHERE coupon_id = ? AND user_id = ? AND is_used = TRUE
+          WHERE coupon_id = ? AND user_id = ? AND status = 'used'
         `, [coupon.id, userId]);
 
         const currentUserUsage = usageCount.rows[0]?.count || 0;
@@ -99,14 +99,14 @@ module.exports = async function handler(req, res) {
           });
         }
       } catch (error) {
-        console.error('⚠️ [Coupons] Error checking user usage:', error);
-        // ✅ user_coupons 테이블이 없으면 coupon_usage 테이블로 재시도
+        console.error('⚠️ [Coupons] Error checking user_coupons:', error);
+        // ✅ user_coupons 테이블 에러 시 coupon_usage 테이블로 재시도
         try {
           const fallbackCount = await connection.execute(`
             SELECT COUNT(*) as count
             FROM coupon_usage
-            WHERE coupon_code = ? AND user_id = ?
-          `, [coupon.code.toUpperCase(), userId]);
+            WHERE coupon_id = ? AND user_id = ?
+          `, [coupon.id, userId]);
 
           const fallbackUsage = fallbackCount.rows[0]?.count || 0;
           console.log(`📊 [Coupons] Fallback: User ${userId} has used coupon ${coupon.code} ${fallbackUsage} times`);

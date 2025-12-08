@@ -19,7 +19,8 @@ module.exports = async function handler(req, res) {
           COALESCE(vehicle_counts.total, 0) as total_vehicles,
           COALESCE(vehicle_counts.active, 0) as active_vehicles,
           COALESCE(booking_counts.total, 0) as total_bookings,
-          COALESCE(booking_counts.confirmed, 0) as confirmed_bookings
+          COALESCE(booking_counts.confirmed, 0) as confirmed_bookings,
+          first_vehicle.images as first_vehicle_images
         FROM rentcar_vendors v
         LEFT JOIN (
           SELECT vendor_id,
@@ -37,6 +38,12 @@ module.exports = async function handler(req, res) {
             AND payment_status = 'paid'
           GROUP BY vendor_id
         ) booking_counts ON v.id = booking_counts.vendor_id
+        LEFT JOIN (
+          SELECT vendor_id, images
+          FROM rentcar_vehicles
+          WHERE is_active = 1
+          GROUP BY vendor_id
+        ) first_vehicle ON v.id = first_vehicle.vendor_id
         ORDER BY v.created_at DESC
       `);
 

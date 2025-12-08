@@ -666,18 +666,26 @@ export function RentcarVehicleDetailPage() {
                 {vehicle.images.length > 1 && (
                   <>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white"
-                      onClick={prevImage}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        prevImage();
+                      }}
                     >
                       <ChevronLeft className="h-6 w-6" />
                     </Button>
                     <Button
+                      type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white"
-                      onClick={nextImage}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        nextImage();
+                      }}
                     >
                       <ChevronRight className="h-6 w-6" />
                     </Button>
@@ -700,12 +708,16 @@ export function RentcarVehicleDetailPage() {
               {vehicle.images.slice(0, 5).map((img, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setCurrentImageIndex(idx)}
-                  className={`flex-shrink-0 w-20 h-20 rounded border-2 overflow-hidden ${
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(idx);
+                  }}
+                  className={`flex-shrink-0 w-20 h-20 rounded border-2 overflow-hidden cursor-pointer ${
                     idx === currentImageIndex ? 'border-blue-500' : 'border-gray-200'
                   }`}
                 >
-                  <ImageWithFallback src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <ImageWithFallback src={img} alt="" className="w-full h-full object-cover pointer-events-none" loading="lazy" />
                 </button>
               ))}
             </div>

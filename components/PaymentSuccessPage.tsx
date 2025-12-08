@@ -47,6 +47,40 @@ export default function PaymentSuccessPage() {
 
         console.log('✅ 결제 승인 완료:', result);
 
+        // ✅ 결제 성공 시 쿠폰 사용 처리
+        const pendingCouponStr = localStorage.getItem('pendingCoupon');
+        if (pendingCouponStr) {
+          try {
+            const pendingCoupon = JSON.parse(pendingCouponStr);
+            console.log('🎟️ 쿠폰 사용 처리 시작:', pendingCoupon);
+
+            const couponUseResponse = await fetch('/api/coupons/use', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                code: pendingCoupon.code,
+                userId: pendingCoupon.userId,
+                orderId: orderId,
+                discountAmount: pendingCoupon.discountAmount
+              })
+            });
+
+            const couponUseResult = await couponUseResponse.json();
+            if (couponUseResult.success) {
+              console.log('✅ 쿠폰 사용 처리 완료:', pendingCoupon.code);
+            } else {
+              console.warn('⚠️ 쿠폰 사용 처리 실패:', couponUseResult);
+            }
+          } catch (couponError) {
+            console.error('❌ 쿠폰 사용 처리 오류:', couponError);
+          } finally {
+            // 처리 후 localStorage에서 제거
+            localStorage.removeItem('pendingCoupon');
+          }
+        }
+
         setStatus('success');
         setMessage('결제가 완료되었습니다!');
         setPaymentData({ orderId, ...result });

@@ -77,6 +77,33 @@ const DISCOUNT_RANGES = [
   { id: '20+', name: '20% 이상' }
 ];
 
+// 가고 싶은 섬 목록 (쿠폰북 대상 섬)
+const TARGET_ISLANDS = [
+  { code: 'all', name: '전체 지역', region: '' },
+  { code: 'gaudo', name: '가우도', region: '강진' },
+  { code: 'jangdo', name: '장도', region: '보성' },
+  { code: 'nangdo', name: '낭도', region: '여수' },
+  { code: 'songdo', name: '송도', region: '송도' }
+];
+
+// 지역에서 시/군 추출하는 함수
+const extractCity = (location: string): string => {
+  // "전남 신안군", "전남 목포시" 등에서 시/군 추출
+  const match = location.match(/([\w가-힣]+[시군구])/);
+  if (match) return match[1];
+  // "압해읍", "임자면" 등 읍/면만 있는 경우
+  const townMatch = location.match(/([\w가-힣]+[읍면동])/);
+  if (townMatch) return townMatch[1];
+  return location;
+};
+
+// 지역에서 읍/면/동 추출하는 함수
+const extractTown = (location: string): string | null => {
+  // "전남 신안군 증도면" 등에서 읍/면 추출
+  const match = location.match(/([\w가-힣]+[읍면동])(?!.*[시군구])/);
+  return match ? match[1] : null;
+};
+
 // 샘플 데이터
 const SAMPLE_EVENTS: DiscountEvent[] = [
   {
@@ -236,11 +263,47 @@ export function PartnersDiscountPage() {
   const [filteredEvents, setFilteredEvents] = useState<DiscountEvent[]>([]);
   const [selectedType, setSelectedType] = useState('all');
   const [selectedDiscount, setSelectedDiscount] = useState('all');
+  const [selectedRegion, setSelectedRegion] = useState('all');
+  const [selectedTown, setSelectedTown] = useState('all');
+  const [selectedIsland, setSelectedIsland] = useState('all'); // 가고 싶은 섬
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('discount');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
+
+  // 동적으로 지역 목록 생성 (events 데이터에서 추출)
+  const availableRegions = React.useMemo(() => {
+    const regions = new Set<string>();
+    events.forEach(event => {
+      const city = extractCity(event.location);
+      if (city) regions.add(city);
+    });
+    return Array.from(regions).sort();
+  }, [events]);
+
+  // 선택된 지역의 읍/면/동 목록 (동적)
+  const availableTowns = React.useMemo(() => {
+    if (selectedRegion === 'all') return [];
+    const towns = new Set<string>();
+    events
+      .filter(event => event.location.includes(selectedRegion))
+      .forEach(event => {
+        const town = extractTown(event.location);
+        if (town) towns.add(town);
+        // island 필드에서도 추출
+        if (event.island && event.island !== '신안군') {
+          towns.add(event.island);
+        }
+      });
+    return Array.from(towns).sort();
+  }, [events, selectedRegion]);
+
+  // 지역 변경 시 읍/면 초기화
+  const handleRegionChange = (region: string) => {
+    setSelectedRegion(region);
+    setSelectedTown('all');
+  };
 
   // URL 파라미터에서 쿠폰 필터 확인
   const couponCode = searchParams.get('coupon');
@@ -278,9 +341,15 @@ export function PartnersDiscountPage() {
           return typeMap[category] || 'tour';
         };
 
-        // 지역에서 섬 이름 추출
+        // 지역에서 섬 이름 추출 (쿠폰북 대상 섬 포함)
         const extractIsland = (location?: string): string => {
           if (!location) return '신안군';
+          // 쿠폰북 대상 섬 (가우도, 장도, 낭도, 송도)
+          if (location.includes('가우도') || location.includes('강진')) return '가우도';
+          if (location.includes('장도') || location.includes('보성')) return '장도';
+          if (location.includes('낭도') || location.includes('여수')) return '낭도';
+          if (location.includes('송도')) return '송도';
+          // 기존 신안군 섬들
           if (location.includes('증도')) return '증도';
           if (location.includes('임자도')) return '임자도';
           if (location.includes('자은도')) return '자은도';
@@ -399,6 +468,19 @@ export function PartnersDiscountPage() {
       }
     }
 
+    // 가고 싶은 섬 필터 (쿠폰북 대상 4개 섬: 가우도, 장도, 낭도, 송도)
+    if (selectedIsland !== 'all') {
+      const island = TARGET_ISLANDS.find(i => i.code === selectedIsland);
+      if (island) {
+        filtered = filtered.filter(event =>
+          event.location.includes(island.name) ||
+          event.location.includes(island.region) ||
+          event.island === island.name ||
+          event.island?.includes(island.name)
+        );
+      }
+    }
+
     // 검색 필터
     if (searchQuery) {
       filtered = filtered.filter(event =>
@@ -425,7 +507,7 @@ export function PartnersDiscountPage() {
     }
 
     setFilteredEvents(filtered);
-  }, [events, activeTab, selectedType, selectedDiscount, searchQuery, sortBy, couponOnlyFilter]);
+  }, [events, activeTab, selectedType, selectedDiscount, selectedIsland, searchQuery, sortBy, couponOnlyFilter]);
 
   const handleToggleFavorite = (eventId: string) => {
     setFavorites(prev =>
@@ -534,9 +616,9 @@ export function PartnersDiscountPage() {
             {/* 검색 및 필터 섹션 */}
             <Card className="mb-6">
               <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {/* 검색 */}
-                  <div className="relative">
+                  <div className="relative md:col-span-2">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
                       placeholder="이벤트 검색..."
@@ -545,6 +627,21 @@ export function PartnersDiscountPage() {
                       className="pl-10"
                     />
                   </div>
+
+                  {/* 가고 싶은 섬 필터 (쿠폰북 대상 4개 섬만) */}
+                  <Select value={selectedIsland} onValueChange={setSelectedIsland}>
+                    <SelectTrigger className="border-purple-200 bg-purple-50/50">
+                      <MapPin className="h-4 w-4 mr-2 text-purple-500" />
+                      <SelectValue placeholder="가고 싶은 섬" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TARGET_ISLANDS.map(island => (
+                        <SelectItem key={island.code} value={island.code}>
+                          {island.name}{island.region && ` (${island.region})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
                   {/* 파트너 타입 필터 */}
                   <Select value={selectedType} onValueChange={setSelectedType}>

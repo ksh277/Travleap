@@ -592,9 +592,7 @@ export async function runMissingTablesMigration() {
           INDEX idx_category (category),
           INDEX idx_vendor (vendor_id),
           INDEX idx_priority (priority),
-          INDEX idx_active (is_active),
-          FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
-          FOREIGN KEY (vendor_id) REFERENCES users(id) ON DELETE CASCADE
+          INDEX idx_active (is_active)
         )
       `);
       console.log('✅ refund_policies table created/verified');
@@ -763,8 +761,7 @@ export async function runMissingTablesMigration() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX idx_listing (listing_id),
-          INDEX idx_available (is_available),
-          FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
+          INDEX idx_available (is_available)
         )
       `);
       console.log('✅ product_options table created/verified');
@@ -789,8 +786,7 @@ export async function runMissingTablesMigration() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_user (user_id),
           INDEX idx_order (related_order_id),
-          INDEX idx_expires (expires_at),
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          INDEX idx_expires (expires_at)
         )
       `);
       console.log('✅ user_points table created/verified');

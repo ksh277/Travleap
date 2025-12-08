@@ -185,9 +185,17 @@ export function PartnerCouponDashboard() {
   // 사용 내역 상태
   const [usageHistory, setUsageHistory] = useState<UsageRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyPeriod, setHistoryPeriod] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [historyStats, setHistoryStats] = useState({
     totalCount: 0,
-    totalDiscount: 0
+    totalDiscount: 0,
+    totalOrder: 0,
+    avgDiscount: 0,
+    avgOrder: 0,
+    allTime: { count: 0, discount: 0, order: 0 },
+    today: { count: 0, discount: 0 },
+    week: { count: 0, discount: 0 },
+    month: { count: 0, discount: 0 }
   });
 
   // 예약 상태
@@ -442,11 +450,11 @@ export function PartnerCouponDashboard() {
   };
 
   // 사용 내역 조회
-  const loadUsageHistory = async () => {
+  const loadUsageHistory = async (period: string = historyPeriod) => {
     setLoadingHistory(true);
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/partner/coupon-history', {
+      const response = await fetch(`/api/partner/coupon-history?period=${period}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -457,7 +465,14 @@ export function PartnerCouponDashboard() {
         setUsageHistory(data.data || []);
         setHistoryStats({
           totalCount: data.totalCount || 0,
-          totalDiscount: data.totalDiscount || 0
+          totalDiscount: data.totalDiscount || 0,
+          totalOrder: data.totalOrder || 0,
+          avgDiscount: data.avgDiscount || 0,
+          avgOrder: data.avgOrder || 0,
+          allTime: data.allTime || { count: 0, discount: 0, order: 0 },
+          today: data.today || { count: 0, discount: 0 },
+          week: data.week || { count: 0, discount: 0 },
+          month: data.month || { count: 0, discount: 0 }
         });
       }
     } catch (error) {
@@ -1183,27 +1198,101 @@ export function PartnerCouponDashboard() {
         {/* 사용 내역 탭 */}
         {activeTab === 'history' && (
           <div className="space-y-4">
-            {/* 통계 카드 */}
-            <div className="grid grid-cols-2 gap-4">
-              <Card>
-                <CardContent className="py-4 text-center">
-                  <p className="text-gray-500 text-sm">총 사용 건수</p>
-                  <p className="text-2xl font-bold text-purple-600">{historyStats.totalCount}건</p>
+            {/* 기간별 간편 통계 */}
+            <div className="grid grid-cols-3 gap-2">
+              <Card
+                className={`cursor-pointer transition-all ${historyPeriod === 'today' ? 'ring-2 ring-purple-500 bg-purple-50' : ''}`}
+                onClick={() => { setHistoryPeriod('today'); loadUsageHistory('today'); }}
+              >
+                <CardContent className="py-3 text-center">
+                  <p className="text-gray-500 text-xs">오늘</p>
+                  <p className="text-lg font-bold text-purple-600">{historyStats.today.count}건</p>
+                  <p className="text-xs text-gray-400">{historyStats.today.discount.toLocaleString()}원</p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="py-4 text-center">
-                  <p className="text-gray-500 text-sm">총 할인 제공액</p>
-                  <p className="text-2xl font-bold text-purple-600">{historyStats.totalDiscount.toLocaleString()}원</p>
+              <Card
+                className={`cursor-pointer transition-all ${historyPeriod === 'week' ? 'ring-2 ring-purple-500 bg-purple-50' : ''}`}
+                onClick={() => { setHistoryPeriod('week'); loadUsageHistory('week'); }}
+              >
+                <CardContent className="py-3 text-center">
+                  <p className="text-gray-500 text-xs">이번 주</p>
+                  <p className="text-lg font-bold text-purple-600">{historyStats.week.count}건</p>
+                  <p className="text-xs text-gray-400">{historyStats.week.discount.toLocaleString()}원</p>
+                </CardContent>
+              </Card>
+              <Card
+                className={`cursor-pointer transition-all ${historyPeriod === 'month' ? 'ring-2 ring-purple-500 bg-purple-50' : ''}`}
+                onClick={() => { setHistoryPeriod('month'); loadUsageHistory('month'); }}
+              >
+                <CardContent className="py-3 text-center">
+                  <p className="text-gray-500 text-xs">이번 달</p>
+                  <p className="text-lg font-bold text-purple-600">{historyStats.month.count}건</p>
+                  <p className="text-xs text-gray-400">{historyStats.month.discount.toLocaleString()}원</p>
                 </CardContent>
               </Card>
             </div>
 
+            {/* 전체 통계 요약 */}
+            <Card className="bg-gradient-to-r from-purple-500 to-blue-500 text-white">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold">전체 누적 통계</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setHistoryPeriod('all'); loadUsageHistory('all'); }}
+                    className={`text-white hover:bg-white/20 ${historyPeriod === 'all' ? 'bg-white/20' : ''}`}
+                  >
+                    전체보기
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-white/70 text-xs">총 사용 건수</p>
+                    <p className="text-xl font-bold">{historyStats.allTime.count}건</p>
+                  </div>
+                  <div>
+                    <p className="text-white/70 text-xs">총 할인 제공</p>
+                    <p className="text-xl font-bold">{historyStats.allTime.discount.toLocaleString()}원</p>
+                  </div>
+                  <div>
+                    <p className="text-white/70 text-xs">총 주문 금액</p>
+                    <p className="text-xl font-bold">{historyStats.allTime.order.toLocaleString()}원</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 선택 기간 상세 통계 */}
+            {historyPeriod !== 'all' && (
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="py-4 text-center">
+                    <p className="text-gray-500 text-sm">평균 주문 금액</p>
+                    <p className="text-xl font-bold text-blue-600">{historyStats.avgOrder.toLocaleString()}원</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="py-4 text-center">
+                    <p className="text-gray-500 text-sm">평균 할인 금액</p>
+                    <p className="text-xl font-bold text-green-600">{historyStats.avgDiscount.toLocaleString()}원</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             {/* 사용 내역 리스트 */}
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg">사용 내역</CardTitle>
-                <Button variant="ghost" size="sm" onClick={loadUsageHistory}>
+                <CardTitle className="text-lg">
+                  사용 내역
+                  {historyPeriod !== 'all' && (
+                    <span className="text-sm font-normal text-gray-500 ml-2">
+                      ({historyPeriod === 'today' ? '오늘' : historyPeriod === 'week' ? '이번 주' : '이번 달'})
+                    </span>
+                  )}
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => loadUsageHistory(historyPeriod)}>
                   <RefreshCw className={`h-4 w-4 ${loadingHistory ? 'animate-spin' : ''}`} />
                 </Button>
               </CardHeader>

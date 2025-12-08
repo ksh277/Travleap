@@ -9396,6 +9396,62 @@ function setupRoutes() {
     }
   });
 
+  // ===== User Coupon API =====
+  // GET /api/coupons - 사용자 쿠폰 목록 조회
+  app.get('/api/coupons', async (req, res) => {
+    try {
+      const couponsAPI = await import('./api/coupons.js');
+      await couponsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupons GET error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 목록 조회 중 오류가 발생했습니다' });
+    }
+  });
+
+  // POST /api/coupons/validate - 쿠폰 유효성 검증
+  app.post('/api/coupons/validate', async (req, res) => {
+    try {
+      const validateAPI = await import('./api/coupons/validate.js');
+      await validateAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupons validate error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 검증 중 오류가 발생했습니다' });
+    }
+  });
+
+  // POST /api/coupons/use - 쿠폰 사용 처리
+  app.post('/api/coupons/use', async (req, res) => {
+    try {
+      const useAPI = await import('./api/coupons/use.js');
+      await useAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupons use error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 사용 처리 중 오류가 발생했습니다' });
+    }
+  });
+
+  // POST /api/coupons/register - 쿠폰 등록
+  app.post('/api/coupons/register', async (req, res) => {
+    try {
+      const registerAPI = await import('./api/coupons/register.js');
+      await registerAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupons register error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 등록 중 오류가 발생했습니다' });
+    }
+  });
+
+  // GET /api/coupons/public - 공개 쿠폰 목록
+  app.get('/api/coupons/public', async (req, res) => {
+    try {
+      const publicAPI = await import('./api/coupons/public.js');
+      await publicAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupons public error:', error);
+      res.status(500).json({ success: false, message: '공개 쿠폰 조회 중 오류가 발생했습니다' });
+    }
+  });
+
   // 404 핸들러
   app.use((req, res) => {
     res.status(404).json({

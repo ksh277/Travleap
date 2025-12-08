@@ -49,7 +49,13 @@ export function PrivacyPage() {
                     <p><strong>가. 회원가입/소셜로그인</strong></p>
                     <ul className="list-disc list-inside ml-4">
                       <li>일반 가입: 이름, 이메일, 비밀번호, 휴대전화번호</li>
-                      <li>소셜 로그인(네이버/카카오/구글 등): 프로필 닉네임/이름, 이메일(선택 시), 프로필 이미지, 소셜 고유식별자, 휴대전화번호(동의 시)</li>
+                      <li>소셜 로그인(카카오) 시 제공받는 항목:
+                        <ul className="list-none ml-4 mt-1">
+                          <li>- 필수: 이름, 카카오계정(전화번호)</li>
+                          <li>- 선택: 성별, 연령대, 생일, 배송지(주소)</li>
+                        </ul>
+                        <p className="text-sm text-gray-600 mt-1">※ 카카오 계정 기반 간편가입 및 회원 연동을 위해 제공받은 정보를 이용합니다.</p>
+                      </li>
                     </ul>
                     <p className="mt-2"><strong>나. 주문/결제 및 배송</strong></p>
                     <ul className="list-disc list-inside ml-4">
@@ -78,8 +84,9 @@ export function PrivacyPage() {
             <section>
               <h2 className="text-xl font-bold text-gray-900 mb-3">제2조 (개인정보의 이용 목적)</h2>
               <ol className="list-decimal list-inside space-y-2 ml-4 text-gray-700">
-                <li><strong>계약의 이행 및 요금정산</strong>: 주문 처리, 결제 승인/취소/환불, 배송/회수, 본인확인</li>
-                <li><strong>회원관리</strong>: 가입의사 확인, 본인확인, 부정이용·비인가 사용 방지, 민원처리/공지</li>
+                <li><strong>계약의 이행 및 요금정산</strong>: 주문 처리, 결제 승인/취소/환불, 배송/회수, 회원 식별</li>
+                <li><strong>회원관리</strong>: 가입의사 확인, 회원 식별 및 계정 연동, 부정이용·비인가 사용 방지, 민원처리/공지</li>
+                <li><strong>카카오 로그인</strong>: 카카오 계정 기반 간편가입 및 회원 연동</li>
                 <li><strong>서비스 제공·운영</strong>: 팝업 스토어 카테고리 상품 판매/상담/AS, 오류 대응/품질 개선, 이용 통계</li>
                 <li><strong>마케팅(선택)</strong>: 이벤트/혜택 안내, 맞춤형 추천·광고(수신 동의 시)</li>
               </ol>
@@ -245,7 +252,7 @@ export function PrivacyPage() {
               <ul className="list-disc list-inside ml-4 text-gray-700 space-y-1">
                 <li>개인정보 열람·정정·삭제·처리정지·동의철회는 마이페이지 또는 고객센터를 통해 요청할 수 있습니다.</li>
                 <li>만 14세 미만 아동의 경우 법정대리인이 권리행사를 할 수 있습니다.</li>
-                <li>회사는 본인확인 후 지체 없이 조치하며, 법령에 따라 거절/제한 사유가 있는 경우 그 사유를 안내합니다.</li>
+                <li>회사는 회원 확인 후 지체 없이 조치하며, 법령에 따라 거절/제한 사유가 있는 경우 그 사유를 안내합니다.</li>
               </ul>
             </section>
 

@@ -18,11 +18,21 @@ module.exports = async function handler(req, res) {
   const connection = connect({ url: process.env.DATABASE_URL });
 
   try {
-    // GET - 배너 목록 조회 (순서대로 정렬)
+    // GET - 배너 목록 조회 (순서대로 정렬, section으로 필터링 가능)
     if (req.method === 'GET') {
-      const result = await connection.execute(
-        `SELECT * FROM banners ORDER BY display_order ASC, created_at DESC`
-      );
+      const { section } = req.query;
+
+      let sql = `SELECT * FROM banners`;
+      const params = [];
+
+      if (section) {
+        sql += ` WHERE section = ?`;
+        params.push(section);
+      }
+
+      sql += ` ORDER BY display_order ASC, created_at DESC`;
+
+      const result = await connection.execute(sql, params);
 
       return res.status(200).json({
         success: true,
@@ -35,11 +45,13 @@ module.exports = async function handler(req, res) {
       const {
         image_url,
         title,
+        subtitle,
         link_url,
         display_order,
         is_active,
         media_type,
-        video_url
+        video_url,
+        section
       } = req.body;
 
       // 필수 필드 검증 (미디어 타입에 따라)
@@ -72,20 +84,24 @@ module.exports = async function handler(req, res) {
         `INSERT INTO banners (
           image_url,
           title,
+          subtitle,
           link_url,
           display_order,
           is_active,
           media_type,
-          video_url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          video_url,
+          section
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           image_url || null,
           title || null,
+          subtitle || null,
           link_url || null,
           finalOrder,
           is_active !== undefined ? is_active : true,
           media_type || 'image',
-          video_url || null
+          video_url || null,
+          section || 'home'
         ]
       );
 

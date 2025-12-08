@@ -26,8 +26,10 @@ import {
   Wallet,
   Download,
   RefreshCw,
-  Percent
+  Percent,
+  QrCode
 } from 'lucide-react';
+import { AdminCouponBookCampaigns } from './AdminCouponBookCampaigns';
 import { toast } from 'sonner';
 
 interface Coupon {
@@ -496,12 +498,16 @@ export function AdminCoupons() {
 
   return (
     <div className="space-y-6">
-      {/* 메인 탭: 쿠폰 관리 / 쿠폰 통계 */}
+      {/* 메인 탭: 쿠폰 관리 / 쿠폰북 캠페인 / 쿠폰 통계 */}
       <Tabs value={mainTab} onValueChange={setMainTab}>
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="manage" className="flex items-center gap-2">
             <Ticket className="w-4 h-4" />
             쿠폰 관리
+          </TabsTrigger>
+          <TabsTrigger value="campaigns" className="flex items-center gap-2">
+            <QrCode className="w-4 h-4" />
+            쿠폰북 캠페인
           </TabsTrigger>
           <TabsTrigger value="stats" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" />
@@ -635,6 +641,11 @@ export function AdminCoupons() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* 쿠폰북 캠페인 탭 */}
+        <TabsContent value="campaigns" className="mt-6">
+          <AdminCouponBookCampaigns />
         </TabsContent>
 
         {/* 쿠폰 통계 탭 */}

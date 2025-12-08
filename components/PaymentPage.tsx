@@ -124,6 +124,13 @@ export function PaymentPage() {
   // ✅ 결제 버튼 표시 여부 (청구정보 완성 후 표시)
   const [showPaymentButton, setShowPaymentButton] = useState(false);
 
+  // ✅ 쿠폰 관련 state
+  const [couponCode, setCouponCode] = useState('');
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState('');
+
   // 팝업 상품 여부 확인 (배송지 필요 여부 판단용)
   const hasPopupProducts =
     orderData?.items?.some((item: any) => isPopupProduct(item)) || // 장바구니 주문
@@ -142,12 +149,13 @@ export function PaymentPage() {
   const pageInsuranceFee = selectedInsurance ? Number(selectedInsurance.price) : 0;
   const insuranceFee = bookingNumber ? 0 : (cartInsuranceFee || pageInsuranceFee);
   const totalWithInsurance = totalWithDelivery + insuranceFee;
-  const finalAmount = Math.max(0, totalWithInsurance - Number(pointsToUse));
+  // ✅ 쿠폰 할인 및 포인트 차감 반영
+  const finalAmount = Math.max(0, totalWithInsurance - Number(couponDiscount) - Number(pointsToUse));
 
-  // ✅ FIX: 포인트 변경 시 즉시 preparedAmount 업데이트
+  // ✅ FIX: 포인트/쿠폰 변경 시 즉시 preparedAmount 업데이트
   useEffect(() => {
     if (preparedOrderNumber) {
-      const newAmount = Math.max(0, totalWithInsurance - Number(pointsToUse));
+      const newAmount = Math.max(0, totalWithInsurance - Number(couponDiscount) - Number(pointsToUse));
       setPreparedAmount(newAmount);
       console.log('🔄 [PaymentPage] 포인트 변경으로 preparedAmount 업데이트:', {
         totalWithInsurance,
@@ -254,6 +262,67 @@ export function PaymentPage() {
     } finally {
       setPointsLoading(false);
     }
+  };
+
+  // ✅ 쿠폰 적용 함수
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('쿠폰 코드를 입력해주세요');
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponError('');
+
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: couponCode.trim().toUpperCase(),
+          userId: user?.id,
+          orderAmount: totalWithInsurance,
+          category: orderData?.items?.[0]?.category || booking?.listing?.category
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setCouponDiscount(data.data.discountAmount);
+        setAppliedCoupon({
+          code: data.data.code,
+          discountAmount: data.data.discountAmount,
+          discountType: data.data.discountType,
+          description: data.data.description
+        });
+        setCouponError('');
+        toast.success(`쿠폰이 적용되었습니다! (-${data.data.discountAmount.toLocaleString()}원)`);
+        console.log('✅ [쿠폰] 적용 완료:', data.data);
+      } else {
+        setCouponError(data.message || '쿠폰 적용에 실패했습니다');
+        setCouponDiscount(0);
+        setAppliedCoupon(null);
+      }
+    } catch (error) {
+      console.error('❌ [쿠폰] 적용 오류:', error);
+      setCouponError('쿠폰 검증 중 오류가 발생했습니다');
+      setCouponDiscount(0);
+      setAppliedCoupon(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  // ✅ 쿠폰 취소 함수
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    setCouponDiscount(0);
+    setAppliedCoupon(null);
+    setCouponError('');
+    toast.info('쿠폰이 취소되었습니다');
   };
 
   // 카테고리별 보험 조회
@@ -517,8 +586,8 @@ export function PaymentPage() {
           items: mappedItems,
           subtotal: orderData.subtotal,
           deliveryFee: orderData.deliveryFee || 0,
-          couponDiscount: 0,
-          couponCode: null,
+          couponDiscount: couponDiscount,  // ✅ 쿠폰 할인 금액 전달
+          couponCode: appliedCoupon?.code || null,  // ✅ 쿠폰 코드 전달
           pointsUsed: pointsToUse,
           total: finalAmount,
           status: 'pending' as const,
@@ -566,6 +635,18 @@ export function PaymentPage() {
           } catch (profileError) {
             console.error('프로필 저장 실패:', profileError);
             // 프로필 저장 실패해도 주문은 계속 진행
+          }
+
+          // ✅ 쿠폰 사용 기록 (결제 완료 전에 기록하면 안됨 - 결제 성공 후 기록해야 함)
+          // 쿠폰 코드를 localStorage에 저장해두고 결제 성공 후 사용 처리
+          if (appliedCoupon?.code) {
+            localStorage.setItem('pendingCoupon', JSON.stringify({
+              code: appliedCoupon.code,
+              userId: user?.id,
+              orderNumber: orderResponse.data.orderNumber,
+              discountAmount: couponDiscount
+            }));
+            console.log('📋 [쿠폰] 결제 완료 후 사용 처리를 위해 저장:', appliedCoupon.code);
           }
 
           // 주문 생성 성공 - PaymentWidget에 필요한 정보 설정 (포인트 차감 후 금액)
@@ -1096,6 +1177,79 @@ export function PaymentPage() {
                     </>
                   )}
                 </div>
+
+                {/* 쿠폰 적용 */}
+                {!preparedOrderNumber && (
+                  <div className="border-t pt-4 mt-4">
+                    <div className="mb-3">
+                      <label className="text-sm font-medium flex items-center gap-1 mb-2">
+                        <Badge variant="outline" className="text-orange-600 border-orange-600">
+                          쿠폰
+                        </Badge>
+                        쿠폰 적용
+                      </label>
+                      {appliedCoupon ? (
+                        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div>
+                            <p className="font-medium text-green-700">{appliedCoupon.code}</p>
+                            <p className="text-sm text-green-600">
+                              -{appliedCoupon.discountAmount.toLocaleString()}원 할인
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRemoveCoupon}
+                            className="text-gray-500 hover:text-red-500"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex gap-2">
+                            <Input
+                              value={couponCode}
+                              onChange={(e) => {
+                                setCouponCode(e.target.value.toUpperCase());
+                                setCouponError('');
+                              }}
+                              placeholder="쿠폰 코드 입력"
+                              className="flex-1"
+                              disabled={couponLoading}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleApplyCoupon}
+                              disabled={couponLoading || !couponCode.trim()}
+                              className="whitespace-nowrap"
+                            >
+                              {couponLoading ? '확인 중...' : '적용'}
+                            </Button>
+                          </div>
+                          {couponError && (
+                            <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                              <AlertCircle className="h-3 w-3" />
+                              {couponError}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {couponDiscount > 0 && (
+                      <>
+                        <Separator className="my-3" />
+                        <div className="flex justify-between text-orange-600">
+                          <span>쿠폰 할인</span>
+                          <span>-{couponDiscount.toLocaleString()}원</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* 포인트 사용 */}
                 {!preparedOrderNumber && (

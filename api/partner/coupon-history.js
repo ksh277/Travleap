@@ -35,7 +35,18 @@ async function handler(req, res) {
       });
     }
 
-    const { limit = 50, offset = 0 } = req.query;
+    const { limit = 50, offset = 0, period = 'all' } = req.query;
+
+    // 기간별 필터링을 위한 날짜 계산
+    let dateFilter = '';
+    let dateParams = [];
+    if (period === 'today') {
+      dateFilter = 'AND DATE(ucu.used_at) = CURDATE()';
+    } else if (period === 'week') {
+      dateFilter = 'AND ucu.used_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)';
+    } else if (period === 'month') {
+      dateFilter = 'AND ucu.used_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
+    }
 
     // 사용 내역 조회 (PlanetScale) - user_coupon_usage 테이블 사용
     const historyResult = await connection.execute(`
@@ -51,7 +62,7 @@ async function handler(req, res) {
       FROM user_coupon_usage ucu
       LEFT JOIN user_coupons uc ON ucu.user_coupon_id = uc.id
       LEFT JOIN coupons c ON uc.coupon_id = c.id
-      WHERE ucu.partner_id = ?
+      WHERE ucu.partner_id = ? ${dateFilter}
       ORDER BY ucu.used_at DESC
       LIMIT ? OFFSET ?
     `, [partnerId, parseInt(limit), parseInt(offset)]);
@@ -82,22 +93,90 @@ async function handler(req, res) {
       customer_name: userNames[record.user_id] || '고객'
     }));
 
-    // 통계 조회 (user_coupon_usage 테이블 사용)
+    // 기간별 통계 조회 (user_coupon_usage 테이블 사용)
     const statsResult = await connection.execute(`
       SELECT
         COUNT(*) as total_count,
-        COALESCE(SUM(discount_amount), 0) as total_discount
+        COALESCE(SUM(discount_amount), 0) as total_discount,
+        COALESCE(SUM(order_amount), 0) as total_order,
+        COALESCE(AVG(discount_amount), 0) as avg_discount,
+        COALESCE(AVG(order_amount), 0) as avg_order
+      FROM user_coupon_usage
+      WHERE partner_id = ? ${dateFilter}
+    `, [partnerId]);
+
+    const stats = statsResult.rows?.[0] || { total_count: 0, total_discount: 0, total_order: 0, avg_discount: 0, avg_order: 0 };
+
+    // 전체 기간 통계 (항상 반환)
+    const allTimeStatsResult = await connection.execute(`
+      SELECT
+        COUNT(*) as total_count,
+        COALESCE(SUM(discount_amount), 0) as total_discount,
+        COALESCE(SUM(order_amount), 0) as total_order
       FROM user_coupon_usage
       WHERE partner_id = ?
     `, [partnerId]);
 
-    const stats = statsResult.rows?.[0] || { total_count: 0, total_discount: 0 };
+    const allTimeStats = allTimeStatsResult.rows?.[0] || { total_count: 0, total_discount: 0, total_order: 0 };
+
+    // 오늘 통계
+    const todayStatsResult = await connection.execute(`
+      SELECT
+        COUNT(*) as count,
+        COALESCE(SUM(discount_amount), 0) as discount
+      FROM user_coupon_usage
+      WHERE partner_id = ? AND DATE(used_at) = CURDATE()
+    `, [partnerId]);
+
+    const todayStats = todayStatsResult.rows?.[0] || { count: 0, discount: 0 };
+
+    // 이번주 통계
+    const weekStatsResult = await connection.execute(`
+      SELECT
+        COUNT(*) as count,
+        COALESCE(SUM(discount_amount), 0) as discount
+      FROM user_coupon_usage
+      WHERE partner_id = ? AND used_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+    `, [partnerId]);
+
+    const weekStats = weekStatsResult.rows?.[0] || { count: 0, discount: 0 };
+
+    // 이번달 통계
+    const monthStatsResult = await connection.execute(`
+      SELECT
+        COUNT(*) as count,
+        COALESCE(SUM(discount_amount), 0) as discount
+      FROM user_coupon_usage
+      WHERE partner_id = ? AND used_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    `, [partnerId]);
+
+    const monthStats = monthStatsResult.rows?.[0] || { count: 0, discount: 0 };
 
     return res.status(200).json({
       success: true,
       data: historyWithNames,
       totalCount: parseInt(stats.total_count) || 0,
-      totalDiscount: parseInt(stats.total_discount) || 0
+      totalDiscount: parseInt(stats.total_discount) || 0,
+      totalOrder: parseInt(stats.total_order) || 0,
+      avgDiscount: Math.round(parseFloat(stats.avg_discount)) || 0,
+      avgOrder: Math.round(parseFloat(stats.avg_order)) || 0,
+      allTime: {
+        count: parseInt(allTimeStats.total_count) || 0,
+        discount: parseInt(allTimeStats.total_discount) || 0,
+        order: parseInt(allTimeStats.total_order) || 0
+      },
+      today: {
+        count: parseInt(todayStats.count) || 0,
+        discount: parseInt(todayStats.discount) || 0
+      },
+      week: {
+        count: parseInt(weekStats.count) || 0,
+        discount: parseInt(weekStats.discount) || 0
+      },
+      month: {
+        count: parseInt(monthStats.count) || 0,
+        discount: parseInt(monthStats.discount) || 0
+      }
     });
 
   } catch (error) {

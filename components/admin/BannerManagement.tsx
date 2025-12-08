@@ -15,18 +15,20 @@ interface Banner {
   page?: string;
   image_url: string;
   title?: string;
+  subtitle?: string;
   link_url?: string;
   display_order: number;
   is_active: boolean;
   media_type?: 'image' | 'video';
   video_url?: string;
+  section?: string;
   created_at?: string;
   updated_at?: string;
 }
 
 export function BannerManagement() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'home' | 'page'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'event' | 'experience' | 'page'>('home');
   const [selectedPage, setSelectedPage] = useState<string>('about');
   const [banners, setBanners] = useState<Banner[]>([]);
   const [pageBanner, setPageBanner] = useState<Banner | null>(null);
@@ -36,11 +38,13 @@ export function BannerManagement() {
   const [formData, setFormData] = useState<Banner>({
     image_url: '',
     title: '',
+    subtitle: '',
     link_url: '',
     display_order: 0,
     is_active: true,
     media_type: 'image',
-    video_url: ''
+    video_url: '',
+    section: 'home'
   });
 
   // 인증 헤더 생성
@@ -56,8 +60,10 @@ export function BannerManagement() {
   const loadBanners = async () => {
     try {
       setLoading(true);
-      if (activeTab === 'home') {
-        const response = await fetch('/api/admin/banners', {
+      if (activeTab === 'home' || activeTab === 'event' || activeTab === 'experience') {
+        // 섹션별 배너 로드
+        const section = activeTab;
+        const response = await fetch(`/api/admin/banners?section=${section}`, {
           headers: getAuthHeaders()
         });
         const data = await response.json();
@@ -93,11 +99,13 @@ export function BannerManagement() {
     setFormData({
       image_url: '',
       title: '',
+      subtitle: '',
       link_url: '',
       display_order: banners.length,
       is_active: true,
       media_type: 'image',
-      video_url: ''
+      video_url: '',
+      section: activeTab === 'page' ? 'home' : activeTab
     });
     setEditingBanner(null);
     setShowForm(false);
@@ -105,11 +113,19 @@ export function BannerManagement() {
 
   // 새 배너 추가 버튼
   const handleAddNew = () => {
-    resetForm();
+    const section = activeTab === 'page' ? 'home' : activeTab;
     setFormData({
-      ...formData,
-      display_order: banners.length
+      image_url: '',
+      title: '',
+      subtitle: '',
+      link_url: '',
+      display_order: banners.length,
+      is_active: true,
+      media_type: 'image',
+      video_url: '',
+      section
     });
+    setEditingBanner(null);
     setShowForm(true);
   };
 
@@ -268,12 +284,24 @@ export function BannerManagement() {
   return (
     <div className="space-y-6">
       {/* 탭 선택 */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button
           variant={activeTab === 'home' ? 'default' : 'outline'}
           onClick={() => setActiveTab('home')}
         >
           홈페이지 배너
+        </Button>
+        <Button
+          variant={activeTab === 'event' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('event')}
+        >
+          행사 배너
+        </Button>
+        <Button
+          variant={activeTab === 'experience' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('experience')}
+        >
+          체험 배너
         </Button>
         <Button
           variant={activeTab === 'page' ? 'default' : 'outline'}
@@ -364,7 +392,10 @@ export function BannerManagement() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>
-              {activeTab === 'home' ? '홈페이지 배너 관리' : `${selectedPage} 페이지 배너`}
+              {activeTab === 'home' ? '홈페이지 배너 관리' :
+               activeTab === 'event' ? '행사 섹션 배너 관리' :
+               activeTab === 'experience' ? '체험 섹션 배너 관리' :
+               `${selectedPage} 페이지 배너`}
             </CardTitle>
             <Button onClick={handleAddNew} className="gap-2">
               <Plus className="h-4 w-4" />
@@ -450,8 +481,13 @@ export function BannerManagement() {
                           {banner.is_active ? '활성' : '비활성'}
                         </span>
                       </div>
+                      {banner.subtitle && (
+                        <p className="text-sm text-gray-600 truncate">
+                          {banner.subtitle}
+                        </p>
+                      )}
                       {banner.link_url && (
-                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                        <div className="flex items-center gap-1 text-sm text-gray-500">
                           <ExternalLink className="h-3 w-3" />
                           <span className="truncate">{banner.link_url}</span>
                         </div>
@@ -591,14 +627,34 @@ export function BannerManagement() {
 
             {/* 배너 제목 */}
             <div className="space-y-2">
-              <Label htmlFor="title">배너 제목 (선택)</Label>
+              <Label htmlFor="title">배너 제목 {(activeTab === 'event' || activeTab === 'experience') ? '(시선끌기 문구) *' : '(선택)'}</Label>
               <Input
                 id="title"
                 value={formData.title || ''}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="배너에 표시할 제목을 입력하세요"
+                placeholder={
+                  activeTab === 'event' ? '예: 특별한 행사를 만나보세요' :
+                  activeTab === 'experience' ? '예: 다양한 체험을 즐겨보세요' :
+                  '배너에 표시할 제목을 입력하세요'
+                }
               />
             </div>
+
+            {/* 부제목 (행사/체험 섹션용) */}
+            {(activeTab === 'event' || activeTab === 'experience') && (
+              <div className="space-y-2">
+                <Label htmlFor="subtitle">부제목 (추가 설명)</Label>
+                <Input
+                  id="subtitle"
+                  value={formData.subtitle || ''}
+                  onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                  placeholder="예: 지금 바로 확인하세요"
+                />
+                <p className="text-xs text-gray-500">
+                  메인페이지 {activeTab === 'event' ? '행사' : '체험'} 섹션에 표시될 시선끌기 문구입니다
+                </p>
+              </div>
+            )}
 
             {/* 링크 URL */}
             <div className="space-y-2">

@@ -389,12 +389,20 @@ export function useCartStore() {
             listingId: item.id!,  // ✅ 비로그인 사용자의 경우 id가 곧 listingId
             title: item.title || '상품',
             price: item.price || 0,
-            quantity: 1,
+            quantity: item.quantity || 1,
             image: item.image || '',
             category: item.category || '',
             location: item.location || '',
             date: item.date,
             guests: item.guests,
+            // ✅ FIX: 연령별 인원 및 가격 정보도 저장 (비로그인 사용자)
+            adults: item.adults,
+            children: item.children,
+            infants: item.infants,
+            adultPrice: item.adultPrice,
+            childPrice: item.childPrice,
+            infantPrice: item.infantPrice,
+            selectedOption: item.selectedOption,
           };
           return {
             cartItems: [...prev.cartItems, newCartItem],

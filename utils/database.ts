@@ -49,9 +49,17 @@ class Database {
         affectedRows: result.rowsAffected || 0
       };
     } catch (error: any) {
-      console.error('❌ [Database] Execution error:', error);
-      console.error('   SQL:', sqlString);
-      console.error('   Params:', params);
+      // "Duplicate" 또는 "already exists" 에러는 무시 (마이그레이션에서 정상적인 상황)
+      const errorMsg = error?.message || error?.body?.message || '';
+      const isDuplicateError = errorMsg.includes('Duplicate') ||
+                               errorMsg.includes('already exists') ||
+                               errorMsg.includes('foreign key constraints are not allowed');
+
+      if (!isDuplicateError) {
+        console.error('❌ [Database] Execution error:', error);
+        console.error('   SQL:', sqlString);
+        console.error('   Params:', params);
+      }
 
       // ✅ FIX: 에러를 다시 throw해서 상위에서 처리하도록
       // 빈 배열 반환은 에러를 숨기고 디버깅을 어렵게 만듦

@@ -1,4 +1,5 @@
 const { neon } = require('@neondatabase/serverless');
+const { connect } = require('@planetscale/database');
 const { withAuth, permissions } = require('../../utils/auth-middleware.cjs');
 const { withSecureCors } = require('../../utils/cors-middleware.cjs');
 
@@ -107,6 +108,23 @@ async function handler(req, res) {
     `;
 
     const updatedUser = updateResult[0];
+
+    // 파트너 역할인 경우 PlanetScale partners 테이블도 업데이트
+    if (role === 'partner' && partnerId) {
+      try {
+        const planetscale = connect({ url: process.env.DATABASE_URL });
+
+        // 해당 파트너의 user_id 업데이트
+        await planetscale.execute(
+          `UPDATE partners SET user_id = ? WHERE id = ?`,
+          [user.id, partnerId]
+        );
+
+        console.log(`✅ [Update Role] partners 테이블 user_id 업데이트: partner_id=${partnerId} → user_id=${user.id}`);
+      } catch (planetscaleError) {
+        console.warn('⚠️ [Update Role] partners 테이블 업데이트 실패 (무시):', planetscaleError.message);
+      }
+    }
 
     console.log(`✅ [Update Role] 성공: ${user.email} | ${oldRole} → ${role}`);
 
