@@ -686,44 +686,27 @@ function PartnerForm({ formData, setFormData }: any) {
 
   // 구글맵 초기화 함수
   const initializeMap = React.useCallback(async () => {
-    console.log('🗺️ initializeMap 호출됨');
-
-    if (mapInstanceRef.current) {
-      console.log('⏭️ 이미 초기화됨');
-      return;
-    }
-
-    if (!mapRef.current) {
-      console.log('❌ mapRef 없음');
-      return;
-    }
+    if (mapInstanceRef.current) return;
+    if (!mapRef.current) return;
 
     const rect = mapRef.current.getBoundingClientRect();
-    console.log('📐 컨테이너 크기:', rect.width, 'x', rect.height);
-
-    if (rect.width === 0 || rect.height === 0) {
-      console.log('⏳ 크기 0, 대기...');
-      return;
-    }
+    if (rect.width === 0 || rect.height === 0) return;
 
     const apiKey = getGoogleMapsApiKey();
-    console.log('🔑 API 키:', apiKey ? '있음' : '없음');
-
     if (!apiKey) {
       setMapError('Google Maps API 키가 설정되지 않았습니다');
       return;
     }
 
-    try {
-      // Google Maps API가 이미 로드되어 있는지 확인
-      const google = (window as any).google;
-      if (!google?.maps?.Map) {
-        console.log('⏳ Google Maps API 대기 중...');
-        setMapError('Google Maps API가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
-        return;
-      }
+    // Google Maps API가 로드될 때까지 대기
+    const isLoaded = (window as any).__GOOGLE_MAPS_LOADED__;
+    const google = (window as any).google;
+    if (!isLoaded || !google?.maps?.Map) {
+      // 아직 로드 안됨 - 에러 표시하지 않고 대기
+      return;
+    }
 
-      console.log('✅ Google Maps API 사용 가능');
+    try {
       const currentFormData = formDataRef.current;
       const lat = currentFormData.lat || 34.8118;
       const lng = currentFormData.lng || 126.3922;
@@ -770,31 +753,40 @@ function PartnerForm({ formData, setFormData }: any) {
 
       setMapLoaded(true);
       setMapError(null);
-      console.log('✅ 구글맵 초기화 완료');
+      console.log('✅ 구글맵 초기화 완료 - 위치:', lat, lng);
     } catch (err) {
       console.error('구글맵 초기화 오류:', err);
       setMapError('지도 로드 중 오류가 발생했습니다');
     }
   }, [setFormData]);
 
-  // 컴포넌트 마운트 시 지도 초기화
+  // 컴포넌트 마운트 시 지도 초기화 (API 로드될 때까지 반복 시도)
   React.useEffect(() => {
     if (mapLoaded) return;
 
-    const delays = [100, 300, 500, 800, 1200];
-    const timers: NodeJS.Timeout[] = [];
+    let attempts = 0;
+    const maxAttempts = 30; // 최대 30번 시도 (약 15초)
 
-    delays.forEach((delay) => {
-      const timer = setTimeout(() => {
-        if (!mapInstanceRef.current) {
-          initializeMap();
-        }
-      }, delay);
-      timers.push(timer);
-    });
+    const tryInit = () => {
+      if (mapInstanceRef.current || attempts >= maxAttempts) return;
+
+      attempts++;
+      initializeMap();
+
+      // 아직 초기화 안됐으면 재시도
+      if (!mapInstanceRef.current && attempts < maxAttempts) {
+        setTimeout(tryInit, 500); // 0.5초마다 재시도
+      } else if (attempts >= maxAttempts && !mapInstanceRef.current) {
+        setMapError('지도를 로드할 수 없습니다. 페이지를 새로고침해주세요.');
+      }
+    };
+
+    // 다이얼로그 애니메이션 후 시작
+    const timer = setTimeout(tryInit, 200);
 
     return () => {
-      timers.forEach(timer => clearTimeout(timer));
+      clearTimeout(timer);
+      attempts = maxAttempts; // cleanup 시 중단
     };
   }, [initializeMap, mapLoaded]);
 
@@ -953,35 +945,44 @@ function PartnerForm({ formData, setFormData }: any) {
         </Label>
 
         {/* 지도 */}
-        <div className="relative mb-3">
+        <div className="relative mb-3" style={{ minHeight: '250px' }}>
           <div
             ref={mapRef}
-            className="w-full rounded-lg border bg-white"
-            style={{ height: '250px' }}
+            className="w-full rounded-lg border bg-gray-200"
+            style={{ height: '250px', minHeight: '250px' }}
           />
           {!mapLoaded && !mapError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg z-10">
               <div className="text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400 mb-2" />
-                <p className="text-sm text-gray-500">지도 로딩 중...</p>
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-500 mb-2" />
+                <p className="text-sm text-gray-600 font-medium">Google Maps 로딩 중...</p>
+                <p className="text-xs text-gray-400 mt-1">잠시만 기다려주세요</p>
               </div>
             </div>
           )}
           {mapError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded-lg">
-              <div className="text-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded-lg z-10">
+              <div className="text-center px-4">
                 <MapPin className="w-8 h-8 mx-auto text-red-400 mb-2" />
-                <p className="text-sm text-red-500">{mapError}</p>
+                <p className="text-sm text-red-600 font-medium">{mapError}</p>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-2"
-                  onClick={() => initializeMap()}
+                  className="mt-3"
+                  onClick={() => {
+                    setMapError(null);
+                    initializeMap();
+                  }}
                 >
                   다시 시도
                 </Button>
               </div>
+            </div>
+          )}
+          {mapLoaded && (
+            <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded text-xs text-green-600 font-medium z-10 shadow">
+              ✓ 지도 로드됨 - 핀을 드래그하세요
             </div>
           )}
         </div>
