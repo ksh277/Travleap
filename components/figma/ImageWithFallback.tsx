@@ -128,10 +128,9 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
         className={`${className ?? ''} ${isLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
         style={{
           ...style,
-          imageRendering: '-webkit-optimize-contrast',
+          imageRendering: 'auto',
           transform: 'translateZ(0)',
-          backfaceVisibility: 'hidden' as const,
-          WebkitFontSmoothing: 'antialiased' as const
+          backfaceVisibility: 'hidden' as const
         }}
         loading={loading}
         decoding="async"
