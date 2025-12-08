@@ -4,7 +4,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useCategories } from '../hooks/useCategories';
 import {
   ShoppingBasket,
-  ChevronDown,
   Menu,
   Facebook,
   Linkedin,
@@ -79,7 +78,6 @@ export function Header({
   const [partnersOnly, setPartnersOnly] = useState(false);
   const [sponsorFirst, setSponsorFirst] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false);
 
   const [ssoLoading, setSsoLoading] = useState(false);
 
@@ -160,13 +158,10 @@ export function Header({
     navigate(`/search?${searchParams.toString()}`);
   };
 
-  // dev 브랜치: 카테고리 8개 전체 표시
+  // 네비게이션: 홈, 가맹점 (문의/소개는 푸터로 이동, 카테고리는 별도 표시)
   const navigation = [
     { name: t('home', selectedLanguage), id: "home" },
-    { name: t('categories', selectedLanguage), id: "categories", hasDropdown: true },
     { name: t('franchise', selectedLanguage), id: "franchise" },
-    { name: t('contact', selectedLanguage), id: "contact" },
-    { name: t('about', selectedLanguage), id: "about" },
   ];
 
   const destinations = [
@@ -184,9 +179,9 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-50 w-full">
-      {/* 상단 연보라 탑바 */}
-      <div className="bg-[#858dc5] h-[48px] md:h-[55px] flex items-center">
-        <div className="w-full px-2 md:px-[60px] flex items-center justify-between text-[13px] md:text-[14px] text-white">
+      {/* 상단 진보라 탑바 */}
+      <div className="bg-[#5c2d91] h-[48px] md:h-[55px] flex items-center">
+        <div className="w-full px-4 md:px-[80px] lg:px-[120px] flex items-center justify-between text-[13px] md:text-[14px] text-white">
           {/* 왼쪽 */}
           <div className="flex items-center gap-2 md:gap-3">
             <div className="flex gap-2 md:gap-3 items-center">
@@ -215,9 +210,9 @@ export function Header({
             ></span>
             <a
               className="text-white hover:text-blue-100 transition-colors hidden sm:inline"
-              href="mailto:awesomeplan4606@naver.com"
+              href="mailto:travleap_cs@gmail.com"
             >
-              awesomeplan4606@naver.com
+              travleap_cs@gmail.com
             </a>
           </div>
 
@@ -274,9 +269,9 @@ export function Header({
 
       {/* 네비게이션 바 */}
       <nav className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="h-[67px] md:h-[100px] w-full px-2 md:px-[60px] flex items-center">
+        <div className="h-[67px] md:h-[100px] w-full px-4 md:px-[80px] lg:px-[120px] flex items-center">
           {/* 왼쪽: 로고 + 메뉴 */}
-          <div className="flex items-center gap-4 md:gap-8">
+          <div className="flex items-center gap-6 md:gap-10">
             {/* 로고 */}
             <a
               className="cursor-pointer flex items-center gap-2"
@@ -285,57 +280,40 @@ export function Header({
               <span className="text-2xl md:text-3xl font-bold text-[#A8A8D8] tracking-tight select-none">Travelap</span>
             </a>
 
-            {/* 메뉴 */}
-            <div className="hidden md:flex items-center gap-6 lg:gap-8">
-              {navigation.map((item) => (
-                <div key={item.id}>
-                  {item.hasDropdown ? (
-                    <div className="relative group">
-                      <button className="text-[#4A5568] hover:text-[#2D3748] transition-colors font-semibold text-[16px] tracking-wide flex items-center">
-                        {item.name}
-                        <ChevronDown className="w-3 h-3 ml-1" />
-                      </button>
-                      {/* 카테고리 가로 바 - 전체 너비 */}
-                      <div className="fixed left-0 right-0 top-[103px] md:top-[155px] bg-white border-b border-gray-200 shadow-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                        <div className="w-full px-[60px] py-4">
-                          <div className="flex items-center justify-between">
-                            {categories.map((category) => (
-                              <button
-                                key={category.id}
-                                className="flex-1 py-3 text-base font-semibold text-gray-700 hover:text-[#858dc5] hover:bg-[#f8f8fc] rounded-lg transition-all duration-200 whitespace-nowrap"
-                                onClick={() =>
-                                  navigate(`/category/${category.id}`)
-                                }
-                              >
-                                {category.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      className={`text-[#4A5568] hover:text-[#2D3748] transition-colors font-semibold text-[16px] tracking-wide ${
-                        currentView === `/${item.id === 'home' ? '' : item.id}`
-                          ? "text-[#2D3748]"
-                          : ""
-                      }`}
-                      onClick={() => {
-                        if (item.id === 'home') {
-                          navigate('/');
-                        } else if (item.id === 'franchise') {
-                          navigate('/partner');
-                        } else {
-                          navigate(`/${item.id}`);
-                        }
-                      }}
-                    >
-                      {item.name}
-                    </button>
-                  )}
-                </div>
+            {/* 메뉴: 홈 + 카테고리 8개 + 가맹점 */}
+            <div className="hidden md:flex items-center gap-4 lg:gap-6">
+              {/* 홈 */}
+              <button
+                className={`text-[#4A5568] hover:text-[#5c2d91] transition-colors font-semibold text-[15px] tracking-wide ${
+                  currentView === '/' ? "text-[#5c2d91]" : ""
+                }`}
+                onClick={() => navigate('/')}
+              >
+                {t('home', selectedLanguage)}
+              </button>
+
+              {/* 카테고리 8개 직접 표시 */}
+              {categories.map((category) => (
+                <button
+                  key={category.id}
+                  className={`text-[#4A5568] hover:text-[#5c2d91] transition-colors font-semibold text-[15px] tracking-wide whitespace-nowrap ${
+                    currentView === `/category/${category.id}` ? "text-[#5c2d91]" : ""
+                  }`}
+                  onClick={() => navigate(`/category/${category.id}`)}
+                >
+                  {category.name}
+                </button>
               ))}
+
+              {/* 가맹점 */}
+              <button
+                className={`text-[#4A5568] hover:text-[#5c2d91] transition-colors font-semibold text-[15px] tracking-wide ${
+                  currentView === '/partner' ? "text-[#5c2d91]" : ""
+                }`}
+                onClick={() => navigate('/partner')}
+              >
+                {t('franchise', selectedLanguage)}
+              </button>
             </div>
           </div>
 
@@ -414,7 +392,7 @@ export function Header({
             {/* PINTO 쇼핑몰 버튼 */}
             <Button
               type="button"
-              className="hidden md:inline-flex bg-[#6366f1] hover:bg-[#4f46e5] text-white text-sm gap-1"
+              className="hidden md:inline-flex bg-[#5c2d91] hover:bg-[#4a2475] text-white text-sm gap-1"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -430,19 +408,16 @@ export function Header({
               PINTO 쇼핑몰
             </Button>
 
-            {/* CTA 버튼 */}
+            {/* Partner 버튼 */}
             <Button
-              className="hidden lg:inline-flex bg-[#ff6a3d] hover:bg-[#e5582b] text-white text-sm"
+              className="hidden lg:inline-flex bg-[#5c2d91] hover:bg-[#4a2475] text-white text-sm"
               onClick={() => navigate("/partner-apply")}
             >
-              {t('becomeLocalExpert', selectedLanguage)}
+              Partner
             </Button>
 
             {/* 모바일 메뉴 */}
-            <Sheet open={mobileMenuOpen} onOpenChange={(open) => {
-              setMobileMenuOpen(open);
-              if (!open) setMobileCategoryOpen(false); // 메뉴 닫을 때 카테고리도 닫기
-            }}>
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild className="md:hidden">
                 <Button variant="ghost" size="icon" className="min-w-[44px] min-h-[44px] flex items-center justify-center">
                   <Menu className="h-5 w-5" />
@@ -450,56 +425,41 @@ export function Header({
               </SheetTrigger>
               <SheetContent side="right" className="p-0 w-[220px] overflow-y-auto">
                 <div className="grid gap-0 py-6 h-full overflow-y-auto">
-                  {navigation.map((item) => (
-                    <div key={item.id}>
-                      {item.hasDropdown ? (
-                        // 카테고리 드롭다운
-                        <div>
-                          <button
-                            onClick={() => setMobileCategoryOpen(!mobileCategoryOpen)}
-                            className="w-full text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center justify-between px-6 border-b border-gray-100"
-                          >
-                            <span>{item.name}</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${mobileCategoryOpen ? 'rotate-180' : ''}`} />
-                          </button>
-                          {/* 카테고리 하위 메뉴 */}
-                          {mobileCategoryOpen && (
-                            <div className="bg-gray-50">
-                              {categories.map((category) => (
-                                <button
-                                  key={category.id}
-                                  onClick={() => {
-                                    navigate(`/category/${category.id}`);
-                                    setMobileMenuOpen(false);
-                                    setMobileCategoryOpen(false);
-                                  }}
-                                  className="w-full flex items-center text-left pl-10 pr-6 py-3 hover:bg-gray-100 min-h-[48px] border-b border-gray-200"
-                                >
-                                  <span className="text-base text-gray-700">{category.name}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            if (item.id === 'home') {
-                              navigate('/');
-                            } else if (item.id === 'franchise') {
-                              navigate('/partner');
-                            } else {
-                              navigate(`/${item.id}`);
-                            }
-                            setMobileMenuOpen(false);
-                          }}
-                          className="w-full text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center px-6 border-b border-gray-100"
-                        >
-                          {item.name}
-                        </button>
-                      )}
-                    </div>
+                  {/* 홈 */}
+                  <button
+                    onClick={() => {
+                      navigate('/');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center px-6 border-b border-gray-100"
+                  >
+                    {t('home', selectedLanguage)}
+                  </button>
+
+                  {/* 카테고리 8개 직접 표시 */}
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => {
+                        navigate(`/category/${category.id}`);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full text-left text-base hover:bg-gray-50 transition-colors min-h-[48px] flex items-center px-6 border-b border-gray-100"
+                    >
+                      {category.name}
+                    </button>
                   ))}
+
+                  {/* 가맹점 */}
+                  <button
+                    onClick={() => {
+                      navigate('/partner');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center px-6 border-b border-gray-100"
+                  >
+                    {t('franchise', selectedLanguage)}
+                  </button>
 
                   {/* 모바일 로그인/관리자/마이페이지 메뉴 */}
                   <div className="border-t pt-2 mt-2">
