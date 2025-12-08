@@ -142,6 +142,8 @@ const loadProducts = async (): Promise<Product[]> => {
         title: listing.title,
         category: (listing as any).category_name || categorySlugToName[(listing as any).category_slug] || listing.category || '미분류',
         price: listing.price_from || 0,
+        childPrice: (listing as any).child_price || null,
+        infantPrice: (listing as any).infant_price || null,
         location: listing.location || '',
         address: (listing as any).address || '',
         coordinates: (listing as any).lat && (listing as any).lng
@@ -1563,8 +1565,8 @@ export function AdminPage({}: AdminPageProps) {
           ? (editingProduct.descriptionImageUrl || '')
           : (editingProduct.longDescription || editingProduct.description || ''),
         price: editingProduct.price,
-        childPrice: null,
-        infantPrice: null,
+        childPrice: (editingProduct as any).childPrice || null,
+        infantPrice: (editingProduct as any).infantPrice || null,
         location: editingProduct.location || '신안군',
         address: (editingProduct as any).address || '',
         lat,
@@ -3283,7 +3285,7 @@ export function AdminPage({}: AdminPageProps) {
                                     type="number"
                                     value={newProduct.childPrice || ''}
                                     onChange={(e) => setNewProduct(prev => ({ ...prev, childPrice: e.target.value }))}
-                                    placeholder="어린이 가격 (미입력시 성인의 70%)"
+                                    placeholder="미입력시 옵션 표시 안됨"
                                   />
                                 </div>
                                 <div>
@@ -3292,7 +3294,7 @@ export function AdminPage({}: AdminPageProps) {
                                     type="number"
                                     value={newProduct.infantPrice || ''}
                                     onChange={(e) => setNewProduct(prev => ({ ...prev, infantPrice: e.target.value }))}
-                                    placeholder="유아 가격 (미입력시 성인의 30%)"
+                                    placeholder="미입력시 옵션 표시 안됨"
                                   />
                                 </div>
                               </>
@@ -6228,7 +6230,9 @@ export function AdminPage({}: AdminPageProps) {
                     </Select>
                   </div>
                   <div>
-                    <label className="text-sm font-medium mb-1 block">가격 *</label>
+                    <label className="text-sm font-medium mb-1 block">
+                      {editingProduct.category === '팝업' ? '상품 가격 *' : '성인 가격 *'}
+                    </label>
                     <Input
                       type="number"
                       value={editingProduct.price}
@@ -6237,6 +6241,33 @@ export function AdminPage({}: AdminPageProps) {
                       )}
                     />
                   </div>
+                  {/* 팝업이 아닐 때만 어린이/유아 가격 표시 */}
+                  {editingProduct.category !== '팝업' && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">어린이 가격</label>
+                        <Input
+                          type="number"
+                          value={(editingProduct as any).childPrice || ''}
+                          onChange={(e) => setEditingProduct(prev =>
+                            prev ? { ...prev, childPrice: e.target.value ? parseInt(e.target.value) : null } : null
+                          )}
+                          placeholder="미입력시 옵션 표시 안됨"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1 block">유아 가격</label>
+                        <Input
+                          type="number"
+                          value={(editingProduct as any).infantPrice || ''}
+                          onChange={(e) => setEditingProduct(prev =>
+                            prev ? { ...prev, infantPrice: e.target.value ? parseInt(e.target.value) : null } : null
+                          )}
+                          placeholder="미입력시 옵션 표시 안됨"
+                        />
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className="text-sm font-medium mb-1 block">상태</label>
                     <Select
