@@ -112,11 +112,14 @@ export function HomeBanner({ autoSlideInterval = 5000 }: HomeBannerProps) {
                 playsInline
               />
             ) : (
-              /* 이미지 배너 (기본) - 이미지 크기에 맞게 자동 조절 */
-              <ImageWithFallback
+              /* 이미지 배너 (기본) - 원본 화질 유지 */
+              <img
                 src={banner.image_url}
                 alt={banner.title || `배너 ${index + 1}`}
                 className="w-full h-auto"
+                style={{ imageRendering: 'auto' }}
+                loading="eager"
+                decoding="sync"
               />
             )}
 
