@@ -179,8 +179,8 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-50 w-full">
-      {/* 상단 진보라 탑바 */}
-      <div className="bg-[#5c2d91] h-[48px] md:h-[55px] flex items-center">
+      {/* 상단 탑바 */}
+      <div className="bg-[#858dc5] h-[48px] md:h-[55px] flex items-center">
         <div className="w-full px-4 md:px-[80px] lg:px-[120px] flex items-center justify-between text-[13px] md:text-[14px] text-white">
           {/* 왼쪽 */}
           <div className="flex items-center gap-2 md:gap-3">
@@ -392,7 +392,7 @@ export function Header({
             {/* PINTO 쇼핑몰 버튼 */}
             <Button
               type="button"
-              className="hidden md:inline-flex bg-[#5c2d91] hover:bg-[#4a2475] text-white text-sm gap-1"
+              className="hidden md:inline-flex bg-[#858dc5] hover:bg-[#6b73a8] text-white text-sm gap-1"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -410,7 +410,7 @@ export function Header({
 
             {/* Partner 버튼 */}
             <Button
-              className="hidden lg:inline-flex bg-[#5c2d91] hover:bg-[#4a2475] text-white text-sm"
+              className="hidden lg:inline-flex bg-[#858dc5] hover:bg-[#6b73a8] text-white text-sm"
               onClick={() => navigate("/partner-apply")}
             >
               Partner
