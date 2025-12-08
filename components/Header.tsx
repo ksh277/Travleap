@@ -651,7 +651,7 @@ export function Header({
                 <div className="flex items-end">
                   <Button
                     type="submit"
-                    className="w-full bg-[#ff6a3d] hover:bg-[#e5582b]"
+                    className="w-full bg-[#5c2d91] hover:bg-[#4a2475]"
                   >
                     {t('searchButton', selectedLanguage)}
                   </Button>
