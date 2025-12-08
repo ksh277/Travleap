@@ -758,40 +758,21 @@ export function PartnerDetailPage() {
                   </div>
                 </Card>
 
-                {/* Reservation Button - 휴대폰 또는 계정이 있어야만 예약 가능 (가게 전화번호만 있으면 안됨) */}
-                {((partner.mobile_phone && partner.mobile_phone.trim()) || partner.user_id) && (
+                {/* Reservation Button - can_book이 true이고, 휴대폰 또는 계정이 있어야만 표시 */}
+                {partner.can_book && ((partner.mobile_phone && partner.mobile_phone.trim()) || partner.user_id) && (
                   <Card>
                     <CardContent className="p-6">
-                      {partner.can_book ? (
-                        <>
-                          <Button
-                            onClick={() => setIsReservationModalOpen(true)}
-                            className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6"
-                            size="lg"
-                          >
-                            <Clock className="h-5 w-5 mr-2" />
-                            예약하기
-                          </Button>
-                          <p className="text-sm text-gray-500 text-center mt-3">
-                            날짜와 시간을 선택하여 예약하세요
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            disabled
-                            className="w-full bg-gray-400 text-white text-lg py-6 cursor-not-allowed"
-                            size="lg"
-                          >
-                            <Clock className="h-5 w-5 mr-2" />
-                            예약 불가
-                          </Button>
-                          <p className="text-sm text-gray-500 text-center mt-3">
-                            현재 온라인 예약을 받지 않습니다.<br />
-                            방문 또는 전화 문의 부탁드립니다.
-                          </p>
-                        </>
-                      )}
+                      <Button
+                        onClick={() => setIsReservationModalOpen(true)}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-6"
+                        size="lg"
+                      >
+                        <Clock className="h-5 w-5 mr-2" />
+                        예약하기
+                      </Button>
+                      <p className="text-sm text-gray-500 text-center mt-3">
+                        날짜와 시간을 선택하여 예약하세요
+                      </p>
                     </CardContent>
                   </Card>
                 )}
