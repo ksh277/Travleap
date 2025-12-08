@@ -758,8 +758,8 @@ export function PartnerDetailPage() {
                   </div>
                 </Card>
 
-                {/* Reservation Button - 휴대폰 또는 계정이 있어야만 예약 가능 */}
-                {(partner.mobile_phone || partner.user_id) && (
+                {/* Reservation Button - 휴대폰 또는 계정이 있어야만 예약 가능 (가게 전화번호만 있으면 안됨) */}
+                {((partner.mobile_phone && partner.mobile_phone.trim()) || partner.user_id) && (
                   <Card>
                     <CardContent className="p-6">
                       {partner.can_book ? (
