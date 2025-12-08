@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Phone, Mail, MessageCircle } from 'lucide-react';
+import { Phone, Mail, MessageCircle, ExternalLink } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
@@ -223,6 +223,42 @@ export function Footer({
             <p>
               소비자 피해는 공정거래위원회 고시 소비자분쟁해결기준에 따라 보상받을 수 있습니다.
             </p>
+          </div>
+        </div>
+
+        {/* 패밀리 사이트 */}
+        <div className="py-4 border-t border-gray-200">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">패밀리 사이트</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href="https://companyap.co.kr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                어썸플랜 본사
+                <ExternalLink className="h-3 w-3" />
+              </a>
+              <a
+                href="https://makepinto.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                PINTO 쇼핑몰
+                <ExternalLink className="h-3 w-3" />
+              </a>
+              <a
+                href="https://awesomeplan.co.kr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                Travleap
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
           </div>
         </div>
 
