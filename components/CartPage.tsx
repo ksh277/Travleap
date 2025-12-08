@@ -806,17 +806,15 @@ export function CartPage() {
                                       </div>
                                     </div>
                                   )}
-                                  {/* 어린이 */}
-                                  {(item.children !== undefined || item.childPrice) && (
+                                  {/* 어린이 - 가격 설정된 경우만 표시 */}
+                                  {item.childPrice && item.childPrice > 0 && (
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2 flex-1">
                                         <Users className="h-3 w-3 flex-shrink-0 text-green-600" />
                                         <span className="text-xs font-medium">어린이</span>
-                                        {item.childPrice !== undefined && item.childPrice !== null && (
-                                          <span className="text-xs text-gray-500">
-                                            {item.childPrice.toLocaleString()}원/명
-                                          </span>
-                                        )}
+                                        <span className="text-xs text-gray-500">
+                                          {item.childPrice.toLocaleString()}원/명
+                                        </span>
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <Button
@@ -843,17 +841,15 @@ export function CartPage() {
                                       </div>
                                     </div>
                                   )}
-                                  {/* 유아 */}
-                                  {(item.infants !== undefined || item.infantPrice !== undefined) && (
+                                  {/* 유아 - 가격 설정된 경우만 표시 */}
+                                  {item.infantPrice && item.infantPrice > 0 && (
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2 flex-1">
                                         <Users className="h-3 w-3 flex-shrink-0 text-orange-600" />
                                         <span className="text-xs font-medium">유아</span>
-                                        {item.infantPrice !== undefined && item.infantPrice !== null && (
-                                          <span className="text-xs text-gray-500">
-                                            {item.infantPrice.toLocaleString()}원/명
-                                          </span>
-                                        )}
+                                        <span className="text-xs text-gray-500">
+                                          {item.infantPrice.toLocaleString()}원/명
+                                        </span>
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <Button

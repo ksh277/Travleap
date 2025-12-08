@@ -233,10 +233,10 @@ export function DetailPage() {
 
     const baseItemPrice = useOptionPrice ? selectedOption.price : item.price;
 
-    // Calculate prices for each guest type
+    // Calculate prices for each guest type (가격 미설정시 0원)
     const adultPrice = baseItemPrice * adults;
-    const childPrice = (item.childPrice || baseItemPrice * 0.7) * children;
-    const infantPrice = (item.infantPrice || baseItemPrice * 0.3) * infants;
+    const childPrice = (item.childPrice && item.childPrice > 0) ? item.childPrice * children : 0;
+    const infantPrice = (item.infantPrice && item.infantPrice > 0) ? item.infantPrice * infants : 0;
 
     // Calculate package prices
     const packageTotal = Object.entries(selectedPackages).reduce((sum, [packageId, quantity]) => {
@@ -2612,67 +2612,71 @@ export function DetailPage() {
                               </div>
                             </div>
 
-                            {/* 어린이 */}
-                            <div className="flex items-center justify-between border rounded-md px-4 py-3">
-                              <div>
-                                <div className="font-medium">어린이</div>
-                                <div className="text-xs text-gray-500">6-17세</div>
+                            {/* 어린이 - 가격 설정된 경우만 표시 */}
+                            {item.childPrice && item.childPrice > 0 && (
+                              <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                                <div>
+                                  <div className="font-medium">어린이</div>
+                                  <div className="text-xs text-gray-500">6-17세</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setChildren(Math.max(0, children - 1))}
+                                    disabled={children <= 0}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    -
+                                  </Button>
+                                  <span className="text-lg font-medium w-8 text-center">{children}</span>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setChildren(children + 1)}
+                                    disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    +
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setChildren(Math.max(0, children - 1))}
-                                  disabled={children <= 0}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  -
-                                </Button>
-                                <span className="text-lg font-medium w-8 text-center">{children}</span>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setChildren(children + 1)}
-                                  disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  +
-                                </Button>
-                              </div>
-                            </div>
+                            )}
 
-                            {/* 유아 */}
-                            <div className="flex items-center justify-between border rounded-md px-4 py-3">
-                              <div>
-                                <div className="font-medium">유아</div>
-                                <div className="text-xs text-gray-500">0-5세</div>
+                            {/* 유아 - 가격 설정된 경우만 표시 */}
+                            {item.infantPrice && item.infantPrice > 0 && (
+                              <div className="flex items-center justify-between border rounded-md px-4 py-3">
+                                <div>
+                                  <div className="font-medium">유아</div>
+                                  <div className="text-xs text-gray-500">0-5세</div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setInfants(Math.max(0, infants - 1))}
+                                    disabled={infants <= 0}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    -
+                                  </Button>
+                                  <span className="text-lg font-medium w-8 text-center">{infants}</span>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setInfants(infants + 1)}
+                                    disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    +
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-3">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setInfants(Math.max(0, infants - 1))}
-                                  disabled={infants <= 0}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  -
-                                </Button>
-                                <span className="text-lg font-medium w-8 text-center">{infants}</span>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setInfants(infants + 1)}
-                                  disabled={(adults + children + infants) >= (item?.maxCapacity || 100)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  +
-                                </Button>
-                              </div>
-                            </div>
+                            )}
 
                             <p className="text-xs text-gray-500">
                               최대 {item?.maxCapacity || 100}명 | 총 {adults + children + infants}명
@@ -2717,16 +2721,16 @@ export function DetailPage() {
                                 <span>{(item.price || 0).toLocaleString()}원 x {adults}명</span>
                               </div>
                             )}
-                            {children > 0 && (
+                            {children > 0 && item.childPrice && item.childPrice > 0 && (
                               <div className="flex justify-between items-center text-sm">
                                 <span>어린이</span>
-                                <span>{((item.childPrice || item.price * 0.7) || 0).toLocaleString()}원 x {children}명</span>
+                                <span>{item.childPrice.toLocaleString()}원 x {children}명</span>
                               </div>
                             )}
-                            {infants > 0 && (
+                            {infants > 0 && item.infantPrice && item.infantPrice > 0 && (
                               <div className="flex justify-between items-center text-sm">
                                 <span>유아</span>
-                                <span>{((item.infantPrice || item.price * 0.3) || 0).toLocaleString()}원 x {infants}명</span>
+                                <span>{item.infantPrice.toLocaleString()}원 x {infants}명</span>
                               </div>
                             )}
                             <div className="flex justify-between items-center pt-2 border-t text-lg font-semibold">
