@@ -13,6 +13,47 @@ export function Footer({
 }: FooterProps) {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pintoLoading, setPintoLoading] = useState(false);
+
+  // PINTO SSO 이동 (Header와 동일한 로직)
+  const handleGoToPinto = async () => {
+    const pintoUrl = 'https://makepinto.com';
+    const token = localStorage.getItem('auth_token');
+
+    // 로그인 안 되어 있으면 그냥 이동
+    if (!token) {
+      window.open(pintoUrl, '_blank');
+      return;
+    }
+
+    setPintoLoading(true);
+    try {
+      const response = await fetch('/api/sso/generate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          target: 'pinto',
+          redirect_path: '/'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data?.callback_url) {
+        window.location.href = data.data.callback_url;
+      } else {
+        window.open(pintoUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('SSO 요청 오류:', error);
+      window.open(pintoUrl, '_blank');
+    } finally {
+      setPintoLoading(false);
+    }
+  };
 
   const handleSubscribe = async () => {
     if (!email || !email.trim()) {
@@ -240,15 +281,14 @@ export function Footer({
                 어썸플랜 본사
                 <ExternalLink className="h-3 w-3" />
               </a>
-              <a
-                href="https://makepinto.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+              <button
+                onClick={handleGoToPinto}
+                disabled={pintoLoading}
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50"
               >
-                PINTO 쇼핑몰
+                {pintoLoading ? '이동 중...' : 'PINTO 쇼핑몰'}
                 <ExternalLink className="h-3 w-3" />
-              </a>
+              </button>
               <a
                 href="https://awesomeplan.co.kr"
                 target="_blank"
