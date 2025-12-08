@@ -392,7 +392,7 @@ export function Header({
             {/* PINTO 쇼핑몰 버튼 */}
             <Button
               type="button"
-              className="hidden md:inline-flex bg-[#5c2d91] hover:bg-[#4a2475] text-white text-sm gap-1"
+              className="hidden md:inline-flex bg-[#858dc5] hover:bg-[#6b73a8] text-white text-sm gap-1"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
