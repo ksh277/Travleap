@@ -22,7 +22,8 @@ module.exports = async function handler(req, res) {
 
   try {
     const connection = connect({ url: process.env.DATABASE_URL });
-    const campaignId = req.query.id;
+    // Express에서는 req.params.id로, Next.js에서는 req.query.id로 전달됨
+    const campaignId = req.params?.id || req.query?.id;
 
     if (!campaignId) {
       return res.status(400).json({

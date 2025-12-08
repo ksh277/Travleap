@@ -9486,6 +9486,63 @@ function setupRoutes() {
     }
   });
 
+  // ===== 추가 쿠폰 관련 API =====
+
+  // GET /api/my/coupons - 사용자 쿠폰 목록 (마이페이지용)
+  app.get('/api/my/coupons', authenticate, async (req, res) => {
+    try {
+      const myCouponsAPI = await import('./api/my/coupons.js');
+      await myCouponsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] My coupons error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 조회 중 오류가 발생했습니다' });
+    }
+  });
+
+  // GET /api/admin/coupon-stats - 쿠폰 통계 (관리자)
+  app.get('/api/admin/coupon-stats', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const couponStatsAPI = await import('./api/admin/coupon-stats.js');
+      await couponStatsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon stats error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 통계 조회 중 오류가 발생했습니다' });
+    }
+  });
+
+  // GET /api/admin/coupon-settlements - 쿠폰 정산 (관리자)
+  app.get('/api/admin/coupon-settlements', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const settlementsAPI = await import('./api/admin/coupon-settlements.js');
+      await settlementsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon settlements error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 정산 조회 중 오류가 발생했습니다' });
+    }
+  });
+
+  // GET /api/admin/coupon-export - 쿠폰 내보내기 (관리자)
+  app.get('/api/admin/coupon-export', authenticate, requireRole('admin'), async (req, res) => {
+    try {
+      const exportAPI = await import('./api/admin/coupon-export.js');
+      await exportAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon export error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 내보내기 중 오류가 발생했습니다' });
+    }
+  });
+
+  // GET /api/partner/coupon-history - 파트너 쿠폰 사용 내역
+  app.get('/api/partner/coupon-history', authenticate, async (req, res) => {
+    try {
+      const historyAPI = await import('./api/partner/coupon-history.js');
+      await historyAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Partner coupon history error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 사용 내역 조회 중 오류가 발생했습니다' });
+    }
+  });
+
   // 404 핸들러
   app.use((req, res) => {
     res.status(404).json({
