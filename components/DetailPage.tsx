@@ -1130,10 +1130,11 @@ export function DetailPage() {
             {/* Enhanced Image Gallery */}
             <Card className="overflow-hidden group">
               <div className="relative" ref={galleryRef}>
-                <ImageWithFallback
+                <img
                   src={images[currentImageIndex]}
                   alt={`${item.title} - 이미지 ${currentImageIndex + 1}/${images.length}`}
-                  className="w-full h-96 md:h-[450px] lg:h-[550px] object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-auto max-h-[550px] object-contain bg-gray-100"
+                  style={{ imageRendering: 'auto' }}
                   loading="eager"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -1155,26 +1156,26 @@ export function DetailPage() {
                   전체보기
                 </Button>
 
-                {/* Navigation buttons */}
+                {/* Navigation buttons - 이미지가 2개 이상일 때만 표시, 항상 보임 */}
                 {images.length > 1 && (
                   <>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg backdrop-blur-sm min-w-[44px] min-h-[44px] opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg backdrop-blur-sm min-w-[44px] min-h-[44px] z-10"
                       onClick={() => setCurrentImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1)}
                       aria-label="이전 이미지"
                     >
-                      <ChevronLeft className="h-4 w-4" />
+                      <ChevronLeft className="h-5 w-5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg backdrop-blur-sm min-w-[44px] min-h-[44px] opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg backdrop-blur-sm min-w-[44px] min-h-[44px] z-10"
                       onClick={() => setCurrentImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1)}
                       aria-label="다음 이미지"
                     >
-                      <ChevronRight className="h-4 w-4" />
+                      <ChevronRight className="h-5 w-5" />
                     </Button>
                   </>
                 )}
