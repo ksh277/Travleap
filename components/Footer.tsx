@@ -99,23 +99,27 @@ export function Footer({
                   </span>
                 </div>
 
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  <span><span className="text-gray-900 font-medium">통신판매업</span> 2020-전남목포-0368</span>
-                  <span className="text-gray-300">|</span>
-                  <span><span className="text-gray-900 font-medium">호스팅</span> Vercel Inc.</span>
+                <div>
+                  <span className="text-gray-900 font-medium">통신판매업</span> 2020-전남목포-0368
                 </div>
 
                 <div>
-                  <span className="text-gray-900 font-medium">주소</span> 전라남도 목포시 원산중앙로 44 2층 <br />(우: 58636)
+                  <span className="text-gray-900 font-medium">주소</span> 전라남도 목포시 원산중앙로 44 2층
                 </div>
 
-                <div className="flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  <span className="text-gray-900 font-medium">이메일</span> awesomeplan4606@naver.com
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    <span className="text-gray-900 font-medium">이메일</span>
+                  </div>
+                  <div className="pl-4">
+                    CScenter : travleap_cs@gmail.com<br />
+                    가맹/입점문의 : travleap_cc@gmail.com
+                  </div>
                 </div>
 
                 <div>
-                  <span className="text-gray-900 font-medium">개인정보보호책임자</span> 함은비
+                  <span className="text-gray-900 font-medium">개인정보보호책임자</span> 김승환
                 </div>
               </div>
             </div>
