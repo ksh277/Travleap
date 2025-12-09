@@ -2,7 +2,7 @@
  * 쿠폰 리뷰 작성 + 포인트 적립 API
  * POST /api/reviews/create
  *
- * Body: { user_coupon_id, rating, comment }
+ * Body: { user_coupon_id, rating, menu_item, comment }
  *
  * 플로우:
  * 1. user_coupons 조회 (status='USED', review_submitted=FALSE)
@@ -35,7 +35,7 @@ async function handler(req, res) {
 
   try {
     const userId = req.user?.id || req.user?.userId;
-    const { user_coupon_id, rating, comment } = req.body;
+    const { user_coupon_id, rating, menu_item, comment } = req.body;
 
     if (!userId) {
       return res.status(401).json({
@@ -109,9 +109,9 @@ async function handler(req, res) {
 
     await connection.execute(`
       INSERT INTO coupon_reviews (
-        user_coupon_id, user_id, merchant_id, campaign_id, partner_id, rating, comment, review_text, points_awarded
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [user_coupon_id, userId, partnerId, couponId, partnerId, rating, comment || '', comment || '', REVIEW_POINTS]);
+        user_coupon_id, user_id, merchant_id, campaign_id, partner_id, rating, menu_item, comment, review_text, points_awarded
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [user_coupon_id, userId, partnerId, couponId, partnerId, rating, menu_item || '', comment || '', comment || '', REVIEW_POINTS]);
 
     // 3. user_coupons.review_submitted = TRUE 업데이트
     await connection.execute(`

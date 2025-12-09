@@ -116,9 +116,9 @@ export function HomeBanner({ autoSlideInterval = 5000 }: HomeBannerProps) {
               <img
                 src={banner.image_url}
                 alt={banner.title || `배너 ${index + 1}`}
-                className="w-full h-auto mx-auto"
+                className="h-auto mx-auto"
                 style={{
-                  maxWidth: '100%',
+                  maxWidth: '80%',
                   height: 'auto',
                   imageRendering: 'auto'
                 }}

@@ -179,6 +179,25 @@ export default function PaymentSuccessPage() {
     }
   };
 
+  // 주문 QR 이미지 저장 기능
+  const saveOrderQR = () => {
+    if (!qrCodeRef.current) return;
+    const link = document.createElement('a');
+    link.download = `order_${paymentData?.orderId || 'receipt'}.png`;
+    link.href = qrCodeRef.current.toDataURL('image/png');
+    link.click();
+  };
+
+  // 쿠폰 모달 표시 상태
+  const [showCouponModal, setShowCouponModal] = useState(false);
+
+  // 쿠폰 발급 시 모달 자동 열기
+  useEffect(() => {
+    if (couponData) {
+      setShowCouponModal(true);
+    }
+  }, [couponData]);
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
@@ -200,87 +219,21 @@ export default function PaymentSuccessPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">결제 완료!</h2>
             <p className="text-gray-600 mb-4">{message}</p>
 
-            {/* 쿠폰이 발급된 경우 */}
-            {couponData && (
-              <div className="my-6 p-4 bg-emerald-50 rounded-lg border-2 border-emerald-200">
-                <div className="flex items-center justify-center gap-2 mb-3">
-                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-                  </svg>
-                  <p className="text-sm font-bold text-emerald-700">할인 쿠폰이 발급되었습니다!</p>
-                </div>
-
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="font-bold text-gray-800 mb-1">{couponData.name}</p>
-                  {couponData.region_name && (
-                    <p className="text-xs text-gray-500 mb-3">{couponData.region_name} 지역 가맹점에서 사용</p>
-                  )}
-
-                  {/* 쿠폰 QR 코드 */}
-                  <div className="bg-emerald-50 p-3 rounded-lg inline-block mb-3">
-                    <canvas ref={couponQrRef} />
-                  </div>
-
-                  {/* 쿠폰 코드 */}
-                  <div className="flex items-center justify-center gap-2 mb-3">
-                    <span className="font-mono text-lg font-bold text-emerald-700">{couponData.code}</span>
-                    <button
-                      onClick={copyCouponCode}
-                      className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded"
-                      title="코드 복사"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* 가맹점별 할인 안내 */}
-                  <p className="text-xs text-emerald-600 font-semibold mb-2">
-                    할인율은 가맹점마다 다릅니다
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    유효기간: {new Date(couponData.expires_at).toLocaleDateString('ko-KR')}까지
-                  </p>
-                </div>
-
-                {/* 버튼들 */}
-                <div className="mt-4 space-y-2">
-                  {/* QR 이미지 저장 */}
-                  <button
-                    onClick={saveCouponImage}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-lg hover:bg-emerald-700 transition text-sm font-medium"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    쿠폰 이미지 저장
-                  </button>
-
-                  {/* 가맹점 보기 */}
-                  <button
-                    onClick={() => {
-                      const region = couponData.region_name || '';
-                      navigate(`/partners?coupon=${couponData.code}&region=${encodeURIComponent(region)}`);
-                    }}
-                    className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-2.5 rounded-lg hover:bg-blue-600 transition text-sm font-medium"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    {couponData.coupon_source === 'campaign' ? '사용 가능 가맹점 보기' : '주변 가맹점 보기'}
-                  </button>
-                </div>
-
-                <p className="text-xs text-emerald-600 mt-3">
-                  마이페이지 &gt; 쿠폰함에서도 확인 가능합니다
-                </p>
+            {/* 쿠폰 알림 바 - 모달을 닫은 후에도 다시 열 수 있는 알림 */}
+            {couponData && !showCouponModal && (
+              <div className="my-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center justify-between">
+                <span className="text-sm font-semibold text-emerald-700">🎟️ 쿠폰이 발급되었습니다!</span>
+                <button
+                  onClick={() => setShowCouponModal(true)}
+                  className="text-sm text-emerald-600 font-medium hover:text-emerald-700"
+                >
+                  쿠폰 보기 &gt;
+                </button>
               </div>
             )}
 
-            {/* 주문 QR 코드 (쿠폰이 없을 때만 표시) */}
-            {shouldShowQR && !couponData && (
+            {/* 주문 QR 코드 (항상 표시) */}
+            {shouldShowQR && (
               <div className="my-6 p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm font-semibold text-gray-700 mb-3">주문 QR 코드</p>
                 <div className="bg-white p-3 rounded-lg inline-block shadow-sm">
@@ -292,6 +245,16 @@ export default function PaymentSuccessPage() {
                 <p className="text-xs text-gray-400 mt-2">
                   이 QR 코드를 파트너사에 제시하세요
                 </p>
+                {/* 주문 QR 저장 버튼 */}
+                <button
+                  onClick={saveOrderQR}
+                  className="mt-3 flex items-center justify-center gap-2 bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-800 transition text-sm font-medium mx-auto"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  주문 QR 이미지 저장
+                </button>
               </div>
             )}
 
@@ -326,6 +289,104 @@ export default function PaymentSuccessPage() {
           </div>
         )}
       </div>
+
+      {/* 쿠폰 팝업 모달 (주문 QR 위에 오버레이) */}
+      {showCouponModal && couponData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full relative shadow-2xl">
+            {/* X 닫기 버튼 */}
+            <button
+              onClick={() => setShowCouponModal(false)}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* 헤더 */}
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+              </svg>
+              <h3 className="text-lg font-bold text-emerald-700">할인 쿠폰 발급!</h3>
+            </div>
+
+            {/* 쿠폰 내용 */}
+            <div className="bg-emerald-50 p-4 rounded-lg text-center">
+              <p className="font-bold text-gray-800 mb-1">{couponData.name}</p>
+              {couponData.region_name && (
+                <p className="text-xs text-gray-500 mb-3">{couponData.region_name} 지역 가맹점에서 사용</p>
+              )}
+
+              {/* 쿠폰 QR 코드 */}
+              <div className="bg-white p-3 rounded-lg inline-block mb-3 shadow-sm">
+                <canvas ref={couponQrRef} />
+              </div>
+
+              {/* 쿠폰 코드 */}
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <span className="font-mono text-lg font-bold text-emerald-700">{couponData.code}</span>
+                <button
+                  onClick={copyCouponCode}
+                  className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded"
+                  title="코드 복사"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="text-xs text-emerald-600 font-semibold mb-1">
+                할인율은 가맹점마다 다릅니다
+              </p>
+              <p className="text-xs text-gray-400">
+                유효기간: {new Date(couponData.expires_at).toLocaleDateString('ko-KR')}까지
+              </p>
+            </div>
+
+            {/* 버튼들 */}
+            <div className="mt-4 space-y-2">
+              <button
+                onClick={saveCouponImage}
+                className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white py-2.5 rounded-lg hover:bg-emerald-700 transition text-sm font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                쿠폰 이미지 저장
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowCouponModal(false);
+                  const region = couponData.region_name || '';
+                  navigate(`/partners?coupon=${couponData.code}&region=${encodeURIComponent(region)}`);
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-2.5 rounded-lg hover:bg-blue-600 transition text-sm font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {couponData.coupon_source === 'campaign' ? '사용 가능 가맹점 보기' : '주변 가맹점 보기'}
+              </button>
+
+              <button
+                onClick={() => setShowCouponModal(false)}
+                className="w-full py-2.5 text-gray-500 hover:text-gray-700 transition text-sm"
+              >
+                닫기
+              </button>
+            </div>
+
+            <p className="text-xs text-center text-emerald-600 mt-3">
+              마이페이지 &gt; 쿠폰함에서도 확인 가능합니다
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

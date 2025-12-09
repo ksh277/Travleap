@@ -307,7 +307,7 @@ async function handler(req, res) {
 
     // 소셜 로그인
     if (action === 'social-login') {
-      const { provider, providerId, email, name, avatar } = req.body;
+      const { provider, providerId, email, name, avatar, phone } = req.body;
 
       console.log('🔑 [Social Login] Request data:', { provider, providerId, email, name, hasAvatar: !!avatar });
 
@@ -356,8 +356,8 @@ async function handler(req, res) {
 
       // Neon PostgreSQL - 소셜 로그인 사용자 생성
       const result = await sql`
-        INSERT INTO users (username, email, name, provider, provider_id, role, password_hash, created_at, updated_at)
-        VALUES (${username}, ${email}, ${name}, ${provider}, ${providerId}, 'user', '', NOW(), NOW())
+        INSERT INTO users (username, email, name, phone, provider, provider_id, role, password_hash, created_at, updated_at)
+        VALUES (${username}, ${email}, ${name}, ${phone || ''}, ${provider}, ${providerId}, 'user', '', NOW(), NOW())
         RETURNING id
       `;
 

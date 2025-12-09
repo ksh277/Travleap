@@ -154,17 +154,25 @@ export const initKakaoAuth = () => {
   const loginWithKakao = async () => {
     await loadKakaoSdk();
 
-    return new Promise<{ email: string; name: string; id: string; picture?: string }>((resolve, reject) => {
+    return new Promise<{ email: string; name: string; id: string; picture?: string; phone?: string }>((resolve, reject) => {
       window.Kakao.Auth.login({
+        scope: 'name,phone_number,gender,age_range,birthday,shipping_address',
         success: (authObj: any) => {
           window.Kakao.API.request({
             url: '/v2/user/me',
             success: (res: any) => {
+              // 전화번호 포맷 정리 (+82 10-1234-5678 → 01012345678)
+              let phone = res.kakao_account?.phone_number || '';
+              if (phone.startsWith('+82 ')) {
+                phone = '0' + phone.slice(4).replace(/-/g, '').replace(/ /g, '');
+              }
+
               resolve({
                 id: res.id.toString(),
                 email: res.kakao_account?.email || '',
-                name: res.kakao_account?.profile?.nickname || '카카오 사용자',
-                picture: res.kakao_account?.profile?.profile_image_url
+                name: res.kakao_account?.name || res.kakao_account?.profile?.nickname || '카카오 사용자',
+                picture: res.kakao_account?.profile?.profile_image_url,
+                phone: phone || undefined
               });
             },
             fail: (error: any) => {

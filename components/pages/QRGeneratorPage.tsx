@@ -8,7 +8,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { Download, Link as LinkIcon, Home, User, ShoppingBag } from 'lucide-react';
+import { Download, Link as LinkIcon, Home, User, ShoppingBag, Ticket, BookOpen } from 'lucide-react';
 
 interface PresetURL {
   name: string;
@@ -20,6 +20,16 @@ export function QRGeneratorPage() {
   const [url, setUrl] = useState('https://travleap.com');
   const [qrSize, setQrSize] = useState(256);
   const qrRef = useRef<HTMLCanvasElement>(null);
+
+  // 쿠폰북 캠페인 목록 (DB에서 가져올 수도 있음)
+  const couponBookCampaigns = [
+    {
+      id: 1,
+      name: '가고싶은섬 쿠폰북',
+      code: 'COUPON-MIY0WN0FOYWV',
+      discount: '10%'
+    }
+  ];
 
   // 사전 정의된 URL 목록
   const presetURLs: PresetURL[] = [
@@ -57,6 +67,11 @@ export function QRGeneratorPage() {
       name: '파트너 신청',
       url: 'https://travleap.com/partner-apply',
       icon: <LinkIcon className="w-4 h-4" />
+    },
+    {
+      name: '쿠폰 가맹점',
+      url: 'https://travleap.com/partners?coupon=true',
+      icon: <Ticket className="w-4 h-4" />
     }
   ];
 
@@ -207,10 +222,49 @@ export function QRGeneratorPage() {
               </CardContent>
             </Card>
 
+            {/* 쿠폰북 QR 생성 */}
+            <Card className="border-purple-200 bg-purple-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-purple-900">
+                  <BookOpen className="w-5 h-5" />
+                  쿠폰북 QR 생성
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {couponBookCampaigns.map((campaign) => (
+                    <button
+                      key={campaign.id}
+                      onClick={() => setUrl(`https://travleap.com/coupon-book/claim?campaign=${campaign.id}`)}
+                      className={`w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                        url === `https://travleap.com/coupon-book/claim?campaign=${campaign.id}`
+                          ? 'border-purple-600 bg-purple-100 text-purple-900'
+                          : 'border-purple-200 hover:border-purple-300 bg-white'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-lg ${
+                        url === `https://travleap.com/coupon-book/claim?campaign=${campaign.id}` ? 'bg-purple-200' : 'bg-purple-100'
+                      }`}>
+                        <Ticket className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="font-medium text-sm">{campaign.name}</p>
+                        <p className="text-xs text-purple-600 font-bold">{campaign.discount} 할인</p>
+                        <p className="text-xs text-gray-500 mt-1">{campaign.code}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-purple-700 mt-3">
+                  이 QR을 스캔하면 로그인 후 쿠폰이 자동 발급됩니다
+                </p>
+              </CardContent>
+            </Card>
+
             {/* 사용 팁 */}
             <Card className="bg-blue-50 border-blue-200">
               <CardContent className="pt-6">
-                <h3 className="font-semibold text-blue-900 mb-2">💡 사용 팁</h3>
+                <h3 className="font-semibold text-blue-900 mb-2">사용 팁</h3>
                 <ul className="space-y-2 text-sm text-blue-800">
                   <li>• QR 코드는 PNG 이미지로 다운로드됩니다</li>
                   <li>• 크기는 128px ~ 512px 사이에서 조절 가능합니다</li>

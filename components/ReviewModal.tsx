@@ -4,7 +4,7 @@
  * 사이트 입장 시 리뷰 대기 목록 확인 후 모달 표시
  * - /api/my/pending-reviews 호출
  * - 대기 리뷰가 있으면 모달 표시
- * - 별점 + 텍스트 입력
+ * - 별점 + 메뉴 선택(버튼) + 텍스트 입력
  * - 제출 시 /api/reviews/create 호출
  * - 성공 시 "500P 적립!" 토스트
  */
@@ -13,7 +13,8 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { Star, Gift, Loader2, CheckCircle, X } from 'lucide-react';
+import { Input } from './ui/input';
+import { Star, Gift, Loader2, CheckCircle, X, Utensils, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../hooks/useAuth';
 
@@ -32,12 +33,25 @@ interface PendingReview {
   final_amount: number;
 }
 
+interface PartnerMenu {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+  is_popular: boolean;
+}
+
 export function ReviewModal() {
   const { isLoggedIn, sessionRestored } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
   const [rating, setRating] = useState(5);
+  const [menuItem, setMenuItem] = useState('');
+  const [customMenuInput, setCustomMenuInput] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [partnerMenus, setPartnerMenus] = useState<PartnerMenu[]>([]);
+  const [loadingMenus, setLoadingMenus] = useState(false);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -56,6 +70,32 @@ export function ReviewModal() {
       checkPendingReviews();
     }
   }, [sessionRestored, isLoggedIn]);
+
+  // 현재 리뷰의 파트너 메뉴 조회
+  const currentReview = pendingReviews[currentReviewIndex];
+
+  useEffect(() => {
+    if (currentReview?.partner_id) {
+      fetchPartnerMenus(currentReview.partner_id);
+    }
+  }, [currentReview?.partner_id]);
+
+  const fetchPartnerMenus = async (partnerId: number) => {
+    setLoadingMenus(true);
+    try {
+      const response = await fetch(`/api/partners/${partnerId}/menus`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setPartnerMenus(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('메뉴 목록 조회 실패:', error);
+    } finally {
+      setLoadingMenus(false);
+    }
+  };
 
   const checkPendingReviews = async () => {
     try {
@@ -79,7 +119,18 @@ export function ReviewModal() {
     }
   };
 
-  const currentReview = pendingReviews[currentReviewIndex];
+  const handleSelectMenu = (menu: string) => {
+    setMenuItem(menu);
+    setShowCustomInput(false);
+    setCustomMenuInput('');
+  };
+
+  const handleCustomMenuSubmit = () => {
+    if (customMenuInput.trim()) {
+      setMenuItem(customMenuInput.trim());
+      setShowCustomInput(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!currentReview) return;
@@ -96,6 +147,7 @@ export function ReviewModal() {
         body: JSON.stringify({
           user_coupon_id: currentReview.user_coupon_id,
           rating,
+          menu_item: menuItem,
           comment
         })
       });
@@ -113,6 +165,9 @@ export function ReviewModal() {
           if (currentReviewIndex < pendingReviews.length - 1) {
             setCurrentReviewIndex(prev => prev + 1);
             setRating(5);
+            setMenuItem('');
+            setCustomMenuInput('');
+            setShowCustomInput(false);
             setComment('');
             setSuccess(false);
           } else {
@@ -134,6 +189,9 @@ export function ReviewModal() {
     if (currentReviewIndex < pendingReviews.length - 1) {
       setCurrentReviewIndex(prev => prev + 1);
       setRating(5);
+      setMenuItem('');
+      setCustomMenuInput('');
+      setShowCustomInput(false);
       setComment('');
     } else {
       // 모든 리뷰를 스킵하면 이 세션에서는 다시 안 띄움
@@ -188,6 +246,97 @@ export function ReviewModal() {
               <div className="mt-2 text-sm text-purple-600">
                 {currentReview.coupon_name} 사용
               </div>
+            </div>
+
+            {/* 구매 메뉴 선택 */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Utensils className="inline h-4 w-4 mr-1" />
+                구매한 메뉴/상품
+              </label>
+
+              {/* 선택된 메뉴 표시 */}
+              {menuItem && (
+                <div className="flex items-center gap-2 mb-2 p-2 bg-purple-100 rounded-lg">
+                  <span className="text-sm text-purple-800 font-medium">{menuItem}</span>
+                  <button
+                    type="button"
+                    onClick={() => setMenuItem('')}
+                    className="text-purple-600 hover:text-purple-800"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* 메뉴 버튼 목록 */}
+              {loadingMenus ? (
+                <div className="flex items-center justify-center py-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                  <span className="ml-2 text-sm text-gray-500">메뉴 불러오는 중...</span>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {partnerMenus.filter(m => m.name !== '기타').map((menu) => (
+                    <button
+                      key={menu.id}
+                      type="button"
+                      onClick={() => handleSelectMenu(menu.name)}
+                      className={`px-3 py-1.5 text-sm rounded-full border transition-all ${
+                        menuItem === menu.name
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400 hover:bg-purple-50'
+                      }`}
+                    >
+                      {menu.name}
+                      {menu.is_popular && <span className="ml-1 text-xs">★</span>}
+                    </button>
+                  ))}
+
+                  {/* 직접 입력 버튼 */}
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomInput(!showCustomInput)}
+                    className={`px-3 py-1.5 text-sm rounded-full border transition-all flex items-center gap-1 ${
+                      showCustomInput
+                        ? 'bg-gray-100 border-gray-400'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <Plus className="h-3 w-3" />
+                    직접 입력
+                  </button>
+                </div>
+              )}
+
+              {/* 직접 입력 필드 */}
+              {showCustomInput && (
+                <div className="mt-2 flex gap-2">
+                  <Input
+                    value={customMenuInput}
+                    onChange={(e) => setCustomMenuInput(e.target.value)}
+                    placeholder="메뉴명 입력..."
+                    className="flex-1"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCustomMenuSubmit();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCustomMenuSubmit}
+                    disabled={!customMenuInput.trim()}
+                  >
+                    확인
+                  </Button>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400 mt-2">선택사항</p>
             </div>
 
             {/* 별점 */}

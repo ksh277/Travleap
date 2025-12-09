@@ -17,12 +17,21 @@ import {
   ChevronRight,
   List,
   Map as MapIcon,
-  Ticket
+  Ticket,
+  MapPinned
 } from 'lucide-react';
 import { getGoogleMapsApiKey } from '../utils/env';
 import { api } from '../utils/api';
 import { formatPartnerPrice } from '../utils/price-formatter';
 import { usePageBanner } from '../hooks/usePageBanner';
+
+// 4개 섬 정보
+const ISLANDS = [
+  { id: 'gaudo', name: '가우도', region: '강진', lat: 34.4692, lng: 126.7883 },
+  { id: 'jangdo', name: '장도', region: '보성', lat: 34.6892, lng: 127.0567 },
+  { id: 'nangdo', name: '낭도', region: '여수', lat: 34.5567, lng: 127.5233 },
+  { id: 'songdo', name: '송도', region: '여수', lat: 34.6234, lng: 127.4892 }
+];
 
 interface Partner {
   id: string;
@@ -174,7 +183,8 @@ export function PartnerPage() {
     rating: '',
     sortBy: 'recommended', // 추천순, 최신순
     timeSlot: '', // 시간대 필터
-    couponOnly: false // 쿠폰 사용 가능 가맹점만
+    couponOnly: false, // 쿠폰 사용 가능 가맹점만
+    island: '' // 4개 섬 필터
   });
   const [partners, setPartners] = useState<Partner[]>([]);
   const [filteredPartners, setFilteredPartners] = useState<Partner[]>([]);
@@ -195,13 +205,29 @@ export function PartnerPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6); // 페이지당 6개 (3행 x 2열)
 
-  // URL 파라미터로 쿠폰 필터 초기화
+  // URL 파라미터로 필터 초기화
   useEffect(() => {
     const couponOnlyParam = searchParams.get('couponOnly');
-    if (couponOnlyParam === 'true') {
+    const couponParam = searchParams.get('coupon');
+    const islandParam = searchParams.get('island');
+
+    // couponOnly=true 또는 coupon=true 둘 다 처리
+    if (couponOnlyParam === 'true' || couponParam === 'true') {
       setFilters(prev => ({ ...prev, couponOnly: true }));
     }
-  }, [searchParams]);
+
+    // island 파라미터 처리 (gaudo, jangdo, nangdo, songdo)
+    if (islandParam && ISLANDS.some(i => i.id === islandParam)) {
+      setFilters(prev => ({ ...prev, island: islandParam }));
+
+      // 해당 섬 좌표로 지도 이동
+      const island = ISLANDS.find(i => i.id === islandParam);
+      if (island && map) {
+        map.setCenter({ lat: island.lat, lng: island.lng });
+        map.setZoom(13);
+      }
+    }
+  }, [searchParams, map]);
 
   // 날짜 포맷 함수
   const formatDate = (date: Date | undefined) => {
@@ -586,6 +612,29 @@ export function PartnerPage() {
       filtered = filtered.filter(partner => partner.is_coupon_partner === true);
     }
 
+    // 섬 필터 (선택한 섬 근처의 가맹점만 표시 - 반경 20km)
+    if (filters.island && filters.island !== 'all') {
+      const island = ISLANDS.find(i => i.id === filters.island);
+      if (island) {
+        filtered = filtered.filter(partner => {
+          const distance = calculateDistance(
+            island.lat,
+            island.lng,
+            partner.position.lat,
+            partner.position.lng
+          );
+          return distance <= 20; // 20km 반경 내
+        });
+
+        // 섬 근처에서 거리순 정렬
+        filtered = [...filtered].sort((a, b) => {
+          const distA = calculateDistance(island.lat, island.lng, a.position.lat, a.position.lng);
+          const distB = calculateDistance(island.lat, island.lng, b.position.lat, b.position.lng);
+          return distA - distB;
+        });
+      }
+    }
+
     // 정렬 적용
     if (filters.sortBy === 'recommended') {
       // 추천순: featured 우선, 그다음 평점 높은 순
@@ -901,7 +950,7 @@ export function PartnerPage() {
                   value={filters.category}
                   onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}
                 >
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-[100px]">
                     <SelectValue placeholder="카테고리" />
                   </SelectTrigger>
                   <SelectContent>
@@ -917,6 +966,33 @@ export function PartnerPage() {
                   </SelectContent>
                 </Select>
 
+                {/* 4개 섬 드롭다운 필터 */}
+                <Select
+                  value={filters.island}
+                  onValueChange={(value) => {
+                    setFilters(prev => ({ ...prev, island: value }));
+                    // 섬 선택 시 지도 이동
+                    const island = ISLANDS.find(i => i.id === value);
+                    if (island && map) {
+                      map.setCenter({ lat: island.lat, lng: island.lng });
+                      map.setZoom(13);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[110px]">
+                    <MapPinned className="h-3 w-3 mr-1" />
+                    <SelectValue placeholder="섬 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체 섬</SelectItem>
+                    {ISLANDS.map(island => (
+                      <SelectItem key={island.id} value={island.id}>
+                        {island.region} {island.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 {/* 쿠폰 필터 버튼 */}
                 <Button
                   variant={filters.couponOnly ? "default" : "outline"}
@@ -925,7 +1001,7 @@ export function PartnerPage() {
                   className={`text-sm ${filters.couponOnly ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
                 >
                   <Ticket className="h-3 w-3 mr-1" />
-                  쿠폰 가능
+                  쿠폰
                 </Button>
 
                 {/* 거리순 정렬 버튼 */}
@@ -947,11 +1023,38 @@ export function PartnerPage() {
                     거리순
                   </Button>
                 )}
-
-                <div className="ml-auto text-sm text-gray-600">
-                  <span className="font-medium">{filteredPartners.length}</span>개 업체 발견
-                </div>
               </div>
+
+              {/* 필터 상태 표시 */}
+              {(filters.couponOnly || filters.island) && (
+                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
+                  {filters.couponOnly && (
+                    <Badge className="bg-purple-100 text-purple-700">
+                      쿠폰 가능
+                      <button
+                        className="ml-1 hover:text-purple-900"
+                        onClick={() => setFilters(prev => ({ ...prev, couponOnly: false }))}
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  )}
+                  {filters.island && filters.island !== 'all' && (
+                    <Badge className="bg-blue-100 text-blue-700">
+                      {ISLANDS.find(i => i.id === filters.island)?.region} {ISLANDS.find(i => i.id === filters.island)?.name}
+                      <button
+                        className="ml-1 hover:text-blue-900"
+                        onClick={() => setFilters(prev => ({ ...prev, island: '' }))}
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  )}
+                  <span className="text-sm text-gray-600 ml-auto">
+                    <span className="font-medium">{filteredPartners.length}</span>개 업체
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* 결과 헤더 */}
@@ -1150,6 +1253,33 @@ export function PartnerPage() {
                     <SelectItem value="팝업">팝업</SelectItem>
                     <SelectItem value="행사">행사</SelectItem>
                     <SelectItem value="체험">체험</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* 4개 섬 드롭다운 필터 */}
+                <Select
+                  value={filters.island}
+                  onValueChange={(value) => {
+                    setFilters(prev => ({ ...prev, island: value }));
+                    // 섬 선택 시 지도 이동
+                    const island = ISLANDS.find(i => i.id === value);
+                    if (island && map) {
+                      map.setCenter({ lat: island.lat, lng: island.lng });
+                      map.setZoom(13);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-[130px]">
+                    <MapPinned className="h-3 w-3 mr-1" />
+                    <SelectValue placeholder="섬 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">전체 섬</SelectItem>
+                    {ISLANDS.map(island => (
+                      <SelectItem key={island.id} value={island.id}>
+                        {island.region} {island.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 

@@ -183,7 +183,8 @@ export function LoginPage() {
         providerId: user.id,
         email: user.email,
         name: user.name,
-        avatar: user.picture
+        avatar: user.picture,
+        phone: user.phone
       });
 
       if (result.success && result.data) {
