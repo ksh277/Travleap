@@ -2,6 +2,7 @@ const { Pool } = require('@neondatabase/serverless');
 const { connect } = require('@planetscale/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { withSecureSignup } = require('../utils/geo-block-middleware.cjs');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -204,4 +205,12 @@ module.exports = async function handler(req, res) {
       error: '서버 오류가 발생했습니다.'
     });
   }
-};
+}
+
+// 보안 미들웨어 적용 (해외IP차단 + 스팸필터)
+// 초대코드는 기본 비활성화 (필요시 inviteCodeEnabled: true로 변경)
+module.exports = withSecureSignup(handler, {
+  geoBlockEnabled: true,      // 해외 IP 차단
+  inviteCodeEnabled: false,   // 초대 코드 (현재 비활성화)
+  spamFilterEnabled: true     // 스팸 필터
+});
