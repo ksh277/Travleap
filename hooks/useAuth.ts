@@ -277,7 +277,7 @@ export const useAuth = () => {
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string, recaptchaToken?: string | null): Promise<boolean> => {
     console.log('🔑 로그인 시도:', email);
 
     try {
@@ -286,13 +286,13 @@ export const useAuth = () => {
 
       console.log('🌐 API URL:', loginUrl);
 
-      // 서버 API로 로그인 요청
+      // 서버 API로 로그인 요청 (reCAPTCHA 토큰 포함)
       const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, recaptchaToken }),
       });
 
       const data = await response.json();

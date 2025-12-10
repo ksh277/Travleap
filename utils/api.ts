@@ -1991,6 +1991,7 @@ export const api = {
     password: string;
     name: string;
     phone?: string;
+    recaptchaToken?: string | null;
   }): Promise<ApiResponse<{ user: any; token: string }>> => {
     try {
       console.log('📝 회원가입 API 호출:', userData.email);
@@ -2004,8 +2005,12 @@ export const api = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...userData,
-          username
+          email: userData.email,
+          password: userData.password,
+          name: userData.name,
+          phone: userData.phone,
+          username,
+          recaptchaToken: userData.recaptchaToken
         })
       });
 

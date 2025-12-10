@@ -46,6 +46,18 @@
     </script>
     <!-- Toss Payments SDK -->
     <script src="https://js.tosspayments.com/v1/payment-widget"></script>
+    <!-- Google reCAPTCHA v3 -->
+    <script>
+      (function() {
+        var recaptchaKey = window.__RECAPTCHA_SITE_KEY__;
+        if (recaptchaKey) {
+          var script = document.createElement('script');
+          script.src = 'https://www.google.com/recaptcha/api.js?render=' + recaptchaKey;
+          script.async = true;
+          document.head.appendChild(script);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

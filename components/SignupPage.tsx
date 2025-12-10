@@ -9,11 +9,13 @@ import { useAuth } from '../hooks/useAuth';
 import { api } from '../utils/api';
 import { initGoogleAuth, initKakaoAuth, initNaverAuth } from '../utils/socialAuth';
 import { usePageBanner } from '../hooks/usePageBanner';
+import { useRecaptcha } from '../hooks/useRecaptcha';
 
 export function SignupPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const bannerImage = usePageBanner('signup');
+  const { isReady: isRecaptchaReady, executeRecaptcha } = useRecaptcha();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -132,12 +134,20 @@ export function SignupPage() {
     setIsLoading(true);
 
     try {
+      // reCAPTCHA 토큰 생성
+      let recaptchaToken: string | null = null;
+      if (isRecaptchaReady) {
+        recaptchaToken = await executeRecaptcha('signup');
+        console.log('reCAPTCHA 토큰 생성:', recaptchaToken ? '성공' : '실패');
+      }
+
       // 실제 DB API를 통한 회원가입 처리
       const result = await api.registerUser({
         email: formData.email,
         password: formData.password,
         name: formData.name,
-        phone: formData.phone
+        phone: formData.phone,
+        recaptchaToken
       });
 
       if (result.success && result.data) {

@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { withSecureSignup } = require('../utils/geo-block-middleware.cjs');
 const { logSignup } = require('../utils/activity-logger.cjs');
+const { verifyRecaptcha } = require('../utils/recaptcha');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -38,9 +39,22 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { username, email, password, name, phone } = req.body;
+    const { username, email, password, name, phone, recaptchaToken } = req.body;
 
     console.log('📝 회원가입 요청:', username, email);
+
+    // reCAPTCHA 검증
+    const recaptchaResult = await verifyRecaptcha(recaptchaToken, 'signup', 0.5);
+    if (!recaptchaResult.success && !recaptchaResult.skipped) {
+      console.warn('🤖 reCAPTCHA 검증 실패:', recaptchaResult.error);
+      return res.status(403).json({
+        success: false,
+        error: recaptchaResult.error || '보안 검증에 실패했습니다.'
+      });
+    }
+    if (recaptchaResult.success && !recaptchaResult.skipped) {
+      console.log('✅ reCAPTCHA 검증 성공 (점수:', recaptchaResult.score + ')');
+    }
 
     // 필수 입력 검증
     if (!username || !email || !password || !name) {

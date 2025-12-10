@@ -8,11 +8,13 @@ import { useAuth } from '../hooks/useAuth';
 import { api } from '../utils/api';
 import { initGoogleAuth, initKakaoAuth, initNaverAuth } from '../utils/socialAuth';
 import { usePageBanner } from '../hooks/usePageBanner';
+import { useRecaptcha } from '../hooks/useRecaptcha';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login, isAdmin, isMDAdmin, user } = useAuth();
+  const { isReady: isRecaptchaReady, executeRecaptcha } = useRecaptcha();
 
   // returnUrl 파라미터 가져오기 (QR 스캔 등에서 쿠폰 코드 유지용)
   const returnUrl = searchParams.get('returnUrl');
@@ -29,7 +31,14 @@ export function LoginPage() {
     console.log('🔑 로그인 시도:', email);
 
     try {
-      const success = await login(email, password);
+      // reCAPTCHA 토큰 생성
+      let recaptchaToken: string | null = null;
+      if (isRecaptchaReady) {
+        recaptchaToken = await executeRecaptcha('login');
+        console.log('🔐 reCAPTCHA 토큰 생성:', recaptchaToken ? '성공' : '실패');
+      }
+
+      const success = await login(email, password, recaptchaToken);
 
       console.log('✅ 로그인 결과:', success);
 
