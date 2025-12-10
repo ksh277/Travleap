@@ -17,8 +17,7 @@ import {
   ChevronRight,
   List,
   Map as MapIcon,
-  Ticket,
-  MapPinned
+  Ticket
 } from 'lucide-react';
 import { getGoogleMapsApiKey } from '../utils/env';
 import { api } from '../utils/api';
@@ -980,7 +979,7 @@ export function PartnerPage() {
                   }}
                 >
                   <SelectTrigger className="w-[110px]">
-                    <MapPinned className="h-3 w-3 mr-1" />
+                    <MapPin className="h-3 w-3 mr-1" />
                     <SelectValue placeholder="섬 선택" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1270,7 +1269,7 @@ export function PartnerPage() {
                   }}
                 >
                   <SelectTrigger className="w-[130px]">
-                    <MapPinned className="h-3 w-3 mr-1" />
+                    <MapPin className="h-3 w-3 mr-1" />
                     <SelectValue placeholder="섬 선택" />
                   </SelectTrigger>
                   <SelectContent>
