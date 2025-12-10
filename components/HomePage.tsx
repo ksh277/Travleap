@@ -152,27 +152,9 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       setRecentReviews(reviewsResult);
       setActivityImages(activitiesResult);
 
-      // 인스타그램 이미지 (임시 데이터)
-      setInstagramImages([
-        { id: 1, image_url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop' },
-        { id: 2, image_url: 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=300&h=300&fit=crop' },
-        { id: 3, image_url: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300&h=300&fit=crop' },
-        { id: 4, image_url: 'https://images.unsplash.com/photo-1464822759880-4601b726be04?w=300&h=300&fit=crop' },
-        { id: 5, image_url: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&h=300&fit=crop' },
-        { id: 6, image_url: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=300&h=300&fit=crop' },
-        { id: 7, image_url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop' },
-        { id: 8, image_url: 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=300&h=300&fit=crop' },
-        { id: 9, image_url: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300&h=300&fit=crop' },
-        { id: 10, image_url: 'https://images.unsplash.com/photo-1464822759880-4601b726be04?w=300&h=300&fit=crop' },
-        { id: 11, image_url: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&h=300&fit=crop' },
-        { id: 12, image_url: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=300&h=300&fit=crop' },
-        { id: 13, image_url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop' },
-        { id: 14, image_url: 'https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?w=300&h=300&fit=crop' },
-        { id: 15, image_url: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=300&h=300&fit=crop' },
-        { id: 16, image_url: 'https://images.unsplash.com/photo-1464822759880-4601b726be04?w=300&h=300&fit=crop' },
-        { id: 17, image_url: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&h=300&fit=crop' },
-        { id: 18, image_url: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=300&h=300&fit=crop' },
-      ]);
+      // 인스타그램 이미지 - API 연동 예정 (빈 배열로 초기화)
+      // TODO: Instagram Graph API 연동 후 실제 데이터로 교체
+      setInstagramImages([]);
       setBackgroundVideo({
         videoId: homepageSettings.background_video_id || 'kroXVig0QRc',
         overlayOpacity: homepageSettings.background_overlay_opacity || 0.4
@@ -1187,7 +1169,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
         </section>
       </div>
 
-      {/* 6. 인스타 섹션 - 6x3 그리드 */}
+      {/* 6. 인스타 섹션 - API 연동 예정 */}
       <div className="container mx-auto px-4 md:px-[80px] lg:px-[120px] py-16 md:py-24">
         <section>
           <div className="flex items-center justify-between mb-8 md:mb-12">
@@ -1195,23 +1177,40 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
               <Instagram className="h-6 w-6 text-pink-500" />
               <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight">Instagram</h2>
             </div>
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-700">
+            <a href="https://instagram.com/travleap" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:text-purple-700">
               @travleap →
             </a>
           </div>
 
-          {/* 6x3 그리드 (모바일: 3x6) */}
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-4">
-            {instagramImages.slice(0, 18).map((img) => (
-              <div key={img.id} className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
-                <ImageWithFallback
-                  src={img.image_url}
-                  alt="Instagram"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ))}
-          </div>
+          {/* Instagram API 연동 예정 - 준비 중 메시지 */}
+          {instagramImages.length > 0 ? (
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-4">
+              {instagramImages.slice(0, 18).map((img) => (
+                <div key={img.id} className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity">
+                  <ImageWithFallback
+                    src={img.image_url}
+                    alt="Instagram"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl">
+              <Instagram className="h-16 w-16 text-pink-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">Instagram 연동 준비 중</h3>
+              <p className="text-gray-500 mb-4">곧 Travleap의 인스타그램 피드를 만나보실 수 있습니다.</p>
+              <a
+                href="https://instagram.com/travleap"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-full hover:from-pink-600 hover:to-purple-600 transition-all"
+              >
+                <Instagram className="h-5 w-5" />
+                Instagram 방문하기
+              </a>
+            </div>
+          )}
         </section>
       </div>
 

@@ -1479,9 +1479,11 @@ export function DetailPage() {
                             <>
                               <iframe
                                 src={
-                                  (item as any).coordinates
+                                  (item as any).lat && (item as any).lng
+                                    ? `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${(item as any).lat},${(item as any).lng}&zoom=15&maptype=roadmap&language=ko`
+                                    : (item as any).coordinates
                                     ? `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${(item as any).coordinates}&zoom=15&maptype=roadmap&language=ko`
-                                    : `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent((item.address || item.location) + ' 신안군')}&zoom=14&maptype=roadmap&language=ko`
+                                    : `https://www.google.com/maps/embed/v1/place?key=${getGoogleMapsApiKey()}&q=${encodeURIComponent(item.address || item.location || '')}&zoom=14&maptype=roadmap&language=ko`
                                 }
                                 className="w-full h-full border-0"
                                 allowFullScreen
@@ -1498,7 +1500,9 @@ export function DetailPage() {
                                   size="sm"
                                   className="bg-white/90 text-gray-700 hover:bg-white shadow-lg"
                                   onClick={() => {
-                                    const query = (item as any).coordinates || encodeURIComponent(item.location + ' 신안군');
+                                    const query = (item as any).lat && (item as any).lng
+                                      ? `${(item as any).lat},${(item as any).lng}`
+                                      : (item as any).coordinates || encodeURIComponent(item.address || item.location || '');
                                     const mapUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
                                     window.open(mapUrl, '_blank');
                                   }}
@@ -1511,7 +1515,9 @@ export function DetailPage() {
                                   variant="outline"
                                   className="bg-white/90 hover:bg-white shadow-lg"
                                   onClick={() => {
-                                    const destination = (item as any).coordinates || encodeURIComponent(item.location + ' 신안군');
+                                    const destination = (item as any).lat && (item as any).lng
+                                      ? `${(item as any).lat},${(item as any).lng}`
+                                      : (item as any).coordinates || encodeURIComponent(item.address || item.location || '');
                                     const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
                                     window.open(directionsUrl, '_blank');
                                   }}
@@ -1533,7 +1539,10 @@ export function DetailPage() {
                                   <Button
                                     size="sm"
                                     onClick={() => {
-                                      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.location + ' 신안군')}`;
+                                      const query = (item as any).lat && (item as any).lng
+                                        ? `${(item as any).lat},${(item as any).lng}`
+                                        : encodeURIComponent(item.address || item.location || '');
+                                      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
                                       window.open(mapUrl, '_blank');
                                     }}
                                   >

@@ -70,11 +70,14 @@ interface Product {
   category: string;
   price: number;
   location: string;
+  address?: string;
+  coordinates?: string;
   rating: number;
   reviewCount: number;
   rating_avg?: number;
   rating_count?: number;
   image: string;
+  images?: string[];
   description: string;
   longDescription?: string;
   descriptionType?: 'text' | 'image';
