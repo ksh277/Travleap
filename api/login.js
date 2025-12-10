@@ -2,6 +2,7 @@ const { Pool } = require('@neondatabase/serverless');
 const { connect } = require('@planetscale/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { logLogin } = require('../utils/activity-logger.cjs');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -205,6 +206,13 @@ module.exports = async function handler(req, res) {
     );
 
     console.log('✅ 로그인 성공:', user.username || user.email, 'role:', user.role, 'vendorType:', vendorType);
+
+    // 로그인 로그 기록
+    try {
+      await logLogin(user.id, user.email, 'email', true, req);
+    } catch (logError) {
+      console.warn('⚠️ 로그인 로그 기록 실패:', logError.message);
+    }
 
     // 응답 user 객체 생성
     const responseUser = {

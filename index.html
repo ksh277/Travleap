@@ -11,8 +11,18 @@
     <meta name="description" content="신안 지역 특화 여행플랫폼 - 여행, 렌트카, 숙박, 음식, 관광지, 팝업, 행사, 체험 정보를 한 곳에서" />
     <!-- Daum Postcode API -->
     <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
-    <!-- Kakao Map API (파트너 신청 페이지 주소 검색용) -->
-    <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=0bcdf9416b3fc90c2669e52d23ed1a12&libraries=services"></script>
+    <!-- Kakao Map API (파트너 신청 페이지 주소 검색용) - Key loaded dynamically -->
+    <script>
+      (function() {
+        var kakaoKey = window.__KAKAO_APP_KEY__ || '';
+        if (kakaoKey) {
+          var script = document.createElement('script');
+          script.src = '//dapi.kakao.com/v2/maps/sdk.js?appkey=' + kakaoKey + '&libraries=services';
+          script.async = true;
+          document.head.appendChild(script);
+        }
+      })();
+    </script>
     <!-- Google Maps JavaScript API (관리자 파트너 위치 설정용) -->
     <script>
       window.__GOOGLE_MAPS_LOADED__ = false;
@@ -21,8 +31,12 @@
         console.log('✅ Google Maps API 로드 완료');
       }
       (function() {
-        var apiKey = 'AIzaSyDidcIT33Hoq0L-FDJlklQCpGSSZWsz6Gc';
-        window.__GOOGLE_MAPS_API_KEY__ = apiKey;
+        // API key is loaded from environment variable via Vite
+        var apiKey = window.__GOOGLE_MAPS_API_KEY__ || '';
+        if (!apiKey) {
+          console.warn('⚠️ Google Maps API key not configured');
+          return;
+        }
         var script = document.createElement('script');
         script.src = 'https://maps.googleapis.com/maps/api/js?key=' + apiKey + '&libraries=places,geometry&callback=onGoogleMapsLoaded';
         script.async = true;

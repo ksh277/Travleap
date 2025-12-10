@@ -2,7 +2,11 @@
  * 활동 로그 조회 API
  * GET /api/admin/activity-logs - 관리자/사용자 활동 로그 조회
  *
- * admin_logs, login_history 테이블 활용
+ * 로그 소스:
+ * - admin_logs: 관리자 활동
+ * - login_history: 로그인/회원가입
+ * - admin_audit_logs: 감사 로그 (계정 삭제 등)
+ * - bookings: 주문/결제 기록
  */
 
 const { connect } = require('@planetscale/database');
@@ -147,6 +151,126 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // 3. 감사 로그 조회 (PlanetScale - admin_audit_logs)
+    if (!type || type === 'audit') {
+      try {
+        const connection = connect({ url: process.env.DATABASE_URL });
+
+        let query = `
+          SELECT
+            id, admin_id, action, target_user_id, target_user_email,
+            reason, ip_address, created_at
+          FROM admin_audit_logs WHERE 1=1
+        `;
+        const params = [];
+
+        if (user_id) {
+          query += ' AND (admin_id = ? OR target_user_id = ?)';
+          params.push(user_id, user_id);
+        }
+
+        if (action) {
+          query += ' AND action = ?';
+          params.push(action);
+        }
+
+        if (start_date) {
+          query += ' AND created_at >= ?';
+          params.push(start_date);
+        }
+
+        if (end_date) {
+          query += ' AND created_at <= ?';
+          params.push(end_date);
+        }
+
+        query += ' ORDER BY created_at DESC LIMIT ?';
+        params.push(parseInt(limit));
+
+        const result = await connection.execute(query, params);
+
+        if (result.rows) {
+          const auditLogs = result.rows.map(log => ({
+            id: log.id,
+            user_id: log.admin_id,
+            action: log.action,
+            details: `${log.action}: ${log.target_user_email || log.target_user_id}${log.reason ? ` (사유: ${log.reason})` : ''}`,
+            ip_address: log.ip_address,
+            created_at: log.created_at,
+            log_type: 'audit',
+            log_source: 'admin_audit_logs',
+            target_user_id: log.target_user_id,
+            target_user_email: log.target_user_email
+          }));
+          logs.push(...auditLogs);
+        }
+
+        console.log(`✅ 감사 로그 ${result.rows?.length || 0}개 조회`);
+      } catch (auditError) {
+        console.warn('⚠️  admin_audit_logs 조회 실패:', auditError.message);
+      }
+    }
+
+    // 4. 주문/예약 로그 조회 (PlanetScale - bookings)
+    if (!type || type === 'order') {
+      try {
+        const connection = connect({ url: process.env.DATABASE_URL });
+
+        let query = `
+          SELECT
+            b.id, b.user_id, b.product_id, b.booking_number,
+            b.status, b.total_amount, b.payment_status,
+            b.created_at, b.updated_at,
+            p.name as product_name
+          FROM bookings b
+          LEFT JOIN products p ON b.product_id = p.id
+          WHERE 1=1
+        `;
+        const params = [];
+
+        if (user_id) {
+          query += ' AND b.user_id = ?';
+          params.push(user_id);
+        }
+
+        if (start_date) {
+          query += ' AND b.created_at >= ?';
+          params.push(start_date);
+        }
+
+        if (end_date) {
+          query += ' AND b.created_at <= ?';
+          params.push(end_date);
+        }
+
+        query += ' ORDER BY b.created_at DESC LIMIT ?';
+        params.push(parseInt(limit));
+
+        const result = await connection.execute(query, params);
+
+        if (result.rows) {
+          const orderLogs = result.rows.map(log => ({
+            id: `order_${log.id}`,
+            user_id: log.user_id,
+            action: `order.${log.status}`,
+            details: `주문 ${log.booking_number}: ${log.product_name || '상품'} - ${log.total_amount?.toLocaleString()}원 (${log.payment_status})`,
+            created_at: log.created_at,
+            log_type: 'order',
+            log_source: 'bookings',
+            booking_number: log.booking_number,
+            product_name: log.product_name,
+            total_amount: log.total_amount,
+            payment_status: log.payment_status
+          }));
+          logs.push(...orderLogs);
+        }
+
+        console.log(`✅ 주문 로그 ${result.rows?.length || 0}개 조회`);
+      } catch (orderError) {
+        console.warn('⚠️  bookings 조회 실패:', orderError.message);
+      }
+    }
+
     // 로그 정렬 (최신순)
     logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -155,6 +279,8 @@ module.exports = async function handler(req, res) {
       total_logs: logs.length,
       admin_logs: logs.filter(l => l.log_type === 'admin').length,
       login_logs: logs.filter(l => l.log_type === 'login').length,
+      audit_logs: logs.filter(l => l.log_type === 'audit').length,
+      order_logs: logs.filter(l => l.log_type === 'order').length,
       unique_users: [...new Set(logs.map(l => l.user_id).filter(Boolean))].length
     };
 

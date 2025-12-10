@@ -11,7 +11,9 @@ import {
   User,
   Shield,
   LogIn,
-  Filter
+  Filter,
+  AlertTriangle,
+  ShoppingCart
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,6 +35,8 @@ interface Stats {
   total_logs: number;
   admin_logs: number;
   login_logs: number;
+  audit_logs: number;
+  order_logs: number;
   unique_users: number;
 }
 
@@ -85,6 +89,10 @@ export function AdminActivityLogs() {
         return 'bg-purple-100 text-purple-800';
       case 'login':
         return 'bg-blue-100 text-blue-800';
+      case 'audit':
+        return 'bg-red-100 text-red-800';
+      case 'order':
+        return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -96,6 +104,10 @@ export function AdminActivityLogs() {
         return <Shield className="h-4 w-4" />;
       case 'login':
         return <LogIn className="h-4 w-4" />;
+      case 'audit':
+        return <AlertTriangle className="h-4 w-4" />;
+      case 'order':
+        return <ShoppingCart className="h-4 w-4" />;
       default:
         return <Activity className="h-4 w-4" />;
     }
@@ -148,6 +160,8 @@ export function AdminActivityLogs() {
                 <option value="">전체</option>
                 <option value="admin">관리자 활동</option>
                 <option value="login">로그인</option>
+                <option value="audit">감사 로그</option>
+                <option value="order">주문/구매</option>
               </select>
             </div>
             <div>
@@ -187,7 +201,7 @@ export function AdminActivityLogs() {
 
       {/* 통계 카드 */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -228,10 +242,34 @@ export function AdminActivityLogs() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
+                  <p className="text-sm text-gray-500">감사 로그</p>
+                  <p className="text-2xl font-bold">{stats.audit_logs || 0}</p>
+                </div>
+                <AlertTriangle className="h-8 w-8 text-red-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">주문 기록</p>
+                  <p className="text-2xl font-bold">{stats.order_logs || 0}</p>
+                </div>
+                <ShoppingCart className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
                   <p className="text-sm text-gray-500">고유 사용자</p>
                   <p className="text-2xl font-bold">{stats.unique_users}</p>
                 </div>
-                <User className="h-8 w-8 text-green-500" />
+                <User className="h-8 w-8 text-gray-500" />
               </div>
             </CardContent>
           </Card>

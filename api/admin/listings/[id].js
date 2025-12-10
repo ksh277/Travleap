@@ -5,6 +5,7 @@
  */
 
 const { connect } = require('@planetscale/database');
+const { logAdminAction, LOG_TYPES } = require('../../../utils/activity-logger.cjs');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -27,6 +28,17 @@ module.exports = async function handler(req, res) {
     // DELETE - 상품 삭제
     if (req.method === 'DELETE') {
       console.log(`🗑️ [DELETE] 상품 삭제 요청 (ID: ${id})`);
+
+      // 삭제 전 상품 제목 조회 (로그용)
+      let listingTitle = `상품 #${id}`;
+      try {
+        const listingInfo = await connection.execute('SELECT title FROM listings WHERE id = ?', [id]);
+        if (listingInfo.rows?.[0]?.title) {
+          listingTitle = listingInfo.rows[0].title;
+        }
+      } catch (e) {
+        console.warn('상품 제목 조회 실패:', e.message);
+      }
 
       // 1. 진행 중인 예약 확인 (관리자는 강제 삭제 가능)
       const forceDelete = req.query.force === 'true';
@@ -117,6 +129,20 @@ module.exports = async function handler(req, res) {
         }
 
         console.log(`✅ 상품 삭제 완료 (ID: ${id})`);
+
+        // 상품 삭제 로그 기록
+        try {
+          await logAdminAction({
+            adminId: req.headers['x-user-id'] || null,
+            action: LOG_TYPES.ADMIN_PRODUCT_DELETE,
+            entityType: 'listing',
+            entityId: id,
+            entityName: listingTitle,
+            req
+          });
+        } catch (logError) {
+          console.warn('상품 삭제 로그 기록 실패:', logError.message);
+        }
 
         return res.status(200).json({
           success: true,
@@ -329,6 +355,20 @@ module.exports = async function handler(req, res) {
       );
 
       console.log(`✅ 업데이트된 상품 데이터 조회 완료`);
+
+      // 상품 수정 로그 기록
+      try {
+        await logAdminAction({
+          adminId: req.headers['x-user-id'] || null,
+          action: LOG_TYPES.ADMIN_PRODUCT_UPDATE,
+          entityType: 'listing',
+          entityId: id,
+          entityName: updatedResult.rows[0]?.title || listingData.title || `상품 #${id}`,
+          req
+        });
+      } catch (logError) {
+        console.warn('상품 수정 로그 기록 실패:', logError.message);
+      }
 
       return res.status(200).json({
         success: true,

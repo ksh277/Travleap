@@ -1,4 +1,5 @@
 const { connect } = require('@planetscale/database');
+const { logAdminAction, LOG_TYPES } = require('../../utils/activity-logger.cjs');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -59,6 +60,20 @@ module.exports = async function handler(req, res) {
           listingData.lng || null
         ]
       );
+
+      // 상품 생성 로그 기록
+      try {
+        await logAdminAction({
+          adminId: req.headers['x-user-id'] || null,
+          action: LOG_TYPES.ADMIN_PRODUCT_CREATE,
+          entityType: 'listing',
+          entityId: result.insertId,
+          entityName: listingData.title,
+          req
+        });
+      } catch (logError) {
+        console.warn('상품 생성 로그 기록 실패:', logError.message);
+      }
 
       return res.status(201).json({
         success: true,

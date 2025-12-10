@@ -3,6 +3,7 @@ const { connect } = require('@planetscale/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { withSecureSignup } = require('../utils/geo-block-middleware.cjs');
+const { logSignup } = require('../utils/activity-logger.cjs');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -115,6 +116,13 @@ module.exports = async function handler(req, res) {
     );
 
     console.log('✅ 회원가입 성공:', username);
+
+    // 회원가입 로그 기록
+    try {
+      await logSignup(user.id, email, 'email', req);
+    } catch (logError) {
+      console.warn('⚠️ 회원가입 로그 기록 실패:', logError.message);
+    }
 
     // 신규 회원 쿠폰 자동 발급 (member_target='new')
     let issuedCoupon = null;

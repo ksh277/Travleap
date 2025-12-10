@@ -39,4 +39,18 @@ dist-ssr
 
 # Database Backups
 backups/
-*.backup.jsonnul
+*.backup.json
+
+# Security - Debug API files (contain hardcoded passwords)
+api/debug/
+
+# Security - Database files (contain test passwords)
+database/
+
+# Security - Test scripts with credentials
+scripts/test-*.cjs
+scripts/check-*.cjs
+scripts/find-*.cjs
+
+# Temporary files
+nul
