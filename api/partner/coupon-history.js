@@ -48,24 +48,44 @@ async function handler(req, res) {
       dateFilter = 'AND ucu.used_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
     }
 
-    // 사용 내역 조회 (PlanetScale) - user_coupon_usage 테이블 사용
+    // 사용 내역 조회 (PlanetScale) - user_coupon_usage + 쿠폰북 쿠폰 통합
+    // 쿠폰북 쿠폰용 dateFilter 변환 (ucu → uc)
+    const couponBookDateFilter = dateFilter.replace(/ucu\./g, 'uc.').replace(/used_at/g, 'used_at');
+
     const historyResult = await connection.execute(`
-      SELECT
-        ucu.id,
-        ucu.user_id,
-        uc.coupon_code,
-        ucu.order_amount,
-        ucu.discount_amount,
-        ucu.final_amount,
-        ucu.used_at,
-        c.name as coupon_name
-      FROM user_coupon_usage ucu
-      LEFT JOIN user_coupons uc ON ucu.user_coupon_id = uc.id
-      LEFT JOIN coupons c ON uc.coupon_id = c.id
-      WHERE ucu.partner_id = ? ${dateFilter}
-      ORDER BY ucu.used_at DESC
+      SELECT * FROM (
+        SELECT
+          ucu.id,
+          ucu.user_id,
+          uc.coupon_code,
+          ucu.order_amount,
+          ucu.discount_amount,
+          ucu.final_amount,
+          ucu.used_at,
+          c.name as coupon_name,
+          'campaign' as coupon_type
+        FROM user_coupon_usage ucu
+        LEFT JOIN user_coupons uc ON ucu.user_coupon_id = uc.id
+        LEFT JOIN coupons c ON uc.coupon_id = c.id
+        WHERE ucu.partner_id = ? ${dateFilter}
+        UNION ALL
+        SELECT
+          uc.id,
+          uc.user_id,
+          uc.coupon_code,
+          uc.order_amount,
+          uc.discount_amount,
+          uc.final_amount,
+          uc.used_at,
+          CONCAT(p.business_name, ' 쿠폰북') as coupon_name,
+          'coupon_book' as coupon_type
+        FROM user_coupons uc
+        LEFT JOIN partners p ON uc.used_partner_id = p.id
+        WHERE uc.used_partner_id = ? AND uc.claim_source = 'coupon_book' AND uc.status = 'USED' ${couponBookDateFilter}
+      ) as combined
+      ORDER BY used_at DESC
       LIMIT ? OFFSET ?
-    `, [partnerId, parseInt(limit), parseInt(offset)]);
+    `, [partnerId, partnerId, parseInt(limit), parseInt(offset)]);
 
     // 유저 이름 조회 (Neon)
     const records = historyResult.rows || [];
@@ -93,7 +113,7 @@ async function handler(req, res) {
       customer_name: userNames[record.user_id] || '고객'
     }));
 
-    // 기간별 통계 조회 (user_coupon_usage 테이블 사용)
+    // 기간별 통계 조회 (user_coupon_usage + 쿠폰북 쿠폰 통합)
     const statsResult = await connection.execute(`
       SELECT
         COUNT(*) as total_count,
@@ -101,9 +121,13 @@ async function handler(req, res) {
         COALESCE(SUM(order_amount), 0) as total_order,
         COALESCE(AVG(discount_amount), 0) as avg_discount,
         COALESCE(AVG(order_amount), 0) as avg_order
-      FROM user_coupon_usage
-      WHERE partner_id = ? ${dateFilter}
-    `, [partnerId]);
+      FROM (
+        SELECT discount_amount, order_amount FROM user_coupon_usage WHERE partner_id = ? ${dateFilter}
+        UNION ALL
+        SELECT discount_amount, order_amount FROM user_coupons
+        WHERE used_partner_id = ? AND claim_source = 'coupon_book' AND status = 'USED' ${couponBookDateFilter}
+      ) as combined
+    `, [partnerId, partnerId]);
 
     const stats = statsResult.rows?.[0] || { total_count: 0, total_discount: 0, total_order: 0, avg_discount: 0, avg_order: 0 };
 
@@ -113,42 +137,58 @@ async function handler(req, res) {
         COUNT(*) as total_count,
         COALESCE(SUM(discount_amount), 0) as total_discount,
         COALESCE(SUM(order_amount), 0) as total_order
-      FROM user_coupon_usage
-      WHERE partner_id = ?
-    `, [partnerId]);
+      FROM (
+        SELECT discount_amount, order_amount FROM user_coupon_usage WHERE partner_id = ?
+        UNION ALL
+        SELECT discount_amount, order_amount FROM user_coupons
+        WHERE used_partner_id = ? AND claim_source = 'coupon_book' AND status = 'USED'
+      ) as combined
+    `, [partnerId, partnerId]);
 
     const allTimeStats = allTimeStatsResult.rows?.[0] || { total_count: 0, total_discount: 0, total_order: 0 };
 
-    // 오늘 통계
+    // 오늘 통계 (캠페인 + 쿠폰북 통합)
     const todayStatsResult = await connection.execute(`
       SELECT
         COUNT(*) as count,
         COALESCE(SUM(discount_amount), 0) as discount
-      FROM user_coupon_usage
-      WHERE partner_id = ? AND DATE(used_at) = CURDATE()
-    `, [partnerId]);
+      FROM (
+        SELECT discount_amount FROM user_coupon_usage WHERE partner_id = ? AND DATE(used_at) = CURDATE()
+        UNION ALL
+        SELECT discount_amount FROM user_coupons
+        WHERE used_partner_id = ? AND claim_source = 'coupon_book' AND status = 'USED' AND DATE(used_at) = CURDATE()
+      ) as combined
+    `, [partnerId, partnerId]);
 
     const todayStats = todayStatsResult.rows?.[0] || { count: 0, discount: 0 };
 
-    // 이번주 통계
+    // 이번주 통계 (캠페인 + 쿠폰북 통합)
     const weekStatsResult = await connection.execute(`
       SELECT
         COUNT(*) as count,
         COALESCE(SUM(discount_amount), 0) as discount
-      FROM user_coupon_usage
-      WHERE partner_id = ? AND used_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-    `, [partnerId]);
+      FROM (
+        SELECT discount_amount FROM user_coupon_usage WHERE partner_id = ? AND used_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        UNION ALL
+        SELECT discount_amount FROM user_coupons
+        WHERE used_partner_id = ? AND claim_source = 'coupon_book' AND status = 'USED' AND used_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      ) as combined
+    `, [partnerId, partnerId]);
 
     const weekStats = weekStatsResult.rows?.[0] || { count: 0, discount: 0 };
 
-    // 이번달 통계
+    // 이번달 통계 (캠페인 + 쿠폰북 통합)
     const monthStatsResult = await connection.execute(`
       SELECT
         COUNT(*) as count,
         COALESCE(SUM(discount_amount), 0) as discount
-      FROM user_coupon_usage
-      WHERE partner_id = ? AND used_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    `, [partnerId]);
+      FROM (
+        SELECT discount_amount FROM user_coupon_usage WHERE partner_id = ? AND used_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        UNION ALL
+        SELECT discount_amount FROM user_coupons
+        WHERE used_partner_id = ? AND claim_source = 'coupon_book' AND status = 'USED' AND used_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+      ) as combined
+    `, [partnerId, partnerId]);
 
     const monthStats = monthStatsResult.rows?.[0] || { count: 0, discount: 0 };
 

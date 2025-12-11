@@ -82,14 +82,31 @@ async function handler(req, res) {
       categoryParams = [category];
     }
 
-    // 1. 전체 통계 (user_coupon_usage 테이블 기반)
+    // 1. 전체 통계 (user_coupon_usage + 쿠폰북 쿠폰 통합)
+    // 캠페인 쿠폰: user_coupon_usage 테이블
+    // 쿠폰북 쿠폰: user_coupons 테이블 (claim_source='coupon_book', status='USED')
     const overallResult = await connection.execute(`
       SELECT
         (SELECT COUNT(*) FROM user_coupons WHERE coupon_code IS NOT NULL) as total_issued,
-        (SELECT COUNT(*) FROM user_coupon_usage) as total_used,
-        (SELECT COALESCE(SUM(discount_amount), 0) FROM user_coupon_usage) as total_discount_amount,
-        (SELECT COALESCE(SUM(order_amount), 0) FROM user_coupon_usage) as total_order_amount,
-        (SELECT COUNT(DISTINCT partner_id) FROM user_coupon_usage WHERE partner_id IS NOT NULL) as active_partners
+        (
+          (SELECT COUNT(*) FROM user_coupon_usage) +
+          (SELECT COUNT(*) FROM user_coupons WHERE claim_source = 'coupon_book' AND status = 'USED')
+        ) as total_used,
+        (
+          (SELECT COALESCE(SUM(discount_amount), 0) FROM user_coupon_usage) +
+          (SELECT COALESCE(SUM(discount_amount), 0) FROM user_coupons WHERE claim_source = 'coupon_book' AND status = 'USED')
+        ) as total_discount_amount,
+        (
+          (SELECT COALESCE(SUM(order_amount), 0) FROM user_coupon_usage) +
+          (SELECT COALESCE(SUM(order_amount), 0) FROM user_coupons WHERE claim_source = 'coupon_book' AND status = 'USED')
+        ) as total_order_amount,
+        (
+          SELECT COUNT(DISTINCT partner_id) FROM (
+            SELECT partner_id FROM user_coupon_usage WHERE partner_id IS NOT NULL
+            UNION
+            SELECT used_partner_id as partner_id FROM user_coupons WHERE claim_source = 'coupon_book' AND status = 'USED' AND used_partner_id IS NOT NULL
+          ) as combined_partners
+        ) as active_partners
     `);
 
     const overall = overallResult.rows?.[0] || {
@@ -128,7 +145,7 @@ async function handler(req, res) {
       LIMIT 20
     `);
 
-    // 3. 가맹점별 통계 (user_coupon_usage 테이블 기반)
+    // 3. 가맹점별 통계 (user_coupon_usage + 쿠폰북 쿠폰 통합)
     const partnerStatsQuery = `
       SELECT
         p.id,
@@ -136,67 +153,128 @@ async function handler(req, res) {
         p.services as category,
         p.total_coupon_usage,
         p.total_discount_given,
-        COUNT(ucu.id) as usage_count,
-        COALESCE(SUM(ucu.discount_amount), 0) as discount_amount,
-        COALESCE(SUM(ucu.order_amount), 0) as order_amount
+        (
+          COALESCE((SELECT COUNT(*) FROM user_coupon_usage ucu WHERE ucu.partner_id = p.id ${dateFilter.replace(/ucu\./g, 'ucu.')}), 0) +
+          COALESCE((SELECT COUNT(*) FROM user_coupons uc WHERE uc.used_partner_id = p.id AND uc.claim_source = 'coupon_book' AND uc.status = 'USED' ${dateFilter.replace(/ucu\./g, 'uc.').replace(/used_at/g, 'used_at')}), 0)
+        ) as usage_count,
+        (
+          COALESCE((SELECT SUM(ucu.discount_amount) FROM user_coupon_usage ucu WHERE ucu.partner_id = p.id ${dateFilter.replace(/ucu\./g, 'ucu.')}), 0) +
+          COALESCE((SELECT SUM(uc.discount_amount) FROM user_coupons uc WHERE uc.used_partner_id = p.id AND uc.claim_source = 'coupon_book' AND uc.status = 'USED' ${dateFilter.replace(/ucu\./g, 'uc.').replace(/used_at/g, 'used_at')}), 0)
+        ) as discount_amount,
+        (
+          COALESCE((SELECT SUM(ucu.order_amount) FROM user_coupon_usage ucu WHERE ucu.partner_id = p.id ${dateFilter.replace(/ucu\./g, 'ucu.')}), 0) +
+          COALESCE((SELECT SUM(uc.order_amount) FROM user_coupons uc WHERE uc.used_partner_id = p.id AND uc.claim_source = 'coupon_book' AND uc.status = 'USED' ${dateFilter.replace(/ucu\./g, 'uc.').replace(/used_at/g, 'used_at')}), 0)
+        ) as order_amount
       FROM partners p
-      LEFT JOIN user_coupon_usage ucu ON p.id = ucu.partner_id ${dateFilter} ${categoryFilter}
-      WHERE p.is_coupon_partner = 1 AND p.status = 'approved'
-      GROUP BY p.id, p.business_name, p.services, p.total_coupon_usage, p.total_discount_given
+      WHERE p.is_coupon_partner = 1 AND p.status = 'approved' ${categoryFilter}
       ORDER BY usage_count DESC
       LIMIT 50
     `;
 
     const partnerStatsResult = await connection.execute(
       partnerStatsQuery,
-      [...dateParams, ...categoryParams]
+      [...dateParams, ...dateParams, ...dateParams, ...dateParams, ...dateParams, ...dateParams, ...categoryParams]
     );
 
-    // 4. 일별 통계 (최근 30일, user_coupon_usage 테이블 기반)
+    // 4. 일별 통계 (최근 30일, user_coupon_usage + 쿠폰북 쿠폰 통합)
     const dailyStatsResult = await connection.execute(`
       SELECT
-        DATE(used_at) as date,
-        COUNT(*) as usage_count,
-        COALESCE(SUM(discount_amount), 0) as discount_amount,
-        COALESCE(SUM(order_amount), 0) as order_amount
-      FROM user_coupon_usage
-      WHERE used_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-      GROUP BY DATE(used_at)
+        date,
+        SUM(usage_count) as usage_count,
+        SUM(discount_amount) as discount_amount,
+        SUM(order_amount) as order_amount
+      FROM (
+        SELECT
+          DATE(used_at) as date,
+          COUNT(*) as usage_count,
+          COALESCE(SUM(discount_amount), 0) as discount_amount,
+          COALESCE(SUM(order_amount), 0) as order_amount
+        FROM user_coupon_usage
+        WHERE used_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY DATE(used_at)
+        UNION ALL
+        SELECT
+          DATE(used_at) as date,
+          COUNT(*) as usage_count,
+          COALESCE(SUM(discount_amount), 0) as discount_amount,
+          COALESCE(SUM(order_amount), 0) as order_amount
+        FROM user_coupons
+        WHERE claim_source = 'coupon_book' AND status = 'USED' AND used_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY DATE(used_at)
+      ) as combined
+      GROUP BY date
       ORDER BY date DESC
     `);
 
-    // 5. 카테고리별 통계 (user_coupon_usage 테이블 기반)
+    // 5. 카테고리별 통계 (user_coupon_usage + 쿠폰북 쿠폰 통합)
     const categoryStatsResult = await connection.execute(`
       SELECT
-        COALESCE(p.services, 'unknown') as category,
-        COUNT(ucu.id) as usage_count,
-        COALESCE(SUM(ucu.discount_amount), 0) as discount_amount,
-        COALESCE(SUM(ucu.order_amount), 0) as order_amount,
-        COUNT(DISTINCT p.id) as partner_count
-      FROM user_coupon_usage ucu
-      LEFT JOIN partners p ON ucu.partner_id = p.id
-      GROUP BY p.services
+        category,
+        SUM(usage_count) as usage_count,
+        SUM(discount_amount) as discount_amount,
+        SUM(order_amount) as order_amount,
+        COUNT(DISTINCT partner_id) as partner_count
+      FROM (
+        SELECT
+          COALESCE(p.services, 'unknown') as category,
+          1 as usage_count,
+          COALESCE(ucu.discount_amount, 0) as discount_amount,
+          COALESCE(ucu.order_amount, 0) as order_amount,
+          p.id as partner_id
+        FROM user_coupon_usage ucu
+        LEFT JOIN partners p ON ucu.partner_id = p.id
+        UNION ALL
+        SELECT
+          COALESCE(p.services, 'unknown') as category,
+          1 as usage_count,
+          COALESCE(uc.discount_amount, 0) as discount_amount,
+          COALESCE(uc.order_amount, 0) as order_amount,
+          p.id as partner_id
+        FROM user_coupons uc
+        LEFT JOIN partners p ON uc.used_partner_id = p.id
+        WHERE uc.claim_source = 'coupon_book' AND uc.status = 'USED'
+      ) as combined
+      GROUP BY category
       ORDER BY usage_count DESC
     `);
 
-    // 6. 최근 사용 내역 (최근 50건, user_coupon_usage 테이블 기반)
+    // 6. 최근 사용 내역 (최근 50건, user_coupon_usage + 쿠폰북 쿠폰 통합)
     const recentUsageResult = await connection.execute(`
-      SELECT
-        ucu.id,
-        uc.coupon_code,
-        ucu.order_amount,
-        ucu.discount_amount,
-        ucu.final_amount,
-        ucu.used_at,
-        c.code as campaign_code,
-        c.name as coupon_name,
-        p.business_name as partner_name,
-        p.services as partner_category
-      FROM user_coupon_usage ucu
-      LEFT JOIN user_coupons uc ON ucu.user_coupon_id = uc.id
-      LEFT JOIN coupons c ON uc.coupon_id = c.id
-      LEFT JOIN partners p ON ucu.partner_id = p.id
-      ORDER BY ucu.used_at DESC
+      SELECT * FROM (
+        SELECT
+          ucu.id,
+          uc.coupon_code,
+          ucu.order_amount,
+          ucu.discount_amount,
+          ucu.final_amount,
+          ucu.used_at,
+          c.code as campaign_code,
+          c.name as coupon_name,
+          p.business_name as partner_name,
+          p.services as partner_category,
+          'campaign' as coupon_type
+        FROM user_coupon_usage ucu
+        LEFT JOIN user_coupons uc ON ucu.user_coupon_id = uc.id
+        LEFT JOIN coupons c ON uc.coupon_id = c.id
+        LEFT JOIN partners p ON ucu.partner_id = p.id
+        UNION ALL
+        SELECT
+          uc.id,
+          uc.coupon_code,
+          uc.order_amount,
+          uc.discount_amount,
+          uc.final_amount,
+          uc.used_at,
+          'COUPONBOOK' as campaign_code,
+          CONCAT(p.business_name, ' 쿠폰북') as coupon_name,
+          p.business_name as partner_name,
+          p.services as partner_category,
+          'coupon_book' as coupon_type
+        FROM user_coupons uc
+        LEFT JOIN partners p ON uc.used_partner_id = p.id
+        WHERE uc.claim_source = 'coupon_book' AND uc.status = 'USED'
+      ) as combined
+      ORDER BY used_at DESC
       LIMIT 50
     `);
 

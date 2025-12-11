@@ -36,13 +36,19 @@ export function RentcarVendorCard({ vendor }: RentcarVendorCardProps) {
       onClick={handleClick}
     >
       <div className="flex flex-col h-full">
-        {/* 이미지 */}
+        {/* 이미지 - 업체 로고/이미지가 없으면 기본 이미지 */}
         <div className="relative w-full h-40 md:h-52 flex-shrink-0 overflow-hidden">
-          <ImageWithFallback
-            src={vendor.images?.[0] || 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d'}
-            alt={vendor.vendor_name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
+          {vendor.images && vendor.images.length > 0 ? (
+            <ImageWithFallback
+              src={vendor.images[0]}
+              alt={vendor.vendor_name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-blue-100 group-hover:scale-105 transition-transform duration-300">
+              <span className="text-4xl md:text-6xl">🚗</span>
+            </div>
+          )}
 
           {/* 우측 상단 뱃지 */}
           <div className="absolute top-3 right-3 flex flex-col gap-2">

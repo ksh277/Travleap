@@ -42,7 +42,7 @@ module.exports = async function handler(req, res) {
     const parsedVendors = vendors.map((vendor) => {
       let images = [];
 
-      // 1. vendor의 images 우선 사용
+      // vendor의 images만 사용 (차량 이미지 fallback 제거 - 업체 로고/이미지가 없으면 기본 이미지 표시)
       try {
         if (vendor.vendor_images) {
           const parsed = typeof vendor.vendor_images === 'string'
@@ -54,18 +54,6 @@ module.exports = async function handler(req, res) {
         }
       } catch (e) {
         // JSON 파싱 실패시 무시
-      }
-
-      // 2. vendor images가 없으면 차량 이미지 fallback
-      if (images.length === 0 && vendor.sample_vehicle_images) {
-        try {
-          const parsed = typeof vendor.sample_vehicle_images === 'string'
-            ? JSON.parse(vendor.sample_vehicle_images)
-            : vendor.sample_vehicle_images;
-          images = Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-          // JSON 파싱 실패시 빈 배열
-        }
       }
 
       return {

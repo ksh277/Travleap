@@ -121,7 +121,7 @@ async function handler(req, res) {
         statusCondition = "AND uc.status = 'EXPIRED'";
       }
 
-      // 캠페인 쿠폰 목록 조회
+      // 캠페인 쿠폰 목록 조회 (coupon_id가 있는 경우)
       const couponsResult = await connection.execute(`
       SELECT
         uc.id,
@@ -132,6 +132,8 @@ async function handler(req, res) {
         uc.discount_amount,
         uc.final_amount,
         uc.used_partner_id,
+        uc.claim_source,
+        uc.expires_at as uc_expires_at,
         c.id as campaign_id,
         c.code as campaign_code,
         c.name as coupon_name,
@@ -148,7 +150,7 @@ async function handler(req, res) {
       FROM user_coupons uc
       JOIN coupons c ON uc.coupon_id = c.id
       LEFT JOIN partners p ON uc.used_partner_id = p.id
-      WHERE uc.user_id = ?
+      WHERE uc.user_id = ? AND uc.coupon_id IS NOT NULL
       ${statusCondition}
       ORDER BY
         CASE uc.status
@@ -161,6 +163,99 @@ async function handler(req, res) {
     `, [userId]);
 
     const coupons = couponsResult.rows || [];
+
+      // 쿠폰북 쿠폰 조회 (coupon_id가 NULL이고 claim_source='coupon_book')
+      const couponBookResult = await connection.execute(`
+        SELECT
+          uc.id,
+          uc.coupon_code,
+          uc.status,
+          uc.issued_at,
+          uc.used_at,
+          uc.expires_at,
+          uc.used_partner_id,
+          uc.claim_source,
+          p.business_name as partner_name,
+          p.coupon_discount_type,
+          p.coupon_discount_value,
+          p.coupon_max_discount,
+          p.coupon_min_order
+        FROM user_coupons uc
+        LEFT JOIN partners p ON uc.used_partner_id = p.id
+        WHERE uc.user_id = ? AND uc.claim_source = 'coupon_book'
+        ${statusCondition}
+        ORDER BY
+          CASE uc.status
+            WHEN 'ISSUED' THEN 1
+            WHEN 'USED' THEN 2
+            WHEN 'EXPIRED' THEN 3
+            ELSE 4
+          END,
+          uc.id DESC
+      `, [userId]);
+
+      const couponBookCoupons = couponBookResult.rows || [];
+
+      // 쿠폰북 쿠폰 처리
+      for (const coupon of couponBookCoupons) {
+        let currentStatus = coupon.status;
+
+        // ISSUED 상태인데 유효기간 지났으면 EXPIRED로 변경
+        if (currentStatus === 'ISSUED' && coupon.expires_at) {
+          const expiresAt = new Date(coupon.expires_at);
+          if (expiresAt < now) {
+            currentStatus = 'EXPIRED';
+            await connection.execute(
+              'UPDATE user_coupons SET status = "EXPIRED" WHERE id = ?',
+              [coupon.id]
+            );
+          }
+        }
+
+        // 할인 정보 텍스트 생성
+        let discountText = '';
+        if (coupon.coupon_discount_type === 'percent') {
+          discountText = `${coupon.coupon_discount_value}% 할인`;
+          if (coupon.coupon_max_discount) {
+            discountText += ` (최대 ${Number(coupon.coupon_max_discount).toLocaleString()}원)`;
+          }
+        } else if (coupon.coupon_discount_value) {
+          discountText = `${Number(coupon.coupon_discount_value).toLocaleString()}원 할인`;
+        }
+
+        const qrUrl = `${siteUrl}/partner/coupon?code=${coupon.coupon_code}`;
+
+        allCoupons.push({
+          id: coupon.id,
+          coupon_type: 'coupon_book',
+          coupon_code: coupon.coupon_code,
+          status: currentStatus,
+          is_valid: currentStatus === 'ISSUED',
+          issued_at: coupon.issued_at,
+          used_at: coupon.used_at,
+          // 쿠폰북 쿠폰 정보
+          claim_source: 'coupon_book',
+          coupon_name: `${coupon.partner_name || '가맹점'} 할인 쿠폰`,
+          coupon_description: discountText || '가맹점별 할인 적용',
+          partner_name: coupon.partner_name,
+          partner_discount_text: discountText,
+          used_partner_id: coupon.used_partner_id,
+          // 할인 정보
+          discount_type: coupon.coupon_discount_type,
+          discount_value: coupon.coupon_discount_value,
+          max_discount: coupon.coupon_max_discount,
+          // 유효기간
+          valid_from: coupon.issued_at,
+          valid_until: coupon.expires_at,
+          // 사용 정보
+          used_info: currentStatus === 'USED' ? {
+            partner_name: coupon.partner_name
+          } : null,
+          // QR URL
+          qr_url: qrUrl,
+          created_at: coupon.issued_at
+        });
+      }
 
       // 만료 체크 및 상태 업데이트
       for (const coupon of coupons) {

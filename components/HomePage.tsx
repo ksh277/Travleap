@@ -1006,36 +1006,18 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                       className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-2xl w-[160px] h-[160px] md:w-[320px] md:h-[320px] bg-gray-200"
                       onClick={() => navigate(`/rentcar/vendor/${vendor.id}`)}
                     >
-                      {/* 이미지가 카드 전체 - 차량 이미지 우선 사용 */}
-                      {(() => {
-                        // first_vehicle_images가 JSON 문자열일 수 있음
-                        let vehicleImage = null;
-                        if (vendor.first_vehicle_images) {
-                          try {
-                            const images = typeof vendor.first_vehicle_images === 'string'
-                              ? JSON.parse(vendor.first_vehicle_images)
-                              : vendor.first_vehicle_images;
-                            if (Array.isArray(images) && images.length > 0) {
-                              vehicleImage = images[0];
-                            }
-                          } catch (e) {
-                            // JSON 파싱 실패 시 무시
-                          }
-                        }
-                        const imageUrl = vehicleImage || vendor.logo_url;
-
-                        return imageUrl ? (
-                          <ImageWithFallback
-                            src={imageUrl}
-                            alt={vendor.business_name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                            <span className="text-4xl md:text-6xl">🚗</span>
-                          </div>
-                        );
-                      })()}
+                      {/* 이미지가 카드 전체 - 업체 로고만 사용, 없으면 기본 이미지 */}
+                      {vendor.logo_url ? (
+                        <ImageWithFallback
+                          src={vendor.logo_url}
+                          alt={vendor.business_name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-blue-100">
+                          <span className="text-4xl md:text-6xl">🚗</span>
+                        </div>
+                      )}
                       {/* 오른쪽 하단 텍스트 오버레이 */}
                       <div className="absolute bottom-0 right-0 p-3 md:p-4 text-right">
                         <h3 className="font-semibold text-white text-sm md:text-base drop-shadow-lg">{vendor.business_name}</h3>

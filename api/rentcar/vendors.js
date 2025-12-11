@@ -13,20 +13,22 @@ module.exports = async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      // status=active인 업체만 조회
+      // total_vehicles는 stock 합계로 계산 (실제 보유 차량 대수)
       const vendors = await connection.execute(`
         SELECT
           v.*,
-          COALESCE(vehicle_counts.total, 0) as total_vehicles,
-          COALESCE(vehicle_counts.active, 0) as active_vehicles,
+          COALESCE(vehicle_counts.total_stock, 0) as total_vehicles,
+          COALESCE(vehicle_counts.vehicle_types, 0) as vehicle_types,
           COALESCE(booking_counts.total, 0) as total_bookings,
-          COALESCE(booking_counts.confirmed, 0) as confirmed_bookings,
-          first_vehicle.images as first_vehicle_images
+          COALESCE(booking_counts.confirmed, 0) as confirmed_bookings
         FROM rentcar_vendors v
         LEFT JOIN (
           SELECT vendor_id,
-            COUNT(*) as total,
-            SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active
+            COALESCE(SUM(stock), 0) as total_stock,
+            COUNT(*) as vehicle_types
           FROM rentcar_vehicles
+          WHERE is_active = 1
           GROUP BY vendor_id
         ) vehicle_counts ON v.id = vehicle_counts.vendor_id
         LEFT JOIN (
@@ -38,12 +40,7 @@ module.exports = async function handler(req, res) {
             AND payment_status = 'paid'
           GROUP BY vendor_id
         ) booking_counts ON v.id = booking_counts.vendor_id
-        LEFT JOIN (
-          SELECT vendor_id, images
-          FROM rentcar_vehicles
-          WHERE is_active = 1
-          GROUP BY vendor_id
-        ) first_vehicle ON v.id = first_vehicle.vendor_id
+        WHERE v.status = 'active'
         ORDER BY v.created_at DESC
       `);
 

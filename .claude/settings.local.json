@@ -26,7 +26,10 @@
       "Bash(del:*)",
       "Bash(if exist docsCOUPON_KAKAO_CHANNEL_PLAN.md del /f docsCOUPON_KAKAO_CHANNEL_PLAN.md)",
       "Bash(git rm:*)",
-      "Bash(git ls-files:*)"
+      "Bash(git ls-files:*)",
+      "Bash(git -C \"C:\\Users\\ham57\\Desktop\\Travleap\" status --short)",
+      "Bash(move:*)",
+      "Bash(dir \"C:\\Users\\ham57\\Desktop\" /b)"
     ],
     "deny": [],
     "ask": []

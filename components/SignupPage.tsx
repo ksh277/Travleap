@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -23,6 +23,28 @@ export function SignupPage() {
     password: '',
     confirmPassword: ''
   });
+
+  // 전화번호 인증 관련 상태
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 개발 모드 인증코드 (API에서 반환)
+  const [devCode, setDevCode] = useState<string | null>(null);
+
+  // 카운트다운 타이머
+  useEffect(() => {
+    if (countdown > 0) {
+      countdownRef.current = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => {
+      if (countdownRef.current) clearTimeout(countdownRef.current);
+    };
+  }, [countdown]);
   
   const [agreements, setAgreements] = useState({
     agreeTerms: false,
@@ -69,6 +91,77 @@ export function SignupPage() {
     }
   };
 
+  // 인증번호 발송 함수
+  const handleSendCode = async () => {
+    const phoneDigits = formData.phone.replace(/[^0-9]/g, '');
+
+    // 전화번호 형식 검증
+    if (phoneDigits.length !== 11 || !phoneDigits.startsWith('010')) {
+      toast.error('올바른 전화번호 형식을 입력해주세요 (010-XXXX-XXXX)');
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const response = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneDigits, checkDuplicate: true })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setIsCodeSent(true);
+        setCountdown(180); // 3분 카운트다운
+        setDevCode(result.devCode || null); // 개발 모드 코드 저장
+        toast.success(result.message || '인증번호가 발송되었습니다.');
+      } else {
+        toast.error(result.error || '인증번호 발송에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('인증번호 발송 오류:', error);
+      toast.error('인증번호 발송 중 오류가 발생했습니다.');
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
+  // 인증번호 확인 함수
+  const handleVerifyCode = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      toast.error('6자리 인증번호를 입력해주세요.');
+      return;
+    }
+
+    const phoneDigits = formData.phone.replace(/[^0-9]/g, '');
+
+    setIsVerifying(true);
+    try {
+      const response = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneDigits, code: verificationCode })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setIsPhoneVerified(true);
+        setCountdown(0);
+        setDevCode(null);
+        toast.success('전화번호 인증이 완료되었습니다!');
+      } else {
+        toast.error(result.error || '인증에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('인증 확인 오류:', error);
+      toast.error('인증 확인 중 오류가 발생했습니다.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
 
@@ -91,6 +184,8 @@ export function SignupPage() {
         newErrors.phone = '올바른 전화번호 형식을 입력해주세요 (11자리)';
       } else if (!phoneDigits.startsWith('010')) {
         newErrors.phone = '010으로 시작하는 번호를 입력해주세요';
+      } else if (!isPhoneVerified) {
+        newErrors.phone = '전화번호 인증을 완료해주세요';
       }
     }
 
@@ -349,27 +444,84 @@ export function SignupPage() {
               )}
             </div>
 
-            {/* 전화번호 */}
+            {/* 전화번호 + 인증번호 발송 */}
             <div className="mb-4">
-              <Input
-                type="tel"
-                value={formData.phone}
-                onChange={handleInputChange('phone')}
-                placeholder="전화번호* (예: 010-1234-5678)"
-                maxLength={13}
-                className={`w-full px-4 py-3 md:py-3.5 border rounded-md text-base md:text-sm touch-manipulation ${
-                  errors.phone ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => {
+                    handleInputChange('phone')(e);
+                    // 전화번호 변경 시 인증 상태 리셋
+                    if (isPhoneVerified) {
+                      setIsPhoneVerified(false);
+                      setIsCodeSent(false);
+                      setVerificationCode('');
+                    }
+                  }}
+                  placeholder="전화번호* (예: 010-1234-5678)"
+                  maxLength={13}
+                  disabled={isPhoneVerified}
+                  className={`flex-1 px-4 py-3 md:py-3.5 border rounded-md text-base md:text-sm touch-manipulation ${
+                    errors.phone ? 'border-red-500' : isPhoneVerified ? 'border-green-500 bg-green-50' : 'border-gray-300'
+                  }`}
+                />
+                <Button
+                  type="button"
+                  onClick={handleSendCode}
+                  disabled={isSendingCode || isPhoneVerified || countdown > 0}
+                  className={`whitespace-nowrap px-4 py-3 text-sm ${
+                    isPhoneVerified
+                      ? 'bg-green-600 hover:bg-green-600 cursor-default'
+                      : countdown > 0
+                        ? 'bg-gray-400 hover:bg-gray-400'
+                        : 'bg-[#5c2d91] hover:bg-[#4b2375]'
+                  } text-white`}
+                >
+                  {isPhoneVerified ? '인증완료' : isSendingCode ? '발송중...' : countdown > 0 ? `${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, '0')}` : '인증번호 받기'}
+                </Button>
+              </div>
               {errors.phone && (
                 <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
               )}
-              {!errors.phone && formData.phone && (
-                <p className="text-gray-500 text-xs mt-1">
-                  ✓ 숫자만 입력하세요. 자동으로 포맷팅됩니다.
+              {isPhoneVerified && (
+                <p className="text-green-600 text-xs mt-1">
+                  ✓ 전화번호 인증이 완료되었습니다.
+                </p>
+              )}
+              {devCode && !isPhoneVerified && (
+                <p className="text-blue-600 text-xs mt-1">
+                  [개발모드] 인증번호: {devCode}
                 </p>
               )}
             </div>
+
+            {/* 인증번호 입력 (코드 발송 후 표시) */}
+            {isCodeSent && !isPhoneVerified && (
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                    placeholder="인증번호 6자리 입력"
+                    maxLength={6}
+                    className="flex-1 px-4 py-3 md:py-3.5 border border-gray-300 rounded-md text-base md:text-sm touch-manipulation text-center tracking-widest"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleVerifyCode}
+                    disabled={isVerifying || verificationCode.length !== 6}
+                    className="whitespace-nowrap px-4 py-3 text-sm bg-[#5c2d91] hover:bg-[#4b2375] text-white disabled:bg-gray-300"
+                  >
+                    {isVerifying ? '확인중...' : '확인'}
+                  </Button>
+                </div>
+                <p className="text-gray-500 text-xs mt-1">
+                  인증번호가 오지 않으면 {countdown > 0 ? `${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, '0')} 후에` : ''} 다시 요청해주세요.
+                </p>
+              </div>
+            )}
 
             {/* 비밀번호 */}
             <div className="mb-4">

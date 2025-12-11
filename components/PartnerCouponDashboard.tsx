@@ -33,12 +33,16 @@ import {
   Users,
   Clock,
   Camera,
-  X
+  X,
+  BookOpen,
+  Star,
+  TrendingUp,
+  Ticket
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useAuth } from '../hooks/useAuth';
 
-type TabType = 'scan' | 'history' | 'reservations' | 'settings';
+type TabType = 'scan' | 'history' | 'reservations' | 'coupon-book' | 'settings';
 type CouponType = 'campaign' | 'integrated';
 
 interface CouponValidation {
@@ -209,6 +213,17 @@ export function PartnerCouponDashboard() {
     total_revenue: 0
   });
   const [reservationFilter, setReservationFilter] = useState<string>('all');
+
+  // 쿠폰북 통계 상태
+  const [couponBookStats, setCouponBookStats] = useState<{
+    isParticipating: boolean;
+    partner: { id: number; name: string; discountText: string } | null;
+    stats: { totalIssued: number; totalUsed: number; totalActive: number; totalExpired: number; usageRate: number };
+    reviews: { count: number; avgRating: number; totalPointsAwarded: number };
+    periods: { today: number; week: number; month: number };
+    recentUsage: { id: number; coupon_code: string; used_at: string; rating?: number; comment?: string }[];
+  } | null>(null);
+  const [loadingCouponBookStats, setLoadingCouponBookStats] = useState(false);
 
   // URL에서 쿠폰 코드 가져오기
   useEffect(() => {
@@ -516,12 +531,38 @@ export function PartnerCouponDashboard() {
     }
   };
 
+  // 쿠폰북 통계 조회
+  const loadCouponBookStats = async () => {
+    setLoadingCouponBookStats(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('/api/partner/coupon-book-stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setCouponBookStats(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('쿠폰북 통계 조회 실패:', error);
+    } finally {
+      setLoadingCouponBookStats(false);
+    }
+  };
+
   // 탭 변경 시 데이터 로드
   useEffect(() => {
     if (activeTab === 'history') {
       loadUsageHistory();
     } else if (activeTab === 'reservations') {
       loadReservations();
+    } else if (activeTab === 'coupon-book') {
+      loadCouponBookStats();
     }
   }, [activeTab]);
 
@@ -689,15 +730,15 @@ export function PartnerCouponDashboard() {
             내역
           </button>
           <button
-            onClick={() => setActiveTab('settings')}
+            onClick={() => setActiveTab('coupon-book')}
             className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-medium transition-colors ${
-              activeTab === 'settings'
+              activeTab === 'coupon-book'
                 ? 'bg-purple-600 text-white'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <Settings className="h-4 w-4" />
-            설정
+            <BookOpen className="h-4 w-4" />
+            쿠폰북
           </button>
         </div>
       </div>
@@ -1366,6 +1407,172 @@ export function PartnerCouponDashboard() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* 쿠폰북 통계 탭 */}
+        {activeTab === 'coupon-book' && (
+          <div className="space-y-4">
+            {loadingCouponBookStats ? (
+              <div className="text-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
+                <p className="text-gray-500 mt-2">쿠폰북 통계 불러오는 중...</p>
+              </div>
+            ) : !couponBookStats?.isParticipating ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <BookOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">쿠폰북 미참여</h2>
+                  <p className="text-gray-600">
+                    쿠폰북에 참여하지 않은 가맹점입니다.
+                  </p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    참여를 원하시면 관리자에게 문의하세요.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* 가맹점 정보 */}
+                <Card className="bg-gradient-to-r from-purple-500 to-blue-500 text-white">
+                  <CardContent className="py-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Ticket className="h-6 w-6" />
+                      <div>
+                        <h3 className="font-bold">{couponBookStats.partner?.name}</h3>
+                        <p className="text-white/80 text-sm">{couponBookStats.partner?.discountText}</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-white/20 text-white">쿠폰북 참여 가맹점</Badge>
+                  </CardContent>
+                </Card>
+
+                {/* 기간별 사용 현황 */}
+                <div className="grid grid-cols-3 gap-2">
+                  <Card>
+                    <CardContent className="py-3 text-center">
+                      <p className="text-gray-500 text-xs">오늘</p>
+                      <p className="text-lg font-bold text-purple-600">{couponBookStats.periods.today}건</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="py-3 text-center">
+                      <p className="text-gray-500 text-xs">이번 주</p>
+                      <p className="text-lg font-bold text-purple-600">{couponBookStats.periods.week}건</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="py-3 text-center">
+                      <p className="text-gray-500 text-xs">이번 달</p>
+                      <p className="text-lg font-bold text-purple-600">{couponBookStats.periods.month}건</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* 전체 통계 */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <TrendingUp className="h-5 w-5" />
+                      쿠폰 사용 통계
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-gray-500 text-sm">총 사용</p>
+                        <p className="text-2xl font-bold text-green-600">{couponBookStats.stats.totalUsed}건</p>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-gray-500 text-sm">사용률</p>
+                        <p className="text-2xl font-bold text-blue-600">{couponBookStats.stats.usageRate}%</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-2 text-center text-sm">
+                      <div>
+                        <p className="text-gray-500">발급</p>
+                        <p className="font-bold">{couponBookStats.stats.totalIssued}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">미사용</p>
+                        <p className="font-bold text-yellow-600">{couponBookStats.stats.totalActive}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">만료</p>
+                        <p className="font-bold text-gray-400">{couponBookStats.stats.totalExpired}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 리뷰 통계 */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Star className="h-5 w-5 text-yellow-500" />
+                      리뷰 현황
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">총 리뷰 수</p>
+                        <p className="text-2xl font-bold">{couponBookStats.reviews.count}건</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">평균 평점</p>
+                        <div className="flex items-center gap-1">
+                          <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                          <span className="text-2xl font-bold">{couponBookStats.reviews.avgRating.toFixed(1)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 최근 사용 내역 */}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg">최근 사용 내역</CardTitle>
+                    <Button variant="ghost" size="sm" onClick={loadCouponBookStats}>
+                      <RefreshCw className={`h-4 w-4 ${loadingCouponBookStats ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    {couponBookStats.recentUsage.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Ticket className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                        <p>아직 사용 내역이 없습니다</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {couponBookStats.recentUsage.map((usage) => (
+                          <div key={usage.id} className="p-3 bg-gray-50 rounded-lg">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-mono text-sm">{usage.coupon_code}</p>
+                                <p className="text-sm text-gray-500">
+                                  {new Date(usage.used_at).toLocaleDateString('ko-KR')}
+                                </p>
+                              </div>
+                              {usage.rating && (
+                                <div className="flex items-center gap-1 text-yellow-500">
+                                  <Star className="h-4 w-4 fill-yellow-500" />
+                                  <span className="font-medium">{usage.rating}</span>
+                                </div>
+                              )}
+                            </div>
+                            {usage.comment && (
+                              <p className="mt-2 text-sm text-gray-600 line-clamp-2">"{usage.comment}"</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>
