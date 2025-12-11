@@ -354,13 +354,8 @@ export function RentcarVendorDetailPage() {
     searchAvailableVehicles();
   }, [vendorId, vendorData, pickupDate, returnDate, pickupTime, returnTime]);
 
-  // 이미지 갤러리용 - 벤더 이미지 우선, 없으면 차량 이미지 fallback
-  const allImages = (() => {
-    if (vendorData?.vendor?.images && vendorData.vendor.images.length > 0) {
-      return vendorData.vendor.images;
-    }
-    return vendorData?.vehicles.flatMap(v => v.images || []) || [];
-  })();
+  // 이미지 갤러리용 - 벤더 이미지만 표시 (차량 이미지 fallback 제거)
+  const allImages = vendorData?.vendor?.images || [];
 
   // 이미지 네비게이션
   const nextImage = () => {
@@ -557,8 +552,9 @@ export function RentcarVendorDetailPage() {
                 )}
               </>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                이미지 없음
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-100 to-blue-100">
+                <span className="text-8xl mb-4">🚗</span>
+                <span className="text-gray-500 text-lg">{vendorData.vendor.vendor_name}</span>
               </div>
             )}
           </div>
