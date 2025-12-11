@@ -120,7 +120,7 @@ module.exports = async function handler(req, res) {
         check_in_time = '15:00',
         check_out_time = '11:00',
         policies,
-        status = 'active'
+        status = 'approved'
       } = req.body;
 
       // 필수 필드 검증
