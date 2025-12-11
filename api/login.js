@@ -3,7 +3,7 @@ const { connect } = require('@planetscale/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { logLogin } = require('../utils/activity-logger.cjs');
-const { verifyRecaptcha } = require('../utils/recaptcha');
+const { verifyRecaptcha } = require('../utils/recaptcha.cjs');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {

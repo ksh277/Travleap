@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { withSecureSignup } = require('../utils/geo-block-middleware.cjs');
 const { logSignup } = require('../utils/activity-logger.cjs');
-const { verifyRecaptcha } = require('../utils/recaptcha');
+const { verifyRecaptcha } = require('../utils/recaptcha.cjs');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
