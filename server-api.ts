@@ -5236,6 +5236,18 @@ function setupRoutes() {
     }
   });
 
+  // GET/POST /api/partners/:id/reviews - 파트너 리뷰 조회/작성
+  app.all('/api/partners/:id/reviews', async (req, res) => {
+    try {
+      req.query.id = req.params.id;
+      const reviewsAPI = await import('./api/partners/[id]/reviews.js');
+      await reviewsAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Partner reviews error:', error);
+      res.status(500).json({ success: false, message: '리뷰 처리 중 오류가 발생했습니다' });
+    }
+  });
+
   // ===== Vendor 차량 관리 API =====
 
   // Vendor 정보 조회 (자기 업체 정보)

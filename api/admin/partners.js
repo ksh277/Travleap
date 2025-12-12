@@ -23,7 +23,7 @@ async function handler(req, res) {
           p.tier, p.partner_type, p.is_verified, p.is_featured,
           p.is_active, p.status, p.lat, p.lng, p.images, p.created_at, p.updated_at,
           p.is_coupon_partner, p.coupon_discount_type, p.coupon_discount_value,
-          p.coupon_max_discount
+          p.coupon_max_discount, p.coupon_text
         FROM partners p
         WHERE (p.partner_type != 'lodging' OR p.partner_type IS NULL)
         ORDER BY p.created_at DESC
@@ -131,6 +131,7 @@ async function handler(req, res) {
           coupon_discount_type = ?,
           coupon_discount_value = ?,
           coupon_max_discount = ?,
+          coupon_text = ?,
           updated_at = NOW()
         WHERE id = ?`,
         [
@@ -160,6 +161,7 @@ async function handler(req, res) {
           partnerData.coupon_discount_type || null,
           partnerData.coupon_discount_value || null,
           partnerData.coupon_max_discount || null,
+          partnerData.coupon_text || null,
           id
         ]
       );
@@ -174,7 +176,7 @@ async function handler(req, res) {
 
     // PATCH - 쿠폰 ON/OFF 토글 (간단한 업데이트용)
     if (req.method === 'PATCH') {
-      const { id, is_coupon_partner, coupon_discount_type, coupon_discount_value, coupon_max_discount } = req.body;
+      const { id, is_coupon_partner, coupon_discount_type, coupon_discount_value, coupon_max_discount, coupon_text } = req.body;
 
       if (!id) {
         return res.status(400).json({
@@ -199,6 +201,7 @@ async function handler(req, res) {
           coupon_discount_type = ?,
           coupon_discount_value = ?,
           coupon_max_discount = ?,
+          coupon_text = ?,
           updated_at = NOW()
         WHERE id = ?`,
         [
@@ -206,6 +209,7 @@ async function handler(req, res) {
           coupon_discount_type || null,
           coupon_discount_value || null,
           coupon_max_discount || null,
+          coupon_text || null,
           id
         ]
       );

@@ -75,7 +75,7 @@ export function QRGeneratorPage() {
     },
     {
       name: '쿠폰 가맹점',
-      url: 'https://travleap.com/partners?coupon=true',
+      url: 'https://travleap.com/partner?coupon=true',
       icon: <Ticket className="w-4 h-4" />
     }
   ];
