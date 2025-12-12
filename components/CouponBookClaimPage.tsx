@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/router';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -50,8 +50,10 @@ const ISLANDS_MAP: Record<string, { name: string; region: string }> = {
 };
 
 export function CouponBookClaimPage() {
-  const router = useRouter();
-  const { campaign: campaignId, auto_claim } = router.query;
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get('campaign');
+  const auto_claim = searchParams.get('auto_claim');
   const couponCardRef = useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState(true);
@@ -200,7 +202,7 @@ export function CouponBookClaimPage() {
     // auto_claim=true 파라미터 추가하여 로그인 후 자동 발급
     const currentUrl = `${window.location.origin}/coupon-book/claim?campaign=${campaignId}&auto_claim=true`;
     localStorage.setItem('redirect_after_login', currentUrl);
-    router.push('/login');
+    navigate('/login');
   };
 
   const handleCopyCode = async () => {
@@ -243,7 +245,7 @@ export function CouponBookClaimPage() {
   const handleViewPartners = () => {
     // 쿠폰 적용 상태 + 타겟 섬 필터로 가맹점 페이지 이동
     const targetIsland = campaign?.target_islands?.[0] || '';
-    router.push(`/partners?coupon=true${targetIsland ? `&island=${targetIsland}` : ''}`);
+    navigate(`/partners?coupon=true${targetIsland ? `&island=${targetIsland}` : ''}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -372,7 +374,7 @@ export function CouponBookClaimPage() {
               <Button
                 variant="ghost"
                 className="w-full text-gray-500"
-                onClick={() => router.push('/my/coupons')}
+                onClick={() => navigate('/my/coupons')}
               >
                 내 쿠폰함에서 확인하기
               </Button>
@@ -392,7 +394,7 @@ export function CouponBookClaimPage() {
             <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-800 mb-2">오류 발생</h2>
             <p className="text-gray-600 mb-6">{error}</p>
-            <Button onClick={() => router.push('/')} className="w-full">
+            <Button onClick={() => navigate('/')} className="w-full">
               홈으로 돌아가기
             </Button>
           </CardContent>

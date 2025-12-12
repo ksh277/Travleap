@@ -768,7 +768,7 @@ export function PartnerPage() {
 
       {/* 검색 바 - 배경 이미지 위에 반쯤 걸쳐진 박스 (모바일 숨김) */}
       <div className="hidden lg:block relative -mt-16 mb-6">
-        <div className="max-w-[1200px] mx-auto px-4">
+        <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20">
           <div className="bg-white rounded-lg shadow-lg p-6">
           {/* GPS 에러 메시지 */}
           {gpsError && (
@@ -897,7 +897,7 @@ export function PartnerPage() {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="max-w-[1400px] mx-auto px-4 py-6">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-6">
         {/* 모바일: 지도 + 목록 순차 배치 */}
         <div className="lg:hidden space-y-6">
           {/* 모바일 지도 (위쪽 고정) */}
@@ -992,7 +992,7 @@ export function PartnerPage() {
                   </SelectContent>
                 </Select>
 
-                {/* 쿠폰 필터 버튼 */}
+                {/* 가고싶은섬 필터 버튼 */}
                 <Button
                   variant={filters.couponOnly ? "default" : "outline"}
                   size="sm"
@@ -1000,7 +1000,7 @@ export function PartnerPage() {
                   className={`text-sm ${filters.couponOnly ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
                 >
                   <Ticket className="h-3 w-3 mr-1" />
-                  쿠폰
+                  가고싶은섬
                 </Button>
 
                 {/* 거리순 정렬 버튼 */}
@@ -1029,7 +1029,7 @@ export function PartnerPage() {
                 <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
                   {filters.couponOnly && (
                     <Badge className="bg-purple-100 text-purple-700">
-                      쿠폰 가능
+                      가고싶은섬
                       <button
                         className="ml-1 hover:text-purple-900"
                         onClick={() => setFilters(prev => ({ ...prev, couponOnly: false }))}
@@ -1282,7 +1282,7 @@ export function PartnerPage() {
                   </SelectContent>
                 </Select>
 
-                {/* 쿠폰 필터 버튼 */}
+                {/* 가고싶은섬 필터 버튼 */}
                 <Button
                   variant={filters.couponOnly ? "default" : "outline"}
                   size="sm"
@@ -1290,7 +1290,7 @@ export function PartnerPage() {
                   className={`text-sm ${filters.couponOnly ? 'bg-purple-600 hover:bg-purple-700' : ''}`}
                 >
                   <Ticket className="h-3 w-3 mr-1" />
-                  쿠폰 가능
+                  가고싶은섬
                 </Button>
 
                 {gpsLoading ? (

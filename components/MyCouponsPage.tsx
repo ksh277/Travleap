@@ -28,7 +28,8 @@ import {
   ArrowLeft,
   Star,
   Gift,
-  X
+  X,
+  MapPin
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'sonner';
@@ -314,6 +315,16 @@ export function MyCouponsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* 주변 가맹점 보기 버튼 */}
+        <Button
+          variant="outline"
+          className="w-full mt-4 border-purple-200 text-purple-700 hover:bg-purple-50"
+          onClick={() => navigate('/partner?coupon=true')}
+        >
+          <MapPin className="h-4 w-4 mr-2" />
+          주변 가맹점 보기 (가고싶은섬)
+        </Button>
 
         {/* 필터 버튼 */}
         <div className="flex gap-2 mt-4 overflow-x-auto pb-2">

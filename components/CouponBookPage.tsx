@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Ticket, Download, Check, MapPin, Gift, Loader2, Store, AlertCircle, DownloadCloud } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -25,9 +25,19 @@ interface UserCoupon {
   expiresAt: string;
 }
 
+interface CampaignInfo {
+  id: number;
+  name: string;
+  description: string;
+}
+
 export default function CouponBookPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get('campaign');
+
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [campaign, setCampaign] = useState<CampaignInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
@@ -39,6 +49,11 @@ export default function CouponBookPage() {
     const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
 
+    // 캠페인 정보 로드
+    if (campaignId) {
+      fetchCampaign();
+    }
+
     // 파트너 목록 로드
     fetchPartners();
 
@@ -46,11 +61,26 @@ export default function CouponBookPage() {
     if (token) {
       fetchUserCoupons(token);
     }
-  }, []);
+  }, [campaignId]);
+
+  const fetchCampaign = async () => {
+    try {
+      const res = await fetch(`/api/coupon-book/campaign/${campaignId}`);
+      const data = await res.json();
+      if (data.success && data.campaign) {
+        setCampaign(data.campaign);
+      }
+    } catch (error) {
+      console.error('Failed to fetch campaign:', error);
+    }
+  };
 
   const fetchPartners = async () => {
     try {
-      const res = await fetch('/api/coupon-book/partners');
+      const url = campaignId
+        ? `/api/coupon-book/partners?campaign=${campaignId}`
+        : '/api/coupon-book/partners';
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         setPartners(data.data || []);
@@ -87,7 +117,8 @@ export default function CouponBookPage() {
   const handleDownload = async (partnerId: number) => {
     if (!isLoggedIn) {
       toast.error('로그인이 필요합니다');
-      navigate('/login?redirect=/coupon-book');
+      const redirectUrl = campaignId ? `/coupon-book?campaign=${campaignId}` : '/coupon-book';
+      navigate(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
       return;
     }
 
@@ -132,7 +163,8 @@ export default function CouponBookPage() {
   const handleDownloadAll = async () => {
     if (!isLoggedIn) {
       toast.error('로그인이 필요합니다');
-      navigate('/login?redirect=/coupon-book');
+      const redirectUrl = campaignId ? `/coupon-book?campaign=${campaignId}` : '/coupon-book';
+      navigate(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
       return;
     }
 
@@ -147,7 +179,10 @@ export default function CouponBookPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('/api/coupon-book/download-all', {
+      const url = campaignId
+        ? `/api/coupon-book/download-all?campaign=${campaignId}`
+        : '/api/coupon-book/download-all';
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,8 +228,8 @@ export default function CouponBookPage() {
                 <Ticket className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">가고싶은섬 쿠폰북</h1>
-                <p className="text-purple-100 text-xs">참여 가맹점에서 할인 혜택을 받으세요</p>
+                <h1 className="text-xl font-bold">{campaign?.name || '쿠폰북'}</h1>
+                <p className="text-purple-100 text-xs">{campaign?.description || '참여 가맹점에서 할인 혜택을 받으세요'}</p>
               </div>
             </div>
           </div>
@@ -202,7 +237,7 @@ export default function CouponBookPage() {
           {/* 안내 텍스트 */}
           <div className="bg-white/10 rounded-xl p-4 mt-2">
             <p className="text-sm text-purple-100 leading-relaxed">
-              가고싶은섬 쿠폰북은 제휴 가맹점에서 사용할 수 있는 할인 쿠폰입니다.
+              제휴 가맹점에서 사용할 수 있는 할인 쿠폰입니다.
               쿠폰을 다운로드 받고 가맹점 방문 시 사용해주세요!
             </p>
           </div>

@@ -240,15 +240,15 @@ export function QRGeneratorPage() {
                   {couponBookCampaigns.map((campaign) => (
                     <button
                       key={campaign.id}
-                      onClick={() => setUrl(`https://travleap.com/coupon-book/claim?campaign=${campaign.id}`)}
+                      onClick={() => setUrl(`https://travleap.com/coupon-book?campaign=${campaign.id}`)}
                       className={`w-full flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
-                        url === `https://travleap.com/coupon-book/claim?campaign=${campaign.id}`
+                        url === `https://travleap.com/coupon-book?campaign=${campaign.id}`
                           ? 'border-purple-600 bg-purple-100 text-purple-900'
                           : 'border-purple-200 hover:border-purple-300 bg-white'
                       }`}
                     >
                       <div className={`p-2 rounded-lg ${
-                        url === `https://travleap.com/coupon-book/claim?campaign=${campaign.id}` ? 'bg-purple-200' : 'bg-purple-100'
+                        url === `https://travleap.com/coupon-book?campaign=${campaign.id}` ? 'bg-purple-200' : 'bg-purple-100'
                       }`}>
                         <Ticket className="w-5 h-5 text-purple-600" />
                       </div>
