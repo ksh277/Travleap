@@ -949,7 +949,7 @@ export function MyPage() {
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom">
       {/* 헤더 */}
       <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">마이페이지</h1>
@@ -962,7 +962,7 @@ export function MyPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-6">
         {/* 프로필 카드 */}
         <Card className="mb-6">
           <CardContent className="p-6">

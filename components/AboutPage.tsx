@@ -20,7 +20,7 @@ export function AboutPage() {
         </div>
 
         {/* 컨텐츠 */}
-        <div className="relative container mx-auto px-4 h-full flex items-center">
+        <div className="relative max-w-content mx-auto px-4 md:px-10 lg:px-20 h-full flex items-center">
           <div className="max-w-4xl text-white">
             <h1 className="text-5xl font-bold mb-6">트래블립 (TRAVLEAP)</h1>
             <p className="text-xl mb-8 leading-relaxed">
@@ -34,7 +34,7 @@ export function AboutPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-16">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-16">
         {/* 회사 소개 */}
         <section className="mb-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">

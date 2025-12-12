@@ -236,7 +236,7 @@ export default function BlogDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Back Button */}
-      <div className="container mx-auto px-4 py-4">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-4">
         <Button
           variant="ghost"
           onClick={() => navigate('/blog')}
@@ -258,7 +258,7 @@ export default function BlogDetailPage() {
 
         {/* Title Overlay */}
         <div className="absolute bottom-0 left-0 right-0 text-white p-8">
-          <div className="container mx-auto">
+          <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20">
             <div className="flex items-center gap-2 mb-4">
               <span className="bg-blue-600 px-3 py-1 rounded-full text-sm font-semibold">
                 {post.category}
@@ -288,7 +288,7 @@ export default function BlogDetailPage() {
       </div>
 
       {/* Content */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Main Content */}
           <article className="lg:w-3/4">

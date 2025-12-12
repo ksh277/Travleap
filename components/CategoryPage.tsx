@@ -377,7 +377,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
 
       {/* 검색 바 - 배경 이미지 위에 반쯤 걸쳐진 박스 */}
       <div className="hidden md:block relative -mt-16 mb-6">
-        <div className="max-w-[1200px] mx-auto px-4">
+        <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20">
           <div className="bg-white rounded-lg shadow-lg p-6">
             <div className="flex gap-4 items-center">
               {/* 목적지 */}
@@ -521,7 +521,7 @@ export function CategoryPage({ selectedCurrency = 'KRW' }: CategoryPageProps) {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="container mx-auto px-2 md:px-4 py-12 md:py-16">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-12 md:py-16">
         {/* 필터 바 */}
         <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-8">
           <div className="flex flex-wrap gap-4 items-center">

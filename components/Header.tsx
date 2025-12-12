@@ -115,28 +115,37 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-50 w-full font-nanum">
-      {/* ========== 1. 상단 바 (70px) ========== */}
-      <div className="bg-[#BCD4E4] h-[50px] lg:h-[70px]">
+      {/* ========== 1. 상단 바 (50px) ========== */}
+      <div className="bg-[#BCD4E4] h-[46px] lg:h-[46px]">
         <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
           {/* 왼쪽: TRAVLEAR | pinto 로고 */}
-          <div className="flex items-center gap-3">
-            <img
-              src="/images/logo-travlear.png"
-              alt="TRAVLEAR"
-              className="h-[20px] lg:h-[25px] w-auto cursor-pointer"
+          <div className="flex items-center h-full">
+            {/* TRAVLEAR - 현재 사이트이므로 하얀 배경 활성화 (전체 높이) */}
+            <div
+              className="bg-white h-full px-4 flex items-center cursor-pointer"
               onClick={() => navigate('/')}
-            />
-            <span className="text-gray-400">|</span>
-            <img
-              src="/images/logo-pinto.png"
-              alt="pinto"
-              className="h-[22px] lg:h-[28px] w-auto cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <img
+                src="/images/logo-travlear.png"
+                alt="TRAVLEAR"
+                className="h-[20px] lg:h-[24px] w-auto"
+              />
+            </div>
+            {/* pinto - 다른 사이트이므로 배경 없음 */}
+            <div
+              className="h-full px-4 flex items-center cursor-pointer hover:bg-white/30 transition-colors"
               onClick={handleGoToPinto}
-            />
+            >
+              <img
+                src="/images/logo-pinto.png"
+                alt="pinto"
+                className="h-[20px] lg:h-[24px] w-auto"
+              />
+            </div>
           </div>
 
           {/* 오른쪽: 로그아웃/마이페이지/1:1문의 */}
-          <div className="flex items-center gap-2 lg:gap-4 text-gray-600 text-xs lg:text-sm">
+          <div className="flex items-center gap-1.5 lg:gap-3 text-gray-600 text-xs lg:text-sm pr-2 lg:pr-4">
             {isLoggedIn ? (
               <>
                 <button
@@ -187,7 +196,7 @@ export function Header({
       </div>
 
       {/* ========== 2. 메인 헤더 (160px) ========== */}
-      <div className="bg-white h-[80px] lg:h-[160px] border-b border-gray-100">
+      <div className="bg-white h-[80px] lg:h-[110px] border-b border-gray-100">
         <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
           {/* 왼쪽: TRAVLEAR 로고 이미지 */}
           <div
@@ -197,15 +206,15 @@ export function Header({
             <img
               src="/images/logo-travlear.png"
               alt="TRAVLEAR"
-              className="h-[40px] md:h-[50px] lg:h-[70px] w-auto"
+              className="h-[20px] md:h-[25px] lg:h-[35px] w-auto"
             />
           </div>
 
           {/* 오른쪽: 아이콘 그룹 (데스크톱) */}
-          <div className="hidden lg:flex items-center gap-8">
+          <div className="hidden lg:flex items-center gap-2">
             {/* 마이 */}
             <button
-              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors"
+              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors w-16"
               onClick={() => navigate(isLoggedIn ? '/mypage' : '/login')}
             >
               <User className="w-6 h-6" />
@@ -214,7 +223,7 @@ export function Header({
 
             {/* 찜 */}
             <button
-              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors"
+              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors w-16"
               onClick={() => navigate(isLoggedIn ? '/wishlist' : '/login')}
             >
               <Heart className="w-6 h-6" />
@@ -223,13 +232,13 @@ export function Header({
 
             {/* 장바구니 */}
             <button
-              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors relative"
+              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors relative w-16"
               onClick={() => navigate('/cart')}
             >
               <ShoppingBasket className="w-6 h-6" />
               <span className="text-xs font-nanum">장바구니</span>
               {cartItemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-1 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {cartItemCount > 99 ? '99+' : cartItemCount}
                 </span>
               )}
@@ -237,11 +246,11 @@ export function Header({
 
             {/* 최근 본 상품 */}
             <button
-              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors"
+              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors w-20"
               onClick={() => navigate('/recent-products')}
             >
               <Clock className="w-6 h-6" />
-              <span className="text-xs font-nanum">최근 본 상품</span>
+              <span className="text-xs font-nanum whitespace-nowrap">최근 본 상품</span>
             </button>
           </div>
 
@@ -274,7 +283,7 @@ export function Header({
                     <img
                       src="/images/logo-travlear.png"
                       alt="TRAVLEAR"
-                      className="h-[35px] w-auto"
+                      className="h-[18px] w-auto"
                     />
                   </div>
 
@@ -388,9 +397,9 @@ export function Header({
         </div>
       </div>
 
-      {/* ========== 3. 네비게이션 바 (120px) ========== */}
-      <nav className="bg-white h-[50px] lg:h-[120px] border-b border-gray-200 shadow-sm hidden lg:block">
-        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-center gap-6 xl:gap-10">
+      {/* ========== 3. 네비게이션 바 (80px) ========== */}
+      <nav className="bg-white h-[50px] lg:h-[80px] border-b border-gray-200 shadow-sm hidden lg:block">
+        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-center gap-7 xl:gap-9">
           {/* 모든 메뉴 동일 간격 */}
           {navItems.map((item) => (
             <button

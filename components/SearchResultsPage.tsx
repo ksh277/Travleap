@@ -320,7 +320,7 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
     <div className="min-h-screen bg-gray-50 mobile-safe-bottom">
       {/* 페이지 헤더 */}
       <div className="bg-[#A8A8D8] py-6 md:py-8 mobile-safe-top">
-        <div className="container mx-auto px-4">
+        <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20">
           <div className="text-center text-white">
             <h1 className="text-3xl mb-2">
               {searchQuery ? `"${searchQuery}" 검색 결과` : '검색 결과'}
@@ -338,7 +338,7 @@ export function SearchResultsPage({}: SearchResultsPageProps) {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-8">
           {/* 필터 및 정렬 옵션 */}
           <div className="flex items-center justify-between mb-8 p-4 bg-white rounded-lg shadow-sm">
             <div className="flex items-center gap-4">

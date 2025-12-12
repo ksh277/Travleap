@@ -14,7 +14,7 @@ module.exports = {
         'nanum-eb': ['NanumSquareExtraBold', 'NanumSquare', 'sans-serif'],
       },
       maxWidth: {
-        'content': '2300px',
+        'content': '1280px',
       },
       colors: {
         border: "hsl(var(--border))",

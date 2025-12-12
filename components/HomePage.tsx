@@ -806,7 +806,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       </div>
 
       {/* 1. 여행상품 섹션 */}
-      <div className="container mx-auto px-4 md:px-[80px] lg:px-[120px] py-16 md:py-24">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-16 md:py-24">
         <section>
           <div className="flex items-center justify-between mb-8 md:mb-12">
             <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight">여행상품</h2>
@@ -889,7 +889,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       </div>
 
       {/* 2. 숙박 섹션 - 정사각형 320x320 */}
-      <div className="container mx-auto px-4 md:px-[80px] lg:px-[120px] py-16 md:py-24">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-16 md:py-24">
         <section>
           <div className="flex items-center justify-between mb-8 md:mb-12">
             <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight">숙박</h2>
@@ -967,7 +967,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       </div>
 
       {/* 3. 렌트카 섹션 - 정사각형 320x320 */}
-      <div className="container mx-auto px-4 md:px-[80px] lg:px-[120px] py-16 md:py-24">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-16 md:py-24">
         <section>
           <div className="flex items-center justify-between mb-8 md:mb-12">
             <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight">렌트카</h2>
@@ -1053,7 +1053,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       </section>
 
       {/* 5. 행사/체험 섹션 */}
-      <div className="container mx-auto px-4 md:px-[80px] lg:px-[120px] py-16 md:py-24">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-16 md:py-24">
         <section>
           <div className="flex items-center justify-between mb-8 md:mb-12">
             <h2 className="text-2xl md:text-3xl font-semibold text-gray-800 tracking-tight">행사 / 체험</h2>
@@ -1152,7 +1152,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
       </div>
 
       {/* 6. 인스타 섹션 - API 연동 예정 */}
-      <div className="container mx-auto px-4 md:px-[80px] lg:px-[120px] py-16 md:py-24">
+      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-16 md:py-24">
         <section>
           <div className="flex items-center justify-between mb-8 md:mb-12">
             <div className="flex items-center gap-3">
