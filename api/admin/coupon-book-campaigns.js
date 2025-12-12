@@ -90,9 +90,9 @@ module.exports = async function handler(req, res) {
 
       const campaignId = insertResult.insertId;
 
-      // QR URL 및 Claim URL 생성
+      // QR URL 및 Claim URL 생성 - 쿠폰북 메인 페이지로 연결
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://travleap.com';
-      const claimUrl = `${baseUrl}/coupon-book/claim?campaign=${campaignId}`;
+      const claimUrl = `${baseUrl}/coupon-book`;
       const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(claimUrl)}`;
 
       // URL 업데이트
