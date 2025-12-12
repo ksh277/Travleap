@@ -116,16 +116,20 @@ export function Header({
   return (
     <header className="sticky top-0 z-50 w-full font-nanum">
       {/* ========== 1. 상단 바 (70px) ========== */}
-      <div className="bg-[#BCD4E4] h-[50px] lg:h-[70px]">
-        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
+      <div className="bg-[#BCD4E4] h-[50px] lg:h-[46px]">
+        <div className="max-w-[1280px] mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
           {/* 왼쪽: TRAVLEAR | pinto 로고 */}
           <div className="flex items-center gap-3">
-            <img
-              src="/images/logo-travlear.png"
-              alt="TRAVLEAR"
-              className="h-[20px] lg:h-[25px] w-auto cursor-pointer"
+            <div
+              className="bg-white h-[46px] px-3 flex items-center cursor-pointer"
               onClick={() => navigate('/')}
-            />
+            >
+              <img
+                src="/images/logo-travlear.png"
+                alt="TRAVLEAR"
+                className="h-[20px] lg:h-[25px] w-auto"
+              />
+            </div>
             <span className="text-gray-400">|</span>
             <img
               src="/images/logo-pinto.png"
@@ -187,8 +191,8 @@ export function Header({
       </div>
 
       {/* ========== 2. 메인 헤더 (160px) ========== */}
-      <div className="bg-white h-[80px] lg:h-[160px] border-b border-gray-100">
-        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
+      <div className="bg-white h-[80px] lg:h-[110px] border-b border-gray-100">
+        <div className="max-w-[1280px] mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
           {/* 왼쪽: TRAVLEAR 로고 이미지 */}
           <div
             className="cursor-pointer"
@@ -197,7 +201,7 @@ export function Header({
             <img
               src="/images/logo-travlear.png"
               alt="TRAVLEAR"
-              className="h-[40px] md:h-[50px] lg:h-[70px] w-auto"
+              className="h-[20px] md:h-[25px] lg:h-[35px] w-auto"
             />
           </div>
 
@@ -389,8 +393,8 @@ export function Header({
       </div>
 
       {/* ========== 3. 네비게이션 바 (120px) ========== */}
-      <nav className="bg-white h-[50px] lg:h-[120px] border-b border-gray-200 shadow-sm hidden lg:block">
-        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-center gap-6 xl:gap-10">
+      <nav className="bg-white h-[50px] lg:h-[80px] border-b border-gray-200 shadow-sm hidden lg:block">
+        <div className="max-w-[1280px] mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-center gap-5 xl:gap-9">
           {/* 모든 메뉴 동일 간격 */}
           {navItems.map((item) => (
             <button
