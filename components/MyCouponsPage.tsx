@@ -512,7 +512,7 @@ export function MyCouponsPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => navigate('/partners/discount?couponOnly=true')}
+                            onClick={() => navigate('/partner?coupon=true')}
                             className="mt-3"
                           >
                             <Store className="h-4 w-4 mr-1" />
@@ -572,7 +572,7 @@ export function MyCouponsPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => navigate('/partners?couponOnly=true')}
+            onClick={() => navigate('/partner?coupon=true')}
             className="w-full"
           >
             <Store className="h-4 w-4 mr-2" />

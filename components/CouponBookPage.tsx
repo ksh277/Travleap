@@ -249,7 +249,7 @@ export default function CouponBookPage() {
         <div className="bg-white rounded-xl shadow-lg p-4 flex gap-3">
           <button
             className="flex-1 h-12 border border-purple-200 text-purple-700 hover:bg-purple-50 rounded-lg flex items-center justify-center gap-2 font-medium transition"
-            onClick={() => navigate('/partners/discount?couponOnly=true')}
+            onClick={() => navigate('/partner?coupon=true')}
           >
             <MapPin className="h-4 w-4" />
             주변 가맹점 보기
