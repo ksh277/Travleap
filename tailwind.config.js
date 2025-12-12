@@ -9,6 +9,13 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        'nanum': ['NanumSquare', 'sans-serif'],
+        'nanum-eb': ['NanumSquareExtraBold', 'NanumSquare', 'sans-serif'],
+      },
+      maxWidth: {
+        'content': '2300px',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

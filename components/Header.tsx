@@ -1,32 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { useCategories } from '../hooks/useCategories';
 import {
   ShoppingBasket,
   Menu,
-  Facebook,
-  Linkedin,
-  UserPlus,
-  MapPin,
-  Calendar,
-  Users,
-  Filter,
+  User,
+  Heart,
+  Clock,
   ExternalLink,
   Loader2,
 } from "lucide-react";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
-import { Checkbox } from "./ui/checkbox";
-import { Slider } from "./ui/slider";
 import { t } from '../utils/translations';
 
 interface HeaderProps {
@@ -38,15 +23,39 @@ interface HeaderProps {
   selectedCurrency?: string;
 }
 
+// 왼쪽 메인 메뉴
+const leftNavItems = [
+  { name: '여행PKG', path: '/category/tour', badge: 'HOT', badgeColor: 'bg-red-500' },
+  { name: '렌트카', path: '/category/rentcar' },
+  { name: '숙박', path: '/category/stay' },
+  { name: '티켓', path: '/category/ticket' },
+  { name: '행사/체험', path: '/category/event', badge: 'SEASON', badgeColor: 'bg-green-500' },
+  { name: '가맹점', path: '/partner' },
+];
+
+// 오른쪽 서브 메뉴
+const rightNavItems = [
+  { name: '나만의 뷰맛집', path: '#' },
+  { name: '내주위 톡톡', path: '/partner' },
+  { name: 'EVENT', path: '/category/event' },
+  { name: '공지사항', path: '#' },
+  { name: '파트너 입점.문의', path: '/partner-apply' },
+];
+
 export function Header({
   cartItemCount = 0,
   selectedLanguage = 'ko',
   selectedCurrency = 'KRW',
 }: Omit<HeaderProps, 'isAdmin' | 'isLoggedIn' | 'logout'>) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const currentView = location.pathname;
 
-  // 새로운 간단한 인증 시스템
+  // 인증 시스템
   const { isLoggedIn, isAdmin, logout, user } = useAuth();
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState(false);
 
   // 상태 로그
   useEffect(() => {
@@ -55,41 +64,17 @@ export function Header({
 
   // 벤더 타입에 따른 대시보드 경로 반환
   const getVendorDashboardPath = () => {
-    if (!user?.vendorType) return '/vendor/popup'; // 기본값: 팝업 대시보드
-
+    if (!user?.vendorType) return '/vendor/popup';
     if (user.vendorType === 'stay') return '/vendor/lodging';
     if (user.vendorType === 'rental') return '/vendor/dashboard';
-
-    // 나머지는 모두 팝업 대시보드로
     return '/vendor/popup';
   };
 
-
-  const location = useLocation();
-  const currentView = location.pathname;
-  const showSearchBar = currentView.includes('/category/');
-  const [searchQuery] = useState("");
-  const [destination, setDestination] = useState("");
-  const [dateRange, setDateRange] = useState("");
-  const [guests, setGuests] = useState("");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [priceRange, setPriceRange] = useState([0, 500000]);
-  const [minRating, setMinRating] = useState(0);
-  const [partnersOnly, setPartnersOnly] = useState(false);
-  const [sponsorFirst, setSponsorFirst] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const [ssoLoading, setSsoLoading] = useState(false);
-
-  // PINTO 쇼핑몰로 이동 (SSO - 토큰 직접 전달 방식)
+  // PINTO 쇼핑몰로 이동 (SSO)
   const handleGoToPinto = async () => {
     const pintoUrl = 'https://makepinto.com';
 
-    console.log('🔵 PINTO 버튼 클릭, isLoggedIn:', isLoggedIn);
-
-    // 로그인 안 되어 있으면 그냥 이동
     if (!isLoggedIn) {
-      console.log('🔵 로그인 안됨 → PINTO로 바로 이동');
       window.open(pintoUrl, '_blank');
       return;
     }
@@ -97,8 +82,6 @@ export function Header({
     setSsoLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      console.log('🔵 SSO 토큰 생성 요청 시작');
-
       const response = await fetch('/api/sso/generate', {
         method: 'POST',
         headers: {
@@ -112,116 +95,63 @@ export function Header({
       });
 
       const data = await response.json();
-      console.log('🔵 SSO 응답:', data);
-
       if (data.success && data.data?.callback_url) {
-        console.log('🔵 SSO 성공 → 이동:', data.data.callback_url);
         window.location.href = data.data.callback_url;
       } else {
-        console.error('❌ SSO 토큰 생성 실패:', data.error);
         window.open(pintoUrl, '_blank');
       }
     } catch (error) {
-      console.error('❌ SSO 요청 오류:', error);
+      console.error('SSO 요청 오류:', error);
       window.open(pintoUrl, '_blank');
     } finally {
       setSsoLoading(false);
     }
   };
 
-  // Fetch categories from DB
-  const { categories: dbCategories, loading: categoriesLoading } = useCategories();
-
-  // Map DB categories to component format - use name_ko for Korean, name_en for English
-  // Show all categories (8개 전체)
-  const categories = dbCategories.map(cat => ({
-    id: cat.slug,
-    name: selectedLanguage === 'ko' ? cat.name_ko : cat.name_en,
-    icon: cat.icon || "📦"
-  }));
-
-  const handleSearch = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-
-    const searchParams = new URLSearchParams();
-    if (destination) searchParams.set('destination', destination);
-    if (dateRange) searchParams.set('dateRange', dateRange);
-    if (guests) searchParams.set('guests', guests);
-    if (priceRange[0] !== 0 || priceRange[1] !== 500000) {
-      searchParams.set('priceMin', priceRange[0].toString());
-      searchParams.set('priceMax', priceRange[1].toString());
+  // 메뉴 클릭 핸들러
+  const handleNavClick = (path: string) => {
+    if (path === '#') {
+      // 버튼만 있는 메뉴 (아직 페이지 없음)
+      return;
     }
-    if (minRating > 0) searchParams.set('minRating', minRating.toString());
-    if (partnersOnly) searchParams.set('partnersOnly', 'true');
-    if (sponsorFirst) searchParams.set('sponsorFirst', 'true');
-
-    navigate(`/search?${searchParams.toString()}`);
+    navigate(path);
   };
 
-  // 네비게이션: 홈, 가맹점 (문의/소개는 푸터로 이동, 카테고리는 별도 표시)
-  const navigation = [
-    { name: t('home', selectedLanguage), id: "home" },
-    { name: t('franchise', selectedLanguage), id: "franchise" },
-  ];
-
-  const destinations = [
-    "증도면",
-    "도초면",
-    "비금면",
-    "압해면",
-    "암태면",
-    "팔금면",
-    "자은면",
-    "흑산면",
-    "하의면",
-    "신의면",
-  ];
-
   return (
-    <header className="sticky top-0 z-50 w-full">
-      {/* 상단 탑바 */}
-      <div className="bg-[#858dc5] h-[48px] md:h-[55px] flex items-center">
-        <div className="w-full px-4 md:px-[80px] lg:px-[120px] flex items-center justify-between text-[13px] md:text-[14px] text-white">
-          {/* 왼쪽 */}
-          <div className="flex items-center gap-2 md:gap-3">
-            <div className="flex gap-2 md:gap-3 items-center">
-              <a
-                href="#"
-                className="inline-flex items-center justify-center w-[22px] h-[22px] md:w-[18px] md:h-[18px] text-white hover:text-blue-100 transition-colors"
-              >
-                <Facebook className="w-3 h-3" />
-              </a>
-              <a
-                href="#"
-                className="inline-flex items-center justify-center w-[22px] h-[22px] md:w-[18px] md:h-[18px] text-white hover:text-blue-100 transition-colors"
-              >
-                <Linkedin className="w-3 h-3" />
-              </a>
-              <a
-                href="#"
-                className="inline-flex items-center justify-center w-[22px] h-[22px] md:w-[18px] md:h-[18px] text-white hover:text-blue-100 transition-colors"
-              >
-                <UserPlus className="w-3 h-3" />
-              </a>
-            </div>
+    <header className="sticky top-0 z-50 w-full font-nanum">
+      {/* ========== 1. 상단 바 (70px) ========== */}
+      <div className="bg-[#858dc5] h-[50px] lg:h-[70px]">
+        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
+          {/* 왼쪽: TRAVLEAR | pinto 로고 */}
+          <div className="flex items-center gap-2">
             <span
-              className="w-[1px] h-[14px] bg-white/35 mx-1 md:mx-2"
-              aria-hidden="true"
-            ></span>
-            <a
-              className="text-white hover:text-blue-100 transition-colors hidden sm:inline"
-              href="mailto:travleap_cs@gmail.com"
+              className="text-white font-nanum-eb text-lg lg:text-xl tracking-wide cursor-pointer"
+              onClick={() => navigate('/')}
             >
-              travleap_cs@gmail.com
-            </a>
+              TRAVLEAR
+            </span>
+            <span className="text-white/50">|</span>
+            <span
+              className="text-white font-nanum text-base lg:text-lg cursor-pointer"
+              onClick={handleGoToPinto}
+            >
+              pinto
+            </span>
           </div>
 
-          {/* 오른쪽 */}
-          <div className="flex items-center gap-3">
+          {/* 오른쪽: 로그아웃/마이페이지/1:1문의 */}
+          <div className="flex items-center gap-2 lg:gap-4 text-white text-xs lg:text-sm">
             {isLoggedIn ? (
               <>
                 <button
-                  className="text-white hover:text-blue-100 transition-colors"
+                  className="hover:text-blue-100 transition-colors"
+                  onClick={logout}
+                >
+                  로그아웃
+                </button>
+                <span className="text-white/30">|</span>
+                <button
+                  className="hover:text-blue-100 transition-colors"
                   onClick={() => navigate(
                     isAdmin ? "/admin" :
                     user?.role === 'partner' ? "/partner/dashboard" :
@@ -229,103 +159,77 @@ export function Header({
                     "/mypage"
                   )}
                 >
-                  {isAdmin ? "관리자페이지" :
-                   user?.role === 'partner' ? "파트너 대시보드" :
-                   user?.role === 'vendor' ? "벤더 대시보드" :
-                   "마이페이지"}
-                </button>
-                <span className="h-[14px] w-[1px] bg-white/35"></span>
-                <button
-                  className="text-white hover:text-blue-100 transition-colors"
-                  onClick={logout}
-                >
-                  로그아웃
+                  마이페이지
                 </button>
               </>
             ) : (
               <>
                 <button
-                  className="text-white hover:text-blue-100 transition-colors"
+                  className="hover:text-blue-100 transition-colors"
                   onClick={() => navigate("/login")}
                 >
-                  {t('login', selectedLanguage)}
+                  로그인
                 </button>
-                <span className="h-[14px] w-[1px] bg-white/35"></span>
+                <span className="text-white/30">|</span>
                 <button
-                  className="text-white hover:text-blue-100 transition-colors"
+                  className="hover:text-blue-100 transition-colors"
                   onClick={() => navigate("/signup")}
                 >
-                  {t('signup', selectedLanguage)}
+                  회원가입
                 </button>
               </>
             )}
-            <span className="h-[14px] w-[1px] bg-white/35"></span>
-            <span className="text-white">
-              {selectedCurrency}
-            </span>
+            <span className="text-white/30">|</span>
+            <button
+              className="hover:text-blue-100 transition-colors"
+              onClick={() => navigate("/support")}
+            >
+              1:1문의
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 네비게이션 바 */}
-      <nav className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="h-[67px] md:h-[100px] w-full px-4 md:px-[80px] lg:px-[120px] flex items-center">
-          {/* 왼쪽: 로고 + 메뉴 */}
-          <div className="flex items-center gap-6 md:gap-10">
-            {/* 로고 */}
-            <a
-              className="cursor-pointer flex items-center gap-2"
-              onClick={() => navigate("/")}
-            >
-              <span className="text-2xl md:text-3xl font-bold text-[#A8A8D8] tracking-tight select-none">Travelap</span>
-            </a>
-
-            {/* 메뉴: 홈 + 카테고리 8개 + 가맹점 */}
-            <div className="hidden md:flex items-center gap-4 lg:gap-6">
-              {/* 홈 */}
-              <button
-                className={`text-[#4A5568] hover:text-[#5c2d91] transition-colors font-semibold text-[15px] tracking-wide ${
-                  currentView === '/' ? "text-[#5c2d91]" : ""
-                }`}
-                onClick={() => navigate('/')}
-              >
-                {t('home', selectedLanguage)}
-              </button>
-
-              {/* 카테고리 8개 직접 표시 */}
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  className={`text-[#4A5568] hover:text-[#5c2d91] transition-colors font-semibold text-[15px] tracking-wide whitespace-nowrap ${
-                    currentView === `/category/${category.id}` ? "text-[#5c2d91]" : ""
-                  }`}
-                  onClick={() => navigate(`/category/${category.id}`)}
-                >
-                  {category.name}
-                </button>
-              ))}
-
-              {/* 가맹점 */}
-              <button
-                className={`text-[#4A5568] hover:text-[#5c2d91] transition-colors font-semibold text-[15px] tracking-wide ${
-                  currentView === '/partner' ? "text-[#5c2d91]" : ""
-                }`}
-                onClick={() => navigate('/partner')}
-              >
-                {t('franchise', selectedLanguage)}
-              </button>
-            </div>
+      {/* ========== 2. 메인 헤더 (160px) ========== */}
+      <div className="bg-white h-[80px] lg:h-[160px] border-b border-gray-100">
+        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
+          {/* 왼쪽: TRAVLEAR 큰 로고 */}
+          <div
+            className="cursor-pointer"
+            onClick={() => navigate('/')}
+          >
+            <span className="text-[#5c2d91] font-nanum-eb text-2xl md:text-3xl lg:text-5xl tracking-tight">
+              TRAVLEAR
+            </span>
           </div>
 
-          {/* 우측 액션 */}
-          <div className="flex items-center gap-4 ml-auto">
+          {/* 오른쪽: 아이콘 그룹 (데스크톱) */}
+          <div className="hidden lg:flex items-center gap-8">
+            {/* 마이 */}
+            <button
+              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors"
+              onClick={() => navigate(isLoggedIn ? '/mypage' : '/login')}
+            >
+              <User className="w-6 h-6" />
+              <span className="text-xs font-nanum">마이</span>
+            </button>
+
+            {/* 찜 */}
+            <button
+              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors"
+              onClick={() => navigate(isLoggedIn ? '/wishlist' : '/login')}
+            >
+              <Heart className="w-6 h-6" />
+              <span className="text-xs font-nanum">찜</span>
+            </button>
+
             {/* 장바구니 */}
             <button
-              className="relative p-2 md:p-2 min-w-[44px] min-h-[44px] md:min-w-[40px] md:min-h-[40px] rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-center"
-              aria-label="장바구니"
+              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors relative"
               onClick={() => navigate('/cart')}
             >
-              <ShoppingBasket className="w-5 h-5 text-gray-600" />
+              <ShoppingBasket className="w-6 h-6" />
+              <span className="text-xs font-nanum">장바구니</span>
               {cartItemCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {cartItemCount > 99 ? '99+' : cartItemCount}
@@ -333,209 +237,156 @@ export function Header({
               )}
             </button>
 
-            {/* 관리자/로그인 메뉴 */}
-            <div className="hidden md:flex items-center gap-2">
-              {isLoggedIn ? (
-                <div className="flex items-center gap-2">
-                  {isAdmin ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate("/admin")}
-                      className="text-purple-600 border-purple-600 hover:bg-purple-50"
-                    >
-                      {t('admin', selectedLanguage)}
-                    </Button>
-                  ) : user?.role === 'partner' ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate("/partner/dashboard")}
-                      className="text-green-600 border-green-600 hover:bg-green-50"
-                    >
-                      파트너 대시보드
-                    </Button>
-                  ) : user?.role === 'vendor' ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate(getVendorDashboardPath())}
-                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                    >
-                      벤더 대시보드
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate("/mypage")}
-                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                    >
-                      {t('mypage', selectedLanguage)}
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    onClick={logout}
-                    className="text-gray-600"
-                  >
-                    {t('logout', selectedLanguage)}
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => navigate("/login")}
-                  className="text-gray-600"
-                >
-                  {t('login', selectedLanguage)}
-                </Button>
-              )}
-            </div>
-
-            {/* PINTO 쇼핑몰 버튼 */}
-            <Button
-              type="button"
-              className="hidden md:inline-flex bg-[#858dc5] hover:bg-[#6b73a8] text-white text-sm gap-1"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleGoToPinto();
-              }}
-              disabled={ssoLoading}
+            {/* 최근 본 상품 */}
+            <button
+              className="flex flex-col items-center gap-1 text-gray-600 hover:text-[#5c2d91] transition-colors"
+              onClick={() => navigate('/recent-products')}
             >
-              {ssoLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ExternalLink className="w-4 h-4" />
-              )}
-              PINTO 쇼핑몰
-            </Button>
+              <Clock className="w-6 h-6" />
+              <span className="text-xs font-nanum">최근 본 상품</span>
+            </button>
+          </div>
 
-            {/* Partner 버튼 */}
-            <Button
-              className="hidden lg:inline-flex bg-[#5c2d91] hover:bg-[#4a2475] text-white text-sm"
-              onClick={() => navigate("/partner-apply")}
+          {/* 모바일: 장바구니 + 햄버거 메뉴 */}
+          <div className="flex lg:hidden items-center gap-2">
+            {/* 장바구니 */}
+            <button
+              className="relative p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              onClick={() => navigate('/cart')}
             >
-              Partner
-            </Button>
+              <ShoppingBasket className="w-5 h-5 text-gray-600" />
+              {cartItemCount > 0 && (
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {cartItemCount > 99 ? '99+' : cartItemCount}
+                </span>
+              )}
+            </button>
 
-            {/* 모바일 메뉴 */}
+            {/* 햄버거 메뉴 */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon" className="min-w-[44px] min-h-[44px] flex items-center justify-center">
-                  <Menu className="h-5 w-5" />
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="min-w-[44px] min-h-[44px]">
+                  <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="p-0 w-[220px] overflow-y-auto">
-                <div className="grid gap-0 py-6 h-full overflow-y-auto">
-                  {/* 홈 */}
-                  <button
-                    onClick={() => {
-                      navigate('/');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center px-6 border-b border-gray-100"
-                  >
-                    {t('home', selectedLanguage)}
-                  </button>
+              <SheetContent side="right" className="p-0 w-[280px] overflow-y-auto">
+                <div className="py-6">
+                  {/* 로고 */}
+                  <div className="px-6 pb-4 border-b">
+                    <span className="text-[#5c2d91] font-nanum-eb text-xl">TRAVLEAR</span>
+                  </div>
 
-                  {/* 카테고리 8개 직접 표시 */}
-                  {categories.map((category) => (
-                    <button
-                      key={category.id}
-                      onClick={() => {
-                        navigate(`/category/${category.id}`);
-                        setMobileMenuOpen(false);
-                      }}
-                      className="w-full text-left text-base hover:bg-gray-50 transition-colors min-h-[48px] flex items-center px-6 border-b border-gray-100"
-                    >
-                      {category.name}
-                    </button>
-                  ))}
-
-                  {/* 가맹점 */}
-                  <button
-                    onClick={() => {
-                      navigate('/partner');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="w-full text-left text-lg hover:bg-gray-50 transition-colors min-h-[56px] flex items-center px-6 border-b border-gray-100"
-                  >
-                    {t('franchise', selectedLanguage)}
-                  </button>
-
-                  {/* 모바일 로그인/관리자/마이페이지 메뉴 */}
-                  <div className="border-t pt-2 mt-2">
-                    {isLoggedIn ? (
-                      <div className="grid gap-0">
-                        {isAdmin ? (
-                          <button
-                            onClick={() => {
-                              navigate("/admin");
-                              setMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left px-6 py-4 hover:bg-purple-50 text-purple-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
-                          >
-                            {t('admin', selectedLanguage)} 페이지
-                          </button>
-                        ) : user?.role === 'partner' ? (
-                          <button
-                            onClick={() => {
-                              navigate("/partner/dashboard");
-                              setMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left px-6 py-4 hover:bg-green-50 text-green-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
-                          >
-                            파트너 대시보드
-                          </button>
-                        ) : user?.role === 'vendor' ? (
-                          <button
-                            onClick={() => {
-                              navigate(getVendorDashboardPath());
-                              setMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left px-6 py-4 hover:bg-blue-50 text-blue-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
-                          >
-                            벤더 대시보드
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              navigate("/mypage");
-                              setMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left px-6 py-4 hover:bg-blue-50 text-blue-600 font-medium min-h-[56px] flex items-center border-b border-gray-100"
-                          >
-                            {t('mypage', selectedLanguage)}
-                          </button>
+                  {/* 메인 메뉴 */}
+                  <div className="py-2">
+                    <div className="px-6 py-2 text-xs text-gray-400 font-nanum">메인 메뉴</div>
+                    {leftNavItems.map((item) => (
+                      <button
+                        key={item.path + item.name}
+                        onClick={() => {
+                          handleNavClick(item.path);
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full text-left px-6 py-3 hover:bg-gray-50 flex items-center justify-between font-nanum"
+                      >
+                        <span>{item.name}</span>
+                        {item.badge && (
+                          <span className={`${item.badgeColor} text-white text-xs px-2 py-0.5 rounded`}>
+                            {item.badge}
+                          </span>
                         )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 서브 메뉴 */}
+                  <div className="py-2 border-t">
+                    <div className="px-6 py-2 text-xs text-gray-400 font-nanum">서브 메뉴</div>
+                    {rightNavItems.map((item) => (
+                      <button
+                        key={item.path + item.name}
+                        onClick={() => {
+                          handleNavClick(item.path);
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-6 py-3 hover:bg-gray-50 font-nanum ${item.path === '#' ? 'text-gray-400' : ''}`}
+                      >
+                        {item.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 사용자 메뉴 */}
+                  <div className="py-2 border-t">
+                    <div className="px-6 py-2 text-xs text-gray-400 font-nanum">내 정보</div>
+                    {isLoggedIn ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            navigate(
+                              isAdmin ? "/admin" :
+                              user?.role === 'partner' ? "/partner/dashboard" :
+                              user?.role === 'vendor' ? getVendorDashboardPath() :
+                              "/mypage"
+                            );
+                            setMobileMenuOpen(false);
+                          }}
+                          className="w-full text-left px-6 py-3 hover:bg-gray-50 text-[#5c2d91] font-nanum"
+                        >
+                          {isAdmin ? "관리자페이지" :
+                           user?.role === 'partner' ? "파트너 대시보드" :
+                           user?.role === 'vendor' ? "벤더 대시보드" :
+                           "마이페이지"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigate('/wishlist');
+                            setMobileMenuOpen(false);
+                          }}
+                          className="w-full text-left px-6 py-3 hover:bg-gray-50 font-nanum"
+                        >
+                          찜 목록
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigate('/recent-products');
+                            setMobileMenuOpen(false);
+                          }}
+                          className="w-full text-left px-6 py-3 hover:bg-gray-50 font-nanum"
+                        >
+                          최근 본 상품
+                        </button>
                         <button
                           onClick={() => {
                             logout();
                             setMobileMenuOpen(false);
                           }}
-                          className="block w-full text-left px-6 py-4 hover:bg-gray-50 text-gray-600 min-h-[56px] flex items-center"
+                          className="w-full text-left px-6 py-3 hover:bg-gray-50 text-gray-500 font-nanum"
                         >
-                          {t('logout', selectedLanguage)}
+                          로그아웃
                         </button>
-                      </div>
+                      </>
                     ) : (
                       <button
                         onClick={() => {
                           navigate("/login");
                           setMobileMenuOpen(false);
                         }}
-                        className="block w-full text-left px-6 py-4 hover:bg-gray-50 text-gray-600 min-h-[56px] flex items-center"
+                        className="w-full text-left px-6 py-3 hover:bg-gray-50 text-[#5c2d91] font-nanum"
                       >
-                        {t('login', selectedLanguage)}
+                        로그인 / 회원가입
                       </button>
                     )}
+                  </div>
 
-                    {/* PINTO 쇼핑몰 버튼 (모바일) */}
+                  {/* PINTO */}
+                  <div className="py-2 border-t">
                     <button
                       onClick={() => {
                         handleGoToPinto();
                         setMobileMenuOpen(false);
                       }}
                       disabled={ssoLoading}
-                      className="block w-full text-left px-6 py-4 hover:bg-indigo-50 text-indigo-600 font-medium min-h-[56px] flex items-center gap-2 border-t border-gray-200 mt-2"
+                      className="w-full text-left px-6 py-3 hover:bg-indigo-50 text-indigo-600 flex items-center gap-2 font-nanum"
                     >
                       {ssoLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -550,223 +401,51 @@ export function Header({
             </Sheet>
           </div>
         </div>
-      </nav>
+      </div>
 
-      {/* 검색바 제거됨 */}
-      {false && showSearchBar && (
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="w-full px-[60px] py-3 md:py-4">
-            <form onSubmit={handleSearch} className="space-y-4">
-              {/* 기본 검색 옵션 */}
-              <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-                {/* 목적지 */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('destination', selectedLanguage)}
-                  </label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                    <Select
-                      value={destination}
-                      onValueChange={setDestination}
-                    >
-                      <SelectTrigger className="pl-10">
-                        <SelectValue placeholder={t('selectDestination', selectedLanguage)} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {destinations.map((dest) => (
-                          <SelectItem key={dest} value={dest}>
-                            {dest}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+      {/* ========== 3. 네비게이션 바 (120px) ========== */}
+      <nav className="bg-white h-[50px] lg:h-[120px] border-b border-gray-200 shadow-sm hidden lg:block">
+        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center">
+          {/* 왼쪽 메뉴 */}
+          <div className="flex items-center gap-6 xl:gap-10">
+            {leftNavItems.map((item) => (
+              <button
+                key={item.path + item.name}
+                className={`relative font-nanum-eb text-base xl:text-lg hover:text-[#5c2d91] transition-colors whitespace-nowrap ${
+                  currentView === item.path ? 'text-[#5c2d91]' : 'text-gray-700'
+                }`}
+                onClick={() => handleNavClick(item.path)}
+              >
+                {item.name}
+                {item.badge && (
+                  <span className={`absolute -top-2 -right-6 ${item.badgeColor} text-white text-[10px] px-1.5 py-0.5 rounded`}>
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
 
-                {/* 날짜 */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('checkIn', selectedLanguage)}
-                  </label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                    <Input
-                      type="date"
-                      className="pl-10"
-                      value={dateRange}
-                      onChange={(e) =>
-                        setDateRange(e.target.value)
-                      }
-                    />
-                  </div>
-                </div>
+          {/* 구분선 */}
+          <div className="h-6 w-px bg-gray-300 mx-6 xl:mx-10"></div>
 
-                {/* 인원 */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('guests', selectedLanguage)}
-                  </label>
-                  <div className="relative">
-                    <Users className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                    <Select
-                      value={guests}
-                      onValueChange={setGuests}
-                    >
-                      <SelectTrigger className="pl-10">
-                        <SelectValue placeholder={t('howMany', selectedLanguage)} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1{t('people', selectedLanguage)}</SelectItem>
-                        <SelectItem value="2">2{t('people', selectedLanguage)}</SelectItem>
-                        <SelectItem value="3">3{t('people', selectedLanguage)}</SelectItem>
-                        <SelectItem value="4">4{t('people', selectedLanguage)}</SelectItem>
-                        <SelectItem value="5+">
-                          5{t('moreThan', selectedLanguage)}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* 고급 옵션 토글 */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('options', selectedLanguage)}
-                  </label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() =>
-                      setShowAdvanced(!showAdvanced)
-                    }
-                  >
-                    <Filter className="w-4 h-4 mr-2" />
-                    {t('advancedOptions', selectedLanguage)}
-                  </Button>
-                </div>
-
-                {/* 검색 버튼 */}
-                <div className="flex items-end">
-                  <Button
-                    type="submit"
-                    className="w-full bg-[#5c2d91] hover:bg-[#4a2475]"
-                  >
-                    {t('searchButton', selectedLanguage)}
-                  </Button>
-                </div>
-              </div>
-
-              {/* 고급 옵션 */}
-              {showAdvanced && (
-                <div className="border-t border-gray-200 pt-4 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* 가격대 */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        {t('priceRange', selectedLanguage)}
-                      </label>
-                      <div className="px-3">
-                        <Slider
-                          value={priceRange}
-                          onValueChange={setPriceRange}
-                          max={500000}
-                          step={10000}
-                          className="w-full"
-                        />
-                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                          <span>
-                            {priceRange[0].toLocaleString()}원
-                          </span>
-                          <span>
-                            {priceRange[1].toLocaleString()}원
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 평점 */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        {t('minRating', selectedLanguage)}
-                      </label>
-                      <Select
-                        value={minRating.toString()}
-                        onValueChange={(value) =>
-                          setMinRating(Number(value))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('selectRating', selectedLanguage)} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">
-                            {t('all', selectedLanguage)}
-                          </SelectItem>
-                          <SelectItem value="3">
-                            ⭐ 3{t('orMore', selectedLanguage)}
-                          </SelectItem>
-                          <SelectItem value="4">
-                            ⭐ 4{t('orMore', selectedLanguage)}
-                          </SelectItem>
-                          <SelectItem value="4.5">
-                            ⭐ 4.5{t('orMore', selectedLanguage)}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* 파트너만 */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        {t('filter', selectedLanguage)}
-                      </label>
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="partners-only"
-                            checked={partnersOnly}
-                            onCheckedChange={(checked) => setPartnersOnly(checked === true)}
-                          />
-                          <label
-                            htmlFor="partners-only"
-                            className="text-sm"
-                          >
-                            {t('partnersOnly', selectedLanguage)}
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 스폰서 우선 */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">
-                        {t('sort', selectedLanguage)}
-                      </label>
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="sponsor-first"
-                            checked={sponsorFirst}
-                            onCheckedChange={(checked) => setSponsorFirst(checked === true)}
-                          />
-                          <label
-                            htmlFor="sponsor-first"
-                            className="text-sm"
-                          >
-                            {t('sponsorFirst', selectedLanguage)}
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </form>
+          {/* 오른쪽 메뉴 */}
+          <div className="flex items-center gap-4 xl:gap-8">
+            {rightNavItems.map((item) => (
+              <button
+                key={item.path + item.name}
+                className={`font-nanum text-sm xl:text-base hover:text-[#5c2d91] transition-colors whitespace-nowrap ${
+                  item.path === '#' ? 'text-gray-400 cursor-default' :
+                  currentView === item.path ? 'text-[#5c2d91]' : 'text-gray-600'
+                }`}
+                onClick={() => handleNavClick(item.path)}
+              >
+                {item.name}
+              </button>
+            ))}
           </div>
         </div>
-      )}
+      </nav>
     </header>
   );
 }
