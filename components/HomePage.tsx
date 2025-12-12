@@ -1004,7 +1004,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                     <div
                       key={vendor.id}
                       className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-2xl w-[160px] h-[160px] md:w-[320px] md:h-[320px] bg-gray-200"
-                      onClick={() => navigate(`/rentcar/vendor/${vendor.id}`)}
+                      onClick={() => navigate(`/rentcar/${vendor.id}`)}
                     >
                       {/* 이미지가 카드 전체 - 업체 로고만 사용, 없으면 기본 이미지 */}
                       {vendor.logo_url ? (
@@ -1019,7 +1019,7 @@ export function HomePage({ selectedCurrency = 'KRW', selectedLanguage = 'ko' }: 
                         </div>
                       )}
                       {/* 오른쪽 하단 텍스트 오버레이 */}
-                      <div className="absolute bottom-0 right-0 p-3 md:p-4 text-right">
+                      <div className="absolute bottom-0 right-0 p-3 md:p-4 text-right pointer-events-none">
                         <h3 className="font-semibold text-white text-sm md:text-base drop-shadow-lg">{vendor.business_name}</h3>
                         <p className="text-xs md:text-sm text-white/80 drop-shadow-lg">{vendor.brand_name || '렌트카 업체'}</p>
                       </div>
