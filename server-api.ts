@@ -9486,6 +9486,61 @@ function setupRoutes() {
     }
   });
 
+  // GET /api/coupon-book/partners - 쿠폰북 가맹점 목록 (공개)
+  app.get('/api/coupon-book/partners', async (req, res) => {
+    try {
+      const partnersAPI = await import('./api/coupon-book/partners.js');
+      await partnersAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon book partners error:', error);
+      res.status(500).json({ success: false, message: '가맹점 목록 조회 중 오류가 발생했습니다' });
+    }
+  });
+
+  // POST /api/coupon-book/download - 쿠폰 다운로드 (로그인 필요)
+  app.post('/api/coupon-book/download', async (req, res) => {
+    try {
+      const downloadAPI = await import('./api/coupon-book/download.js');
+      await downloadAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon book download error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 다운로드 중 오류가 발생했습니다' });
+    }
+  });
+
+  // POST /api/coupon-book/download-all - 전체 쿠폰 다운로드 (로그인 필요)
+  app.post('/api/coupon-book/download-all', async (req, res) => {
+    try {
+      const downloadAllAPI = await import('./api/coupon-book/download-all.js');
+      await downloadAllAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon book download-all error:', error);
+      res.status(500).json({ success: false, message: '전체 쿠폰 다운로드 중 오류가 발생했습니다' });
+    }
+  });
+
+  // POST /api/coupon-book/use - 쿠폰 사용 처리
+  app.post('/api/coupon-book/use', async (req, res) => {
+    try {
+      const useAPI = await import('./api/coupon-book/use.js');
+      await useAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon book use error:', error);
+      res.status(500).json({ success: false, message: '쿠폰 사용 처리 중 오류가 발생했습니다' });
+    }
+  });
+
+  // POST /api/coupon-book/review - 리뷰 작성
+  app.post('/api/coupon-book/review', async (req, res) => {
+    try {
+      const reviewAPI = await import('./api/coupon-book/review.js');
+      await reviewAPI.default(req, res);
+    } catch (error) {
+      console.error('[API] Coupon book review error:', error);
+      res.status(500).json({ success: false, message: '리뷰 등록 중 오류가 발생했습니다' });
+    }
+  });
+
   // ===== 추가 쿠폰 관련 API =====
 
   // GET /api/my/coupons - 사용자 쿠폰 목록 (마이페이지용)
