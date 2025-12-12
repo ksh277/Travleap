@@ -120,19 +120,19 @@ export function Header({
   return (
     <header className="sticky top-0 z-50 w-full font-nanum">
       {/* ========== 1. 상단 바 (70px) ========== */}
-      <div className="bg-[#858dc5] h-[50px] lg:h-[70px]">
+      <div className="bg-[#BCD4E4] h-[50px] lg:h-[70px]">
         <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
           {/* 왼쪽: TRAVLEAR | pinto 로고 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <span
-              className="text-white font-nanum-eb text-lg lg:text-xl tracking-wide cursor-pointer"
+              className="text-gray-700 font-nanum-eb text-base lg:text-lg tracking-wide cursor-pointer"
               onClick={() => navigate('/')}
             >
               TRAVLEAR
             </span>
-            <span className="text-white/50">|</span>
+            <span className="text-gray-400">|</span>
             <span
-              className="text-white font-nanum text-base lg:text-lg cursor-pointer"
+              className="text-gray-600 font-nanum text-sm lg:text-base cursor-pointer hover:text-gray-800"
               onClick={handleGoToPinto}
             >
               pinto
@@ -140,18 +140,18 @@ export function Header({
           </div>
 
           {/* 오른쪽: 로그아웃/마이페이지/1:1문의 */}
-          <div className="flex items-center gap-2 lg:gap-4 text-white text-xs lg:text-sm">
+          <div className="flex items-center gap-2 lg:gap-4 text-gray-600 text-xs lg:text-sm">
             {isLoggedIn ? (
               <>
                 <button
-                  className="hover:text-blue-100 transition-colors"
+                  className="hover:text-gray-900 transition-colors"
                   onClick={logout}
                 >
                   로그아웃
                 </button>
-                <span className="text-white/30">|</span>
+                <span className="text-gray-400">|</span>
                 <button
-                  className="hover:text-blue-100 transition-colors"
+                  className="hover:text-gray-900 transition-colors"
                   onClick={() => navigate(
                     isAdmin ? "/admin" :
                     user?.role === 'partner' ? "/partner/dashboard" :
@@ -165,23 +165,23 @@ export function Header({
             ) : (
               <>
                 <button
-                  className="hover:text-blue-100 transition-colors"
+                  className="hover:text-gray-900 transition-colors"
                   onClick={() => navigate("/login")}
                 >
                   로그인
                 </button>
-                <span className="text-white/30">|</span>
+                <span className="text-gray-400">|</span>
                 <button
-                  className="hover:text-blue-100 transition-colors"
+                  className="hover:text-gray-900 transition-colors"
                   onClick={() => navigate("/signup")}
                 >
                   회원가입
                 </button>
               </>
             )}
-            <span className="text-white/30">|</span>
+            <span className="text-gray-400">|</span>
             <button
-              className="hover:text-blue-100 transition-colors"
+              className="hover:text-gray-900 transition-colors"
               onClick={() => navigate("/support")}
             >
               1:1문의
@@ -193,14 +193,16 @@ export function Header({
       {/* ========== 2. 메인 헤더 (160px) ========== */}
       <div className="bg-white h-[80px] lg:h-[160px] border-b border-gray-100">
         <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
-          {/* 왼쪽: TRAVLEAR 큰 로고 */}
+          {/* 왼쪽: TRAVLEAR 로고 이미지 */}
           <div
             className="cursor-pointer"
             onClick={() => navigate('/')}
           >
-            <span className="text-[#5c2d91] font-nanum-eb text-2xl md:text-3xl lg:text-5xl tracking-tight">
-              TRAVLEAR
-            </span>
+            <img
+              src="/images/logo-travlear.png"
+              alt="TRAVLEAR"
+              className="h-[40px] md:h-[50px] lg:h-[70px] w-auto"
+            />
           </div>
 
           {/* 오른쪽: 아이콘 그룹 (데스크톱) */}
@@ -273,7 +275,11 @@ export function Header({
                 <div className="py-6">
                   {/* 로고 */}
                   <div className="px-6 pb-4 border-b">
-                    <span className="text-[#5c2d91] font-nanum-eb text-xl">TRAVLEAR</span>
+                    <img
+                      src="/images/logo-travlear.png"
+                      alt="TRAVLEAR"
+                      className="h-[35px] w-auto"
+                    />
                   </div>
 
                   {/* 메인 메뉴 */}
