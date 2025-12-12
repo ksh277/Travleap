@@ -413,7 +413,7 @@ export function AICoursePage() {
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <div className="bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 text-white">
-        <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-12">
+        <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="text-center">
             <div className="flex justify-center items-center mb-4">
               <Brain className="h-12 w-12 mr-3" />
@@ -439,7 +439,7 @@ export function AICoursePage() {
         </div>
       </div>
 
-      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* 진행 단계 */}
         <div className="flex justify-center mb-8">
           <div className="flex items-center space-x-4">

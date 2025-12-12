@@ -497,7 +497,7 @@ export function PartnerDetailPage() {
 
         {/* Thumbnail Gallery */}
         {partner.images.length > 1 && (
-          <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-4">
+          <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="flex gap-2 overflow-x-auto">
               {partner.images.map((image, index) => (
                 <button
@@ -523,7 +523,7 @@ export function PartnerDetailPage() {
           </div>
         )}
 
-        <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-8">
+        <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-8">

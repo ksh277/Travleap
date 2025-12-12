@@ -1355,7 +1355,7 @@ export function DetailPage() {
 
             {/* Navigation Tabs (Sticky) */}
             <div className="sticky top-16 z-10 bg-white border-b shadow-sm mb-6 -mx-4 px-4">
-              <div className={`grid w-full ${isPopupProduct(item) ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-1 max-w-content mx-auto`}>
+              <div className={`grid w-full ${isPopupProduct(item) ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-1 max-w-6xl mx-auto`}>
                 <button
                   onClick={() => scrollToSection('description')}
                   className={`py-3 text-xs sm:text-sm font-medium transition-colors border-b-2 ${

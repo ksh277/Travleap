@@ -462,7 +462,7 @@ export function AccommodationDetailPage({ selectedCurrency = 'KRW' }: Accommodat
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-6">
         {/* 이미지 갤러리 */}
         <div className="mb-6">
           <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-200">

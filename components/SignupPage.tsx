@@ -383,7 +383,7 @@ export function SignupPage() {
         className="relative w-full h-[200px] md:h-[300px] bg-cover bg-center flex items-center justify-center overflow-hidden"
         style={{ backgroundImage: `url("${bannerImage || 'https://images.unsplash.com/photo-1527004013197-933c4bb611b3?w=1366&h=300&fit=crop'}")` }}
       >
-        <div className="relative z-10 max-w-content mx-auto px-4 md:px-10 lg:px-20 text-center">
+        <div className="relative z-10 max-w-[1200px] mx-auto px-4 text-center">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-white m-0">
             {t('signupTitle', 'ko')}
           </h1>

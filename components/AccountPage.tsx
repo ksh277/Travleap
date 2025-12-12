@@ -458,7 +458,7 @@ export function AccountPage({ onBack }: AccountPageProps) {
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <div className="bg-white border-b">
-        <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-4">
+        <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ChevronLeft className="h-4 w-4 mr-2" />
@@ -470,7 +470,7 @@ export function AccountPage({ onBack }: AccountPageProps) {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           {/* 사이드 메뉴 */}
           <div className="w-64 flex-shrink-0">

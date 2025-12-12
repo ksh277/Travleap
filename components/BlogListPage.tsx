@@ -111,12 +111,12 @@ export default function BlogListPage() {
     <div className="min-h-screen bg-white">
       {/* Page Title */}
       <div className="border-b border-gray-200 py-12">
-        <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20">
+        <div className="max-w-7xl mx-auto px-4">
           <h1 className="text-4xl font-light text-gray-800">블로그</h1>
         </div>
       </div>
 
-      <div className="max-w-content mx-auto px-4 md:px-10 lg:px-20 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="flex flex-col lg:flex-row gap-12">
           {/* Main Content */}
           <main className="lg:w-2/3">
