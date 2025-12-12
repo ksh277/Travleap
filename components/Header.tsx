@@ -23,18 +23,14 @@ interface HeaderProps {
   selectedCurrency?: string;
 }
 
-// 왼쪽 메인 메뉴
-const leftNavItems = [
-  { name: '여행PKG', path: '/category/tour', badge: 'HOT', badgeColor: 'bg-red-500' },
+// 네비게이션 메뉴 (동일 간격)
+const navItems = [
+  { name: '여행PKG', path: '/category/tour', badge: 'HOT', badgeColor: 'bg-[#BCD4E4]' },
   { name: '렌트카', path: '/category/rentcar' },
   { name: '숙박', path: '/category/stay' },
   { name: '티켓', path: '/category/ticket' },
-  { name: '행사/체험', path: '/category/event', badge: 'SEASON', badgeColor: 'bg-green-500' },
+  { name: '행사/체험', path: '/category/event', badge: 'SEASON', badgeColor: 'bg-[#96BBD9]' },
   { name: '가맹점', path: '/partner' },
-];
-
-// 오른쪽 서브 메뉴
-const rightNavItems = [
   { name: '나만의 뷰맛집', path: '#' },
   { name: '내주위 톡톡', path: '/partner' },
   { name: 'EVENT', path: '/category/event' },
@@ -124,19 +120,19 @@ export function Header({
         <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-between">
           {/* 왼쪽: TRAVLEAR | pinto 로고 */}
           <div className="flex items-center gap-3">
-            <span
-              className="text-gray-700 font-nanum-eb text-base lg:text-lg tracking-wide cursor-pointer"
+            <img
+              src="/images/logo-travlear.png"
+              alt="TRAVLEAR"
+              className="h-[20px] lg:h-[25px] w-auto cursor-pointer"
               onClick={() => navigate('/')}
-            >
-              TRAVLEAR
-            </span>
+            />
             <span className="text-gray-400">|</span>
-            <span
-              className="text-gray-600 font-nanum text-sm lg:text-base cursor-pointer hover:text-gray-800"
+            <img
+              src="/images/logo-pinto.png"
+              alt="pinto"
+              className="h-[22px] lg:h-[28px] w-auto cursor-pointer hover:opacity-80 transition-opacity"
               onClick={handleGoToPinto}
-            >
-              pinto
-            </span>
+            />
           </div>
 
           {/* 오른쪽: 로그아웃/마이페이지/1:1문의 */}
@@ -282,17 +278,17 @@ export function Header({
                     />
                   </div>
 
-                  {/* 메인 메뉴 */}
+                  {/* 메뉴 */}
                   <div className="py-2">
-                    <div className="px-6 py-2 text-xs text-gray-400 font-nanum">메인 메뉴</div>
-                    {leftNavItems.map((item) => (
+                    <div className="px-6 py-2 text-xs text-gray-400 font-nanum">메뉴</div>
+                    {navItems.map((item) => (
                       <button
                         key={item.path + item.name}
                         onClick={() => {
                           handleNavClick(item.path);
                           setMobileMenuOpen(false);
                         }}
-                        className="w-full text-left px-6 py-3 hover:bg-gray-50 flex items-center justify-between font-nanum"
+                        className={`w-full text-left px-6 py-3 hover:bg-gray-50 flex items-center justify-between font-nanum ${item.path === '#' ? 'text-gray-400' : ''}`}
                       >
                         <span>{item.name}</span>
                         {item.badge && (
@@ -300,23 +296,6 @@ export function Header({
                             {item.badge}
                           </span>
                         )}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* 서브 메뉴 */}
-                  <div className="py-2 border-t">
-                    <div className="px-6 py-2 text-xs text-gray-400 font-nanum">서브 메뉴</div>
-                    {rightNavItems.map((item) => (
-                      <button
-                        key={item.path + item.name}
-                        onClick={() => {
-                          handleNavClick(item.path);
-                          setMobileMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-6 py-3 hover:bg-gray-50 font-nanum ${item.path === '#' ? 'text-gray-400' : ''}`}
-                      >
-                        {item.name}
                       </button>
                     ))}
                   </div>
@@ -411,45 +390,25 @@ export function Header({
 
       {/* ========== 3. 네비게이션 바 (120px) ========== */}
       <nav className="bg-white h-[50px] lg:h-[120px] border-b border-gray-200 shadow-sm hidden lg:block">
-        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center">
-          {/* 왼쪽 메뉴 */}
-          <div className="flex items-center gap-6 xl:gap-10">
-            {leftNavItems.map((item) => (
-              <button
-                key={item.path + item.name}
-                className={`relative font-nanum-eb text-base xl:text-lg hover:text-[#5c2d91] transition-colors whitespace-nowrap ${
-                  currentView === item.path ? 'text-[#5c2d91]' : 'text-gray-700'
-                }`}
-                onClick={() => handleNavClick(item.path)}
-              >
-                {item.name}
-                {item.badge && (
-                  <span className={`absolute -top-2 -right-6 ${item.badgeColor} text-white text-[10px] px-1.5 py-0.5 rounded`}>
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* 구분선 */}
-          <div className="h-6 w-px bg-gray-300 mx-6 xl:mx-10"></div>
-
-          {/* 오른쪽 메뉴 */}
-          <div className="flex items-center gap-4 xl:gap-8">
-            {rightNavItems.map((item) => (
-              <button
-                key={item.path + item.name}
-                className={`font-nanum text-sm xl:text-base hover:text-[#5c2d91] transition-colors whitespace-nowrap ${
-                  item.path === '#' ? 'text-gray-400 cursor-default' :
-                  currentView === item.path ? 'text-[#5c2d91]' : 'text-gray-600'
-                }`}
-                onClick={() => handleNavClick(item.path)}
-              >
-                {item.name}
-              </button>
-            ))}
-          </div>
+        <div className="max-w-content mx-auto h-full px-4 md:px-10 lg:px-20 flex items-center justify-center gap-6 xl:gap-10">
+          {/* 모든 메뉴 동일 간격 */}
+          {navItems.map((item) => (
+            <button
+              key={item.path + item.name}
+              className={`relative font-nanum-eb text-base xl:text-lg hover:text-[#5c2d91] transition-colors whitespace-nowrap ${
+                item.path === '#' ? 'text-gray-400 cursor-default' :
+                currentView === item.path ? 'text-[#5c2d91]' : 'text-gray-700'
+              }`}
+              onClick={() => handleNavClick(item.path)}
+            >
+              {item.name}
+              {item.badge && (
+                <span className={`absolute -top-4 left-1/2 -translate-x-1/2 ${item.badgeColor} text-white text-[11px] px-2 py-0.5 leading-none rounded-full`}>
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </nav>
     </header>

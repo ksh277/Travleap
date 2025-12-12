@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Ticket, Download, Check, MapPin, Gift, Loader2, Store, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Ticket, Download, Check, MapPin, Gift, Loader2, Store, AlertCircle, DownloadCloud } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Partner {
@@ -12,12 +12,7 @@ interface Partner {
   coverImage: string;
   address: string;
   phone: string;
-  discount: {
-    type: 'percent' | 'fixed';
-    value: number;
-    maxDiscount: number | null;
-    minOrder: number | null;
-  };
+  couponText: string;
   location: {
     lat: number;
     lng: number;
@@ -35,6 +30,7 @@ export default function CouponBookPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [downloadingAll, setDownloadingAll] = useState(false);
   const [userCoupons, setUserCoupons] = useState<UserCoupon[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -129,25 +125,58 @@ export default function CouponBookPage() {
     }
   };
 
-  const getDiscountText = (discount: Partner['discount']) => {
-    if (discount.type === 'percent') {
-      let text = `${discount.value}% 할인`;
-      if (discount.maxDiscount) {
-        text += ` (최대 ${discount.maxDiscount.toLocaleString()}원)`;
-      }
-      return text;
-    } else {
-      return `${discount.value.toLocaleString()}원 할인`;
-    }
-  };
-
-  const getMinOrderText = (minOrder: number | null) => {
-    if (!minOrder) return null;
-    return `${minOrder.toLocaleString()}원 이상 주문 시`;
-  };
-
   const hasCoupon = (partnerId: number) => {
     return userCoupons.some(c => c.partnerId === partnerId);
+  };
+
+  const handleDownloadAll = async () => {
+    if (!isLoggedIn) {
+      toast.error('로그인이 필요합니다');
+      navigate('/login?redirect=/coupon-book');
+      return;
+    }
+
+    // 이미 모든 쿠폰을 보유하고 있는지 확인
+    const availablePartners = partners.filter(p => !hasCoupon(p.id));
+    if (availablePartners.length === 0) {
+      toast.info('이미 모든 쿠폰을 보유하고 있습니다');
+      return;
+    }
+
+    setDownloadingAll(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/coupon-book/download-all', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success(data.message || `${data.data.issued}개의 쿠폰이 발급되었습니다!`);
+
+        // 쿠폰 목록 업데이트
+        if (data.data.coupons && data.data.coupons.length > 0) {
+          const newCoupons = data.data.coupons.map((c: any) => ({
+            partnerId: c.partner.id,
+            couponCode: c.couponCode,
+            expiresAt: c.expiresAt
+          }));
+          setUserCoupons(prev => [...prev, ...newCoupons]);
+        }
+      } else {
+        toast.error(data.error || '쿠폰 발급에 실패했습니다');
+      }
+    } catch (error) {
+      toast.error('쿠폰 발급 중 오류가 발생했습니다');
+    } finally {
+      setDownloadingAll(false);
+    }
   };
 
   return (
@@ -206,6 +235,30 @@ export default function CouponBookPage() {
           <h2 className="text-lg font-bold text-gray-900">
             참여 가맹점 <span className="text-purple-600">{partners.length}</span>
           </h2>
+          {partners.length > 0 && (
+            <button
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition disabled:opacity-50"
+              onClick={handleDownloadAll}
+              disabled={downloadingAll || partners.every(p => hasCoupon(p.id))}
+            >
+              {downloadingAll ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  발급 중...
+                </>
+              ) : partners.every(p => hasCoupon(p.id)) ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  전체 보유
+                </>
+              ) : (
+                <>
+                  <DownloadCloud className="h-4 w-4" />
+                  전체 받기
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -273,14 +326,9 @@ export default function CouponBookPage() {
                       <div className="flex items-center gap-2">
                         <Ticket className="h-5 w-5 text-purple-600" />
                         <span className="text-lg font-bold text-purple-700">
-                          {getDiscountText(partner.discount)}
+                          {partner.couponText}
                         </span>
                       </div>
-                      {partner.discount.minOrder && (
-                        <p className="text-xs text-purple-500 mt-1 ml-7">
-                          {getMinOrderText(partner.discount.minOrder)}
-                        </p>
-                      )}
                     </div>
 
                     {/* 설명 */}

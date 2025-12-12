@@ -29,7 +29,13 @@
       "Bash(git ls-files:*)",
       "Bash(git -C \"C:\\Users\\ham57\\Desktop\\Travleap\" status --short)",
       "Bash(move:*)",
-      "Bash(dir \"C:\\Users\\ham57\\Desktop\" /b)"
+      "Bash(dir \"C:\\Users\\ham57\\Desktop\" /b)",
+      "Bash(git fetch:*)",
+      "Bash(copy:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git push:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []

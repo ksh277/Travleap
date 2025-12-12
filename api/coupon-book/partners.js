@@ -28,44 +28,52 @@ module.exports = async function handler(req, res) {
       SELECT
         id,
         business_name,
-        business_type,
+        services,
         description,
-        logo_url,
-        cover_image_url,
-        address,
+        logo,
+        images,
+        business_address,
         phone,
-        coupon_discount_type,
-        coupon_discount_value,
-        coupon_max_discount,
-        coupon_min_order,
-        latitude,
-        longitude
+        coupon_text,
+        lat,
+        lng
       FROM partners
       WHERE is_coupon_partner = 1
         AND status = 'approved'
       ORDER BY business_name ASC
     `);
 
-    const partners = (result.rows || []).map(p => ({
-      id: p.id,
-      name: p.business_name,
-      type: p.business_type,
-      description: p.description,
-      logo: p.logo_url,
-      coverImage: p.cover_image_url,
-      address: p.address,
-      phone: p.phone,
-      discount: {
-        type: p.coupon_discount_type || 'percent',
-        value: parseFloat(p.coupon_discount_value) || 0,
-        maxDiscount: p.coupon_max_discount,
-        minOrder: p.coupon_min_order
-      },
-      location: {
-        lat: p.latitude,
-        lng: p.longitude
+    const partners = (result.rows || []).map(p => {
+      // images가 JSON 문자열인 경우 파싱하여 첫 번째 이미지를 커버 이미지로 사용
+      let coverImage = null;
+      if (p.images) {
+        try {
+          const imagesArr = JSON.parse(p.images);
+          if (Array.isArray(imagesArr) && imagesArr.length > 0) {
+            coverImage = imagesArr[0];
+          }
+        } catch (e) {
+          // JSON 파싱 실패 시 그대로 사용
+          coverImage = p.images;
+        }
       }
-    }));
+
+      return {
+        id: p.id,
+        name: p.business_name,
+        type: p.services || '가맹점',
+        description: p.description,
+        logo: p.logo,
+        coverImage: coverImage,
+        address: p.business_address,
+        phone: p.phone,
+        couponText: p.coupon_text || '할인 쿠폰',
+        location: {
+          lat: p.lat,
+          lng: p.lng
+        }
+      };
+    });
 
     return res.status(200).json({
       success: true,

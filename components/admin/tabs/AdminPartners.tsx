@@ -62,9 +62,7 @@ interface Partner {
   updated_at: string;
   // 쿠폰 관련 필드
   is_coupon_partner: boolean;
-  coupon_discount_type: 'percent' | 'fixed' | null;
-  coupon_discount_value: number | null;
-  coupon_max_discount: number | null;
+  coupon_text: string | null;
   total_coupon_usage: number;
   total_discount_given: number;
 }
@@ -101,16 +99,12 @@ export function AdminPartners() {
     images: [] as string[],
     // 쿠폰 설정
     is_coupon_partner: false,
-    coupon_discount_type: 'percent' as 'percent' | 'fixed',
-    coupon_discount_value: 10,
-    coupon_max_discount: 10000
+    coupon_text: ''
   });
 
   const [couponSettings, setCouponSettings] = useState({
     is_coupon_partner: false,
-    coupon_discount_type: 'percent' as 'percent' | 'fixed',
-    coupon_discount_value: 10,
-    coupon_max_discount: 10000
+    coupon_text: ''
   });
 
   useEffect(() => {
@@ -304,9 +298,7 @@ export function AdminPartners() {
       images: parsedImages,
       // 쿠폰 설정
       is_coupon_partner: partner.is_coupon_partner || false,
-      coupon_discount_type: partner.coupon_discount_type || 'percent',
-      coupon_discount_value: partner.coupon_discount_value || 10,
-      coupon_max_discount: partner.coupon_max_discount || 10000
+      coupon_text: partner.coupon_text || ''
     });
     setIsEditDialogOpen(true);
   };
@@ -315,9 +307,7 @@ export function AdminPartners() {
     setSelectedPartner(partner);
     setCouponSettings({
       is_coupon_partner: partner.is_coupon_partner || false,
-      coupon_discount_type: partner.coupon_discount_type || 'percent',
-      coupon_discount_value: partner.coupon_discount_value || 10,
-      coupon_max_discount: partner.coupon_max_discount || 10000
+      coupon_text: partner.coupon_text || ''
     });
     setIsCouponDialogOpen(true);
   };
@@ -348,9 +338,7 @@ export function AdminPartners() {
       images: [],
       // 쿠폰 설정
       is_coupon_partner: false,
-      coupon_discount_type: 'percent',
-      coupon_discount_value: 10,
-      coupon_max_discount: 10000
+      coupon_text: ''
     });
   };
 
@@ -470,15 +458,8 @@ export function AdminPartners() {
                         <div className="flex flex-wrap gap-2 text-xs text-gray-600">
                           <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded flex items-center gap-1">
                             <Percent className="w-3 h-3" />
-                            {partner.coupon_discount_type === 'percent'
-                              ? `${partner.coupon_discount_value}% 할인`
-                              : `${partner.coupon_discount_value?.toLocaleString()}원 할인`}
+                            {partner.coupon_text || '할인 정보 없음'}
                           </span>
-                          {partner.coupon_max_discount && partner.coupon_discount_type === 'percent' && (
-                            <span className="bg-gray-100 px-2 py-1 rounded">
-                              최대 {partner.coupon_max_discount.toLocaleString()}원
-                            </span>
-                          )}
                           <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
                             사용: {partner.total_coupon_usage || 0}건
                           </span>
@@ -586,66 +567,26 @@ export function AdminPartners() {
                 </h4>
 
                 <div>
-                  <Label>할인 타입</Label>
-                  <Select
-                    value={couponSettings.coupon_discount_type}
-                    onValueChange={(value: 'percent' | 'fixed') => setCouponSettings({ ...couponSettings, coupon_discount_type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="percent">퍼센트 할인 (%)</SelectItem>
-                      <SelectItem value="fixed">정액 할인 (원)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>
-                    {couponSettings.coupon_discount_type === 'percent' ? '할인율 (%)' : '할인 금액 (원)'}
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      value={couponSettings.coupon_discount_value || ''}
-                      onChange={(e) => setCouponSettings({ ...couponSettings, coupon_discount_value: parseInt(e.target.value) || 0 })}
-                      placeholder={couponSettings.coupon_discount_type === 'percent' ? '10' : '5000'}
-                      className="pr-10"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
-                      {couponSettings.coupon_discount_type === 'percent' ? '%' : '원'}
-                    </span>
-                  </div>
-                </div>
-
-                {couponSettings.coupon_discount_type === 'percent' && (
-                  <div>
-                    <Label>최대 할인 금액 (원)</Label>
-                    <div className="relative">
-                      <Input
-                        type="number"
-                        value={couponSettings.coupon_max_discount || ''}
-                        onChange={(e) => setCouponSettings({ ...couponSettings, coupon_max_discount: parseInt(e.target.value) || 0 })}
-                        placeholder="10000"
-                        className="pr-10"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">원</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">퍼센트 할인 시 최대 할인 금액 제한</p>
-                  </div>
-                )}
-
-                {/* 미리보기 */}
-                <div className="p-3 bg-white rounded border">
-                  <p className="text-sm text-gray-600 mb-1">할인 미리보기:</p>
-                  <p className="font-bold text-purple-700">
-                    {couponSettings.coupon_discount_type === 'percent'
-                      ? `${couponSettings.coupon_discount_value}% 할인 (최대 ${(couponSettings.coupon_max_discount || 0).toLocaleString()}원)`
-                      : `${(couponSettings.coupon_discount_value || 0).toLocaleString()}원 할인`
-                    }
+                  <Label>할인 내용</Label>
+                  <Input
+                    value={couponSettings.coupon_text || ''}
+                    onChange={(e) => setCouponSettings({ ...couponSettings, coupon_text: e.target.value })}
+                    placeholder="예: 10% 할인, 5인 중 1잔 무료, 2,000원 할인"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    쿠폰북 페이지에 표시될 할인 내용을 자유롭게 입력하세요
                   </p>
                 </div>
+
+                {/* 미리보기 */}
+                {couponSettings.coupon_text && (
+                  <div className="p-3 bg-white rounded border">
+                    <p className="text-sm text-gray-600 mb-1">미리보기:</p>
+                    <p className="font-bold text-purple-700">
+                      {couponSettings.coupon_text}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
