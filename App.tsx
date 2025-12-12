@@ -82,6 +82,7 @@ import SSOCallbackPage from './components/SSOCallbackPage';
 import { CouponQRPage } from './components/CouponQRPage';
 import { ReviewModal } from './components/ReviewModal';
 import CouponBookPage from './components/CouponBookPage';
+import CouponBookClaimPage from './components/CouponBookClaimPage';
 
 import { Toaster } from './components/ui/sonner';
 import { useAuth } from './hooks/useAuth';
@@ -416,6 +417,8 @@ function AppContent() {
           <Route path="/coupon/qr/:code" element={<CouponQRPage />} />
           <Route path="/my/coupons" element={<MyCouponsPage />} />
           <Route path="/couponbook" element={<CouponBookPage />} />
+          <Route path="/coupon-book" element={<CouponBookPage />} />
+          <Route path="/coupon-book/claim" element={<CouponBookClaimPage />} />
 
           {/* 쿠폰 발급 짧은 URL - /c/:code → /coupon/claim?code=:code 로 리다이렉트 */}
           <Route path="/c/:code" element={<CouponClaimRedirect />} />
