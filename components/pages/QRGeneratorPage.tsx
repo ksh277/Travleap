@@ -39,6 +39,11 @@ export function QRGeneratorPage() {
       icon: <Home className="w-4 h-4" />
     },
     {
+      name: '쿠폰북 페이지',
+      url: 'https://travleap.com/coupon-book',
+      icon: <BookOpen className="w-4 h-4" />
+    },
+    {
       name: '마이페이지',
       url: 'https://travleap.com/mypage',
       icon: <User className="w-4 h-4" />
