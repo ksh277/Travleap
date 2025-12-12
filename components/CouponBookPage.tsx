@@ -46,7 +46,7 @@ export default function CouponBookPage() {
 
   useEffect(() => {
     // 로그인 상태 확인
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     setIsLoggedIn(!!token);
 
     // 캠페인 정보 로드
@@ -94,7 +94,7 @@ export default function CouponBookPage() {
 
   const fetchUserCoupons = async (token: string) => {
     try {
-      const res = await fetch('/api/coupons/my', {
+      const res = await fetch('/api/my/coupons', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -125,7 +125,7 @@ export default function CouponBookPage() {
     setDownloadingId(partnerId);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const res = await fetch('/api/coupon-book/download', {
         method: 'POST',
         headers: {
@@ -178,7 +178,7 @@ export default function CouponBookPage() {
     setDownloadingAll(true);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const url = campaignId
         ? `/api/coupon-book/download-all?campaign=${campaignId}`
         : '/api/coupon-book/download-all';
